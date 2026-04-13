@@ -122,6 +122,22 @@ type OKBody struct {
 	OK bool `json:"ok"`
 }
 
+type WriteTodoInput struct {
+	Text     string `json:"text"`
+	Key      string `json:"key"`
+	Persona  string `json:"persona"`
+	Priority int32  `json:"priority"`
+	Status   string `json:"status"`
+}
+
+type TestResultInput struct {
+	Driver     string `json:"driver"`
+	TestName   string `json:"test_name"`
+	Feature    string `json:"feature"`
+	Status     string `json:"status"`
+	DurationMS int32  `json:"duration_ms"`
+}
+
 // ── Route registration ─────────────────────────────────────────────────────
 
 func (s *Server) registerRoutes(api huma.API) {
@@ -875,13 +891,7 @@ func (s *Server) registerRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Body struct {
 				Slug  string `json:"slug"`
-				Todos []struct {
-					Text     string `json:"text"`
-					Key      string `json:"key"`
-					Persona  string `json:"persona"`
-					Priority int32  `json:"priority"`
-					Status   string `json:"status"`
-				} `json:"todos"`
+				Todos []WriteTodoInput `json:"todos"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -917,13 +927,7 @@ func (s *Server) registerRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Body struct {
 				Slug    string `json:"slug"`
-				Results []struct {
-					Driver     string `json:"driver"`
-					TestName   string `json:"test_name"`
-					Feature    string `json:"feature"`
-					Status     string `json:"status"`
-					DurationMS int32  `json:"duration_ms"`
-				} `json:"results"`
+				Results []TestResultInput `json:"results"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
