@@ -90,14 +90,12 @@ export function IssueDetail({
   return (
     <Box>
       <Button
-        component={Link as any}
-        to="/project/$slug/$component/issues"
-        params={{ slug, component: componentSlug }}
         startIcon={<ArrowBackIcon />}
         size="small"
         sx={{ mb: 2 }}
+        onClick={() => router.history.go(-1)}
       >
-        Back to issues
+        Back
       </Button>
 
       <Typography variant="h5" sx={{ mb: 1 }}>
