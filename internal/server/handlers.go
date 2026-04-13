@@ -1691,6 +1691,7 @@ func (s *Server) registerRoutes(api huma.API) {
 		Author     string `json:"author"`
 		Body       string `json:"body"`
 		CreatedAt  string `json:"created_at"`
+		Unread     *bool  `json:"unread,omitempty"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "add-comment", Method: http.MethodPost, Path: "/api/dx/comment/add"},
@@ -1733,6 +1734,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			Slug       string `query:"slug"`
 			TargetType string `query:"target_type"`
 			TargetID   string `query:"target_id"`
+			Role       string `query:"role"`
 		}) (*struct{ Body struct{ Comments []CommentItem `json:"comments"` } }, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
@@ -1746,12 +1748,24 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			// If role provided, fetch the last-read timestamp once and compute per-comment unread flag.
+			var lastReadTS pgtype.Timestamptz
+			if in.Role != "" {
+				lastReadTS, _ = s.q.GetCommentRead(ctx, db.GetCommentReadParams{
+					ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID, Role: in.Role,
+				})
+			}
 			out := make([]CommentItem, len(rows))
 			for i, r := range rows {
-				out[i] = CommentItem{
+				ci := CommentItem{
 					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
 					Author: r.Author, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
 				}
+				if in.Role != "" {
+					unread := !lastReadTS.Valid || r.CreatedAt.Time.After(lastReadTS.Time)
+					ci.Unread = &unread
+				}
+				out[i] = ci
 			}
 			return &struct{ Body struct{ Comments []CommentItem `json:"comments"` } }{
 				Body: struct{ Comments []CommentItem `json:"comments"` }{Comments: out},
@@ -1780,6 +1794,28 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "comment-unread-check", Method: http.MethodGet, Path: "/api/dx/comment/unread-check"},
+		func(ctx context.Context, in *struct {
+			Slug       string `query:"slug" required:"true"`
+			TargetType string `query:"target_type" required:"true"`
+			TargetID   string `query:"target_id" required:"true"`
+			Role       string `query:"role" required:"true"`
+		}) (*struct{ Body struct{ HasUnread bool `json:"has_unread"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			has, err := s.q.HasUnreadCommentsForTarget(ctx, db.HasUnreadCommentsForTargetParams{
+				ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID, Role: in.Role,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body struct{ HasUnread bool `json:"has_unread"` } }{
+				Body: struct{ HasUnread bool `json:"has_unread"` }{HasUnread: has},
+			}, nil
 		})
 
 	// ── Revisions ─────────────────────────────────────────────────────────────

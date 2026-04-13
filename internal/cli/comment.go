@@ -14,6 +14,7 @@ type commentItem struct {
 	Author     string `json:"author"`
 	Body       string `json:"body"`
 	CreatedAt  string `json:"created_at"`
+	Unread     *bool  `json:"unread,omitempty"`
 }
 
 func CommentCmd() *cobra.Command {
@@ -23,35 +24,54 @@ func CommentCmd() *cobra.Command {
 }
 
 func commentListCmd() *cobra.Command {
-	return &cobra.Command{
+	var role string
+	cmd := &cobra.Command{
 		Use:   "list <target-type> <target-id>",
 		Short: "List comments on a target (e.g. comment list issue IS-5)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var resp struct {
-				Comments []commentItem `json:"comments"`
-			}
-			if err := c.get("/api/dx/comment/list", url.Values{
+			q := url.Values{
 				"slug":        {c.SlugOrDie()},
 				"target_type": {args[0]},
 				"target_id":   {args[1]},
-			}, &resp); err != nil {
+			}
+			if role != "" {
+				q.Set("role", role)
+			}
+			var resp struct {
+				Comments []commentItem `json:"comments"`
+			}
+			if err := c.get("/api/dx/comment/list", q, &resp); err != nil {
 				return err
 			}
 			if len(resp.Comments) == 0 {
 				fmt.Println("no comments")
 				return nil
 			}
-			for _, cm := range resp.Comments {
-				date := cm.CreatedAt
-				if len(date) >= 10 {
-					date = date[:10]
-				}
-				fmt.Printf("[%s] %s: %s\n", date, cm.Author, cm.Body)
-			}
+			printComments(resp.Comments)
 			return nil
 		},
+	}
+	cmd.Flags().StringVar(&role, "role", "", "show read/unread indicator for this role (e.g. llm, dev)")
+	return cmd
+}
+
+func printComments(comments []commentItem) {
+	for _, cm := range comments {
+		date := cm.CreatedAt
+		if len(date) >= 10 {
+			date = date[:10]
+		}
+		dot := ""
+		if cm.Unread != nil {
+			if *cm.Unread {
+				dot = "○ "
+			} else {
+				dot = "● "
+			}
+		}
+		fmt.Printf("%s[%s] %s: %s\n", dot, date, cm.Author, cm.Body)
 	}
 }
 

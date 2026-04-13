@@ -30,6 +30,22 @@ WHERE c.project_id = $1
       AND r.last_read_at >= c.created_at
   );
 
+-- name: HasUnreadCommentsForTarget :one
+SELECT EXISTS (
+  SELECT 1 FROM zdx_comments c
+  WHERE c.project_id = @project_id
+    AND c.target_type = @target_type
+    AND c.target_id = @target_id
+    AND NOT EXISTS (
+      SELECT 1 FROM zdx_comment_reads r
+      WHERE r.project_id = c.project_id
+        AND r.target_type = c.target_type
+        AND r.target_id = c.target_id
+        AND r.role = @role
+        AND r.last_read_at >= c.created_at
+    )
+);
+
 -- name: AddRevision :exec
 INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent)
 VALUES ($1, $2, $3, $4, $5, $6, $7);

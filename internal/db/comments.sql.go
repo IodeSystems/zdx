@@ -133,6 +133,42 @@ func (q *Queries) GetCommentRead(ctx context.Context, arg GetCommentReadParams) 
 	return last_read_at, err
 }
 
+const hasUnreadCommentsForTarget = `-- name: HasUnreadCommentsForTarget :one
+SELECT EXISTS (
+  SELECT 1 FROM zdx_comments c
+  WHERE c.project_id = $1
+    AND c.target_type = $2
+    AND c.target_id = $3
+    AND NOT EXISTS (
+      SELECT 1 FROM zdx_comment_reads r
+      WHERE r.project_id = c.project_id
+        AND r.target_type = c.target_type
+        AND r.target_id = c.target_id
+        AND r.role = $4
+        AND r.last_read_at >= c.created_at
+    )
+)
+`
+
+type HasUnreadCommentsForTargetParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	Role       string `db:"role" json:"role"`
+}
+
+func (q *Queries) HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadCommentsForTargetParams) (bool, error) {
+	row := q.db.QueryRow(ctx, hasUnreadCommentsForTarget,
+		arg.ProjectID,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Role,
+	)
+	var exists bool
+	err := row.Scan(&exists)
+	return exists, err
+}
+
 const listComments = `-- name: ListComments :many
 SELECT id, project_id, target_type, target_id, author, body, created_at
 FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3

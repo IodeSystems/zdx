@@ -112,6 +112,50 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		targetIssues = issueList.Issues
 	}
 
+	// 0. Check for unread LLM comments on any open issue.
+	for _, iss := range targetIssues {
+		if iss.Status != "open" {
+			continue
+		}
+		var unreadResp struct {
+			HasUnread bool `json:"has_unread"`
+		}
+		if err := c.get("/api/dx/comment/unread-check", url.Values{
+			"slug":        {slug},
+			"target_type": {"issue"},
+			"target_id":   {issueIDStr(iss.ID)},
+			"role":        {"llm"},
+		}, &unreadResp); err != nil {
+			return err
+		}
+		if unreadResp.HasUnread {
+			fmt.Printf("[read:comments] %s  %s\n", issueIDStr(iss.ID), iss.Title)
+			// Show comments inline with unread indicators.
+			var commResp struct {
+				Comments []commentItem `json:"comments"`
+			}
+			if err := c.get("/api/dx/comment/list", url.Values{
+				"slug":        {slug},
+				"target_type": {"issue"},
+				"target_id":   {issueIDStr(iss.ID)},
+				"role":        {"llm"},
+			}, &commResp); err != nil {
+				return err
+			}
+			fmt.Println()
+			printComments(commResp.Comments)
+			// Mark read so next solo run advances.
+			var ok struct{ OK bool `json:"ok"` }
+			_ = c.post("/api/dx/comment/mark-read", map[string]any{
+				"slug":        slug,
+				"target_type": "issue",
+				"target_id":   issueIDStr(iss.ID),
+				"role":        "llm",
+			}, &ok)
+			return nil
+		}
+	}
+
 	// 1. Find untriaged open issue (no priority)
 	for _, iss := range targetIssues {
 		if iss.Status == "open" && iss.Priority == "" {
@@ -318,6 +362,18 @@ func todoShowCmd() *cobra.Command {
 						}
 						fmt.Printf("  [%s] %s: %s\n", date, w.Agent, w.Note)
 					}
+				}
+				var commResp struct {
+					Comments []commentItem `json:"comments"`
+				}
+				if err := c.get("/api/dx/comment/list", url.Values{
+					"slug":        {slug},
+					"target_type": {"issue"},
+					"target_id":   {id},
+					"role":        {"llm"},
+				}, &commResp); err == nil && len(commResp.Comments) > 0 {
+					fmt.Println("\nComments:")
+					printComments(commResp.Comments)
 				}
 			case len(id) > 3 && id[:3] == "TK-":
 				n, _ := strconv.ParseInt(id[3:], 10, 32)
