@@ -13,17 +13,41 @@ import {
   Typography,
 } from '@mui/material'
 import { Add as AddIcon, AttachFile as AttachFileIcon, Close as CloseIcon } from '@mui/icons-material'
+import html2canvas from 'html2canvas'
 import { useCreateIssue, useUploadFile } from '../api'
+
+async function capturePageScreenshot(): Promise<File | null> {
+  try {
+    const canvas = await html2canvas(document.body, { useCORS: true, logging: false })
+    return await new Promise<File | null>((resolve) => {
+      canvas.toBlob((blob) => {
+        if (!blob) { resolve(null); return }
+        resolve(new File([blob], 'screenshot.png', { type: 'image/png' }))
+      }, 'image/png')
+    })
+  } catch {
+    return null
+  }
+}
 
 export function IssueReportFab({ slug, component }: { slug: string; component?: string }) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [context, setContext] = useState('')
   const [screenshot, setScreenshot] = useState<File | null>(null)
+  const [capturing, setCapturing] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   const createIssue = useCreateIssue()
   const uploadFile = useUploadFile()
+
+  const handleOpen = async () => {
+    setOpen(true)
+    setCapturing(true)
+    const file = await capturePageScreenshot()
+    setCapturing(false)
+    if (file) setScreenshot(file)
+  }
 
   const handleClose = () => {
     setOpen(false)
@@ -56,14 +80,14 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
     )
   }
 
-  const isPending = createIssue.isPending || uploadFile.isPending
+  const isPending = createIssue.isPending || uploadFile.isPending || capturing
 
   return (
     <>
       <Fab
         color="primary"
         size="medium"
-        onClick={() => setOpen(true)}
+        onClick={handleOpen}
         sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1200 }}
         aria-label="Report issue"
       >
@@ -103,7 +127,9 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
                 <AttachFileIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            {screenshot ? (
+            {capturing ? (
+              <Typography variant="caption" color="text.secondary">Capturing…</Typography>
+            ) : screenshot ? (
               <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
                 <Typography variant="caption" noWrap sx={{ maxWidth: 200 }}>
                   {screenshot.name}
