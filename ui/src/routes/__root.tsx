@@ -26,6 +26,7 @@ import {
   Menu as MenuIcon,
   PlaylistPlay as PlaylistPlayIcon,
   Settings as SettingsIcon,
+  Timer as TimerIcon,
   Tune as TuneIcon,
   WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material'
@@ -47,6 +48,7 @@ const SECTIONS = [
   { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
   { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
   { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
+  { label: 'Timings', icon: <TimerIcon fontSize="small" />, path: 'timings' },
 ] as const
 
 const PROJECT_NAV_EXTRAS = [
