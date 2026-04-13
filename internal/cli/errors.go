@@ -26,9 +26,18 @@ type slowQueryItem struct {
 	CreatedAt   string `json:"created_at"`
 }
 
+type timedItem struct {
+	ID          int64  `json:"id"`
+	Name        string `json:"name"`
+	DurationMs  int32  `json:"duration_ms"`
+	Source      string `json:"source"`
+	ContextJson string `json:"context_json"`
+	CreatedAt   string `json:"created_at"`
+}
+
 func ErrorsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "errors", Short: "Error and slow query observability"}
-	cmd.AddCommand(errorsListCmd(), errorsReportCmd(), slowQueriesListCmd())
+	cmd.AddCommand(errorsListCmd(), errorsReportCmd(), slowQueriesListCmd(), timedListCmd())
 	return cmd
 }
 
@@ -117,6 +126,40 @@ func slowQueriesListCmd() *cobra.Command {
 					text = text[:57] + "..."
 				}
 				fmt.Printf("[%s] %5dms  %-20s  %s\n", ts, q.DurationMs, q.Endpoint, text)
+			}
+			return nil
+		},
+	})
+	return cmd
+}
+
+func timedListCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "timed", Short: "List high-water-mark timed operations"}
+	cmd.AddCommand(&cobra.Command{
+		Use:   "list",
+		Short: "List slowest-ever operations",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := mustClient()
+			var resp struct {
+				Items []timedItem `json:"items"`
+			}
+			params := url.Values{}
+			if slug := c.Slug(); slug != "" {
+				params.Set("slug", slug)
+			}
+			if err := c.get("/api/dx/timed", params, &resp); err != nil {
+				return err
+			}
+			if len(resp.Items) == 0 {
+				fmt.Println("no timed records")
+				return nil
+			}
+			for _, t := range resp.Items {
+				ts := t.CreatedAt
+				if len(ts) >= 10 {
+					ts = ts[:10]
+				}
+				fmt.Printf("[%s] %5dms  %s\n", ts, t.DurationMs, t.Name)
 			}
 			return nil
 		},

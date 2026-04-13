@@ -1822,6 +1822,41 @@ func (q *Queries) ListThemes(ctx context.Context, projectID int32) ([]ListThemes
 	return items, nil
 }
 
+const listTimed = `-- name: ListTimed :many
+SELECT id, project_id, name, duration_ms, source, context_json, created_at
+FROM zdx_timed
+WHERE ($1::int IS NULL OR project_id = $1)
+ORDER BY duration_ms DESC
+`
+
+func (q *Queries) ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, error) {
+	rows, err := q.db.Query(ctx, listTimed, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTimed
+	for rows.Next() {
+		var i ZdxTimed
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.DurationMs,
+			&i.Source,
+			&i.ContextJson,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTodos = `-- name: ListTodos :many
 
 SELECT id, project_id, feature_id, text, key, persona, priority, status, created_at, resolved_at
@@ -2288,6 +2323,39 @@ func (q *Queries) UpsertTestResult(ctx context.Context, arg UpsertTestResultPara
 		arg.Feature,
 		arg.Status,
 		arg.DurationMs,
+	)
+	return err
+}
+
+const upsertTimed = `-- name: UpsertTimed :exec
+
+INSERT INTO zdx_timed (project_id, name, duration_ms, source, context_json)
+VALUES ($1, $2, $3, $4, $5)
+ON CONFLICT (COALESCE(project_id, 0), name)
+DO UPDATE SET
+  duration_ms  = EXCLUDED.duration_ms,
+  source       = EXCLUDED.source,
+  context_json = EXCLUDED.context_json,
+  created_at   = NOW()
+WHERE EXCLUDED.duration_ms > zdx_timed.duration_ms
+`
+
+type UpsertTimedParams struct {
+	ProjectID   pgtype.Int4 `db:"project_id" json:"project_id"`
+	Name        string      `db:"name" json:"name"`
+	DurationMs  int32       `db:"duration_ms" json:"duration_ms"`
+	Source      string      `db:"source" json:"source"`
+	ContextJson string      `db:"context_json" json:"context_json"`
+}
+
+// Timed (high-water-mark performance records)
+func (q *Queries) UpsertTimed(ctx context.Context, arg UpsertTimedParams) error {
+	_, err := q.db.Exec(ctx, upsertTimed,
+		arg.ProjectID,
+		arg.Name,
+		arg.DurationMs,
+		arg.Source,
+		arg.ContextJson,
 	)
 	return err
 }

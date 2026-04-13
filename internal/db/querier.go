@@ -89,6 +89,7 @@ type Querier interface {
 	ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest, error)
 	// Themes
 	ListThemes(ctx context.Context, projectID int32) ([]ListThemesRow, error)
+	ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, error)
 	// Todos
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
@@ -114,6 +115,8 @@ type Querier interface {
 	UpsertTest(ctx context.Context, arg UpsertTestParams) (ZdxTest, error)
 	// Test Results
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error
+	// Timed (high-water-mark performance records)
+	UpsertTimed(ctx context.Context, arg UpsertTimedParams) error
 }
 
 var _ Querier = (*Queries)(nil)

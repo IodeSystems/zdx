@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
-import { useErrors, useSlowQueries, type ErrorReportItem, type SlowQueryItem } from '../api'
+import { useErrors, useSlowQueries, useTimed, type ErrorReportItem, type SlowQueryItem, type TimedItem } from '../api'
 
 function fmtDate(ts: string) {
   return ts ? ts.slice(0, 10) : ''
@@ -108,16 +108,45 @@ function SlowQueryRow({ q }: { q: SlowQueryItem }) {
   )
 }
 
+function TimedRow({ t }: { t: TimedItem }) {
+  return (
+    <Card variant="outlined" sx={{ mb: 0.5 }}>
+      <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Typography variant="caption" color="text.secondary" sx={{ minWidth: 72 }}>
+            {fmtDate(t.created_at)}
+          </Typography>
+          <Chip
+            label={`${t.duration_ms}ms`}
+            size="small"
+            color={t.duration_ms > 1000 ? 'error' : t.duration_ms > 300 ? 'warning' : 'default'}
+          />
+          <Typography variant="body2" sx={{ flex: 1, fontFamily: 'monospace', fontSize: '0.8rem', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {t.name}
+          </Typography>
+          {t.source && t.source !== t.name && (
+            <Typography variant="caption" color="text.secondary">
+              {t.source}
+            </Typography>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  )
+}
+
 export function ErrorsTab({ slug, componentSlug: _componentSlug }: { slug: string; componentSlug?: string }) {
   const [tab, setTab] = useState(0)
   const { data: errors = [], isLoading: errLoading } = useErrors(slug)
   const { data: queries = [], isLoading: qLoading } = useSlowQueries(slug)
+  const { data: timed = [], isLoading: timedLoading } = useTimed(slug)
 
   return (
     <Box>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
         <Tab label={`Errors (${errors.length})`} />
         <Tab label={`Slow queries (${queries.length})`} />
+        <Tab label={`Timed (${timed.length})`} />
       </Tabs>
 
       {tab === 0 && (
@@ -141,6 +170,18 @@ export function ErrorsTab({ slug, componentSlug: _componentSlug }: { slug: strin
             <Typography color="text.secondary">No slow queries.</Typography>
           )}
           {queries.map(q => <SlowQueryRow key={q.id} q={q} />)}
+        </>
+      )}
+
+      {tab === 2 && (
+        <>
+          {timedLoading && !timed.length && (
+            <Typography color="text.secondary">Loading...</Typography>
+          )}
+          {!timedLoading && timed.length === 0 && (
+            <Typography color="text.secondary">No timed records.</Typography>
+          )}
+          {timed.map(t => <TimedRow key={t.id} t={t} />)}
         </>
       )}
     </Box>

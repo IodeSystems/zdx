@@ -425,3 +425,22 @@ VALUES ($1, $2, $3, $4, $5, $6, $7);
 SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at;
+
+-- Timed (high-water-mark performance records)
+
+-- name: UpsertTimed :exec
+INSERT INTO zdx_timed (project_id, name, duration_ms, source, context_json)
+VALUES (@project_id, @name, @duration_ms, @source, @context_json)
+ON CONFLICT (COALESCE(project_id, 0), name)
+DO UPDATE SET
+  duration_ms  = EXCLUDED.duration_ms,
+  source       = EXCLUDED.source,
+  context_json = EXCLUDED.context_json,
+  created_at   = NOW()
+WHERE EXCLUDED.duration_ms > zdx_timed.duration_ms;
+
+-- name: ListTimed :many
+SELECT id, project_id, name, duration_ms, source, context_json, created_at
+FROM zdx_timed
+WHERE (@project_id::int IS NULL OR project_id = @project_id)
+ORDER BY duration_ms DESC;

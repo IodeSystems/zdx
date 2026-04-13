@@ -1532,6 +1532,43 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body struct{ Queries []SlowQueryItem `json:"queries"` } }{Body: struct{ Queries []SlowQueryItem `json:"queries"` }{Queries: out}}, nil
 		})
 
+	// ── Timed ─────────────────────────────────────────────────────────────────
+
+	type TimedItem struct {
+		ID          int64  `json:"id"`
+		Name        string `json:"name"`
+		DurationMs  int32  `json:"duration_ms"`
+		Source      string `json:"source"`
+		ContextJson string `json:"context_json"`
+		CreatedAt   string `json:"created_at"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-timed", Method: http.MethodGet, Path: "/api/dx/timed"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug,omitempty"`
+		}) (*struct{ Body struct{ Items []TimedItem `json:"items"` } }, error) {
+			var projectID pgtype.Int4
+			if in.Slug != "" {
+				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+					projectID = pgtype.Int4{Int32: p.ID, Valid: true}
+				}
+			}
+			rows, err := s.q.ListTimed(ctx, projectID.Int32)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TimedItem, len(rows))
+			for i, r := range rows {
+				out[i] = TimedItem{
+					ID: r.ID, Name: r.Name, DurationMs: r.DurationMs,
+					Source: r.Source, ContextJson: r.ContextJson, CreatedAt: fmtTS(r.CreatedAt),
+				}
+			}
+			return &struct{ Body struct{ Items []TimedItem `json:"items"` } }{
+				Body: struct{ Items []TimedItem `json:"items"` }{Items: out},
+			}, nil
+		})
+
 	// ── Comments ──────────────────────────────────────────────────────────────
 
 	type CommentItem struct {

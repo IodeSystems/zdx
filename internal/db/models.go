@@ -310,6 +310,16 @@ type ZdxThemeBlocker struct {
 	IssueID string `db:"issue_id" json:"issue_id"`
 }
 
+type ZdxTimed struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Name        string             `db:"name" json:"name"`
+	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson string             `db:"context_json" json:"context_json"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxTodo struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`

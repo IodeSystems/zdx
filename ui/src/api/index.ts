@@ -469,3 +469,26 @@ export const useRevisions = (slug: string, targetType: string, targetId: string)
     },
     enabled: !!slug && !!targetType && !!targetId,
   })
+
+// ── timed ─────────────────────────────────────────────────────────────────────
+
+export interface TimedItem {
+  id: number
+  name: string
+  duration_ms: number
+  source: string
+  context_json: string
+  created_at: string
+}
+
+export const useTimed = (slug: string) =>
+  useQuery<TimedItem[]>({
+    queryKey: ['timed', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ items: TimedItem[] }>(
+        `/api/dx/timed?slug=${encodeURIComponent(slug)}`
+      )
+      return res.items ?? []
+    },
+    enabled: !!slug,
+  })

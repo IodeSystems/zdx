@@ -5,10 +5,12 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/iodesystems/zdx-go/internal/db"
@@ -44,6 +46,7 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 	cfg.Info.Description = "zdx developer-experience platform API"
 
 	s.mux.Use(s.apiKeyMiddleware)
+	s.mux.Use(s.timingMiddleware)
 	s.api = humachi.New(s.mux, cfg)
 
 	s.registerRoutes(s.api)
@@ -149,6 +152,39 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 		ctx := context.WithValue(r.Context(), ctxAPIKeyID, key.ID)
 		ctx = context.WithValue(ctx, ctxUserID, key.UserID)
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// ── Timing middleware ──────────────────────────────────────────────────────
+
+// timingMiddleware records the duration of each /api/ request.
+// If the request is the slowest ever for that route, it upserts to zdx_timed.
+// Non-API paths and health/openapi are skipped.
+func (s *Server) timingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if !strings.HasPrefix(path, "/api/") ||
+			path == "/api/health" ||
+			strings.HasPrefix(path, "/openapi") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		start := time.Now()
+		next.ServeHTTP(w, r)
+		durationMs := int32(time.Since(start).Milliseconds())
+		if durationMs < 10 {
+			return // skip trivially fast requests
+		}
+		name := "http:" + r.Method + " " + path
+		go func() {
+			_ = s.q.UpsertTimed(context.Background(), db.UpsertTimedParams{
+				ProjectID:   pgtype.Int4{Valid: false},
+				Name:        name,
+				DurationMs:  durationMs,
+				Source:      r.URL.Path,
+				ContextJson: "{}",
+			})
+		}()
 	})
 }
 
