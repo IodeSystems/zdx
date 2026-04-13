@@ -25,6 +25,7 @@ type Server struct {
 	uploadsDir     string
 	api            huma.API
 	emb            *embedder
+	features       SchemaFeatures
 }
 
 func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
@@ -45,6 +46,7 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 		}
 	}
 
+	ctx := context.Background()
 	s := &Server{
 		q:              db.New(pool),
 		mux:            chi.NewMux(),
@@ -52,10 +54,11 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 		zdxProjectSlug: os.Getenv("ZDX_PROJECT_SLUG"),
 		uploadsDir:     uploadsDir,
 		emb:            newEmbedder(vecDir),
+		features:       detectFeatures(ctx, pool),
 	}
 
 	// Load LLM config eagerly so embedder is ready on first request.
-	s.reloadEmbedder(context.Background())
+	s.reloadEmbedder(ctx)
 
 	cfg := huma.DefaultConfig("ZDX API", "1.0.0")
 	cfg.Info.Description = "zdx developer-experience platform API"
@@ -91,6 +94,10 @@ func spaPath(urlPath, staticDir string) string {
 
 // reloadEmbedder re-reads the LLM config from DB and refreshes the embedder client.
 func (s *Server) reloadEmbedder(ctx context.Context) {
+	if !s.features.HasLLMConfig {
+		s.emb.reload(nil)
+		return
+	}
 	cfg, err := s.q.GetLLMConfig(ctx)
 	if err != nil {
 		s.emb.reload(nil)

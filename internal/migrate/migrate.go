@@ -48,8 +48,9 @@ func Version(dsn string) (uint, bool, error) {
 }
 
 // AssertCurrent returns an error if the database schema is behind the
-// embedded migrations. Used by dx-server on startup to fail fast if ops
-// forgot to run migrations before the rolling deploy.
+// embedded migrations. Used by dx-server in production — ops must run
+// "dx migrate up" before the rolling deploy starts the new binary.
+// Does NOT apply migrations.
 func AssertCurrent(dsn string) error {
 	src, err := iofs.New(migrationsFS, "sql")
 	if err != nil {
@@ -61,14 +62,18 @@ func AssertCurrent(dsn string) error {
 	}
 	defer m.Close()
 
-	// m.Up() with ErrNoChange means we're current.
-	if err := m.Up(); err != nil {
-		if errors.Is(err, migrate.ErrNoChange) {
-			return nil
-		}
-		return fmt.Errorf("pending migrations exist — run: dx migrate up (%w)", err)
+	dbVer, dirty, err := m.Version()
+	if err != nil && !errors.Is(err, migrate.ErrNilVersion) {
+		return fmt.Errorf("schema version: %w", err)
 	}
-	// Up() succeeded means migrations were applied — that's unexpected in
-	// production (ops should have done it), but not fatal. Log and continue.
+	if dirty {
+		return fmt.Errorf("schema is dirty at version %d — manual intervention required", dbVer)
+	}
+
+	// Check if any migration exists beyond current version.
+	src2, _ := iofs.New(migrationsFS, "sql")
+	if _, nextErr := src2.Next(dbVer); nextErr == nil {
+		return fmt.Errorf("schema is at version %d but pending migrations exist — run: dx migrate up", dbVer)
+	}
 	return nil
 }

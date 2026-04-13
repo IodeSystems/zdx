@@ -1788,6 +1788,9 @@ func (s *Server) registerRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "get-llm-config", Method: http.MethodGet, Path: "/api/admin/llm-config"},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body LLMConfigBody }, error) {
+			if !s.features.HasLLMConfig {
+				return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{}}, nil
+			}
 			cfg, err := s.q.GetLLMConfig(ctx)
 			if err != nil {
 				// No config yet — return empty.
@@ -1803,6 +1806,9 @@ func (s *Server) registerRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "set-llm-config", Method: http.MethodPut, Path: "/api/admin/llm-config"},
 		func(ctx context.Context, in *struct{ Body LLMConfigBody }) (*struct{ Body LLMConfigBody }, error) {
+			if !s.features.HasLLMConfig {
+				return nil, apiErr(http.StatusServiceUnavailable, "LLM config schema not yet applied — run: dx migrate up")
+			}
 			cfg, err := s.q.UpsertLLMConfig(ctx, db.UpsertLLMConfigParams{
 				Type:   in.Body.Type,
 				Url:    in.Body.URL,
@@ -1832,6 +1838,9 @@ func (s *Server) registerRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
 		}) (*struct{ Body GitConfigBody }, error) {
+			if !s.features.HasProjectGitConfig {
+				return &struct{ Body GitConfigBody }{Body: GitConfigBody{GitBranch: "main"}}, nil
+			}
 			row, err := s.q.GetProjectGitConfig(ctx, in.Slug)
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
@@ -1852,6 +1861,9 @@ func (s *Server) registerRoutes(api huma.API) {
 				GitToken  string `json:"git_token,omitempty"`
 			}
 		}) (*struct{ Body GitConfigBody }, error) {
+			if !s.features.HasProjectGitConfig {
+				return nil, apiErr(http.StatusServiceUnavailable, "git config schema not yet applied — run: dx migrate up")
+			}
 			if err := s.q.SetProjectGitConfig(ctx, db.SetProjectGitConfigParams{
 				Slug:      in.Body.Slug,
 				GitUrl:    in.Body.GitURL,
@@ -1912,6 +1924,13 @@ func (s *Server) registerRoutes(api huma.API) {
 				Commits []GitCommit `json:"commits"`
 			}
 		}, error) {
+			if !s.features.HasProjectGitConfig {
+				return &struct {
+					Body struct {
+						Commits []GitCommit `json:"commits"`
+					}
+				}{}, nil
+			}
 			n := in.N
 			if n <= 0 || n > 100 {
 				n = 20

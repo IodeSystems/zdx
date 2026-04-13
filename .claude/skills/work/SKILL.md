@@ -18,8 +18,9 @@ Drive `./bin/dx todo` in remote mode. Issue: $ARGUMENTS (optional). One vertical
 4. `./bin/dx issue close IS-N --reason=done`
 5. If serve/ or lib/zsql/ changed:
    - Commit all changes first: `git add <files> && git commit -m '...'`
-   - `./bin/db migrate && ./bin/db gen` (if schema changed)
+   - If schema (internal/migrate/sql/) or queries (queries/dx.sql) changed: `~/go/bin/sqlc generate` then `go build ./...` to verify
    - `bin/ship` (never `--allow-dirty` during normal dev — that is an emergency-only escape hatch)
+   - Note: migrations run automatically on dev server restart; prod migrations run via ship
 
 Vertical scope is automatic: solo --issue=IS-N picks only triage:IS-N, decompose:IS-N, plan: for linked features, and dev tasks with task.issue == IS-N.
 

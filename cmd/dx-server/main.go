@@ -27,11 +27,18 @@ func main() {
 		port = "7600"
 	}
 
-	// Refuse to start if schema is behind. Migrations are run by ops
-	// (dx migrate up) before the rolling deploy starts the new binary.
 	migrateDSN := strings.Replace(dsn, "postgres://", "pgx5://", 1)
-	if err := migrate.AssertCurrent(migrateDSN); err != nil {
-		log.Fatalf("schema check: %v\nRun: dx migrate up", err)
+	if buildSHA == "" {
+		// Dev: auto-migrate on startup so a server restart is sufficient.
+		if err := migrate.Up(migrateDSN); err != nil {
+			log.Fatalf("auto-migrate: %v", err)
+		}
+	} else {
+		// Prod: schema must already be current — ops runs "dx migrate up"
+		// before the rolling deploy starts the new binary.
+		if err := migrate.AssertCurrent(migrateDSN); err != nil {
+			log.Fatalf("schema check: %v", err)
+		}
 	}
 
 	pool, err := pgxpool.New(context.Background(), dsn)
