@@ -57,7 +57,7 @@ func WatchCmd() *cobra.Command {
 				if !inotifyWait(entry.Dirs, entry.Include) {
 					return fmt.Errorf("inotifywait unavailable — install inotify-tools")
 				}
-				fmt.Println("\n— change detected —\n")
+				fmt.Print("\n— change detected —\n\n")
 				_ = runShell(entry.Run, "")
 			}
 		},
