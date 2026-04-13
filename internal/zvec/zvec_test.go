@@ -16,7 +16,7 @@ func TestRoundTrip(t *testing.T) {
 	b.Add(3, vec16(0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1))
 
 	var buf bytes.Buffer
-	if err := b.WriteTo(&buf); err != nil {
+	if err := b.Serialize(&buf); err != nil {
 		t.Fatal(err)
 	}
 	idx, err := zvec.LoadBytes(buf.Bytes())
@@ -191,7 +191,7 @@ func buildIndex(t *testing.T, dims int, pairs ...idVec) zvec.Index {
 		b.Add(p.id, p.vec)
 	}
 	var buf bytes.Buffer
-	if err := b.WriteTo(&buf); err != nil {
+	if err := b.Serialize(&buf); err != nil {
 		t.Fatal(err)
 	}
 	idx, err := zvec.LoadBytes(buf.Bytes())

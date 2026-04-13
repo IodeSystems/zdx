@@ -191,7 +191,7 @@ func TestInterfaceInterop(t *testing.T) {
 	}
 
 	var buf bytes.Buffer
-	fb.WriteTo(&buf)
+	fb.Serialize(&buf)
 	flat, _ := zvec.LoadBytes(buf.Bytes())
 
 	for _, idx := range []zvec.Index{flat, hb} {

@@ -316,7 +316,7 @@ func (idx *FlatIndex) Compact(path string) error {
 
 	// For compact, preserve the existing dim_order (variance already computed
 	// at build time; WAL entries were already permuted with it).
-	// Write directly rather than going through Builder.WriteTo which would
+	// Write directly rather than going through Builder.Serialize which would
 	// re-sort dims — instead write with the existing dim_order.
 	return idx.writeCompact(path, b.entries)
 }
@@ -412,7 +412,7 @@ func (b *Builder) Add(id uint64, vec []float32) error {
 }
 
 // WriteTo serializes the index to w.
-func (b *Builder) WriteTo(w io.Writer) error {
+func (b *Builder) Serialize(w io.Writer) error {
 	n := len(b.entries)
 	d := b.dims
 	chunks := d / lane
@@ -481,7 +481,7 @@ func (b *Builder) Finish(path string) error {
 		return err
 	}
 	defer f.Close()
-	return b.WriteTo(f)
+	return b.Serialize(f)
 }
 
 // ── Search ────────────────────────────────────────────────────────────────────
