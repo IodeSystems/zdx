@@ -143,18 +143,6 @@ export const useProjects = () =>
     },
   })
 
-export const useCreateProject = () => {
-  const qc = useQueryClient()
-  return useMutation<ProjectItem, Error, components['schemas']['Create-projectRequest']>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/project', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
-  })
-}
-
 // ── issues ────────────────────────────────────────────────────────────────────
 
 export const useIssues = (slug: string) =>
@@ -208,21 +196,6 @@ export const useUploadFile = () => {
   })
 }
 
-export const useUpdateIssue = () => {
-  const qc = useQueryClient()
-  return useMutation<OKBody, Error, components['schemas']['Update-issueRequest']>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/dx/todo/issue/update', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
-    },
-    onSuccess: () => {
-      qc.invalidateQueries({ queryKey: ['issues'] })
-      qc.invalidateQueries({ queryKey: ['issue'] })
-    },
-  })
-}
-
 export const useCloseIssue = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, components['schemas']['Close-issueRequest']>({
@@ -235,18 +208,6 @@ export const useCloseIssue = () => {
       qc.invalidateQueries({ queryKey: ['issues', v.slug] })
       qc.invalidateQueries({ queryKey: ['issue'] })
     },
-  })
-}
-
-export const useAppendIssueWork = () => {
-  const qc = useQueryClient()
-  return useMutation<OKBody, Error, components['schemas']['Append-issue-workRequest']>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/issue-work', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
-    },
-    onSuccess: () => qc.invalidateQueries({ queryKey: ['issue'] }),
   })
 }
 
@@ -273,18 +234,6 @@ export const useTasks = (slug: string, opts?: { feature?: string; issue?: string
     enabled: !!slug,
   })
 
-export const useCreateTask = () => {
-  const qc = useQueryClient()
-  return useMutation<TaskItem, Error, components['schemas']['Add-taskRequest']>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/dx/todo/tech/add', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
-    },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['tasks', v.slug] }),
-  })
-}
-
 // Includes slug for cache invalidation only — not sent to server.
 type UpdateTaskStatusInput = components['schemas']['Update-task-statusRequest'] & { slug: string }
 
@@ -293,30 +242,6 @@ export const useUpdateTaskStatus = () => {
   return useMutation<OKBody, Error, UpdateTaskStatusInput>({
     mutationFn: async ({ id, status, reason }) => {
       const { data, error } = await client.PUT('/api/task-status', { body: { id, status, reason } })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
-    },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['tasks', v.slug] }),
-  })
-}
-
-export const useMarkTaskDone = () => {
-  const qc = useQueryClient()
-  return useMutation<OKBody, Error, components['schemas']['Mark-task-doneRequest'] & { slug: string }>({
-    mutationFn: async ({ id, test_plan, test_refs }) => {
-      const { data, error } = await client.POST('/api/dx/todo/dev/done', { body: { id, test_plan, test_refs } })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
-    },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['tasks', v.slug] }),
-  })
-}
-
-export const useMarkTaskUndone = () => {
-  const qc = useQueryClient()
-  return useMutation<OKBody, Error, components['schemas']['Mark-task-undoneRequest'] & { slug: string }>({
-    mutationFn: async ({ id }) => {
-      const { data, error } = await client.POST('/api/dx/todo/dev/undone', { body: { id } })
       if (error) throw new Error(JSON.stringify(error))
       return data!
     },
@@ -347,33 +272,6 @@ export const useFeature = (slug: string, name: string) =>
     },
     enabled: !!slug && !!name,
   })
-
-export const useCreateFeature = () => {
-  const qc = useQueryClient()
-  return useMutation<FeatureItem, Error, components['schemas']['Upsert-featureRequest']>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/feature', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
-    },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['features', v.slug] }),
-  })
-}
-
-export const useUpdateFeatureField = () => {
-  const qc = useQueryClient()
-  return useMutation<OKBody, Error, components['schemas']['Set-feature-fieldRequest']>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/dx/features/field', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
-    },
-    onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['features', v.slug] })
-      qc.invalidateQueries({ queryKey: ['feature', v.slug, v.feature] })
-    },
-  })
-}
 
 // ── solo (undocumented endpoint) ──────────────────────────────────────────────
 

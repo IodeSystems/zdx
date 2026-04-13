@@ -5,7 +5,8 @@
   "scripts": {
     "dev": "vite",
     "build": "tsc -b && vite build",
-    "lint": "eslint ."
+    "lint": "eslint .",
+    "lint:knip": "knip"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -17,7 +18,8 @@
     "html2canvas": "^1.4.1",
     "openapi-fetch": "^0.17.0",
     "react": "^19.1.0",
-    "react-dom": "^19.1.0"
+    "react-dom": "^19.1.0",
+    "zod": "^4.3.6"
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
@@ -32,6 +34,7 @@
     "eslint": "^10.2.0",
     "eslint-plugin-react-hooks": "^7.0.1",
     "jsdom": "^29.0.2",
+    "knip": "^6.4.1",
     "typescript": "~5.8.3",
     "typescript-eslint": "^8.58.2",
     "vite": "^6.3.5",
