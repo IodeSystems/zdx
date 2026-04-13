@@ -120,6 +120,57 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	// 1b. Check for features linked to open-issue tasks that have no specs.
+	// Lazy-load feature map once if needed.
+	var featureMap map[string]featureItem // name → item
+	loadFeatures := func() error {
+		if featureMap != nil {
+			return nil
+		}
+		var resp struct {
+			Features []featureItem `json:"features"`
+		}
+		if err := c.get("/api/features", querySlug(c), &resp); err != nil {
+			return err
+		}
+		featureMap = make(map[string]featureItem, len(resp.Features))
+		for _, f := range resp.Features {
+			featureMap[f.Name] = f
+		}
+		return nil
+	}
+
+	for _, iss := range targetIssues {
+		if iss.Status != "open" {
+			continue
+		}
+		var taskList struct {
+			Tasks []taskItem `json:"tasks"`
+		}
+		if err := c.get("/api/dx/todo/issue/tasks", url.Values{
+			"slug":     {slug},
+			"issue_id": {issueIDStr(iss.ID)},
+		}, &taskList); err != nil {
+			return err
+		}
+		seen := map[string]bool{}
+		for _, t := range taskList.Tasks {
+			if t.Feature == "" || seen[t.Feature] {
+				continue
+			}
+			seen[t.Feature] = true
+			if err := loadFeatures(); err != nil {
+				return err
+			}
+			f, ok := featureMap[t.Feature]
+			if !ok || len(f.Specs) > 0 {
+				continue
+			}
+			fmt.Printf("[owner:spec] %s  feature %q has no specs — dx feature spec add %q\n", issueIDStr(iss.ID), f.Name, f.Name)
+			return nil
+		}
+	}
+
 	// 2. Find open issue with no pending tasks
 	for _, iss := range targetIssues {
 		if iss.Status != "open" {
