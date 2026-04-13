@@ -341,17 +341,21 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "triage-issue", Method: http.MethodPost, Path: "/api/dx/todo/owner/triage"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ID       int32 `json:"id"`
-				Priority int32 `json:"priority"`
+				Slug     string `json:"slug"`
+				ID       int32  `json:"id"`
+				Priority int32  `json:"priority"`
 			}
 		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
 			issueID := issueIDFromInt(in.Body.ID)
-			err := s.q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
+			if err := s.q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
 				ID:        issueID,
 				Priority:  strconv.Itoa(int(in.Body.Priority)),
-				ProjectID: 0,
-			})
-			if err != nil {
+				ProjectID: p.ID,
+			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil

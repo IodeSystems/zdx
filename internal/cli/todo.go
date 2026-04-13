@@ -401,6 +401,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 			c := mustClient()
 			var ok struct{ OK bool `json:"ok"` }
 			if err := c.post("/api/dx/todo/owner/triage", map[string]any{
+				"slug":     c.SlugOrDie(),
 				"id":       int32(n),
 				"priority": int32(pri),
 			}, &ok); err != nil {
