@@ -67,6 +67,7 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 
 func (s *Server) routes() {
 	s.mux.HandleFunc("GET /health", s.handleHealth)
+	s.mux.HandleFunc("GET /api/health", s.handleHealth)
 
 	// Projects
 	s.mux.HandleFunc("GET /api/projects", s.handleListProjects)
