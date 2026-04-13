@@ -1,5 +1,5 @@
 ---
-name: solo
+name: work
 description: Work a single issue vertical (owner triage → tech plan → dev done). Pass an issue ID or omit to let solo pick. One vertical per session.
 disable-model-invocation: true
 argument-hint: "[IS-N]"
