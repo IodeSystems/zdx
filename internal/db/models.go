@@ -187,6 +187,18 @@ type ZdxProjectPermission struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxRevision struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Field      string             `db:"field" json:"field"`
+	OldVal     string             `db:"old_val" json:"old_val"`
+	NewVal     string             `db:"new_val" json:"new_val"`
+	Agent      string             `db:"agent" json:"agent"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxSession struct {
 	ID        int32              `db:"id" json:"id"`
 	UserID    int32              `db:"user_id" json:"user_id"`

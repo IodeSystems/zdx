@@ -19,6 +19,7 @@ import {
   type IssueWorkItem,
   type TaskItem,
 } from '../api'
+import { CommentsAndRevisions } from './CommentsAndRevisions'
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -218,9 +219,11 @@ export function IssueDetail({
         </Box>
       )}
 
-      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3 }}>
+      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
         Created: {issue.created_at}
       </Typography>
+
+      <CommentsAndRevisions slug={slug} targetType="issue" targetId={issueId} />
     </Box>
   )
 }

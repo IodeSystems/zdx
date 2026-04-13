@@ -2,6 +2,7 @@ import { Link, useRouter } from '@tanstack/react-router'
 import { Box, Button, Chip, Typography } from '@mui/material'
 import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
 import { useTasks, useUpdateTaskStatus } from '../api'
+import { CommentsAndRevisions } from './CommentsAndRevisions'
 
 const STATUS_COLORS: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
   done: 'success',
@@ -219,9 +220,11 @@ export function TaskDetail({
         </Typography>
       )}
 
-      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3 }}>
+      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
         Created: {task.created_at}
       </Typography>
+
+      <CommentsAndRevisions slug={slug} targetType="task" targetId={taskId} />
     </Box>
   )
 }

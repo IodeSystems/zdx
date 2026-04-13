@@ -36,6 +36,8 @@ func main() {
 		cli.ServeCmd(),
 		cli.MigrateCmd(),
 		cli.ErrorsCmd(),
+		cli.CommentCmd(),
+		cli.RevisionCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

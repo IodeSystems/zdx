@@ -11,12 +11,17 @@ import (
 )
 
 type Querier interface {
+	// Comments
+	AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error)
+	// Revisions
+	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)
+	CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
 	// Files
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
@@ -35,6 +40,7 @@ type Querier interface {
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
+	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
 	GetFile(ctx context.Context, id int32) (ZdxFile, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
@@ -58,6 +64,7 @@ type Querier interface {
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
+	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	// Features
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)
@@ -67,6 +74,7 @@ type Querier interface {
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	// Projects
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
+	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ZdxRevision, error)
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	// Specs
 	ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error)
@@ -98,6 +106,7 @@ type Querier interface {
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpdateThemeStatus(ctx context.Context, arg UpdateThemeStatusParams) error
+	UpsertCommentRead(ctx context.Context, arg UpsertCommentReadParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (ZdxFeature, error)
 	// Plans
 	UpsertPlan(ctx context.Context, arg UpsertPlanParams) (ZdxPlan, error)

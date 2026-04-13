@@ -11,6 +11,83 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addComment = `-- name: AddComment :one
+
+INSERT INTO zdx_comments (project_id, target_type, target_id, author, body)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, project_id, target_type, target_id, author, body, created_at
+`
+
+type AddCommentParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	Author     string `db:"author" json:"author"`
+	Body       string `db:"body" json:"body"`
+}
+
+type AddCommentRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Author     string             `db:"author" json:"author"`
+	Body       string             `db:"body" json:"body"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+// Comments
+func (q *Queries) AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error) {
+	row := q.db.QueryRow(ctx, addComment,
+		arg.ProjectID,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Author,
+		arg.Body,
+	)
+	var i AddCommentRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Author,
+		&i.Body,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const addRevision = `-- name: AddRevision :exec
+
+INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+`
+
+type AddRevisionParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	Field      string `db:"field" json:"field"`
+	OldVal     string `db:"old_val" json:"old_val"`
+	NewVal     string `db:"new_val" json:"new_val"`
+	Agent      string `db:"agent" json:"agent"`
+}
+
+// Revisions
+func (q *Queries) AddRevision(ctx context.Context, arg AddRevisionParams) error {
+	_, err := q.db.Exec(ctx, addRevision,
+		arg.ProjectID,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Field,
+		arg.OldVal,
+		arg.NewVal,
+		arg.Agent,
+	)
+	return err
+}
+
 const addSpec = `-- name: AddSpec :one
 INSERT INTO zdx_specs (feature_id, description, kind) VALUES ($1, $2, $3)
 RETURNING id, feature_id, description, kind
@@ -101,6 +178,31 @@ SELECT COUNT(*)::int FROM zdx_api_keys
 
 func (q *Queries) CountApiKeys(ctx context.Context) (int32, error) {
 	row := q.db.QueryRow(ctx, countApiKeys)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const countUnreadForRole = `-- name: CountUnreadForRole :one
+SELECT COUNT(*)::int FROM zdx_comments c
+WHERE c.project_id = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = $2
+      AND r.last_read_at >= c.created_at
+  )
+`
+
+type CountUnreadForRoleParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Role      string `db:"role" json:"role"`
+}
+
+func (q *Queries) CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countUnreadForRole, arg.ProjectID, arg.Role)
 	var column_1 int32
 	err := row.Scan(&column_1)
 	return column_1, err
@@ -480,6 +582,30 @@ func (q *Queries) GetApiKeyUserRole(ctx context.Context, token string) (string, 
 	var role string
 	err := row.Scan(&role)
 	return role, err
+}
+
+const getCommentRead = `-- name: GetCommentRead :one
+SELECT last_read_at FROM zdx_comment_reads
+WHERE project_id = $1 AND target_type = $2 AND target_id = $3 AND role = $4
+`
+
+type GetCommentReadParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	Role       string `db:"role" json:"role"`
+}
+
+func (q *Queries) GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error) {
+	row := q.db.QueryRow(ctx, getCommentRead,
+		arg.ProjectID,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Role,
+	)
+	var last_read_at pgtype.Timestamptz
+	err := row.Scan(&last_read_at)
+	return last_read_at, err
 }
 
 const getFeature = `-- name: GetFeature :one
@@ -999,6 +1125,56 @@ func (q *Queries) LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) erro
 	return err
 }
 
+const listComments = `-- name: ListComments :many
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
+ORDER BY created_at
+`
+
+type ListCommentsParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+}
+
+type ListCommentsRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Author     string             `db:"author" json:"author"`
+	Body       string             `db:"body" json:"body"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error) {
+	rows, err := q.db.Query(ctx, listComments, arg.ProjectID, arg.TargetType, arg.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCommentsRow
+	for rows.Next() {
+		var i ListCommentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Author,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listErrorReports = `-- name: ListErrorReports :many
 SELECT id, project_id, source, endpoint, error_name, stack_trace, created_at
 FROM zdx_error_reports
@@ -1207,6 +1383,48 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 			&i.ID,
 			&i.Slug,
 			&i.Name,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRevisions = `-- name: ListRevisions :many
+SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
+FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
+ORDER BY created_at
+`
+
+type ListRevisionsParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+}
+
+func (q *Queries) ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ZdxRevision, error) {
+	rows, err := q.db.Query(ctx, listRevisions, arg.ProjectID, arg.TargetType, arg.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxRevision
+	for rows.Next() {
+		var i ZdxRevision
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Field,
+			&i.OldVal,
+			&i.NewVal,
+			&i.Agent,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -1905,6 +2123,30 @@ type UpdateThemeStatusParams struct {
 
 func (q *Queries) UpdateThemeStatus(ctx context.Context, arg UpdateThemeStatusParams) error {
 	_, err := q.db.Exec(ctx, updateThemeStatus, arg.Status, arg.ProjectID, arg.ID)
+	return err
+}
+
+const upsertCommentRead = `-- name: UpsertCommentRead :exec
+INSERT INTO zdx_comment_reads (project_id, target_type, target_id, role)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (project_id, target_type, target_id, role)
+DO UPDATE SET last_read_at = NOW()
+`
+
+type UpsertCommentReadParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	Role       string `db:"role" json:"role"`
+}
+
+func (q *Queries) UpsertCommentRead(ctx context.Context, arg UpsertCommentReadParams) error {
+	_, err := q.db.Exec(ctx, upsertCommentRead,
+		arg.ProjectID,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Role,
+	)
 	return err
 }
 

@@ -526,12 +526,24 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
+			agent := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
+					agent = u.Email
+				}
+			}
+			// Capture old values for revision log
+			oldIssue, _ := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+			newPriority := strconv.Itoa(int(in.Body.Priority))
 			if err := s.q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
 				ID:        issueID,
-				Priority:  strconv.Itoa(int(in.Body.Priority)),
+				Priority:  newPriority,
 				ProjectID: p.ID,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+			if oldIssue.Priority != newPriority {
+				s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority, agent)
 			}
 			for field, val := range map[string]*string{
 				"title":      in.Body.Title,
@@ -546,6 +558,14 @@ func (s *Server) registerRoutes(api huma.API) {
 					}); err != nil {
 						return nil, apiErr(500, err.Error())
 					}
+					oldVal := ""
+					switch field {
+					case "title":
+						oldVal = oldIssue.Title
+					case "issue_type":
+						oldVal = oldIssue.IssueType
+					}
+					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val, agent)
 				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -565,9 +585,16 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
+			agent := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
+					agent = u.Email
+				}
+			}
 			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.recordRevision(ctx, p.ID, "issue", issueID, "status", "open", "closed", agent)
 			reason := ptrStr(in.Body.Reason)
 			notes := ptrStr(in.Body.Notes)
 			if reason != "" || notes != "" {
@@ -575,7 +602,7 @@ func (s *Server) registerRoutes(api huma.API) {
 				if notes != "" {
 					note += "\n" + notes
 				}
-				_ = s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: "cli", Note: note})
+				_ = s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -1505,6 +1532,150 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body struct{ Queries []SlowQueryItem `json:"queries"` } }{Body: struct{ Queries []SlowQueryItem `json:"queries"` }{Queries: out}}, nil
 		})
 
+	// ── Comments ──────────────────────────────────────────────────────────────
+
+	type CommentItem struct {
+		ID         int32  `json:"id"`
+		TargetType string `json:"target_type"`
+		TargetID   string `json:"target_id"`
+		Author     string `json:"author"`
+		Body       string `json:"body"`
+		CreatedAt  string `json:"created_at"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "add-comment", Method: http.MethodPost, Path: "/api/dx/comment/add"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug       string `json:"slug"`
+				TargetType string `json:"target_type"`
+				TargetID   string `json:"target_id"`
+				Body       string `json:"body"`
+			}
+		}) (*struct{ Body CommentItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			author := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, err := s.q.GetUserByID(ctx, uid); err == nil {
+					author = u.Email
+				}
+			}
+			c, err := s.q.AddComment(ctx, db.AddCommentParams{
+				ProjectID:  p.ID,
+				TargetType: in.Body.TargetType,
+				TargetID:   in.Body.TargetID,
+				Author:     author,
+				Body:       in.Body.Body,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body CommentItem }{Body: CommentItem{
+				ID: c.ID, TargetType: c.TargetType, TargetID: c.TargetID,
+				Author: c.Author, Body: c.Body, CreatedAt: fmtTS(c.CreatedAt),
+			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-comments", Method: http.MethodGet, Path: "/api/dx/comment/list"},
+		func(ctx context.Context, in *struct {
+			Slug       string `query:"slug"`
+			TargetType string `query:"target_type"`
+			TargetID   string `query:"target_id"`
+		}) (*struct{ Body struct{ Comments []CommentItem `json:"comments"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListComments(ctx, db.ListCommentsParams{
+				ProjectID:  p.ID,
+				TargetType: in.TargetType,
+				TargetID:   in.TargetID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]CommentItem, len(rows))
+			for i, r := range rows {
+				out[i] = CommentItem{
+					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
+					Author: r.Author, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
+				}
+			}
+			return &struct{ Body struct{ Comments []CommentItem `json:"comments"` } }{
+				Body: struct{ Comments []CommentItem `json:"comments"` }{Comments: out},
+			}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "mark-comments-read", Method: http.MethodPost, Path: "/api/dx/comment/mark-read"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug       string `json:"slug"`
+				TargetType string `json:"target_type"`
+				TargetID   string `json:"target_id"`
+				Role       string `json:"role"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.UpsertCommentRead(ctx, db.UpsertCommentReadParams{
+				ProjectID:  p.ID,
+				TargetType: in.Body.TargetType,
+				TargetID:   in.Body.TargetID,
+				Role:       in.Body.Role,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Revisions ─────────────────────────────────────────────────────────────
+
+	type RevisionItem struct {
+		ID         int32  `json:"id"`
+		TargetType string `json:"target_type"`
+		TargetID   string `json:"target_id"`
+		Field      string `json:"field"`
+		OldVal     string `json:"old_val"`
+		NewVal     string `json:"new_val"`
+		Agent      string `json:"agent"`
+		CreatedAt  string `json:"created_at"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-revisions", Method: http.MethodGet, Path: "/api/dx/revisions"},
+		func(ctx context.Context, in *struct {
+			Slug       string `query:"slug"`
+			TargetType string `query:"target_type"`
+			TargetID   string `query:"target_id"`
+		}) (*struct{ Body struct{ Revisions []RevisionItem `json:"revisions"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListRevisions(ctx, db.ListRevisionsParams{
+				ProjectID:  p.ID,
+				TargetType: in.TargetType,
+				TargetID:   in.TargetID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]RevisionItem, len(rows))
+			for i, r := range rows {
+				out[i] = RevisionItem{
+					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
+					Field: r.Field, OldVal: r.OldVal, NewVal: r.NewVal,
+					Agent: r.Agent, CreatedAt: fmtTS(r.CreatedAt),
+				}
+			}
+			return &struct{ Body struct{ Revisions []RevisionItem `json:"revisions"` } }{
+				Body: struct{ Revisions []RevisionItem `json:"revisions"` }{Revisions: out},
+			}, nil
+		})
+
 	// ── File upload (raw chi — huma doesn't handle multipart) ─────────────────
 	s.mux.Post("/api/upload", s.handleUpload)
 	s.mux.Get("/api/files/{id}", s.handleFileServe)
@@ -1638,6 +1809,20 @@ func (s *Server) resolveTheme(ctx context.Context, projectID int32, ref string) 
 		return db.ZdxTheme{}, apiErr(http.StatusNotFound, "theme not found: "+ref)
 	}
 	return t, nil
+}
+
+// ── Revision recording ────────────────────────────────────────────────────
+
+func (s *Server) recordRevision(ctx context.Context, projectID int32, targetType, targetID, field, oldVal, newVal, agent string) {
+	_ = s.q.AddRevision(ctx, db.AddRevisionParams{
+		ProjectID:  projectID,
+		TargetType: targetType,
+		TargetID:   targetID,
+		Field:      field,
+		OldVal:     oldVal,
+		NewVal:     newVal,
+		Agent:      agent,
+	})
 }
 
 // ── Model → response converters ────────────────────────────────────────────

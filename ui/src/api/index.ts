@@ -406,3 +406,66 @@ export const useSolo = (slug: string, issueFilter?: string) =>
     },
     enabled: !!slug,
   })
+
+// ── comments ──────────────────────────────────────────────────────────────────
+
+export interface CommentItem {
+  id: number
+  target_type: string
+  target_id: string
+  author: string
+  body: string
+  created_at: string
+}
+
+export const useComments = (slug: string, targetType: string, targetId: string) =>
+  useQuery<CommentItem[]>({
+    queryKey: ['comments', slug, targetType, targetId],
+    queryFn: async () => {
+      const res = await apiFetch<{ comments: CommentItem[] }>(
+        `/api/dx/comment/list?slug=${encodeURIComponent(slug)}&target_type=${targetType}&target_id=${encodeURIComponent(targetId)}`
+      )
+      return res.comments ?? []
+    },
+    enabled: !!slug && !!targetType && !!targetId,
+  })
+
+export const useAddComment = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: { slug: string; target_type: string; target_id: string; body: string }) =>
+      apiFetch<CommentItem>('/api/dx/comment/add', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(p),
+      }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['comments', vars.slug, vars.target_type, vars.target_id] })
+    },
+  })
+}
+
+// ── revisions ─────────────────────────────────────────────────────────────────
+
+export interface RevisionItem {
+  id: number
+  target_type: string
+  target_id: string
+  field: string
+  old_val: string
+  new_val: string
+  agent: string
+  created_at: string
+}
+
+export const useRevisions = (slug: string, targetType: string, targetId: string) =>
+  useQuery<RevisionItem[]>({
+    queryKey: ['revisions', slug, targetType, targetId],
+    queryFn: async () => {
+      const res = await apiFetch<{ revisions: RevisionItem[] }>(
+        `/api/dx/revisions?slug=${encodeURIComponent(slug)}&target_type=${targetType}&target_id=${encodeURIComponent(targetId)}`
+      )
+      return res.revisions ?? []
+    },
+    enabled: !!slug && !!targetType && !!targetId,
+  })
