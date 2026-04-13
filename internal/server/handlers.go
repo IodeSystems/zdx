@@ -1841,6 +1841,8 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			s.reloadEmbedder(ctx)
+			// Bulk-index existing issues now that a new LLM config is set.
+			go s.reindexAllIssues()
 			return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{
 				Type:  cfg.Type,
 				URL:   cfg.Url,

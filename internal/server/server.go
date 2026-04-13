@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"fmt"
+	"log"
 	"net/http"
 	"os"
 	"strings"
@@ -59,6 +61,8 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 
 	// Load LLM config eagerly so embedder is ready on first request.
 	s.reloadEmbedder(ctx)
+	// Index any issues not yet in the vector store (e.g. pre-dating LLM config setup).
+	go s.reindexAllIssues()
 
 	cfg := huma.DefaultConfig("ZDX API", "1.0.0")
 	cfg.Info.Description = "zdx developer-experience platform API"
@@ -93,6 +97,8 @@ func spaPath(urlPath, staticDir string) string {
 }
 
 // reloadEmbedder re-reads the LLM config from DB and refreshes the embedder client.
+// If triggerReindex is true and a valid config is present, bulk-indexes all existing
+// issues in the background (needed after first-time LLM config, or config change).
 func (s *Server) reloadEmbedder(ctx context.Context) {
 	if !s.features.HasLLMConfig {
 		s.emb.reload(nil)
@@ -109,6 +115,40 @@ func (s *Server) reloadEmbedder(ctx context.Context) {
 		Model:  cfg.Model,
 		APIKey: cfg.ApiKey,
 	})
+}
+
+// reindexAllIssues bulk-indexes all open issues across all projects.
+// Runs in the background; logs progress and errors.
+func (s *Server) reindexAllIssues() {
+	ctx := context.Background()
+	projects, err := s.q.ListProjects(ctx)
+	if err != nil {
+		log.Printf("reindex: list projects: %v", err)
+		return
+	}
+	for _, p := range projects {
+		issues, err := s.q.ListIssues(ctx, p.ID)
+		if err != nil {
+			log.Printf("reindex: list issues for %s: %v", p.Slug, err)
+			continue
+		}
+		indexed := 0
+		for _, iss := range issues {
+			text := iss.Title
+			if text == "" {
+				text = iss.Context
+			}
+			if text == "" {
+				continue
+			}
+			issID := fmt.Sprintf("IS-%s", iss.ID)
+			s.emb.upsertIssue(ctx, p.ID, issID, text)
+			indexed++
+		}
+		if indexed > 0 {
+			log.Printf("reindex: indexed %d issues for project %s", indexed, p.Slug)
+		}
+	}
 }
 
 // findSimilarIssues embeds queryText and returns the top-n similar open issues.
