@@ -206,6 +206,15 @@ fi
 
 # ── Deploy helpers ────────────────────────────────────────────────────────────
 
+run_migrate() {
+  local slot="$1"
+  # Extract DATABASE_URL from the slot's systemd unit, then run migrate.
+  ssh "$HOST" "sudo -u $SERVICE bash -c '
+    export \$(systemctl show ${SERVICE}-${slot} --property=Environment | tr \" \" \"\n\" | grep \"^DATABASE_URL=\")
+    $REMOTE_HOME/home/versions/${slot}/dx migrate up
+  '"
+}
+
 sync_slot() {
   local slot="$1"
   rsync -az --delete --rsync-path="$RSYNC_PATH" \
@@ -271,7 +280,7 @@ if ! $NON_COMPAT; then
   sync_slot next
 
   echo "[ship] Running migrations on host..."
-  ssh "$HOST" "sudo -u $SERVICE $REMOTE_HOME/home/versions/next/dx migrate up"
+  run_migrate next
 
   ssh "$HOST" "sudo systemctl start ${SERVICE}-next"
   wait_health 7602 "next"
@@ -308,7 +317,7 @@ else
   # Ship the dx binary to next's slot first so we can invoke it.
   rsync -az --delete --rsync-path="$RSYNC_PATH" \
     "$DEPLOY_DIR/dist/" "$HOST:$REMOTE_HOME/home/versions/next/"
-  ssh "$HOST" "sudo -u $SERVICE $REMOTE_HOME/home/versions/next/dx migrate up"
+  run_migrate next
   echo "[ship] Migrations complete."
 
   # 4. Start next with new code.
