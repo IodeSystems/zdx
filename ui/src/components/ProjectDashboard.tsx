@@ -164,8 +164,8 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
               <Card key={i.id} variant="outlined">
                 <CardActionArea
                   component={Link as any}
-                  to="/project/$slug/$component/issues"
-                  params={{ slug, component: componentSlug }}
+                  to="/project/$slug/$component/issues/$id"
+                  params={{ slug, component: componentSlug, id: `IS-${i.id}` }}
                 >
                   <CardContent sx={{ py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Chip
@@ -174,7 +174,9 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
                       color={PRIORITY_COLORS[pLabel] || 'default'}
                       sx={{ minWidth: 70 }}
                     />
-                    <Typography variant="body2" sx={{ flex: 1 }}>{i.title || i.context}</Typography>
+                    <Typography variant="body2" sx={{ flex: 1 }}>
+                      IS-{i.id}: {i.title || (i.context ? i.context.slice(0, 60) + (i.context.length > 60 ? '…' : '') : '(no title)')}
+                    </Typography>
                     <Typography variant="caption" color="text.secondary">
                       {i.created_at}
                     </Typography>
