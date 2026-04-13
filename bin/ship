@@ -118,8 +118,15 @@ if ! $SKIP_BUILD; then
     go build -trimpath -ldflags="-s -w" \
     -o "$DEPLOY_DIR/dist/dx" ./cmd/dx
 
-  echo "[ship] Building UI..."
-  (cd ui && npm ci --silent --legacy-peer-deps && npm run build 2>&1 | tail -3)
+  UI_HASH=$(git ls-files ui/ | grep -v '^ui/dist/' | xargs -d'\n' sha256sum 2>/dev/null | sha256sum | cut -d' ' -f1)
+  UI_HASH_FILE="ui/dist/.build-hash"
+  if [ -f "$UI_HASH_FILE" ] && [ "$(cat "$UI_HASH_FILE")" = "$UI_HASH" ] && [ -d "ui/dist/assets" ]; then
+    echo "[ship] UI unchanged (${UI_HASH:0:8}) — skipping rebuild."
+  else
+    echo "[ship] Building UI..."
+    (cd ui && npm ci --silent --legacy-peer-deps && npm run build 2>&1 | tail -3)
+    echo "$UI_HASH" > "$UI_HASH_FILE"
+  fi
 
   mkdir -p "$DEPLOY_DIR/dist/public"
   [ -d ui/dist ] && cp -r ui/dist/* "$DEPLOY_DIR/dist/public/"
