@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict EaF4RgxrP57VfTutb5N88GgJY0Fjrj1n0r5SLStwcHpSlDLRmtuC9q5p1epNVh3
+\restrict 5t5PaenegtgtIKAntgxorZk1yGSswVNcxF5InzO3qvC1s8WhXSduCNxVJ152exZ
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
 -- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
@@ -142,6 +142,7 @@ ALTER SEQUENCE public.zdx_comments_id_seq OWNED BY public.zdx_comments.id;
 
 CREATE TABLE public.zdx_error_reports (
     id bigint NOT NULL,
+    project_id integer,
     source text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     error_name text DEFAULT ''::text NOT NULL,
@@ -648,6 +649,7 @@ ALTER SEQUENCE public.zdx_sessions_id_seq OWNED BY public.zdx_sessions.id;
 
 CREATE TABLE public.zdx_slow_queries (
     id bigint NOT NULL,
+    project_id integer,
     sql_hash text NOT NULL,
     sql_text text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
@@ -674,6 +676,17 @@ CREATE SEQUENCE public.zdx_slow_queries_id_seq
 --
 
 ALTER SEQUENCE public.zdx_slow_queries_id_seq OWNED BY public.zdx_slow_queries.id;
+
+
+--
+-- Name: zdx_spec_tests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_spec_tests (
+    spec_id integer NOT NULL,
+    test_id integer NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -844,6 +857,42 @@ CREATE SEQUENCE public.zdx_test_results_id_seq
 --
 
 ALTER SEQUENCE public.zdx_test_results_id_seq OWNED BY public.zdx_test_results.id;
+
+
+--
+-- Name: zdx_tests; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_tests (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    component text NOT NULL,
+    name text NOT NULL,
+    layer text DEFAULT 'integration'::text NOT NULL,
+    status text DEFAULT 'unknown'::text NOT NULL,
+    last_run_at timestamp with time zone,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_tests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_tests_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_tests_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_tests_id_seq OWNED BY public.zdx_tests.id;
 
 
 --
@@ -1142,6 +1191,13 @@ ALTER TABLE ONLY public.zdx_test_result_history ALTER COLUMN id SET DEFAULT next
 --
 
 ALTER TABLE ONLY public.zdx_test_results ALTER COLUMN id SET DEFAULT nextval('public.zdx_test_results_id_seq'::regclass);
+
+
+--
+-- Name: zdx_tests id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_tests ALTER COLUMN id SET DEFAULT nextval('public.zdx_tests_id_seq'::regclass);
 
 
 --
@@ -1445,6 +1501,14 @@ ALTER TABLE ONLY public.zdx_slow_queries
 
 
 --
+-- Name: zdx_spec_tests zdx_spec_tests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_tests
+    ADD CONSTRAINT zdx_spec_tests_pkey PRIMARY KEY (spec_id, test_id);
+
+
+--
 -- Name: zdx_specs zdx_specs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1506,6 +1570,22 @@ ALTER TABLE ONLY public.zdx_test_results
 
 ALTER TABLE ONLY public.zdx_test_results
     ADD CONSTRAINT zdx_test_results_project_id_driver_test_name_key UNIQUE (project_id, driver, test_name);
+
+
+--
+-- Name: zdx_tests zdx_tests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_tests
+    ADD CONSTRAINT zdx_tests_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_tests zdx_tests_project_id_component_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_tests
+    ADD CONSTRAINT zdx_tests_project_id_component_name_key UNIQUE (project_id, component, name);
 
 
 --
@@ -1636,10 +1716,38 @@ CREATE INDEX idx_slow_queries_sql_hash ON public.zdx_slow_queries USING btree (s
 
 
 --
+-- Name: idx_spec_tests_test; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_spec_tests_test ON public.zdx_spec_tests USING btree (test_id);
+
+
+--
 -- Name: idx_test_result_history_lookup; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_test_result_history_lookup ON public.zdx_test_result_history USING btree (project_id, test_name, run_at DESC);
+
+
+--
+-- Name: idx_tests_layer; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tests_layer ON public.zdx_tests USING btree (project_id, layer);
+
+
+--
+-- Name: idx_tests_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tests_project ON public.zdx_tests USING btree (project_id);
+
+
+--
+-- Name: idx_tests_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_tests_status ON public.zdx_tests USING btree (project_id, status);
 
 
 --
@@ -1664,6 +1772,14 @@ ALTER TABLE ONLY public.zdx_comment_reads
 
 ALTER TABLE ONLY public.zdx_comments
     ADD CONSTRAINT zdx_comments_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_error_reports zdx_error_reports_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_error_reports
+    ADD CONSTRAINT zdx_error_reports_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
@@ -1811,6 +1927,30 @@ ALTER TABLE ONLY public.zdx_sessions
 
 
 --
+-- Name: zdx_slow_queries zdx_slow_queries_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_slow_queries
+    ADD CONSTRAINT zdx_slow_queries_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_spec_tests zdx_spec_tests_spec_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_tests
+    ADD CONSTRAINT zdx_spec_tests_spec_id_fkey FOREIGN KEY (spec_id) REFERENCES public.zdx_specs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_spec_tests zdx_spec_tests_test_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_tests
+    ADD CONSTRAINT zdx_spec_tests_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.zdx_tests(id) ON DELETE RESTRICT;
+
+
+--
 -- Name: zdx_specs zdx_specs_feature_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1856,6 +1996,14 @@ ALTER TABLE ONLY public.zdx_test_result_history
 
 ALTER TABLE ONLY public.zdx_test_results
     ADD CONSTRAINT zdx_test_results_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_tests zdx_tests_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_tests
+    ADD CONSTRAINT zdx_tests_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
@@ -1910,5 +2058,5 @@ ALTER TABLE ONLY public.zdx_work_log
 -- PostgreSQL database dump complete
 --
 
-\unrestrict EaF4RgxrP57VfTutb5N88GgJY0Fjrj1n0r5SLStwcHpSlDLRmtuC9q5p1epNVh3
+\unrestrict 5t5PaenegtgtIKAntgxorZk1yGSswVNcxF5InzO3qvC1s8WhXSduCNxVJ152exZ
 
