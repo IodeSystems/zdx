@@ -1,22 +1,53 @@
-import { Box, Typography } from '@mui/material'
-import { useIssues } from '../api'
+import { Box, Chip, Typography } from '@mui/material'
+import { Link } from '@tanstack/react-router'
+import { useWorklog, type WorklogEntry } from '../api'
+
+function fmtDate(ts: string) {
+  return ts ? ts.slice(0, 10) : ''
+}
+
+function WorklogRow({ entry, slug, componentSlug }: { entry: WorklogEntry; slug: string; componentSlug: string }) {
+  return (
+    <Box sx={{ py: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', gap: 1, alignItems: 'flex-start' }}>
+      <Typography variant="caption" color="text.secondary" sx={{ minWidth: 72, pt: 0.25 }}>
+        {fmtDate(entry.created_at)}
+      </Typography>
+      <Link
+        to="/project/$slug/$component/issues/$id"
+        params={{ slug, component: componentSlug, id: entry.issue_id }}
+        style={{ textDecoration: 'none' }}
+      >
+        <Chip label={entry.issue_id} size="small" variant="outlined" sx={{ cursor: 'pointer' }} />
+      </Link>
+      <Box sx={{ flex: 1 }}>
+        {entry.agent && (
+          <Typography component="span" variant="caption" color="text.disabled" sx={{ mr: 1 }}>
+            [{entry.agent}]
+          </Typography>
+        )}
+        <Typography component="span" variant="body2">{entry.note}</Typography>
+      </Box>
+    </Box>
+  )
+}
 
 export function WorkLogTab({ slug, componentSlug = 'all' }: { slug: string; componentSlug?: string }) {
-  const { isLoading } = useIssues(slug)
+  const { data: entries = [], isLoading } = useWorklog(slug)
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
-  // Work entries are no longer embedded in the issue list response.
-  // TODO: fetch per-issue work via show endpoint and aggregate here.
   return (
     <Box>
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
-        0 work entries
+        {entries.length} work {entries.length === 1 ? 'entry' : 'entries'}
       </Typography>
-      <Typography variant="body2" color="text.secondary">
-        Work log not available — requires per-issue fetch (not yet implemented).
-        {componentSlug !== 'all' && ` (component=${componentSlug})`}
-      </Typography>
+      {entries.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">No work log entries.</Typography>
+      ) : (
+        entries.map((e, i) => (
+          <WorklogRow key={i} entry={e} slug={slug} componentSlug={componentSlug} />
+        ))
+      )}
     </Box>
   )
 }

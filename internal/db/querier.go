@@ -93,6 +93,7 @@ type Querier interface {
 	ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, error)
 	// Todos
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
+	ListWorklogForProject(ctx context.Context, projectID int32) ([]ZdxIssueWork, error)
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskUndone(ctx context.Context, id string) error
 	NextID(ctx context.Context, arg NextIDParams) (int32, error)

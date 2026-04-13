@@ -404,6 +404,25 @@ export const useSlowQueries = (slug: string) =>
     enabled: !!slug,
   })
 
+export interface WorklogEntry {
+  issue_id: string
+  agent: string
+  note: string
+  created_at: string
+}
+
+export const useWorklog = (slug: string) =>
+  useQuery<WorklogEntry[]>({
+    queryKey: ['worklog', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ entries: WorklogEntry[] }>(
+        `/api/dx/worklog?slug=${encodeURIComponent(slug)}`
+      )
+      return res.entries ?? []
+    },
+    enabled: !!slug,
+  })
+
 // ── solo (undocumented endpoint) ──────────────────────────────────────────────
 
 export const useSolo = (slug: string, issueFilter?: string) =>

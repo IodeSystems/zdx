@@ -711,6 +711,41 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-worklog", Method: http.MethodGet, Path: "/api/dx/worklog"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Entries []struct {
+					IssueID   string `json:"issue_id"`
+					Agent     string `json:"agent"`
+					Note      string `json:"note"`
+					CreatedAt string `json:"created_at"`
+				} `json:"entries"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListWorklogForProject(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			type entry = struct {
+				IssueID   string `json:"issue_id"`
+				Agent     string `json:"agent"`
+				Note      string `json:"note"`
+				CreatedAt string `json:"created_at"`
+			}
+			type respBody = struct {
+				Entries []entry `json:"entries"`
+			}
+			out := make([]entry, len(rows))
+			for i, r := range rows {
+				out[i] = entry{IssueID: r.IssueID, Agent: r.Agent, Note: r.Note, CreatedAt: fmtTS(r.CreatedAt)}
+			}
+			return &struct{ Body respBody }{Body: respBody{Entries: out}}, nil
+		})
+
 	// ── Tasks ────────────────────────────────────────────────────────────────
 
 	type TasksSlugOutput = struct {

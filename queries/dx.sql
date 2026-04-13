@@ -86,6 +86,14 @@ INSERT INTO zdx_issue_work (issue_id, agent, note) VALUES ($1, $2, $3);
 -- name: GetIssueWork :many
 SELECT id, issue_id, agent, note, created_at FROM zdx_issue_work WHERE issue_id = $1 ORDER BY created_at;
 
+-- name: ListWorklogForProject :many
+SELECT w.id, w.issue_id, w.agent, w.note, w.created_at
+FROM zdx_issue_work w
+JOIN zdx_issues i ON i.id = w.issue_id
+WHERE i.project_id = $1
+ORDER BY w.created_at DESC
+LIMIT 200;
+
 -- Tasks
 
 -- name: ListTasks :many

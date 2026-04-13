@@ -1906,6 +1906,41 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, er
 	return items, nil
 }
 
+const listWorklogForProject = `-- name: ListWorklogForProject :many
+SELECT w.id, w.issue_id, w.agent, w.note, w.created_at
+FROM zdx_issue_work w
+JOIN zdx_issues i ON i.id = w.issue_id
+WHERE i.project_id = $1
+ORDER BY w.created_at DESC
+LIMIT 200
+`
+
+func (q *Queries) ListWorklogForProject(ctx context.Context, projectID int32) ([]ZdxIssueWork, error) {
+	rows, err := q.db.Query(ctx, listWorklogForProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxIssueWork
+	for rows.Next() {
+		var i ZdxIssueWork
+		if err := rows.Scan(
+			&i.ID,
+			&i.IssueID,
+			&i.Agent,
+			&i.Note,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markTaskDone = `-- name: MarkTaskDone :exec
 UPDATE zdx_tasks
 SET status = 'done', test_plan = $2, test_refs = $3, completed_at = NOW()
