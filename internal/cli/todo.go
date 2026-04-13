@@ -44,6 +44,7 @@ type featureItem struct {
 	Why         string     `json:"why"`
 	DoneWhen    string     `json:"done_when"`
 	Component   string     `json:"component"`
+	Category    string     `json:"category"`
 	PlanType    string     `json:"plan_type"`
 	Specs       []specItem `json:"specs"`
 }

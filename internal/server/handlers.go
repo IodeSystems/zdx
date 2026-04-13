@@ -83,6 +83,7 @@ type FeatureItem struct {
 	Why         string      `json:"why"`
 	DoneWhen    string      `json:"done_when"`
 	Component   string      `json:"component"`
+	Category    string      `json:"category"`
 	PlanType    string      `json:"plan_type"`
 	PlanStatus  string      `json:"plan_status"`
 	HasTestRefs bool        `json:"has_test_refs"`
@@ -1926,6 +1927,7 @@ func toFeatureItem(f db.ZdxFeature, specs []db.ZdxSpec) FeatureItem {
 		Why:         f.Why,
 		DoneWhen:    f.DoneWhen,
 		Component:   f.Component,
+		Category:    f.Category,
 		Specs:       make([]SpecItem, len(specs)),
 	}
 	for i, sp := range specs {

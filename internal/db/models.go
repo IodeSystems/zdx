@@ -55,6 +55,7 @@ type ZdxFeature struct {
 	Why         string `db:"why" json:"why"`
 	DoneWhen    string `db:"done_when" json:"done_when"`
 	Component   string `db:"component" json:"component"`
+	Category    string `db:"category" json:"category"`
 }
 
 type ZdxFile struct {

@@ -4,6 +4,7 @@ import {
   Card,
   CardActionArea,
   CardContent,
+  Chip,
   Typography,
   InputAdornment,
   TextField,
@@ -32,14 +33,30 @@ export function FeaturesTab({
   const componentFiltered = component ? allFeatures.filter(f => f.component === component) : allFeatures
 
   const features = search
-    ? componentFiltered.filter(f => f.name.toLowerCase().includes(search.toLowerCase()))
+    ? componentFiltered.filter(f =>
+        f.name.toLowerCase().includes(search.toLowerCase()) ||
+        f.category.toLowerCase().includes(search.toLowerCase())
+      )
     : componentFiltered
+
+  // Group by category; uncategorized goes to '' bucket rendered last
+  const grouped = features.reduce((acc, f) => {
+    const cat = f.category || ''
+    ;(acc[cat] ||= []).push(f)
+    return acc
+  }, {} as Record<string, Feature[]>)
+
+  const cats = Object.keys(grouped).sort((a, b) => {
+    if (a === '') return 1
+    if (b === '') return -1
+    return a.localeCompare(b)
+  })
 
   return (
     <Box>
       <TextField
         size="small"
-        placeholder="Search features…"
+        placeholder="Search features or categories…"
         value={search}
         onChange={e => setSearch(e.target.value)}
         sx={{ mb: 2, width: '100%', maxWidth: 320 }}
@@ -60,15 +77,26 @@ export function FeaturesTab({
           : `${features.length} feature${features.length !== 1 ? 's' : ''}`}
       </Typography>
 
-      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-        {features.map(f => (
-          <FeatureCard key={f.id} feature={f} slug={slug} componentSlug={componentSlug} />
-        ))}
+      {cats.map(cat => (
+        <Box key={cat} sx={{ mb: 3 }}>
+          <Typography
+            variant="overline"
+            color="text.secondary"
+            sx={{ display: 'block', mb: 1, letterSpacing: 1 }}
+          >
+            {cat || 'Uncategorized'}
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {grouped[cat].map(f => (
+              <FeatureCard key={f.id} feature={f} slug={slug} componentSlug={componentSlug} />
+            ))}
+          </Box>
+        </Box>
+      ))}
 
-        {features.length === 0 && (
-          <Typography variant="body2" color="text.secondary">No features.</Typography>
-        )}
-      </Box>
+      {features.length === 0 && (
+        <Typography variant="body2" color="text.secondary">No features.</Typography>
+      )}
     </Box>
   )
 }
@@ -84,15 +112,13 @@ function FeatureCard({ feature: f, slug, componentSlug }: { feature: Feature; sl
         <CardContent sx={{ py: 1.25 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
             <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>{f.name}</Typography>
+            {f.component && (
+              <Chip label={f.component} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />
+            )}
           </Box>
           {f.description && (
             <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
               {f.description}
-            </Typography>
-          )}
-          {f.component && (
-            <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 0.25 }}>
-              {f.component}
             </Typography>
           )}
         </CardContent>

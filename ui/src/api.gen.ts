@@ -1206,6 +1206,7 @@ export interface components {
              * @example https://example.com/schemas/FeatureItem.json
              */
             readonly $schema?: string;
+            category: string;
             component: string;
             description: string;
             done_when: string;

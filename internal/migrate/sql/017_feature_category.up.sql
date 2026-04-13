@@ -1,0 +1,1 @@
+ALTER TABLE zdx_features ADD COLUMN category TEXT NOT NULL DEFAULT '';

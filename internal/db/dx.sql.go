@@ -618,7 +618,7 @@ func (q *Queries) GetCommentRead(ctx context.Context, arg GetCommentReadParams) 
 }
 
 const getFeature = `-- name: GetFeature :one
-SELECT id, project_id, name, description, what, why, done_when, component
+SELECT id, project_id, name, description, what, why, done_when, component, category
 FROM zdx_features WHERE project_id = $1 AND name = $2
 `
 
@@ -639,6 +639,7 @@ func (q *Queries) GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeat
 		&i.Why,
 		&i.DoneWhen,
 		&i.Component,
+		&i.Category,
 	)
 	return i, err
 }
@@ -1222,8 +1223,8 @@ func (q *Queries) ListErrorReports(ctx context.Context, projectID pgtype.Int4) (
 
 const listFeatures = `-- name: ListFeatures :many
 
-SELECT id, project_id, name, description, what, why, done_when, component
-FROM zdx_features WHERE project_id = $1 ORDER BY name
+SELECT id, project_id, name, description, what, why, done_when, component, category
+FROM zdx_features WHERE project_id = $1 ORDER BY category, name
 `
 
 // Features
@@ -1245,6 +1246,7 @@ func (q *Queries) ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeatu
 			&i.Why,
 			&i.DoneWhen,
 			&i.Component,
+			&i.Category,
 		); err != nil {
 			return nil, err
 		}
@@ -2064,7 +2066,8 @@ SET description = CASE WHEN $1::text = 'description' THEN $2::text ELSE descript
     what        = CASE WHEN $1::text = 'what'        THEN $2::text ELSE what        END,
     why         = CASE WHEN $1::text = 'why'         THEN $2::text ELSE why         END,
     done_when   = CASE WHEN $1::text = 'done_when'   THEN $2::text ELSE done_when   END,
-    component   = CASE WHEN $1::text = 'component'   THEN $2::text ELSE component   END
+    component   = CASE WHEN $1::text = 'component'   THEN $2::text ELSE component   END,
+    category    = CASE WHEN $1::text = 'category'    THEN $2::text ELSE category    END
 WHERE project_id = $3 AND name = $4
 `
 
@@ -2198,7 +2201,7 @@ const upsertFeature = `-- name: UpsertFeature :one
 INSERT INTO zdx_features (project_id, name, description)
 VALUES ($1, $2, $3)
 ON CONFLICT (project_id, name) DO UPDATE SET description = EXCLUDED.description
-RETURNING id, project_id, name, description, what, why, done_when, component
+RETURNING id, project_id, name, description, what, why, done_when, component, category
 `
 
 type UpsertFeatureParams struct {
@@ -2219,6 +2222,7 @@ func (q *Queries) UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (Z
 		&i.Why,
 		&i.DoneWhen,
 		&i.Component,
+		&i.Category,
 	)
 	return i, err
 }

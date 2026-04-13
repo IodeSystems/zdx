@@ -75,9 +75,14 @@ export function FeatureDetail({
         {feature.name}
       </Typography>
 
-      {feature.component && (
-        <Box sx={{ mb: 1 }}>
-          <Chip label={feature.component} size="small" variant="outlined" />
+      {(feature.category || feature.component) && (
+        <Box sx={{ mb: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+          {feature.category && (
+            <Chip label={feature.category} size="small" color="primary" variant="outlined" />
+          )}
+          {feature.component && (
+            <Chip label={feature.component} size="small" variant="outlined" />
+          )}
         </Box>
       )}
 

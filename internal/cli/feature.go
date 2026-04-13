@@ -39,7 +39,11 @@ func featureListCmd() *cobra.Command {
 				if comp == "" {
 					comp = "-"
 				}
-				fmt.Printf("%-28s [%-5s]  %s\n", f.Name, comp, f.Description)
+				cat := f.Category
+				if cat == "" {
+					cat = "-"
+				}
+				fmt.Printf("%-28s [%-5s]  %-16s  %s\n", f.Name, comp, cat, f.Description)
 			}
 			return nil
 		},
@@ -101,7 +105,7 @@ func featureShowCmd() *cobra.Command {
 }
 
 func featureSetCmd() *cobra.Command {
-	var what, why, doneWhen, component, description string
+	var what, why, doneWhen, component, description, category string
 	cmd := &cobra.Command{
 		Use:   "set <name>",
 		Short: "Set fields on a feature",
@@ -117,6 +121,7 @@ func featureSetCmd() *cobra.Command {
 				"done_when":   doneWhen,
 				"component":   component,
 				"description": description,
+				"category":    category,
 			}
 			changed := false
 			for field, value := range fields {
@@ -134,7 +139,7 @@ func featureSetCmd() *cobra.Command {
 				changed = true
 			}
 			if !changed {
-				return fmt.Errorf("no fields specified — use --what, --why, --done-when, --component, or --desc")
+				return fmt.Errorf("no fields specified — use --what, --why, --done-when, --component, --category, or --desc")
 			}
 			fmt.Printf("%s updated\n", name)
 			return nil
@@ -145,11 +150,15 @@ func featureSetCmd() *cobra.Command {
 	cmd.Flags().StringVar(&doneWhen, "done-when", "", "definition of done")
 	cmd.Flags().StringVar(&component, "component", "", "component (e.g. ui, api, cli)")
 	cmd.Flags().StringVar(&description, "desc", "", "short description")
+	cmd.Flags().StringVar(&category, "category", "", "category (e.g. Testing, Dx, UI)")
 	return cmd
 }
 
 func printFeatureItem(f featureItem) {
 	fmt.Printf("Name:      %s\n", f.Name)
+	if f.Category != "" {
+		fmt.Printf("Category:  %s\n", f.Category)
+	}
 	if f.Component != "" {
 		fmt.Printf("Component: %s\n", f.Component)
 	}
