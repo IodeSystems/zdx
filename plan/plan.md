@@ -16,7 +16,7 @@ Key conventions in the server:
 - `bin/api-types` regenerates `ui/src/api.gen.ts` from `/openapi.json`. Run
   after handler type changes, like `bin/db gen`.
 
-## 1. Auth middleware  [BLOCKER]
+## 1. Auth middleware  [DONE]
 
 Server accepts any request. Zig CLI already sends `X-Api-Key: <token>`. Need to
 validate against `zdx_api_keys` and reject with 401 if missing/invalid.
@@ -33,7 +33,7 @@ validate against `zdx_api_keys` and reject with 401 if missing/invalid.
 **Done when:** anon request to `/api/dx/todo/issue/list` returns 401;
 the Zig CLI still works end-to-end.
 
-## 2. Project endpoints  [BLOCKER for new project onboarding]
+## 2. Project endpoints  [DONE]
 
 Right now a new project has to be hand-inserted. Add:
 
@@ -45,7 +45,7 @@ Right now a new project has to be hand-inserted. Add:
 **Done when:** `curl -X POST /api/project -d '{"slug":"foo","name":"Foo"}'`
 creates a row and returns it.
 
-## 3. /api/health build_sha  [NOISE FIX]
+## 3. /api/health build_sha  [DONE]
 
 Zig CLI's `warnIfVersionMismatch` looks for `build_sha` on every invocation;
 currently prints a stray message because the field is empty.
@@ -58,7 +58,7 @@ currently prints a stray message because the field is empty.
 **Done when:** `curl /api/health` includes `build_sha`; CLI version warning
 fires only when it legitimately mismatches.
 
-## 4. Go CLI rewrite  [THIS IS THE FUTURE CLIENT]
+## 4. Go CLI rewrite  [DONE — needs ship to verify end-to-end]
 
 The Go CLI is the primary client going forward — Zig build times killed the
 Zig CLI as a daily driver. The Zig `http_adapter.zig` just needs to keep
