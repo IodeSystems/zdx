@@ -152,6 +152,39 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, er
 	return items, nil
 }
 
+const listSpecsForProject = `-- name: ListSpecsForProject :many
+SELECT s.id, s.feature_id, s.description, s.kind
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = $1
+ORDER BY s.feature_id, s.id
+`
+
+func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error) {
+	rows, err := q.db.Query(ctx, listSpecsForProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxSpec
+	for rows.Next() {
+		var i ZdxSpec
+		if err := rows.Scan(
+			&i.ID,
+			&i.FeatureID,
+			&i.Description,
+			&i.Kind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateFeatureField = `-- name: UpdateFeatureField :exec
 UPDATE zdx_features
 SET description = CASE WHEN $1::text = 'description' THEN $2::text ELSE description END,

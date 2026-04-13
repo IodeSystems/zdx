@@ -28,6 +28,13 @@ DELETE FROM zdx_features WHERE id = $1;
 -- name: ListSpecs :many
 SELECT id, feature_id, description, kind FROM zdx_specs WHERE feature_id = $1 ORDER BY id;
 
+-- name: ListSpecsForProject :many
+SELECT s.id, s.feature_id, s.description, s.kind
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = $1
+ORDER BY s.feature_id, s.id;
+
 -- name: AddSpec :one
 INSERT INTO zdx_specs (feature_id, description, kind) VALUES ($1, $2, $3)
 RETURNING id, feature_id, description, kind;

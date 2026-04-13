@@ -2100,10 +2100,15 @@ func (s *Server) featuresWithSpecs(ctx context.Context, slug string) (*struct {
 	if err != nil {
 		return nil, apiErr(500, err.Error())
 	}
+	// Fetch all specs in one query and group by feature_id.
+	allSpecs, _ := s.q.ListSpecsForProject(ctx, p.ID)
+	specsByFeature := make(map[int32][]db.ZdxSpec, len(allSpecs))
+	for _, sp := range allSpecs {
+		specsByFeature[sp.FeatureID] = append(specsByFeature[sp.FeatureID], sp)
+	}
 	out := make([]FeatureItem, len(rows))
 	for i, f := range rows {
-		specs, _ := s.q.ListSpecs(ctx, f.ID)
-		out[i] = toFeatureItem(f, specs)
+		out[i] = toFeatureItem(f, specsByFeature[f.ID])
 	}
 	return &struct{ Body struct{ Features []FeatureItem `json:"features"` } }{Body: struct{ Features []FeatureItem `json:"features"` }{Features: out}}, nil
 }

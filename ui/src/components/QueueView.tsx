@@ -10,7 +10,7 @@ const KIND_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
 export function QueueView({ slug }: { slug: string }) {
   const { data, isLoading } = useSolo(slug)
 
-  if (isLoading) return <CircularProgress size={24} />
+  if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
 
   const queue: SoloItem[] = data ?? []
   const [pick, ...rest] = queue
