@@ -16,11 +16,14 @@ type Querier interface {
 	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
+	AttachCodeRefToIssue(ctx context.Context, arg AttachCodeRefToIssueParams) error
+	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)
 	CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
+	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error)
@@ -29,6 +32,7 @@ type Querier interface {
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
+	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
@@ -36,8 +40,11 @@ type Querier interface {
 	// Call ListSpecsCoveredByTest first to surface what breaks.
 	DeleteTest(ctx context.Context, id int32) error
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
+	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
+	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
+	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
 	GetFile(ctx context.Context, id int32) (ZdxFile, error)
@@ -60,6 +67,8 @@ type Querier interface {
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
+	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
+	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)

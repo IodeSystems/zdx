@@ -17,6 +17,17 @@ type ZdxApiKey struct {
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxCodeRef struct {
+	ID        int32              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	FilePath  string             `db:"file_path" json:"file_path"`
+	GitHash   string             `db:"git_hash" json:"git_hash"`
+	LineStart int32              `db:"line_start" json:"line_start"`
+	LineEnd   int32              `db:"line_end" json:"line_end"`
+	Note      string             `db:"note" json:"note"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxComment struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`
@@ -99,6 +110,11 @@ type ZdxIssue struct {
 type ZdxIssueBlock struct {
 	IssueID     string `db:"issue_id" json:"issue_id"`
 	BlockedByID string `db:"blocked_by_id" json:"blocked_by_id"`
+}
+
+type ZdxIssueCodeRef struct {
+	IssueID   string `db:"issue_id" json:"issue_id"`
+	CodeRefID int32  `db:"code_ref_id" json:"code_ref_id"`
 }
 
 type ZdxIssueFeature struct {
@@ -273,6 +289,11 @@ type ZdxTask struct {
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+}
+
+type ZdxTaskCodeRef struct {
+	TaskID    string `db:"task_id" json:"task_id"`
+	CodeRefID int32  `db:"code_ref_id" json:"code_ref_id"`
 }
 
 type ZdxTest struct {

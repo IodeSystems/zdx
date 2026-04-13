@@ -1,8 +1,9 @@
 import { Link, useRouter } from '@tanstack/react-router'
 import { Box, Button, Chip, Typography } from '@mui/material'
 import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
-import { useTasks, useUpdateTaskStatus } from '../api'
+import { useTasks, useUpdateTaskStatus, useTaskCodeRefs } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { CodeRefs } from './CodeRefs'
 
 const STATUS_COLORS: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
   done: 'success',
@@ -19,6 +20,7 @@ export function TaskDetail({
   taskId: string
 }) {
   const { data, isLoading } = useTasks(slug)
+  const { data: codeRefs } = useTaskCodeRefs(slug, taskId)
   const updateStatus = useUpdateTaskStatus()
   const router = useRouter()
 
@@ -219,6 +221,8 @@ export function TaskDetail({
           Completed: {task.completed_at}
         </Typography>
       )}
+
+      <CodeRefs refs={codeRefs ?? []} />
 
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
         Created: {task.created_at}

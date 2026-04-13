@@ -16,10 +16,12 @@ import {
   useIssue,
   useTasks,
   useCloseIssue,
+  useIssueCodeRefs,
   type IssueWorkItem,
   type TaskItem,
 } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { CodeRefs } from './CodeRefs'
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -58,6 +60,7 @@ export function IssueDetail({
 }) {
   const { data, isLoading } = useIssue(slug, issueId)
   const { data: allTasks } = useTasks(slug, { issue: issueId })
+  const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
   const closeIssue = useCloseIssue()
   const router = useRouter()
   const [closeOpen, setCloseOpen] = useState(false)
@@ -196,6 +199,8 @@ export function IssueDetail({
           </Box>
         </Box>
       )}
+
+      <CodeRefs refs={codeRefs ?? []} />
 
       {workEntries.length > 0 && (
         <Box sx={{ mb: 3 }}>

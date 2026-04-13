@@ -504,3 +504,39 @@ export const useSearchIssues = (slug: string, q: string, enabled: boolean) =>
     enabled: enabled && !!slug && q.length > 1,
     staleTime: 10_000,
   })
+
+// ── Code refs ─────────────────────────────────────────────────────────────────
+
+export interface CodeRefItem {
+  id: number
+  file_path: string
+  git_hash: string
+  line_start: number
+  line_end: number
+  note: string
+  created_at: string
+}
+
+export const useIssueCodeRefs = (slug: string, issueId: string) =>
+  useQuery<CodeRefItem[]>({
+    queryKey: ['code-refs', 'issue', slug, issueId],
+    queryFn: async () => {
+      const res = await apiFetch<{ refs: CodeRefItem[] }>(
+        `/api/dx/code-refs/issue?slug=${encodeURIComponent(slug)}&issue_id=${encodeURIComponent(issueId)}`
+      )
+      return res.refs ?? []
+    },
+    enabled: !!slug && !!issueId,
+  })
+
+export const useTaskCodeRefs = (slug: string, taskId: string) =>
+  useQuery<CodeRefItem[]>({
+    queryKey: ['code-refs', 'task', slug, taskId],
+    queryFn: async () => {
+      const res = await apiFetch<{ refs: CodeRefItem[] }>(
+        `/api/dx/code-refs/task?slug=${encodeURIComponent(slug)}&task_id=${encodeURIComponent(taskId)}`
+      )
+      return res.refs ?? []
+    },
+    enabled: !!slug && !!taskId,
+  })
