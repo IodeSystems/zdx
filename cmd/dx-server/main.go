@@ -42,6 +42,14 @@ func main() {
 
 	staticDir := os.Getenv("STATIC_DIR")
 	srv := server.New(pool, staticDir, buildSHA)
+
+	// In dev (no buildSHA injected), check if the OpenAPI spec changed and
+	// regenerate ui/src/api.gen.ts if so. Fatal on tsc failure.
+	if buildSHA == "" {
+		projectRoot, _ := os.Getwd()
+		srv.DevCheckClient(projectRoot)
+	}
+
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("dx-server listening on %s", addr)
 	if err := http.ListenAndServe(addr, srv); err != nil {

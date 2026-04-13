@@ -15,3 +15,4 @@ schema/compat-result.txt
 .claude/projects/
 .claude/scheduled_tasks.lock
 ui/tsconfig.tsbuildinfo
+ui/src/api.gen.ts.sha256

@@ -18,6 +18,7 @@ type Server struct {
 	q        *db.Queries
 	mux      *chi.Mux
 	buildSHA string
+	api      huma.API
 }
 
 func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
@@ -27,9 +28,9 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 	cfg.Info.Description = "zdx developer-experience platform API"
 
 	s.mux.Use(s.apiKeyMiddleware)
-	api := humachi.New(s.mux, cfg)
+	s.api = humachi.New(s.mux, cfg)
 
-	s.registerRoutes(api)
+	s.registerRoutes(s.api)
 
 	// SPA fallback: anything not under /api/ or /openapi* serves static files.
 	if staticDir != "" {
