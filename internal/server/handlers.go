@@ -12,6 +12,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
+	"golang.org/x/crypto/bcrypt"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
@@ -210,6 +211,122 @@ func (s *Server) registerRoutes(api huma.API) {
 				Token string `json:"token"`
 				Email string `json:"email"`
 			}{Token: token, Email: user.Email}}, nil
+		})
+
+	// ── Auth (unauthenticated) ────────────────────────────────────────────────
+
+	type MeItem struct {
+		ID    int32  `json:"id"`
+		Email string `json:"email"`
+		Name  string `json:"name"`
+		Role  string `json:"role"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "auth-register", Method: http.MethodPost, Path: "/api/auth/register"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Email      string `json:"email"`
+				Name       string `json:"name"`
+				Password   string `json:"password"`
+				InviteCode string `json:"invite_code"`
+			}
+		}) (*struct {
+			Body struct {
+				Token string `json:"token"`
+				Email string `json:"email"`
+				Role  string `json:"role"`
+			}
+		}, error) {
+			role, err := s.q.GetApiKeyUserRole(ctx, in.Body.InviteCode)
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "invalid invite code")
+			}
+			hash, err := bcrypt.GenerateFromPassword([]byte(in.Body.Password), bcrypt.DefaultCost)
+			if err != nil {
+				return nil, apiErr(500, "hash password: "+err.Error())
+			}
+			user, err := s.q.CreateUserWithPassword(ctx, db.CreateUserWithPasswordParams{
+				Email:        in.Body.Email,
+				Name:         in.Body.Name,
+				PasswordHash: string(hash),
+				Role:         role,
+			})
+			if err != nil {
+				return nil, apiErr(409, "email already registered")
+			}
+			var raw [32]byte
+			if _, err := rand.Read(raw[:]); err != nil {
+				return nil, apiErr(500, "generate token: "+err.Error())
+			}
+			token := hex.EncodeToString(raw[:])
+			if _, err := s.q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: "web"}); err != nil {
+				return nil, apiErr(500, "create api key: "+err.Error())
+			}
+			return &struct {
+				Body struct {
+					Token string `json:"token"`
+					Email string `json:"email"`
+					Role  string `json:"role"`
+				}
+			}{Body: struct {
+				Token string `json:"token"`
+				Email string `json:"email"`
+				Role  string `json:"role"`
+			}{Token: token, Email: user.Email, Role: user.Role}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "auth-login", Method: http.MethodPost, Path: "/api/auth/login"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Email    string `json:"email"`
+				Password string `json:"password"`
+			}
+		}) (*struct {
+			Body struct {
+				Token string `json:"token"`
+				Email string `json:"email"`
+				Role  string `json:"role"`
+			}
+		}, error) {
+			user, err := s.q.GetUserByEmail(ctx, in.Body.Email)
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "invalid credentials")
+			}
+			if err := bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(in.Body.Password)); err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "invalid credentials")
+			}
+			var raw [32]byte
+			if _, err := rand.Read(raw[:]); err != nil {
+				return nil, apiErr(500, "generate token: "+err.Error())
+			}
+			token := hex.EncodeToString(raw[:])
+			if _, err := s.q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: "web"}); err != nil {
+				return nil, apiErr(500, "create api key: "+err.Error())
+			}
+			return &struct {
+				Body struct {
+					Token string `json:"token"`
+					Email string `json:"email"`
+					Role  string `json:"role"`
+				}
+			}{Body: struct {
+				Token string `json:"token"`
+				Email string `json:"email"`
+				Role  string `json:"role"`
+			}{Token: token, Email: user.Email, Role: user.Role}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "get-me", Method: http.MethodGet, Path: "/api/me"},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body MeItem }, error) {
+			uid := ctxUserIDVal(ctx)
+			if uid == 0 {
+				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
+			}
+			user, err := s.q.GetUserByID(ctx, uid)
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "user not found")
+			}
+			return &struct{ Body MeItem }{Body: MeItem{ID: user.ID, Email: user.Email, Name: user.Name, Role: user.Role}}, nil
 		})
 
 	// ── Projects ─────────────────────────────────────────────────────────────

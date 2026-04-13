@@ -21,10 +21,12 @@ type Querier interface {
 	CreateTheme(ctx context.Context, arg CreateThemeParams) (ZdxTheme, error)
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
+	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
+	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
@@ -35,6 +37,8 @@ type Querier interface {
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetThemeByID(ctx context.Context, arg GetThemeByIDParams) (ZdxTheme, error)
 	GetThemeByName(ctx context.Context, arg GetThemeByNameParams) (ZdxTheme, error)
+	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
+	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
 	// Journal
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error

@@ -101,7 +101,10 @@ var maintenancePage = []byte(`<!doctype html>
 
 type contextKey int
 
-const ctxAPIKeyID contextKey = 1
+const (
+	ctxAPIKeyID contextKey = 1
+	ctxUserID   contextKey = 2
+)
 
 // apiKeyMiddleware validates X-Api-Key on /api/* requests, except health, openapi, and setup/bootstrap.
 // Non-/api/ paths (SPA, static assets) pass through without auth.
@@ -110,7 +113,7 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 		path := r.URL.Path
 		if !strings.HasPrefix(path, "/api/") ||
 			(r.Method == http.MethodGet && (path == "/api/health" || strings.HasPrefix(path, "/openapi"))) ||
-			(r.Method == http.MethodPost && path == "/api/setup/bootstrap") {
+			(r.Method == http.MethodPost && (path == "/api/setup/bootstrap" || path == "/api/auth/login" || path == "/api/auth/register")) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -126,7 +129,9 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 		}
 		// Fire-and-forget last_used_at update; don't block the request.
 		go func() { _ = s.q.TouchApiKey(context.Background(), key.ID) }()
-		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxAPIKeyID, key.ID)))
+		ctx := context.WithValue(r.Context(), ctxAPIKeyID, key.ID)
+		ctx = context.WithValue(ctx, ctxUserID, key.UserID)
+		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }
 
@@ -134,6 +139,11 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 
 func apiErr(status int, msg string) huma.StatusError {
 	return huma.NewError(status, msg)
+}
+
+func ctxUserIDVal(ctx context.Context) int32 {
+	v, _ := ctx.Value(ctxUserID).(int32)
+	return v
 }
 
 func getProject(ctx context.Context, q *db.Queries, slug string) (db.ZdxProject, error) {

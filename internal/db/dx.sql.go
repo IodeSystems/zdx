@@ -321,6 +321,45 @@ func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateU
 	return i, err
 }
 
+const createUserWithPassword = `-- name: CreateUserWithPassword :one
+INSERT INTO zdx_users (email, name, password_hash, role)
+VALUES ($1, $2, $3, $4)
+RETURNING id, email, name, role, created_at
+`
+
+type CreateUserWithPasswordParams struct {
+	Email        string `db:"email" json:"email"`
+	Name         string `db:"name" json:"name"`
+	PasswordHash string `db:"password_hash" json:"password_hash"`
+	Role         string `db:"role" json:"role"`
+}
+
+type CreateUserWithPasswordRow struct {
+	ID        int32              `db:"id" json:"id"`
+	Email     string             `db:"email" json:"email"`
+	Name      string             `db:"name" json:"name"`
+	Role      string             `db:"role" json:"role"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error) {
+	row := q.db.QueryRow(ctx, createUserWithPassword,
+		arg.Email,
+		arg.Name,
+		arg.PasswordHash,
+		arg.Role,
+	)
+	var i CreateUserWithPasswordRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const deleteFeature = `-- name: DeleteFeature :exec
 DELETE FROM zdx_features WHERE id = $1
 `
@@ -365,6 +404,17 @@ func (q *Queries) GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getApiKeyUserRole = `-- name: GetApiKeyUserRole :one
+SELECT u.role FROM zdx_api_keys k JOIN zdx_users u ON u.id = k.user_id WHERE k.token = $1
+`
+
+func (q *Queries) GetApiKeyUserRole(ctx context.Context, token string) (string, error) {
+	row := q.db.QueryRow(ctx, getApiKeyUserRole, token)
+	var role string
+	err := row.Scan(&role)
+	return role, err
 }
 
 const getFeature = `-- name: GetFeature :one
@@ -579,6 +629,49 @@ func (q *Queries) GetThemeByName(ctx context.Context, arg GetThemeByNameParams) 
 		&i.Description,
 		&i.Priority,
 		&i.Status,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getUserByEmail = `-- name: GetUserByEmail :one
+SELECT id, email, name, password_hash, role, created_at FROM zdx_users WHERE email = $1
+`
+
+func (q *Queries) GetUserByEmail(ctx context.Context, email string) (ZdxUser, error) {
+	row := q.db.QueryRow(ctx, getUserByEmail, email)
+	var i ZdxUser
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.PasswordHash,
+		&i.Role,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getUserByID = `-- name: GetUserByID :one
+SELECT id, email, name, role, created_at FROM zdx_users WHERE id = $1
+`
+
+type GetUserByIDRow struct {
+	ID        int32              `db:"id" json:"id"`
+	Email     string             `db:"email" json:"email"`
+	Name      string             `db:"name" json:"name"`
+	Role      string             `db:"role" json:"role"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error) {
+	row := q.db.QueryRow(ctx, getUserByID, id)
+	var i GetUserByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
 		&i.CreatedAt,
 	)
 	return i, err

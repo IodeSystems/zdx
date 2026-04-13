@@ -47,22 +47,105 @@ import type {
 } from './generated-types'
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
-import { client } from './client'
+import { client, getToken, setToken, clearToken } from './client'
+export { getToken, setToken, clearToken }
 import type { components } from '../api.gen'
 
 // Re-export new generated types for incremental migration
 export type { components }
 export type IssueItem = components['schemas']['IssueItem']
 
+export type MeItem = { id: number; email: string; name: string; role: string }
+
 // ── fetch utility ─────────────────────────────────────────────────────────────
 
 export async function apiFetch<T = unknown>(url: string, init?: RequestInit): Promise<T> {
-  const res = await fetch(url, init)
+  const token = getToken()
+  const headers = new Headers(init?.headers)
+  if (token) headers.set('X-Api-Key', token)
+  const res = await fetch(url, { ...init, headers })
   if (!res.ok) {
     const text = await res.text().catch(() => res.statusText)
     throw new Error(`${res.status} ${text}`)
   }
   return res.json() as Promise<T>
+}
+
+// ── auth ──────────────────────────────────────────────────────────────────────
+
+export const useMe = () =>
+  useQuery<MeItem | null>({
+    queryKey: ['me'],
+    queryFn: async () => {
+      if (!getToken()) return null
+      const res = await fetch('/api/me', { headers: { 'X-Api-Key': getToken()! } })
+      if (!res.ok) return null
+      return res.json() as Promise<MeItem>
+    },
+    retry: false,
+    staleTime: 60_000,
+  })
+
+export const useLogin = () => {
+  const qc = useQueryClient()
+  return useMutation<{ token: string; email: string; role: string }, Error, { email: string; password: string }>({
+    mutationFn: async (body) => {
+      const res = await fetch('/api/auth/login', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).title ?? 'Login failed')
+      return res.json()
+    },
+    onSuccess: ({ token }) => {
+      setToken(token)
+      qc.invalidateQueries({ queryKey: ['me'] })
+    },
+  })
+}
+
+export const useRegister = () => {
+  const qc = useQueryClient()
+  return useMutation<{ token: string; email: string; role: string }, Error, { email: string; name: string; password: string; invite_code: string }>({
+    mutationFn: async (body) => {
+      const res = await fetch('/api/auth/register', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).title ?? 'Registration failed')
+      return res.json()
+    },
+    onSuccess: ({ token }) => {
+      setToken(token)
+      qc.invalidateQueries({ queryKey: ['me'] })
+    },
+  })
+}
+
+export const useTokenLogin = () => {
+  const qc = useQueryClient()
+  return useMutation<MeItem, Error, string>({
+    mutationFn: async (token) => {
+      const res = await fetch('/api/me', { headers: { 'X-Api-Key': token } })
+      if (!res.ok) throw new Error('Invalid token')
+      return res.json()
+    },
+    onSuccess: (_, token) => {
+      setToken(token)
+      qc.invalidateQueries({ queryKey: ['me'] })
+    },
+  })
+}
+
+export const useLogout = () => {
+  const qc = useQueryClient()
+  return () => {
+    clearToken()
+    qc.setQueryData(['me'], null)
+    qc.clear()
+  }
 }
 
 const json = (body: unknown) => ({

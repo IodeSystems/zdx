@@ -2,6 +2,7 @@ import { createRootRoute, Outlet, Link, useNavigate, useMatches } from '@tanstac
 import {
   AppBar,
   Box,
+  Button,
   CssBaseline,
   Drawer,
   IconButton,
@@ -25,8 +26,9 @@ import MenuIcon from '@mui/icons-material/Menu'
 import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useProjects } from '../api'
+import { useProjects, useMe, useLogout } from '../api'
 import { ErrorBoundary } from '../components/ErrorBoundary'
+import { AuthPage } from '../components/AuthPage'
 import { useState, type FormEvent } from 'react'
 
 const queryClient = new QueryClient()
@@ -228,6 +230,7 @@ function AppShell() {
           <ProjectLabel />
           <Omnibox />
           <Box sx={{ flexGrow: 1 }} />
+          <LogoutButton />
         </Toolbar>
       </AppBar>
 
@@ -278,12 +281,32 @@ function AppShell() {
   )
 }
 
+function LogoutButton() {
+  const { data: me } = useMe()
+  const logout = useLogout()
+  if (!me) return null
+  return (
+    <Button color="inherit" size="small" onClick={logout} sx={{ ml: 1, opacity: 0.8 }}>
+      Sign out
+    </Button>
+  )
+}
+
+function AuthGate({ children }: { children: React.ReactNode }) {
+  const { data: me, isLoading } = useMe()
+  if (isLoading) return null
+  if (!me) return <AuthPage />
+  return <>{children}</>
+}
+
 function RootLayout() {
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
-        <AppShell />
+        <AuthGate>
+          <AppShell />
+        </AuthGate>
       </QueryClientProvider>
     </ThemeProvider>
   )
