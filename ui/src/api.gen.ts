@@ -36,6 +36,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-config"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/errors": {
         parameters: {
             query?: never;
@@ -676,22 +692,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["get-config"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/health": {
         parameters: {
             query?: never;
@@ -866,7 +866,8 @@ export interface components {
             blocked_by?: string;
             component?: string;
             context?: string;
-            screenshot_ids?: number[];
+            issue_type?: string;
+            screenshot_ids?: number[] | null;
             slug: string;
             source?: string;
             title?: string;
@@ -1126,6 +1127,15 @@ export interface components {
             specs: components["schemas"]["SpecItem"][] | null;
             what: string;
             why: string;
+        };
+        "Get-configResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Get-configResponse.json
+             */
+            readonly $schema?: string;
+            zdx_project_slug: string;
         };
         "Get-stateResponse": {
             /**
@@ -1625,9 +1635,11 @@ export interface components {
             readonly $schema?: string;
             /** Format: int32 */
             id: number;
+            issue_type?: string;
             /** Format: int32 */
             priority: number;
             slug: string;
+            title?: string;
         };
         "Unblock-taskRequest": {
             /**
@@ -1766,6 +1778,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Auth-registerResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Get-configResponse"];
                 };
             };
             /** @description Error */
@@ -3172,26 +3213,6 @@ export interface operations {
                 };
                 content: {
                     "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "get-config": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: { [name: string]: unknown };
-                content: {
-                    "application/json": {
-                        zdx_project_slug: string;
-                    };
                 };
             };
         };
