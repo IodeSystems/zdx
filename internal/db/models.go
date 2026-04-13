@@ -38,6 +38,7 @@ type ZdxCommentRead struct {
 
 type ZdxErrorReport struct {
 	ID         int64              `db:"id" json:"id"`
+	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
 	Source     string             `db:"source" json:"source"`
 	Endpoint   string             `db:"endpoint" json:"endpoint"`
 	ErrorName  string             `db:"error_name" json:"error_name"`
@@ -195,6 +196,7 @@ type ZdxSession struct {
 
 type ZdxSlowQuery struct {
 	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
 	SqlHash     string             `db:"sql_hash" json:"sql_hash"`
 	SqlText     string             `db:"sql_text" json:"sql_text"`
 	Endpoint    string             `db:"endpoint" json:"endpoint"`
@@ -208,6 +210,12 @@ type ZdxSpec struct {
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	Description string `db:"description" json:"description"`
 	Kind        string `db:"kind" json:"kind"`
+}
+
+type ZdxSpecTest struct {
+	SpecID    int32              `db:"spec_id" json:"spec_id"`
+	TestID    int32              `db:"test_id" json:"test_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type ZdxSprint struct {
@@ -239,6 +247,17 @@ type ZdxTask struct {
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+}
+
+type ZdxTest struct {
+	ID        int32              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	Component string             `db:"component" json:"component"`
+	Name      string             `db:"name" json:"name"`
+	Layer     string             `db:"layer" json:"layer"`
+	Status    string             `db:"status" json:"status"`
+	LastRunAt pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type ZdxTestResult struct {

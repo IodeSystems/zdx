@@ -10,7 +10,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import ArrowBackIcon from '@mui/icons-material/ArrowBack'
+import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
 import { useState } from 'react'
 import {
   useIssue,

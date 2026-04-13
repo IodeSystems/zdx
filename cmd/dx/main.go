@@ -20,6 +20,9 @@ func main() {
 	root.AddCommand(
 		cli.TodoCmd(),
 		cli.IssueCmd(),
+		cli.FeatureCmd(),
+		cli.ThemeCmd(),
+		cli.SpecCmd(),
 		cli.BuildCmd(),
 		cli.TestCmd(),
 		cli.LintCmd(),
@@ -30,7 +33,9 @@ func main() {
 		cli.InitCmd(),
 		cli.SetupCmd(),
 		cli.DaemonCmd(),
+		cli.ServeCmd(),
 		cli.MigrateCmd(),
+		cli.ErrorsCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

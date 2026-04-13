@@ -279,3 +279,80 @@ SET status = EXCLUDED.status, duration_ms = EXCLUDED.duration_ms, run_at = NOW()
 -- name: InsertTestResultHistory :exec
 INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, status, duration_ms)
 VALUES (@project_id, @driver, @test_name, @feature, @status, @duration_ms);
+
+-- Tests (primary registry)
+
+-- name: UpsertTest :one
+INSERT INTO zdx_tests (project_id, component, name, layer, status, last_run_at)
+VALUES (@project_id, @component, @name, @layer, @status, NOW())
+ON CONFLICT (project_id, component, name) DO UPDATE
+SET layer       = EXCLUDED.layer,
+    status      = EXCLUDED.status,
+    last_run_at = NOW()
+RETURNING id, project_id, component, name, layer, status, last_run_at, created_at;
+
+-- name: GetTest :one
+SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+FROM zdx_tests WHERE project_id = @project_id AND component = @component AND name = @name;
+
+-- name: ListTests :many
+SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+FROM zdx_tests WHERE project_id = $1 ORDER BY component, name;
+
+-- name: ListTestsByLayer :many
+SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+FROM zdx_tests WHERE project_id = $1 AND layer = $2 ORDER BY component, name;
+
+-- name: ListTestsForSpec :many
+SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.last_run_at, t.created_at
+FROM zdx_tests t
+JOIN zdx_spec_tests st ON st.test_id = t.id
+WHERE st.spec_id = $1 ORDER BY t.component, t.name;
+
+-- name: ListSpecsCoveredByTest :many
+-- Used to show what breaks if a test is deleted.
+SELECT s.id, s.feature_id, s.description, s.kind
+FROM zdx_specs s
+JOIN zdx_spec_tests st ON st.spec_id = s.id
+WHERE st.test_id = $1 ORDER BY s.id;
+
+-- name: LinkSpecTest :exec
+INSERT INTO zdx_spec_tests (spec_id, test_id)
+VALUES (@spec_id, @test_id)
+ON CONFLICT DO NOTHING;
+
+-- name: UnlinkSpecTest :exec
+DELETE FROM zdx_spec_tests WHERE spec_id = @spec_id AND test_id = @test_id;
+
+-- name: DeleteTest :exec
+-- Will fail at the DB level (RESTRICT) if spec_tests rows reference this test.
+-- Call ListSpecsCoveredByTest first to surface what breaks.
+DELETE FROM zdx_tests WHERE id = $1;
+
+-- Error reports
+
+-- name: InsertErrorReport :one
+INSERT INTO zdx_error_reports (project_id, source, endpoint, error_name, stack_trace)
+VALUES (@project_id, @source, @endpoint, @error_name, @stack_trace)
+RETURNING id, project_id, source, endpoint, error_name, stack_trace, created_at;
+
+-- name: ListErrorReports :many
+SELECT id, project_id, source, endpoint, error_name, stack_trace, created_at
+FROM zdx_error_reports
+WHERE project_id = $1
+ORDER BY created_at DESC
+LIMIT 200;
+
+-- Slow queries
+
+-- name: InsertSlowQuery :one
+INSERT INTO zdx_slow_queries (project_id, sql_hash, sql_text, endpoint, duration_ms, explain_json)
+VALUES (@project_id, @sql_hash, @sql_text, @endpoint, @duration_ms, @explain_json)
+RETURNING id, project_id, sql_hash, sql_text, endpoint, duration_ms, explain_json, created_at;
+
+-- name: ListSlowQueries :many
+SELECT id, project_id, sql_hash, sql_text, endpoint, duration_ms, explain_json, created_at
+FROM zdx_slow_queries
+WHERE project_id = $1
+ORDER BY duration_ms DESC
+LIMIT 200;

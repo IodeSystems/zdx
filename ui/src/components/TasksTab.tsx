@@ -1,6 +1,6 @@
 import { Link } from '@tanstack/react-router'
 import { Box, Chip, InputAdornment, Stack, TextField, Typography } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
+import { Search as SearchIcon } from '@mui/icons-material'
 import { useTasks, type TaskItem } from '../api'
 
 type Task = TaskItem

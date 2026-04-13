@@ -1,5 +1,6 @@
 CREATE TABLE zdx_error_reports (
     id          BIGSERIAL PRIMARY KEY,
+    project_id  INT REFERENCES zdx_projects(id) ON DELETE CASCADE,
     source      TEXT NOT NULL,
     endpoint    TEXT NOT NULL DEFAULT '',
     error_name  TEXT NOT NULL DEFAULT '',
@@ -12,6 +13,7 @@ CREATE INDEX idx_error_reports_source     ON zdx_error_reports (source);
 
 CREATE TABLE zdx_slow_queries (
     id           BIGSERIAL PRIMARY KEY,
+    project_id   INT REFERENCES zdx_projects(id) ON DELETE CASCADE,
     sql_hash     TEXT NOT NULL,
     sql_text     TEXT NOT NULL,
     endpoint     TEXT NOT NULL DEFAULT '',

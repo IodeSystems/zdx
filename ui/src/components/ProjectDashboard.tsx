@@ -7,9 +7,7 @@ import {
   Chip,
   Typography,
 } from '@mui/material'
-import ExtensionIcon from '@mui/icons-material/Extension'
-import TaskAltIcon from '@mui/icons-material/TaskAlt'
-import BugReportIcon from '@mui/icons-material/BugReport'
+import { Extension as ExtensionIcon, TaskAlt as TaskAltIcon, BugReport as BugReportIcon } from '@mui/icons-material'
 import { useFeatures, useTasks, useIssues, type IssueItem } from '../api'
 
 type Issue = IssueItem

@@ -6,6 +6,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 type Querier interface {
@@ -24,6 +26,9 @@ type Querier interface {
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
+	// Will fail at the DB level (RESTRICT) if spec_tests rows reference this test.
+	// Call ListSpecsCoveredByTest first to surface what breaks.
+	DeleteTest(ctx context.Context, id int32) error
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
@@ -35,13 +40,20 @@ type Querier interface {
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
 	// State
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
+	GetTest(ctx context.Context, arg GetTestParams) (ZdxTest, error)
 	GetThemeByID(ctx context.Context, arg GetThemeByIDParams) (ZdxTheme, error)
 	GetThemeByName(ctx context.Context, arg GetThemeByNameParams) (ZdxTheme, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
+	// Error reports
+	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
 	// Journal
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error)
+	// Slow queries
+	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
+	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
+	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	// Features
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)
 	// Issues
@@ -50,12 +62,18 @@ type Querier interface {
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	// Projects
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
+	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	// Specs
 	ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error)
+	// Used to show what breaks if a test is deleted.
+	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ZdxSpec, error)
 	// Tasks
 	ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ZdxTask, error)
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ZdxTask, error)
+	ListTests(ctx context.Context, projectID int32) ([]ZdxTest, error)
+	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ZdxTest, error)
+	ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest, error)
 	// Themes
 	ListThemes(ctx context.Context, projectID int32) ([]ListThemesRow, error)
 	// Todos
@@ -69,6 +87,7 @@ type Querier interface {
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
 	TouchApiKey(ctx context.Context, id int32) error
+	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
 	UpdateFeatureField(ctx context.Context, arg UpdateFeatureFieldParams) error
 	UpdateIssue(ctx context.Context, arg UpdateIssueParams) error
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
@@ -77,6 +96,8 @@ type Querier interface {
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (ZdxFeature, error)
 	// Plans
 	UpsertPlan(ctx context.Context, arg UpsertPlanParams) (ZdxPlan, error)
+	// Tests (primary registry)
+	UpsertTest(ctx context.Context, arg UpsertTestParams) (ZdxTest, error)
 	// Test Results
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error
 }

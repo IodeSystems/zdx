@@ -378,6 +378,17 @@ func (q *Queries) DeleteTask(ctx context.Context, id string) error {
 	return err
 }
 
+const deleteTest = `-- name: DeleteTest :exec
+DELETE FROM zdx_tests WHERE id = $1
+`
+
+// Will fail at the DB level (RESTRICT) if spec_tests rows reference this test.
+// Call ListSpecsCoveredByTest first to surface what breaks.
+func (q *Queries) DeleteTest(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteTest, id)
+	return err
+}
+
 const deleteTodosForProject = `-- name: DeleteTodosForProject :exec
 DELETE FROM zdx_todos WHERE project_id = $1
 `
@@ -584,6 +595,33 @@ func (q *Queries) GetState(ctx context.Context, arg GetStateParams) (string, err
 	return value, err
 }
 
+const getTest = `-- name: GetTest :one
+SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+FROM zdx_tests WHERE project_id = $1 AND component = $2 AND name = $3
+`
+
+type GetTestParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Component string `db:"component" json:"component"`
+	Name      string `db:"name" json:"name"`
+}
+
+func (q *Queries) GetTest(ctx context.Context, arg GetTestParams) (ZdxTest, error) {
+	row := q.db.QueryRow(ctx, getTest, arg.ProjectID, arg.Component, arg.Name)
+	var i ZdxTest
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Component,
+		&i.Name,
+		&i.Layer,
+		&i.Status,
+		&i.LastRunAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getThemeByID = `-- name: GetThemeByID :one
 SELECT id, project_id, name, description, priority, status, created_at
 FROM zdx_themes WHERE project_id = $1 AND id = $2
@@ -677,6 +715,43 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, er
 	return i, err
 }
 
+const insertErrorReport = `-- name: InsertErrorReport :one
+
+INSERT INTO zdx_error_reports (project_id, source, endpoint, error_name, stack_trace)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, project_id, source, endpoint, error_name, stack_trace, created_at
+`
+
+type InsertErrorReportParams struct {
+	ProjectID  pgtype.Int4 `db:"project_id" json:"project_id"`
+	Source     string      `db:"source" json:"source"`
+	Endpoint   string      `db:"endpoint" json:"endpoint"`
+	ErrorName  string      `db:"error_name" json:"error_name"`
+	StackTrace string      `db:"stack_trace" json:"stack_trace"`
+}
+
+// Error reports
+func (q *Queries) InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error) {
+	row := q.db.QueryRow(ctx, insertErrorReport,
+		arg.ProjectID,
+		arg.Source,
+		arg.Endpoint,
+		arg.ErrorName,
+		arg.StackTrace,
+	)
+	var i ZdxErrorReport
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Source,
+		&i.Endpoint,
+		&i.ErrorName,
+		&i.StackTrace,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertJournalEntry = `-- name: InsertJournalEntry :one
 
 INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next)
@@ -723,6 +798,46 @@ func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntry
 	return i, err
 }
 
+const insertSlowQuery = `-- name: InsertSlowQuery :one
+
+INSERT INTO zdx_slow_queries (project_id, sql_hash, sql_text, endpoint, duration_ms, explain_json)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, project_id, sql_hash, sql_text, endpoint, duration_ms, explain_json, created_at
+`
+
+type InsertSlowQueryParams struct {
+	ProjectID   pgtype.Int4 `db:"project_id" json:"project_id"`
+	SqlHash     string      `db:"sql_hash" json:"sql_hash"`
+	SqlText     string      `db:"sql_text" json:"sql_text"`
+	Endpoint    string      `db:"endpoint" json:"endpoint"`
+	DurationMs  int32       `db:"duration_ms" json:"duration_ms"`
+	ExplainJson string      `db:"explain_json" json:"explain_json"`
+}
+
+// Slow queries
+func (q *Queries) InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error) {
+	row := q.db.QueryRow(ctx, insertSlowQuery,
+		arg.ProjectID,
+		arg.SqlHash,
+		arg.SqlText,
+		arg.Endpoint,
+		arg.DurationMs,
+		arg.ExplainJson,
+	)
+	var i ZdxSlowQuery
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.SqlHash,
+		&i.SqlText,
+		&i.Endpoint,
+		&i.DurationMs,
+		&i.ExplainJson,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertTestResultHistory = `-- name: InsertTestResultHistory :exec
 INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, status, duration_ms)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -747,6 +862,58 @@ func (q *Queries) InsertTestResultHistory(ctx context.Context, arg InsertTestRes
 		arg.DurationMs,
 	)
 	return err
+}
+
+const linkSpecTest = `-- name: LinkSpecTest :exec
+INSERT INTO zdx_spec_tests (spec_id, test_id)
+VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type LinkSpecTestParams struct {
+	SpecID int32 `db:"spec_id" json:"spec_id"`
+	TestID int32 `db:"test_id" json:"test_id"`
+}
+
+func (q *Queries) LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error {
+	_, err := q.db.Exec(ctx, linkSpecTest, arg.SpecID, arg.TestID)
+	return err
+}
+
+const listErrorReports = `-- name: ListErrorReports :many
+SELECT id, project_id, source, endpoint, error_name, stack_trace, created_at
+FROM zdx_error_reports
+WHERE project_id = $1
+ORDER BY created_at DESC
+LIMIT 200
+`
+
+func (q *Queries) ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error) {
+	rows, err := q.db.Query(ctx, listErrorReports, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxErrorReport
+	for rows.Next() {
+		var i ZdxErrorReport
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Source,
+			&i.Endpoint,
+			&i.ErrorName,
+			&i.StackTrace,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listFeatures = `-- name: ListFeatures :many
@@ -931,6 +1098,43 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 	return items, nil
 }
 
+const listSlowQueries = `-- name: ListSlowQueries :many
+SELECT id, project_id, sql_hash, sql_text, endpoint, duration_ms, explain_json, created_at
+FROM zdx_slow_queries
+WHERE project_id = $1
+ORDER BY duration_ms DESC
+LIMIT 200
+`
+
+func (q *Queries) ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error) {
+	rows, err := q.db.Query(ctx, listSlowQueries, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxSlowQuery
+	for rows.Next() {
+		var i ZdxSlowQuery
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.SqlHash,
+			&i.SqlText,
+			&i.Endpoint,
+			&i.DurationMs,
+			&i.ExplainJson,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSpecs = `-- name: ListSpecs :many
 
 SELECT id, feature_id, description, kind FROM zdx_specs WHERE feature_id = $1 ORDER BY id
@@ -939,6 +1143,39 @@ SELECT id, feature_id, description, kind FROM zdx_specs WHERE feature_id = $1 OR
 // Specs
 func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error) {
 	rows, err := q.db.Query(ctx, listSpecs, featureID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxSpec
+	for rows.Next() {
+		var i ZdxSpec
+		if err := rows.Scan(
+			&i.ID,
+			&i.FeatureID,
+			&i.Description,
+			&i.Kind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpecsCoveredByTest = `-- name: ListSpecsCoveredByTest :many
+SELECT s.id, s.feature_id, s.description, s.kind
+FROM zdx_specs s
+JOIN zdx_spec_tests st ON st.spec_id = s.id
+WHERE st.test_id = $1 ORDER BY s.id
+`
+
+// Used to show what breaks if a test is deleted.
+func (q *Queries) ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ZdxSpec, error) {
+	rows, err := q.db.Query(ctx, listSpecsCoveredByTest, testID)
 	if err != nil {
 		return nil, err
 	}
@@ -1077,6 +1314,115 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 			&i.TestRefs,
 			&i.CreatedAt,
 			&i.CompletedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTests = `-- name: ListTests :many
+SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+FROM zdx_tests WHERE project_id = $1 ORDER BY component, name
+`
+
+func (q *Queries) ListTests(ctx context.Context, projectID int32) ([]ZdxTest, error) {
+	rows, err := q.db.Query(ctx, listTests, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTest
+	for rows.Next() {
+		var i ZdxTest
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Component,
+			&i.Name,
+			&i.Layer,
+			&i.Status,
+			&i.LastRunAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTestsByLayer = `-- name: ListTestsByLayer :many
+SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+FROM zdx_tests WHERE project_id = $1 AND layer = $2 ORDER BY component, name
+`
+
+type ListTestsByLayerParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Layer     string `db:"layer" json:"layer"`
+}
+
+func (q *Queries) ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ZdxTest, error) {
+	rows, err := q.db.Query(ctx, listTestsByLayer, arg.ProjectID, arg.Layer)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTest
+	for rows.Next() {
+		var i ZdxTest
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Component,
+			&i.Name,
+			&i.Layer,
+			&i.Status,
+			&i.LastRunAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTestsForSpec = `-- name: ListTestsForSpec :many
+SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.last_run_at, t.created_at
+FROM zdx_tests t
+JOIN zdx_spec_tests st ON st.test_id = t.id
+WHERE st.spec_id = $1 ORDER BY t.component, t.name
+`
+
+func (q *Queries) ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest, error) {
+	rows, err := q.db.Query(ctx, listTestsForSpec, specID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTest
+	for rows.Next() {
+		var i ZdxTest
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Component,
+			&i.Name,
+			&i.Layer,
+			&i.Status,
+			&i.LastRunAt,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -1314,6 +1660,20 @@ func (q *Queries) TouchApiKey(ctx context.Context, id int32) error {
 	return err
 }
 
+const unlinkSpecTest = `-- name: UnlinkSpecTest :exec
+DELETE FROM zdx_spec_tests WHERE spec_id = $1 AND test_id = $2
+`
+
+type UnlinkSpecTestParams struct {
+	SpecID int32 `db:"spec_id" json:"spec_id"`
+	TestID int32 `db:"test_id" json:"test_id"`
+}
+
+func (q *Queries) UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error {
+	_, err := q.db.Exec(ctx, unlinkSpecTest, arg.SpecID, arg.TestID)
+	return err
+}
+
 const updateFeatureField = `-- name: UpdateFeatureField :exec
 UPDATE zdx_features
 SET description = CASE WHEN $1::text = 'description' THEN $2::text ELSE description END,
@@ -1488,6 +1848,48 @@ func (q *Queries) UpsertPlan(ctx context.Context, arg UpsertPlanParams) (ZdxPlan
 		&i.Complexity,
 		&i.Approach,
 		&i.LastReviewedAt,
+	)
+	return i, err
+}
+
+const upsertTest = `-- name: UpsertTest :one
+
+INSERT INTO zdx_tests (project_id, component, name, layer, status, last_run_at)
+VALUES ($1, $2, $3, $4, $5, NOW())
+ON CONFLICT (project_id, component, name) DO UPDATE
+SET layer       = EXCLUDED.layer,
+    status      = EXCLUDED.status,
+    last_run_at = NOW()
+RETURNING id, project_id, component, name, layer, status, last_run_at, created_at
+`
+
+type UpsertTestParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Component string `db:"component" json:"component"`
+	Name      string `db:"name" json:"name"`
+	Layer     string `db:"layer" json:"layer"`
+	Status    string `db:"status" json:"status"`
+}
+
+// Tests (primary registry)
+func (q *Queries) UpsertTest(ctx context.Context, arg UpsertTestParams) (ZdxTest, error) {
+	row := q.db.QueryRow(ctx, upsertTest,
+		arg.ProjectID,
+		arg.Component,
+		arg.Name,
+		arg.Layer,
+		arg.Status,
+	)
+	var i ZdxTest
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Component,
+		&i.Name,
+		&i.Layer,
+		&i.Status,
+		&i.LastRunAt,
+		&i.CreatedAt,
 	)
 	return i, err
 }

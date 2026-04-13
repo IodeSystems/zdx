@@ -36,13 +36,15 @@ type taskItem struct {
 }
 
 type featureItem struct {
-	ID          int32       `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	What        string      `json:"what"`
-	Why         string      `json:"why"`
-	DoneWhen    string      `json:"done_when"`
-	Specs       []specItem  `json:"specs"`
+	ID          int32      `json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	What        string     `json:"what"`
+	Why         string     `json:"why"`
+	DoneWhen    string     `json:"done_when"`
+	Component   string     `json:"component"`
+	PlanType    string     `json:"plan_type"`
+	Specs       []specItem `json:"specs"`
 }
 
 type specItem struct {
@@ -484,25 +486,6 @@ func printTaskItem(t taskItem) {
 	}
 }
 
-func printFeatureItem(f featureItem) {
-	fmt.Printf("Feature:     %s\n", f.Name)
-	fmt.Printf("Description: %s\n", f.Description)
-	if f.What != "" {
-		fmt.Printf("What:        %s\n", f.What)
-	}
-	if f.Why != "" {
-		fmt.Printf("Why:         %s\n", f.Why)
-	}
-	if f.DoneWhen != "" {
-		fmt.Printf("Done when:   %s\n", f.DoneWhen)
-	}
-	if len(f.Specs) > 0 {
-		fmt.Println("\nSpecs:")
-		for _, s := range f.Specs {
-			fmt.Printf("  [%s] %s\n", s.Kind, s.Description)
-		}
-	}
-}
 
 // RunTodo kept for compatibility.
 func RunTodo(_ []string) {}

@@ -8,7 +8,7 @@ import {
   InputAdornment,
   TextField,
 } from '@mui/material'
-import SearchIcon from '@mui/icons-material/Search'
+import { Search as SearchIcon } from '@mui/icons-material'
 import { useState } from 'react'
 import { useFeatures, type FeatureItem } from '../api'
 

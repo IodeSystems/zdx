@@ -36,6 +36,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/errors": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-errors"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/errors/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["report-error"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/feature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-feature"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/features/field": {
         parameters: {
             query?: never;
@@ -110,6 +158,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["create-plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/slow-queries": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-slow-queries"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/slow-queries/report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["report-slow-query"];
         delete?: never;
         options?: never;
         head?: never;
@@ -995,6 +1075,21 @@ export interface components {
              */
             type: string;
         };
+        ErrorReportItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ErrorReportItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            endpoint: string;
+            error_name: string;
+            /** Format: int64 */
+            id: number;
+            source: string;
+            stack_trace: string;
+        };
         FeatureItem: {
             /**
              * Format: uri
@@ -1146,6 +1241,15 @@ export interface components {
             state_json: string;
             tldr: string;
         };
+        "List-errorsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-errorsResponse.json
+             */
+            readonly $schema?: string;
+            errors: components["schemas"]["ErrorReportItem"][] | null;
+        };
         "List-features-todoResponse": {
             /**
              * Format: uri
@@ -1181,6 +1285,15 @@ export interface components {
              */
             readonly $schema?: string;
             projects: components["schemas"]["ProjectItem"][] | null;
+        };
+        "List-slow-queriesResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-slow-queriesResponse.json
+             */
+            readonly $schema?: string;
+            queries: components["schemas"]["SlowQueryItem"][] | null;
         };
         "List-tasks-by-featureResponse": {
             /**
@@ -1295,6 +1408,34 @@ export interface components {
             slug: string;
             theme: string;
         };
+        "Report-errorRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Report-errorRequest.json
+             */
+            readonly $schema?: string;
+            endpoint: string;
+            error_name: string;
+            slug: string;
+            source: string;
+            stack_trace: string;
+        };
+        "Report-slow-queryRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Report-slow-queryRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            duration_ms: number;
+            endpoint: string;
+            explain_json: string;
+            slug: string;
+            sql_hash: string;
+            sql_text: string;
+        };
         "Set-feature-fieldRequest": {
             /**
              * Format: uri
@@ -1359,6 +1500,23 @@ export interface components {
             readonly $schema?: string;
             issue: components["schemas"]["IssueItem"];
             work: components["schemas"]["IssueWorkItem"][] | null;
+        };
+        SlowQueryItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/SlowQueryItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            /** Format: int32 */
+            duration_ms: number;
+            endpoint: string;
+            explain_json: string;
+            /** Format: int64 */
+            id: number;
+            sql_hash: string;
+            sql_text: string;
         };
         SpecItem: {
             description: string;
@@ -1603,6 +1761,102 @@ export interface operations {
             };
         };
     };
+    "list-errors": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-errorsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "report-error": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Report-errorRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorReportItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-feature": {
+        parameters: {
+            query: {
+                slug: string;
+                name: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FeatureItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "set-feature-field": {
         parameters: {
             query?: never;
@@ -1753,6 +2007,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-slow-queries": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-slow-queriesResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "report-slow-query": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Report-slow-queryRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SlowQueryItem"];
                 };
             };
             /** @description Error */

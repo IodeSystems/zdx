@@ -1,9 +1,15 @@
 package cli
 
 import (
+	"bufio"
+	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
+	"os/exec"
+	"path/filepath"
 	"sort"
 	"strconv"
 	"strings"
@@ -12,6 +18,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/config"
+	"github.com/iodesystems/zdx-go/internal/testharness"
 )
 
 // TestResult is written to .zdx/test-results.json after a run.
@@ -27,37 +34,205 @@ type TestResult struct {
 
 func TestCmd() *cobra.Command {
 	cmd := &cobra.Command{
-		Use:   "test [component]",
-		Short: "Run test suites",
-		RunE:  testRunE,
+		Use:   "test",
+		Short: "Run tests across all components (vitest + Go e2e + demo)",
+		Long: `Fuses all test adapters into one run. Adapters are auto-detected:
+  - vitest (ui/)         unit layer   — requires source checkout
+  - bin/zdx-test          integration  — built with: dx test e2e build
+  - bin/zdx-test-demo         demo         — built with: dx test e2e demo-build
+
+Filters apply across all adapters. Use DX_TEST_* env vars to parameterise
+without flags (useful for CI matrix).`,
+		RunE: testHarnessRunE,
 	}
-	cmd.Flags().String("filter", "", "only run suites whose name contains this string")
-	cmd.Flags().String("shard", "", "run shard N/M (e.g. 1/3)")
-	cmd.Flags().Bool("list", false, "list suites without running")
-	cmd.AddCommand(testListCmd(), testRunCmd())
+	cmd.Flags().String("filter", "", "test name substring/regex (applied to all adapters)")
+	cmd.Flags().String("component", "", "run only this component (e.g. ui, api)")
+	cmd.Flags().String("feature", "", "run only tests whose name contains this feature token")
+	cmd.Flags().String("layer", "", "unit | integration | demo")
+	cmd.Flags().Bool("coverage", false, "collect Go binary-level coverage (GOCOVERDIR)")
+	cmd.Flags().String("db-url", "", "database URL for e2e adapter (skips docker compose)")
+	cmd.Flags().String("shard", "", "shard N/M across the e2e adapter")
+	// Legacy sub-commands kept for compatibility.
+	cmd.AddCommand(testListCmd(), testRunCmd(), testE2ECmd())
 	return cmd
 }
 
+func testHarnessRunE(cmd *cobra.Command, _ []string) error {
+	filter, _ := cmd.Flags().GetString("filter")
+	component, _ := cmd.Flags().GetString("component")
+	feature, _ := cmd.Flags().GetString("feature")
+	layer, _ := cmd.Flags().GetString("layer")
+	coverage, _ := cmd.Flags().GetBool("coverage")
+	dbURL, _ := cmd.Flags().GetString("db-url")
+	shard, _ := cmd.Flags().GetString("shard")
+
+	f := testharness.Filter{
+		Name:      filter,
+		Component: component,
+		Feature:   feature,
+		Layer:     testharness.Layer(layer),
+	}
+
+	h := testharness.New()
+
+	// ── Vitest adapter (UI / unit) ─────────────────────────────────────────
+	if f.Component == "" || f.Component == "ui" {
+		if f.Layer == "" || f.Layer == testharness.LayerUnit {
+			if uiDir := detectUIDir(); uiDir != "" {
+				h.Register(&testharness.VitestAdapter{Dir: uiDir, Comp: "ui"})
+			}
+		}
+	}
+
+	// ── Go binary adapter (API / integration) ─────────────────────────────
+	if f.Component == "" || f.Component == "api" {
+		if f.Layer == "" || f.Layer == testharness.LayerIntegration {
+			if _, err := os.Stat(testBin); err == nil {
+				env := buildE2EEnv(dbURL)
+				coverDir := ""
+				if coverage {
+					coverDir = testharness.CoverageDir("api")
+				}
+				a := &testharness.GoBinAdapter{
+					Bin:      testBin,
+					Comp:     "api",
+					Layer_:   []testharness.Layer{testharness.LayerIntegration},
+					Env:      env,
+					CoverDir: coverDir,
+				}
+				if shard != "" {
+					// Respect explicit shard on the e2e binary.
+					_ = shard // GoBinAdapter handles it via -test.run; see runE2ELocal for full sharding
+				}
+				h.Register(a)
+			} else {
+				fmt.Fprintln(os.Stderr, "[test] e2e binary not found — skipping api adapter (run: dx test e2e build)")
+			}
+		}
+	}
+
+	// ── Demo adapter ──────────────────────────────────────────────────────
+	if f.Component == "" || f.Component == "demo" {
+		if f.Layer == "" || f.Layer == testharness.LayerDemo {
+			demoBin := "bin/zdx-test-demo"
+			if _, err := os.Stat(demoBin); err == nil {
+				h.Register(&testharness.GoBinAdapter{
+					Bin:    demoBin,
+					Comp:   "demo",
+					Layer_: []testharness.Layer{testharness.LayerDemo},
+					Env:    buildE2EEnv(dbURL),
+				})
+			}
+		}
+	}
+
+	results, err := h.Run(context.Background(), f)
+	if err != nil {
+		return err
+	}
+	testharness.Summary(results)
+	_ = testharness.WriteResults(filepath.Join(".zdx", "test-results.json"), results)
+
+	if coverage {
+		for _, comp := range []string{"api"} {
+			dir := testharness.CoverageDir(comp)
+			profile := filepath.Join(".zdx", "coverage", comp+".txt")
+			html := filepath.Join(".zdx", "coverage", comp+".html")
+			if err := testharness.MergeCoverage(dir, profile); err != nil {
+				fmt.Fprintf(os.Stderr, "[coverage] %v\n", err)
+				continue
+			}
+			if err := testharness.CoverageReport(profile, html); err != nil {
+				fmt.Fprintf(os.Stderr, "[coverage] %v\n", err)
+				continue
+			}
+			fmt.Fprintf(os.Stderr, "[coverage] %s → %s\n", comp, html)
+		}
+	}
+
+	if testharness.HasFailure(results) {
+		return fmt.Errorf("tests failed")
+	}
+	return nil
+}
+
+func detectUIDir() string {
+	if d := os.Getenv("DX_UI_DIR"); d != "" {
+		return d
+	}
+	// Resolve relative to cwd.
+	if _, err := os.Stat(filepath.Join("ui", "package.json")); err == nil {
+		return "ui"
+	}
+	return ""
+}
+
+func buildE2EEnv(dbURL string) []string {
+	if dbURL != "" {
+		return []string{"TEST_DATABASE_URL=" + dbURL}
+	}
+	return nil
+}
+
 func testListCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "list [component]",
-		Short: "List configured test suites",
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List all tests across all adapters",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			component := config.ActiveComponent("")
-			if len(args) > 0 {
-				component = args[0]
+			component, _ := cmd.Flags().GetString("component")
+			layer, _ := cmd.Flags().GetString("layer")
+
+			// ── vitest ────────────────────────────────────────────────────
+			if component == "" || component == "ui" {
+				if layer == "" || layer == string(testharness.LayerUnit) {
+					if uiDir := detectUIDir(); uiDir != "" {
+						fmt.Printf("  %-8s %-12s %s\n", "ui", "unit", uiDir+" (vitest)")
+					}
+				}
 			}
-			cfg := config.Load()
-			if cfg == nil {
-				return fmt.Errorf("no .zdx/config.yaml found")
+
+			// ── zdx-test binary ───────────────────────────────────────────
+			if component == "" || component == "api" {
+				if layer == "" || layer == string(testharness.LayerIntegration) {
+					if _, err := os.Stat(testBin); err == nil {
+						a := &testharness.GoBinAdapter{Bin: testBin, Comp: "api"}
+						names, err := a.List(context.Background())
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "  [api] list failed: %v\n", err)
+						} else {
+							for _, n := range names {
+								fmt.Printf("  %-8s %-12s %s\n", "api", "integration", n)
+							}
+						}
+					} else {
+						fmt.Printf("  %-8s %-12s %s\n", "api", "integration", "(build: dx test e2e build)")
+					}
+				}
 			}
-			suites := sortedSuites(cfg.AllTestSuites(component))
-			for _, s := range suites {
-				fmt.Printf("  %-30s %-10s %s\n", s.Component+":"+s.Name, s.Runner, s.Run)
+
+			// ── demo binary ───────────────────────────────────────────────
+			if component == "" || component == "demo" {
+				if layer == "" || layer == string(testharness.LayerDemo) {
+					demoBin := "bin/zdx-test-demo"
+					if _, err := os.Stat(demoBin); err == nil {
+						a := &testharness.GoBinAdapter{Bin: demoBin, Comp: "demo"}
+						names, err := a.List(context.Background())
+						if err != nil {
+							fmt.Fprintf(os.Stderr, "  [demo] list failed: %v\n", err)
+						} else {
+							for _, n := range names {
+								fmt.Printf("  %-8s %-12s %s\n", "demo", "demo", n)
+							}
+						}
+					}
+				}
 			}
 			return nil
 		},
 	}
+	cmd.Flags().String("component", "", "filter to component")
+	cmd.Flags().String("layer", "", "filter to layer")
+	return cmd
 }
 
 func testRunCmd() *cobra.Command {
@@ -200,3 +375,287 @@ func applyShard(suites []config.NamedSuite, spec string) []config.NamedSuite {
 
 // RunTest kept for compatibility.
 func RunTest(_ []string) {}
+
+// ── e2e ───────────────────────────────────────────────────────────────────────
+
+const testBin = "bin/zdx-test"
+const testPkg = "./test/e2e/"
+
+func testE2ECmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "e2e",
+		Short: "Distributable e2e test binary",
+	}
+	cmd.AddCommand(testE2EBuildCmd(), testE2ERunCmd(), testDemoBuildCmd())
+	return cmd
+}
+
+func testE2EBuildCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "build",
+		Short: "Compile e2e test binary to " + testBin,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runShell("go test -c -o "+testBin+" "+testPkg, "")
+		},
+	}
+}
+
+func testDemoBuildCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "demo-build",
+		Short: "Compile demo test binary to bin/zdx-test-demo (includes browser + CLI recording)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return runShell("go test -c -tags=demo -o bin/zdx-test-demo "+testPkg, "")
+		},
+	}
+}
+
+func testE2ERunCmd() *cobra.Command {
+	c := &cobra.Command{
+		Use:   "run",
+		Short: "Run e2e tests (local or remote)",
+		RunE:  testE2ERunE,
+	}
+	c.Flags().StringArray("host", nil, "remote SSH host(s); auto-shards across hosts when more than one")
+	c.Flags().String("shard", "", "explicit shard N/M (e.g. 2/3)")
+	c.Flags().String("filter", "", "test name regex (-test.run)")
+	c.Flags().String("db-url", "", "database URL; skips docker compose when set")
+	return c
+}
+
+func testE2ERunE(cmd *cobra.Command, _ []string) error {
+	hosts, _ := cmd.Flags().GetStringArray("host")
+	shard, _ := cmd.Flags().GetString("shard")
+	filter, _ := cmd.Flags().GetString("filter")
+	dbURL, _ := cmd.Flags().GetString("db-url")
+
+	// Ensure binary exists.
+	if _, err := os.Stat(testBin); err != nil {
+		fmt.Fprintf(os.Stderr, "[e2e] binary not found — building...\n")
+		if err := runShell("go test -c -o "+testBin+" "+testPkg, ""); err != nil {
+			return fmt.Errorf("build: %w", err)
+		}
+	}
+
+	if len(hosts) == 0 {
+		run, err := e2eRunArgs(shard, filter, 0, 1)
+		if err != nil {
+			return err
+		}
+		return e2eRunLocal(run, dbURL)
+	}
+
+	// Remote: build for each host (assume same arch for now).
+	// If no explicit shard, auto-assign shard i/N per host.
+	var allResults []TestResult
+	failed := false
+
+	for i, host := range hosts {
+		n, m := i+1, len(hosts)
+		if shard != "" {
+			// Caller controls sharding; same shard on every host.
+			n, m = parseShard(shard)
+		}
+		run, err := e2eRunArgs(fmt.Sprintf("%d/%d", n, m), filter, 0, 0)
+		if err != nil {
+			return err
+		}
+		results, err := e2eRunRemote(host, run, dbURL)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[e2e] host %s: %v\n", host, err)
+			failed = true
+			continue
+		}
+		allResults = append(allResults, results...)
+		for _, r := range results {
+			if r.Status == "fail" {
+				failed = true
+			}
+		}
+	}
+
+	writeE2EResults(allResults)
+	if failed {
+		return fmt.Errorf("e2e tests failed")
+	}
+	return nil
+}
+
+// e2eRunArgs builds the argument list for the e2e binary, handling sharding
+// (enumerating tests and splitting them) and filter.
+func e2eRunArgs(shard, filter string, n, m int) ([]string, error) {
+	args := []string{"-test.v", "-test.json"}
+
+	pattern := filter
+	if shard != "" {
+		n, m = parseShard(shard)
+	}
+	if m > 1 {
+		tests, err := e2eListTests()
+		if err != nil {
+			return nil, err
+		}
+		if filter != "" {
+			tests = matchTests(tests, filter)
+		}
+		sharded := shardTests(tests, n, m)
+		if len(sharded) == 0 {
+			return nil, fmt.Errorf("shard %d/%d: no tests assigned", n, m)
+		}
+		pattern = "^(" + strings.Join(sharded, "|") + ")$"
+	}
+	if pattern != "" {
+		args = append(args, "-test.run="+pattern)
+	}
+	return args, nil
+}
+
+func e2eListTests() ([]string, error) {
+	out, err := exec.Command(testBin, "-test.list=.*").Output()
+	if err != nil {
+		return nil, fmt.Errorf("list tests: %w", err)
+	}
+	var tests []string
+	for _, line := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		line = strings.TrimSpace(line)
+		if line != "" {
+			tests = append(tests, line)
+		}
+	}
+	return tests, nil
+}
+
+func matchTests(tests []string, pattern string) []string {
+	var out []string
+	for _, t := range tests {
+		if strings.Contains(t, pattern) {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func shardTests(tests []string, n, m int) []string {
+	var out []string
+	for i, t := range tests {
+		if (i%m)+1 == n {
+			out = append(out, t)
+		}
+	}
+	return out
+}
+
+func parseShard(s string) (n, m int) {
+	parts := strings.SplitN(s, "/", 2)
+	if len(parts) != 2 {
+		return 1, 1
+	}
+	n, _ = strconv.Atoi(parts[0])
+	m, _ = strconv.Atoi(parts[1])
+	if n < 1 || m < 1 || n > m {
+		return 1, 1
+	}
+	return n, m
+}
+
+// e2eRunLocal runs the e2e binary locally, streams output, and writes results.
+func e2eRunLocal(args []string, dbURL string) error {
+	cmdArgs := append([]string{testBin}, args...)
+	c := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	if dbURL != "" {
+		c.Env = append(os.Environ(), "TEST_DATABASE_URL="+dbURL)
+	} else {
+		c.Env = os.Environ()
+	}
+
+	var jsonBuf bytes.Buffer
+	c.Stdout = io.MultiWriter(os.Stdout, &jsonBuf)
+	c.Stderr = os.Stderr
+	_ = c.Run()
+
+	results := parseTestJSON(jsonBuf.Bytes())
+	writeE2EResults(results)
+
+	for _, r := range results {
+		if r.Status == "fail" {
+			return fmt.Errorf("e2e tests failed")
+		}
+	}
+	return nil
+}
+
+// e2eRunRemote scps the binary to host, runs it via ssh, and returns results.
+func e2eRunRemote(host string, args []string, dbURL string) ([]TestResult, error) {
+	remote := "/tmp/zdx-test-" + fmt.Sprintf("%d", time.Now().UnixNano())
+
+	// Copy binary.
+	scp := exec.Command("scp", "-q", testBin, host+":"+remote)
+	scp.Stdout = os.Stderr
+	scp.Stderr = os.Stderr
+	if err := scp.Run(); err != nil {
+		return nil, fmt.Errorf("scp: %w", err)
+	}
+
+	// Build remote command.
+	remoteCmd := remote + " " + strings.Join(args, " ")
+	if dbURL != "" {
+		remoteCmd = "TEST_DATABASE_URL=" + shellQuote(dbURL) + " " + remoteCmd
+	}
+	// Clean up after.
+	remoteCmd = "chmod +x " + remote + " && " + remoteCmd + "; rm -f " + remote
+
+	ssh := exec.Command("ssh", host, remoteCmd)
+	var out bytes.Buffer
+	ssh.Stdout = io.MultiWriter(os.Stdout, &out)
+	ssh.Stderr = os.Stderr
+	if err := ssh.Run(); err != nil {
+		fmt.Fprintf(os.Stderr, "[e2e] ssh %s exited: %v\n", host, err)
+	}
+
+	return parseTestJSON(out.Bytes()), nil
+}
+
+// parseTestJSON converts go test -json output lines into TestResult records.
+func parseTestJSON(data []byte) []TestResult {
+	type event struct {
+		Action  string  `json:"Action"`
+		Test    string  `json:"Test"`
+		Elapsed float64 `json:"Elapsed"`
+		Output  string  `json:"Output"`
+	}
+	var results []TestResult
+	sc := bufio.NewScanner(bytes.NewReader(data))
+	for sc.Scan() {
+		var ev event
+		if err := json.Unmarshal(sc.Bytes(), &ev); err != nil {
+			continue
+		}
+		if ev.Test == "" {
+			continue
+		}
+		switch ev.Action {
+		case "pass", "fail", "skip":
+			results = append(results, TestResult{
+				Suite:      ev.Test,
+				Status:     ev.Action,
+				DurationMs: int64(ev.Elapsed * 1000),
+				RunAt:      time.Now().Format(time.RFC3339),
+			})
+		}
+	}
+	return results
+}
+
+func writeE2EResults(results []TestResult) {
+	if len(results) == 0 {
+		return
+	}
+	_ = os.MkdirAll(".zdx", 0755)
+	if b, err := json.MarshalIndent(results, "", "  "); err == nil {
+		_ = os.WriteFile(".zdx/test-results.json", b, 0644)
+	}
+}
+
+func shellQuote(s string) string {
+	return "'" + strings.ReplaceAll(s, "'", "'\\''") + "'"
+}

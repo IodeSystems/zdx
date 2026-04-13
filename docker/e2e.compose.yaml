@@ -1,0 +1,16 @@
+services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: zdx_e2e
+      POSTGRES_USER: zdx
+      POSTGRES_PASSWORD: zdx
+    tmpfs:
+      - /var/lib/postgresql/data:exec
+    ports:
+      - "127.0.0.1::5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zdx -d zdx_e2e"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

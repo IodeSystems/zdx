@@ -124,6 +124,12 @@ if ! $SKIP_BUILD; then
   mkdir -p "$DEPLOY_DIR/dist/public"
   [ -d ui/dist ] && cp -r ui/dist/* "$DEPLOY_DIR/dist/public/"
   cp -r infra/provision "$DEPLOY_DIR/provision"
+  # Package migration fix scripts so ops can read/run them on the host.
+  MIG_FIXES_SRC="$MIGRATION_DIR/migration-fixes"
+  if [ -d "$MIG_FIXES_SRC" ] && [ -n "$(ls -A "$MIG_FIXES_SRC" 2>/dev/null)" ]; then
+    mkdir -p "$DEPLOY_DIR/dist/migration-fixes"
+    cp "$MIG_FIXES_SRC"/*.sql "$DEPLOY_DIR/dist/migration-fixes/"
+  fi
 
   cat > "$DEPLOY_DIR/manifest.txt" <<EOF
 commit: $(git rev-parse HEAD)
@@ -146,26 +152,76 @@ fi
 load_deploy_config
 
 # ── Validate migration history unchanged ──────────────────────────────────────
+#
+# Pure renames (identical content, different name) are allowed: golang-migrate
+# resolves migrations by numeric prefix, not filename.
+#
+# Renamed+modified or in-place modifications are allowed when a fix file exists:
+#
+#   internal/migrate/sql/migration-fixes/<deployed-name-no-ext>-<server8>-<dev8>.sql
+#
+#   server8  = first 8 chars of sha256 of the deployed file content
+#   dev8     = first 8 chars of sha256 of the local replacement file's content
+#              (or "none" for a deleted file with no local equivalent)
+#
+# Fix files are packaged into deploy/dist/migration-fixes/ and rsync'd to the
+# host so ops can inspect and run them after deploy if needed.
 
 echo "[ship] Validating migration history..."
 
 DEPLOYED_COMMIT=$(ssh "$HOST" "cat $REMOTE_HOME/home/shipped-commit 2>/dev/null" || echo "")
+PENDING_FIXES=()
+MIG_FIXES="$MIGRATION_DIR/migration-fixes"
 
 if [ -n "$DEPLOYED_COMMIT" ]; then
   DEPLOYED_COMMIT_CLEAN="${DEPLOYED_COMMIT%-dirty}"
   MODIFIED=0
 
+  # Build content-hash → basename index for rename detection
+  declare -A LOCAL_HASH_TO_FILE
+  for lf in "$MIGRATION_DIR"/*.sql; do
+    [ -f "$lf" ] || continue
+    h=$(sha256sum "$lf" | cut -d' ' -f1)
+    LOCAL_HASH_TO_FILE["$h"]=$(basename "$lf")
+  done
+
   while IFS= read -r mig; do
-    LOCAL_FILE="$MIGRATION_DIR/$mig"
-    if [ ! -f "$LOCAL_FILE" ]; then
-      echo "[ship] ERROR: shipped migration DELETED locally: $mig"
-      MODIFIED=1; continue
-    fi
     SHIPPED_HASH=$(git show "$DEPLOYED_COMMIT_CLEAN:$MIGRATION_DIR/$mig" | sha256sum | cut -d' ' -f1)
+    SERVER8="${SHIPPED_HASH:0:8}"
+    BASE="${mig%.sql}"
+    LOCAL_FILE="$MIGRATION_DIR/$mig"
+
+    if [ ! -f "$LOCAL_FILE" ]; then
+      # Pure rename: same content, different name
+      if [[ -n "${LOCAL_HASH_TO_FILE[$SHIPPED_HASH]+x}" ]]; then
+        echo "[ship] NOTE: migration RENAMED: $mig → ${LOCAL_HASH_TO_FILE[$SHIPPED_HASH]} (OK)"
+        continue
+      fi
+      # Renamed + modified: look for fix file with matching server8
+      FIX=$(ls "$MIG_FIXES/${BASE}-${SERVER8}-"*.sql 2>/dev/null | head -1)
+      if [ -n "$FIX" ]; then
+        echo "[ship] NOTE: migration RENAMED+MODIFIED (fix acknowledged): $mig — $(basename "$FIX")"
+        PENDING_FIXES+=("$FIX")
+      else
+        echo "[ship] ERROR: shipped migration missing locally (not a rename): $mig"
+        echo "[ship]   create: $MIG_FIXES/${BASE}-${SERVER8}-<dev8>.sql"
+        MODIFIED=1
+      fi
+      continue
+    fi
+
     LOCAL_HASH=$(sha256sum "$LOCAL_FILE" | cut -d' ' -f1)
     if [ "$SHIPPED_HASH" != "$LOCAL_HASH" ]; then
-      echo "[ship] ERROR: shipped migration MODIFIED: $mig"
-      MODIFIED=1
+      DEV8="${LOCAL_HASH:0:8}"
+      FIX="$MIG_FIXES/${BASE}-${SERVER8}-${DEV8}.sql"
+      if [ -f "$FIX" ]; then
+        echo "[ship] NOTE: migration MODIFIED (fix acknowledged): $mig — $(basename "$FIX")"
+        PENDING_FIXES+=("$FIX")
+      else
+        echo "[ship] ERROR: shipped migration MODIFIED: $mig"
+        echo "[ship]   create: $FIX"
+        MODIFIED=1
+      fi
     fi
   done < <(git ls-tree --name-only "$DEPLOYED_COMMIT_CLEAN" "$MIGRATION_DIR/" 2>/dev/null | xargs -I{} basename {})
 
@@ -284,6 +340,13 @@ if ! $NON_COMPAT; then
   echo "[ship] Deploying next..."
   sync_slot next
 
+  if [ ${#PENDING_FIXES[@]} -gt 0 ]; then
+    echo "[ship] NOTE: migration fix files packaged — ops should review and run if needed:"
+    for fix in "${PENDING_FIXES[@]}"; do
+      echo "[ship]   $REMOTE_HOME/home/versions/next/migration-fixes/$(basename "$fix")"
+    done
+  fi
+
   echo "[ship] Running migrations on host..."
   run_migrate next
 
@@ -322,6 +385,14 @@ else
   # Ship the dx binary to next's slot first so we can invoke it.
   rsync -az --delete --rsync-path="$RSYNC_PATH" \
     "$DEPLOY_DIR/dist/" "$HOST:$REMOTE_HOME/home/versions/next/"
+
+  if [ ${#PENDING_FIXES[@]} -gt 0 ]; then
+    echo "[ship] NOTE: migration fix files packaged — ops should review and run if needed:"
+    for fix in "${PENDING_FIXES[@]}"; do
+      echo "[ship]   $REMOTE_HOME/home/versions/next/migration-fixes/$(basename "$fix")"
+    done
+  fi
+
   run_migrate next
   echo "[ship] Migrations complete."
 

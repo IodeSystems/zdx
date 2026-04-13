@@ -17,13 +17,16 @@ import {
   useMediaQuery,
   useTheme,
 } from '@mui/material'
-import ExtensionIcon from '@mui/icons-material/Extension'
-import TaskAltIcon from '@mui/icons-material/TaskAlt'
-import BugReportIcon from '@mui/icons-material/BugReport'
-import HistoryIcon from '@mui/icons-material/History'
-import HomeIcon from '@mui/icons-material/Home'
-import MenuIcon from '@mui/icons-material/Menu'
-import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay'
+import {
+  Extension as ExtensionIcon,
+  TaskAlt as TaskAltIcon,
+  BugReport as BugReportIcon,
+  History as HistoryIcon,
+  Home as HomeIcon,
+  Menu as MenuIcon,
+  PlaylistPlay as PlaylistPlayIcon,
+  WarningAmber as WarningAmberIcon,
+} from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { useProjects, useMe, useLogout } from '../api'
@@ -40,6 +43,7 @@ const SECTIONS = [
   { label: 'Tasks', icon: <TaskAltIcon fontSize="small" />, path: 'tasks' },
   { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
   { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
+  { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
 ] as const
 
 function ProjectLabel() {

@@ -1,7 +1,6 @@
 import { describe, test, expect, afterEach, vi } from 'vitest'
 import { render, screen, cleanup, waitFor } from '@testing-library/react'
-import { ThemeProvider } from '@mui/material/styles'
-import CssBaseline from '@mui/material/CssBaseline'
+import { ThemeProvider, CssBaseline } from '@mui/material'
 import { theme } from '../theme'
 import { OAuthLoginButtons } from './OAuthLoginButtons'
 

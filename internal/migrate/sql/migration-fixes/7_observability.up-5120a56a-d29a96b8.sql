@@ -1,0 +1,14 @@
+-- Migration fix: 7_observability.up.sql
+--
+-- This file was renamed 7_observability.up.sql → 007_observability.up.sql and
+-- its CREATE TABLE statements were updated to include project_id.
+--
+-- Why this is safe:
+--   golang-migrate tracks migrations by numeric version (7), not filename.
+--   The file never re-runs; the renamed version is cosmetic only.
+--
+--   The project_id column is added by migration 012_errors_per_project, which
+--   uses an idempotent DO block (IF NOT EXISTS).  No manual intervention needed.
+--
+-- Ops: no action required. This file is informational.
+SELECT 'compat: 7_observability renamed+updated; project_id handled by migration 012' AS note;

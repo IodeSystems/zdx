@@ -110,6 +110,25 @@ type TodoItem struct {
 	ResolvedAt string `json:"resolved_at"`
 }
 
+type ErrorReportItem struct {
+	ID         int64  `json:"id"`
+	Source     string `json:"source"`
+	Endpoint   string `json:"endpoint"`
+	ErrorName  string `json:"error_name"`
+	StackTrace string `json:"stack_trace"`
+	CreatedAt  string `json:"created_at"`
+}
+
+type SlowQueryItem struct {
+	ID          int64  `json:"id"`
+	SqlHash     string `json:"sql_hash"`
+	SqlText     string `json:"sql_text"`
+	Endpoint    string `json:"endpoint"`
+	DurationMs  int32  `json:"duration_ms"`
+	ExplainJson string `json:"explain_json"`
+	CreatedAt   string `json:"created_at"`
+}
+
 type JournalEntryItem struct {
 	Date          string `json:"date"`
 	Baseline      bool   `json:"baseline"`
@@ -833,6 +852,23 @@ func (s *Server) registerRoutes(api huma.API) {
 			return s.featuresWithSpecs(ctx, in.Slug)
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "get-feature", Method: http.MethodGet, Path: "/api/dx/feature"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			Name string `query:"name" required:"true"`
+		}) (*struct{ Body FeatureItem }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			feat, err := s.q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Name})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "feature not found: "+in.Name)
+			}
+			specs, _ := s.q.ListSpecs(ctx, feat.ID)
+			return &struct{ Body FeatureItem }{Body: toFeatureItem(feat, specs)}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "upsert-feature", Method: http.MethodPost, Path: "/api/feature"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -1291,6 +1327,128 @@ func (s *Server) registerRoutes(api huma.API) {
 				return &struct{ Body struct{ StateJSON string `json:"state_json"` } }{}, nil
 			}
 			return &struct{ Body struct{ StateJSON string `json:"state_json"` } }{Body: struct{ StateJSON string `json:"state_json"` }{StateJSON: entry.StateJson}}, nil
+		})
+
+	// ── Errors ────────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "report-error", Method: http.MethodPost, Path: "/api/dx/errors/report"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug       string `json:"slug"`
+				Source     string `json:"source"`
+				Endpoint   string `json:"endpoint"`
+				ErrorName  string `json:"error_name"`
+				StackTrace string `json:"stack_trace"`
+			}
+		}) (*struct{ Body ErrorReportItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := s.q.InsertErrorReport(ctx, db.InsertErrorReportParams{
+				ProjectID:  pgtype.Int4{Int32: p.ID, Valid: true},
+				Source:     in.Body.Source,
+				Endpoint:   in.Body.Endpoint,
+				ErrorName:  in.Body.ErrorName,
+				StackTrace: in.Body.StackTrace,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body ErrorReportItem }{Body: ErrorReportItem{
+				ID:         row.ID,
+				Source:     row.Source,
+				Endpoint:   row.Endpoint,
+				ErrorName:  row.ErrorName,
+				StackTrace: row.StackTrace,
+				CreatedAt:  fmtTS(row.CreatedAt),
+			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-errors", Method: http.MethodGet, Path: "/api/dx/errors"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Errors []ErrorReportItem `json:"errors"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListErrorReports(ctx, pgtype.Int4{Int32: p.ID, Valid: true})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ErrorReportItem, len(rows))
+			for i, r := range rows {
+				out[i] = ErrorReportItem{
+					ID:         r.ID,
+					Source:     r.Source,
+					Endpoint:   r.Endpoint,
+					ErrorName:  r.ErrorName,
+					StackTrace: r.StackTrace,
+					CreatedAt:  fmtTS(r.CreatedAt),
+				}
+			}
+			return &struct{ Body struct{ Errors []ErrorReportItem `json:"errors"` } }{Body: struct{ Errors []ErrorReportItem `json:"errors"` }{Errors: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "report-slow-query", Method: http.MethodPost, Path: "/api/dx/slow-queries/report"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug        string `json:"slug"`
+				SqlHash     string `json:"sql_hash"`
+				SqlText     string `json:"sql_text"`
+				Endpoint    string `json:"endpoint"`
+				DurationMs  int32  `json:"duration_ms"`
+				ExplainJson string `json:"explain_json"`
+			}
+		}) (*struct{ Body SlowQueryItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := s.q.InsertSlowQuery(ctx, db.InsertSlowQueryParams{
+				ProjectID:   pgtype.Int4{Int32: p.ID, Valid: true},
+				SqlHash:     in.Body.SqlHash,
+				SqlText:     in.Body.SqlText,
+				Endpoint:    in.Body.Endpoint,
+				DurationMs:  in.Body.DurationMs,
+				ExplainJson: in.Body.ExplainJson,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body SlowQueryItem }{Body: SlowQueryItem{
+				ID:          row.ID,
+				SqlHash:     row.SqlHash,
+				SqlText:     row.SqlText,
+				Endpoint:    row.Endpoint,
+				DurationMs:  row.DurationMs,
+				ExplainJson: row.ExplainJson,
+				CreatedAt:   fmtTS(row.CreatedAt),
+			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-slow-queries", Method: http.MethodGet, Path: "/api/dx/slow-queries"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Queries []SlowQueryItem `json:"queries"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListSlowQueries(ctx, pgtype.Int4{Int32: p.ID, Valid: true})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]SlowQueryItem, len(rows))
+			for i, r := range rows {
+				out[i] = SlowQueryItem{
+					ID:          r.ID,
+					SqlHash:     r.SqlHash,
+					SqlText:     r.SqlText,
+					Endpoint:    r.Endpoint,
+					DurationMs:  r.DurationMs,
+					ExplainJson: r.ExplainJson,
+					CreatedAt:   fmtTS(r.CreatedAt),
+				}
+			}
+			return &struct{ Body struct{ Queries []SlowQueryItem `json:"queries"` } }{Body: struct{ Queries []SlowQueryItem `json:"queries"` }{Queries: out}}, nil
 		})
 }
 

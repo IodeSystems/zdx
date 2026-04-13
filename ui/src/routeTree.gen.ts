@@ -19,6 +19,7 @@ import { Route as ProjectSlugComponentWorklogRouteImport } from './routes/projec
 import { Route as ProjectSlugComponentTasksRouteImport } from './routes/project/$slug/$component/tasks'
 import { Route as ProjectSlugComponentIssuesRouteImport } from './routes/project/$slug/$component/issues'
 import { Route as ProjectSlugComponentFeaturesRouteImport } from './routes/project/$slug/$component/features'
+import { Route as ProjectSlugComponentErrorsRouteImport } from './routes/project/$slug/$component/errors'
 import { Route as ProjectSlugComponentTasksIndexRouteImport } from './routes/project/$slug/$component/tasks/index'
 import { Route as ProjectSlugComponentIssuesIndexRouteImport } from './routes/project/$slug/$component/issues/index'
 import { Route as ProjectSlugComponentFeaturesIndexRouteImport } from './routes/project/$slug/$component/features/index'
@@ -81,6 +82,12 @@ const ProjectSlugComponentFeaturesRoute =
     path: '/features',
     getParentRoute: () => ProjectSlugComponentRoute,
   } as any)
+const ProjectSlugComponentErrorsRoute =
+  ProjectSlugComponentErrorsRouteImport.update({
+    id: '/errors',
+    path: '/errors',
+    getParentRoute: () => ProjectSlugComponentRoute,
+  } as any)
 const ProjectSlugComponentTasksIndexRoute =
   ProjectSlugComponentTasksIndexRouteImport.update({
     id: '/',
@@ -124,6 +131,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/$component': typeof ProjectSlugComponentRouteWithChildren
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
+  '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/features': typeof ProjectSlugComponentFeaturesRouteWithChildren
   '/project/$slug/$component/issues': typeof ProjectSlugComponentIssuesRouteWithChildren
   '/project/$slug/$component/tasks': typeof ProjectSlugComponentTasksRouteWithChildren
@@ -140,6 +148,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug': typeof ProjectSlugIndexRoute
+  '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/worklog': typeof ProjectSlugComponentWorklogRoute
   '/project/$slug/$component': typeof ProjectSlugComponentIndexRoute
   '/project/$slug/$component/features/$name': typeof ProjectSlugComponentFeaturesNameRoute
@@ -156,6 +165,7 @@ export interface FileRoutesById {
   '/project/$slug/$component': typeof ProjectSlugComponentRouteWithChildren
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
+  '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/features': typeof ProjectSlugComponentFeaturesRouteWithChildren
   '/project/$slug/$component/issues': typeof ProjectSlugComponentIssuesRouteWithChildren
   '/project/$slug/$component/tasks': typeof ProjectSlugComponentTasksRouteWithChildren
@@ -176,6 +186,7 @@ export interface FileRouteTypes {
     | '/project/$slug/$component'
     | '/project/$slug/queue'
     | '/project/$slug/'
+    | '/project/$slug/$component/errors'
     | '/project/$slug/$component/features'
     | '/project/$slug/$component/issues'
     | '/project/$slug/$component/tasks'
@@ -192,6 +203,7 @@ export interface FileRouteTypes {
     | '/'
     | '/project/$slug/queue'
     | '/project/$slug'
+    | '/project/$slug/$component/errors'
     | '/project/$slug/$component/worklog'
     | '/project/$slug/$component'
     | '/project/$slug/$component/features/$name'
@@ -207,6 +219,7 @@ export interface FileRouteTypes {
     | '/project/$slug/$component'
     | '/project/$slug/queue'
     | '/project/$slug/'
+    | '/project/$slug/$component/errors'
     | '/project/$slug/$component/features'
     | '/project/$slug/$component/issues'
     | '/project/$slug/$component/tasks'
@@ -295,6 +308,13 @@ declare module '@tanstack/react-router' {
       path: '/features'
       fullPath: '/project/$slug/$component/features'
       preLoaderRoute: typeof ProjectSlugComponentFeaturesRouteImport
+      parentRoute: typeof ProjectSlugComponentRoute
+    }
+    '/project/$slug/$component/errors': {
+      id: '/project/$slug/$component/errors'
+      path: '/errors'
+      fullPath: '/project/$slug/$component/errors'
+      preLoaderRoute: typeof ProjectSlugComponentErrorsRouteImport
       parentRoute: typeof ProjectSlugComponentRoute
     }
     '/project/$slug/$component/tasks/': {
@@ -393,6 +413,7 @@ const ProjectSlugComponentTasksRouteWithChildren =
   )
 
 interface ProjectSlugComponentRouteChildren {
+  ProjectSlugComponentErrorsRoute: typeof ProjectSlugComponentErrorsRoute
   ProjectSlugComponentFeaturesRoute: typeof ProjectSlugComponentFeaturesRouteWithChildren
   ProjectSlugComponentIssuesRoute: typeof ProjectSlugComponentIssuesRouteWithChildren
   ProjectSlugComponentTasksRoute: typeof ProjectSlugComponentTasksRouteWithChildren
@@ -401,6 +422,7 @@ interface ProjectSlugComponentRouteChildren {
 }
 
 const ProjectSlugComponentRouteChildren: ProjectSlugComponentRouteChildren = {
+  ProjectSlugComponentErrorsRoute: ProjectSlugComponentErrorsRoute,
   ProjectSlugComponentFeaturesRoute:
     ProjectSlugComponentFeaturesRouteWithChildren,
   ProjectSlugComponentIssuesRoute: ProjectSlugComponentIssuesRouteWithChildren,

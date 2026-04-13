@@ -1,7 +1,6 @@
 package cli
 
 import (
-	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
@@ -9,7 +8,6 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
-	"runtime"
 	"strconv"
 	"strings"
 	"syscall"
@@ -36,17 +34,14 @@ func daemonStartCmd() *cobra.Command {
 	var serverPort, pgPort int
 	cmd := &cobra.Command{
 		Use:   "start",
-		Short: "Start local dx-server (auto-installs pgsqlite)",
+		Short: "Start local dx-server (uses docker-compose for postgres)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home, err := os.UserHomeDir()
 			if err != nil {
 				return err
 			}
 			zdxDir := filepath.Join(home, ".zdx")
-			if err := os.MkdirAll(filepath.Join(zdxDir, "bin"), 0700); err != nil {
-				return err
-			}
-			if err := os.MkdirAll(filepath.Join(zdxDir, "data"), 0700); err != nil {
+			if err := os.MkdirAll(zdxDir, 0700); err != nil {
 				return err
 			}
 
@@ -65,30 +60,18 @@ func daemonStartCmd() *cobra.Command {
 				return fmt.Errorf("token: %w", err)
 			}
 
-			// Ensure pgsqlite.
-			pgsqliteBin, err := ensurePgsqlite(filepath.Join(zdxDir, "bin"))
-			if err != nil {
-				fmt.Fprintf(os.Stderr, "warn: pgsqlite unavailable (%v) — DATABASE_URL must be set externally\n", err)
-				pgsqliteBin = ""
-			}
-
 			dbURL := os.Getenv("DATABASE_URL")
 
-			// Start pgsqlite if we have the binary and no external DB.
-			if pgsqliteBin != "" && dbURL == "" {
-				dbName := "zdx"
-				dataDir := filepath.Join(zdxDir, "data")
-				pgPid, err := startPgsqlite(pgsqliteBin, dataDir, dbName, pgPort, filepath.Join(zdxDir, "pgsqlite.log"))
-				if err != nil {
-					return fmt.Errorf("pgsqlite: %w", err)
-				}
-				_ = os.WriteFile(filepath.Join(zdxDir, "pgsqlite.pid"), []byte(strconv.Itoa(pgPid)), 0600)
-				dbURL = fmt.Sprintf("postgres://localhost:%d/%s?sslmode=disable", pgPort, dbName)
-				fmt.Printf("pgsqlite started (pid %d, port %d)\n", pgPid, pgPort)
-			}
-
+			// If no external DATABASE_URL, start postgres via docker-compose.
 			if dbURL == "" {
-				return fmt.Errorf("no DATABASE_URL and pgsqlite unavailable — set DATABASE_URL or run 'dx daemon start' after installing pgsqlite")
+				composeFile := devComposeFile()
+				if err := startDevPostgres(composeFile, pgPort); err != nil {
+					return fmt.Errorf("postgres: %w", err)
+				}
+				dbURL = fmt.Sprintf("postgres://zdx:zdx@localhost:%d/zdx?sslmode=disable", pgPort)
+				fmt.Printf("postgres started (port %d)\n", pgPort)
+				// Store compose file path for stop command.
+				_ = os.WriteFile(filepath.Join(zdxDir, "daemon.compose"), []byte(composeFile), 0600)
 			}
 
 			// Locate dx-server binary.
@@ -123,7 +106,7 @@ func daemonStartCmd() *cobra.Command {
 
 			// Wait for health.
 			addr := fmt.Sprintf("http://localhost:%d/health", serverPort)
-			deadline := time.Now().Add(8 * time.Second)
+			deadline := time.Now().Add(15 * time.Second)
 			for time.Now().Before(deadline) {
 				resp, err := http.Get(addr)
 				if err == nil && resp.StatusCode == 200 {
@@ -139,7 +122,7 @@ func daemonStartCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVar(&serverPort, "port", 7600, "dx-server port")
-	cmd.Flags().IntVar(&pgPort, "pg-port", 7651, "pgsqlite postgres port")
+	cmd.Flags().IntVar(&pgPort, "pg-port", 7601, "postgres port")
 	return cmd
 }
 
@@ -148,37 +131,35 @@ func daemonStartCmd() *cobra.Command {
 func daemonStopCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "stop",
-		Short: "Stop daemon (and pgsqlite if managed)",
+		Short: "Stop daemon (and docker-compose postgres if managed)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home, _ := os.UserHomeDir()
 			zdxDir := filepath.Join(home, ".zdx")
 
 			stopped := false
-			for _, name := range []string{"daemon.pid", "pgsqlite.pid"} {
-				pid := readPidFile(filepath.Join(zdxDir, name))
-				if pid <= 0 || !processAlive(pid) {
-					continue
-				}
+			pid := readPidFile(filepath.Join(zdxDir, "daemon.pid"))
+			if pid > 0 && processAlive(pid) {
 				proc, _ := os.FindProcess(pid)
 				_ = proc.Signal(syscall.SIGTERM)
-				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-				for {
-					select {
-					case <-ctx.Done():
-						_ = proc.Signal(syscall.SIGKILL)
-					default:
-						if !processAlive(pid) {
-							goto done
-						}
-						time.Sleep(100 * time.Millisecond)
-					}
-				}
-			done:
-				cancel()
-				_ = os.Remove(filepath.Join(zdxDir, name))
-				fmt.Printf("stopped pid %d (%s)\n", pid, strings.TrimSuffix(name, ".pid"))
 				stopped = true
+				fmt.Printf("stopped daemon (pid %d)\n", pid)
 			}
+			_ = os.Remove(filepath.Join(zdxDir, "daemon.pid"))
+
+			// Stop docker-compose postgres if we started it.
+			if b, err := os.ReadFile(filepath.Join(zdxDir, "daemon.compose")); err == nil {
+				composeFile := strings.TrimSpace(string(b))
+				if composeFile != "" {
+					out, err := exec.Command("docker", "compose", "-f", composeFile, "down", "--timeout", "5").CombinedOutput()
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "docker compose down: %s\n", out)
+					} else {
+						fmt.Println("postgres stopped")
+					}
+					_ = os.Remove(filepath.Join(zdxDir, "daemon.compose"))
+				}
+			}
+
 			if !stopped {
 				fmt.Println("daemon not running")
 			}
@@ -196,106 +177,69 @@ func daemonStatusCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home, _ := os.UserHomeDir()
 			zdxDir := filepath.Join(home, ".zdx")
-			pid := readPidFile(filepath.Join(zdxDir, "daemon.pid"))
-			portBytes, _ := os.ReadFile(filepath.Join(zdxDir, "daemon.port"))
-			port := strings.TrimSpace(string(portBytes))
-			pgPid := readPidFile(filepath.Join(zdxDir, "pgsqlite.pid"))
 
-			if pid <= 0 || !processAlive(pid) {
+			pid := readPidFile(filepath.Join(zdxDir, "daemon.pid"))
+			if pid > 0 && processAlive(pid) {
+				port := strings.TrimSpace(func() string {
+					b, _ := os.ReadFile(filepath.Join(zdxDir, "daemon.port"))
+					return string(b)
+				}())
+				fmt.Printf("daemon:  running  pid=%d  port=%s\n", pid, port)
+			} else {
 				fmt.Println("daemon: not running")
-				return nil
-			}
-			fmt.Printf("daemon:    running  pid=%-6d port=%s  url=http://localhost:%s\n", pid, port, port)
-			if pgPid > 0 && processAlive(pgPid) {
-				fmt.Printf("pgsqlite:  running  pid=%d\n", pgPid)
 			}
 			return nil
 		},
 	}
 }
 
-// ── pgsqlite ──────────────────────────────────────────────────────────────────
+// ── docker-compose postgres ───────────────────────────────────────────────────
 
-const pgsqliteURL = "https://github.com/erans/pgsqlite/releases/latest/download/pgsqlite-%s-%s.tar.gz"
-
-func ensurePgsqlite(binDir string) (string, error) {
-	binPath := filepath.Join(binDir, "pgsqlite")
-	if _, err := os.Stat(binPath); err == nil {
-		return binPath, nil
-	}
-
-	goos := runtime.GOOS     // linux | darwin
-	arch := runtime.GOARCH   // amd64 | arm64
-	// Map Go arch to pgsqlite release naming
-	osName := goos
-	archName := arch
-	if arch == "amd64" {
-		archName = "x64"
-	}
-
-	url := fmt.Sprintf(pgsqliteURL, osName, archName)
-	tarball := filepath.Join(binDir, "pgsqlite.tar.gz")
-
-	fmt.Fprintf(os.Stderr, "downloading pgsqlite from %s\n", url)
-	dlCmd := exec.Command("curl", "-fsSL", "-o", tarball, url)
-	dlCmd.Stdout = os.Stderr
-	dlCmd.Stderr = os.Stderr
-	if err := dlCmd.Run(); err != nil {
-		return "", fmt.Errorf("download failed: %w", err)
-	}
-	defer os.Remove(tarball)
-
-	tarCmd := exec.Command("tar", "-xzf", tarball, "-C", binDir, "pgsqlite")
-	tarCmd.Stderr = os.Stderr
-	if err := tarCmd.Run(); err != nil {
-		return "", fmt.Errorf("extract failed: %w", err)
-	}
-	if err := os.Chmod(binPath, 0755); err != nil {
-		return "", err
-	}
-	fmt.Fprintf(os.Stderr, "pgsqlite installed at %s\n", binPath)
-	return binPath, nil
+// devComposeFile returns the path to the embedded dev compose file.
+// It writes it to a temp location so it's available to docker-compose.
+func devComposeFile() string {
+	content := `services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: zdx
+      POSTGRES_USER: zdx
+      POSTGRES_PASSWORD: zdx
+    tmpfs:
+      - /var/lib/postgresql/data:exec
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zdx -d zdx"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+`
+	tmp, _ := os.CreateTemp("", "zdx-dev-compose-*.yaml")
+	_, _ = tmp.WriteString(content)
+	_ = tmp.Close()
+	return tmp.Name()
 }
 
-func startPgsqlite(bin, dataDir, dbName string, port int, logPath string) (int, error) {
-	logFile, err := os.OpenFile(logPath, os.O_CREATE|os.O_WRONLY|os.O_APPEND, 0600)
+func startDevPostgres(composeFile string, port int) error {
+	// Write a dynamic compose override for the port.
+	override := fmt.Sprintf(`services:
+  postgres:
+    ports:
+      - "127.0.0.1:%d:5432"
+`, port)
+	overrideFile, _ := os.CreateTemp("", "zdx-dev-compose-override-*.yaml")
+	_, _ = overrideFile.WriteString(override)
+	_ = overrideFile.Close()
+	defer os.Remove(overrideFile.Name())
+
+	out, err := exec.Command("docker", "compose",
+		"-f", composeFile,
+		"-f", overrideFile.Name(),
+		"up", "-d", "--wait",
+	).CombinedOutput()
 	if err != nil {
-		return 0, err
+		return fmt.Errorf("docker compose up: %s: %w", strings.TrimSpace(string(out)), err)
 	}
-
-	c := exec.Command(bin,
-		"--port", strconv.Itoa(port),
-		"--data-dir", dataDir,
-		"--db-name", dbName,
-	)
-	c.Stdout = logFile
-	c.Stderr = logFile
-	c.SysProcAttr = &syscall.SysProcAttr{Setsid: true}
-	if err := c.Start(); err != nil {
-		logFile.Close()
-		return 0, err
-	}
-	logFile.Close()
-
-	// Wait for pg to accept connections.
-	deadline := time.Now().Add(5 * time.Second)
-	dsn := fmt.Sprintf("postgres://localhost:%d/%s?sslmode=disable", port, dbName)
-	for time.Now().Before(deadline) {
-		out, _ := exec.Command("pg_isready", "-h", "localhost", "-p", strconv.Itoa(port)).Output()
-		if strings.Contains(string(out), "accepting") {
-			return c.Process.Pid, nil
-		}
-		// Also try a simple TCP connect
-		conn, err := exec.Command("sh", "-c",
-			fmt.Sprintf("echo > /dev/tcp/localhost/%d", port)).Output()
-		_ = conn
-		if err == nil {
-			return c.Process.Pid, nil
-		}
-		_ = dsn
-		time.Sleep(200 * time.Millisecond)
-	}
-	return c.Process.Pid, nil // return pid even on timeout; server may still come up
+	return nil
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

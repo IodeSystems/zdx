@@ -299,11 +299,14 @@ export const useFeatures = (slug: string) =>
     enabled: !!slug,
   })
 
-// /api/dx/feature (single feature by name) is not in the OpenAPI spec.
 export const useFeature = (slug: string, name: string) =>
   useQuery<FeatureItem | null>({
     queryKey: ['feature', slug, name],
-    queryFn: () => apiFetch<FeatureItem | null>(`/api/dx/feature?slug=${encodeURIComponent(slug)}&name=${encodeURIComponent(name)}`),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/feature', { params: { query: { slug, name } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data ?? null
+    },
     enabled: !!slug && !!name,
   })
 
@@ -333,6 +336,35 @@ export const useUpdateFeatureField = () => {
     },
   })
 }
+
+// ── solo (undocumented endpoint) ──────────────────────────────────────────────
+
+// ── errors & slow queries ────────────────────────────────────────────────────
+
+export type ErrorReportItem = components['schemas']['ErrorReportItem']
+export type SlowQueryItem = components['schemas']['SlowQueryItem']
+
+export const useErrors = (slug: string) =>
+  useQuery<ErrorReportItem[]>({
+    queryKey: ['errors', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/errors', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.errors ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useSlowQueries = (slug: string) =>
+  useQuery<SlowQueryItem[]>({
+    queryKey: ['slow-queries', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/slow-queries', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.queries ?? []
+    },
+    enabled: !!slug,
+  })
 
 // ── solo (undocumented endpoint) ──────────────────────────────────────────────
 
