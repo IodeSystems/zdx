@@ -146,6 +146,14 @@ type TestResultInput struct {
 	DurationMS int32  `json:"duration_ms"`
 }
 
+// ptrStr dereferences a *string, returning "" for nil.
+func ptrStr(s *string) string {
+	if s == nil {
+		return ""
+	}
+	return *s
+}
+
 // ── Route registration ─────────────────────────────────────────────────────
 
 func (s *Server) registerRoutes(api huma.API) {
@@ -296,12 +304,12 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "add-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug      string `json:"slug"`
-				Title     string `json:"title"`
-				Source    string `json:"source"`
-				Context   string `json:"context"`
-				BlockedBy string `json:"blocked_by"`
-				Component string `json:"component"`
+				Slug      string  `json:"slug"`
+				Title     string  `json:"title"`
+				Source    *string `json:"source,omitempty"`
+				Context   *string `json:"context,omitempty"`
+				BlockedBy *string `json:"blocked_by,omitempty"`
+				Component *string `json:"component,omitempty"`
 			}
 		}) (*struct{ Body IssueItem }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -312,13 +320,18 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			row, err := s.q.CreateIssue(ctx, db.CreateIssueParams{
+			params := db.CreateIssueParams{
 				ID:        id,
 				ProjectID: p.ID,
 				Title:     in.Body.Title,
-				Context:   in.Body.Context,
-				Component: in.Body.Component,
-			})
+			}
+			if in.Body.Context != nil {
+				params.Context = *in.Body.Context
+			}
+			if in.Body.Component != nil {
+				params.Component = *in.Body.Component
+			}
+			row, err := s.q.CreateIssue(ctx, params)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -347,10 +360,10 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "close-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/close"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug   string `json:"slug"`
-				ID     int32  `json:"id"`
-				Reason string `json:"reason"`
-				Notes  string `json:"notes"`
+				Slug   string  `json:"slug"`
+				ID     int32   `json:"id"`
+				Reason *string `json:"reason,omitempty"`
+				Notes  *string `json:"notes,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -361,10 +374,12 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			if in.Body.Reason != "" || in.Body.Notes != "" {
-				note := in.Body.Reason
-				if in.Body.Notes != "" {
-					note += "\n" + in.Body.Notes
+			reason := ptrStr(in.Body.Reason)
+			notes := ptrStr(in.Body.Notes)
+			if reason != "" || notes != "" {
+				note := reason
+				if notes != "" {
+					note += "\n" + notes
 				}
 				_ = s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: "cli", Note: note})
 			}
@@ -542,11 +557,11 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "add-task", Method: http.MethodPost, Path: "/api/dx/todo/tech/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug    string `json:"slug"`
-				Feature string `json:"feature"`
-				Text    string `json:"text"`
-				Issue   string `json:"issue"`
-				Depends string `json:"depends"`
+				Slug    string  `json:"slug"`
+				Feature *string `json:"feature,omitempty"`
+				Text    string  `json:"text"`
+				Issue   *string `json:"issue,omitempty"`
+				Depends *string `json:"depends,omitempty"`
 			}
 		}) (*struct{ Body TaskItem }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -561,8 +576,8 @@ func (s *Server) registerRoutes(api huma.API) {
 				ID:        id,
 				ProjectID: p.ID,
 				Text:      in.Body.Text,
-				Feature:   in.Body.Feature,
-				Issue:     in.Body.Issue,
+				Feature:   ptrStr(in.Body.Feature),
+				Issue:     ptrStr(in.Body.Issue),
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -573,16 +588,16 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "mark-task-done", Method: http.MethodPost, Path: "/api/dx/todo/dev/done"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ID       int32  `json:"id"`
-				TestPlan string `json:"test_plan"`
-				TestRefs string `json:"test_refs"`
+				ID       int32   `json:"id"`
+				TestPlan *string `json:"test_plan,omitempty"`
+				TestRefs *string `json:"test_refs,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
 			if err := s.q.MarkTaskDone(ctx, db.MarkTaskDoneParams{
 				ID:       id,
-				TestPlan: in.Body.TestPlan,
-				TestRefs: in.Body.TestRefs,
+				TestPlan: ptrStr(in.Body.TestPlan),
+				TestRefs: ptrStr(in.Body.TestRefs),
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -602,14 +617,14 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "block-task", Method: http.MethodPost, Path: "/api/dx/todo/dev/block"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ID     int32  `json:"id"`
-				Reason string `json:"reason"`
+				ID     int32   `json:"id"`
+				Reason *string `json:"reason,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     taskIDFromInt(in.Body.ID),
 				Status: "blocked",
-				Reason: in.Body.Reason,
+				Reason: ptrStr(in.Body.Reason),
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -633,15 +648,15 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "update-task-status", Method: http.MethodPut, Path: "/api/task-status"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ID     int32  `json:"id"`
-				Status string `json:"status"`
-				Reason string `json:"reason"`
+				ID     int32   `json:"id"`
+				Status string  `json:"status"`
+				Reason *string `json:"reason,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     taskIDFromInt(in.Body.ID),
 				Status: in.Body.Status,
-				Reason: in.Body.Reason,
+				Reason: ptrStr(in.Body.Reason),
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
