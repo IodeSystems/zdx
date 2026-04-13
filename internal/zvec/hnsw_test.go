@@ -87,7 +87,8 @@ func TestHNSWOpenDetectsType(t *testing.T) {
 
 func TestHNSWScaleTopN(t *testing.T) {
 	// 200 vectors: query should return correct top match.
-	h, _ := zvec.NewHNSW(16, zvec.HNSWOptions{M: 16, EfConstruct: 100})
+	// EfConstruct=400 ensures thorough graph construction for reliable exact-match retrieval.
+	h, _ := zvec.NewHNSW(16, zvec.HNSWOptions{M: 16, EfConstruct: 400})
 
 	target := vec16(1, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0)
 	h.Insert(999, target)
