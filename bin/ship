@@ -208,12 +208,16 @@ fi
 
 run_migrate() {
   local slot="$1"
-  # Extract DATABASE_URL from the slot's systemd unit, then run migrate.
-  ssh "$HOST" "sudo -u $SERVICE bash -c '
-    DATABASE_URL=\$(systemctl show ${SERVICE}-${slot} --property=Environment | sed 's/^Environment=//' | tr -d '"' | tr ' ' '\n' | grep '^DATABASE_URL=' | head -1 | cut -d= -f2-)
-    export DATABASE_URL
-    $REMOTE_HOME/home/versions/${slot}/dx migrate up
-  '"
+  local unit="${SERVICE}-${slot}"
+  local binary="${REMOTE_HOME}/home/versions/${slot}/dx"
+  # Pipe a script to bash over SSH to avoid quote nesting entirely.
+  ssh "$HOST" "sudo -u $SERVICE bash -s" <<REMOTESCRIPT
+DATABASE_URL=\$(systemctl show ${unit} --property=Environment \
+  | sed 's/^Environment=//' | tr -d '"' | tr ' ' '\n' \
+  | grep '^DATABASE_URL=' | head -1 | cut -d= -f2-)
+export DATABASE_URL
+${binary} migrate up
+REMOTESCRIPT
 }
 
 sync_slot() {
