@@ -65,6 +65,14 @@ FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at;
 SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at;
 
+-- name: SearchIssues :many
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+FROM zdx_issues
+WHERE project_id = @project_id
+  AND (title ILIKE '%' || @query::text || '%' OR context ILIKE '%' || @query::text || '%')
+ORDER BY priority NULLS LAST, created_at
+LIMIT 20;
+
 -- name: GetIssue :one
 SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
 FROM zdx_issues WHERE project_id = $1 AND id = $2;

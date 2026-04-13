@@ -592,3 +592,16 @@ export const useSimilarIssues = () =>
       return res.issues ?? []
     },
   })
+
+export const useSearchIssues = (slug: string, q: string, enabled: boolean) =>
+  useQuery<IssueItem[]>({
+    queryKey: ['issue-search', slug, q],
+    queryFn: async () => {
+      const res = await apiFetch<{ issues: IssueItem[] }>(
+        `/api/dx/todo/issue/search?slug=${encodeURIComponent(slug)}&q=${encodeURIComponent(q)}`
+      )
+      return res.issues ?? []
+    },
+    enabled: enabled && !!slug && q.length > 1,
+    staleTime: 10_000,
+  })

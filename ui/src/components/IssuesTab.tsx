@@ -1,17 +1,23 @@
-import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { useState, useEffect, useRef } from 'react'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
+  Autocomplete,
   Box,
   Card,
   CardActionArea,
   CardContent,
   Chip,
   Stack,
+  TextField,
   Typography,
 } from '@mui/material'
-import { useIssues, type IssueItem } from '../api'
+import { useIssues, useSearchIssues, useSimilarIssues, type IssueItem, type SimilarIssueItem } from '../api'
 
 type Issue = IssueItem
+
+type SearchOption =
+  | { group: 'Text match'; item: IssueItem }
+  | { group: 'Similar'; item: SimilarIssueItem }
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -40,6 +46,111 @@ const STATUS_COLORS: Record<string, 'warning' | 'info' | 'secondary' | 'success'
 }
 
 const STATUS_RANK: Record<string, number> = { open: 0, triaged: 1, 'in-progress': 2, done: 3, closed: 4 }
+
+function IssueSearch({ slug, componentSlug }: { slug: string; componentSlug: string }) {
+  const navigate = useNavigate()
+  const [inputValue, setInputValue] = useState('')
+  const [ftsQuery, setFtsQuery] = useState('')
+  const [vecQuery, setVecQuery] = useState('')
+  const [vecResults, setVecResults] = useState<SimilarIssueItem[]>([])
+  const ftsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const vecTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const findSimilar = useSimilarIssues()
+
+  useEffect(() => {
+    if (ftsTimer.current) clearTimeout(ftsTimer.current)
+    if (vecTimer.current) clearTimeout(vecTimer.current)
+    if (!inputValue.trim()) {
+      setFtsQuery('')
+      setVecQuery('')
+      setVecResults([])
+      return
+    }
+    ftsTimer.current = setTimeout(() => setFtsQuery(inputValue), 150)
+    vecTimer.current = setTimeout(() => setVecQuery(inputValue), 500)
+    return () => {
+      if (ftsTimer.current) clearTimeout(ftsTimer.current)
+      if (vecTimer.current) clearTimeout(vecTimer.current)
+    }
+  }, [inputValue])
+
+  useEffect(() => {
+    if (!vecQuery.trim()) { setVecResults([]); return }
+    findSimilar.mutate({ slug, text: vecQuery, n: 5 }, {
+      onSuccess: (items) => setVecResults(items),
+      onError: () => setVecResults([]),
+    })
+  }, [vecQuery, slug]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  const { data: ftsData } = useSearchIssues(slug, ftsQuery, ftsQuery.length > 1)
+
+  const ftsOptions: SearchOption[] = (ftsData ?? []).map(item => ({ group: 'Text match' as const, item }))
+  const vecOptions: SearchOption[] = vecResults
+    .filter(v => !(ftsData ?? []).some(f => `IS-${f.id}` === v.id))
+    .map(item => ({ group: 'Similar' as const, item }))
+
+  const options: SearchOption[] = [...ftsOptions, ...vecOptions]
+
+  return (
+    <Autocomplete<SearchOption, false, false, true>
+      freeSolo
+      inputValue={inputValue}
+      onInputChange={(_, v) => setInputValue(v)}
+      options={options}
+      groupBy={o => (typeof o === 'string' ? '' : o.group)}
+      getOptionLabel={o => {
+        if (typeof o === 'string') return o
+        if (o.group === 'Text match') return issueDisplayTitle(o.item.title, o.item.context)
+        return o.item.title || o.item.id
+      }}
+      filterOptions={x => x}
+      onChange={(_, value) => {
+        if (!value || typeof value === 'string') return
+        const id = value.group === 'Text match' ? `IS-${value.item.id}` : value.item.id
+        navigate({ to: '/project/$slug/$component/issues/$id', params: { slug, component: componentSlug, id } })
+        setInputValue('')
+      }}
+      renderInput={params => (
+        <TextField
+          {...params}
+          size="small"
+          placeholder="Search issues…"
+          sx={{ minWidth: 240 }}
+        />
+      )}
+      renderOption={(props, option) => {
+        if (typeof option === 'string') return null
+        const { key, ...rest } = props as { key: React.Key } & React.HTMLAttributes<HTMLLIElement>
+        if (option.group === 'Text match') {
+          const pLabel = priorityLabel(option.item.priority)
+          return (
+            <li key={key} {...rest}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+                <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: 40 }}>IS-{option.item.id}</Typography>
+                <Chip label={pLabel} size="small" color={PRIORITY_COLORS[pLabel] || 'default'} sx={{ minWidth: 60 }} />
+                <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                  {issueDisplayTitle(option.item.title, option.item.context)}
+                </Typography>
+              </Box>
+            </li>
+          )
+        }
+        return (
+          <li key={key} {...rest}>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
+              <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: 40 }}>{option.item.id}</Typography>
+              <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+                {option.item.title || option.item.id}
+              </Typography>
+              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{(option.item.score * 100).toFixed(0)}%</Typography>
+            </Box>
+          </li>
+        )
+      }}
+      sx={{ display: 'inline-flex' }}
+    />
+  )
+}
 
 export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; componentSlug?: string }) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
@@ -97,6 +208,9 @@ export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; compo
             />
           )}
         </Stack>
+        <Box sx={{ ml: 'auto' }}>
+          <IssueSearch slug={slug} componentSlug={componentSlug} />
+        </Box>
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {items.map(i => {

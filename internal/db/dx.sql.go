@@ -2069,6 +2069,51 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 	return err
 }
 
+const searchIssues = `-- name: SearchIssues :many
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+FROM zdx_issues
+WHERE project_id = $1
+  AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
+ORDER BY priority NULLS LAST, created_at
+LIMIT 20
+`
+
+type SearchIssuesParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Query     string `db:"query" json:"query"`
+}
+
+func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error) {
+	rows, err := q.db.Query(ctx, searchIssues, arg.ProjectID, arg.Query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxIssue
+	for rows.Next() {
+		var i ZdxIssue
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Status,
+			&i.Priority,
+			&i.Component,
+			&i.Context,
+			&i.BlockedBy,
+			&i.CreatedAt,
+			&i.IssueType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setIssueField = `-- name: SetIssueField :exec
 UPDATE zdx_issues
 SET title      = CASE WHEN $1::text = 'title'      THEN $2::text ELSE title      END,
