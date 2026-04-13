@@ -165,7 +165,7 @@ const jsonPut = (body: unknown) => ({
 export const useProjects = () =>
   useQuery<ProjectResp[]>({
     queryKey: ['projects'],
-    queryFn: () => apiFetch('/api/projects'),
+    queryFn: () => apiFetch<{ projects: ProjectResp[] }>('/api/projects').then(r => r.projects ?? []),
   })
 
 export const useCreateProject = () => {
@@ -243,7 +243,7 @@ export const useTasks = (slug: string, opts?: { feature?: string; issue?: string
       const params = new URLSearchParams({ slug })
       if (opts?.feature) params.set('feature', opts.feature)
       if (opts?.issue) params.set('issue', opts.issue)
-      return apiFetch(`/api/dx/tasks?${params}`)
+      return apiFetch<{ tasks: TaskResp[] }>(`/api/tasks?${params}`).then(r => r.tasks ?? [])
     },
     enabled: !!slug,
   })
@@ -285,7 +285,7 @@ export const useMarkTaskUndone = () => {
 export const useFeatures = (slug: string) =>
   useQuery<FeatureResp[]>({
     queryKey: ['features', slug],
-    queryFn: () => apiFetch(`/api/dx/features?slug=${encodeURIComponent(slug)}`),
+    queryFn: () => apiFetch<{ features: FeatureResp[] }>(`/api/features?slug=${encodeURIComponent(slug)}`).then(r => r.features ?? []),
     enabled: !!slug,
   })
 

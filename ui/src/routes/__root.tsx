@@ -304,9 +304,11 @@ function RootLayout() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <QueryClientProvider client={queryClient}>
-        <AuthGate>
-          <AppShell />
-        </AuthGate>
+        <ErrorBoundary>
+          <AuthGate>
+            <AppShell />
+          </AuthGate>
+        </ErrorBoundary>
       </QueryClientProvider>
     </ThemeProvider>
   )
