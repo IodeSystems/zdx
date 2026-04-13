@@ -102,6 +102,7 @@ type Querier interface {
 	NextID(ctx context.Context, arg NextIDParams) (int32, error)
 	RemoveThemeBlocker(ctx context.Context, arg RemoveThemeBlockerParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
+	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
