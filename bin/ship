@@ -210,7 +210,8 @@ run_migrate() {
   local slot="$1"
   # Extract DATABASE_URL from the slot's systemd unit, then run migrate.
   ssh "$HOST" "sudo -u $SERVICE bash -c '
-    export \$(systemctl show ${SERVICE}-${slot} --property=Environment | tr \" \" \"\n\" | grep \"^DATABASE_URL=\")
+    DATABASE_URL=\$(systemctl show ${SERVICE}-${slot} --property=Environment | sed 's/^Environment=//' | tr -d '"' | tr ' ' '\n' | grep '^DATABASE_URL=' | head -1 | cut -d= -f2-)
+    export DATABASE_URL
     $REMOTE_HOME/home/versions/${slot}/dx migrate up
   '"
 }
