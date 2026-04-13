@@ -1,63 +1,33 @@
 // API layer for zdx server.
-// Types generated from /openapi.json via openapi-typescript. Run bin/api-types to regenerate.
-// Pattern: use client from ./client for new hooks; migrate legacy hooks incrementally.
-
-export type {
-  OKResponse,
-  ProjectResp,
-  IssueResp,
-  IssueWorkResp,
-  TaskResp,
-  FeatureResp,
-  SpecResp,
-  SoloItem,
-  CreateProjectRequest,
-  CreateIssueRequest,
-  UpdateIssueRequest,
-  CloseIssueRequest,
-  AppendIssueWorkRequest,
-  CreateTaskRequest,
-  UpdateTaskStatusRequest,
-  MarkTaskDoneRequest,
-  MarkTaskUndoneRequest,
-  CreateFeatureRequest,
-  UpdateFeatureFieldRequest,
-  AddSpecRequest,
-} from './generated-types'
-
-import type {
-  OKResponse,
-  ProjectResp,
-  IssueResp,
-  TaskResp,
-  FeatureResp,
-  SoloItem,
-  CreateProjectRequest,
-  CreateIssueRequest,
-  UpdateIssueRequest,
-  CloseIssueRequest,
-  AppendIssueWorkRequest,
-  CreateTaskRequest,
-  UpdateTaskStatusRequest,
-  MarkTaskDoneRequest,
-  MarkTaskUndoneRequest,
-  CreateFeatureRequest,
-  UpdateFeatureFieldRequest,
-  AddSpecRequest,
-} from './generated-types'
+// Types from /openapi.json via openapi-typescript. Run bin/api-types to regenerate.
 
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import { client, getToken, setToken, clearToken } from './client'
 export { getToken, setToken, clearToken }
 import type { components } from '../api.gen'
 
-// Re-export new generated types for incremental migration
 export type { components }
 export type IssueItem = components['schemas']['IssueItem']
+export type IssueWorkItem = components['schemas']['IssueWorkItem']
+export type TaskItem = components['schemas']['TaskItem']
+export type FeatureItem = components['schemas']['FeatureItem']
+export type SpecItem = components['schemas']['SpecItem']
+export type ProjectItem = components['schemas']['ProjectItem']
+export type MeItem = components['schemas']['MeItem']
+export type OKBody = components['schemas']['OKBody']
+export type ShowIssueResponse = components['schemas']['Show-issueResponse']
 
-export type MeItem = { id: number; email: string; name: string; role: string }
+// SoloItem is not in the OpenAPI spec (undocumented endpoint).
+export interface SoloItem {
+  id: string
+  kind: string
+  summary: string
+  issue?: string
+  task?: string
+  feature?: string
+}
 
-// ── fetch utility ─────────────────────────────────────────────────────────────
+// ── fetch utility (used for undocumented endpoints) ────────────────────────────
 
 export async function apiFetch<T = unknown>(url: string, init?: RequestInit): Promise<T> {
   const token = getToken()
@@ -88,15 +58,11 @@ export const useMe = () =>
 
 export const useLogin = () => {
   const qc = useQueryClient()
-  return useMutation<{ token: string; email: string; role: string }, Error, { email: string; password: string }>({
+  return useMutation<components['schemas']['Auth-loginResponse'], Error, components['schemas']['Auth-loginRequest']>({
     mutationFn: async (body) => {
-      const res = await fetch('/api/auth/login', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).title ?? 'Login failed')
-      return res.json()
+      const { data, error } = await client.POST('/api/auth/login', { body })
+      if (error) throw new Error((error as { title?: string }).title ?? 'Login failed')
+      return data!
     },
     onSuccess: ({ token }) => {
       setToken(token)
@@ -107,15 +73,11 @@ export const useLogin = () => {
 
 export const useRegister = () => {
   const qc = useQueryClient()
-  return useMutation<{ token: string; email: string; role: string }, Error, { email: string; name: string; password: string; invite_code: string }>({
+  return useMutation<components['schemas']['Auth-registerResponse'], Error, components['schemas']['Auth-registerRequest']>({
     mutationFn: async (body) => {
-      const res = await fetch('/api/auth/register', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(body),
-      })
-      if (!res.ok) throw new Error((await res.json().catch(() => ({}))).title ?? 'Registration failed')
-      return res.json()
+      const { data, error } = await client.POST('/api/auth/register', { body })
+      if (error) throw new Error((error as { title?: string }).title ?? 'Registration failed')
+      return data!
     },
     onSuccess: ({ token }) => {
       setToken(token)
@@ -148,30 +110,26 @@ export const useLogout = () => {
   }
 }
 
-const json = (body: unknown) => ({
-  method: 'POST',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
-})
-
-const jsonPut = (body: unknown) => ({
-  method: 'PUT',
-  headers: { 'Content-Type': 'application/json' },
-  body: JSON.stringify(body),
-})
-
 // ── projects ──────────────────────────────────────────────────────────────────
 
 export const useProjects = () =>
-  useQuery<ProjectResp[]>({
+  useQuery<ProjectItem[]>({
     queryKey: ['projects'],
-    queryFn: () => apiFetch<{ projects: ProjectResp[] }>('/api/projects').then(r => r.projects ?? []),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/projects')
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.projects ?? []
+    },
   })
 
 export const useCreateProject = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, CreateProjectRequest>({
-    mutationFn: (body) => apiFetch('/api/project', json(body)),
+  return useMutation<ProjectItem, Error, components['schemas']['Create-projectRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/project', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['projects'] }),
   })
 }
@@ -190,92 +148,140 @@ export const useIssues = (slug: string) =>
   })
 
 export const useIssue = (slug: string, id: string) =>
-  useQuery<IssueResp>({
+  useQuery<ShowIssueResponse>({
     queryKey: ['issue', slug, id],
-    queryFn: () => apiFetch(`/api/dx/issue?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/todo/issue/show', { params: { query: { slug, id } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     enabled: !!slug && !!id,
   })
 
 export const useCreateIssue = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, CreateIssueRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/issue', json(body)),
+  return useMutation<IssueItem, Error, components['schemas']['Add-issueRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/todo/issue/add', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['issues', v.slug] }),
   })
 }
 
 export const useUpdateIssue = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, UpdateIssueRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/issue', jsonPut(body)),
-    onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['issues', v.slug] })
-      qc.invalidateQueries({ queryKey: ['issue', v.slug, v.id] })
+  return useMutation<OKBody, Error, components['schemas']['Update-issueRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/todo/issue/update', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['issues'] })
+      qc.invalidateQueries({ queryKey: ['issue'] })
     },
   })
 }
 
 export const useCloseIssue = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, CloseIssueRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/issue/close', json(body)),
+  return useMutation<OKBody, Error, components['schemas']['Close-issueRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/todo/issue/close', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['issues', v.slug] })
-      qc.invalidateQueries({ queryKey: ['issue', v.slug, v.id] })
+      qc.invalidateQueries({ queryKey: ['issue'] })
     },
   })
 }
 
 export const useAppendIssueWork = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, AppendIssueWorkRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/issue/work', json(body)),
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['issue', v.slug, v.id] }),
+  return useMutation<OKBody, Error, components['schemas']['Append-issue-workRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/issue-work', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['issue'] }),
   })
 }
 
 // ── tasks ─────────────────────────────────────────────────────────────────────
 
 export const useTasks = (slug: string, opts?: { feature?: string; issue?: string }) =>
-  useQuery<TaskResp[]>({
+  useQuery<TaskItem[]>({
     queryKey: ['tasks', slug, opts],
-    queryFn: () => {
-      const params = new URLSearchParams({ slug })
-      if (opts?.feature) params.set('feature', opts.feature)
-      if (opts?.issue) params.set('issue', opts.issue)
-      return apiFetch<{ tasks: TaskResp[] }>(`/api/tasks?${params}`).then(r => r.tasks ?? [])
+    queryFn: async () => {
+      if (opts?.feature) {
+        const { data, error } = await client.GET('/api/tasks-by-feature', { params: { query: { slug, feature: opts.feature } } })
+        if (error) throw new Error(JSON.stringify(error))
+        return data?.tasks ?? []
+      }
+      if (opts?.issue) {
+        const { data, error } = await client.GET('/api/dx/todo/issue/tasks', { params: { query: { slug, issue_id: opts.issue } } })
+        if (error) throw new Error(JSON.stringify(error))
+        return data?.tasks ?? []
+      }
+      const { data, error } = await client.GET('/api/tasks', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.tasks ?? []
     },
     enabled: !!slug,
   })
 
 export const useCreateTask = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, CreateTaskRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/task', json(body)),
+  return useMutation<TaskItem, Error, components['schemas']['Add-taskRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/todo/tech/add', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['tasks', v.slug] }),
   })
 }
 
+// Includes slug for cache invalidation only — not sent to server.
+type UpdateTaskStatusInput = components['schemas']['Update-task-statusRequest'] & { slug: string }
+
 export const useUpdateTaskStatus = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, UpdateTaskStatusRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/task/status', jsonPut(body)),
+  return useMutation<OKBody, Error, UpdateTaskStatusInput>({
+    mutationFn: async ({ id, status, reason }) => {
+      const { data, error } = await client.PUT('/api/task-status', { body: { id, status, reason } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['tasks', v.slug] }),
   })
 }
 
 export const useMarkTaskDone = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, MarkTaskDoneRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/task/done', json(body)),
+  return useMutation<OKBody, Error, components['schemas']['Mark-task-doneRequest'] & { slug: string }>({
+    mutationFn: async ({ id, test_plan, test_refs }) => {
+      const { data, error } = await client.POST('/api/dx/todo/dev/done', { body: { id, test_plan, test_refs } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['tasks', v.slug] }),
   })
 }
 
 export const useMarkTaskUndone = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, MarkTaskUndoneRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/task/undone', json(body)),
+  return useMutation<OKBody, Error, components['schemas']['Mark-task-undoneRequest'] & { slug: string }>({
+    mutationFn: async ({ id }) => {
+      const { data, error } = await client.POST('/api/dx/todo/dev/undone', { body: { id } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['tasks', v.slug] }),
   })
 }
@@ -283,31 +289,44 @@ export const useMarkTaskUndone = () => {
 // ── features ──────────────────────────────────────────────────────────────────
 
 export const useFeatures = (slug: string) =>
-  useQuery<FeatureResp[]>({
+  useQuery<FeatureItem[]>({
     queryKey: ['features', slug],
-    queryFn: () => apiFetch<{ features: FeatureResp[] }>(`/api/features?slug=${encodeURIComponent(slug)}`).then(r => r.features ?? []),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/features', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.features ?? []
+    },
     enabled: !!slug,
   })
 
+// /api/dx/feature (single feature by name) is not in the OpenAPI spec.
 export const useFeature = (slug: string, name: string) =>
-  useQuery<FeatureResp>({
+  useQuery<FeatureItem | null>({
     queryKey: ['feature', slug, name],
-    queryFn: () => apiFetch(`/api/dx/feature?slug=${encodeURIComponent(slug)}&name=${encodeURIComponent(name)}`),
+    queryFn: () => apiFetch<FeatureItem | null>(`/api/dx/feature?slug=${encodeURIComponent(slug)}&name=${encodeURIComponent(name)}`),
     enabled: !!slug && !!name,
   })
 
 export const useCreateFeature = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, CreateFeatureRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/feature', json(body)),
+  return useMutation<FeatureItem, Error, components['schemas']['Upsert-featureRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/feature', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['features', v.slug] }),
   })
 }
 
 export const useUpdateFeatureField = () => {
   const qc = useQueryClient()
-  return useMutation<OKResponse, Error, UpdateFeatureFieldRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/feature/field', jsonPut(body)),
+  return useMutation<OKBody, Error, components['schemas']['Set-feature-fieldRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/features/field', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['features', v.slug] })
       qc.invalidateQueries({ queryKey: ['feature', v.slug, v.feature] })
@@ -315,15 +334,7 @@ export const useUpdateFeatureField = () => {
   })
 }
 
-export const useAddSpec = () => {
-  const qc = useQueryClient()
-  return useMutation<OKResponse, Error, AddSpecRequest>({
-    mutationFn: (body) => apiFetch('/api/dx/spec', json(body)),
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['feature', v.slug, v.feature] }),
-  })
-}
-
-// ── solo ──────────────────────────────────────────────────────────────────────
+// ── solo (undocumented endpoint) ──────────────────────────────────────────────
 
 export const useSolo = (slug: string, issueFilter?: string) =>
   useQuery<SoloItem[]>({

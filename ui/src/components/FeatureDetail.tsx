@@ -6,10 +6,10 @@ import {
   Typography,
 } from '@mui/material'
 import ArrowBackIcon from '@mui/icons-material/ArrowBack'
-import { useFeature, useTasks, type TaskResp, type SpecResp } from '../api'
+import { useFeature, useTasks, type TaskItem, type SpecItem } from '../api'
 
-type FeatureTask = TaskResp
-type Spec = SpecResp
+type FeatureTask = TaskItem
+type Spec = SpecItem
 
 function TaskIcon({ status }: { status: string }) {
   const icon = status === 'done' ? '\u2713' : status === 'blocked' ? '\u2717' : '\u25CB'
@@ -99,12 +99,12 @@ export function FeatureDetail({
         </Box>
       )}
 
-      {feature.doneWhen && (
+      {feature.done_when && (
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Done when
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{feature.doneWhen}</Typography>
+          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{feature.done_when}</Typography>
         </Box>
       )}
 
@@ -150,7 +150,7 @@ export function FeatureDetail({
                 <Box sx={{ flex: 1 }}>
                   <Link
                     to="/project/$slug/$component/tasks/$id"
-                    params={{ slug, component: componentSlug, id: t.id }}
+                    params={{ slug, component: componentSlug, id: `TK-${t.id}` }}
                     style={{ textDecoration: 'none', color: 'inherit' }}
                   >
                     <Typography variant="body2">{t.text}</Typography>

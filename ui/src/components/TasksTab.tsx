@@ -1,9 +1,9 @@
 import { Link } from '@tanstack/react-router'
 import { Box, Chip, InputAdornment, Stack, TextField, Typography } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
-import { useTasks, type TaskResp } from '../api'
+import { useTasks, type TaskItem } from '../api'
 
-type Task = TaskResp
+type Task = TaskItem
 
 function TaskIcon({ status }: { status: string }) {
   const icon = status === 'done' ? '\u2713' : status === 'blocked' ? '\u2717' : '\u25CB'
@@ -46,7 +46,7 @@ export function TasksTab({
     ? filtered.filter(t =>
         t.text.toLowerCase().includes(search.toLowerCase()) ||
         t.feature.toLowerCase().includes(search.toLowerCase()) ||
-        t.id.toLowerCase().includes(search.toLowerCase())
+        `TK-${t.id}`.toLowerCase().includes(search.toLowerCase())
       )
     : filtered
 
@@ -113,12 +113,12 @@ export function TasksTab({
         >
           <TaskIcon status={t.status} />
           <Typography variant="caption" color="text.disabled" sx={{ minWidth: 60, pt: 0.1 }}>
-            {t.id}
+            TK-{t.id}
           </Typography>
           <Box sx={{ flex: 1 }}>
             <Link
               to="/project/$slug/$component/tasks/$id"
-              params={{ slug, component: componentSlug, id: t.id }}
+              params={{ slug, component: componentSlug, id: `TK-${t.id}` }}
               style={{ textDecoration: 'none', color: 'inherit' }}
             >
               <Typography variant="body2">{t.text}</Typography>

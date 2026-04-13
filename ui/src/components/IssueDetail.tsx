@@ -16,8 +16,8 @@ import {
   useIssue,
   useTasks,
   useCloseIssue,
-  type IssueWorkResp,
-  type TaskResp,
+  type IssueWorkItem,
+  type TaskItem,
 } from '../api'
 
 function priorityLabel(p: string): string {
@@ -55,7 +55,7 @@ export function IssueDetail({
   componentSlug: string
   issueId: string
 }) {
-  const { data: issue, isLoading } = useIssue(slug, issueId)
+  const { data, isLoading } = useIssue(slug, issueId)
   const { data: allTasks } = useTasks(slug, { issue: issueId })
   const closeIssue = useCloseIssue()
   const router = useRouter()
@@ -64,8 +64,9 @@ export function IssueDetail({
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
-  const linkedTasks: TaskResp[] = allTasks ?? []
-  const workEntries: IssueWorkResp[] = issue?.work ?? []
+  const issue = data?.issue
+  const linkedTasks: TaskItem[] = allTasks ?? []
+  const workEntries: IssueWorkItem[] = data?.work ?? []
 
   if (!issue) {
     return (
@@ -117,8 +118,8 @@ export function IssueDetail({
         {issue.component && (
           <Chip label={issue.component} size="small" variant="outlined" />
         )}
-        {issue.blockedBy && (
-          <Chip label={`blocked by: ${issue.blockedBy}`} size="small" variant="outlined" color="warning" />
+        {issue.blocked_by && (
+          <Chip label={`blocked by: ${issue.blocked_by}`} size="small" variant="outlined" color="warning" />
         )}
         {(issue.status === 'open' || issue.status === 'triaged' || issue.status === 'in-progress') && (
           <Button size="small" variant="outlined" color="warning" onClick={() => { setCloseReason(''); setCloseOpen(true) }}>
@@ -203,7 +204,7 @@ export function IssueDetail({
             {workEntries.map((e, i) => (
               <Box key={i} sx={{ borderLeft: 2, borderColor: 'divider', pl: 1.5 }}>
                 <Typography variant="caption" color="text.secondary">
-                  {e.createdAt} — {e.agent}
+                  {e.created_at} — {e.agent}
                 </Typography>
                 {e.note && (
                   <Typography variant="body2">{e.note}</Typography>
@@ -215,7 +216,7 @@ export function IssueDetail({
       )}
 
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3 }}>
-        Created: {issue.createdAt}
+        Created: {issue.created_at}
       </Typography>
     </Box>
   )

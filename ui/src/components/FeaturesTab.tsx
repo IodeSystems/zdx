@@ -10,9 +10,9 @@ import {
 } from '@mui/material'
 import SearchIcon from '@mui/icons-material/Search'
 import { useState } from 'react'
-import { useFeatures, type FeatureResp } from '../api'
+import { useFeatures, type FeatureItem } from '../api'
 
-type Feature = FeatureResp
+type Feature = FeatureItem
 
 export function FeaturesTab({
   slug,

@@ -26,9 +26,11 @@ export function TaskDetail({
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
   const tasks = data ?? []
-  const task = tasks.find(t => t.id === taskId)
+  // taskId is "TK-N" format; TaskItem.id is numeric
+  const numericId = parseInt(taskId.replace(/^TK-/i, ''), 10)
+  const task = tasks.find(t => t.id === numericId)
   const blockedByThis = tasks.filter(t =>
-    t.id !== taskId &&
+    t.id !== numericId &&
     t.depends
       .split(/[\s,]+/)
       .filter(Boolean)
@@ -96,15 +98,15 @@ export function TaskDetail({
             clickable
           />
         )}
-        {task.issue && (
+        {task.issue_id && (
           <Chip
-            label={task.issue}
+            label={`IS-${task.issue_id}`}
             size="small"
             variant="outlined"
             color="info"
             component={Link as any}
             to="/project/$slug/$component/issues/$id"
-            params={{ slug, component: componentSlug, id: task.issue }}
+            params={{ slug, component: componentSlug, id: `IS-${task.issue_id}` }}
             clickable
           />
         )}
@@ -141,23 +143,23 @@ export function TaskDetail({
         </Box>
       )}
 
-      {task.testPlan && (
+      {task.test_plan && (
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Test Plan
           </Typography>
           <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {task.testPlan}
+            {task.test_plan}
           </Typography>
         </Box>
       )}
 
-      {task.testRefs && (
+      {task.test_refs && (
         <Box sx={{ mb: 2 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Test Refs
           </Typography>
-          <Typography variant="body2">{task.testRefs}</Typography>
+          <Typography variant="body2">{task.test_refs}</Typography>
         </Box>
       )}
 
@@ -199,13 +201,13 @@ export function TaskDetail({
             {blockedByThis.map(t => (
               <Chip
                 key={t.id}
-                label={t.id}
+                label={`TK-${t.id}`}
                 size="small"
                 color="default"
                 variant="outlined"
                 component={Link as any}
                 to="/project/$slug/$component/tasks/$id"
-                params={{ slug, component: componentSlug, id: t.id }}
+                params={{ slug, component: componentSlug, id: `TK-${t.id}` }}
                 clickable
               />
             ))}
@@ -213,14 +215,14 @@ export function TaskDetail({
         </Box>
       )}
 
-      {task.completedAt && (
+      {task.completed_at && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-          Completed: {task.completedAt}
+          Completed: {task.completed_at}
         </Typography>
       )}
 
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3 }}>
-        Created: {task.createdAt}
+        Created: {task.created_at}
       </Typography>
     </Box>
   )
