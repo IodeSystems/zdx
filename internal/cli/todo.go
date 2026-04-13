@@ -191,7 +191,20 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// 1c. Check for specs with no test_refs.
+	// 1c. Check for features due for periodic owner re-review (>30 days stale).
+	var staleResp struct {
+		Features []featureItem `json:"features"`
+	}
+	if err := c.get("/api/dx/features/stale", querySlug(c), &staleResp); err != nil {
+		return err
+	}
+	if len(staleResp.Features) > 0 {
+		f := staleResp.Features[0]
+		fmt.Printf("[owner:review]  feature %q not reviewed in >30 days — dx feature review %q\n", f.Name, f.Name)
+		return nil
+	}
+
+	// 2a. Check for specs with no test_refs — tech lead owns this.
 	var uncoveredResp struct {
 		Specs []struct {
 			ID          int32  `json:"id"`
@@ -205,20 +218,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	}
 	if len(uncoveredResp.Specs) > 0 {
 		s := uncoveredResp.Specs[0]
-		fmt.Printf("[owner:test-ref]  feature %q spec %d (%s) has no test refs — link via dx spec link\n", s.FeatureName, s.ID, s.Description)
-		return nil
-	}
-
-	// 1d. Check for features due for periodic owner re-review (>30 days stale).
-	var staleResp struct {
-		Features []featureItem `json:"features"`
-	}
-	if err := c.get("/api/dx/features/stale", querySlug(c), &staleResp); err != nil {
-		return err
-	}
-	if len(staleResp.Features) > 0 {
-		f := staleResp.Features[0]
-		fmt.Printf("[owner:review]  feature %q not reviewed in >30 days — dx feature review %q\n", f.Name, f.Name)
+		fmt.Printf("[tech:test-ref]  feature %q spec %d (%s) has no test refs — add task or link via dx spec link\n", s.FeatureName, s.ID, s.Description)
 		return nil
 	}
 
