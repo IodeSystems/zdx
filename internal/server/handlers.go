@@ -520,6 +520,7 @@ func (s *Server) registerRoutes(api huma.API) {
 				Priority  int32   `json:"priority"`
 				Title     *string `json:"title,omitempty"`
 				IssueType *string `json:"issue_type,omitempty"`
+				Context   *string `json:"context,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -549,6 +550,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			for field, val := range map[string]*string{
 				"title":      in.Body.Title,
 				"issue_type": in.Body.IssueType,
+				"context":    in.Body.Context,
 			} {
 				if val != nil && *val != "" {
 					if err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
@@ -565,6 +567,8 @@ func (s *Server) registerRoutes(api huma.API) {
 						oldVal = oldIssue.Title
 					case "issue_type":
 						oldVal = oldIssue.IssueType
+					case "context":
+						oldVal = oldIssue.Context
 					}
 					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val, agent)
 				}

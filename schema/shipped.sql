@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict tlRqHqdvAs1NrnGITPMdqAjBRjzXKBBsBpVhcWclO09u4ZENwWPcubPfgjo9Rce
+\restrict BFLfwfNLhs6ToI3X6ERK3TGVJMZbDPJLXKyRx0Z5QBBISg38OYPKvCaaGgPCyv6
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
 -- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
@@ -182,7 +182,8 @@ CREATE TABLE public.zdx_features (
     what text DEFAULT ''::text NOT NULL,
     why text DEFAULT ''::text NOT NULL,
     done_when text DEFAULT ''::text NOT NULL,
-    component text DEFAULT ''::text NOT NULL
+    component text DEFAULT ''::text NOT NULL,
+    category text DEFAULT ''::text NOT NULL
 );
 
 
@@ -385,7 +386,8 @@ CREATE TABLE public.zdx_issues (
     component text DEFAULT ''::text NOT NULL,
     context text DEFAULT ''::text NOT NULL,
     blocked_by text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    issue_type text DEFAULT 'ops'::text NOT NULL
 );
 
 
@@ -608,6 +610,43 @@ CREATE SEQUENCE public.zdx_projects_id_seq
 --
 
 ALTER SEQUENCE public.zdx_projects_id_seq OWNED BY public.zdx_projects.id;
+
+
+--
+-- Name: zdx_revisions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_revisions (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    target_type text NOT NULL,
+    target_id text NOT NULL,
+    field text NOT NULL,
+    old_val text DEFAULT ''::text NOT NULL,
+    new_val text DEFAULT ''::text NOT NULL,
+    agent text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_revisions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_revisions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_revisions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_revisions_id_seq OWNED BY public.zdx_revisions.id;
 
 
 --
@@ -941,6 +980,40 @@ ALTER SEQUENCE public.zdx_themes_id_seq OWNED BY public.zdx_themes.id;
 
 
 --
+-- Name: zdx_timed; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_timed (
+    id bigint NOT NULL,
+    project_id integer,
+    name text NOT NULL,
+    duration_ms integer NOT NULL,
+    source text DEFAULT ''::text NOT NULL,
+    context_json text DEFAULT '{}'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_timed_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_timed_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_timed_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_timed_id_seq OWNED BY public.zdx_timed.id;
+
+
+--
 -- Name: zdx_todos; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1152,6 +1225,13 @@ ALTER TABLE ONLY public.zdx_projects ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: zdx_revisions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_revisions ALTER COLUMN id SET DEFAULT nextval('public.zdx_revisions_id_seq'::regclass);
+
+
+--
 -- Name: zdx_sessions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1205,6 +1285,13 @@ ALTER TABLE ONLY public.zdx_tests ALTER COLUMN id SET DEFAULT nextval('public.zd
 --
 
 ALTER TABLE ONLY public.zdx_themes ALTER COLUMN id SET DEFAULT nextval('public.zdx_themes_id_seq'::regclass);
+
+
+--
+-- Name: zdx_timed id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_timed ALTER COLUMN id SET DEFAULT nextval('public.zdx_timed_id_seq'::regclass);
 
 
 --
@@ -1477,6 +1564,14 @@ ALTER TABLE ONLY public.zdx_projects
 
 
 --
+-- Name: zdx_revisions zdx_revisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_revisions
+    ADD CONSTRAINT zdx_revisions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_sessions zdx_sessions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1610,6 +1705,14 @@ ALTER TABLE ONLY public.zdx_themes
 
 ALTER TABLE ONLY public.zdx_themes
     ADD CONSTRAINT zdx_themes_project_id_name_key UNIQUE (project_id, name);
+
+
+--
+-- Name: zdx_timed zdx_timed_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_timed
+    ADD CONSTRAINT zdx_timed_pkey PRIMARY KEY (id);
 
 
 --
@@ -1748,6 +1851,27 @@ CREATE INDEX idx_tests_project ON public.zdx_tests USING btree (project_id);
 --
 
 CREATE INDEX idx_tests_status ON public.zdx_tests USING btree (project_id, status);
+
+
+--
+-- Name: zdx_revisions_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_revisions_target ON public.zdx_revisions USING btree (project_id, target_type, target_id);
+
+
+--
+-- Name: zdx_timed_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX zdx_timed_name ON public.zdx_timed USING btree (COALESCE(project_id, 0), name);
+
+
+--
+-- Name: zdx_timed_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_timed_project ON public.zdx_timed USING btree (project_id);
 
 
 --
@@ -1919,6 +2043,14 @@ ALTER TABLE ONLY public.zdx_project_permissions
 
 
 --
+-- Name: zdx_revisions zdx_revisions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_revisions
+    ADD CONSTRAINT zdx_revisions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zdx_sessions zdx_sessions_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2031,6 +2163,14 @@ ALTER TABLE ONLY public.zdx_themes
 
 
 --
+-- Name: zdx_timed zdx_timed_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_timed
+    ADD CONSTRAINT zdx_timed_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zdx_todos zdx_todos_feature_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2058,5 +2198,5 @@ ALTER TABLE ONLY public.zdx_work_log
 -- PostgreSQL database dump complete
 --
 
-\unrestrict tlRqHqdvAs1NrnGITPMdqAjBRjzXKBBsBpVhcWclO09u4ZENwWPcubPfgjo9Rce
+\unrestrict BFLfwfNLhs6ToI3X6ERK3TGVJMZbDPJLXKyRx0Z5QBBISg38OYPKvCaaGgPCyv6
 
