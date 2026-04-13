@@ -39,6 +39,7 @@ func main() {
 		cli.CommentCmd(),
 		cli.RevisionCmd(),
 		cli.RefCmd(),
+		cli.QaCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

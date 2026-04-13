@@ -173,6 +173,15 @@ type SimilarIssueItem struct {
 	Score float32 `json:"score"`
 }
 
+type QuestionItem struct {
+	ID        int32  `json:"id"`
+	Category  string `json:"category"`
+	Question  string `json:"question"`
+	Answer    string `json:"answer"`
+	CreatedAt string `json:"created_at"`
+	UpdatedAt string `json:"updated_at"`
+}
+
 type WriteTodoInput struct {
 	Text     string `json:"text"`
 	Key      string `json:"key"`
@@ -2183,6 +2192,75 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	// ── Q&A ───────────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "add-question", Method: http.MethodPost, Path: "/api/dx/qa/add"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug     string `json:"slug"`
+				Category string `json:"category"`
+				Question string `json:"question"`
+			}
+		}) (*struct{ Body QuestionItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := s.q.InsertQuestion(ctx, db.InsertQuestionParams{
+				ProjectID: p.ID,
+				Category:  in.Body.Category,
+				Question:  in.Body.Question,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body QuestionItem }{Body: toQuestionItem(row)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "answer-question", Method: http.MethodPost, Path: "/api/dx/qa/answer"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug   string `json:"slug"`
+				ID     int32  `json:"id"`
+				Answer string `json:"answer"`
+			}
+		}) (*struct{ Body QuestionItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := s.q.AnswerQuestion(ctx, db.AnswerQuestionParams{
+				ProjectID: p.ID,
+				ID:        in.Body.ID,
+				Answer:    pgtype.Text{String: in.Body.Answer, Valid: true},
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body QuestionItem }{Body: toQuestionItem(row)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-questions", Method: http.MethodGet, Path: "/api/dx/qa/list"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct{ Body struct{ Questions []QuestionItem `json:"questions"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListQuestions(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]QuestionItem, len(rows))
+			for i, r := range rows {
+				out[i] = toQuestionItem(r)
+			}
+			return &struct{ Body struct{ Questions []QuestionItem `json:"questions"` } }{
+				Body: struct{ Questions []QuestionItem `json:"questions"` }{Questions: out},
+			}, nil
+		})
+
 	// ── File upload (raw chi — huma doesn't handle multipart) ─────────────────
 	s.mux.Post("/api/upload", s.handleUpload)
 	s.mux.Get("/api/files/{id}", s.handleFileServe)
@@ -2419,5 +2497,16 @@ func toCodeRefItem(r db.ZdxCodeRef) CodeRefItem {
 		LineEnd:   r.LineEnd,
 		Note:      r.Note,
 		CreatedAt: fmtTS(r.CreatedAt),
+	}
+}
+
+func toQuestionItem(r db.ZdxQuestion) QuestionItem {
+	return QuestionItem{
+		ID:        r.ID,
+		Category:  r.Category,
+		Question:  r.Question,
+		Answer:    r.Answer.String,
+		CreatedAt: fmtTS(r.CreatedAt),
+		UpdatedAt: fmtTS(r.UpdatedAt),
 	}
 }

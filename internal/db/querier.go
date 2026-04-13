@@ -15,6 +15,7 @@ type Querier interface {
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
+	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
 	AttachCodeRefToIssue(ctx context.Context, arg AttachCodeRefToIssueParams) error
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
@@ -56,6 +57,7 @@ type Querier interface {
 	GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPlan, error)
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
 	GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error)
+	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetTest(ctx context.Context, arg GetTestParams) (ZdxTest, error)
 	GetThemeByID(ctx context.Context, arg GetThemeByIDParams) (ZdxTheme, error)
@@ -64,6 +66,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
 	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error)
+	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
@@ -76,6 +79,7 @@ type Querier interface {
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ZdxJournalEntry, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
+	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ZdxRevision, error)
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error)

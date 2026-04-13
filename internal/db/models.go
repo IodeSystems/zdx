@@ -216,6 +216,16 @@ type ZdxProjectPermission struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxQuestion struct {
+	ID        int32              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	Category  string             `db:"category" json:"category"`
+	Question  string             `db:"question" json:"question"`
+	Answer    pgtype.Text        `db:"answer" json:"answer"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type ZdxRevision struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`
