@@ -378,10 +378,29 @@ func (h *HNSWIndex) TopN(queryRaw []float32, n int) ([]SearchResult, error) {
 	normalizeVec(q)
 
 	ef := maxInt(n, h.opts.efConstruct()/2)
-	ep := []uint32{uint32(h.entryIdx)}
+	// Entry point may be deleted (e.g. WAL tombstone after a Save). Find a
+	// live node to start from; if none, the index is empty.
+	startIdx := h.entryIdx
+	if h.nodes[startIdx].deleted {
+		startIdx = -1
+		for i, nd := range h.nodes {
+			if !nd.deleted {
+				startIdx = i
+				break
+			}
+		}
+		if startIdx == -1 {
+			return nil, nil
+		}
+	}
+	ep := []uint32{uint32(startIdx)}
+	startLayer := h.entryLayer
+	if startIdx != h.entryIdx {
+		startLayer = h.nodes[startIdx].maxLayer
+	}
 
 	// Upper layers: ef=1 greedy walk.
-	for lc := h.entryLayer; lc > 0; lc-- {
+	for lc := startLayer; lc > 0; lc-- {
 		ep = h.searchLayer(q, ep, 1, lc)
 	}
 
