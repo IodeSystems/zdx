@@ -1,4 +1,4 @@
-module github.com/iodesystems/dx
+module github.com/iodesystems/zdx-go
 
 go 1.24.0
 

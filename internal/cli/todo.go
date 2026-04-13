@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/dx/internal/apitypes"
+	"github.com/iodesystems/zdx-go/internal/apitypes"
 )
 
 func TodoCmd() *cobra.Command {

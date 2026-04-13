@@ -9,7 +9,7 @@ import (
 	"net/url"
 	"os"
 
-	"github.com/iodesystems/dx/internal/config"
+	"github.com/iodesystems/zdx-go/internal/config"
 )
 
 // Client talks to a running dx-server instance.

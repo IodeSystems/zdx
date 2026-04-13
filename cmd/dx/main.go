@@ -6,7 +6,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/dx/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli"
 )
 
 func main() {

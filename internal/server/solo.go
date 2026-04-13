@@ -3,8 +3,8 @@ package server
 import (
 	"context"
 
-	"github.com/iodesystems/dx/internal/apitypes"
-	"github.com/iodesystems/dx/internal/db"
+	"github.com/iodesystems/zdx-go/internal/apitypes"
+	"github.com/iodesystems/zdx-go/internal/db"
 )
 
 // computeSolo derives the next actionable item for a project (optionally filtered

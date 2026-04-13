@@ -9,7 +9,7 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/spf13/cobra"
 
-	dxmigrate "github.com/iodesystems/dx/internal/migrate"
+	dxmigrate "github.com/iodesystems/zdx-go/internal/migrate"
 )
 
 func MigrateCmd() *cobra.Command {

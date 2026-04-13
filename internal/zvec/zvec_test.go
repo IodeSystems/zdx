@@ -6,7 +6,7 @@ import (
 	"path/filepath"
 	"testing"
 
-	"github.com/iodesystems/dx/internal/zvec"
+	"github.com/iodesystems/zdx-go/internal/zvec"
 )
 
 func TestRoundTrip(t *testing.T) {

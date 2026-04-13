@@ -10,8 +10,8 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 
-	"github.com/iodesystems/dx/internal/migrate"
-	"github.com/iodesystems/dx/internal/server"
+	"github.com/iodesystems/zdx-go/internal/migrate"
+	"github.com/iodesystems/zdx-go/internal/server"
 )
 
 func main() {

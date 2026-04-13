@@ -8,7 +8,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mailru/easyjson"
 
-	"github.com/iodesystems/dx/internal/db"
+	"github.com/iodesystems/zdx-go/internal/db"
 )
 
 func isMaintenance() bool {

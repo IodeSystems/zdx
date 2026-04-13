@@ -3,8 +3,8 @@ package server
 import (
 	"net/http"
 
-	"github.com/iodesystems/dx/internal/apitypes"
-	"github.com/iodesystems/dx/internal/db"
+	"github.com/iodesystems/zdx-go/internal/apitypes"
+	"github.com/iodesystems/zdx-go/internal/db"
 )
 
 // ── projects ──────────────────────────────────────────────────────────────────

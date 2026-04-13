@@ -7,7 +7,7 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/dx/internal/config"
+	"github.com/iodesystems/zdx-go/internal/config"
 )
 
 func BuildCmd() *cobra.Command {
