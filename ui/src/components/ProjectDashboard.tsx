@@ -10,9 +10,9 @@ import {
 import ExtensionIcon from '@mui/icons-material/Extension'
 import TaskAltIcon from '@mui/icons-material/TaskAlt'
 import BugReportIcon from '@mui/icons-material/BugReport'
-import { useFeatures, useTasks, useIssues, type IssueResp } from '../api'
+import { useFeatures, useTasks, useIssues, type IssueItem } from '../api'
 
-type Issue = IssueResp
+type Issue = IssueItem
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -92,7 +92,7 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
   const tasksTotal = tasks.length
 
   const recent = [...openIssues]
-    .sort((a, b) => (b.createdAt > a.createdAt ? 1 : -1))
+    .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))
     .slice(0, 5)
 
   const isComponentScope = componentSlug !== 'all'
@@ -178,7 +178,7 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
                     />
                     <Typography variant="body2" sx={{ flex: 1 }}>{i.title || i.context}</Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {i.createdAt}
+                      {i.created_at}
                     </Typography>
                   </CardContent>
                 </CardActionArea>

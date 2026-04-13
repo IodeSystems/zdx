@@ -9,9 +9,9 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { useIssues, type IssueResp } from '../api'
+import { useIssues, type IssueItem } from '../api'
 
-type Issue = IssueResp
+type Issue = IssueItem
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -106,7 +106,7 @@ export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; compo
               <CardActionArea
                 component={Link as any}
                 to="/project/$slug/$component/issues/$id"
-                params={{ slug, component: componentSlug, id: i.id }}
+                params={{ slug, component: componentSlug, id: `IS-${i.id}` }}
               >
                 <CardContent sx={{ py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Chip
@@ -116,7 +116,7 @@ export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; compo
                     sx={{ minWidth: 70 }}
                   />
                   <Typography variant="body2" sx={{ flex: 1 }}>
-                    {i.id}: {issueDisplayTitle(i.title, i.context)}
+                    IS-{i.id}: {issueDisplayTitle(i.title, i.context)}
                   </Typography>
                   <Chip
                     label={i.status}

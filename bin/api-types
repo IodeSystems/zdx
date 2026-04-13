@@ -3,16 +3,30 @@
 # Run after changing handler input/output types. Commit the result.
 #
 # Usage:
-#   bin/api-types               # expects server at localhost:7600
+#   bin/api-types               # reads .zdx/config.yaml for URL; uses .zdx/credentials for auth
 #   API_URL=http://... bin/api-types
 
 set -euo pipefail
 
-API_URL="${API_URL:-http://localhost:7600}"
+CREDENTIALS_FILE=".zdx/credentials"
+CONFIG_FILE=".zdx/config.yaml"
 OUT="${OUT:-ui/src/api.gen.ts}"
 
+if [[ -z "${API_URL:-}" ]]; then
+  if [[ -f "$CONFIG_FILE" ]]; then
+    API_URL=$(grep -E '^\s+url:' "$CONFIG_FILE" | head -1 | sed 's/.*url:\s*//' | tr -d '"' | tr -d ' ')
+  fi
+  API_URL="${API_URL:-http://localhost:7600}"
+fi
+
+CURL_ARGS=(-sf "$API_URL/openapi.json" -o /tmp/zdx-openapi.json)
+if [[ -f "$CREDENTIALS_FILE" ]]; then
+  API_KEY=$(cat "$CREDENTIALS_FILE" | tr -d '[:space:]')
+  CURL_ARGS+=(-H "X-Api-Key: $API_KEY")
+fi
+
 echo "Fetching OpenAPI spec from $API_URL/openapi.json ..."
-curl -sf "$API_URL/openapi.json" -o /tmp/zdx-openapi.json
+curl "${CURL_ARGS[@]}"
 
 echo "Generating $OUT ..."
 npx --yes openapi-typescript /tmp/zdx-openapi.json -o "$OUT"
