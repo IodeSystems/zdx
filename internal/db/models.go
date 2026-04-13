@@ -58,15 +58,16 @@ type ZdxErrorReport struct {
 }
 
 type ZdxFeature struct {
-	ID          int32  `db:"id" json:"id"`
-	ProjectID   int32  `db:"project_id" json:"project_id"`
-	Name        string `db:"name" json:"name"`
-	Description string `db:"description" json:"description"`
-	What        string `db:"what" json:"what"`
-	Why         string `db:"why" json:"why"`
-	DoneWhen    string `db:"done_when" json:"done_when"`
-	Component   string `db:"component" json:"component"`
-	Category    string `db:"category" json:"category"`
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Name           string             `db:"name" json:"name"`
+	Description    string             `db:"description" json:"description"`
+	What           string             `db:"what" json:"what"`
+	Why            string             `db:"why" json:"why"`
+	DoneWhen       string             `db:"done_when" json:"done_when"`
+	Component      string             `db:"component" json:"component"`
+	Category       string             `db:"category" json:"category"`
+	LastReviewedAt pgtype.Timestamptz `db:"last_reviewed_at" json:"last_reviewed_at"`
 }
 
 type ZdxFile struct {

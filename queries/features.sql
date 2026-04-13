@@ -1,16 +1,16 @@
 -- name: ListFeatures :many
-SELECT id, project_id, name, description, what, why, done_when, component, category
+SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
 FROM zdx_features WHERE project_id = $1 ORDER BY category, name;
 
 -- name: GetFeature :one
-SELECT id, project_id, name, description, what, why, done_when, component, category
+SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
 FROM zdx_features WHERE project_id = $1 AND name = $2;
 
 -- name: UpsertFeature :one
 INSERT INTO zdx_features (project_id, name, description)
 VALUES ($1, $2, $3)
 ON CONFLICT (project_id, name) DO UPDATE SET description = EXCLUDED.description
-RETURNING id, project_id, name, description, what, why, done_when, component, category;
+RETURNING id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at;
 
 -- name: UpdateFeatureField :exec
 UPDATE zdx_features
@@ -34,6 +34,28 @@ FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
 ORDER BY s.feature_id, s.id;
+
+-- name: ListUncoveredSpecs :many
+-- Specs that have no entries in zdx_spec_tests (no test coverage).
+SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
+WHERE f.project_id = $1
+  AND st.spec_id IS NULL
+ORDER BY f.name, s.id;
+
+-- name: MarkFeatureReviewed :exec
+UPDATE zdx_features SET last_reviewed_at = NOW()
+WHERE project_id = $1 AND name = $2;
+
+-- name: ListStaleFeatures :many
+-- Features not reviewed in more than @stale_days days (or never reviewed).
+SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
+FROM zdx_features
+WHERE project_id = @project_id
+  AND (last_reviewed_at IS NULL OR last_reviewed_at < NOW() - (@stale_days::int || ' days')::interval)
+ORDER BY last_reviewed_at NULLS FIRST, name;
 
 -- name: AddSpec :one
 INSERT INTO zdx_specs (feature_id, description, kind) VALUES ($1, $2, $3)

@@ -87,6 +87,8 @@ type Querier interface {
 	// Used to show what breaks if a test is deleted.
 	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ZdxSpec, error)
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error)
+	// Features not reviewed in more than @stale_days days (or never reviewed).
+	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ZdxFeature, error)
 	ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ZdxTask, error)
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ZdxTask, error)
@@ -96,7 +98,10 @@ type Querier interface {
 	ListThemes(ctx context.Context, projectID int32) ([]ListThemesRow, error)
 	ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, error)
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
+	// Specs that have no entries in zdx_spec_tests (no test coverage).
+	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ZdxIssueWork, error)
+	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskUndone(ctx context.Context, id string) error
 	NextID(ctx context.Context, arg NextIDParams) (int32, error)

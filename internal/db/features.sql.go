@@ -42,7 +42,7 @@ func (q *Queries) DeleteFeature(ctx context.Context, id int32) error {
 }
 
 const getFeature = `-- name: GetFeature :one
-SELECT id, project_id, name, description, what, why, done_when, component, category
+SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
 FROM zdx_features WHERE project_id = $1 AND name = $2
 `
 
@@ -64,6 +64,7 @@ func (q *Queries) GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeat
 		&i.DoneWhen,
 		&i.Component,
 		&i.Category,
+		&i.LastReviewedAt,
 	)
 	return i, err
 }
@@ -89,7 +90,7 @@ func (q *Queries) GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPla
 }
 
 const listFeatures = `-- name: ListFeatures :many
-SELECT id, project_id, name, description, what, why, done_when, component, category
+SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
 FROM zdx_features WHERE project_id = $1 ORDER BY category, name
 `
 
@@ -112,6 +113,7 @@ func (q *Queries) ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeatu
 			&i.DoneWhen,
 			&i.Component,
 			&i.Category,
+			&i.LastReviewedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -185,6 +187,111 @@ func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]Z
 	return items, nil
 }
 
+const listStaleFeatures = `-- name: ListStaleFeatures :many
+SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
+FROM zdx_features
+WHERE project_id = $1
+  AND (last_reviewed_at IS NULL OR last_reviewed_at < NOW() - ($2::int || ' days')::interval)
+ORDER BY last_reviewed_at NULLS FIRST, name
+`
+
+type ListStaleFeaturesParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	StaleDays int32 `db:"stale_days" json:"stale_days"`
+}
+
+// Features not reviewed in more than @stale_days days (or never reviewed).
+func (q *Queries) ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ZdxFeature, error) {
+	rows, err := q.db.Query(ctx, listStaleFeatures, arg.ProjectID, arg.StaleDays)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxFeature
+	for rows.Next() {
+		var i ZdxFeature
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.What,
+			&i.Why,
+			&i.DoneWhen,
+			&i.Component,
+			&i.Category,
+			&i.LastReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUncoveredSpecs = `-- name: ListUncoveredSpecs :many
+SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
+WHERE f.project_id = $1
+  AND st.spec_id IS NULL
+ORDER BY f.name, s.id
+`
+
+type ListUncoveredSpecsRow struct {
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+	FeatureName string `db:"feature_name" json:"feature_name"`
+}
+
+// Specs that have no entries in zdx_spec_tests (no test coverage).
+func (q *Queries) ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error) {
+	rows, err := q.db.Query(ctx, listUncoveredSpecs, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUncoveredSpecsRow
+	for rows.Next() {
+		var i ListUncoveredSpecsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FeatureID,
+			&i.Description,
+			&i.Kind,
+			&i.FeatureName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markFeatureReviewed = `-- name: MarkFeatureReviewed :exec
+UPDATE zdx_features SET last_reviewed_at = NOW()
+WHERE project_id = $1 AND name = $2
+`
+
+type MarkFeatureReviewedParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Name      string `db:"name" json:"name"`
+}
+
+func (q *Queries) MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error {
+	_, err := q.db.Exec(ctx, markFeatureReviewed, arg.ProjectID, arg.Name)
+	return err
+}
+
 const updateFeatureField = `-- name: UpdateFeatureField :exec
 UPDATE zdx_features
 SET description = CASE WHEN $1::text = 'description' THEN $2::text ELSE description END,
@@ -217,7 +324,7 @@ const upsertFeature = `-- name: UpsertFeature :one
 INSERT INTO zdx_features (project_id, name, description)
 VALUES ($1, $2, $3)
 ON CONFLICT (project_id, name) DO UPDATE SET description = EXCLUDED.description
-RETURNING id, project_id, name, description, what, why, done_when, component, category
+RETURNING id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
 `
 
 type UpsertFeatureParams struct {
@@ -239,6 +346,7 @@ func (q *Queries) UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (Z
 		&i.DoneWhen,
 		&i.Component,
 		&i.Category,
+		&i.LastReviewedAt,
 	)
 	return i, err
 }

@@ -96,6 +96,14 @@ type SpecItem struct {
 	Kind        string `json:"kind"`
 }
 
+type UncoveredSpecItem struct {
+	ID          int32  `json:"id"`
+	FeatureID   int32  `json:"feature_id"`
+	FeatureName string `json:"feature_name"`
+	Description string `json:"description"`
+	Kind        string `json:"kind"`
+}
+
 type ThemeItem struct {
 	ID          int32  `json:"id"`
 	Name        string `json:"name"`
@@ -1130,6 +1138,90 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-stale-features", Method: http.MethodGet, Path: "/api/dx/features/stale"},
+		func(ctx context.Context, in *struct {
+			Slug      string `query:"slug" required:"true"`
+			StaleDays int32  `query:"stale_days"`
+		}) (*struct {
+			Body struct {
+				Features []FeatureItem `json:"features"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			days := in.StaleDays
+			if days == 0 {
+				days = 30
+			}
+			rows, err := s.q.ListStaleFeatures(ctx, db.ListStaleFeaturesParams{ProjectID: p.ID, StaleDays: days})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]FeatureItem, len(rows))
+			for i, r := range rows {
+				out[i] = toFeatureItem(r, nil)
+			}
+			return &struct {
+				Body struct {
+					Features []FeatureItem `json:"features"`
+				}
+			}{Body: struct {
+				Features []FeatureItem `json:"features"`
+			}{Features: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "mark-feature-reviewed", Method: http.MethodPost, Path: "/api/dx/feature/review"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				Feature string `json:"feature"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.MarkFeatureReviewed(ctx, db.MarkFeatureReviewedParams{ProjectID: p.ID, Name: in.Body.Feature}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-uncovered-specs", Method: http.MethodGet, Path: "/api/dx/specs/uncovered"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Specs []UncoveredSpecItem `json:"specs"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListUncoveredSpecs(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]UncoveredSpecItem, len(rows))
+			for i, r := range rows {
+				out[i] = UncoveredSpecItem{
+					ID:          r.ID,
+					FeatureID:   r.FeatureID,
+					FeatureName: r.FeatureName,
+					Description: r.Description,
+					Kind:        r.Kind,
+				}
+			}
+			return &struct {
+				Body struct {
+					Specs []UncoveredSpecItem `json:"specs"`
+				}
+			}{Body: struct {
+				Specs []UncoveredSpecItem `json:"specs"`
+			}{Specs: out}}, nil
 		})
 
 	// ── Plans ─────────────────────────────────────────────────────────────────

@@ -14,6 +14,7 @@ func FeatureCmd() *cobra.Command {
 		featureAddCmd(),
 		featureShowCmd(),
 		featureSetCmd(),
+		featureReviewCmd(),
 	)
 	return cmd
 }
@@ -152,6 +153,26 @@ func featureSetCmd() *cobra.Command {
 	cmd.Flags().StringVar(&description, "desc", "", "short description")
 	cmd.Flags().StringVar(&category, "category", "", "category (e.g. Testing, Dx, UI)")
 	return cmd
+}
+
+func featureReviewCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "review <name>",
+		Short: "Mark feature as owner-reviewed (resets cool-down timer)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := mustClient()
+			var ok struct{ OK bool `json:"ok"` }
+			if err := c.post("/api/dx/feature/review", map[string]any{
+				"slug":    c.SlugOrDie(),
+				"feature": args[0],
+			}, &ok); err != nil {
+				return err
+			}
+			fmt.Printf("%s reviewed\n", args[0])
+			return nil
+		},
+	}
 }
 
 func printFeatureItem(f featureItem) {
