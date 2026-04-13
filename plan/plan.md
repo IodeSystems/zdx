@@ -2,9 +2,14 @@
 
 ## Where we are
 
-Live at https://zdx.iodesystems.com. huma+chi server with ~35 endpoints mapped to
-the Zig CLI's `http_adapter.zig`. Fresh empty DB. The `zdx` project row was
-inserted by hand (`psql INSERT INTO zdx_projects(slug, name) VALUES('zdx', 'zdx')`).
+Live at https://zdx.iodesystems.com. huma+chi server, auth enforced, `build_sha`
+in health endpoint, Go CLI working end-to-end. `dx setup` provisions a fresh server.
+
+Production state (2026-04-13):
+- `zdx_projects`: row `(1, 'zdx', 'zdx')`
+- `zdx_users`: row `(1, 'nthalk@iodesystems.com', 'Carl Taylor')`
+- `zdx_api_keys`: row `(1, 'nthalk-dev')`
+- Local `.zdx/credentials` has the token; `dx todo solo` → "nothing to do"
 
 Key conventions in the server:
 - Issues stored as `id TEXT = "IS-N"`; API wire format is `{"id": N}` (int32).
@@ -58,7 +63,7 @@ currently prints a stray message because the field is empty.
 **Done when:** `curl /api/health` includes `build_sha`; CLI version warning
 fires only when it legitimately mismatches.
 
-## 4. Go CLI rewrite  [DONE — needs ship to verify end-to-end]
+## 4. Go CLI rewrite  [DONE]
 
 The Go CLI is the primary client going forward — Zig build times killed the
 Zig CLI as a daily driver. The Zig `http_adapter.zig` just needs to keep
@@ -95,6 +100,27 @@ Work:
 Zig CLI can be deprecated on personal machines.
 
 This is the biggest remaining chunk. Budget a full session.
+
+## 4b. Setup command  [DONE]
+
+Fresh server required manual SQL to create first user + API key. Added:
+
+- `POST /api/setup/bootstrap` (auth-skipped, returns 409 if already set up)
+  → creates admin user + generates API key token
+- `dx setup --url --slug --email --name` CLI command
+  → calls bootstrap, then creates project, writes `.zdx/credentials` + config
+
+Also fixed ship infra bugs discovered during this deploy cycle:
+- ship used `/health` for health checks; server only has `/api/health` → 401 (fixed: use `/api/health`)
+- ship used `systemctl start` which is no-op if service running (fixed: use `restart`)
+- Huma v2 treats non-pointer struct fields as required; many handlers had
+  optional string fields as `string` → 422 on any POST with optional fields omitted
+  (fixed: use `*string` + `ptrStr` helper for: add-issue, close-issue, add-task,
+  mark-task-done, block-task, update-task-status)
+- Triage handler had `ProjectID: 0` hardcoded → UPDATE matched 0 rows (fixed: add slug)
+
+**Done when:** `dx setup --url=... --slug=... --email=... --name=...` on a clean server
+bootstraps and `dx todo solo` works end-to-end.
 
 ## 5. Data carryover  [RESOLVED — not porting]
 
