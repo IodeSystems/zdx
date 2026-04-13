@@ -28,6 +28,24 @@ export default tseslint.config(
       '@typescript-eslint/no-unused-vars': ['warn', { argsIgnorePattern: '^_', varsIgnorePattern: '^_' }],
     },
   },
+  // Ban raw apiFetch/apiPost outside the api module — use typed client hooks instead.
+  {
+    files: ['src/**/*.ts', 'src/**/*.tsx'],
+    ignores: ['src/api/index.ts'],
+    rules: {
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: 'CallExpression[callee.name="apiFetch"]',
+          message: 'Add a typed hook in src/api/index.ts instead of calling apiFetch directly.',
+        },
+        {
+          selector: 'CallExpression[callee.name="apiPost"]',
+          message: 'Add a typed hook in src/api/index.ts instead of calling apiPost directly.',
+        },
+      ],
+    },
+  },
   {
     ignores: ['dist/', 'src/routeTree.gen.ts', 'src/api.gen.ts'],
   },
