@@ -4,13 +4,18 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 	"golang.org/x/crypto/bcrypt"
 
@@ -456,12 +461,13 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "add-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug      string  `json:"slug"`
-				Title     string  `json:"title"`
-				Source    *string `json:"source,omitempty"`
-				Context   *string `json:"context,omitempty"`
-				BlockedBy *string `json:"blocked_by,omitempty"`
-				Component *string `json:"component,omitempty"`
+				Slug          string  `json:"slug"`
+				Title         *string `json:"title,omitempty"`
+				Source        *string `json:"source,omitempty"`
+				Context       *string `json:"context,omitempty"`
+				BlockedBy     *string `json:"blocked_by,omitempty"`
+				Component     *string `json:"component,omitempty"`
+				ScreenshotIDs []int32 `json:"screenshot_ids,omitempty"`
 			}
 		}) (*struct{ Body IssueItem }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -475,7 +481,9 @@ func (s *Server) registerRoutes(api huma.API) {
 			params := db.CreateIssueParams{
 				ID:        id,
 				ProjectID: p.ID,
-				Title:     in.Body.Title,
+			}
+			if in.Body.Title != nil {
+				params.Title = *in.Body.Title
 			}
 			if in.Body.Context != nil {
 				params.Context = *in.Body.Context
@@ -487,15 +495,23 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			for _, fid := range in.Body.ScreenshotIDs {
+				_ = s.q.AttachFileToIssue(ctx, db.AttachFileToIssueParams{
+					IssueID: row.ID,
+					FileID:  fid,
+					Kind:    "screenshot",
+				})
+			}
 			return &struct{ Body IssueItem }{Body: toIssueItem(row)}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "triage-issue", Method: http.MethodPost, Path: "/api/dx/todo/owner/triage"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug     string `json:"slug"`
-				ID       int32  `json:"id"`
-				Priority int32  `json:"priority"`
+				Slug     string  `json:"slug"`
+				ID       int32   `json:"id"`
+				Priority int32   `json:"priority"`
+				Title    *string `json:"title,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -509,6 +525,16 @@ func (s *Server) registerRoutes(api huma.API) {
 				ProjectID: p.ID,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+			if in.Body.Title != nil && *in.Body.Title != "" {
+				if err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+					Field:     "title",
+					Value:     *in.Body.Title,
+					ProjectID: p.ID,
+					ID:        issueID,
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -1466,6 +1492,100 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			return &struct{ Body struct{ Queries []SlowQueryItem `json:"queries"` } }{Body: struct{ Queries []SlowQueryItem `json:"queries"` }{Queries: out}}, nil
 		})
+
+	// ── File upload (raw chi — huma doesn't handle multipart) ─────────────────
+	s.mux.Post("/api/upload", s.handleUpload)
+	s.mux.Get("/api/files/{id}", s.handleFileServe)
+}
+
+// handleUpload accepts multipart/form-data with a single "file" field.
+// Stores to s.uploadsDir and records in zdx_files. Returns {id, url}.
+func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
+	const maxSize = 10 << 20 // 10 MB
+	if err := r.ParseMultipartForm(maxSize); err != nil {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"invalid multipart"}`, http.StatusBadRequest)
+		return
+	}
+	f, fh, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"missing file field"}`, http.StatusBadRequest)
+		return
+	}
+	defer f.Close()
+
+	mimeType := fh.Header.Get("Content-Type")
+	allowed := map[string]string{
+		"image/png":  ".png",
+		"image/jpeg": ".jpg",
+		"image/gif":  ".gif",
+		"image/webp": ".webp",
+	}
+	ext, ok := allowed[mimeType]
+	if !ok {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"unsupported file type"}`, http.StatusBadRequest)
+		return
+	}
+
+	// Generate a unique filename: year/month/randomhex.ext
+	now := time.Now().UTC()
+	var rnd [8]byte
+	_, _ = rand.Read(rnd[:])
+	relPath := filepath.Join(
+		fmt.Sprintf("%d", now.Year()),
+		fmt.Sprintf("%02d", now.Month()),
+		hex.EncodeToString(rnd[:])+ext,
+	)
+	absPath := filepath.Join(s.uploadsDir, relPath)
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+	dst, err := os.Create(absPath)
+	if err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+	n, err := io.Copy(dst, f)
+	dst.Close()
+	if err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+
+	row, err := s.q.CreateFile(r.Context(), db.CreateFileParams{
+		Provider:  "fs",
+		Path:      relPath,
+		MimeType:  mimeType,
+		SizeBytes: n,
+	})
+	if err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"id":  row.ID,
+		"url": fmt.Sprintf("/api/files/%d", row.ID),
+	})
+}
+
+// handleFileServe serves an uploaded file by its zdx_files.id.
+func (s *Server) handleFileServe(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	row, err := s.q.GetFile(r.Context(), int32(id))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	absPath := filepath.Join(s.uploadsDir, row.Path)
+	w.Header().Set("Content-Type", row.MimeType)
+	http.ServeFile(w, r, absPath)
 }
 
 // ── Internal helpers ───────────────────────────────────────────────────────

@@ -866,9 +866,10 @@ export interface components {
             blocked_by?: string;
             component?: string;
             context?: string;
+            screenshot_ids?: number[];
             slug: string;
             source?: string;
-            title: string;
+            title?: string;
         };
         "Add-task-commitRequest": {
             /**

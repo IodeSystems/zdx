@@ -64,6 +64,23 @@ func (q *Queries) AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams
 	return err
 }
 
+const attachFileToIssue = `-- name: AttachFileToIssue :exec
+INSERT INTO zdx_issue_files (issue_id, file_id, kind)
+VALUES ($1, $2, $3)
+ON CONFLICT (issue_id, file_id) DO NOTHING
+`
+
+type AttachFileToIssueParams struct {
+	IssueID string `db:"issue_id" json:"issue_id"`
+	FileID  int32  `db:"file_id" json:"file_id"`
+	Kind    string `db:"kind" json:"kind"`
+}
+
+func (q *Queries) AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error {
+	_, err := q.db.Exec(ctx, attachFileToIssue, arg.IssueID, arg.FileID, arg.Kind)
+	return err
+}
+
 const closeIssue = `-- name: CloseIssue :exec
 UPDATE zdx_issues SET status = 'closed' WHERE project_id = $1 AND id = $2
 `
@@ -110,6 +127,40 @@ func (q *Queries) CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (Zdx
 		&i.Token,
 		&i.Name,
 		&i.LastUsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const createFile = `-- name: CreateFile :one
+
+INSERT INTO zdx_files (provider, path, mime_type, size_bytes)
+VALUES ($1, $2, $3, $4)
+RETURNING id, provider, path, mime_type, size_bytes, created_at
+`
+
+type CreateFileParams struct {
+	Provider  string `db:"provider" json:"provider"`
+	Path      string `db:"path" json:"path"`
+	MimeType  string `db:"mime_type" json:"mime_type"`
+	SizeBytes int64  `db:"size_bytes" json:"size_bytes"`
+}
+
+// Files
+func (q *Queries) CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error) {
+	row := q.db.QueryRow(ctx, createFile,
+		arg.Provider,
+		arg.Path,
+		arg.MimeType,
+		arg.SizeBytes,
+	)
+	var i ZdxFile
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Path,
+		&i.MimeType,
+		&i.SizeBytes,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -454,6 +505,24 @@ func (q *Queries) GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeat
 	return i, err
 }
 
+const getFile = `-- name: GetFile :one
+SELECT id, provider, path, mime_type, size_bytes, created_at FROM zdx_files WHERE id = $1
+`
+
+func (q *Queries) GetFile(ctx context.Context, id int32) (ZdxFile, error) {
+	row := q.db.QueryRow(ctx, getFile, id)
+	var i ZdxFile
+	err := row.Scan(
+		&i.ID,
+		&i.Provider,
+		&i.Path,
+		&i.MimeType,
+		&i.SizeBytes,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getIssue = `-- name: GetIssue :one
 SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at
 FROM zdx_issues WHERE project_id = $1 AND id = $2
@@ -479,6 +548,52 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getIssueFiles = `-- name: GetIssueFiles :many
+SELECT f.id, f.provider, f.path, f.mime_type, f.size_bytes, f.created_at, isf.kind
+FROM zdx_files f
+JOIN zdx_issue_files isf ON isf.file_id = f.id
+WHERE isf.issue_id = $1
+ORDER BY f.created_at
+`
+
+type GetIssueFilesRow struct {
+	ID        int32              `db:"id" json:"id"`
+	Provider  string             `db:"provider" json:"provider"`
+	Path      string             `db:"path" json:"path"`
+	MimeType  string             `db:"mime_type" json:"mime_type"`
+	SizeBytes int64              `db:"size_bytes" json:"size_bytes"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	Kind      string             `db:"kind" json:"kind"`
+}
+
+func (q *Queries) GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error) {
+	rows, err := q.db.Query(ctx, getIssueFiles, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetIssueFilesRow
+	for rows.Next() {
+		var i GetIssueFilesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Provider,
+			&i.Path,
+			&i.MimeType,
+			&i.SizeBytes,
+			&i.CreatedAt,
+			&i.Kind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getIssueWork = `-- name: GetIssueWork :many

@@ -15,19 +15,29 @@ import (
 )
 
 type Server struct {
-	q               *db.Queries
-	mux             *chi.Mux
-	buildSHA        string
-	zdxProjectSlug  string
-	api             huma.API
+	q              *db.Queries
+	mux            *chi.Mux
+	buildSHA       string
+	zdxProjectSlug string
+	uploadsDir     string
+	api            huma.API
 }
 
 func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
+	uploadsDir := os.Getenv("UPLOADS_DIR")
+	if uploadsDir == "" {
+		if zdxHome := os.Getenv("ZDX_HOME"); zdxHome != "" {
+			uploadsDir = zdxHome + "/data/files"
+		} else {
+			uploadsDir = "uploads"
+		}
+	}
 	s := &Server{
 		q:              db.New(pool),
 		mux:            chi.NewMux(),
 		buildSHA:       buildSHA,
 		zdxProjectSlug: os.Getenv("ZDX_PROJECT_SLUG"),
+		uploadsDir:     uploadsDir,
 	}
 
 	cfg := huma.DefaultConfig("ZDX API", "1.0.0")

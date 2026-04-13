@@ -391,7 +391,7 @@ func todoOwnerCmd() *cobra.Command {
 }
 
 func todoOwnerTriageCmd() *cobra.Command {
-	var priority string
+	var priority, title string
 	cmd := &cobra.Command{
 		Use:   "triage <IS-N>",
 		Short: "Set issue priority",
@@ -401,12 +401,16 @@ func todoOwnerTriageCmd() *cobra.Command {
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			pri, _ := strconv.ParseInt(priority, 10, 32)
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
-			if err := c.post("/api/dx/todo/owner/triage", map[string]any{
+			body := map[string]any{
 				"slug":     c.SlugOrDie(),
 				"id":       int32(n),
 				"priority": int32(pri),
-			}, &ok); err != nil {
+			}
+			if title != "" {
+				body["title"] = title
+			}
+			var ok struct{ OK bool `json:"ok"` }
+			if err := c.post("/api/dx/todo/owner/triage", body, &ok); err != nil {
 				return err
 			}
 			fmt.Printf("%s triaged (priority=%s)\n", id, priority)
@@ -414,6 +418,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&priority, "priority", "", "priority 1-4 (1=highest)")
+	cmd.Flags().StringVar(&title, "title", "", "set issue title")
 	cmd.MarkFlagRequired("priority")
 	return cmd
 }

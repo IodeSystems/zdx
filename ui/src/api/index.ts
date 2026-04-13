@@ -181,6 +181,23 @@ export const useCreateIssue = () => {
   })
 }
 
+export const useUploadFile = () => {
+  return useMutation<{ id: number; url: string }, Error, File>({
+    mutationFn: async (file) => {
+      const fd = new FormData()
+      fd.append('file', file)
+      const token = getToken()
+      const res = await fetch('/api/upload', {
+        method: 'POST',
+        headers: token ? { 'X-Api-Key': token } : {},
+        body: fd,
+      })
+      if (!res.ok) throw new Error(`Upload failed: ${res.status}`)
+      return res.json()
+    },
+  })
+}
+
 export const useUpdateIssue = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, components['schemas']['Update-issueRequest']>({

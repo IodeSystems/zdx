@@ -14,9 +14,12 @@ type Querier interface {
 	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
+	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
+	// Files
+	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (ZdxProject, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask, error)
@@ -33,7 +36,9 @@ type Querier interface {
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
+	GetFile(ctx context.Context, id int32) (ZdxFile, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
+	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (ZdxJournalEntry, error)
 	GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPlan, error)
