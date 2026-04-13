@@ -41,6 +41,15 @@ export async function apiFetch<T = unknown>(url: string, init?: RequestInit): Pr
   return res.json() as Promise<T>
 }
 
+// apiPost serializes body as JSON and sets Content-Type.
+export async function apiPost<T = unknown>(url: string, body: unknown, method = 'POST'): Promise<T> {
+  return apiFetch<T>(url, {
+    method,
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+}
+
 // ── auth ──────────────────────────────────────────────────────────────────────
 
 export const useMe = () =>
@@ -520,4 +529,66 @@ export const useTimed = (slug: string) =>
       return res.items ?? []
     },
     enabled: !!slug,
+  })
+
+// ── Project git config (admin) ────────────────────────────────────────────────
+
+export interface GitConfig {
+  git_url: string
+  git_branch: string
+  git_token?: string
+}
+
+export const useProjectGitConfig = (slug: string) =>
+  useQuery<GitConfig>({
+    queryKey: ['project-git-config', slug],
+    queryFn: () => apiFetch<GitConfig>(`/api/admin/project-git-config?slug=${encodeURIComponent(slug)}`),
+    enabled: !!slug,
+  })
+
+export const useSetProjectGitConfig = () => {
+  const qc = useQueryClient()
+  return useMutation<GitConfig, Error, { slug: string } & GitConfig>({
+    mutationFn: (body) => apiPost<GitConfig>('/api/admin/project-git-config', body, 'PUT'),
+    onSuccess: (_, vars) => { qc.invalidateQueries({ queryKey: ['project-git-config', vars.slug] }) },
+  })
+}
+
+// ── LLM config (admin) ────────────────────────────────────────────────────────
+
+export interface LLMConfig {
+  type: string
+  url: string
+  model: string
+  api_key?: string
+}
+
+export const useLLMConfig = () =>
+  useQuery<LLMConfig>({
+    queryKey: ['llm-config'],
+    queryFn: () => apiFetch<LLMConfig>('/api/admin/llm-config'),
+  })
+
+export const useSetLLMConfig = () => {
+  const qc = useQueryClient()
+  return useMutation<LLMConfig, Error, LLMConfig>({
+    mutationFn: (body) => apiPost<LLMConfig>('/api/admin/llm-config', body, 'PUT'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['llm-config'] }) },
+  })
+}
+
+// ── Issue similarity ──────────────────────────────────────────────────────────
+
+export interface SimilarIssueItem {
+  id: string
+  title: string
+  score: number
+}
+
+export const useSimilarIssues = () =>
+  useMutation<SimilarIssueItem[], Error, { slug: string; text: string; n?: number }>({
+    mutationFn: async (body) => {
+      const res = await apiPost<{ issues: SimilarIssueItem[] }>('/api/dx/issues/similar', body)
+      return res.issues ?? []
+    },
   })

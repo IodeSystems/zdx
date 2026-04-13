@@ -157,6 +157,12 @@ type OKBody struct {
 	OK bool `json:"ok"`
 }
 
+type SimilarIssueItem struct {
+	ID    string  `json:"id"`
+	Title string  `json:"title"`
+	Score float32 `json:"score"`
+}
+
 type WriteTodoInput struct {
 	Text     string `json:"text"`
 	Key      string `json:"key"`
@@ -509,6 +515,7 @@ func (s *Server) registerRoutes(api huma.API) {
 					Kind:    "screenshot",
 				})
 			}
+			go s.emb.upsertIssue(context.Background(), p.ID, row.ID, row.Title+" "+row.Context)
 			return &struct{ Body IssueItem }{Body: toIssueItem(row)}, nil
 		})
 
@@ -1768,6 +1775,178 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body struct{ Revisions []RevisionItem `json:"revisions"` } }{
 				Body: struct{ Revisions []RevisionItem `json:"revisions"` }{Revisions: out},
 			}, nil
+		})
+
+	// ── Admin: LLM config ─────────────────────────────────────────────────────
+
+	type LLMConfigBody struct {
+		Type   string `json:"type"`
+		URL    string `json:"url"`
+		Model  string `json:"model"`
+		APIKey string `json:"api_key,omitempty"` // omitted/redacted in GET
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "get-llm-config", Method: http.MethodGet, Path: "/api/admin/llm-config"},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body LLMConfigBody }, error) {
+			cfg, err := s.q.GetLLMConfig(ctx)
+			if err != nil {
+				// No config yet — return empty.
+				return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{}}, nil
+			}
+			return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{
+				Type:  cfg.Type,
+				URL:   cfg.Url,
+				Model: cfg.Model,
+				// api_key intentionally omitted in response
+			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "set-llm-config", Method: http.MethodPut, Path: "/api/admin/llm-config"},
+		func(ctx context.Context, in *struct{ Body LLMConfigBody }) (*struct{ Body LLMConfigBody }, error) {
+			cfg, err := s.q.UpsertLLMConfig(ctx, db.UpsertLLMConfigParams{
+				Type:   in.Body.Type,
+				Url:    in.Body.URL,
+				Model:  in.Body.Model,
+				ApiKey: in.Body.APIKey,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			s.reloadEmbedder(ctx)
+			return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{
+				Type:  cfg.Type,
+				URL:   cfg.Url,
+				Model: cfg.Model,
+			}}, nil
+		})
+
+	// ── Admin: project git config ─────────────────────────────────────────────
+
+	type GitConfigBody struct {
+		GitURL    string `json:"git_url"`
+		GitBranch string `json:"git_branch"`
+		GitToken  string `json:"git_token,omitempty"` // omitted in GET response
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "get-project-git-config", Method: http.MethodGet, Path: "/api/admin/project-git-config"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct{ Body GitConfigBody }, error) {
+			row, err := s.q.GetProjectGitConfig(ctx, in.Slug)
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
+			}
+			return &struct{ Body GitConfigBody }{Body: GitConfigBody{
+				GitURL:    row.GitUrl,
+				GitBranch: row.GitBranch,
+				// git_token intentionally omitted
+			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "set-project-git-config", Method: http.MethodPut, Path: "/api/admin/project-git-config"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string `json:"slug"`
+				GitURL    string `json:"git_url"`
+				GitBranch string `json:"git_branch"`
+				GitToken  string `json:"git_token,omitempty"`
+			}
+		}) (*struct{ Body GitConfigBody }, error) {
+			if err := s.q.SetProjectGitConfig(ctx, db.SetProjectGitConfigParams{
+				Slug:      in.Body.Slug,
+				GitUrl:    in.Body.GitURL,
+				GitBranch: in.Body.GitBranch,
+				GitToken:  in.Body.GitToken,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body GitConfigBody }{Body: GitConfigBody{
+				GitURL:    in.Body.GitURL,
+				GitBranch: in.Body.GitBranch,
+			}}, nil
+		})
+
+	// ── Issue similarity ───────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "similar-issues", Method: http.MethodPost, Path: "/api/dx/issues/similar"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				Text string `json:"text"`
+				N    int    `json:"n,omitempty"`
+			}
+		}) (*struct {
+			Body struct {
+				Issues []SimilarIssueItem `json:"issues"`
+			}
+		}, error) {
+			n := in.Body.N
+			if n <= 0 {
+				n = 5
+			}
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			results, err := s.findSimilarIssues(ctx, p.ID, in.Body.Text, n)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Issues []SimilarIssueItem `json:"issues"`
+				}
+			}{Body: struct {
+				Issues []SimilarIssueItem `json:"issues"`
+			}{Issues: results}}, nil
+		})
+
+	// ── Git commits ───────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "list-git-commits", Method: http.MethodGet, Path: "/api/dx/git/commits"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			N    int    `query:"n"`
+		}) (*struct {
+			Body struct {
+				Commits []GitCommit `json:"commits"`
+			}
+		}, error) {
+			n := in.N
+			if n <= 0 || n > 100 {
+				n = 20
+			}
+			row, err := s.q.GetProjectGitConfig(ctx, in.Slug)
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
+			}
+			if row.GitUrl == "" {
+				return nil, apiErr(http.StatusUnprocessableEntity, "git URL not configured for project "+in.Slug)
+			}
+			// Embed token into URL for HTTPS auth if provided.
+			gitURL := row.GitUrl
+			if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
+				gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
+			}
+			dir := s.repoDir(in.Slug)
+			branch := row.GitBranch
+			if branch == "" {
+				branch = "main"
+			}
+			if err := ensureRepo(dir, gitURL, branch); err != nil {
+				return nil, apiErr(500, "git: "+err.Error())
+			}
+			commits, err := recentCommits(dir, branch, n)
+			if err != nil {
+				return nil, apiErr(500, "git: "+err.Error())
+			}
+			return &struct {
+				Body struct {
+					Commits []GitCommit `json:"commits"`
+				}
+			}{Body: struct {
+				Commits []GitCommit `json:"commits"`
+			}{Commits: commits}}, nil
 		})
 
 	// ── File upload (raw chi — huma doesn't handle multipart) ─────────────────

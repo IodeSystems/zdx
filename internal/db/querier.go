@@ -26,7 +26,7 @@ type Querier interface {
 	// Files
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
-	CreateProject(ctx context.Context, arg CreateProjectParams) (ZdxProject, error)
+	CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask, error)
 	CreateTheme(ctx context.Context, arg CreateThemeParams) (ZdxTheme, error)
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error)
@@ -47,9 +47,12 @@ type Querier interface {
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
 	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
+	// LLM Config
+	GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (ZdxJournalEntry, error)
 	GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPlan, error)
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
+	GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error)
 	// State
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetTest(ctx context.Context, arg GetTestParams) (ZdxTest, error)
@@ -101,6 +104,7 @@ type Querier interface {
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
+	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
 	TouchApiKey(ctx context.Context, id int32) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
@@ -111,6 +115,7 @@ type Querier interface {
 	UpdateThemeStatus(ctx context.Context, arg UpdateThemeStatusParams) error
 	UpsertCommentRead(ctx context.Context, arg UpsertCommentReadParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (ZdxFeature, error)
+	UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (ZdxLlmConfig, error)
 	// Plans
 	UpsertPlan(ctx context.Context, arg UpsertPlanParams) (ZdxPlan, error)
 	// Tests (primary registry)

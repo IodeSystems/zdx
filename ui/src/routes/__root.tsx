@@ -25,6 +25,8 @@ import {
   Home as HomeIcon,
   Menu as MenuIcon,
   PlaylistPlay as PlaylistPlayIcon,
+  Settings as SettingsIcon,
+  Tune as TuneIcon,
   WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material'
 import { theme } from '../theme'
@@ -45,6 +47,10 @@ const SECTIONS = [
   { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
   { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
   { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
+] as const
+
+const PROJECT_NAV_EXTRAS = [
+  { label: 'Settings', icon: <TuneIcon fontSize="small" />, path: 'settings' },
 ] as const
 
 function ProjectLabel() {
@@ -170,6 +176,21 @@ function SectionNav({ onNavigate }: { onNavigate?: () => void }) {
             <ListItemText primary={s.label} />
           </ListItemButton>
         ))}
+        {PROJECT_NAV_EXTRAS.map(s => (
+          <ListItemButton
+            key={s.path}
+            selected={activePath === s.path || lastRouteId === `/project/$slug/${s.path}`}
+            component={Link as any}
+            to={`/project/$slug/${s.path}` as any}
+            params={{ slug: currentSlug }}
+            onClick={onNavigate}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              {s.icon}
+            </ListItemIcon>
+            <ListItemText primary={s.label} />
+          </ListItemButton>
+        ))}
       </List>
     </>
   )
@@ -179,6 +200,7 @@ function HomeNav({ onNavigate }: { onNavigate?: () => void }) {
   const matches = useMatches()
   const lastPath = matches[matches.length - 1]?.pathname ?? ''
   const isHomeActive = lastPath === '/'
+  const isAdminActive = lastPath.startsWith('/admin')
 
   return (
     <>
@@ -198,6 +220,17 @@ function HomeNav({ onNavigate }: { onNavigate?: () => void }) {
             <HomeIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText primary="Projects" />
+        </ListItemButton>
+        <ListItemButton
+          selected={isAdminActive}
+          component={Link as any}
+          to="/admin/llm"
+          onClick={onNavigate}
+        >
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <SettingsIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Admin" />
         </ListItemButton>
       </List>
     </>

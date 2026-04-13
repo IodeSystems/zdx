@@ -1,20 +1,25 @@
-import { useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import {
+  Alert,
   Box,
   Button,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   Fab,
   IconButton,
+  Link,
   TextField,
   Tooltip,
   Typography,
 } from '@mui/material'
 import { Add as AddIcon, AttachFile as AttachFileIcon, Close as CloseIcon } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
-import { useCreateIssue, useUploadFile } from '../api'
+import { useCreateIssue, useUploadFile, useSimilarIssues, type SimilarIssueItem } from '../api'
+import { useMatches } from '@tanstack/react-router'
 
 async function capturePageScreenshot(): Promise<File | null> {
   try {
@@ -22,8 +27,8 @@ async function capturePageScreenshot(): Promise<File | null> {
     return await new Promise<File | null>((resolve) => {
       canvas.toBlob((blob) => {
         if (!blob) { resolve(null); return }
-        resolve(new File([blob], 'screenshot.png', { type: 'image/png' }))
-      }, 'image/png')
+        resolve(new File([blob], 'screenshot.jpg', { type: 'image/jpeg' }))
+      }, 'image/jpeg', 0.8)
     })
   } catch {
     return null
@@ -35,13 +40,28 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
   const [title, setTitle] = useState('')
   const [context, setContext] = useState('')
   const [screenshot, setScreenshot] = useState<File | null>(null)
+  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
+  // preflight state
+  const [similarIssues, setSimilarIssues] = useState<SimilarIssueItem[] | null>(null)
+  const [preflight, setPreflight] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const matches = useMatches()
+
+  useEffect(() => {
+    if (!screenshot) { setScreenshotPreview(null); return }
+    const url = URL.createObjectURL(screenshot)
+    setScreenshotPreview(url)
+    return () => URL.revokeObjectURL(url)
+  }, [screenshot])
 
   const createIssue = useCreateIssue()
   const uploadFile = useUploadFile()
+  const findSimilar = useSimilarIssues()
 
   const handleOpen = async () => {
+    setSimilarIssues(null)
+    setPreflight(false)
     setOpen(true)
     setCapturing(true)
     const file = await capturePageScreenshot()
@@ -54,6 +74,8 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
     setTitle('')
     setContext('')
     setScreenshot(null)
+    setSimilarIssues(null)
+    setPreflight(false)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -62,7 +84,33 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
     e.target.value = ''
   }
 
-  const handleSubmit = async () => {
+  // Step 1: run preflight similarity check
+  const handlePreflight = async () => {
+    const text = [title, context].filter(Boolean).join(' ')
+    if (!text.trim()) {
+      // No text — skip preflight, submit directly
+      await doSubmit()
+      return
+    }
+    setPreflight(true)
+    findSimilar.mutate(
+      { slug, text, n: 5 },
+      {
+        onSuccess: (issues) => {
+          setSimilarIssues(issues)
+          setPreflight(false)
+        },
+        onError: () => {
+          // If similarity check fails, proceed to submit
+          setPreflight(false)
+          doSubmit()
+        },
+      },
+    )
+  }
+
+  // Step 2: actual submission (after user confirms from similar list, or directly)
+  const doSubmit = async () => {
     let screenshotIds: number[] | undefined
     if (screenshot) {
       const uploaded = await uploadFile.mutateAsync(screenshot)
@@ -80,7 +128,12 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
     )
   }
 
-  const isPending = createIssue.isPending || uploadFile.isPending || capturing
+  // Resolve current slug for issue links
+  const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
+  const routeSlug = (projectMatch?.params as { slug?: string })?.slug ?? slug
+
+  const isPending = createIssue.isPending || uploadFile.isPending || capturing || preflight
+  const showSimilar = similarIssues !== null && !preflight
 
   return (
     <>
@@ -104,6 +157,7 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
             value={title}
             onChange={e => setTitle(e.target.value)}
             sx={{ mt: 1, mb: 2 }}
+            disabled={showSimilar}
           />
           <TextField
             fullWidth
@@ -113,8 +167,9 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
             value={context}
             onChange={e => setContext(e.target.value)}
             placeholder="Steps to reproduce, observed vs expected, links…"
+            disabled={showSimilar}
           />
-          <Box sx={{ mt: 1.5, display: 'flex', alignItems: 'center', gap: 1 }}>
+          <Box sx={{ mt: 1.5 }}>
             <input
               ref={fileInputRef}
               type="file"
@@ -122,38 +177,120 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
               style={{ display: 'none' }}
               onChange={handleFileChange}
             />
-            <Tooltip title="Attach screenshot">
-              <IconButton size="small" onClick={() => fileInputRef.current?.click()}>
-                <AttachFileIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
             {capturing ? (
-              <Typography variant="caption" color="text.secondary">Capturing…</Typography>
-            ) : screenshot ? (
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-                <Typography variant="caption" noWrap sx={{ maxWidth: 200 }}>
-                  {screenshot.name}
-                </Typography>
-                <IconButton size="small" onClick={() => setScreenshot(null)}>
-                  <CloseIcon fontSize="small" />
-                </IconButton>
+              <Typography variant="caption" color="text.secondary">Capturing screenshot…</Typography>
+            ) : screenshotPreview ? (
+              <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                <Box
+                  component="img"
+                  src={screenshotPreview}
+                  alt="Screenshot preview"
+                  onClick={() => !showSimilar && fileInputRef.current?.click()}
+                  sx={{
+                    display: 'block',
+                    maxWidth: '100%',
+                    maxHeight: 200,
+                    borderRadius: 1,
+                    border: '1px solid',
+                    borderColor: 'divider',
+                    cursor: showSimilar ? 'default' : 'pointer',
+                  }}
+                />
+                {!showSimilar && (
+                  <Tooltip title="Remove screenshot">
+                    <IconButton
+                      size="small"
+                      onClick={() => setScreenshot(null)}
+                      sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'background.paper' }}
+                    >
+                      <CloseIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                )}
               </Box>
             ) : (
-              <Typography variant="caption" color="text.secondary">
-                Attach screenshot (optional)
-              </Typography>
+              !showSimilar && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <Tooltip title="Attach screenshot">
+                    <IconButton size="small" onClick={() => fileInputRef.current?.click()}>
+                      <AttachFileIcon fontSize="small" />
+                    </IconButton>
+                  </Tooltip>
+                  <Typography variant="caption" color="text.secondary">
+                    Attach screenshot (optional)
+                  </Typography>
+                </Box>
+              )
             )}
           </Box>
+
+          {/* Preflight spinner */}
+          {preflight && (
+            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+              <CircularProgress size={16} />
+              <Typography variant="caption" color="text.secondary">Checking for similar issues…</Typography>
+            </Box>
+          )}
+
+          {/* Similar issues list */}
+          {showSimilar && (
+            <Box sx={{ mt: 2 }}>
+              <Divider sx={{ mb: 1.5 }} />
+              {similarIssues!.length === 0 ? (
+                <Alert severity="success" sx={{ mb: 1 }}>No similar issues found.</Alert>
+              ) : (
+                <>
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
+                    Similar existing issues — is yours already reported?
+                  </Typography>
+                  <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                    {similarIssues!.map(iss => (
+                      <Box component="li" key={iss.id} sx={{ mb: 0.5 }}>
+                        <Link
+                          href={`/project/${routeSlug}/all/issues/${iss.id}`}
+                          target="_blank"
+                          rel="noopener"
+                          variant="body2"
+                        >
+                          {iss.id}
+                        </Link>
+                        <Typography variant="body2" component="span" sx={{ ml: 0.5 }}>
+                          {iss.title || '(untitled)'}
+                        </Typography>
+                        <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
+                          ({(iss.score * 100).toFixed(0)}%)
+                        </Typography>
+                      </Box>
+                    ))}
+                  </Box>
+                </>
+              )}
+            </Box>
+          )}
         </DialogContent>
+
         <DialogActions>
           <Button onClick={handleClose}>Cancel</Button>
-          <Button
-            variant="contained"
-            disabled={isPending}
-            onClick={handleSubmit}
-          >
-            Submit
-          </Button>
+          {!showSimilar ? (
+            <Button
+              variant="contained"
+              disabled={isPending}
+              onClick={handlePreflight}
+            >
+              {preflight ? <CircularProgress size={16} color="inherit" /> : 'Submit'}
+            </Button>
+          ) : (
+            <>
+              <Button onClick={() => setSimilarIssues(null)}>Edit</Button>
+              <Button
+                variant="contained"
+                disabled={createIssue.isPending || uploadFile.isPending}
+                onClick={doSubmit}
+              >
+                Submit anyway
+              </Button>
+            </>
+          )}
         </DialogActions>
       </Dialog>
     </>

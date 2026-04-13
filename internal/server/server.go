@@ -14,6 +14,7 @@ import (
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/llm"
 )
 
 type Server struct {
@@ -23,6 +24,7 @@ type Server struct {
 	zdxProjectSlug string
 	uploadsDir     string
 	api            huma.API
+	emb            *embedder
 }
 
 func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
@@ -34,13 +36,26 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 			uploadsDir = "uploads"
 		}
 	}
+	vecDir := os.Getenv("VEC_DIR")
+	if vecDir == "" {
+		if zdxHome := os.Getenv("ZDX_HOME"); zdxHome != "" {
+			vecDir = zdxHome + "/data/vec"
+		} else {
+			vecDir = "vec"
+		}
+	}
+
 	s := &Server{
 		q:              db.New(pool),
 		mux:            chi.NewMux(),
 		buildSHA:       buildSHA,
 		zdxProjectSlug: os.Getenv("ZDX_PROJECT_SLUG"),
 		uploadsDir:     uploadsDir,
+		emb:            newEmbedder(vecDir),
 	}
+
+	// Load LLM config eagerly so embedder is ready on first request.
+	s.reloadEmbedder(context.Background())
 
 	cfg := huma.DefaultConfig("ZDX API", "1.0.0")
 	cfg.Info.Description = "zdx developer-experience platform API"
@@ -72,6 +87,43 @@ func spaPath(urlPath, staticDir string) string {
 		return candidate
 	}
 	return "index.html"
+}
+
+// reloadEmbedder re-reads the LLM config from DB and refreshes the embedder client.
+func (s *Server) reloadEmbedder(ctx context.Context) {
+	cfg, err := s.q.GetLLMConfig(ctx)
+	if err != nil {
+		s.emb.reload(nil)
+		return
+	}
+	s.emb.reload(&llm.Config{
+		Type:   cfg.Type,
+		URL:    cfg.Url,
+		Model:  cfg.Model,
+		APIKey: cfg.ApiKey,
+	})
+}
+
+// findSimilarIssues embeds queryText and returns the top-n similar open issues.
+func (s *Server) findSimilarIssues(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarIssueItem, error) {
+	results, err := s.emb.topN(ctx, projectID, queryText, n)
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return []SimilarIssueItem{}, nil
+	}
+	// Fetch titles for the returned IDs.
+	out := make([]SimilarIssueItem, 0, len(results))
+	for _, r := range results {
+		id := issueIDFromInt(int32(r.ID)) //nolint:gosec
+		iss, err := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: projectID, ID: id})
+		if err != nil {
+			continue // stale index entry — skip
+		}
+		out = append(out, SimilarIssueItem{ID: id, Title: iss.Title, Score: r.Score})
+	}
+	return out, nil
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

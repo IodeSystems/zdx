@@ -320,9 +320,16 @@ type CreateProjectParams struct {
 	Name string `db:"name" json:"name"`
 }
 
-func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (ZdxProject, error) {
+type CreateProjectRow struct {
+	ID        int32              `db:"id" json:"id"`
+	Slug      string             `db:"slug" json:"slug"`
+	Name      string             `db:"name" json:"name"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error) {
 	row := q.db.QueryRow(ctx, createProject, arg.Slug, arg.Name)
-	var i ZdxProject
+	var i CreateProjectRow
 	err := row.Scan(
 		&i.ID,
 		&i.Slug,
@@ -766,6 +773,26 @@ func (q *Queries) GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueW
 	return items, nil
 }
 
+const getLLMConfig = `-- name: GetLLMConfig :one
+
+SELECT id, type, url, model, api_key, created_at FROM zdx_llm_configs LIMIT 1
+`
+
+// LLM Config
+func (q *Queries) GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error) {
+	row := q.db.QueryRow(ctx, getLLMConfig)
+	var i ZdxLlmConfig
+	err := row.Scan(
+		&i.ID,
+		&i.Type,
+		&i.Url,
+		&i.Model,
+		&i.ApiKey,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getLatestJournalEntry = `-- name: GetLatestJournalEntry :one
 SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 1
@@ -817,7 +844,7 @@ func (q *Queries) GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPla
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at FROM zdx_projects WHERE slug = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token FROM zdx_projects WHERE slug = $1
 `
 
 func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error) {
@@ -828,6 +855,32 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject
 		&i.Slug,
 		&i.Name,
 		&i.CreatedAt,
+		&i.GitUrl,
+		&i.GitBranch,
+		&i.GitToken,
+	)
+	return i, err
+}
+
+const getProjectGitConfig = `-- name: GetProjectGitConfig :one
+SELECT slug, git_url, git_branch, git_token FROM zdx_projects WHERE slug = $1
+`
+
+type GetProjectGitConfigRow struct {
+	Slug      string `db:"slug" json:"slug"`
+	GitUrl    string `db:"git_url" json:"git_url"`
+	GitBranch string `db:"git_branch" json:"git_branch"`
+	GitToken  string `db:"git_token" json:"git_token"`
+}
+
+func (q *Queries) GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error) {
+	row := q.db.QueryRow(ctx, getProjectGitConfig, slug)
+	var i GetProjectGitConfigRow
+	err := row.Scan(
+		&i.Slug,
+		&i.GitUrl,
+		&i.GitBranch,
+		&i.GitToken,
 	)
 	return i, err
 }
@@ -1377,7 +1430,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 
 const listProjects = `-- name: ListProjects :many
 
-SELECT id, slug, name, created_at FROM zdx_projects ORDER BY name
+SELECT id, slug, name, created_at, git_url, git_branch, git_token FROM zdx_projects ORDER BY name
 `
 
 // Projects
@@ -1395,6 +1448,9 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 			&i.Slug,
 			&i.Name,
 			&i.CreatedAt,
+			&i.GitUrl,
+			&i.GitBranch,
+			&i.GitToken,
 		); err != nil {
 			return nil, err
 		}
@@ -2055,6 +2111,27 @@ func (q *Queries) SetIssuePriority(ctx context.Context, arg SetIssuePriorityPara
 	return err
 }
 
+const setProjectGitConfig = `-- name: SetProjectGitConfig :exec
+UPDATE zdx_projects SET git_url = $1, git_branch = $2, git_token = $3 WHERE slug = $4
+`
+
+type SetProjectGitConfigParams struct {
+	GitUrl    string `db:"git_url" json:"git_url"`
+	GitBranch string `db:"git_branch" json:"git_branch"`
+	GitToken  string `db:"git_token" json:"git_token"`
+	Slug      string `db:"slug" json:"slug"`
+}
+
+func (q *Queries) SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error {
+	_, err := q.db.Exec(ctx, setProjectGitConfig,
+		arg.GitUrl,
+		arg.GitBranch,
+		arg.GitToken,
+		arg.Slug,
+	)
+	return err
+}
+
 const setState = `-- name: SetState :exec
 INSERT INTO zdx_state (project_id, key, value, updated_at)
 VALUES ($1, $2, $3, NOW())
@@ -2258,6 +2335,43 @@ func (q *Queries) UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (Z
 		&i.DoneWhen,
 		&i.Component,
 		&i.Category,
+	)
+	return i, err
+}
+
+const upsertLLMConfig = `-- name: UpsertLLMConfig :one
+INSERT INTO zdx_llm_configs (id, type, url, model, api_key)
+VALUES (TRUE, $1, $2, $3, $4)
+ON CONFLICT (id) DO UPDATE
+SET type    = EXCLUDED.type,
+    url     = EXCLUDED.url,
+    model   = EXCLUDED.model,
+    api_key = EXCLUDED.api_key
+RETURNING id, type, url, model, api_key, created_at
+`
+
+type UpsertLLMConfigParams struct {
+	Type   string `db:"type" json:"type"`
+	Url    string `db:"url" json:"url"`
+	Model  string `db:"model" json:"model"`
+	ApiKey string `db:"api_key" json:"api_key"`
+}
+
+func (q *Queries) UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (ZdxLlmConfig, error) {
+	row := q.db.QueryRow(ctx, upsertLLMConfig,
+		arg.Type,
+		arg.Url,
+		arg.Model,
+		arg.ApiKey,
+	)
+	var i ZdxLlmConfig
+	err := row.Scan(
+		&i.ID,
+		&i.Type,
+		&i.Url,
+		&i.Model,
+		&i.ApiKey,
+		&i.CreatedAt,
 	)
 	return i, err
 }

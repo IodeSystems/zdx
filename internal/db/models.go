@@ -137,6 +137,15 @@ type ZdxJournalEntry struct {
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxLlmConfig struct {
+	ID        bool               `db:"id" json:"id"`
+	Type      string             `db:"type" json:"type"`
+	Url       string             `db:"url" json:"url"`
+	Model     string             `db:"model" json:"model"`
+	ApiKey    string             `db:"api_key" json:"api_key"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxOauthIdentity struct {
 	ID        int32              `db:"id" json:"id"`
 	UserID    int32              `db:"user_id" json:"user_id"`
@@ -170,6 +179,9 @@ type ZdxProject struct {
 	Slug      string             `db:"slug" json:"slug"`
 	Name      string             `db:"name" json:"name"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	GitUrl    string             `db:"git_url" json:"git_url"`
+	GitBranch string             `db:"git_branch" json:"git_branch"`
+	GitToken  string             `db:"git_token" json:"git_token"`
 }
 
 type ZdxProjectGitConfig struct {

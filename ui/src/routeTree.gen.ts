@@ -11,7 +11,9 @@
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as ProjectSlugRouteImport } from './routes/project/$slug'
+import { Route as AdminLlmRouteImport } from './routes/admin/llm'
 import { Route as ProjectSlugIndexRouteImport } from './routes/project/$slug/index'
+import { Route as ProjectSlugSettingsRouteImport } from './routes/project/$slug/settings'
 import { Route as ProjectSlugQueueRouteImport } from './routes/project/$slug/queue'
 import { Route as ProjectSlugComponentRouteImport } from './routes/project/$slug/$component'
 import { Route as ProjectSlugComponentIndexRouteImport } from './routes/project/$slug/$component/index'
@@ -37,9 +39,19 @@ const ProjectSlugRoute = ProjectSlugRouteImport.update({
   path: '/project/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminLlmRoute = AdminLlmRouteImport.update({
+  id: '/admin/llm',
+  path: '/admin/llm',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectSlugIndexRoute = ProjectSlugIndexRouteImport.update({
   id: '/',
   path: '/',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugSettingsRoute = ProjectSlugSettingsRouteImport.update({
+  id: '/settings',
+  path: '/settings',
   getParentRoute: () => ProjectSlugRoute,
 } as any)
 const ProjectSlugQueueRoute = ProjectSlugQueueRouteImport.update({
@@ -127,9 +139,11 @@ const ProjectSlugComponentFeaturesNameRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin/llm': typeof AdminLlmRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
   '/project/$slug/$component': typeof ProjectSlugComponentRouteWithChildren
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
+  '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
   '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/features': typeof ProjectSlugComponentFeaturesRouteWithChildren
@@ -146,7 +160,9 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin/llm': typeof AdminLlmRoute
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
+  '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug': typeof ProjectSlugIndexRoute
   '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/worklog': typeof ProjectSlugComponentWorklogRoute
@@ -161,9 +177,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin/llm': typeof AdminLlmRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
   '/project/$slug/$component': typeof ProjectSlugComponentRouteWithChildren
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
+  '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
   '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/features': typeof ProjectSlugComponentFeaturesRouteWithChildren
@@ -182,9 +200,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin/llm'
     | '/project/$slug'
     | '/project/$slug/$component'
     | '/project/$slug/queue'
+    | '/project/$slug/settings'
     | '/project/$slug/'
     | '/project/$slug/$component/errors'
     | '/project/$slug/$component/features'
@@ -201,7 +221,9 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin/llm'
     | '/project/$slug/queue'
+    | '/project/$slug/settings'
     | '/project/$slug'
     | '/project/$slug/$component/errors'
     | '/project/$slug/$component/worklog'
@@ -215,9 +237,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin/llm'
     | '/project/$slug'
     | '/project/$slug/$component'
     | '/project/$slug/queue'
+    | '/project/$slug/settings'
     | '/project/$slug/'
     | '/project/$slug/$component/errors'
     | '/project/$slug/$component/features'
@@ -235,6 +259,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminLlmRoute: typeof AdminLlmRoute
   ProjectSlugRoute: typeof ProjectSlugRouteWithChildren
 }
 
@@ -254,11 +279,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/llm': {
+      id: '/admin/llm'
+      path: '/admin/llm'
+      fullPath: '/admin/llm'
+      preLoaderRoute: typeof AdminLlmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/project/$slug/': {
       id: '/project/$slug/'
       path: '/'
       fullPath: '/project/$slug/'
       preLoaderRoute: typeof ProjectSlugIndexRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
+    '/project/$slug/settings': {
+      id: '/project/$slug/settings'
+      path: '/settings'
+      fullPath: '/project/$slug/settings'
+      preLoaderRoute: typeof ProjectSlugSettingsRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
     '/project/$slug/queue': {
@@ -437,12 +476,14 @@ const ProjectSlugComponentRouteWithChildren =
 interface ProjectSlugRouteChildren {
   ProjectSlugComponentRoute: typeof ProjectSlugComponentRouteWithChildren
   ProjectSlugQueueRoute: typeof ProjectSlugQueueRoute
+  ProjectSlugSettingsRoute: typeof ProjectSlugSettingsRoute
   ProjectSlugIndexRoute: typeof ProjectSlugIndexRoute
 }
 
 const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
   ProjectSlugComponentRoute: ProjectSlugComponentRouteWithChildren,
   ProjectSlugQueueRoute: ProjectSlugQueueRoute,
+  ProjectSlugSettingsRoute: ProjectSlugSettingsRoute,
   ProjectSlugIndexRoute: ProjectSlugIndexRoute,
 }
 
@@ -452,6 +493,7 @@ const ProjectSlugRouteWithChildren = ProjectSlugRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminLlmRoute: AdminLlmRoute,
   ProjectSlugRoute: ProjectSlugRouteWithChildren,
 }
 export const routeTree = rootRouteImport

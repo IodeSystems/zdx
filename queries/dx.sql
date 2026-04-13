@@ -1,10 +1,10 @@
 -- Projects
 
 -- name: ListProjects :many
-SELECT id, slug, name, created_at FROM zdx_projects ORDER BY name;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token FROM zdx_projects ORDER BY name;
 
 -- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at FROM zdx_projects WHERE slug = $1;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token FROM zdx_projects WHERE slug = $1;
 
 -- name: GetApiKeyByToken :one
 SELECT id, user_id, token, name, last_used_at, created_at
@@ -43,6 +43,12 @@ RETURNING id, user_id, token, name, last_used_at, created_at;
 -- name: CreateProject :one
 INSERT INTO zdx_projects (slug, name) VALUES ($1, $2)
 RETURNING id, slug, name, created_at;
+
+-- name: GetProjectGitConfig :one
+SELECT slug, git_url, git_branch, git_token FROM zdx_projects WHERE slug = $1;
+
+-- name: SetProjectGitConfig :exec
+UPDATE zdx_projects SET git_url = @git_url, git_branch = @git_branch, git_token = @git_token WHERE slug = @slug;
 
 -- name: NextID :one
 INSERT INTO zdx_id_seq (project_id, kind, next_val) VALUES ($1, $2, 2)
@@ -456,3 +462,18 @@ SELECT id, project_id, name, duration_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE (@project_id::int IS NULL OR project_id = @project_id)
 ORDER BY duration_ms DESC;
+
+-- LLM Config
+
+-- name: GetLLMConfig :one
+SELECT id, type, url, model, api_key, created_at FROM zdx_llm_configs LIMIT 1;
+
+-- name: UpsertLLMConfig :one
+INSERT INTO zdx_llm_configs (id, type, url, model, api_key)
+VALUES (TRUE, @type, @url, @model, @api_key)
+ON CONFLICT (id) DO UPDATE
+SET type    = EXCLUDED.type,
+    url     = EXCLUDED.url,
+    model   = EXCLUDED.model,
+    api_key = EXCLUDED.api_key
+RETURNING id, type, url, model, api_key, created_at;
