@@ -47,7 +47,7 @@ func main() {
 	// regenerate ui/src/api.gen.ts if so. Fatal on tsc failure.
 	if buildSHA == "" {
 		projectRoot, _ := os.Getwd()
-		srv.DevCheckClient(projectRoot)
+		srv.DevCheck(projectRoot)
 	}
 
 	addr := fmt.Sprintf(":%s", port)
