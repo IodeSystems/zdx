@@ -118,6 +118,9 @@ export function IssueDetail({
         {issue.component && (
           <Chip label={issue.component} size="small" variant="outlined" />
         )}
+        {issue.issue_type && (
+          <Chip label={issue.issue_type} size="small" variant="outlined" color={issue.issue_type === 'impl' ? 'secondary' : 'default'} />
+        )}
         {issue.blocked_by && (
           <Chip label={`blocked by: ${issue.blocked_by}`} size="small" variant="outlined" color="warning" />
         )}

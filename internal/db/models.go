@@ -92,6 +92,7 @@ type ZdxIssue struct {
 	Context   string             `db:"context" json:"context"`
 	BlockedBy string             `db:"blocked_by" json:"blocked_by"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	IssueType string             `db:"issue_type" json:"issue_type"`
 }
 
 type ZdxIssueBlock struct {

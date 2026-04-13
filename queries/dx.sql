@@ -52,28 +52,29 @@ RETURNING next_val - 1 AS val;
 -- Issues
 
 -- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at;
 
 -- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at;
 
 -- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
 -- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at;
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type;
 
 -- name: UpdateIssue :exec
 UPDATE zdx_issues
-SET title     = COALESCE(NULLIF(@title, ''),     title),
-    context   = COALESCE(NULLIF(@context, ''),   context),
-    priority  = COALESCE(NULLIF(@priority, ''),  priority),
-    blocked_by= COALESCE(NULLIF(@blocked_by,''), blocked_by)
+SET title      = COALESCE(NULLIF(@title, ''),      title),
+    context    = COALESCE(NULLIF(@context, ''),    context),
+    priority   = COALESCE(NULLIF(@priority, ''),   priority),
+    blocked_by = COALESCE(NULLIF(@blocked_by, ''), blocked_by),
+    issue_type = COALESCE(NULLIF(@issue_type, ''), issue_type)
 WHERE project_id = @project_id AND id = @id;
 
 -- name: CloseIssue :exec
@@ -154,10 +155,11 @@ UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2;
 
 -- name: SetIssueField :exec
 UPDATE zdx_issues
-SET title     = CASE WHEN @field::text = 'title'     THEN @value::text ELSE title     END,
-    context   = CASE WHEN @field::text = 'context'   THEN @value::text ELSE context   END,
-    component = CASE WHEN @field::text = 'component' THEN @value::text ELSE component END,
-    blocked_by= CASE WHEN @field::text = 'blocked_by'THEN @value::text ELSE blocked_by END
+SET title      = CASE WHEN @field::text = 'title'      THEN @value::text ELSE title      END,
+    context    = CASE WHEN @field::text = 'context'    THEN @value::text ELSE context    END,
+    component  = CASE WHEN @field::text = 'component'  THEN @value::text ELSE component  END,
+    blocked_by = CASE WHEN @field::text = 'blocked_by' THEN @value::text ELSE blocked_by END,
+    issue_type = CASE WHEN @field::text = 'issue_type' THEN @value::text ELSE issue_type END
 WHERE project_id = @project_id AND id = @id;
 
 -- name: SetIssuePriority :exec

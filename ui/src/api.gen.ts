@@ -1205,6 +1205,7 @@ export interface components {
              * @description Server integer ID; CLI formats as IS-N
              */
             id: number;
+            issue_type: string;
             priority: string;
             source: string;
             status: string;

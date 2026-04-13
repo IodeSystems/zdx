@@ -18,6 +18,7 @@ type issueItem struct {
 	Component string `json:"component"`
 	BlockedBy string `json:"blocked_by"`
 	Context   string `json:"context"`
+	IssueType string `json:"issue_type"`
 }
 
 type issueWorkItem struct {
@@ -391,7 +392,7 @@ func todoOwnerCmd() *cobra.Command {
 }
 
 func todoOwnerTriageCmd() *cobra.Command {
-	var priority, title string
+	var priority, title, issueType string
 	cmd := &cobra.Command{
 		Use:   "triage <IS-N>",
 		Short: "Set issue priority",
@@ -409,6 +410,9 @@ func todoOwnerTriageCmd() *cobra.Command {
 			if title != "" {
 				body["title"] = title
 			}
+			if issueType != "" {
+				body["issue_type"] = issueType
+			}
 			var ok struct{ OK bool `json:"ok"` }
 			if err := c.post("/api/dx/todo/owner/triage", body, &ok); err != nil {
 				return err
@@ -419,6 +423,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&priority, "priority", "", "priority 1-4 (1=highest)")
 	cmd.Flags().StringVar(&title, "title", "", "set issue title")
+	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops or impl")
 	cmd.MarkFlagRequired("priority")
 	return cmd
 }
@@ -465,6 +470,11 @@ func printIssueItem(iss issueItem) {
 	fmt.Printf("Title:     %s\n", iss.Title)
 	fmt.Printf("Status:    %s\n", iss.Status)
 	fmt.Printf("Priority:  %s\n", iss.Priority)
+	issType := iss.IssueType
+	if issType == "" {
+		issType = "ops"
+	}
+	fmt.Printf("Type:      %s\n", issType)
 	if iss.Component != "" {
 		fmt.Printf("Component: %s\n", iss.Component)
 	}

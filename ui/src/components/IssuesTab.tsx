@@ -118,6 +118,9 @@ export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; compo
                   <Typography variant="body2" sx={{ flex: 1 }}>
                     IS-{i.id}: {issueDisplayTitle(i.title, i.context)}
                   </Typography>
+                  {(i.issue_type && i.issue_type !== 'ops') && (
+                    <Chip label={i.issue_type} size="small" color="secondary" variant="outlined" />
+                  )}
                   <Chip
                     label={i.status}
                     size="small"

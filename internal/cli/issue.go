@@ -43,7 +43,7 @@ func issueListCmd() *cobra.Command {
 }
 
 func issueAddCmd() *cobra.Command {
-	var title, ctx, component, blockedBy string
+	var title, ctx, component, blockedBy, issueType string
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Create an issue",
@@ -56,6 +56,7 @@ func issueAddCmd() *cobra.Command {
 				"context":    ctx,
 				"component":  component,
 				"blocked_by": blockedBy,
+				"issue_type": issueType,
 			}, &iss); err != nil {
 				return err
 			}
@@ -67,6 +68,7 @@ func issueAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&ctx, "context", "", "context / description")
 	cmd.Flags().StringVar(&component, "component", "", "component")
 	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issue (IS-N)")
+	cmd.Flags().StringVar(&issueType, "type", "ops", "issue type: ops or impl")
 	cmd.MarkFlagRequired("title")
 	return cmd
 }

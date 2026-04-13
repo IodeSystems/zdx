@@ -57,6 +57,7 @@ type IssueItem struct {
 	BlockedBy string `json:"blocked_by"`
 	Context   string `json:"context"`
 	Source    string `json:"source"`
+	IssueType string `json:"issue_type"`
 	CreatedAt string `json:"created_at"`
 }
 
@@ -467,6 +468,7 @@ func (s *Server) registerRoutes(api huma.API) {
 				Context       *string `json:"context,omitempty"`
 				BlockedBy     *string `json:"blocked_by,omitempty"`
 				Component     *string `json:"component,omitempty"`
+				IssueType     *string `json:"issue_type,omitempty"`
 				ScreenshotIDs []int32 `json:"screenshot_ids,omitempty"`
 			}
 		}) (*struct{ Body IssueItem }, error) {
@@ -481,6 +483,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			params := db.CreateIssueParams{
 				ID:        id,
 				ProjectID: p.ID,
+				IssueType: "ops",
 			}
 			if in.Body.Title != nil {
 				params.Title = *in.Body.Title
@@ -490,6 +493,9 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			if in.Body.Component != nil {
 				params.Component = *in.Body.Component
+			}
+			if in.Body.IssueType != nil {
+				params.IssueType = *in.Body.IssueType
 			}
 			row, err := s.q.CreateIssue(ctx, params)
 			if err != nil {
@@ -508,10 +514,11 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "triage-issue", Method: http.MethodPost, Path: "/api/dx/todo/owner/triage"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug     string  `json:"slug"`
-				ID       int32   `json:"id"`
-				Priority int32   `json:"priority"`
-				Title    *string `json:"title,omitempty"`
+				Slug      string  `json:"slug"`
+				ID        int32   `json:"id"`
+				Priority  int32   `json:"priority"`
+				Title     *string `json:"title,omitempty"`
+				IssueType *string `json:"issue_type,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -526,14 +533,19 @@ func (s *Server) registerRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			if in.Body.Title != nil && *in.Body.Title != "" {
-				if err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
-					Field:     "title",
-					Value:     *in.Body.Title,
-					ProjectID: p.ID,
-					ID:        issueID,
-				}); err != nil {
-					return nil, apiErr(500, err.Error())
+			for field, val := range map[string]*string{
+				"title":      in.Body.Title,
+				"issue_type": in.Body.IssueType,
+			} {
+				if val != nil && *val != "" {
+					if err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+						Field:     field,
+						Value:     *val,
+						ProjectID: p.ID,
+						ID:        issueID,
+					}); err != nil {
+						return nil, apiErr(500, err.Error())
+					}
 				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -1639,6 +1651,7 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		Component: r.Component,
 		BlockedBy: r.BlockedBy,
 		Context:   r.Context,
+		IssueType: r.IssueType,
 		CreatedAt: fmtTS(r.CreatedAt),
 	}
 }
