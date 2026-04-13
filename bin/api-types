@@ -1,0 +1,20 @@
+#!/usr/bin/env bash
+# bin/api-types — regenerate ui/src/api.gen.ts from the running server's OpenAPI spec.
+# Run after changing handler input/output types. Commit the result.
+#
+# Usage:
+#   bin/api-types               # expects server at localhost:7600
+#   API_URL=http://... bin/api-types
+
+set -euo pipefail
+
+API_URL="${API_URL:-http://localhost:7600}"
+OUT="${OUT:-ui/src/api.gen.ts}"
+
+echo "Fetching OpenAPI spec from $API_URL/openapi.json ..."
+curl -sf "$API_URL/openapi.json" -o /tmp/zdx-openapi.json
+
+echo "Generating $OUT ..."
+npx --yes openapi-typescript /tmp/zdx-openapi.json -o "$OUT"
+
+echo "Done. Commit $OUT if it changed."

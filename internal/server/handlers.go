@@ -1,446 +1,34 @@
 package server
 
 import (
+	"context"
+	"fmt"
 	"net/http"
+	"strconv"
+	"strings"
 	"time"
 
-	"github.com/iodesystems/zdx-go/internal/apitypes"
-	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-// ── projects ──────────────────────────────────────────────────────────────────
+// ── ID conversion helpers ─────────────────────────────────────────────────
 
-func (s *Server) handleListProjects(w http.ResponseWriter, r *http.Request) {
-	projects, err := s.q.ListProjects(r.Context())
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
+func intFromPrefixed(s, prefix string) int32 {
+	if !strings.HasPrefix(s, prefix) {
+		return 0
 	}
-	out := make([]apitypes.ProjectResp, len(projects))
-	for i, p := range projects {
-		out[i] = projectResp(p)
-	}
-	ok(w, out)
+	n, _ := strconv.ParseInt(s[len(prefix):], 10, 32)
+	return int32(n)
 }
 
-func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.CreateProjectRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	p, err := s.q.CreateProject(r.Context(), db.CreateProjectParams{Slug: req.Slug, Name: req.Name})
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, projectResp(p))
-}
+func issueIntID(id string) int32 { return intFromPrefixed(id, "IS-") }
+func taskIntID(id string) int32  { return intFromPrefixed(id, "TK-") }
 
-// ── issues ────────────────────────────────────────────────────────────────────
-
-func (s *Server) handleListIssues(w http.ResponseWriter, r *http.Request) {
-	slug := r.URL.Query().Get("slug")
-	project, err := s.q.GetProjectBySlug(r.Context(), slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	issues, err := s.q.ListIssues(r.Context(), project.ID)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	out := make([]apitypes.IssueResp, len(issues))
-	for i, iss := range issues {
-		out[i] = issueResp(iss)
-	}
-	ok(w, out)
-}
-
-func (s *Server) handleGetIssue(w http.ResponseWriter, r *http.Request) {
-	slug := r.URL.Query().Get("slug")
-	id := r.URL.Query().Get("id")
-	project, err := s.q.GetProjectBySlug(r.Context(), slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	iss, err := s.q.GetIssue(r.Context(), db.GetIssueParams{ProjectID: project.ID, ID: id})
-	if err != nil {
-		fail(w, http.StatusNotFound, "issue not found")
-		return
-	}
-	work, err := s.q.GetIssueWork(r.Context(), iss.ID)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	resp := issueResp(iss)
-	resp.Work = make([]apitypes.IssueWorkResp, len(work))
-	for i, wk := range work {
-		resp.Work[i] = apitypes.IssueWorkResp{
-			Agent:     wk.Agent,
-			Note:      wk.Note,
-			CreatedAt: fmtTS(wk.CreatedAt),
-		}
-	}
-	ok(w, resp)
-}
-
-func (s *Server) handleCreateIssue(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.CreateIssueRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	project, err := s.q.GetProjectBySlug(r.Context(), req.Slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	id, err := s.q.NextIssueID(r.Context(), project.ID)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	iss, err := s.q.CreateIssue(r.Context(), db.CreateIssueParams{
-		ID:        id,
-		ProjectID: project.ID,
-		Title:     req.Title,
-		Context:   req.Context,
-		Priority:  req.Priority,
-		Component: req.Component,
-	})
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, issueResp(iss))
-}
-
-func (s *Server) handleUpdateIssue(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.UpdateIssueRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	project, err := s.q.GetProjectBySlug(r.Context(), req.Slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	err = s.q.UpdateIssue(r.Context(), db.UpdateIssueParams{
-		ProjectID: project.ID,
-		ID:        req.ID,
-		Title:     req.Title,
-		Context:   req.Context,
-		Priority:  req.Priority,
-		BlockedBy: req.BlockedBy,
-	})
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, apitypes.OKResponse{OK: true})
-}
-
-func (s *Server) handleCloseIssue(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.CloseIssueRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	project, err := s.q.GetProjectBySlug(r.Context(), req.Slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	if err := s.q.CloseIssue(r.Context(), db.CloseIssueParams{ProjectID: project.ID, ID: req.ID}); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, apitypes.OKResponse{OK: true})
-}
-
-func (s *Server) handleAppendIssueWork(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.AppendIssueWorkRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := s.q.AppendIssueWork(r.Context(), db.AppendIssueWorkParams{
-		IssueID: req.ID,
-		Agent:   req.Agent,
-		Note:    req.Note,
-	}); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, apitypes.OKResponse{OK: true})
-}
-
-// ── tasks ─────────────────────────────────────────────────────────────────────
-
-func (s *Server) handleListTasks(w http.ResponseWriter, r *http.Request) {
-	slug := r.URL.Query().Get("slug")
-	feature := r.URL.Query().Get("feature")
-	issueID := r.URL.Query().Get("issue")
-
-	project, err := s.q.GetProjectBySlug(r.Context(), slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-
-	var tasks []db.ZdxTask
-	switch {
-	case feature != "":
-		tasks, err = s.q.ListTasksByFeature(r.Context(), db.ListTasksByFeatureParams{ProjectID: project.ID, Feature: feature})
-	case issueID != "":
-		tasks, err = s.q.ListTasksByIssue(r.Context(), db.ListTasksByIssueParams{ProjectID: project.ID, Issue: issueID})
-	default:
-		tasks, err = s.q.ListTasks(r.Context(), project.ID)
-	}
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	out := make([]apitypes.TaskResp, len(tasks))
-	for i, t := range tasks {
-		out[i] = taskResp(t)
-	}
-	ok(w, out)
-}
-
-func (s *Server) handleCreateTask(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.CreateTaskRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	project, err := s.q.GetProjectBySlug(r.Context(), req.Slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	id, err := s.q.NextTaskID(r.Context(), project.ID)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	t, err := s.q.CreateTask(r.Context(), db.CreateTaskParams{
-		ID:        id,
-		ProjectID: project.ID,
-		Text:      req.Text,
-		Feature:   req.Feature,
-		Issue:     req.Issue,
-	})
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, taskResp(t))
-}
-
-func (s *Server) handleUpdateTaskStatus(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.UpdateTaskStatusRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := s.q.UpdateTaskStatus(r.Context(), db.UpdateTaskStatusParams{
-		ID:     req.ID,
-		Status: req.Status,
-		Reason: req.Reason,
-	}); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, apitypes.OKResponse{OK: true})
-}
-
-func (s *Server) handleMarkTaskDone(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.MarkTaskDoneRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := s.q.MarkTaskDone(r.Context(), db.MarkTaskDoneParams{
-		ID:       req.ID,
-		TestPlan: req.TestPlan,
-		TestRefs: req.TestRefs,
-	}); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, apitypes.OKResponse{OK: true})
-}
-
-func (s *Server) handleMarkTaskUndone(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.MarkTaskUndoneRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	if err := s.q.MarkTaskUndone(r.Context(), req.ID); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, apitypes.OKResponse{OK: true})
-}
-
-// ── features ──────────────────────────────────────────────────────────────────
-
-func (s *Server) handleListFeatures(w http.ResponseWriter, r *http.Request) {
-	slug := r.URL.Query().Get("slug")
-	project, err := s.q.GetProjectBySlug(r.Context(), slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	features, err := s.q.ListFeatures(r.Context(), project.ID)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	out := make([]apitypes.FeatureResp, len(features))
-	for i, f := range features {
-		out[i] = featureResp(f)
-	}
-	ok(w, out)
-}
-
-func (s *Server) handleGetFeature(w http.ResponseWriter, r *http.Request) {
-	slug := r.URL.Query().Get("slug")
-	name := r.URL.Query().Get("name")
-	project, err := s.q.GetProjectBySlug(r.Context(), slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	f, err := s.q.GetFeature(r.Context(), db.GetFeatureParams{ProjectID: project.ID, Name: name})
-	if err != nil {
-		fail(w, http.StatusNotFound, "feature not found")
-		return
-	}
-	specs, err := s.q.ListSpecs(r.Context(), f.ID)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	resp := featureResp(f)
-	resp.Specs = make([]apitypes.SpecResp, len(specs))
-	for i, sp := range specs {
-		resp.Specs[i] = apitypes.SpecResp{
-			ID:          sp.ID,
-			Description: sp.Description,
-			Kind:        sp.Kind,
-		}
-	}
-	ok(w, resp)
-}
-
-func (s *Server) handleCreateFeature(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.CreateFeatureRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	project, err := s.q.GetProjectBySlug(r.Context(), req.Slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	f, err := s.q.UpsertFeature(r.Context(), db.UpsertFeatureParams{
-		ProjectID:   project.ID,
-		Name:        req.Name,
-		Description: req.Description,
-	})
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, featureResp(f))
-}
-
-func (s *Server) handleUpdateFeatureField(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.UpdateFeatureFieldRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	project, err := s.q.GetProjectBySlug(r.Context(), req.Slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	if err := s.q.UpdateFeatureField(r.Context(), db.UpdateFeatureFieldParams{
-		ProjectID: project.ID,
-		Name:      req.Feature,
-		Field:     req.Field,
-		Value:     req.Value,
-	}); err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, apitypes.OKResponse{OK: true})
-}
-
-func (s *Server) handleAddSpec(w http.ResponseWriter, r *http.Request) {
-	req, err := bind[apitypes.AddSpecRequest](r)
-	if err != nil {
-		fail(w, http.StatusBadRequest, err.Error())
-		return
-	}
-	project, err := s.q.GetProjectBySlug(r.Context(), req.Slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-	f, err := s.q.GetFeature(r.Context(), db.GetFeatureParams{ProjectID: project.ID, Name: req.Feature})
-	if err != nil {
-		fail(w, http.StatusNotFound, "feature not found")
-		return
-	}
-	sp, err := s.q.AddSpec(r.Context(), db.AddSpecParams{
-		FeatureID:   f.ID,
-		Description: req.Description,
-		Kind:        req.Kind,
-	})
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, apitypes.SpecResp{
-		ID:          sp.ID,
-		Description: sp.Description,
-		Kind:        sp.Kind,
-	})
-}
-
-// ── solo ──────────────────────────────────────────────────────────────────────
-
-func (s *Server) handleSolo(w http.ResponseWriter, r *http.Request) {
-	slug := r.URL.Query().Get("slug")
-	issueFilter := r.URL.Query().Get("issue")
-
-	project, err := s.q.GetProjectBySlug(r.Context(), slug)
-	if err != nil {
-		fail(w, http.StatusNotFound, "project not found")
-		return
-	}
-
-	item, err := computeSolo(r.Context(), s.q, project.ID, issueFilter)
-	if err != nil {
-		fail(w, http.StatusInternalServerError, err.Error())
-		return
-	}
-	ok(w, item)
-}
-
-// ── response mappers ──────────────────────────────────────────────────────────
+func issueIDFromInt(n int32) string { return fmt.Sprintf("IS-%d", n) }
+func taskIDFromInt(n int32) string  { return fmt.Sprintf("TK-%d", n) }
 
 func fmtTS(ts pgtype.Timestamptz) string {
 	if !ts.Valid {
@@ -449,50 +37,1078 @@ func fmtTS(ts pgtype.Timestamptz) string {
 	return ts.Time.UTC().Format(time.RFC3339)
 }
 
-func projectResp(p db.ZdxProject) apitypes.ProjectResp {
-	return apitypes.ProjectResp{
-		ID:        p.ID,
-		Slug:      p.Slug,
-		Name:      p.Name,
-		CreatedAt: fmtTS(p.CreatedAt),
+// ── Response types ─────────────────────────────────────────────────────────
+
+type IssueItem struct {
+	ID        int32  `json:"id" doc:"Server integer ID; CLI formats as IS-N"`
+	Title     string `json:"title"`
+	Status    string `json:"status"`
+	Priority  string `json:"priority"`
+	Component string `json:"component"`
+	Features  string `json:"features"`
+	BlockedBy string `json:"blocked_by"`
+	Context   string `json:"context"`
+	Source    string `json:"source"`
+	CreatedAt string `json:"created_at"`
+}
+
+type TaskItem struct {
+	ID          int32  `json:"id" doc:"Server integer ID; CLI formats as TK-N"`
+	Text        string `json:"text"`
+	Feature     string `json:"feature"`
+	Status      string `json:"status"`
+	Reason      string `json:"reason"`
+	IssueID     *int32 `json:"issue_id,omitempty" doc:"Linked issue integer ID; CLI formats as IS-N"`
+	Depends     string `json:"depends"`
+	TestPlan    string `json:"test_plan"`
+	TestRefs    string `json:"test_refs"`
+	CreatedAt   string `json:"created_at"`
+	CompletedAt string `json:"completed_at"`
+}
+
+type FeatureItem struct {
+	ID          int32       `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	What        string      `json:"what"`
+	Why         string      `json:"why"`
+	DoneWhen    string      `json:"done_when"`
+	Component   string      `json:"component"`
+	PlanType    string      `json:"plan_type"`
+	PlanStatus  string      `json:"plan_status"`
+	HasTestRefs bool        `json:"has_test_refs"`
+	Specs       []SpecItem  `json:"specs"`
+}
+
+type SpecItem struct {
+	ID          int32  `json:"id"`
+	Description string `json:"description"`
+	Kind        string `json:"kind"`
+}
+
+type ThemeItem struct {
+	ID          int32  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Priority    int32  `json:"priority"`
+	Status      string `json:"status"`
+	Blockers    string `json:"blockers"`
+	CreatedAt   string `json:"created_at"`
+}
+
+type TodoItem struct {
+	ID         int32  `json:"id"`
+	Text       string `json:"text"`
+	Key        string `json:"key"`
+	Persona    string `json:"persona"`
+	Priority   int32  `json:"priority"`
+	Status     string `json:"status"`
+	CreatedAt  string `json:"created_at"`
+	ResolvedAt string `json:"resolved_at"`
+}
+
+type JournalEntryItem struct {
+	Date          string `json:"date"`
+	Baseline      bool   `json:"baseline"`
+	Tldr          string `json:"tldr"`
+	Assessment    string `json:"assessment"`
+	Concerns      string `json:"concerns"`
+	Next          string `json:"next"`
+	ChangelogJSON string `json:"changelog_json"`
+	StateJSON     string `json:"state_json"`
+}
+
+type OKBody struct {
+	OK bool `json:"ok"`
+}
+
+// ── Route registration ─────────────────────────────────────────────────────
+
+func (s *Server) registerRoutes(api huma.API) {
+	// Health
+	huma.Register(api, huma.Operation{OperationID: "health", Method: http.MethodGet, Path: "/api/health"},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body map[string]string }, error) {
+			return &struct{ Body map[string]string }{Body: map[string]string{"status": "ok"}}, nil
+		})
+
+	// ── Issues ──────────────────────────────────────────────────────────────
+
+	type IssueSlugInput struct{ Slug string `query:"slug" required:"true"` }
+	type IssueIntIDInput struct{ ID int32 `json:"id"` }
+
+	huma.Register(api, huma.Operation{OperationID: "list-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/list"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Issues []IssueItem `json:"issues"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListIssues(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]IssueItem, len(rows))
+			for i, r := range rows {
+				out[i] = toIssueItem(r)
+			}
+			return &struct{ Body struct{ Issues []IssueItem `json:"issues"` } }{Body: struct{ Issues []IssueItem `json:"issues"` }{Issues: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "add-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/add"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string `json:"slug"`
+				Title     string `json:"title"`
+				Source    string `json:"source"`
+				Context   string `json:"context"`
+				BlockedBy string `json:"blocked_by"`
+				Component string `json:"component"`
+			}
+		}) (*struct{ Body IssueItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			id, err := s.q.NextIssueID(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			row, err := s.q.CreateIssue(ctx, db.CreateIssueParams{
+				ID:        id,
+				ProjectID: p.ID,
+				Title:     in.Body.Title,
+				Context:   in.Body.Context,
+				Component: in.Body.Component,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body IssueItem }{Body: toIssueItem(row)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "triage-issue", Method: http.MethodPost, Path: "/api/dx/todo/owner/triage"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID       int32 `json:"id"`
+				Priority int32 `json:"priority"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.ID)
+			err := s.q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
+				ID:        issueID,
+				Priority:  strconv.Itoa(int(in.Body.Priority)),
+				ProjectID: 0,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "close-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/close"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug   string `json:"slug"`
+				ID     int32  `json:"id"`
+				Reason string `json:"reason"`
+				Notes  string `json:"notes"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(in.Body.ID)
+			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if in.Body.Reason != "" || in.Body.Notes != "" {
+				note := in.Body.Reason
+				if in.Body.Notes != "" {
+					note += "\n" + in.Body.Notes
+				}
+				_ = s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: "cli", Note: note})
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "reopen-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/reopen"},
+		func(ctx context.Context, in *struct {
+			Body IssueIntIDInput
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.ID)
+			_ = s.q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: 0})
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "update-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/update"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID    int32  `json:"id"`
+				Field string `json:"field"`
+				Value string `json:"value"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.ID)
+			err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+				Field: in.Body.Field,
+				Value: in.Body.Value,
+				ID:    issueID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "issue-kind", Method: http.MethodPost, Path: "/api/dx/todo/issue/kind"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID   int32  `json:"id"`
+				Kind string `json:"kind"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.ID)
+			err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+				Field: "component",
+				Value: in.Body.Kind,
+				ID:    issueID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "issue-set-blocked-by", Method: http.MethodPost, Path: "/api/dx/todo/issue/set-blocked-by"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID        int32  `json:"id"`
+				BlockedBy string `json:"blocked_by"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.ID)
+			err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+				Field: "blocked_by",
+				Value: in.Body.BlockedBy,
+				ID:    issueID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// set-features is a no-op on the Go side — features are linked via task.issue
+	huma.Register(api, huma.Operation{OperationID: "issue-set-features", Method: http.MethodPost, Path: "/api/dx/todo/issue/set-features"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID       int32  `json:"id"`
+				Features string `json:"features"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// Issue work
+	huma.Register(api, huma.Operation{OperationID: "append-issue-work", Method: http.MethodPost, Path: "/api/issue-work"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				IssueID   int32  `json:"issue_id"`
+				EntryType string `json:"entry_type"`
+				ByRole    string `json:"by_role"`
+				Note      string `json:"note"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.IssueID)
+			note := in.Body.Note
+			if in.Body.EntryType != "" {
+				note = "[" + in.Body.EntryType + "] " + note
+			}
+			if err := s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{
+				IssueID: issueID,
+				Agent:   in.Body.ByRole,
+				Note:    note,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Tasks ────────────────────────────────────────────────────────────────
+
+	type TasksSlugOutput = struct {
+		Body struct {
+			Tasks []TaskItem `json:"tasks"`
+		}
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-tasks", Method: http.MethodGet, Path: "/api/tasks"},
+		func(ctx context.Context, in *IssueSlugInput) (*TasksSlugOutput, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListTasks(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TaskItem, len(rows))
+			for i, r := range rows {
+				out[i] = toTaskItem(r)
+			}
+			return &TasksSlugOutput{Body: struct{ Tasks []TaskItem `json:"tasks"` }{Tasks: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-tasks-by-feature", Method: http.MethodGet, Path: "/api/tasks-by-feature"},
+		func(ctx context.Context, in *struct {
+			Slug    string `query:"slug" required:"true"`
+			Feature string `query:"feature" required:"true"`
+		}) (*TasksSlugOutput, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListTasksByFeature(ctx, db.ListTasksByFeatureParams{ProjectID: p.ID, Feature: in.Feature})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TaskItem, len(rows))
+			for i, r := range rows {
+				out[i] = toTaskItem(r)
+			}
+			return &TasksSlugOutput{Body: struct{ Tasks []TaskItem `json:"tasks"` }{Tasks: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-tasks-for-issue", Method: http.MethodGet, Path: "/api/dx/todo/issue/tasks"},
+		func(ctx context.Context, in *struct {
+			Slug    string `query:"slug" required:"true"`
+			IssueID string `query:"issue_id" required:"true"`
+		}) (*TasksSlugOutput, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListTasksByIssue(ctx, db.ListTasksByIssueParams{ProjectID: p.ID, Issue: in.IssueID})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TaskItem, len(rows))
+			for i, r := range rows {
+				out[i] = toTaskItem(r)
+			}
+			return &TasksSlugOutput{Body: struct{ Tasks []TaskItem `json:"tasks"` }{Tasks: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "add-task", Method: http.MethodPost, Path: "/api/dx/todo/tech/add"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				Feature string `json:"feature"`
+				Text    string `json:"text"`
+				Issue   string `json:"issue"`
+				Depends string `json:"depends"`
+			}
+		}) (*struct{ Body TaskItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			id, err := s.q.NextTaskID(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			row, err := s.q.CreateTask(ctx, db.CreateTaskParams{
+				ID:        id,
+				ProjectID: p.ID,
+				Text:      in.Body.Text,
+				Feature:   in.Body.Feature,
+				Issue:     in.Body.Issue,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body TaskItem }{Body: toTaskItem(row)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "mark-task-done", Method: http.MethodPost, Path: "/api/dx/todo/dev/done"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID       int32  `json:"id"`
+				TestPlan string `json:"test_plan"`
+				TestRefs string `json:"test_refs"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			id := taskIDFromInt(in.Body.ID)
+			if err := s.q.MarkTaskDone(ctx, db.MarkTaskDoneParams{
+				ID:       id,
+				TestPlan: in.Body.TestPlan,
+				TestRefs: in.Body.TestRefs,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "mark-task-undone", Method: http.MethodPost, Path: "/api/dx/todo/dev/undone"},
+		func(ctx context.Context, in *struct {
+			Body struct{ ID int32 `json:"id"` }
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.MarkTaskUndone(ctx, taskIDFromInt(in.Body.ID)); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "block-task", Method: http.MethodPost, Path: "/api/dx/todo/dev/block"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID     int32  `json:"id"`
+				Reason string `json:"reason"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
+				ID:     taskIDFromInt(in.Body.ID),
+				Status: "blocked",
+				Reason: in.Body.Reason,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "unblock-task", Method: http.MethodPost, Path: "/api/dx/todo/dev/unblock"},
+		func(ctx context.Context, in *struct {
+			Body struct{ ID int32 `json:"id"` }
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
+				ID:     taskIDFromInt(in.Body.ID),
+				Status: "pending",
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// PUT /api/task-status — generic status update fallback
+	huma.Register(api, huma.Operation{OperationID: "update-task-status", Method: http.MethodPut, Path: "/api/task-status"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID     int32  `json:"id"`
+				Status string `json:"status"`
+				Reason string `json:"reason"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
+				ID:     taskIDFromInt(in.Body.ID),
+				Status: in.Body.Status,
+				Reason: in.Body.Reason,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "delete-task", Method: http.MethodDelete, Path: "/api/task"},
+		func(ctx context.Context, in *struct {
+			Body struct{ ID int32 `json:"id"` }
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.DeleteTask(ctx, taskIDFromInt(in.Body.ID)); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// Commit record (stub — not stored, just acknowledged)
+	huma.Register(api, huma.Operation{OperationID: "add-task-commit", Method: http.MethodPost, Path: "/api/dx/todo/dev/commit"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID   int32  `json:"id"`
+				SHA  string `json:"sha"`
+				Note string `json:"note"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "get-task-commit-refs", Method: http.MethodGet, Path: "/api/dx/todo/dev/commit-refs"},
+		func(ctx context.Context, in *struct {
+			ID int32 `query:"id" required:"true"`
+		}) (*struct{ Body struct{ CommitRefs string `json:"commit_refs"` } }, error) {
+			return &struct{ Body struct{ CommitRefs string `json:"commit_refs"` } }{}, nil
+		})
+
+	// ── Features ─────────────────────────────────────────────────────────────
+
+	type FeaturesOutput = struct {
+		Body struct {
+			Features []FeatureItem `json:"features"`
+		}
+	}
+
+	// /api/dx/todo/list — feature list with specs and plan (used by CLI todo queue)
+	huma.Register(api, huma.Operation{OperationID: "list-features-todo", Method: http.MethodGet, Path: "/api/dx/todo/list"},
+		func(ctx context.Context, in *IssueSlugInput) (*FeaturesOutput, error) {
+			return s.featuresWithSpecs(ctx, in.Slug)
+		})
+
+	// /api/features — same data, used by removeFeature lookup
+	huma.Register(api, huma.Operation{OperationID: "list-features", Method: http.MethodGet, Path: "/api/features"},
+		func(ctx context.Context, in *IssueSlugInput) (*FeaturesOutput, error) {
+			return s.featuresWithSpecs(ctx, in.Slug)
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "upsert-feature", Method: http.MethodPost, Path: "/api/feature"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug        string `json:"slug"`
+				Name        string `json:"name"`
+				Description string `json:"description"`
+			}
+		}) (*struct{ Body FeatureItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := s.q.UpsertFeature(ctx, db.UpsertFeatureParams{
+				ProjectID:   p.ID,
+				Name:        in.Body.Name,
+				Description: in.Body.Description,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body FeatureItem }{Body: toFeatureItem(row, nil)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "delete-feature", Method: http.MethodDelete, Path: "/api/feature"},
+		func(ctx context.Context, in *struct {
+			Body struct{ ID int32 `json:"id"` }
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.DeleteFeature(ctx, in.Body.ID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "set-feature-field", Method: http.MethodPost, Path: "/api/dx/features/field"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				Feature string `json:"feature"`
+				Field   string `json:"field"`
+				Value   string `json:"value"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.UpdateFeatureField(ctx, db.UpdateFeatureFieldParams{
+				ProjectID: p.ID,
+				Name:      in.Body.Feature,
+				Field:     in.Body.Field,
+				Value:     in.Body.Value,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "update-specs", Method: http.MethodPost, Path: "/api/dx/specs/update"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				Feature string `json:"feature"`
+				Field   string `json:"field"`
+				Value   string `json:"value"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			f, err := s.q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "feature not found")
+			}
+			// field is the spec kind (unit_test, api_test, ui_test); value is description
+			_, err = s.q.AddSpec(ctx, db.AddSpecParams{
+				FeatureID:   f.ID,
+				Description: in.Body.Value,
+				Kind:        in.Body.Field,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Plans ─────────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "create-plan", Method: http.MethodPost, Path: "/api/dx/plan/create"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug       string `json:"slug"`
+				Feature    string `json:"feature"`
+				PlanType   string `json:"plan_type"`
+				Complexity string `json:"complexity"`
+				Approach   string `json:"approach"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			f, err := s.q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "feature not found")
+			}
+			_, err = s.q.UpsertPlan(ctx, db.UpsertPlanParams{
+				FeatureID:  f.ID,
+				PlanType:   in.Body.PlanType,
+				Complexity: in.Body.Complexity,
+				Approach:   in.Body.Approach,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Themes ────────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "list-themes", Method: http.MethodGet, Path: "/api/dx/themes"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Themes []ThemeItem `json:"themes"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListThemes(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ThemeItem, len(rows))
+			for i, r := range rows {
+				blockers, _ := r.Blockers.(string)
+				out[i] = ThemeItem{
+					ID:          r.ID,
+					Name:        r.Name,
+					Description: r.Description,
+					Priority:    r.Priority,
+					Status:      r.Status,
+					Blockers:    blockers,
+					CreatedAt:   fmtTS(r.CreatedAt),
+				}
+			}
+			return &struct{ Body struct{ Themes []ThemeItem `json:"themes"` } }{Body: struct{ Themes []ThemeItem `json:"themes"` }{Themes: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "add-theme", Method: http.MethodPost, Path: "/api/dx/themes/add"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug        string `json:"slug"`
+				Name        string `json:"name"`
+				Description string `json:"description"`
+				Priority    int32  `json:"priority"`
+				Blockers    string `json:"blockers"`
+			}
+		}) (*struct{ Body ThemeItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := s.q.CreateTheme(ctx, db.CreateThemeParams{
+				ProjectID:   p.ID,
+				Name:        in.Body.Name,
+				Description: in.Body.Description,
+				Priority:    in.Body.Priority,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body ThemeItem }{Body: ThemeItem{
+				ID:          row.ID,
+				Name:        row.Name,
+				Description: row.Description,
+				Priority:    row.Priority,
+				Status:      row.Status,
+				CreatedAt:   fmtTS(row.CreatedAt),
+			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "set-theme-status", Method: http.MethodPost, Path: "/api/dx/themes/status"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug   string `json:"slug"`
+				Theme  string `json:"theme"` // "TH-N" or name
+				Status string `json:"status"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			theme, err := s.resolveTheme(ctx, p.ID, in.Body.Theme)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.UpdateThemeStatus(ctx, db.UpdateThemeStatusParams{
+				ProjectID: p.ID,
+				ID:        theme.ID,
+				Status:    in.Body.Status,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "add-theme-blocker", Method: http.MethodPost, Path: "/api/dx/themes/block"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string `json:"slug"`
+				Theme string `json:"theme"`
+				Issue string `json:"issue"` // "IS-N"
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			theme, err := s.resolveTheme(ctx, p.ID, in.Body.Theme)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.AddThemeBlocker(ctx, db.AddThemeBlockerParams{
+				ThemeID: theme.ID,
+				IssueID: in.Body.Issue,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "remove-theme-blocker", Method: http.MethodPost, Path: "/api/dx/themes/unblock"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string `json:"slug"`
+				Theme string `json:"theme"`
+				Issue string `json:"issue"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			theme, err := s.resolveTheme(ctx, p.ID, in.Body.Theme)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.RemoveThemeBlocker(ctx, db.RemoveThemeBlockerParams{
+				ThemeID: theme.ID,
+				IssueID: in.Body.Issue,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── State ─────────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "get-state", Method: http.MethodGet, Path: "/api/dx/state"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			Key  string `query:"key" required:"true"`
+		}) (*struct{ Body struct{ Value string `json:"value"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			val, err := s.q.GetState(ctx, db.GetStateParams{ProjectID: p.ID, Key: in.Key})
+			if err != nil {
+				val = ""
+			}
+			return &struct{ Body struct{ Value string `json:"value"` } }{Body: struct{ Value string `json:"value"` }{Value: val}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "set-state", Method: http.MethodPost, Path: "/api/dx/state"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string `json:"slug"`
+				Key   string `json:"key"`
+				Value string `json:"value"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.SetState(ctx, db.SetStateParams{
+				ProjectID: p.ID,
+				Key:       in.Body.Key,
+				Value:     in.Body.Value,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Todos ─────────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "list-todos", Method: http.MethodGet, Path: "/api/dx/todos"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Todos []TodoItem `json:"todos"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListTodos(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TodoItem, len(rows))
+			for i, r := range rows {
+				out[i] = toTodoItem(r)
+			}
+			return &struct{ Body struct{ Todos []TodoItem `json:"todos"` } }{Body: struct{ Todos []TodoItem `json:"todos"` }{Todos: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "write-todos", Method: http.MethodPost, Path: "/api/dx/todos"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string `json:"slug"`
+				Todos []struct {
+					Text     string `json:"text"`
+					Key      string `json:"key"`
+					Persona  string `json:"persona"`
+					Priority int32  `json:"priority"`
+					Status   string `json:"status"`
+				} `json:"todos"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.DeleteTodosForProject(ctx, p.ID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			for _, t := range in.Body.Todos {
+				status := t.Status
+				if status == "" {
+					status = "open"
+				}
+				_, err := s.q.CreateTodo(ctx, db.CreateTodoParams{
+					ProjectID: p.ID,
+					Text:      t.Text,
+					Key:       t.Key,
+					Persona:   t.Persona,
+					Priority:  t.Priority,
+					Status:    status,
+				})
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Test results ──────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "submit-test-results", Method: http.MethodPost, Path: "/api/dx/test-results/submit"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				Results []struct {
+					Driver     string `json:"driver"`
+					TestName   string `json:"test_name"`
+					Feature    string `json:"feature"`
+					Status     string `json:"status"`
+					DurationMS int32  `json:"duration_ms"`
+				} `json:"results"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			for _, r := range in.Body.Results {
+				_ = s.q.UpsertTestResult(ctx, db.UpsertTestResultParams{
+					ProjectID:  p.ID,
+					Driver:     r.Driver,
+					TestName:   r.TestName,
+					Feature:    r.Feature,
+					Status:     r.Status,
+					DurationMs: r.DurationMS,
+				})
+				_ = s.q.InsertTestResultHistory(ctx, db.InsertTestResultHistoryParams{
+					ProjectID:  p.ID,
+					Driver:     r.Driver,
+					TestName:   r.TestName,
+					Feature:    r.Feature,
+					Status:     r.Status,
+					DurationMs: r.DurationMS,
+				})
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Journal ───────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "journal-checkin", Method: http.MethodPost, Path: "/api/dx/journal/checkin"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug       string `json:"slug"`
+				Role       string `json:"role"`
+				Date       string `json:"date"`
+				Tldr       string `json:"tldr"`
+				Assessment string `json:"assessment"`
+				Concerns   string `json:"concerns"`
+				Next       string `json:"next"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			_, err = s.q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
+				ProjectID:  p.ID,
+				Role:       in.Body.Role,
+				Date:       in.Body.Date,
+				Tldr:       in.Body.Tldr,
+				Assessment: in.Body.Assessment,
+				Concerns:   in.Body.Concerns,
+				Next:       in.Body.Next,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "journal-show", Method: http.MethodGet, Path: "/api/dx/journal/show"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			Role string `query:"role" required:"true"`
+		}) (*struct{ Body struct{ Entries []JournalEntryItem `json:"entries"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: in.Role})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]JournalEntryItem, len(rows))
+			for i, r := range rows {
+				out[i] = JournalEntryItem{
+					Date:          r.Date,
+					Baseline:      r.Baseline,
+					Tldr:          r.Tldr,
+					Assessment:    r.Assessment,
+					Concerns:      r.Concerns,
+					Next:          r.Next,
+					ChangelogJSON: r.ChangelogJson,
+					StateJSON:     r.StateJson,
+				}
+			}
+			return &struct{ Body struct{ Entries []JournalEntryItem `json:"entries"` } }{Body: struct{ Entries []JournalEntryItem `json:"entries"` }{Entries: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "journal-state", Method: http.MethodGet, Path: "/api/dx/journal/state"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			Role string `query:"role" required:"true"`
+		}) (*struct{ Body struct{ StateJSON string `json:"state_json"` } }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			entry, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: in.Role})
+			if err != nil {
+				return &struct{ Body struct{ StateJSON string `json:"state_json"` } }{}, nil
+			}
+			return &struct{ Body struct{ StateJSON string `json:"state_json"` } }{Body: struct{ StateJSON string `json:"state_json"` }{StateJSON: entry.StateJson}}, nil
+		})
+}
+
+// ── Internal helpers ───────────────────────────────────────────────────────
+
+func (s *Server) featuresWithSpecs(ctx context.Context, slug string) (*struct {
+	Body struct {
+		Features []FeatureItem `json:"features"`
+	}
+}, error) {
+	p, err := getProject(ctx, s.q, slug)
+	if err != nil {
+		return nil, err
+	}
+	rows, err := s.q.ListFeatures(ctx, p.ID)
+	if err != nil {
+		return nil, apiErr(500, err.Error())
+	}
+	out := make([]FeatureItem, len(rows))
+	for i, f := range rows {
+		specs, _ := s.q.ListSpecs(ctx, f.ID)
+		out[i] = toFeatureItem(f, specs)
+	}
+	return &struct{ Body struct{ Features []FeatureItem `json:"features"` } }{Body: struct{ Features []FeatureItem `json:"features"` }{Features: out}}, nil
+}
+
+func (s *Server) resolveTheme(ctx context.Context, projectID int32, ref string) (db.ZdxTheme, error) {
+	// "TH-N" → integer lookup
+	if strings.HasPrefix(ref, "TH-") {
+		id := intFromPrefixed(ref, "TH-")
+		t, err := s.q.GetThemeByID(ctx, db.GetThemeByIDParams{ProjectID: projectID, ID: id})
+		if err != nil {
+			return db.ZdxTheme{}, apiErr(http.StatusNotFound, "theme not found: "+ref)
+		}
+		return t, nil
+	}
+	t, err := s.q.GetThemeByName(ctx, db.GetThemeByNameParams{ProjectID: projectID, Name: ref})
+	if err != nil {
+		return db.ZdxTheme{}, apiErr(http.StatusNotFound, "theme not found: "+ref)
+	}
+	return t, nil
+}
+
+// ── Model → response converters ────────────────────────────────────────────
+
+func toIssueItem(r db.ZdxIssue) IssueItem {
+	return IssueItem{
+		ID:        issueIntID(r.ID),
+		Title:     r.Title,
+		Status:    r.Status,
+		Priority:  r.Priority,
+		Component: r.Component,
+		BlockedBy: r.BlockedBy,
+		Context:   r.Context,
+		CreatedAt: fmtTS(r.CreatedAt),
 	}
 }
 
-func issueResp(i db.ZdxIssue) apitypes.IssueResp {
-	return apitypes.IssueResp{
-		ID:        i.ID,
-		Title:     i.Title,
-		Status:    i.Status,
-		Priority:  i.Priority,
-		Component: i.Component,
-		Context:   i.Context,
-		BlockedBy: i.BlockedBy,
-		CreatedAt: fmtTS(i.CreatedAt),
+func toTaskItem(r db.ZdxTask) TaskItem {
+	t := TaskItem{
+		ID:          taskIntID(r.ID),
+		Text:        r.Text,
+		Feature:     r.Feature,
+		Status:      r.Status,
+		Reason:      r.Reason,
+		Depends:     r.Depends,
+		TestPlan:    r.TestPlan,
+		TestRefs:    r.TestRefs,
+		CreatedAt:   fmtTS(r.CreatedAt),
+		CompletedAt: fmtTS(r.CompletedAt),
 	}
+	if r.Issue != "" {
+		n := issueIntID(r.Issue)
+		if n > 0 {
+			t.IssueID = &n
+		}
+	}
+	return t
 }
 
-func taskResp(t db.ZdxTask) apitypes.TaskResp {
-	resp := apitypes.TaskResp{
-		ID:        t.ID,
-		Text:      t.Text,
-		Feature:   t.Feature,
-		Status:    t.Status,
-		Reason:    t.Reason,
-		Issue:     t.Issue,
-		Depends:   t.Depends,
-		TestPlan:  t.TestPlan,
-		TestRefs:  t.TestRefs,
-		CreatedAt: fmtTS(t.CreatedAt),
-	}
-	if t.CompletedAt.Valid {
-		s := fmtTS(t.CompletedAt)
-		resp.CompletedAt = &s
-	}
-	return resp
-}
-
-func featureResp(f db.ZdxFeature) apitypes.FeatureResp {
-	return apitypes.FeatureResp{
+func toFeatureItem(f db.ZdxFeature, specs []db.ZdxSpec) FeatureItem {
+	item := FeatureItem{
 		ID:          f.ID,
 		Name:        f.Name,
 		Description: f.Description,
@@ -500,5 +1116,27 @@ func featureResp(f db.ZdxFeature) apitypes.FeatureResp {
 		Why:         f.Why,
 		DoneWhen:    f.DoneWhen,
 		Component:   f.Component,
+		Specs:       make([]SpecItem, len(specs)),
+	}
+	for i, sp := range specs {
+		item.Specs[i] = SpecItem{
+			ID:          sp.ID,
+			Description: sp.Description,
+			Kind:        sp.Kind,
+		}
+	}
+	return item
+}
+
+func toTodoItem(r db.ZdxTodo) TodoItem {
+	return TodoItem{
+		ID:         r.ID,
+		Text:       r.Text,
+		Key:        r.Key,
+		Persona:    r.Persona,
+		Priority:   r.Priority,
+		Status:     r.Status,
+		CreatedAt:  fmtTS(r.CreatedAt),
+		ResolvedAt: fmtTS(r.ResolvedAt),
 	}
 }

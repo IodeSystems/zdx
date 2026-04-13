@@ -1,16 +1,66 @@
 package server
 
 import (
-	"encoding/json"
+	"context"
 	"net/http"
 	"os"
 	"strings"
 
+	"github.com/danielgtaylor/huma/v2"
+	"github.com/danielgtaylor/huma/v2/adapters/humachi"
+	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
-	"github.com/mailru/easyjson"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
+
+type Server struct {
+	q   *db.Queries
+	mux *chi.Mux
+}
+
+func New(pool *pgxpool.Pool, staticDir string) *Server {
+	s := &Server{q: db.New(pool), mux: chi.NewMux()}
+
+	cfg := huma.DefaultConfig("ZDX API", "1.0.0")
+	cfg.Info.Description = "zdx developer-experience platform API"
+	api := humachi.New(s.mux, cfg)
+
+	s.registerRoutes(api)
+
+	// SPA fallback: anything not under /api/ or /openapi* serves static files.
+	if staticDir != "" {
+		s.mux.NotFound(func(w http.ResponseWriter, r *http.Request) {
+			http.ServeFileFS(w, r, os.DirFS(staticDir), spaPath(r.URL.Path, staticDir))
+		})
+	}
+
+	return s
+}
+
+// spaPath returns the file path relative to staticDir for the given URL path.
+// Falls back to index.html for unknown paths.
+func spaPath(urlPath, staticDir string) string {
+	candidate := strings.TrimPrefix(urlPath, "/")
+	if candidate == "" {
+		candidate = "index.html"
+	}
+	if _, err := os.Stat(staticDir + "/" + candidate); err == nil {
+		return candidate
+	}
+	return "index.html"
+}
+
+func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	if isMaintenance() && r.URL.Path != "/health" {
+		w.Header().Set("Content-Type", "text/html; charset=utf-8")
+		w.Header().Set("Retry-After", "60")
+		w.WriteHeader(http.StatusServiceUnavailable)
+		w.Write(maintenancePage) //nolint:errcheck
+		return
+	}
+	s.mux.ServeHTTP(w, r)
+}
 
 func isMaintenance() bool {
 	return os.Getenv("MAINTENANCE") == "true"
@@ -44,111 +94,16 @@ var maintenancePage = []byte(`<!doctype html>
 </body>
 </html>`)
 
-type Server struct {
-	q         *db.Queries
-	mux       *http.ServeMux
-	staticDir string
+// ── helpers used by handlers ───────────────────────────────────────────────
+
+func apiErr(status int, msg string) huma.StatusError {
+	return huma.NewError(status, msg)
 }
 
-func New(pool *pgxpool.Pool, staticDir string) *Server {
-	s := &Server{q: db.New(pool), mux: http.NewServeMux(), staticDir: staticDir}
-	s.routes()
-	return s
-}
-
-func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
-	if isMaintenance() && r.URL.Path != "/health" {
-		w.Header().Set("Content-Type", "text/html; charset=utf-8")
-		w.Header().Set("Retry-After", "60")
-		w.WriteHeader(http.StatusServiceUnavailable)
-		w.Write(maintenancePage)
-		return
+func getProject(ctx context.Context, q *db.Queries, slug string) (db.ZdxProject, error) {
+	p, err := q.GetProjectBySlug(ctx, slug)
+	if err != nil {
+		return p, huma.NewError(http.StatusNotFound, "project not found: "+slug)
 	}
-	// API and health routes go to the mux directly.
-	if r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/api/") {
-		s.mux.ServeHTTP(w, r)
-		return
-	}
-	// SPA fallback: serve static files; unknown paths → index.html.
-	if s.staticDir != "" {
-		http.ServeFileFS(w, r, os.DirFS(s.staticDir), spaPath(r.URL.Path, s.staticDir))
-		return
-	}
-	s.mux.ServeHTTP(w, r)
-}
-
-// spaPath returns the file path to serve for a given URL path.
-// If the file exists in staticDir, serve it directly; otherwise serve index.html.
-func spaPath(urlPath, staticDir string) string {
-	candidate := strings.TrimPrefix(urlPath, "/")
-	if candidate == "" {
-		candidate = "index.html"
-	}
-	if _, err := os.Stat(staticDir + "/" + candidate); err == nil {
-		return candidate
-	}
-	return "index.html"
-}
-
-func (s *Server) routes() {
-	s.mux.HandleFunc("GET /health", s.handleHealth)
-	s.mux.HandleFunc("GET /api/health", s.handleHealth)
-
-	// Projects
-	s.mux.HandleFunc("GET /api/projects", s.handleListProjects)
-	s.mux.HandleFunc("POST /api/project", s.handleCreateProject)
-
-	// Issues
-	s.mux.HandleFunc("GET /api/dx/issues", s.handleListIssues)
-	s.mux.HandleFunc("GET /api/dx/issue", s.handleGetIssue)
-	s.mux.HandleFunc("POST /api/dx/issue", s.handleCreateIssue)
-	s.mux.HandleFunc("PUT /api/dx/issue", s.handleUpdateIssue)
-	s.mux.HandleFunc("POST /api/dx/issue/close", s.handleCloseIssue)
-	s.mux.HandleFunc("POST /api/dx/issue/work", s.handleAppendIssueWork)
-
-	// Tasks
-	s.mux.HandleFunc("GET /api/dx/tasks", s.handleListTasks)
-	s.mux.HandleFunc("POST /api/dx/task", s.handleCreateTask)
-	s.mux.HandleFunc("PUT /api/dx/task/status", s.handleUpdateTaskStatus)
-	s.mux.HandleFunc("POST /api/dx/task/done", s.handleMarkTaskDone)
-	s.mux.HandleFunc("POST /api/dx/task/undone", s.handleMarkTaskUndone)
-
-	// Features
-	s.mux.HandleFunc("GET /api/dx/features", s.handleListFeatures)
-	s.mux.HandleFunc("GET /api/dx/feature", s.handleGetFeature)
-	s.mux.HandleFunc("POST /api/dx/feature", s.handleCreateFeature)
-	s.mux.HandleFunc("PUT /api/dx/feature/field", s.handleUpdateFeatureField)
-	s.mux.HandleFunc("POST /api/dx/spec", s.handleAddSpec)
-
-	// Solo queue
-	s.mux.HandleFunc("GET /api/dx/solo", s.handleSolo)
-}
-
-// ── response helpers ──────────────────────────────────────────────────────────
-
-func ok(w http.ResponseWriter, v any) {
-	w.Header().Set("Content-Type", "application/json")
-	if m, ok2 := v.(easyjson.Marshaler); ok2 {
-		b, err := easyjson.Marshal(m)
-		if err == nil {
-			w.Write(b)
-			return
-		}
-	}
-	json.NewEncoder(w).Encode(v)
-}
-
-func fail(w http.ResponseWriter, status int, msg string) {
-	w.Header().Set("Content-Type", "application/json")
-	w.WriteHeader(status)
-	json.NewEncoder(w).Encode(map[string]string{"error": msg})
-}
-
-func bind[T any](r *http.Request) (T, error) {
-	var v T
-	return v, json.NewDecoder(r.Body).Decode(&v)
-}
-
-func (s *Server) handleHealth(w http.ResponseWriter, r *http.Request) {
-	ok(w, map[string]string{"status": "ok"})
+	return p, nil
 }
