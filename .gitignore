@@ -7,3 +7,10 @@ ui/node_modules/
 ui/dist/
 schema/next.sql
 schema/compat-result.txt
+.zdx/credentials
+.zdx/context
+.zdx/smoke.json
+.zdx/test-index.json
+.zdx/metrics-latest.yaml
+.claude/projects/
+.claude/scheduled_tasks.lock
