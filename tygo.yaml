@@ -1,3 +1,0 @@
-packages:
-  - path: "github.com/iodesystems/dx/internal/apitypes"
-    output_path: "ui/src/api/generated-types.ts"

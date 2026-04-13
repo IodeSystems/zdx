@@ -3,20 +3,64 @@ package cli
 import (
 	"fmt"
 	"net/url"
-	"os"
+	"strconv"
 
 	"github.com/spf13/cobra"
-
-	"github.com/iodesystems/zdx-go/internal/apitypes"
 )
+
+// ── wire types (match server JSON) ────────────────────────────────────────────
+
+type issueItem struct {
+	ID        int32  `json:"id"`
+	Title     string `json:"title"`
+	Status    string `json:"status"`
+	Priority  string `json:"priority"`
+	Component string `json:"component"`
+	BlockedBy string `json:"blocked_by"`
+	Context   string `json:"context"`
+}
+
+type issueWorkItem struct {
+	Agent     string `json:"agent"`
+	Note      string `json:"note"`
+	CreatedAt string `json:"created_at"`
+}
+
+type taskItem struct {
+	ID      int32  `json:"id"`
+	Text    string `json:"text"`
+	Feature string `json:"feature"`
+	Status  string `json:"status"`
+	Reason  string `json:"reason"`
+	IssueID *int32 `json:"issue_id,omitempty"`
+}
+
+type featureItem struct {
+	ID          int32       `json:"id"`
+	Name        string      `json:"name"`
+	Description string      `json:"description"`
+	What        string      `json:"what"`
+	Why         string      `json:"why"`
+	DoneWhen    string      `json:"done_when"`
+	Specs       []specItem  `json:"specs"`
+}
+
+type specItem struct {
+	ID          int32  `json:"id"`
+	Description string `json:"description"`
+	Kind        string `json:"kind"`
+}
+
+func issueIDStr(n int32) string { return fmt.Sprintf("IS-%d", n) }
+func taskIDStr(n int32) string  { return fmt.Sprintf("TK-%d", n) }
+
+// ── TodoCmd ───────────────────────────────────────────────────────────────────
 
 func TodoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "todo",
 		Short: "Workflow queue",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return soloRun(cmd, args)
-		},
+		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
 	}
 	cmd.AddCommand(todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd())
 	return cmd
@@ -25,38 +69,104 @@ func TodoCmd() *cobra.Command {
 // ── solo ──────────────────────────────────────────────────────────────────────
 
 func todoSoloCmd() *cobra.Command {
-	var issue string
+	var issueFlag string
 	cmd := &cobra.Command{
 		Use:   "solo",
 		Short: "Next actionable item",
 		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
 	}
-	cmd.Flags().StringVar(&issue, "issue", "", "filter to specific issue")
+	cmd.Flags().StringVar(&issueFlag, "issue", "", "filter to specific issue (IS-N)")
 	return cmd
 }
 
 func soloRun(cmd *cobra.Command, _ []string) error {
-	issue, _ := cmd.Flags().GetString("issue")
+	issueFlag, _ := cmd.Flags().GetString("issue")
 	c := mustClient()
-	params := url.Values{"slug": {c.SlugOrDie()}}
-	if issue != "" {
-		params.Set("issue", issue)
+	slug := c.SlugOrDie()
+
+	// Fetch issues
+	var issueList struct {
+		Issues []issueItem `json:"issues"`
 	}
-	var item *apitypes.SoloItem
-	if err := c.get("/api/dx/solo", params, &item); err != nil {
+	if err := c.get("/api/dx/todo/issue/list", url.Values{"slug": {slug}}, &issueList); err != nil {
 		return err
 	}
-	if item == nil {
-		fmt.Println("nothing to do")
-		return nil
+
+	// If --issue given, restrict to that one
+	var targetIssues []issueItem
+	if issueFlag != "" {
+		for _, iss := range issueList.Issues {
+			if issueIDStr(iss.ID) == issueFlag {
+				targetIssues = append(targetIssues, iss)
+				break
+			}
+		}
+		if len(targetIssues) == 0 {
+			return fmt.Errorf("issue %s not found", issueFlag)
+		}
+	} else {
+		targetIssues = issueList.Issues
 	}
-	fmt.Printf("[%s] %s  %s\n", item.Kind, item.ID, item.Summary)
-	if item.Issue != "" && item.Issue != item.ID {
-		fmt.Printf("  issue: %s\n", item.Issue)
+
+	// 1. Find untriaged open issue (no priority)
+	for _, iss := range targetIssues {
+		if iss.Status == "open" && iss.Priority == "" {
+			fmt.Printf("[triage] %s  %s\n", issueIDStr(iss.ID), iss.Title)
+			return nil
+		}
 	}
-	if item.Feature != "" {
-		fmt.Printf("  feature: %s\n", item.Feature)
+
+	// 2. Find open issue with no pending tasks
+	for _, iss := range targetIssues {
+		if iss.Status != "open" {
+			continue
+		}
+		var taskList struct {
+			Tasks []taskItem `json:"tasks"`
+		}
+		if err := c.get("/api/dx/todo/issue/tasks", url.Values{
+			"slug":     {slug},
+			"issue_id": {issueIDStr(iss.ID)},
+		}, &taskList); err != nil {
+			return err
+		}
+		hasPending := false
+		for _, t := range taskList.Tasks {
+			if t.Status == "pending" || t.Status == "in_progress" {
+				hasPending = true
+				break
+			}
+		}
+		if !hasPending {
+			fmt.Printf("[add]     %s  %s\n", issueIDStr(iss.ID), iss.Title)
+			return nil
+		}
 	}
+
+	// 3. Find a pending task
+	for _, iss := range targetIssues {
+		if iss.Status != "open" {
+			continue
+		}
+		var taskList struct {
+			Tasks []taskItem `json:"tasks"`
+		}
+		if err := c.get("/api/dx/todo/issue/tasks", url.Values{
+			"slug":     {slug},
+			"issue_id": {issueIDStr(iss.ID)},
+		}, &taskList); err != nil {
+			return err
+		}
+		for _, t := range taskList.Tasks {
+			if t.Status == "pending" {
+				fmt.Printf("[dev]     %s  %s\n", taskIDStr(t.ID), t.Text)
+				fmt.Printf("  issue: %s\n", issueIDStr(iss.ID))
+				return nil
+			}
+		}
+	}
+
+	fmt.Println("nothing to do")
 	return nil
 }
 
@@ -69,30 +179,57 @@ func todoListCmd() *cobra.Command {
 		Short: "List tasks",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			params := url.Values{"slug": {c.SlugOrDie()}}
+			slug := c.SlugOrDie()
+
 			if issue != "" {
-				params.Set("issue", issue)
-			}
-			if feature != "" {
-				params.Set("feature", feature)
-			}
-			var tasks []apitypes.TaskResp
-			if err := c.get("/api/dx/tasks", params, &tasks); err != nil {
-				return err
-			}
-			if len(tasks) == 0 {
-				fmt.Println("no tasks")
+				var taskList struct {
+					Tasks []taskItem `json:"tasks"`
+				}
+				if err := c.get("/api/dx/todo/issue/tasks", url.Values{
+					"slug":     {slug},
+					"issue_id": {issue},
+				}, &taskList); err != nil {
+					return err
+				}
+				printTasks(taskList.Tasks)
 				return nil
 			}
-			for _, t := range tasks {
-				fmt.Printf("%-8s %-12s %s\n", t.ID, t.Status, t.Text)
+			if feature != "" {
+				var taskList struct {
+					Tasks []taskItem `json:"tasks"`
+				}
+				if err := c.get("/api/tasks-by-feature", url.Values{
+					"slug":    {slug},
+					"feature": {feature},
+				}, &taskList); err != nil {
+					return err
+				}
+				printTasks(taskList.Tasks)
+				return nil
 			}
+			var taskList struct {
+				Tasks []taskItem `json:"tasks"`
+			}
+			if err := c.get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
+				return err
+			}
+			printTasks(taskList.Tasks)
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&issue, "issue", "", "filter by issue")
-	cmd.Flags().StringVar(&feature, "feature", "", "filter by feature")
+	cmd.Flags().StringVar(&issue, "issue", "", "filter by issue (IS-N)")
+	cmd.Flags().StringVar(&feature, "feature", "", "filter by feature name")
 	return cmd
+}
+
+func printTasks(tasks []taskItem) {
+	if len(tasks) == 0 {
+		fmt.Println("no tasks")
+		return
+	}
+	for _, t := range tasks {
+		fmt.Printf("%-8s %-12s %s\n", taskIDStr(t.ID), t.Status, t.Text)
+	}
 }
 
 // ── show ──────────────────────────────────────────────────────────────────────
@@ -109,29 +246,54 @@ func todoShowCmd() *cobra.Command {
 
 			switch {
 			case len(id) > 3 && id[:3] == "IS-":
-				var iss apitypes.IssueResp
-				if err := c.get("/api/dx/issue", url.Values{"slug": {slug}, "id": {id}}, &iss); err != nil {
+				var resp struct {
+					Issue issueItem       `json:"issue"`
+					Work  []issueWorkItem `json:"work"`
+				}
+				if err := c.get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {id}}, &resp); err != nil {
 					return err
 				}
-				printIssue(iss)
+				printIssueItem(resp.Issue)
+				if len(resp.Work) > 0 {
+					fmt.Println("\nWork log:")
+					for _, w := range resp.Work {
+						date := w.CreatedAt
+						if len(date) >= 10 {
+							date = date[:10]
+						}
+						fmt.Printf("  [%s] %s: %s\n", date, w.Agent, w.Note)
+					}
+				}
 			case len(id) > 3 && id[:3] == "TK-":
-				var tasks []apitypes.TaskResp
-				if err := c.get("/api/dx/tasks", url.Values{"slug": {slug}}, &tasks); err != nil {
+				n, _ := strconv.ParseInt(id[3:], 10, 32)
+				taskID := int32(n)
+				var taskList struct {
+					Tasks []taskItem `json:"tasks"`
+				}
+				if err := c.get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
 					return err
 				}
-				for _, t := range tasks {
-					if t.ID == id {
-						printTask(t)
+				for _, t := range taskList.Tasks {
+					if t.ID == taskID {
+						printTaskItem(t)
 						return nil
 					}
 				}
 				return fmt.Errorf("task %s not found", id)
 			default:
-				var f apitypes.FeatureResp
-				if err := c.get("/api/dx/feature", url.Values{"slug": {slug}, "name": {id}}, &f); err != nil {
+				var featList struct {
+					Features []featureItem `json:"features"`
+				}
+				if err := c.get("/api/features", url.Values{"slug": {slug}}, &featList); err != nil {
 					return err
 				}
-				printFeature(f)
+				for _, f := range featList.Features {
+					if f.Name == id {
+						printFeatureItem(f)
+						return nil
+					}
+				}
+				return fmt.Errorf("feature %q not found", id)
 			}
 			return nil
 		},
@@ -153,17 +315,18 @@ func todoDevDoneCmd() *cobra.Command {
 		Short: "Mark task done",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok apitypes.OKResponse
-			if err := c.post("/api/dx/task/done", apitypes.MarkTaskDoneRequest{
-				Slug:     c.SlugOrDie(),
-				ID:       args[0],
-				TestPlan: testPlan,
-				TestRefs: testRefs,
+			var ok struct{ OK bool `json:"ok"` }
+			if err := c.post("/api/dx/todo/dev/done", map[string]any{
+				"id":        int32(n),
+				"test_plan": testPlan,
+				"test_refs": testRefs,
 			}, &ok); err != nil {
 				return err
 			}
-			fmt.Printf("%s done\n", args[0])
+			fmt.Printf("%s done\n", id)
 			return nil
 		},
 	}
@@ -178,15 +341,14 @@ func todoDevUndoneCmd() *cobra.Command {
 		Short: "Reopen task",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok apitypes.OKResponse
-			if err := c.post("/api/dx/task/undone", apitypes.MarkTaskUndoneRequest{
-				Slug: c.SlugOrDie(),
-				ID:   args[0],
-			}, &ok); err != nil {
+			var ok struct{ OK bool `json:"ok"` }
+			if err := c.post("/api/dx/todo/dev/undone", map[string]any{"id": int32(n)}, &ok); err != nil {
 				return err
 			}
-			fmt.Printf("%s undone\n", args[0])
+			fmt.Printf("%s undone\n", id)
 			return nil
 		},
 	}
@@ -199,17 +361,18 @@ func todoDevStartCmd() *cobra.Command {
 		Short: "Mark task in-progress",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok apitypes.OKResponse
-			if err := c.put("/api/dx/task/status", apitypes.UpdateTaskStatusRequest{
-				Slug:   c.SlugOrDie(),
-				ID:     args[0],
-				Status: "in_progress",
-				Reason: reason,
+			var ok struct{ OK bool `json:"ok"` }
+			if err := c.put("/api/task-status", map[string]any{
+				"id":     int32(n),
+				"status": "in_progress",
+				"reason": reason,
 			}, &ok); err != nil {
 				return err
 			}
-			fmt.Printf("%s started\n", args[0])
+			fmt.Printf("%s started\n", id)
 			return nil
 		},
 	}
@@ -232,19 +395,18 @@ func todoOwnerTriageCmd() *cobra.Command {
 		Short: "Set issue priority",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if priority == "" {
-				return fmt.Errorf("--priority is required")
-			}
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			pri, _ := strconv.ParseInt(priority, 10, 32)
 			c := mustClient()
-			var ok apitypes.OKResponse
-			if err := c.put("/api/dx/issue", apitypes.UpdateIssueRequest{
-				Slug:     c.SlugOrDie(),
-				ID:       args[0],
-				Priority: priority,
+			var ok struct{ OK bool `json:"ok"` }
+			if err := c.post("/api/dx/todo/owner/triage", map[string]any{
+				"id":       int32(n),
+				"priority": int32(pri),
 			}, &ok); err != nil {
 				return err
 			}
-			fmt.Printf("%s triaged (priority=%s)\n", args[0], priority)
+			fmt.Printf("%s triaged (priority=%s)\n", id, priority)
 			return nil
 		},
 	}
@@ -267,25 +429,22 @@ func todoTechAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Add a task",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if text == "" {
-				return fmt.Errorf("--text is required")
-			}
 			c := mustClient()
-			var t apitypes.TaskResp
-			if err := c.post("/api/dx/task", apitypes.CreateTaskRequest{
-				Slug:    c.SlugOrDie(),
-				Text:    text,
-				Feature: feature,
-				Issue:   issue,
+			var t taskItem
+			if err := c.post("/api/dx/todo/tech/add", map[string]any{
+				"slug":    c.SlugOrDie(),
+				"text":    text,
+				"feature": feature,
+				"issue":   issue,
 			}, &t); err != nil {
 				return err
 			}
-			fmt.Printf("%s  %s\n", t.ID, t.Text)
+			fmt.Printf("%s  %s\n", taskIDStr(t.ID), t.Text)
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&issue, "issue", "", "link to issue")
-	cmd.Flags().StringVar(&feature, "feature", "", "link to feature")
+	cmd.Flags().StringVar(&issue, "issue", "", "link to issue (IS-N)")
+	cmd.Flags().StringVar(&feature, "feature", "", "link to feature name")
 	cmd.Flags().StringVar(&text, "text", "", "task description")
 	cmd.MarkFlagRequired("text")
 	return cmd
@@ -293,8 +452,8 @@ func todoTechAddCmd() *cobra.Command {
 
 // ── printers ──────────────────────────────────────────────────────────────────
 
-func printIssue(iss apitypes.IssueResp) {
-	fmt.Printf("ID:        %s\n", iss.ID)
+func printIssueItem(iss issueItem) {
+	fmt.Printf("ID:        %s\n", issueIDStr(iss.ID))
 	fmt.Printf("Title:     %s\n", iss.Title)
 	fmt.Printf("Status:    %s\n", iss.Status)
 	fmt.Printf("Priority:  %s\n", iss.Priority)
@@ -309,12 +468,12 @@ func printIssue(iss apitypes.IssueResp) {
 	}
 }
 
-func printTask(t apitypes.TaskResp) {
-	fmt.Printf("ID:      %s\n", t.ID)
+func printTaskItem(t taskItem) {
+	fmt.Printf("ID:      %s\n", taskIDStr(t.ID))
 	fmt.Printf("Text:    %s\n", t.Text)
 	fmt.Printf("Status:  %s\n", t.Status)
-	if t.Issue != "" {
-		fmt.Printf("Issue:   %s\n", t.Issue)
+	if t.IssueID != nil {
+		fmt.Printf("Issue:   %s\n", issueIDStr(*t.IssueID))
 	}
 	if t.Feature != "" {
 		fmt.Printf("Feature: %s\n", t.Feature)
@@ -324,7 +483,7 @@ func printTask(t apitypes.TaskResp) {
 	}
 }
 
-func printFeature(f apitypes.FeatureResp) {
+func printFeatureItem(f featureItem) {
 	fmt.Printf("Feature:     %s\n", f.Name)
 	fmt.Printf("Description: %s\n", f.Description)
 	if f.What != "" {
@@ -344,5 +503,5 @@ func printFeature(f apitypes.FeatureResp) {
 	}
 }
 
-// RunTodo kept for compatibility — unused now but keeps old callers building.
-func RunTodo(_ []string) { fmt.Fprintln(os.Stderr, "use TodoCmd()") }
+// RunTodo kept for compatibility.
+func RunTodo(_ []string) {}

@@ -57,7 +57,7 @@ func (c *Client) get(path string, params url.Values, out any) error {
 	}
 	req, _ := http.NewRequest("GET", u, nil)
 	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("X-Api-Key", c.token)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -83,7 +83,7 @@ func (c *Client) doJSON(method, path string, body any, out any) error {
 	req, _ := http.NewRequest(method, c.base+path, bytes.NewReader(b))
 	req.Header.Set("Content-Type", "application/json")
 	if c.token != "" {
-		req.Header.Set("Authorization", "Bearer "+c.token)
+		req.Header.Set("X-Api-Key", c.token)
 	}
 	resp, err := c.http.Do(req)
 	if err != nil {
@@ -97,11 +97,20 @@ func checkResp(resp *http.Response, out any) error {
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
 		var e struct {
-			Error string `json:"error"`
+			Title  string `json:"title"`
+			Detail string `json:"detail"`
+			Error  string `json:"error"`
 		}
 		_ = json.Unmarshal(body, &e)
-		if e.Error != "" {
-			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, e.Error)
+		msg := e.Title
+		if msg == "" {
+			msg = e.Error
+		}
+		if e.Detail != "" {
+			msg += ": " + e.Detail
+		}
+		if msg != "" {
+			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, msg)
 		}
 		return fmt.Errorf("HTTP %d", resp.StatusCode)
 	}

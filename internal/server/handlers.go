@@ -118,6 +118,12 @@ type JournalEntryItem struct {
 	StateJSON     string `json:"state_json"`
 }
 
+type IssueWorkItem struct {
+	Agent     string `json:"agent"`
+	Note      string `json:"note"`
+	CreatedAt string `json:"created_at"`
+}
+
 type OKBody struct {
 	OK bool `json:"ok"`
 }
@@ -203,6 +209,37 @@ func (s *Server) registerRoutes(api huma.API) {
 				out[i] = toIssueItem(r)
 			}
 			return &struct{ Body struct{ Issues []IssueItem `json:"issues"` } }{Body: struct{ Issues []IssueItem `json:"issues"` }{Issues: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "show-issue", Method: http.MethodGet, Path: "/api/dx/todo/issue/show"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   string `query:"id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Issue IssueItem       `json:"issue"`
+				Work  []IssueWorkItem `json:"work"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(intFromPrefixed(in.ID, "IS-"))
+			row, err := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "issue not found: "+in.ID)
+			}
+			work, _ := s.q.GetIssueWork(ctx, issueID)
+			workItems := make([]IssueWorkItem, len(work))
+			for i, w := range work {
+				workItems[i] = IssueWorkItem{Agent: w.Agent, Note: w.Note, CreatedAt: fmtTS(w.CreatedAt)}
+			}
+			type respBody = struct {
+				Issue IssueItem       `json:"issue"`
+				Work  []IssueWorkItem `json:"work"`
+			}
+			return &struct{ Body respBody }{Body: respBody{Issue: toIssueItem(row), Work: workItems}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "add-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/add"},

@@ -3,10 +3,9 @@ package cli
 import (
 	"fmt"
 	"net/url"
+	"strconv"
 
 	"github.com/spf13/cobra"
-
-	"github.com/iodesystems/zdx-go/internal/apitypes"
 )
 
 func IssueCmd() *cobra.Command {
@@ -21,20 +20,22 @@ func issueListCmd() *cobra.Command {
 		Short: "List issues",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var issues []apitypes.IssueResp
-			if err := c.get("/api/dx/issues", url.Values{"slug": {c.SlugOrDie()}}, &issues); err != nil {
+			var resp struct {
+				Issues []issueItem `json:"issues"`
+			}
+			if err := c.get("/api/dx/todo/issue/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err
 			}
-			if len(issues) == 0 {
+			if len(resp.Issues) == 0 {
 				fmt.Println("no issues")
 				return nil
 			}
-			for _, iss := range issues {
+			for _, iss := range resp.Issues {
 				status := iss.Status
 				if iss.BlockedBy != "" {
 					status += " [blocked:" + iss.BlockedBy + "]"
 				}
-				fmt.Printf("%-8s %-20s %s\n", iss.ID, status, iss.Title)
+				fmt.Printf("%-8s %-30s %s\n", issueIDStr(iss.ID), status, iss.Title)
 			}
 			return nil
 		},
@@ -42,33 +43,30 @@ func issueListCmd() *cobra.Command {
 }
 
 func issueAddCmd() *cobra.Command {
-	var title, ctx, priority, component string
+	var title, ctx, component, blockedBy string
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Create an issue",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if title == "" {
-				return fmt.Errorf("--title is required")
-			}
 			c := mustClient()
-			var iss apitypes.IssueResp
-			if err := c.post("/api/dx/issue", apitypes.CreateIssueRequest{
-				Slug:      c.SlugOrDie(),
-				Title:     title,
-				Context:   ctx,
-				Priority:  priority,
-				Component: component,
+			var iss issueItem
+			if err := c.post("/api/dx/todo/issue/add", map[string]any{
+				"slug":       c.SlugOrDie(),
+				"title":      title,
+				"context":    ctx,
+				"component":  component,
+				"blocked_by": blockedBy,
 			}, &iss); err != nil {
 				return err
 			}
-			fmt.Printf("%s  %s\n", iss.ID, iss.Title)
+			fmt.Printf("%s  %s\n", issueIDStr(iss.ID), iss.Title)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&title, "title", "", "issue title")
 	cmd.Flags().StringVar(&ctx, "context", "", "context / description")
-	cmd.Flags().StringVar(&priority, "priority", "", "priority 1-4")
 	cmd.Flags().StringVar(&component, "component", "", "component")
+	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issue (IS-N)")
 	cmd.MarkFlagRequired("title")
 	return cmd
 }
@@ -76,19 +74,29 @@ func issueAddCmd() *cobra.Command {
 func issueShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <IS-N>",
-		Short: "Show issue detail",
+		Short: "Show issue detail with work log",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var iss apitypes.IssueResp
-			if err := c.get("/api/dx/issue", url.Values{"slug": {c.SlugOrDie()}, "id": {args[0]}}, &iss); err != nil {
+			var resp struct {
+				Issue issueItem       `json:"issue"`
+				Work  []issueWorkItem `json:"work"`
+			}
+			if err := c.get("/api/dx/todo/issue/show", url.Values{
+				"slug": {c.SlugOrDie()},
+				"id":   {args[0]},
+			}, &resp); err != nil {
 				return err
 			}
-			printIssue(iss)
-			if len(iss.Work) > 0 {
+			printIssueItem(resp.Issue)
+			if len(resp.Work) > 0 {
 				fmt.Println("\nWork log:")
-				for _, w := range iss.Work {
-					fmt.Printf("  [%s] %s: %s\n", w.CreatedAt[:10], w.Agent, w.Note)
+				for _, w := range resp.Work {
+					date := w.CreatedAt
+					if len(date) >= 10 {
+						date = date[:10]
+					}
+					fmt.Printf("  [%s] %s: %s\n", date, w.Agent, w.Note)
 				}
 			}
 			return nil
@@ -103,16 +111,18 @@ func issueCloseCmd() *cobra.Command {
 		Short: "Close an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok apitypes.OKResponse
-			if err := c.post("/api/dx/issue/close", apitypes.CloseIssueRequest{
-				Slug:   c.SlugOrDie(),
-				ID:     args[0],
-				Reason: reason,
+			var ok struct{ OK bool `json:"ok"` }
+			if err := c.post("/api/dx/todo/issue/close", map[string]any{
+				"slug":   c.SlugOrDie(),
+				"id":     int32(n),
+				"reason": reason,
 			}, &ok); err != nil {
 				return err
 			}
-			fmt.Printf("%s closed\n", args[0])
+			fmt.Printf("%s closed\n", id)
 			return nil
 		},
 	}
