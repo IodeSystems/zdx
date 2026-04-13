@@ -28,6 +28,7 @@ func main() {
 		cli.HooksCmd(),
 		cli.CtxCmd(),
 		cli.InitCmd(),
+		cli.SetupCmd(),
 		cli.DaemonCmd(),
 		cli.MigrateCmd(),
 	)

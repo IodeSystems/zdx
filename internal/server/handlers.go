@@ -2,6 +2,8 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"net/http"
 	"strconv"
@@ -151,6 +153,55 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "health", Method: http.MethodGet, Path: "/api/health"},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body map[string]string }, error) {
 			return &struct{ Body map[string]string }{Body: map[string]string{"status": "ok", "build_sha": s.buildSHA}}, nil
+		})
+
+	// ── Setup (unauthenticated, one-time bootstrap) ───────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "setup-bootstrap", Method: http.MethodPost, Path: "/api/setup/bootstrap"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Email   string `json:"email"`
+				Name    string `json:"name"`
+				KeyName string `json:"key_name"`
+			}
+		}) (*struct {
+			Body struct {
+				Token string `json:"token"`
+				Email string `json:"email"`
+			}
+		}, error) {
+			count, err := s.q.CountApiKeys(ctx)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if count > 0 {
+				return nil, apiErr(409, "server already set up")
+			}
+			user, err := s.q.CreateUser(ctx, db.CreateUserParams{Email: in.Body.Email, Name: in.Body.Name})
+			if err != nil {
+				return nil, apiErr(500, "create user: "+err.Error())
+			}
+			var raw [32]byte
+			if _, err := rand.Read(raw[:]); err != nil {
+				return nil, apiErr(500, "generate token: "+err.Error())
+			}
+			token := hex.EncodeToString(raw[:])
+			keyName := in.Body.KeyName
+			if keyName == "" {
+				keyName = "default"
+			}
+			if _, err := s.q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: keyName}); err != nil {
+				return nil, apiErr(500, "create api key: "+err.Error())
+			}
+			return &struct {
+				Body struct {
+					Token string `json:"token"`
+					Email string `json:"email"`
+				}
+			}{Body: struct {
+				Token string `json:"token"`
+				Email string `json:"email"`
+			}{Token: token, Email: user.Email}}, nil
 		})
 
 	// ── Projects ─────────────────────────────────────────────────────────────

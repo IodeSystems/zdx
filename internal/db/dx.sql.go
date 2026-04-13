@@ -78,6 +78,43 @@ func (q *Queries) CloseIssue(ctx context.Context, arg CloseIssueParams) error {
 	return err
 }
 
+const countApiKeys = `-- name: CountApiKeys :one
+SELECT COUNT(*)::int FROM zdx_api_keys
+`
+
+func (q *Queries) CountApiKeys(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, countApiKeys)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
+const createApiKey = `-- name: CreateApiKey :one
+INSERT INTO zdx_api_keys (user_id, token, name)
+VALUES ($1, $2, $3)
+RETURNING id, user_id, token, name, last_used_at, created_at
+`
+
+type CreateApiKeyParams struct {
+	UserID int32  `db:"user_id" json:"user_id"`
+	Token  string `db:"token" json:"token"`
+	Name   string `db:"name" json:"name"`
+}
+
+func (q *Queries) CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error) {
+	row := q.db.QueryRow(ctx, createApiKey, arg.UserID, arg.Token, arg.Name)
+	var i ZdxApiKey
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.Name,
+		&i.LastUsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -248,6 +285,38 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo
 		&i.Status,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+	)
+	return i, err
+}
+
+const createUser = `-- name: CreateUser :one
+INSERT INTO zdx_users (email, name, password_hash, role)
+VALUES ($1, $2, '', 'admin')
+RETURNING id, email, name, role, created_at
+`
+
+type CreateUserParams struct {
+	Email string `db:"email" json:"email"`
+	Name  string `db:"name" json:"name"`
+}
+
+type CreateUserRow struct {
+	ID        int32              `db:"id" json:"id"`
+	Email     string             `db:"email" json:"email"`
+	Name      string             `db:"name" json:"name"`
+	Role      string             `db:"role" json:"role"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error) {
+	row := q.db.QueryRow(ctx, createUser, arg.Email, arg.Name)
+	var i CreateUserRow
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Name,
+		&i.Role,
+		&i.CreatedAt,
 	)
 	return i, err
 }

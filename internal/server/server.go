@@ -107,7 +107,8 @@ const ctxAPIKeyID contextKey = 1
 func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if r.Method == http.MethodGet && (path == "/api/health" || strings.HasPrefix(path, "/openapi")) {
+		if (r.Method == http.MethodGet && (path == "/api/health" || strings.HasPrefix(path, "/openapi"))) ||
+			(r.Method == http.MethodPost && path == "/api/setup/bootstrap") {
 			next.ServeHTTP(w, r)
 			return
 		}

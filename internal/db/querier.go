@@ -13,11 +13,14 @@ type Querier interface {
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
+	CountApiKeys(ctx context.Context) (int32, error)
+	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (ZdxProject, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask, error)
 	CreateTheme(ctx context.Context, arg CreateThemeParams) (ZdxTheme, error)
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error)
+	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
 	DeleteTodosForProject(ctx context.Context, projectID int32) error

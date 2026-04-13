@@ -13,6 +13,19 @@ FROM zdx_api_keys WHERE token = $1;
 -- name: TouchApiKey :exec
 UPDATE zdx_api_keys SET last_used_at = NOW() WHERE id = $1;
 
+-- name: CountApiKeys :one
+SELECT COUNT(*)::int FROM zdx_api_keys;
+
+-- name: CreateUser :one
+INSERT INTO zdx_users (email, name, password_hash, role)
+VALUES ($1, $2, '', 'admin')
+RETURNING id, email, name, role, created_at;
+
+-- name: CreateApiKey :one
+INSERT INTO zdx_api_keys (user_id, token, name)
+VALUES ($1, $2, $3)
+RETURNING id, user_id, token, name, last_used_at, created_at;
+
 -- name: CreateProject :one
 INSERT INTO zdx_projects (slug, name) VALUES ($1, $2)
 RETURNING id, slug, name, created_at;
