@@ -52,6 +52,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/comment/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/comment/list": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-comments"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/comment/mark-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mark-comments-read"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/errors": {
         parameters: {
             query?: never;
@@ -174,6 +222,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["create-plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/revisions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-revisions"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -856,6 +920,18 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        "Add-commentRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-commentRequest.json
+             */
+            readonly $schema?: string;
+            body: string;
+            slug: string;
+            target_id: string;
+            target_type: string;
+        };
         "Add-issueRequest": {
             /**
              * Format: uri
@@ -1002,6 +1078,21 @@ export interface components {
             notes?: string;
             reason?: string;
             slug: string;
+        };
+        CommentItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CommentItem.json
+             */
+            readonly $schema?: string;
+            author: string;
+            body: string;
+            created_at: string;
+            /** Format: int32 */
+            id: number;
+            target_id: string;
+            target_type: string;
         };
         "Create-planRequest": {
             /**
@@ -1269,6 +1360,15 @@ export interface components {
             state_json: string;
             tldr: string;
         };
+        "List-commentsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-commentsResponse.json
+             */
+            readonly $schema?: string;
+            comments: components["schemas"]["CommentItem"][] | null;
+        };
         "List-errorsResponse": {
             /**
              * Format: uri
@@ -1313,6 +1413,15 @@ export interface components {
              */
             readonly $schema?: string;
             projects: components["schemas"]["ProjectItem"][] | null;
+        };
+        "List-revisionsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-revisionsResponse.json
+             */
+            readonly $schema?: string;
+            revisions: components["schemas"]["RevisionItem"][] | null;
         };
         "List-slow-queriesResponse": {
             /**
@@ -1367,6 +1476,18 @@ export interface components {
              */
             readonly $schema?: string;
             todos: components["schemas"]["TodoItem"][] | null;
+        };
+        "Mark-comments-readRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Mark-comments-readRequest.json
+             */
+            readonly $schema?: string;
+            role: string;
+            slug: string;
+            target_id: string;
+            target_type: string;
         };
         "Mark-task-doneRequest": {
             /**
@@ -1463,6 +1584,17 @@ export interface components {
             slug: string;
             sql_hash: string;
             sql_text: string;
+        };
+        RevisionItem: {
+            agent: string;
+            created_at: string;
+            field: string;
+            /** Format: int32 */
+            id: number;
+            new_val: string;
+            old_val: string;
+            target_id: string;
+            target_type: string;
         };
         "Set-feature-fieldRequest": {
             /**
@@ -1820,6 +1952,105 @@ export interface operations {
             };
         };
     };
+    "add-comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-commentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CommentItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-comments": {
+        parameters: {
+            query?: {
+                slug?: string;
+                target_type?: string;
+                target_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-commentsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "mark-comments-read": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Mark-comments-readRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-errors": {
         parameters: {
             query: {
@@ -2066,6 +2297,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-revisions": {
+        parameters: {
+            query?: {
+                slug?: string;
+                target_type?: string;
+                target_id?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-revisionsResponse"];
                 };
             };
             /** @description Error */
