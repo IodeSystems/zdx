@@ -41,7 +41,12 @@ func main() {
 		}
 	}
 
-	pool, err := pgxpool.New(context.Background(), dsn)
+	poolCfg, err := pgxpool.ParseConfig(dsn)
+	if err != nil {
+		log.Fatalf("parse dsn: %v", err)
+	}
+	poolCfg.ConnConfig.Tracer = server.QueryTracer{}
+	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
 	if err != nil {
 		log.Fatalf("connect: %v", err)
 	}

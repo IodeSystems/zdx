@@ -68,6 +68,7 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 	cfg.Info.Description = "zdx developer-experience platform API"
 
 	s.mux.Use(s.apiKeyMiddleware)
+	s.mux.Use(s.sqlTimingMiddleware)
 	s.mux.Use(s.timingMiddleware)
 	s.api = humachi.New(s.mux, cfg)
 
@@ -221,9 +222,22 @@ var maintenancePage = []byte(`<!doctype html>
 type contextKey int
 
 const (
-	ctxAPIKeyID contextKey = 1
-	ctxUserID   contextKey = 2
+	ctxAPIKeyID  contextKey = 1
+	ctxUserID    contextKey = 2
+	ctxQueryStart contextKey = 3
+	ctxSQLTimings contextKey = 4
 )
+
+// sqlTiming records the name and duration of a single SQL query.
+type sqlTiming struct {
+	name       string
+	durationMs int32
+}
+
+// sqlTimingSlice accumulates per-request SQL timings.
+type sqlTimingSlice struct {
+	items []sqlTiming
+}
 
 // apiKeyMiddleware validates X-Api-Key on /api/* requests, except health, openapi, and setup/bootstrap.
 // Non-/api/ paths (SPA, static assets) pass through without auth.
@@ -283,6 +297,38 @@ func (s *Server) timingMiddleware(next http.Handler) http.Handler {
 				Source:      r.URL.Path,
 				ContextJson: "{}",
 			})
+		}()
+	})
+}
+
+// ── SQL timing middleware ──────────────────────────────────────────────────
+
+// sqlTimingMiddleware injects a *sqlTimingSlice into the request context so the
+// QueryTracer can accumulate per-query durations. After the handler returns,
+// any query that took ≥1ms is upserted into zdx_timed (fire-and-forget).
+func (s *Server) sqlTimingMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		acc := &sqlTimingSlice{}
+		ctx := context.WithValue(r.Context(), ctxSQLTimings, acc)
+		next.ServeHTTP(w, r.WithContext(ctx))
+		if len(acc.items) == 0 {
+			return
+		}
+		items := acc.items
+		source := r.URL.Path
+		go func() {
+			for _, t := range items {
+				if t.durationMs < 1 {
+					continue
+				}
+				_ = s.q.UpsertTimed(context.Background(), db.UpsertTimedParams{
+					ProjectID:   pgtype.Int4{Valid: false},
+					Name:        t.name,
+					DurationMs:  t.durationMs,
+					Source:      source,
+					ContextJson: "{}",
+				})
+			}
 		}()
 	})
 }
