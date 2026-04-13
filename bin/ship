@@ -287,7 +287,7 @@ if ! $NON_COMPAT; then
   echo "[ship] Running migrations on host..."
   run_migrate next
 
-  ssh "$HOST" "sudo systemctl start ${SERVICE}-next"
+  ssh "$HOST" "sudo systemctl restart ${SERVICE}-next"
   wait_health 7602 "next"
 
   echo "[ship] Phase 2: rolling continue (current goes offline)..."
@@ -295,7 +295,7 @@ if ! $NON_COMPAT; then
 
   echo "[ship] Deploying current..."
   sync_slot current
-  ssh "$HOST" "sudo systemctl start ${SERVICE}-current"
+  ssh "$HOST" "sudo systemctl restart ${SERVICE}-current"
   wait_health 7600 "current"
 
   echo "[ship] Phase 3: rolling finalize..."
@@ -327,7 +327,7 @@ else
 
   # 4. Start next with new code.
   echo "[ship] Starting next with new code..."
-  ssh "$HOST" "sudo systemctl start ${SERVICE}-next"
+  ssh "$HOST" "sudo systemctl restart ${SERVICE}-next"
   wait_health 7602 "next"
 
   # 5. Stop current (still serving maintenance page), deploy new code, clear flag.
@@ -335,7 +335,7 @@ else
   ssh "$HOST" "sudo systemctl stop ${SERVICE}-current 2>/dev/null || true"
   sync_slot current
   set_maintenance current false
-  ssh "$HOST" "sudo systemctl start ${SERVICE}-current"
+  ssh "$HOST" "sudo systemctl restart ${SERVICE}-current"
   wait_health 7600 "current"
 
   echo "[ship] Both slots serving new code, maintenance cleared."
