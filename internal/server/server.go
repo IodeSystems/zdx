@@ -15,14 +15,20 @@ import (
 )
 
 type Server struct {
-	q        *db.Queries
-	mux      *chi.Mux
-	buildSHA string
-	api      huma.API
+	q               *db.Queries
+	mux             *chi.Mux
+	buildSHA        string
+	zdxProjectSlug  string
+	api             huma.API
 }
 
 func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
-	s := &Server{q: db.New(pool), mux: chi.NewMux(), buildSHA: buildSHA}
+	s := &Server{
+		q:              db.New(pool),
+		mux:            chi.NewMux(),
+		buildSHA:       buildSHA,
+		zdxProjectSlug: os.Getenv("ZDX_PROJECT_SLUG"),
+	}
 
 	cfg := huma.DefaultConfig("ZDX API", "1.0.0")
 	cfg.Info.Description = "zdx developer-experience platform API"

@@ -183,6 +183,22 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body map[string]string }{Body: map[string]string{"status": "ok", "build_sha": s.buildSHA}}, nil
 		})
 
+	// Config (authenticated)
+	huma.Register(api, huma.Operation{OperationID: "get-config", Method: http.MethodGet, Path: "/api/config"},
+		func(ctx context.Context, _ *struct{}) (*struct {
+			Body struct {
+				ZdxProjectSlug string `json:"zdx_project_slug"`
+			}
+		}, error) {
+			return &struct {
+				Body struct {
+					ZdxProjectSlug string `json:"zdx_project_slug"`
+				}
+			}{Body: struct {
+				ZdxProjectSlug string `json:"zdx_project_slug"`
+			}{ZdxProjectSlug: s.zdxProjectSlug}}, nil
+		})
+
 	// ── Setup (unauthenticated, one-time bootstrap) ───────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "setup-bootstrap", Method: http.MethodPost, Path: "/api/setup/bootstrap"},

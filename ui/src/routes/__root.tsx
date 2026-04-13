@@ -29,9 +29,10 @@ import {
 } from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useProjects, useMe, useLogout } from '../api'
+import { useProjects, useMe, useLogout, useZdxConfig } from '../api'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
+import { IssueReportFab } from '../components/IssueReportFab'
 import { useState, type FormEvent } from 'react'
 
 const queryClient = new QueryClient()
@@ -203,6 +204,17 @@ function HomeNav({ onNavigate }: { onNavigate?: () => void }) {
   )
 }
 
+function ReportFab() {
+  const matches = useMatches()
+  const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
+  const { slug: routeSlug, component: routeComponent } = (projectMatch?.params as { slug?: string; component?: string }) ?? {}
+  const { data: config } = useZdxConfig()
+  const zdxSlug = config?.zdx_project_slug || ''
+  const slug = zdxSlug || routeSlug
+  if (!slug) return null
+  return <IssueReportFab slug={slug} component={zdxSlug ? undefined : routeComponent} />
+}
+
 function AppShell() {
   const muiTheme = useTheme()
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'))
@@ -281,6 +293,7 @@ function AppShell() {
           <Outlet />
         </ErrorBoundary>
       </Box>
+      <ReportFab />
     </Box>
   )
 }

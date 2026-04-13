@@ -56,6 +56,17 @@ export const useMe = () =>
     staleTime: 60_000,
   })
 
+export const useZdxConfig = () =>
+  useQuery({
+    queryKey: ['config'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/config')
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    staleTime: 300_000,
+  })
+
 export const useLogin = () => {
   const qc = useQueryClient()
   return useMutation<components['schemas']['Auth-loginResponse'], Error, components['schemas']['Auth-loginRequest']>({
