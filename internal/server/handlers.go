@@ -144,7 +144,43 @@ func (s *Server) registerRoutes(api huma.API) {
 	// Health
 	huma.Register(api, huma.Operation{OperationID: "health", Method: http.MethodGet, Path: "/api/health"},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body map[string]string }, error) {
-			return &struct{ Body map[string]string }{Body: map[string]string{"status": "ok"}}, nil
+			return &struct{ Body map[string]string }{Body: map[string]string{"status": "ok", "build_sha": s.buildSHA}}, nil
+		})
+
+	// ── Projects ─────────────────────────────────────────────────────────────
+
+	type ProjectItem struct {
+		ID        int32  `json:"id"`
+		Slug      string `json:"slug"`
+		Name      string `json:"name"`
+		CreatedAt string `json:"created_at"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-projects", Method: http.MethodGet, Path: "/api/projects"},
+		func(ctx context.Context, _ *struct{}) (*struct{ Body struct{ Projects []ProjectItem `json:"projects"` } }, error) {
+			rows, err := s.q.ListProjects(ctx)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ProjectItem, len(rows))
+			for i, r := range rows {
+				out[i] = ProjectItem{ID: r.ID, Slug: r.Slug, Name: r.Name, CreatedAt: fmtTS(r.CreatedAt)}
+			}
+			return &struct{ Body struct{ Projects []ProjectItem `json:"projects"` } }{Body: struct{ Projects []ProjectItem `json:"projects"` }{Projects: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "create-project", Method: http.MethodPost, Path: "/api/project"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				Name string `json:"name"`
+			}
+		}) (*struct{ Body ProjectItem }, error) {
+			row, err := s.q.CreateProject(ctx, db.CreateProjectParams{Slug: in.Body.Slug, Name: in.Body.Name})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body ProjectItem }{Body: ProjectItem{ID: row.ID, Slug: row.Slug, Name: row.Name, CreatedAt: fmtTS(row.CreatedAt)}}, nil
 		})
 
 	// ── Issues ──────────────────────────────────────────────────────────────

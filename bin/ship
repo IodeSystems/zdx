@@ -110,7 +110,7 @@ load_deploy_config() {
 if ! $SKIP_BUILD; then
   echo "[ship] Building dx-server (linux/amd64, static)..."
   GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
-    go build -trimpath -ldflags="-s -w -X main.version=$(git rev-parse --short HEAD)" \
+    go build -trimpath -ldflags="-s -w -X main.version=$(git rev-parse --short HEAD) -X main.buildSHA=$(git rev-parse --short HEAD)" \
     -o "$DEPLOY_DIR/dist/dx-server" ./cmd/dx-server
 
   echo "[ship] Building dx (linux/amd64)..."

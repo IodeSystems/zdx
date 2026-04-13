@@ -279,6 +279,25 @@ func (q *Queries) DeleteTodosForProject(ctx context.Context, projectID int32) er
 	return err
 }
 
+const getApiKeyByToken = `-- name: GetApiKeyByToken :one
+SELECT id, user_id, token, name, last_used_at, created_at
+FROM zdx_api_keys WHERE token = $1
+`
+
+func (q *Queries) GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error) {
+	row := q.db.QueryRow(ctx, getApiKeyByToken, token)
+	var i ZdxApiKey
+	err := row.Scan(
+		&i.ID,
+		&i.UserID,
+		&i.Token,
+		&i.Name,
+		&i.LastUsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getFeature = `-- name: GetFeature :one
 SELECT id, project_id, name, description, what, why, done_when, component
 FROM zdx_features WHERE project_id = $1 AND name = $2
@@ -1121,6 +1140,15 @@ type SetStateParams struct {
 
 func (q *Queries) SetState(ctx context.Context, arg SetStateParams) error {
 	_, err := q.db.Exec(ctx, setState, arg.ProjectID, arg.Key, arg.Value)
+	return err
+}
+
+const touchApiKey = `-- name: TouchApiKey :exec
+UPDATE zdx_api_keys SET last_used_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) TouchApiKey(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, touchApiKey, id)
 	return err
 }
 

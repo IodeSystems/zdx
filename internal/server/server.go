@@ -15,15 +15,18 @@ import (
 )
 
 type Server struct {
-	q   *db.Queries
-	mux *chi.Mux
+	q        *db.Queries
+	mux      *chi.Mux
+	buildSHA string
 }
 
-func New(pool *pgxpool.Pool, staticDir string) *Server {
-	s := &Server{q: db.New(pool), mux: chi.NewMux()}
+func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
+	s := &Server{q: db.New(pool), mux: chi.NewMux(), buildSHA: buildSHA}
 
 	cfg := huma.DefaultConfig("ZDX API", "1.0.0")
 	cfg.Info.Description = "zdx developer-experience platform API"
+
+	s.mux.Use(s.apiKeyMiddleware)
 	api := humachi.New(s.mux, cfg)
 
 	s.registerRoutes(api)
@@ -93,6 +96,36 @@ var maintenancePage = []byte(`<!doctype html>
   </div>
 </body>
 </html>`)
+
+// ── Auth middleware ────────────────────────────────────────────────────────
+
+type contextKey int
+
+const ctxAPIKeyID contextKey = 1
+
+// apiKeyMiddleware validates X-Api-Key on every request except health and openapi.
+func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		path := r.URL.Path
+		if r.Method == http.MethodGet && (path == "/api/health" || strings.HasPrefix(path, "/openapi")) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		token := r.Header.Get("X-Api-Key")
+		if token == "" {
+			http.Error(w, `{"title":"Unauthorized","status":401}`, http.StatusUnauthorized)
+			return
+		}
+		key, err := s.q.GetApiKeyByToken(r.Context(), token)
+		if err != nil {
+			http.Error(w, `{"title":"Unauthorized","status":401}`, http.StatusUnauthorized)
+			return
+		}
+		// Fire-and-forget last_used_at update; don't block the request.
+		go func() { _ = s.q.TouchApiKey(context.Background(), key.ID) }()
+		next.ServeHTTP(w, r.WithContext(context.WithValue(r.Context(), ctxAPIKeyID, key.ID)))
+	})
+}
 
 // ── helpers used by handlers ───────────────────────────────────────────────
 

@@ -14,6 +14,9 @@ import (
 	"github.com/iodesystems/zdx-go/internal/server"
 )
 
+// buildSHA is set at build time via -ldflags "-X main.buildSHA=<sha>".
+var buildSHA string
+
 func main() {
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
@@ -38,7 +41,7 @@ func main() {
 	defer pool.Close()
 
 	staticDir := os.Getenv("STATIC_DIR")
-	srv := server.New(pool, staticDir)
+	srv := server.New(pool, staticDir, buildSHA)
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("dx-server listening on %s", addr)
 	if err := http.ListenAndServe(addr, srv); err != nil {

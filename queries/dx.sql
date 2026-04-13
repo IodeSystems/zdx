@@ -6,6 +6,13 @@ SELECT id, slug, name, created_at FROM zdx_projects ORDER BY name;
 -- name: GetProjectBySlug :one
 SELECT id, slug, name, created_at FROM zdx_projects WHERE slug = $1;
 
+-- name: GetApiKeyByToken :one
+SELECT id, user_id, token, name, last_used_at, created_at
+FROM zdx_api_keys WHERE token = $1;
+
+-- name: TouchApiKey :exec
+UPDATE zdx_api_keys SET last_used_at = NOW() WHERE id = $1;
+
 -- name: CreateProject :one
 INSERT INTO zdx_projects (slug, name) VALUES ($1, $2)
 RETURNING id, slug, name, created_at;

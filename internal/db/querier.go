@@ -21,6 +21,7 @@ type Querier interface {
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
+	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
@@ -60,6 +61,7 @@ type Querier interface {
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
+	TouchApiKey(ctx context.Context, id int32) error
 	UpdateFeatureField(ctx context.Context, arg UpdateFeatureFieldParams) error
 	UpdateIssue(ctx context.Context, arg UpdateIssueParams) error
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
