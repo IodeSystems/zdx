@@ -119,7 +119,7 @@ if ! $SKIP_BUILD; then
     -o "$DEPLOY_DIR/dist/dx" ./cmd/dx
 
   echo "[ship] Building UI..."
-  (cd ui && npm ci --silent && npm run build 2>&1 | tail -3)
+  (cd ui && npm ci --silent --legacy-peer-deps && npm run build 2>&1 | tail -3)
 
   mkdir -p "$DEPLOY_DIR/dist/public"
   [ -d ui/dist ] && cp -r ui/dist/* "$DEPLOY_DIR/dist/public/"
