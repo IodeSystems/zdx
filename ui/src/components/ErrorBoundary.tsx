@@ -9,14 +9,23 @@ interface State {
   error: Error | null
 }
 
+/** Extract project slug from URL path /project/{slug}/... */
+function slugFromPath(): string {
+  const m = window.location.pathname.match(/^\/project\/([^/]+)/)
+  return m ? m[1] : ''
+}
+
 /** POST a client-side error to the server for admin visibility. Fire-and-forget. */
 function reportError(error: Error, context: string): void {
-  fetch('/api/admin/errors/report', {
+  const slug = slugFromPath()
+  if (!slug) return
+  fetch('/api/dx/errors/report', {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify({
+      slug,
       source: 'client',
-      endpoint: window.location.pathname,
+      endpoint: window.location.href,
       error_name: `${error.name}: ${error.message}`.slice(0, 500),
       stack_trace: (error.stack ?? '') + (context ? `\n\nComponent stack:\n${context}` : ''),
     }),
