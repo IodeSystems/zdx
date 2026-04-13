@@ -37,7 +37,8 @@ func main() {
 	}
 	defer pool.Close()
 
-	srv := server.New(pool)
+	staticDir := os.Getenv("STATIC_DIR")
+	srv := server.New(pool, staticDir)
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("dx-server listening on %s", addr)
 	if err := http.ListenAndServe(addr, srv); err != nil {

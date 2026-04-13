@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"os"
+	"strings"
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/mailru/easyjson"
@@ -44,12 +45,13 @@ var maintenancePage = []byte(`<!doctype html>
 </html>`)
 
 type Server struct {
-	q   *db.Queries
-	mux *http.ServeMux
+	q         *db.Queries
+	mux       *http.ServeMux
+	staticDir string
 }
 
-func New(pool *pgxpool.Pool) *Server {
-	s := &Server{q: db.New(pool), mux: http.NewServeMux()}
+func New(pool *pgxpool.Pool, staticDir string) *Server {
+	s := &Server{q: db.New(pool), mux: http.NewServeMux(), staticDir: staticDir}
 	s.routes()
 	return s
 }
@@ -62,7 +64,30 @@ func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 		w.Write(maintenancePage)
 		return
 	}
+	// API and health routes go to the mux directly.
+	if r.URL.Path == "/health" || strings.HasPrefix(r.URL.Path, "/api/") {
+		s.mux.ServeHTTP(w, r)
+		return
+	}
+	// SPA fallback: serve static files; unknown paths → index.html.
+	if s.staticDir != "" {
+		http.ServeFileFS(w, r, os.DirFS(s.staticDir), spaPath(r.URL.Path, s.staticDir))
+		return
+	}
 	s.mux.ServeHTTP(w, r)
+}
+
+// spaPath returns the file path to serve for a given URL path.
+// If the file exists in staticDir, serve it directly; otherwise serve index.html.
+func spaPath(urlPath, staticDir string) string {
+	candidate := strings.TrimPrefix(urlPath, "/")
+	if candidate == "" {
+		candidate = "index.html"
+	}
+	if _, err := os.Stat(staticDir + "/" + candidate); err == nil {
+		return candidate
+	}
+	return "index.html"
 }
 
 func (s *Server) routes() {

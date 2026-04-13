@@ -1,0 +1,17 @@
+remote:
+  url: https://zdx.iodesystems.com
+  slug: zdx
+
+components:
+  server:
+    build:
+      steps:
+        - name: compile
+          run: go build ./...
+    test:
+      unit:
+        runner: basic
+        run: go test ./...
+    lint:
+      go:
+        dirs: [internal, cmd]
