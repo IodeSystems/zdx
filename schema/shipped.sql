@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict J0AgjPxYABHX7AdBtqWUVcA4Zr9NobXVP9cD3p0yiSkafsVHxmty6fqOE7teuul
+\restrict hE9QvKHCwiTdyJxYiXNcjjnYL2eNcQzzzimXYKeBNJPJp3qbvLI3ToFy0ZFoS3C
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
 -- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
@@ -743,6 +743,18 @@ ALTER SEQUENCE public.zdx_sprints_id_seq OWNED BY public.zdx_sprints.id;
 
 
 --
+-- Name: zdx_state; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_state (
+    project_id integer NOT NULL,
+    key text NOT NULL,
+    value text DEFAULT ''::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: zdx_tasks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -877,6 +889,44 @@ CREATE SEQUENCE public.zdx_themes_id_seq
 --
 
 ALTER SEQUENCE public.zdx_themes_id_seq OWNED BY public.zdx_themes.id;
+
+
+--
+-- Name: zdx_todos; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_todos (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    feature_id integer,
+    text text NOT NULL,
+    key text NOT NULL,
+    persona text DEFAULT ''::text NOT NULL,
+    priority integer DEFAULT 50 NOT NULL,
+    status text DEFAULT 'open'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    resolved_at timestamp with time zone
+);
+
+
+--
+-- Name: zdx_todos_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_todos_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_todos_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_todos_id_seq OWNED BY public.zdx_todos.id;
 
 
 --
@@ -1099,6 +1149,13 @@ ALTER TABLE ONLY public.zdx_test_results ALTER COLUMN id SET DEFAULT nextval('pu
 --
 
 ALTER TABLE ONLY public.zdx_themes ALTER COLUMN id SET DEFAULT nextval('public.zdx_themes_id_seq'::regclass);
+
+
+--
+-- Name: zdx_todos id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_todos ALTER COLUMN id SET DEFAULT nextval('public.zdx_todos_id_seq'::regclass);
 
 
 --
@@ -1412,6 +1469,14 @@ ALTER TABLE ONLY public.zdx_sprints
 
 
 --
+-- Name: zdx_state zdx_state_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_state
+    ADD CONSTRAINT zdx_state_pkey PRIMARY KEY (project_id, key);
+
+
+--
 -- Name: zdx_tasks zdx_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1465,6 +1530,22 @@ ALTER TABLE ONLY public.zdx_themes
 
 ALTER TABLE ONLY public.zdx_themes
     ADD CONSTRAINT zdx_themes_project_id_name_key UNIQUE (project_id, name);
+
+
+--
+-- Name: zdx_todos zdx_todos_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_todos
+    ADD CONSTRAINT zdx_todos_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_todos zdx_todos_project_id_key_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_todos
+    ADD CONSTRAINT zdx_todos_project_id_key_key UNIQUE (project_id, key);
 
 
 --
@@ -1746,6 +1827,14 @@ ALTER TABLE ONLY public.zdx_sprints
 
 
 --
+-- Name: zdx_state zdx_state_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_state
+    ADD CONSTRAINT zdx_state_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zdx_tasks zdx_tasks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1794,6 +1883,22 @@ ALTER TABLE ONLY public.zdx_themes
 
 
 --
+-- Name: zdx_todos zdx_todos_feature_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_todos
+    ADD CONSTRAINT zdx_todos_feature_id_fkey FOREIGN KEY (feature_id) REFERENCES public.zdx_features(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zdx_todos zdx_todos_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_todos
+    ADD CONSTRAINT zdx_todos_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zdx_work_log zdx_work_log_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1805,5 +1910,5 @@ ALTER TABLE ONLY public.zdx_work_log
 -- PostgreSQL database dump complete
 --
 
-\unrestrict J0AgjPxYABHX7AdBtqWUVcA4Zr9NobXVP9cD3p0yiSkafsVHxmty6fqOE7teuul
+\unrestrict hE9QvKHCwiTdyJxYiXNcjjnYL2eNcQzzzimXYKeBNJPJp3qbvLI3ToFy0ZFoS3C
 
