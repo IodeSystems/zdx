@@ -114,3 +114,134 @@ SELECT id, feature_id, description, kind FROM zdx_specs WHERE feature_id = $1 OR
 -- name: AddSpec :one
 INSERT INTO zdx_specs (feature_id, description, kind) VALUES ($1, $2, $3)
 RETURNING id, feature_id, description, kind;
+
+-- name: ReopenIssue :exec
+UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2;
+
+-- name: SetIssueField :exec
+UPDATE zdx_issues
+SET title     = CASE WHEN @field::text = 'title'     THEN @value::text ELSE title     END,
+    context   = CASE WHEN @field::text = 'context'   THEN @value::text ELSE context   END,
+    component = CASE WHEN @field::text = 'component' THEN @value::text ELSE component END,
+    blocked_by= CASE WHEN @field::text = 'blocked_by'THEN @value::text ELSE blocked_by END
+WHERE project_id = @project_id AND id = @id;
+
+-- name: SetIssuePriority :exec
+UPDATE zdx_issues SET priority = @priority WHERE project_id = @project_id AND id = @id;
+
+-- name: DeleteTask :exec
+DELETE FROM zdx_tasks WHERE id = $1;
+
+-- name: DeleteFeature :exec
+DELETE FROM zdx_features WHERE id = $1;
+
+-- name: UpdateTaskFields :exec
+UPDATE zdx_tasks
+SET text      = CASE WHEN @field::text = 'text'      THEN @value::text ELSE text      END,
+    feature   = CASE WHEN @field::text = 'feature'   THEN @value::text ELSE feature   END,
+    issue     = CASE WHEN @field::text = 'issue'     THEN @value::text ELSE issue     END,
+    depends   = CASE WHEN @field::text = 'depends'   THEN @value::text ELSE depends   END,
+    test_plan = CASE WHEN @field::text = 'test_plan' THEN @value::text ELSE test_plan END,
+    test_refs = CASE WHEN @field::text = 'test_refs' THEN @value::text ELSE test_refs END
+WHERE id = @id;
+
+-- Plans
+
+-- name: UpsertPlan :one
+INSERT INTO zdx_plans (feature_id, plan_type, complexity, approach, status)
+VALUES (@feature_id, @plan_type, @complexity, @approach, 'pending')
+ON CONFLICT (feature_id) DO UPDATE
+SET plan_type = EXCLUDED.plan_type,
+    complexity = EXCLUDED.complexity,
+    approach = EXCLUDED.approach,
+    last_reviewed_at = NOW()
+RETURNING id, feature_id, plan_type, status, complexity, approach, last_reviewed_at;
+
+-- name: GetPlanByFeature :one
+SELECT id, feature_id, plan_type, status, complexity, approach, last_reviewed_at
+FROM zdx_plans WHERE feature_id = $1;
+
+-- Themes
+
+-- name: ListThemes :many
+SELECT t.id, t.name, t.description, t.priority, t.status, t.created_at,
+       COALESCE(STRING_AGG(tb.issue_id, ','), '') AS blockers
+FROM zdx_themes t
+LEFT JOIN zdx_theme_blockers tb ON tb.theme_id = t.id
+WHERE t.project_id = $1
+GROUP BY t.id ORDER BY t.priority, t.name;
+
+-- name: GetThemeByID :one
+SELECT id, project_id, name, description, priority, status, created_at
+FROM zdx_themes WHERE project_id = $1 AND id = $2;
+
+-- name: GetThemeByName :one
+SELECT id, project_id, name, description, priority, status, created_at
+FROM zdx_themes WHERE project_id = $1 AND name = $2;
+
+-- name: CreateTheme :one
+INSERT INTO zdx_themes (project_id, name, description, priority)
+VALUES (@project_id, @name, @description, @priority)
+RETURNING id, project_id, name, description, priority, status, created_at;
+
+-- name: UpdateThemeStatus :exec
+UPDATE zdx_themes SET status = @status WHERE project_id = @project_id AND id = @id;
+
+-- name: AddThemeBlocker :exec
+INSERT INTO zdx_theme_blockers (theme_id, issue_id) VALUES ($1, $2)
+ON CONFLICT DO NOTHING;
+
+-- name: RemoveThemeBlocker :exec
+DELETE FROM zdx_theme_blockers WHERE theme_id = $1 AND issue_id = $2;
+
+-- Todos
+
+-- name: ListTodos :many
+SELECT id, project_id, feature_id, text, key, persona, priority, status, created_at, resolved_at
+FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at;
+
+-- name: DeleteTodosForProject :exec
+DELETE FROM zdx_todos WHERE project_id = $1;
+
+-- name: CreateTodo :one
+INSERT INTO zdx_todos (project_id, text, key, persona, priority, status)
+VALUES (@project_id, @text, @key, @persona, @priority, @status)
+RETURNING id, project_id, feature_id, text, key, persona, priority, status, created_at, resolved_at;
+
+-- State
+
+-- name: GetState :one
+SELECT value FROM zdx_state WHERE project_id = $1 AND key = $2;
+
+-- name: SetState :exec
+INSERT INTO zdx_state (project_id, key, value, updated_at)
+VALUES (@project_id, @key, @value, NOW())
+ON CONFLICT (project_id, key) DO UPDATE SET value = EXCLUDED.value, updated_at = NOW();
+
+-- Journal
+
+-- name: InsertJournalEntry :one
+INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next)
+VALUES (@project_id, @role, @date, @tldr, @assessment, @concerns, @next)
+RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, created_at;
+
+-- name: ListJournalEntries :many
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, created_at
+FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 20;
+
+-- name: GetLatestJournalEntry :one
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, created_at
+FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 1;
+
+-- Test Results
+
+-- name: UpsertTestResult :exec
+INSERT INTO zdx_test_results (project_id, driver, test_name, feature, status, duration_ms)
+VALUES (@project_id, @driver, @test_name, @feature, @status, @duration_ms)
+ON CONFLICT (project_id, driver, test_name) DO UPDATE
+SET status = EXCLUDED.status, duration_ms = EXCLUDED.duration_ms, run_at = NOW(),
+    feature = EXCLUDED.feature;
+
+-- name: InsertTestResultHistory :exec
+INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, status, duration_ms)
+VALUES (@project_id, @driver, @test_name, @feature, @status, @duration_ms);

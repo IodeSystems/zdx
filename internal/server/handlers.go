@@ -2,9 +2,11 @@ package server
 
 import (
 	"net/http"
+	"time"
 
 	"github.com/iodesystems/zdx-go/internal/apitypes"
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 // ── projects ──────────────────────────────────────────────────────────────────
@@ -28,7 +30,7 @@ func (s *Server) handleCreateProject(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	p, err := s.q.CreateProject(r.Context(), req.Slug, req.Name)
+	p, err := s.q.CreateProject(r.Context(), db.CreateProjectParams{Slug: req.Slug, Name: req.Name})
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
@@ -65,7 +67,7 @@ func (s *Server) handleGetIssue(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "project not found")
 		return
 	}
-	iss, err := s.q.GetIssue(r.Context(), project.ID, id)
+	iss, err := s.q.GetIssue(r.Context(), db.GetIssueParams{ProjectID: project.ID, ID: id})
 	if err != nil {
 		fail(w, http.StatusNotFound, "issue not found")
 		return
@@ -77,11 +79,11 @@ func (s *Server) handleGetIssue(w http.ResponseWriter, r *http.Request) {
 	}
 	resp := issueResp(iss)
 	resp.Work = make([]apitypes.IssueWorkResp, len(work))
-	for i, w := range work {
+	for i, wk := range work {
 		resp.Work[i] = apitypes.IssueWorkResp{
-			Agent:     w.Agent,
-			Note:      w.Note,
-			CreatedAt: w.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+			Agent:     wk.Agent,
+			Note:      wk.Note,
+			CreatedAt: fmtTS(wk.CreatedAt),
 		}
 	}
 	ok(w, resp)
@@ -155,7 +157,7 @@ func (s *Server) handleCloseIssue(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "project not found")
 		return
 	}
-	if err := s.q.CloseIssue(r.Context(), project.ID, req.ID); err != nil {
+	if err := s.q.CloseIssue(r.Context(), db.CloseIssueParams{ProjectID: project.ID, ID: req.ID}); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -168,7 +170,11 @@ func (s *Server) handleAppendIssueWork(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := s.q.AppendIssueWork(r.Context(), req.ID, req.Agent, req.Note); err != nil {
+	if err := s.q.AppendIssueWork(r.Context(), db.AppendIssueWorkParams{
+		IssueID: req.ID,
+		Agent:   req.Agent,
+		Note:    req.Note,
+	}); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -188,12 +194,12 @@ func (s *Server) handleListTasks(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	var tasks []db.Task
+	var tasks []db.ZdxTask
 	switch {
 	case feature != "":
-		tasks, err = s.q.ListTasksByFeature(r.Context(), project.ID, feature)
+		tasks, err = s.q.ListTasksByFeature(r.Context(), db.ListTasksByFeatureParams{ProjectID: project.ID, Feature: feature})
 	case issueID != "":
-		tasks, err = s.q.ListTasksByIssue(r.Context(), project.ID, issueID)
+		tasks, err = s.q.ListTasksByIssue(r.Context(), db.ListTasksByIssueParams{ProjectID: project.ID, Issue: issueID})
 	default:
 		tasks, err = s.q.ListTasks(r.Context(), project.ID)
 	}
@@ -244,7 +250,11 @@ func (s *Server) handleUpdateTaskStatus(w http.ResponseWriter, r *http.Request) 
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := s.q.UpdateTaskStatus(r.Context(), req.ID, req.Status, req.Reason); err != nil {
+	if err := s.q.UpdateTaskStatus(r.Context(), db.UpdateTaskStatusParams{
+		ID:     req.ID,
+		Status: req.Status,
+		Reason: req.Reason,
+	}); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -257,7 +267,11 @@ func (s *Server) handleMarkTaskDone(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusBadRequest, err.Error())
 		return
 	}
-	if err := s.q.MarkTaskDone(r.Context(), req.ID, req.TestPlan, req.TestRefs); err != nil {
+	if err := s.q.MarkTaskDone(r.Context(), db.MarkTaskDoneParams{
+		ID:       req.ID,
+		TestPlan: req.TestPlan,
+		TestRefs: req.TestRefs,
+	}); err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
 	}
@@ -306,7 +320,7 @@ func (s *Server) handleGetFeature(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "project not found")
 		return
 	}
-	f, err := s.q.GetFeature(r.Context(), project.ID, name)
+	f, err := s.q.GetFeature(r.Context(), db.GetFeatureParams{ProjectID: project.ID, Name: name})
 	if err != nil {
 		fail(w, http.StatusNotFound, "feature not found")
 		return
@@ -339,7 +353,11 @@ func (s *Server) handleCreateFeature(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "project not found")
 		return
 	}
-	f, err := s.q.UpsertFeature(r.Context(), project.ID, req.Name, req.Description)
+	f, err := s.q.UpsertFeature(r.Context(), db.UpsertFeatureParams{
+		ProjectID:   project.ID,
+		Name:        req.Name,
+		Description: req.Description,
+	})
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
@@ -381,12 +399,16 @@ func (s *Server) handleAddSpec(w http.ResponseWriter, r *http.Request) {
 		fail(w, http.StatusNotFound, "project not found")
 		return
 	}
-	f, err := s.q.GetFeature(r.Context(), project.ID, req.Feature)
+	f, err := s.q.GetFeature(r.Context(), db.GetFeatureParams{ProjectID: project.ID, Name: req.Feature})
 	if err != nil {
 		fail(w, http.StatusNotFound, "feature not found")
 		return
 	}
-	sp, err := s.q.AddSpec(r.Context(), f.ID, req.Description, req.Kind)
+	sp, err := s.q.AddSpec(r.Context(), db.AddSpecParams{
+		FeatureID:   f.ID,
+		Description: req.Description,
+		Kind:        req.Kind,
+	})
 	if err != nil {
 		fail(w, http.StatusInternalServerError, err.Error())
 		return
@@ -420,16 +442,23 @@ func (s *Server) handleSolo(w http.ResponseWriter, r *http.Request) {
 
 // ── response mappers ──────────────────────────────────────────────────────────
 
-func projectResp(p db.Project) apitypes.ProjectResp {
+func fmtTS(ts pgtype.Timestamptz) string {
+	if !ts.Valid {
+		return ""
+	}
+	return ts.Time.UTC().Format(time.RFC3339)
+}
+
+func projectResp(p db.ZdxProject) apitypes.ProjectResp {
 	return apitypes.ProjectResp{
 		ID:        p.ID,
 		Slug:      p.Slug,
 		Name:      p.Name,
-		CreatedAt: p.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt: fmtTS(p.CreatedAt),
 	}
 }
 
-func issueResp(i db.Issue) apitypes.IssueResp {
+func issueResp(i db.ZdxIssue) apitypes.IssueResp {
 	return apitypes.IssueResp{
 		ID:        i.ID,
 		Title:     i.Title,
@@ -438,11 +467,11 @@ func issueResp(i db.Issue) apitypes.IssueResp {
 		Component: i.Component,
 		Context:   i.Context,
 		BlockedBy: i.BlockedBy,
-		CreatedAt: i.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt: fmtTS(i.CreatedAt),
 	}
 }
 
-func taskResp(t db.Task) apitypes.TaskResp {
+func taskResp(t db.ZdxTask) apitypes.TaskResp {
 	resp := apitypes.TaskResp{
 		ID:        t.ID,
 		Text:      t.Text,
@@ -453,16 +482,16 @@ func taskResp(t db.Task) apitypes.TaskResp {
 		Depends:   t.Depends,
 		TestPlan:  t.TestPlan,
 		TestRefs:  t.TestRefs,
-		CreatedAt: t.CreatedAt.Format("2006-01-02T15:04:05Z07:00"),
+		CreatedAt: fmtTS(t.CreatedAt),
 	}
-	if t.CompletedAt != nil {
-		s := t.CompletedAt.Format("2006-01-02T15:04:05Z07:00")
+	if t.CompletedAt.Valid {
+		s := fmtTS(t.CompletedAt)
 		resp.CompletedAt = &s
 	}
 	return resp
 }
 
-func featureResp(f db.Feature) apitypes.FeatureResp {
+func featureResp(f db.ZdxFeature) apitypes.FeatureResp {
 	return apitypes.FeatureResp{
 		ID:          f.ID,
 		Name:        f.Name,
