@@ -160,9 +160,9 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "setup-bootstrap", Method: http.MethodPost, Path: "/api/setup/bootstrap"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Email   string `json:"email"`
-				Name    string `json:"name"`
-				KeyName string `json:"key_name"`
+				Email   string  `json:"email"`
+				Name    string  `json:"name"`
+				KeyName *string `json:"key_name,omitempty"`
 			}
 		}) (*struct {
 			Body struct {
@@ -186,9 +186,9 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, apiErr(500, "generate token: "+err.Error())
 			}
 			token := hex.EncodeToString(raw[:])
-			keyName := in.Body.KeyName
-			if keyName == "" {
-				keyName = "default"
+			keyName := "default"
+			if in.Body.KeyName != nil && *in.Body.KeyName != "" {
+				keyName = *in.Body.KeyName
 			}
 			if _, err := s.q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: keyName}); err != nil {
 				return nil, apiErr(500, "create api key: "+err.Error())
