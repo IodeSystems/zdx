@@ -267,11 +267,12 @@ if ! $NON_COMPAT; then
   echo "[ship] Phase 1: rolling start (next goes offline)..."
   $HZ rolling start
 
+  echo "[ship] Deploying next..."
+  sync_slot next
+
   echo "[ship] Running migrations on host..."
   ssh "$HOST" "sudo -u $SERVICE $REMOTE_HOME/home/versions/next/dx migrate up"
 
-  echo "[ship] Deploying next..."
-  sync_slot next
   ssh "$HOST" "sudo systemctl start ${SERVICE}-next"
   wait_health 7602 "next"
 
