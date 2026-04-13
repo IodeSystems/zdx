@@ -1,0 +1,8 @@
+home/*.secret.properties
+deploy/
+bin/dx
+bin/dx-server
+bin/dx-bin
+ui/node_modules/
+bin/dx-bin
+ui/dist/

@@ -1,0 +1,344 @@
+#!/usr/bin/env bash
+# Rolling deploy via hz-client (Horizon) + systemd.
+#
+# Usage:
+#   bin/ship                        Normal rolling deploy (schema must be compatible)
+#   bin/ship --package              Just build deploy/ directory, don't deploy
+#   bin/ship --no-package           Skip build, deploy existing package
+#   bin/ship --non-compatible-migration
+#                                   Maintenance-mode deploy for breaking migrations:
+#                                   current goes into maintenance, next gets migrated
+#                                   + new code, then current is updated and maintenance
+#                                   flag is cleared.
+#   bin/ship --allow-dirty          EMERGENCY ONLY — ships uncommitted changes.
+#
+# Config: home/deploy.secret.properties (gitignored)
+#   deploy.host=ubuntu@192.168.1.89
+#   deploy.token=<hz-token>
+#   deploy.hz_url=http://hz.office.iodesystems.com
+#
+# Normal rolling deploy flow (compatible migration):
+# 1. Build + package (cross-compile linux/amd64)
+# 2. bin/compat-check — verify queries work against current AND next schema
+# 3. rolling start   → Horizon takes "next" slot offline
+# 4. dx migrate up   → apply migrations on host
+# 5. Deploy next     → rsync dist, restart zdx-next
+# 6. rolling continue → Horizon brings next up, takes "current" offline
+# 7. Deploy current  → rsync dist, restart zdx-current
+# 8. rolling finalize → both slots serving new code
+# 9. Commit schema/shipped.sql + schema/next.sql → schema/shipped.sql
+#
+# Maintenance-mode deploy flow (incompatible migration):
+# 1. Build + package
+# 2. Set MAINTENANCE=true on current slot → restart → shows maintenance page
+# 3. Stop next slot
+# 4. dx migrate up
+# 5. Deploy new binary to next, start next
+# 6. Health-check next
+# 7. Deploy new binary to current (with MAINTENANCE env removed), restart
+# 8. Both slots serving new code, maintenance cleared
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+DEPLOY_DIR="deploy"
+DEPLOY_PROPS="home/deploy.secret.properties"
+PACKAGE_ONLY=false
+SKIP_BUILD=false
+ALLOW_DIRTY=false
+NON_COMPAT=false
+SERVICE="zdx"
+REMOTE_HOME="/home/$SERVICE"
+MIGRATION_DIR="internal/migrate/sql"
+
+for arg in "$@"; do
+  case "$arg" in
+    --package)                   PACKAGE_ONLY=true ;;
+    --no-package)                SKIP_BUILD=true ;;
+    --allow-dirty)               ALLOW_DIRTY=true ;;
+    --non-compatible-migration)  NON_COMPAT=true ;;
+  esac
+done
+
+# ── Dirty-tree gate ───────────────────────────────────────────────────────────
+
+IS_DIRTY=false
+if ! git diff --quiet || ! git diff --cached --quiet; then
+  IS_DIRTY=true
+fi
+
+if $IS_DIRTY && ! $ALLOW_DIRTY; then
+  echo "[ship] REFUSING TO SHIP: working tree has uncommitted changes."
+  echo ""
+  git status --short
+  echo ""
+  echo "[ship] Commit or stash your changes first, then ship."
+  echo "[ship] --allow-dirty is a PRODUCTION EMERGENCY ESCAPE HATCH."
+  exit 1
+fi
+
+# ── Config loader ─────────────────────────────────────────────────────────────
+
+load_deploy_config() {
+  if [ ! -f "$DEPLOY_PROPS" ]; then
+    echo "[ship] Missing $DEPLOY_PROPS. Create it:"
+    echo "  deploy.host=ubuntu@192.168.1.89"
+    echo "  deploy.token=<hz-token>"
+    echo "  deploy.hz_url=http://hz.office.iodesystems.com"
+    exit 1
+  fi
+
+  prop() { grep "^$1=" "$DEPLOY_PROPS" | cut -d= -f2- | tr -d '[:space:]'; }
+
+  HOST=$(prop deploy.host)
+  export HZ_TOKEN=$(prop deploy.token)
+  export HZ_URL=$(prop deploy.hz_url)
+  RSYNC_PATH="sudo -u $SERVICE rsync"
+
+  [ -z "$HOST" ]     && echo "[ship] Missing deploy.host"   && exit 1
+  [ -z "$HZ_TOKEN" ] && echo "[ship] Missing deploy.token"  && exit 1
+  [ -z "$HZ_URL" ]   && echo "[ship] Missing deploy.hz_url" && exit 1
+
+  if [ ! -f infra/hz-client ]; then
+    echo "[ship] ERROR: infra/hz-client not found"
+    exit 1
+  fi
+  HZ="./infra/hz-client --timeout 60"
+}
+
+# ── Build ─────────────────────────────────────────────────────────────────────
+
+if ! $SKIP_BUILD; then
+  echo "[ship] Building dx-server (linux/amd64, static)..."
+  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+    go build -trimpath -ldflags="-s -w -X main.version=$(git rev-parse --short HEAD)" \
+    -o "$DEPLOY_DIR/dist/dx-server" ./cmd/dx-server
+
+  echo "[ship] Building dx (linux/amd64)..."
+  GOOS=linux GOARCH=amd64 CGO_ENABLED=0 \
+    go build -trimpath -ldflags="-s -w" \
+    -o "$DEPLOY_DIR/dist/dx" ./cmd/dx
+
+  echo "[ship] Building UI..."
+  (cd ui && npm ci --silent && npm run build 2>&1 | tail -3)
+
+  mkdir -p "$DEPLOY_DIR/dist/public"
+  [ -d ui/dist ] && cp -r ui/dist/* "$DEPLOY_DIR/dist/public/"
+  cp -r infra/provision "$DEPLOY_DIR/provision"
+
+  cat > "$DEPLOY_DIR/manifest.txt" <<EOF
+commit: $(git rev-parse HEAD)
+branch: $(git rev-parse --abbrev-ref HEAD)
+date:   $(date -u +"%Y-%m-%dT%H:%M:%SZ")
+dirty:  $(if $IS_DIRTY; then echo "yes"; else echo "no"; fi)
+EOF
+
+  if $PACKAGE_ONLY; then
+    echo "[ship] Package complete."
+    cat "$DEPLOY_DIR/manifest.txt"
+    ls -lh "$DEPLOY_DIR/dist/"
+    exit 0
+  fi
+else
+  [ ! -f "$DEPLOY_DIR/dist/dx-server" ] && \
+    echo "[ship] ERROR: no dx-server in deploy/ — run without --no-package first" && exit 1
+fi
+
+load_deploy_config
+
+# ── Validate migration history unchanged ──────────────────────────────────────
+
+echo "[ship] Validating migration history..."
+
+DEPLOYED_COMMIT=$(ssh "$HOST" "cat $REMOTE_HOME/home/shipped-commit 2>/dev/null" || echo "")
+
+if [ -n "$DEPLOYED_COMMIT" ]; then
+  DEPLOYED_COMMIT_CLEAN="${DEPLOYED_COMMIT%-dirty}"
+  MODIFIED=0
+
+  while IFS= read -r mig; do
+    LOCAL_FILE="$MIGRATION_DIR/$mig"
+    if [ ! -f "$LOCAL_FILE" ]; then
+      echo "[ship] ERROR: shipped migration DELETED locally: $mig"
+      MODIFIED=1; continue
+    fi
+    SHIPPED_HASH=$(git show "$DEPLOYED_COMMIT_CLEAN:$MIGRATION_DIR/$mig" | sha256sum | cut -d' ' -f1)
+    LOCAL_HASH=$(sha256sum "$LOCAL_FILE" | cut -d' ' -f1)
+    if [ "$SHIPPED_HASH" != "$LOCAL_HASH" ]; then
+      echo "[ship] ERROR: shipped migration MODIFIED: $mig"
+      MODIFIED=1
+    fi
+  done < <(git ls-tree --name-only "$DEPLOYED_COMMIT_CLEAN" "$MIGRATION_DIR/" 2>/dev/null | xargs -I{} basename {})
+
+  [ "$MODIFIED" -ne 0 ] && \
+    echo "[ship] REFUSING: shipped migrations modified — create a new migration instead." && exit 1
+  echo "[ship] Migration history OK."
+else
+  echo "[ship] No deployed commit — first deploy, skipping history check."
+fi
+
+# ── Schema compatibility check ────────────────────────────────────────────────
+
+if ! $NON_COMPAT; then
+  echo "[ship] Running schema compatibility check..."
+  set +e
+  bin/compat-check
+  COMPAT_EXIT=$?
+  set -e
+
+  if [ $COMPAT_EXIT -eq 2 ]; then
+    echo "[ship] FAIL: test suite broken — fix before shipping."
+    exit 1
+  fi
+
+  if [ $COMPAT_EXIT -eq 1 ]; then
+    echo ""
+    echo "[ship] Migration is INCOMPATIBLE with old binary."
+    echo "[ship] Use: bin/ship --non-compatible-migration"
+    echo "[ship] This will put current into maintenance mode during the deploy."
+    exit 1
+  fi
+
+  echo "[ship] Schema compatibility: OK"
+else
+  echo "[ship] Skipping compat check (--non-compatible-migration)."
+  echo "[ship] Will use maintenance-mode deploy."
+fi
+
+# ── Deploy helpers ────────────────────────────────────────────────────────────
+
+sync_slot() {
+  local slot="$1"
+  rsync -az --delete --rsync-path="$RSYNC_PATH" \
+    "$DEPLOY_DIR/dist/" "$HOST:$REMOTE_HOME/home/versions/$slot/"
+  rsync -az --rsync-path="$RSYNC_PATH" \
+    "$DEPLOY_DIR/provision/" "$HOST:$REMOTE_HOME/home/provision/"
+  ssh "$HOST" "sudo SKIP_SERVICE_START=true bash $REMOTE_HOME/home/provision/provision.sh"
+}
+
+set_maintenance() {
+  local slot="$1" val="$2"
+  # Write/remove a systemd override that sets MAINTENANCE=true for the slot.
+  local unit="${SERVICE}-${slot}"
+  local override_dir="/etc/systemd/system/${unit}.service.d"
+  if [ "$val" = "true" ]; then
+    ssh "$HOST" "sudo bash -c \"
+      mkdir -p $override_dir
+      printf '[Service]\nEnvironment=MAINTENANCE=true\n' > $override_dir/maintenance.conf
+      systemctl daemon-reload
+      systemctl restart $unit\""
+    echo "[ship] Maintenance mode ON for $slot."
+  else
+    ssh "$HOST" "sudo bash -c \"
+      rm -f $override_dir/maintenance.conf
+      systemctl daemon-reload\""
+    echo "[ship] Maintenance mode OFF for $slot."
+  fi
+}
+
+wait_health() {
+  local port="$1" label="$2"
+  for i in $(seq 1 20); do
+    if ssh "$HOST" "curl -sf http://localhost:${port}/health >/dev/null 2>&1"; then
+      echo "[ship] $label healthy on :$port"
+      return
+    fi
+    sleep 2
+  done
+  echo "[ship] ERROR: $label did not become healthy on :$port"
+  exit 1
+}
+
+# ── Initial provision ─────────────────────────────────────────────────────────
+
+echo "[ship] Initial provision..."
+rsync -az "$DEPLOY_DIR/provision/" "$HOST:/tmp/zdx-provision/"
+ssh "$HOST" "sudo SKIP_SERVICE_START=true bash /tmp/zdx-provision/provision.sh"
+rsync -az --rsync-path="$RSYNC_PATH" \
+  "$DEPLOY_DIR/provision/" "$HOST:$REMOTE_HOME/home/provision/"
+
+# ── Rolling deploy (compatible migration) ─────────────────────────────────────
+
+if ! $NON_COMPAT; then
+  echo ""
+  echo "=== Rolling deploy ==="
+  $HZ status
+  echo ""
+
+  echo "[ship] Phase 1: rolling start (next goes offline)..."
+  $HZ rolling start
+
+  echo "[ship] Running migrations on host..."
+  ssh "$HOST" "sudo -u $SERVICE $REMOTE_HOME/home/versions/next/dx migrate up"
+
+  echo "[ship] Deploying next..."
+  sync_slot next
+  ssh "$HOST" "sudo systemctl start ${SERVICE}-next"
+  wait_health 7602 "next"
+
+  echo "[ship] Phase 2: rolling continue (current goes offline)..."
+  $HZ rolling continue
+
+  echo "[ship] Deploying current..."
+  sync_slot current
+  ssh "$HOST" "sudo systemctl start ${SERVICE}-current"
+  wait_health 7600 "current"
+
+  echo "[ship] Phase 3: rolling finalize..."
+  $HZ rolling finalize
+
+# ── Maintenance-mode deploy (incompatible migration) ─────────────────────────
+
+else
+  echo ""
+  echo "=== Maintenance-mode deploy ==="
+  echo ""
+
+  # 1. Put current into maintenance, keep it serving the maintenance page.
+  echo "[ship] Enabling maintenance mode on current..."
+  set_maintenance current true
+  wait_health 7600 "current (maintenance)"
+
+  # 2. Stop next cleanly.
+  echo "[ship] Stopping next..."
+  ssh "$HOST" "sudo systemctl stop ${SERVICE}-next 2>/dev/null || true"
+
+  # 3. Run migrations — no binary is running new code yet.
+  echo "[ship] Running migrations..."
+  # Ship the dx binary to next's slot first so we can invoke it.
+  rsync -az --delete --rsync-path="$RSYNC_PATH" \
+    "$DEPLOY_DIR/dist/" "$HOST:$REMOTE_HOME/home/versions/next/"
+  ssh "$HOST" "sudo -u $SERVICE $REMOTE_HOME/home/versions/next/dx migrate up"
+  echo "[ship] Migrations complete."
+
+  # 4. Start next with new code.
+  echo "[ship] Starting next with new code..."
+  ssh "$HOST" "sudo systemctl start ${SERVICE}-next"
+  wait_health 7602 "next"
+
+  # 5. Stop current (still serving maintenance page), deploy new code, clear flag.
+  echo "[ship] Deploying new code to current, clearing maintenance..."
+  ssh "$HOST" "sudo systemctl stop ${SERVICE}-current 2>/dev/null || true"
+  sync_slot current
+  set_maintenance current false
+  ssh "$HOST" "sudo systemctl start ${SERVICE}-current"
+  wait_health 7600 "current"
+
+  echo "[ship] Both slots serving new code, maintenance cleared."
+fi
+
+# ── Verify and record ─────────────────────────────────────────────────────────
+
+DEPLOYED_GIT_HASH=$(git rev-parse HEAD)
+$IS_DIRTY && DEPLOYED_GIT_HASH="${DEPLOYED_GIT_HASH}-dirty"
+ssh "$HOST" "sudo -u $SERVICE bash -c \"echo '$DEPLOYED_GIT_HASH' > $REMOTE_HOME/home/shipped-commit\""
+echo "[ship] Deployed commit: $DEPLOYED_GIT_HASH"
+
+# Promote next schema to shipped.
+if [ -f schema/next.sql ]; then
+  cp schema/next.sql schema/shipped.sql
+  echo "[ship] schema/shipped.sql updated."
+fi
+
+echo ""
+echo "[ship] Done."
+$HZ status 2>/dev/null || true

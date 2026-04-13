@@ -1,0 +1,7 @@
+-- shipped.sql — schema snapshot at last ship.
+-- Updated automatically by bin/ship after a successful deploy.
+-- Do NOT edit by hand.
+--
+-- Used by bin/ship to verify forward-compatibility:
+-- all queries generated against this schema must also work against
+-- the schema produced by applying the new migrations (schema/next.sql).

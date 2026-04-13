@@ -1,0 +1,29 @@
+[Unit]
+Description=zdx API (next)
+After=network.target docker.service
+
+[Service]
+Type=simple
+ExecStart=/home/zdx/home/versions/next/dx-server
+Restart=on-failure
+RestartSec=3
+WorkingDirectory=/home/zdx
+
+User=zdx
+Group=zdx
+
+Environment=ZDX_HOME=/home/zdx/home
+Environment=ZDX_SLOT=next
+Environment=PORT=7602
+Environment=STATIC_DIR=/home/zdx/home/versions/next/public
+Environment=DATABASE_URL=postgres://zdx:zdx@localhost:7650/zdx?sslmode=disable
+
+# Hardening
+NoNewPrivileges=true
+ProtectSystem=strict
+ProtectHome=false
+PrivateTmp=true
+ReadWritePaths=/home/zdx/home
+
+[Install]
+WantedBy=multi-user.target

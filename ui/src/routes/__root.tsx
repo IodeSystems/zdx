@@ -1,0 +1,294 @@
+import { createRootRoute, Outlet, Link, useNavigate, useMatches } from '@tanstack/react-router'
+import {
+  AppBar,
+  Box,
+  CssBaseline,
+  Drawer,
+  IconButton,
+  List,
+  ListItemButton,
+  ListItemIcon,
+  ListItemText,
+  TextField,
+  ThemeProvider,
+  Toolbar,
+  Typography,
+  useMediaQuery,
+  useTheme,
+} from '@mui/material'
+import ExtensionIcon from '@mui/icons-material/Extension'
+import TaskAltIcon from '@mui/icons-material/TaskAlt'
+import BugReportIcon from '@mui/icons-material/BugReport'
+import HistoryIcon from '@mui/icons-material/History'
+import HomeIcon from '@mui/icons-material/Home'
+import MenuIcon from '@mui/icons-material/Menu'
+import PlaylistPlayIcon from '@mui/icons-material/PlaylistPlay'
+import { theme } from '../theme'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { useProjects } from '../api'
+import { ErrorBoundary } from '../components/ErrorBoundary'
+import { useState, type FormEvent } from 'react'
+
+const queryClient = new QueryClient()
+
+const DRAWER_WIDTH = 220
+
+const SECTIONS = [
+  { label: 'Features', icon: <ExtensionIcon fontSize="small" />, path: 'features' },
+  { label: 'Tasks', icon: <TaskAltIcon fontSize="small" />, path: 'tasks' },
+  { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
+  { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
+] as const
+
+function ProjectLabel() {
+  const { data } = useProjects()
+  const matches = useMatches()
+  const currentSlug = (matches.find(m => (m.params as Record<string, string>).slug)?.params as { slug?: string })?.slug
+  const projects = data || []
+  const current = projects.find(p => p.slug === currentSlug)
+  if (!current) return null
+  return (
+    <Typography variant="body2" sx={{ ml: 1, opacity: 0.85, fontWeight: 500, whiteSpace: 'nowrap' }}>
+      {current.name}
+    </Typography>
+  )
+}
+
+function Omnibox() {
+  const [value, setValue] = useState('')
+  const navigate = useNavigate()
+  const matches = useMatches()
+  const currentSlug = (matches.find(m => (m.params as Record<string, string>).slug)?.params as { slug?: string })?.slug
+
+  const handleSubmit = (e: FormEvent) => {
+    e.preventDefault()
+    const input = value.trim()
+    if (!input || !currentSlug) return
+
+    const issueMatch = input.match(/^IS-(\d+)$/i)
+    if (issueMatch) {
+      navigate({ to: '/project/$slug/$component/issues/$id', params: { slug: currentSlug, component: 'all', id: `IS-${issueMatch[1]}` } })
+      setValue('')
+      return
+    }
+
+    const taskMatch = input.match(/^TK-(\d+)$/i)
+    if (taskMatch) {
+      navigate({ to: '/project/$slug/$component/tasks/$id', params: { slug: currentSlug, component: 'all', id: `TK-${taskMatch[1]}` } })
+      setValue('')
+      return
+    }
+
+    // Treat anything else as a feature name
+    navigate({ to: '/project/$slug/$component/features/$name', params: { slug: currentSlug, component: 'all', name: input } })
+    setValue('')
+  }
+
+  if (!currentSlug) return null
+
+  return (
+    <Box component="form" onSubmit={handleSubmit} sx={{ ml: 2, display: 'flex', alignItems: 'center' }}>
+      <TextField
+        size="small"
+        value={value}
+        onChange={e => setValue(e.target.value)}
+        placeholder="IS-N / TK-N / Feature"
+        variant="outlined"
+        sx={{
+          width: 180,
+          '& .MuiOutlinedInput-root': {
+            color: 'inherit',
+            '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
+            '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
+          },
+          '& .MuiInputBase-input': { py: 0.5 },
+          '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.5)', opacity: 1 },
+        }}
+      />
+    </Box>
+  )
+}
+
+function SectionNav({ onNavigate }: { onNavigate?: () => void }) {
+  const matches = useMatches()
+  const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
+  const projectParams = (projectMatch?.params as { slug?: string; component?: string }) || {}
+  const currentSlug = projectParams.slug
+  const currentComponent = projectParams.component || 'all'
+  const lastRouteId = (matches[matches.length - 1]?.routeId as string) || ''
+  const isQueueActive = lastRouteId === '/project/$slug/queue'
+  const activePath = (() => {
+    const prefix = '/project/$slug/$component/'
+    if (!lastRouteId.startsWith(prefix)) return ''
+    return lastRouteId.slice(prefix.length)
+  })()
+
+  if (!currentSlug) return null
+
+  return (
+    <>
+      <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Component
+        </Typography>
+        <Typography variant="body2" sx={{ fontWeight: 600 }}>
+          {currentComponent}
+        </Typography>
+      </Box>
+      <List dense>
+        <ListItemButton
+          selected={isQueueActive}
+          component={Link as any}
+          to="/project/$slug/queue"
+          params={{ slug: currentSlug }}
+          onClick={onNavigate}
+        >
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <PlaylistPlayIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Queue" />
+        </ListItemButton>
+        {SECTIONS.map(s => (
+          <ListItemButton
+            key={s.path}
+            selected={activePath === s.path}
+            component={Link as any}
+            to={`/project/$slug/$component/${s.path}` as any}
+            params={{ slug: currentSlug, component: currentComponent }}
+            onClick={onNavigate}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              {s.icon}
+            </ListItemIcon>
+            <ListItemText primary={s.label} />
+          </ListItemButton>
+        ))}
+      </List>
+    </>
+  )
+}
+
+function HomeNav({ onNavigate }: { onNavigate?: () => void }) {
+  const matches = useMatches()
+  const lastPath = matches[matches.length - 1]?.pathname ?? ''
+  const isHomeActive = lastPath === '/'
+
+  return (
+    <>
+      <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+          Home
+        </Typography>
+      </Box>
+      <List dense>
+        <ListItemButton
+          selected={isHomeActive}
+          component={Link as any}
+          to="/"
+          onClick={onNavigate}
+        >
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <HomeIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Projects" />
+        </ListItemButton>
+      </List>
+    </>
+  )
+}
+
+function AppShell() {
+  const muiTheme = useTheme()
+  const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'))
+  const [drawerOpen, setDrawerOpen] = useState(false)
+
+  const handleNavigate = isMobile ? () => setDrawerOpen(false) : undefined
+  const drawerContent = (
+    <>
+      {!isMobile && <Toolbar variant="dense" />}
+      <SectionNav onNavigate={handleNavigate} />
+      <HomeNav onNavigate={handleNavigate} />
+    </>
+  )
+
+  return (
+    <Box sx={{ display: 'flex', minHeight: '100vh', overflow: 'hidden' }}>
+      <AppBar position="fixed" sx={{ zIndex: (t) => t.zIndex.drawer + 1 }} elevation={0}>
+        <Toolbar variant="dense">
+          {isMobile && (
+            <IconButton
+              color="inherit"
+              edge="start"
+              onClick={() => setDrawerOpen(o => !o)}
+              sx={{ mr: 1 }}
+            >
+              <MenuIcon />
+            </IconButton>
+          )}
+          <ProjectLabel />
+          <Omnibox />
+          <Box sx={{ flexGrow: 1 }} />
+        </Toolbar>
+      </AppBar>
+
+      {/* Desktop: permanent drawer */}
+      {!isMobile && (
+        <Drawer
+          variant="permanent"
+          sx={{
+            width: DRAWER_WIDTH,
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: DRAWER_WIDTH,
+              boxSizing: 'border-box',
+              borderRight: '1px solid',
+              borderColor: 'divider',
+            },
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      )}
+
+      {/* Mobile: temporary overlay drawer */}
+      {isMobile && (
+        <Drawer
+          variant="temporary"
+          open={drawerOpen}
+          onClose={() => setDrawerOpen(false)}
+          ModalProps={{ keepMounted: true }}
+          sx={{
+            '& .MuiDrawer-paper': {
+              width: DRAWER_WIDTH,
+              boxSizing: 'border-box',
+            },
+          }}
+        >
+          {drawerContent}
+        </Drawer>
+      )}
+
+      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: 3, overflowX: 'hidden' }}>
+        <Toolbar variant="dense" />
+        <ErrorBoundary>
+          <Outlet />
+        </ErrorBoundary>
+      </Box>
+    </Box>
+  )
+}
+
+function RootLayout() {
+  return (
+    <ThemeProvider theme={theme}>
+      <CssBaseline />
+      <QueryClientProvider client={queryClient}>
+        <AppShell />
+      </QueryClientProvider>
+    </ThemeProvider>
+  )
+}
+
+export const Route = createRootRoute({
+  component: RootLayout,
+})
