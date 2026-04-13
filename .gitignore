@@ -4,5 +4,6 @@ bin/dx
 bin/dx-server
 bin/dx-bin
 ui/node_modules/
-bin/dx-bin
 ui/dist/
+schema/next.sql
+schema/compat-result.txt
