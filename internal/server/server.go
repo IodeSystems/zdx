@@ -103,11 +103,13 @@ type contextKey int
 
 const ctxAPIKeyID contextKey = 1
 
-// apiKeyMiddleware validates X-Api-Key on every request except health and openapi.
+// apiKeyMiddleware validates X-Api-Key on /api/* requests, except health, openapi, and setup/bootstrap.
+// Non-/api/ paths (SPA, static assets) pass through without auth.
 func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
-		if (r.Method == http.MethodGet && (path == "/api/health" || strings.HasPrefix(path, "/openapi"))) ||
+		if !strings.HasPrefix(path, "/api/") ||
+			(r.Method == http.MethodGet && (path == "/api/health" || strings.HasPrefix(path, "/openapi"))) ||
 			(r.Method == http.MethodPost && path == "/api/setup/bootstrap") {
 			next.ServeHTTP(w, r)
 			return
