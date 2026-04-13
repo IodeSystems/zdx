@@ -14,3 +14,4 @@ schema/compat-result.txt
 .zdx/metrics-latest.yaml
 .claude/projects/
 .claude/scheduled_tasks.lock
+ui/tsconfig.tsbuildinfo
