@@ -516,6 +516,15 @@ func (q *Queries) CreateUserWithPassword(ctx context.Context, arg CreateUserWith
 	return i, err
 }
 
+const deleteErrorReports = `-- name: DeleteErrorReports :exec
+DELETE FROM zdx_error_reports WHERE project_id = $1
+`
+
+func (q *Queries) DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error {
+	_, err := q.db.Exec(ctx, deleteErrorReports, projectID)
+	return err
+}
+
 const deleteFeature = `-- name: DeleteFeature :exec
 DELETE FROM zdx_features WHERE id = $1
 `

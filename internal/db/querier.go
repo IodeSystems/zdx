@@ -32,6 +32,7 @@ type Querier interface {
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
+	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
 	// Will fail at the DB level (RESTRICT) if spec_tests rows reference this test.

@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import {
   Box,
+  Button,
   Card,
   CardContent,
   Chip,
@@ -11,7 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
-import { useErrors, useSlowQueries, useTimed, type ErrorReportItem, type SlowQueryItem, type TimedItem } from '../api'
+import { useErrors, useSlowQueries, useTimed, useClearErrors, useZdxConfig, type ErrorReportItem, type SlowQueryItem, type TimedItem } from '../api'
 
 function fmtDate(ts: string) {
   return ts ? ts.slice(0, 10) : ''
@@ -140,6 +141,9 @@ export function ErrorsTab({ slug, componentSlug: _componentSlug }: { slug: strin
   const { data: errors = [], isLoading: errLoading } = useErrors(slug)
   const { data: queries = [], isLoading: qLoading } = useSlowQueries(slug)
   const { data: timed = [], isLoading: timedLoading } = useTimed(slug)
+  const clearErrors = useClearErrors(slug)
+  const { data: config } = useZdxConfig()
+  const isZdxProject = !!config?.zdx_project_slug && config.zdx_project_slug === slug
 
   return (
     <Box>
@@ -151,6 +155,20 @@ export function ErrorsTab({ slug, componentSlug: _componentSlug }: { slug: strin
 
       {tab === 0 && (
         <>
+          <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+            {isZdxProject && (
+              <Button size="small" variant="outlined" color="warning"
+                onClick={() => fetch('/api/error').catch(() => {})}>
+                Trigger error
+              </Button>
+            )}
+            {errors.length > 0 && (
+              <Button size="small" variant="outlined" color="error"
+                onClick={() => clearErrors.mutate()}>
+                Clear errors
+              </Button>
+            )}
+          </Box>
           {errLoading && !errors.length && (
             <Typography color="text.secondary">Loading...</Typography>
           )}

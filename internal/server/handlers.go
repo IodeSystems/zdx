@@ -1470,6 +1470,23 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body struct{ Errors []ErrorReportItem `json:"errors"` } }{Body: struct{ Errors []ErrorReportItem `json:"errors"` }{Errors: out}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "trigger-error", Method: http.MethodGet, Path: "/api/error"},
+		func(ctx context.Context, in *struct{}) (*struct{}, error) {
+			return nil, apiErr(500, "test error — this is intentional")
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "clear-errors", Method: http.MethodDelete, Path: "/api/dx/errors"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct{}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.DeleteErrorReports(ctx, pgtype.Int4{Int32: p.ID, Valid: true}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return nil, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "report-slow-query", Method: http.MethodPost, Path: "/api/dx/slow-queries/report"},
 		func(ctx context.Context, in *struct {
 			Body struct {

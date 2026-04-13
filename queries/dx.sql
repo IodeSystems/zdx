@@ -345,6 +345,9 @@ WHERE project_id = $1
 ORDER BY created_at DESC
 LIMIT 200;
 
+-- name: DeleteErrorReports :exec
+DELETE FROM zdx_error_reports WHERE project_id = $1;
+
 -- Slow queries
 
 -- name: InsertSlowQuery :one

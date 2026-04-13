@@ -383,6 +383,16 @@ export const useErrors = (slug: string) =>
     enabled: !!slug,
   })
 
+export const useClearErrors = (slug: string) => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, void>({
+    mutationFn: async () => {
+      await apiFetch(`/api/dx/errors?slug=${encodeURIComponent(slug)}`, { method: 'DELETE' })
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['errors', slug] }) },
+  })
+}
+
 export const useSlowQueries = (slug: string) =>
   useQuery<SlowQueryItem[]>({
     queryKey: ['slow-queries', slug],
