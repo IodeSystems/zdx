@@ -11,9 +11,7 @@ import (
 )
 
 type Querier interface {
-	// Comments
 	AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error)
-	// Revisions
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
@@ -23,7 +21,6 @@ type Querier interface {
 	CountApiKeys(ctx context.Context) (int32, error)
 	CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
-	// Files
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error)
@@ -47,54 +44,42 @@ type Querier interface {
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
 	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
-	// LLM Config
 	GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (ZdxJournalEntry, error)
 	GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPlan, error)
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
 	GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error)
-	// State
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetTest(ctx context.Context, arg GetTestParams) (ZdxTest, error)
 	GetThemeByID(ctx context.Context, arg GetThemeByIDParams) (ZdxTheme, error)
 	GetThemeByName(ctx context.Context, arg GetThemeByNameParams) (ZdxTheme, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
-	// Error reports
 	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
-	// Journal
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error)
-	// Slow queries
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
-	// Features
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)
-	// Issues
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ZdxJournalEntry, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
-	// Projects
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ZdxRevision, error)
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
-	// Specs
 	ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error)
 	// Used to show what breaks if a test is deleted.
 	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ZdxSpec, error)
-	// Tasks
 	ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ZdxTask, error)
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ZdxTask, error)
 	ListTests(ctx context.Context, projectID int32) ([]ZdxTest, error)
 	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ZdxTest, error)
 	ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest, error)
-	// Themes
 	ListThemes(ctx context.Context, projectID int32) ([]ListThemesRow, error)
 	ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, error)
-	// Todos
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ZdxIssueWork, error)
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
@@ -117,13 +102,9 @@ type Querier interface {
 	UpsertCommentRead(ctx context.Context, arg UpsertCommentReadParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (ZdxFeature, error)
 	UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (ZdxLlmConfig, error)
-	// Plans
 	UpsertPlan(ctx context.Context, arg UpsertPlanParams) (ZdxPlan, error)
-	// Tests (primary registry)
 	UpsertTest(ctx context.Context, arg UpsertTestParams) (ZdxTest, error)
-	// Test Results
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error
-	// Timed (high-water-mark performance records)
 	UpsertTimed(ctx context.Context, arg UpsertTimedParams) error
 }
 
