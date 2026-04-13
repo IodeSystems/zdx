@@ -252,7 +252,7 @@ set_maintenance() {
 wait_health() {
   local port="$1" label="$2"
   for i in $(seq 1 20); do
-    if ssh "$HOST" "curl -sf http://localhost:${port}/health >/dev/null 2>&1"; then
+    if ssh "$HOST" "curl -sf http://localhost:${port}/api/health >/dev/null 2>&1"; then
       echo "[ship] $label healthy on :$port"
       return
     fi
