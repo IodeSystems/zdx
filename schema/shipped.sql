@@ -377,7 +377,6 @@ ALTER SEQUENCE public.zdx_files_id_seq OWNED BY public.zdx_files.id;
 --
 
 CREATE TABLE public.zdx_id_seq (
-    project_id integer NOT NULL,
     kind text NOT NULL,
     next_val integer DEFAULT 1 NOT NULL
 );
@@ -1028,7 +1027,8 @@ CREATE TABLE public.zdx_tasks (
     test_refs text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    task_group text DEFAULT ''::text NOT NULL
 );
 
 
@@ -1673,7 +1673,7 @@ ALTER TABLE ONLY public.zdx_files
 --
 
 ALTER TABLE ONLY public.zdx_id_seq
-    ADD CONSTRAINT zdx_id_seq_pkey PRIMARY KEY (project_id, kind);
+    ADD CONSTRAINT zdx_id_seq_pkey PRIMARY KEY (kind);
 
 
 --
@@ -2298,14 +2298,6 @@ ALTER TABLE ONLY public.zdx_error_reports
 
 ALTER TABLE ONLY public.zdx_features
     ADD CONSTRAINT zdx_features_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
-
-
---
--- Name: zdx_id_seq zdx_id_seq_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_id_seq
-    ADD CONSTRAINT zdx_id_seq_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
 
 
 --

@@ -115,18 +115,13 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 }
 
 const nextID = `-- name: NextID :one
-INSERT INTO zdx_id_seq (project_id, kind, next_val) VALUES ($1, $2, 2)
-ON CONFLICT (project_id, kind) DO UPDATE SET next_val = zdx_id_seq.next_val + 1
+INSERT INTO zdx_id_seq (kind, next_val) VALUES ($1, 2)
+ON CONFLICT (kind) DO UPDATE SET next_val = zdx_id_seq.next_val + 1
 RETURNING next_val - 1 AS val
 `
 
-type NextIDParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Kind      string `db:"kind" json:"kind"`
-}
-
-func (q *Queries) NextID(ctx context.Context, arg NextIDParams) (int32, error) {
-	row := q.db.QueryRow(ctx, nextID, arg.ProjectID, arg.Kind)
+func (q *Queries) NextID(ctx context.Context, kind string) (int32, error) {
+	row := q.db.QueryRow(ctx, nextID, kind)
 	var val int32
 	err := row.Scan(&val)
 	return val, err

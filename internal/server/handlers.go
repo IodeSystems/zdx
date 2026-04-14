@@ -614,7 +614,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			id, err := s.q.NextIssueID(ctx, p.ID)
+			id, err := s.q.NextIssueID(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -1001,7 +1001,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			out := make([]TaskItem, len(rows))
 			for i, r := range rows {
-				out[i] = toTaskItem(r)
+				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
@@ -1028,7 +1028,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			out := make([]TaskItem, len(rows))
 			for i, r := range rows {
-				out[i] = toTaskItem(r)
+				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
@@ -1055,7 +1055,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			out := make([]TaskItem, len(rows))
 			for i, r := range rows {
-				out[i] = toTaskItem(r)
+				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
@@ -1078,7 +1078,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			id, err := s.q.NextTaskID(ctx, p.ID)
+			id, err := s.q.NextTaskID(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -1093,7 +1093,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body TaskItem }{Body: toTaskItem(row)}, nil
+			return &struct{ Body TaskItem }{Body: toTaskItem(db.ZdxTask{ID: row.ID, ProjectID: row.ProjectID, Text: row.Text, Feature: row.Feature, Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends, TestPlan: row.TestPlan, TestRefs: row.TestRefs, CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt, TaskGroup: row.TaskGroup})}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "mark-task-done", Method: http.MethodPost, Path: "/api/dx/todo/dev/done"},

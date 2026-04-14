@@ -15,6 +15,6 @@ SELECT slug, git_url, git_branch, git_token FROM zdx_projects WHERE slug = $1;
 UPDATE zdx_projects SET git_url = @git_url, git_branch = @git_branch, git_token = @git_token WHERE slug = @slug;
 
 -- name: NextID :one
-INSERT INTO zdx_id_seq (project_id, kind, next_val) VALUES ($1, $2, 2)
-ON CONFLICT (project_id, kind) DO UPDATE SET next_val = zdx_id_seq.next_val + 1
+INSERT INTO zdx_id_seq (kind, next_val) VALUES ($1, 2)
+ON CONFLICT (kind) DO UPDATE SET next_val = zdx_id_seq.next_val + 1
 RETURNING next_val - 1 AS val;

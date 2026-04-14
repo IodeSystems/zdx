@@ -112,9 +112,8 @@ type ZdxFile struct {
 }
 
 type ZdxIDSeq struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Kind      string `db:"kind" json:"kind"`
-	NextVal   int32  `db:"next_val" json:"next_val"`
+	Kind    string `db:"kind" json:"kind"`
+	NextVal int32  `db:"next_val" json:"next_val"`
 }
 
 type ZdxInvite struct {
@@ -331,10 +330,10 @@ type ZdxTask struct {
 	Depends     string             `db:"depends" json:"depends"`
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
 }
 
 type ZdxTaskCodeRef struct {

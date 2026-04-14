@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countTasks = `-- name: CountTasks :one
@@ -67,7 +69,24 @@ type CreateTaskParams struct {
 	TaskGroup string `db:"task_group" json:"task_group"`
 }
 
-func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask, error) {
+type CreateTaskRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (CreateTaskRow, error) {
 	row := q.db.QueryRow(ctx, createTask,
 		arg.ID,
 		arg.ProjectID,
@@ -76,7 +95,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask
 		arg.Issue,
 		arg.TaskGroup,
 	)
-	var i ZdxTask
+	var i CreateTaskRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -110,15 +129,32 @@ SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan,
 FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC
 `
 
-func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, error) {
+type ListTasksRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error) {
 	rows, err := q.db.Query(ctx, listTasks, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTask
+	var items []ListTasksRow
 	for rows.Next() {
-		var i ZdxTask
+		var i ListTasksRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -155,15 +191,32 @@ type ListTasksByFeatureParams struct {
 	Feature   string `db:"feature" json:"feature"`
 }
 
-func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ZdxTask, error) {
+type ListTasksByFeatureRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error) {
 	rows, err := q.db.Query(ctx, listTasksByFeature, arg.ProjectID, arg.Feature)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTask
+	var items []ListTasksByFeatureRow
 	for rows.Next() {
-		var i ZdxTask
+		var i ListTasksByFeatureRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -203,7 +256,24 @@ type ListTasksByFeaturePaginatedParams struct {
 	Offset    int32  `db:"offset" json:"offset"`
 }
 
-func (q *Queries) ListTasksByFeaturePaginated(ctx context.Context, arg ListTasksByFeaturePaginatedParams) ([]ZdxTask, error) {
+type ListTasksByFeaturePaginatedRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListTasksByFeaturePaginated(ctx context.Context, arg ListTasksByFeaturePaginatedParams) ([]ListTasksByFeaturePaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listTasksByFeaturePaginated,
 		arg.ProjectID,
 		arg.Feature,
@@ -214,9 +284,9 @@ func (q *Queries) ListTasksByFeaturePaginated(ctx context.Context, arg ListTasks
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTask
+	var items []ListTasksByFeaturePaginatedRow
 	for rows.Next() {
-		var i ZdxTask
+		var i ListTasksByFeaturePaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -253,15 +323,32 @@ type ListTasksByIssueParams struct {
 	Issue     string `db:"issue" json:"issue"`
 }
 
-func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ZdxTask, error) {
+type ListTasksByIssueRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error) {
 	rows, err := q.db.Query(ctx, listTasksByIssue, arg.ProjectID, arg.Issue)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTask
+	var items []ListTasksByIssueRow
 	for rows.Next() {
-		var i ZdxTask
+		var i ListTasksByIssueRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -301,7 +388,24 @@ type ListTasksByIssuePaginatedParams struct {
 	Offset    int32  `db:"offset" json:"offset"`
 }
 
-func (q *Queries) ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ZdxTask, error) {
+type ListTasksByIssuePaginatedRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ListTasksByIssuePaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listTasksByIssuePaginated,
 		arg.ProjectID,
 		arg.Issue,
@@ -312,9 +416,9 @@ func (q *Queries) ListTasksByIssuePaginated(ctx context.Context, arg ListTasksBy
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTask
+	var items []ListTasksByIssuePaginatedRow
 	for rows.Next() {
-		var i ZdxTask
+		var i ListTasksByIssuePaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -353,15 +457,32 @@ type ListTasksPaginatedParams struct {
 	Offset    int32 `db:"offset" json:"offset"`
 }
 
-func (q *Queries) ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ZdxTask, error) {
+type ListTasksPaginatedRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ListTasksPaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listTasksPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTask
+	var items []ListTasksPaginatedRow
 	for rows.Next() {
-		var i ZdxTask
+		var i ListTasksPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,

@@ -50,7 +50,7 @@ type Querier interface {
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error)
-	CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask, error)
+	CreateTask(ctx context.Context, arg CreateTaskParams) (CreateTaskRow, error)
 	CreateTheme(ctx context.Context, arg CreateThemeParams) (ZdxTheme, error)
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
@@ -132,12 +132,12 @@ type Querier interface {
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error)
 	// Features not reviewed in more than @stale_days days (or never reviewed).
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ZdxFeature, error)
-	ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, error)
-	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ZdxTask, error)
-	ListTasksByFeaturePaginated(ctx context.Context, arg ListTasksByFeaturePaginatedParams) ([]ZdxTask, error)
-	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ZdxTask, error)
-	ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ZdxTask, error)
-	ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ZdxTask, error)
+	ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error)
+	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error)
+	ListTasksByFeaturePaginated(ctx context.Context, arg ListTasksByFeaturePaginatedParams) ([]ListTasksByFeaturePaginatedRow, error)
+	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error)
+	ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ListTasksByIssuePaginatedRow, error)
+	ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ListTasksPaginatedRow, error)
 	ListTests(ctx context.Context, projectID int32) ([]ZdxTest, error)
 	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ZdxTest, error)
 	ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest, error)
@@ -153,7 +153,7 @@ type Querier interface {
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskUndone(ctx context.Context, id string) error
-	NextID(ctx context.Context, arg NextIDParams) (int32, error)
+	NextID(ctx context.Context, kind string) (int32, error)
 	RemoveThemeBlocker(ctx context.Context, arg RemoveThemeBlockerParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
