@@ -80,6 +80,24 @@ can't resolve in one step — file it and stop:
 1. `./bin/dx issue add --title="..." --context="..."`
 2. Report what blocked you and the new issue ID. Do not work around it.
 
+**Blocker questions** (`dx question add`) — questions that block progress and require a human answer. Before filing one,
+exhaust every investigation avenue available to you:
+
+1. **Read the code.** Search handlers, schema, models, routes, configs, and tests for the answer. grep for keywords,
+   read surrounding context, trace call chains.
+2. **Read the data.** Check migrations, seed data, existing DB state, API responses, logs — anything that reveals how
+   the system actually behaves.
+3. **Read the docs.** CLAUDE.md, skill files, plan docs, README, inline comments, commit messages (`git log --grep`).
+4. **Experiment.** Run the code, hit the endpoint, query the DB, write a quick test — prove or disprove your hypothesis.
+
+Only file a blocker question when the answer **genuinely requires human judgment** — product direction, priority calls,
+user-facing wording preferences, business rules not derivable from code, or "which of these two valid approaches do you
+prefer." If the answer is discoverable by reading code, schema, data, or docs, discover it yourself.
+
+When you do file:
+- `./bin/dx question add --target-type=<issue|task|feature> --target-id=<ID> --context="<what you need decided and why you can't decide it yourself>"`
+- Include what you already investigated so the human doesn't retrace your steps.
+
 **Done** when the vertical is empty and no unblocked leaf work remains, or when a blocker stops progress. Then stop — do
 not pick up a new issue.
 
