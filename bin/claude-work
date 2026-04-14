@@ -37,9 +37,8 @@ while true; do
     sfile="$PROJECT_DIR/$sid.jsonl"
     log "claude session $sid → $sfile"
 
-    # Pre-create so tail -F finds it immediately
+    # tail -F retries the missing file until claude creates it.
     mkdir -p "$PROJECT_DIR"
-    : > "$sfile"
     tail -F "$sfile" 2>/dev/null | tee -a "$LOG" &
     tail_pid=$!
 
