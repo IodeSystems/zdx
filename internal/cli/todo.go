@@ -379,7 +379,11 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			}
 		}
 		if !hasPending {
-			fmt.Printf("[add]     %s  %s\n", issueIDStr(iss.ID), iss.Title)
+			if len(taskList.Tasks) > 0 {
+				fmt.Printf("[closable] %s  %s\n", issueIDStr(iss.ID), iss.Title)
+			} else {
+				fmt.Printf("[add]     %s  %s\n", issueIDStr(iss.ID), iss.Title)
+			}
 			return nil
 		}
 	}
