@@ -1669,11 +1669,11 @@ ALTER TABLE ONLY public.zdx_files
 
 
 --
--- Name: zdx_id_seq zdx_id_seq_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: zdx_id_seq zdx_id_seq_pkey1; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_id_seq
-    ADD CONSTRAINT zdx_id_seq_pkey PRIMARY KEY (kind);
+    ADD CONSTRAINT zdx_id_seq_pkey1 PRIMARY KEY (kind);
 
 
 --
