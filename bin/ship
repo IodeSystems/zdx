@@ -21,12 +21,12 @@
 # 1. Build + package (cross-compile linux/amd64)
 # 2. bin/compat-check — verify queries work against current AND next schema
 # 3. rolling start   → Horizon takes "next" slot offline
-# 4. dx migrate up   → apply migrations on host
-# 5. Deploy next     → rsync dist, restart zdx-next
-# 6. rolling continue → Horizon brings next up, takes "current" offline
-# 7. Deploy current  → rsync dist, restart zdx-current
-# 8. rolling finalize → both slots serving new code
-# 9. Commit schema/shipped.sql + schema/next.sql → schema/shipped.sql
+# 4. Deploy next     → rsync dist to next slot
+# 5. dx migrate up   → apply migrations (new binary required for embedded migrations)
+# 6. Restart next    → start zdx-next, wait for health
+# 7. rolling continue → Horizon brings next up, takes "current" offline
+# 8. Deploy current  → rsync dist, restart zdx-current
+# 9. rolling finalize → both slots serving new code
 #
 # Maintenance-mode deploy flow (incompatible migration):
 # 1. Build + package
@@ -450,6 +450,17 @@ if ! $NON_COMPAT; then
 
   echo "[ship] Deploying next..."
   sync_slot next
+
+  if [ ${#PENDING_FIXES[@]} -gt 0 ]; then
+    echo "[ship] NOTE: migration fix files packaged — ops should review and run if needed:"
+    for fix in "${PENDING_FIXES[@]}"; do
+      echo "[ship]   $REMOTE_HOME/home/versions/next/migration-fixes/$(basename "$fix")"
+    done
+  fi
+
+  echo "[ship] Running migrations (before starting new binary)..."
+  run_migrate next
+
   ssh "$HOST" "sudo systemctl restart ${SERVICE}-next"
   wait_health 7602 "next"
 
@@ -463,16 +474,6 @@ if ! $NON_COMPAT; then
 
   echo "[ship] Phase 3: rolling finalize..."
   $HZ rolling finalize
-
-  if [ ${#PENDING_FIXES[@]} -gt 0 ]; then
-    echo "[ship] NOTE: migration fix files packaged — ops should review and run if needed:"
-    for fix in "${PENDING_FIXES[@]}"; do
-      echo "[ship]   $REMOTE_HOME/home/versions/next/migration-fixes/$(basename "$fix")"
-    done
-  fi
-
-  echo "[ship] Running migrations (both slots on new code)..."
-  run_migrate next
 
 # ── Maintenance-mode deploy (incompatible migration) ─────────────────────────
 
