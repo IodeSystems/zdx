@@ -25,10 +25,7 @@ import {
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
 import { useErrors, useSlowQueries, useTimed, useClearErrors, useReportError, useErrorEvents, useErrorEventsGrouped, useErrorEventsTagKeys, useErrorEventsTagValues, type ErrorReportItem, type SlowQueryItem, type TimedItem } from '../api'
-
-function fmtDate(ts: string) {
-  return ts ? ts.slice(0, 10) : ''
-}
+import { fmtDate } from '../utils/date'
 
 function ErrorRow({ e }: { e: ErrorReportItem }) {
   const [open, setOpen] = useState(false)

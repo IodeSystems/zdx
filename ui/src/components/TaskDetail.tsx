@@ -219,7 +219,7 @@ export function TaskDetail({
 
       {task.completed_at && (
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
-          Completed: {task.completed_at}
+          Completed: {new Date(task.completed_at).toLocaleString()}
         </Typography>
       )}
 
@@ -228,7 +228,7 @@ export function TaskDetail({
       <CodeRefs refs={codeRefs ?? []} />
 
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
-        Created: {task.created_at}
+        Created: {new Date(task.created_at).toLocaleString()}
       </Typography>
 
       <CommentsAndRevisions slug={slug} targetType="task" targetId={taskId} />

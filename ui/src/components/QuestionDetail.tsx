@@ -152,8 +152,8 @@ export function QuestionDetail({ slug, questionId }: { slug: string; questionId:
       )}
 
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
-        Created: {question.created_at}
-        {question.updated_at !== question.created_at && ` · Updated: ${question.updated_at}`}
+        Created: {new Date(question.created_at).toLocaleString()}
+        {question.updated_at !== question.created_at && ` · Updated: ${new Date(question.updated_at).toLocaleString()}`}
       </Typography>
 
       <CommentsAndRevisions slug={slug} targetType="question" targetId={questionId} />

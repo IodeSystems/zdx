@@ -323,7 +323,7 @@ export function IssueDetail({
             {workEntries.map((e, i) => (
               <Box key={i} sx={{ borderLeft: 2, borderColor: 'divider', pl: 1.5 }}>
                 <Typography variant="caption" color="text.secondary">
-                  {e.created_at} — {e.agent}
+                  {new Date(e.created_at).toLocaleString()} — {e.agent}
                 </Typography>
                 {e.note && (
                   <Typography variant="body2">{e.note}</Typography>
@@ -335,7 +335,7 @@ export function IssueDetail({
       )}
 
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
-        Created: {issue.created_at}
+        Created: {new Date(issue.created_at).toLocaleString()}
       </Typography>
 
       <CommentsAndRevisions slug={slug} targetType="issue" targetId={issueId} />

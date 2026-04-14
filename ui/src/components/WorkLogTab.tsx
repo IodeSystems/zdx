@@ -1,10 +1,7 @@
 import { Box, Chip, Typography } from '@mui/material'
 import { Link } from '@tanstack/react-router'
 import { useWorklog, type WorklogEntry } from '../api'
-
-function fmtDate(ts: string) {
-  return ts ? ts.slice(0, 10) : ''
-}
+import { fmtDate } from '../utils/date'
 
 function WorklogRow({ entry, slug }: { entry: WorklogEntry; slug: string }) {
   return (

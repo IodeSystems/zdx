@@ -23,10 +23,7 @@ import {
   useClaudeSessionTokenUsage,
   type ClaudeEventItem,
 } from '../api'
-
-function fmtDate(ts: string) {
-  return ts ? ts.slice(0, 16).replace('T', ' ') : ''
-}
+import { fmtDate } from '../utils/date'
 
 const EVENT_COLORS: Record<string, string> = {
   user: '#2196f3',

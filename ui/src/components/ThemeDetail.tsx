@@ -142,7 +142,7 @@ export function ThemeDetail({ slug, name }: { slug: string; name: string }) {
       </Box>
 
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3 }}>
-        Created: {theme.created_at}
+        Created: {new Date(theme.created_at).toLocaleString()}
       </Typography>
     </Box>
   )

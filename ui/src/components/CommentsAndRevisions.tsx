@@ -85,7 +85,7 @@ export function CommentsAndRevisions({
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
             {revisions.map(r => {
-              const date = r.created_at.slice(0, 10)
+              const date = new Date(r.created_at).toLocaleDateString()
               const preview = r.old_val.slice(0, 20) || '…'
               const newPreview = r.new_val.slice(0, 20) || '…'
               return (
@@ -122,7 +122,7 @@ export function CommentsAndRevisions({
       {comments.map(c => (
         <Box key={c.id} sx={{ mb: 1.5, borderLeft: 2, borderColor: c.unread ? 'info.main' : 'success.light', pl: 1.5 }}>
           <Typography variant="caption" sx={{ color: c.unread ? '#1976d2' : '#2e7d32' }}>
-            {c.created_at.slice(0, 10)} — {c.author || 'anonymous'}
+            {new Date(c.created_at).toLocaleDateString()} — {c.author || 'anonymous'}
           </Typography>
           <Box sx={{ mt: 0.25 }}>
             <MarkdownContent slug={slug}>{c.body}</MarkdownContent>

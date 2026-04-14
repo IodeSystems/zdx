@@ -173,7 +173,7 @@ export function ProjectDashboard({ slug }: { slug: string }) {
                       IS-{i.id}: {i.title || (i.context ? i.context.slice(0, 60) + (i.context.length > 60 ? '…' : '') : '(no title)')}
                     </Typography>
                     <Typography variant="caption" color="text.secondary">
-                      {i.created_at}
+                      {new Date(i.created_at).toLocaleString()}
                     </Typography>
                   </CardContent>
                 </CardActionArea>
