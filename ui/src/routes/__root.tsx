@@ -20,6 +20,8 @@ import {
   Typography,
   useMediaQuery,
   useTheme,
+  Collapse,
+  ListSubheader,
 } from '@mui/material'
 import {
   AutoStories as AutoStoriesIcon,
@@ -42,6 +44,8 @@ import {
   Tune as TuneIcon,
   Lightbulb as LightbulbIcon,
   WarningAmber as WarningAmberIcon,
+  ExpandLess as ExpandLessIcon,
+  ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -50,34 +54,56 @@ import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
 import { IssueReportFab } from '../components/IssueReportFab'
 import { useComponentFilter } from '../components/ComponentContext'
-import { useState, type FormEvent } from 'react'
+import { useState, useCallback, type FormEvent } from 'react'
 
 const queryClient = new QueryClient()
 
 const DRAWER_WIDTH = 220
 
-const SECTIONS = [
-  { label: 'Goals', icon: <FlagIcon fontSize="small" />, path: 'goals' },
-  { label: 'Features', icon: <ExtensionIcon fontSize="small" />, path: 'features' },
-  { label: 'Themes', icon: <BookmarkIcon fontSize="small" />, path: 'themes' },
-  { label: 'Tasks', icon: <TaskAltIcon fontSize="small" />, path: 'tasks' },
-  { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
-  { label: 'Questions', icon: <QuestionAnswerIcon fontSize="small" />, path: 'questions' },
-  { label: 'Blockers', icon: <HelpOutlineIcon fontSize="small" />, path: 'blocker-questions' },
-  { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
-  { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
-  { label: 'Journal', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
-  { label: 'Proposals', icon: <LightbulbIcon fontSize="small" />, path: 'proposals' },
-  { label: 'Claude', icon: <SmartToyIcon fontSize="small" />, path: 'claude' },
-  { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
-  { label: 'Timings', icon: <TimerIcon fontSize="small" />, path: 'timings' },
-  { label: 'Counters', icon: <PlusOneIcon fontSize="small" />, path: 'counters' },
-  { label: 'Logs', icon: <TextSnippetIcon fontSize="small" />, path: 'logs' },
-] as const
+type NavItem = { label: string; icon: React.ReactElement; path: string }
+type NavGroup = { group?: string; items: NavItem[] }
 
-const PROJECT_NAV_EXTRAS = [
+const NAV_GROUPS: NavGroup[] = [
+  {
+    items: [
+      { label: 'Blockers', icon: <HelpOutlineIcon fontSize="small" />, path: 'blocker-questions' },
+      { label: 'Tasks', icon: <TaskAltIcon fontSize="small" />, path: 'tasks' },
+      { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
+      { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
+    ],
+  },
+  {
+    group: 'Project',
+    items: [
+      { label: 'Goals', icon: <FlagIcon fontSize="small" />, path: 'goals' },
+      { label: 'Themes', icon: <BookmarkIcon fontSize="small" />, path: 'themes' },
+      { label: 'Features', icon: <ExtensionIcon fontSize="small" />, path: 'features' },
+      { label: 'Journal', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
+      { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
+      { label: 'Proposals', icon: <LightbulbIcon fontSize="small" />, path: 'proposals' },
+    ],
+  },
+  {
+    group: 'Observability',
+    items: [
+      { label: 'Timings', icon: <TimerIcon fontSize="small" />, path: 'timings' },
+      { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
+      { label: 'Counters', icon: <PlusOneIcon fontSize="small" />, path: 'counters' },
+      { label: 'Logs', icon: <TextSnippetIcon fontSize="small" />, path: 'logs' },
+    ],
+  },
+  {
+    group: 'Support',
+    items: [
+      { label: 'Questions', icon: <QuestionAnswerIcon fontSize="small" />, path: 'questions' },
+      { label: 'Claude', icon: <SmartToyIcon fontSize="small" />, path: 'claude' },
+    ],
+  },
+]
+
+const PROJECT_NAV_EXTRAS: NavItem[] = [
   { label: 'Settings', icon: <TuneIcon fontSize="small" />, path: 'settings' },
-] as const
+]
 
 function ProjectLabel() {
   const { data } = useProjects()
@@ -148,6 +174,84 @@ function Omnibox() {
   )
 }
 
+function NavGroupList({ currentSlug, activePath, isQueueActive, onNavigate }: {
+  currentSlug: string; activePath: string; isQueueActive: boolean; onNavigate?: () => void
+}) {
+  const [collapsed, setCollapsed] = useState<Record<string, boolean>>({})
+  const toggle = useCallback((group: string) => {
+    setCollapsed(prev => ({ ...prev, [group]: !prev[group] }))
+  }, [])
+
+  const renderItem = (s: NavItem) => (
+    <ListItemButton
+      key={s.path}
+      selected={activePath === s.path}
+      component={Link as any}
+      to={`/project/$slug/${s.path}` as any}
+      params={{ slug: currentSlug }}
+      onClick={onNavigate}
+    >
+      <ListItemIcon sx={{ minWidth: 36 }}>{s.icon}</ListItemIcon>
+      <ListItemText primary={s.label} />
+    </ListItemButton>
+  )
+
+  return (
+    <List dense>
+      <ListItemButton
+        selected={isQueueActive}
+        component={Link as any}
+        to="/project/$slug/queue"
+        params={{ slug: currentSlug }}
+        onClick={onNavigate}
+      >
+        <ListItemIcon sx={{ minWidth: 36 }}>
+          <PlaylistPlayIcon fontSize="small" />
+        </ListItemIcon>
+        <ListItemText primary="Queue" />
+      </ListItemButton>
+      {NAV_GROUPS.map((g, i) => {
+        if (!g.group) return g.items.map(renderItem)
+        const isCollapsed = !!collapsed[g.group]
+        return (
+          <Box key={g.group || i}>
+            <ListSubheader
+              component="div"
+              sx={{
+                lineHeight: '32px', fontSize: '0.7rem', fontWeight: 700,
+                textTransform: 'uppercase', letterSpacing: 0.5,
+                cursor: 'pointer', userSelect: 'none',
+                display: 'flex', alignItems: 'center', justifyContent: 'space-between',
+                bgcolor: 'transparent',
+              }}
+              onClick={() => toggle(g.group!)}
+            >
+              {g.group}
+              {isCollapsed ? <ExpandMoreIcon sx={{ fontSize: 16 }} /> : <ExpandLessIcon sx={{ fontSize: 16 }} />}
+            </ListSubheader>
+            <Collapse in={!isCollapsed}>
+              {g.items.map(renderItem)}
+            </Collapse>
+          </Box>
+        )
+      })}
+      {PROJECT_NAV_EXTRAS.map(s => (
+        <ListItemButton
+          key={s.path}
+          selected={activePath === s.path}
+          component={Link as any}
+          to={`/project/$slug/${s.path}` as any}
+          params={{ slug: currentSlug }}
+          onClick={onNavigate}
+        >
+          <ListItemIcon sx={{ minWidth: 36 }}>{s.icon}</ListItemIcon>
+          <ListItemText primary={s.label} />
+        </ListItemButton>
+      ))}
+    </List>
+  )
+}
+
 function SectionNav({ onNavigate }: { onNavigate?: () => void }) {
   const matches = useMatches()
   const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
@@ -181,50 +285,7 @@ function SectionNav({ onNavigate }: { onNavigate?: () => void }) {
           <option value="server">server</option>
         </TextField>
       </Box>
-      <List dense>
-        <ListItemButton
-          selected={isQueueActive}
-          component={Link as any}
-          to="/project/$slug/queue"
-          params={{ slug: currentSlug }}
-          onClick={onNavigate}
-        >
-          <ListItemIcon sx={{ minWidth: 36 }}>
-            <PlaylistPlayIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="Queue" />
-        </ListItemButton>
-        {SECTIONS.map(s => (
-          <ListItemButton
-            key={s.path}
-            selected={activePath === s.path}
-            component={Link as any}
-            to={`/project/$slug/${s.path}` as any}
-            params={{ slug: currentSlug }}
-            onClick={onNavigate}
-          >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              {s.icon}
-            </ListItemIcon>
-            <ListItemText primary={s.label} />
-          </ListItemButton>
-        ))}
-        {PROJECT_NAV_EXTRAS.map(s => (
-          <ListItemButton
-            key={s.path}
-            selected={activePath === s.path || lastRouteId === `/project/$slug/${s.path}`}
-            component={Link as any}
-            to={`/project/$slug/${s.path}` as any}
-            params={{ slug: currentSlug }}
-            onClick={onNavigate}
-          >
-            <ListItemIcon sx={{ minWidth: 36 }}>
-              {s.icon}
-            </ListItemIcon>
-            <ListItemText primary={s.label} />
-          </ListItemButton>
-        ))}
-      </List>
+      <NavGroupList currentSlug={currentSlug} activePath={activePath} isQueueActive={isQueueActive} onNavigate={onNavigate} />
     </>
   )
 }
