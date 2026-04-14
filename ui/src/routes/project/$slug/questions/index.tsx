@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   Alert,
   Box,
@@ -19,7 +19,7 @@ import {
   useSimilarQuestions,
   type QuestionItem,
   type SimilarQuestionItem,
-} from '../../../api'
+} from '../../../../api'
 
 function SimilarQuestionsList({
   items,
@@ -66,6 +66,7 @@ function SimilarQuestionsList({
 }
 
 function QuestionCard({ item, slug, depth = 0 }: { item: QuestionItem; slug: string; depth?: number }) {
+  const questionLink = { to: '/project/$slug/questions/$id' as const, params: { slug, id: String(item.id) } }
   const [showVariation, setShowVariation] = useState(false)
   const [variationText, setVariationText] = useState('')
   const createQuestion = useCreateQuestion()
@@ -89,14 +90,25 @@ function QuestionCard({ item, slug, depth = 0 }: { item: QuestionItem; slug: str
     <Box sx={{ ml: depth > 0 ? 3 : 0 }}>
       <Paper variant="outlined" sx={{ p: 2, mb: 1.5, borderLeft: depth > 0 ? '3px solid' : undefined, borderLeftColor: depth > 0 ? 'primary.light' : undefined }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
-            #{item.id}
-          </Typography>
+          <Chip
+            label={`#${item.id}`}
+            size="small"
+            variant="outlined"
+            component={Link as any}
+            {...questionLink}
+            clickable
+          />
           {item.parent_question_id && (
             <Chip label={`variation of #${item.parent_question_id}`} size="small" variant="outlined" color="info" />
           )}
         </Box>
-        <Typography variant="body1" sx={{ fontWeight: 500 }}>{item.question}</Typography>
+        <Box
+          component={Link as any}
+          {...questionLink}
+          sx={{ textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
+        >
+          <Typography variant="body1" sx={{ fontWeight: 500 }}>{item.question}</Typography>
+        </Box>
         {item.answer ? (
           <Typography variant="body2" color="text.secondary" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
             {item.answer}
@@ -223,6 +235,6 @@ function QuestionsPage() {
   )
 }
 
-export const Route = createFileRoute('/project/$slug/questions')({
+export const Route = createFileRoute('/project/$slug/questions/')({
   component: QuestionsPage,
 })

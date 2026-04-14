@@ -736,6 +736,16 @@ export interface QuestionItem {
   parent_question_id: number | null
 }
 
+export const useQuestion = (slug: string, id: number) =>
+  useQuery<QuestionItem>({
+    queryKey: ['question', slug, id],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, id: String(id) })
+      return apiFetch<QuestionItem>(`/api/dx/qa/get?${params}`)
+    },
+    enabled: !!slug && id > 0,
+  })
+
 export const useQuestions = (slug: string, limit?: number, offset?: number) =>
   useQuery<{ questions: QuestionItem[]; total: number }>({
     queryKey: ['questions', slug, limit, offset],

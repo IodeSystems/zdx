@@ -3701,6 +3701,22 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body QuestionItem }{Body: toQuestionItem(row)}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "get-question", Method: http.MethodGet, Path: "/api/dx/qa/get"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   int32  `query:"id" required:"true"`
+		}) (*struct{ Body QuestionItem }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := s.q.GetQuestion(ctx, db.GetQuestionParams{ProjectID: p.ID, ID: in.ID})
+			if err != nil {
+				return nil, apiErr(404, "question not found")
+			}
+			return &struct{ Body QuestionItem }{Body: toQuestionItem(row)}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "list-questions", Method: http.MethodGet, Path: "/api/dx/qa/list"},
 		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
 			Body struct {

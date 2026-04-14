@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countClaudeEvents = `-- name: CountClaudeEvents :one
@@ -67,7 +69,17 @@ type CreateClaudeSessionParams struct {
 	Alias     string `db:"alias" json:"alias"`
 }
 
-func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (ZdxClaudeSession, error) {
+type CreateClaudeSessionRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error) {
 	row := q.db.QueryRow(ctx, createClaudeSession,
 		arg.ProjectID,
 		arg.IssueID,
@@ -75,7 +87,7 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 		arg.Title,
 		arg.Alias,
 	)
-	var i ZdxClaudeSession
+	var i CreateClaudeSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -98,9 +110,19 @@ type GetClaudeSessionParams struct {
 	ID        int64 `db:"id" json:"id"`
 }
 
-func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (ZdxClaudeSession, error) {
+type GetClaudeSessionRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error) {
 	row := q.db.QueryRow(ctx, getClaudeSession, arg.ProjectID, arg.ID)
-	var i ZdxClaudeSession
+	var i GetClaudeSessionRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -123,9 +145,19 @@ type GetClaudeSessionBySessionIDParams struct {
 	SessionID string `db:"session_id" json:"session_id"`
 }
 
-func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (ZdxClaudeSession, error) {
+type GetClaudeSessionBySessionIDRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (GetClaudeSessionBySessionIDRow, error) {
 	row := q.db.QueryRow(ctx, getClaudeSessionBySessionID, arg.ProjectID, arg.SessionID)
-	var i ZdxClaudeSession
+	var i GetClaudeSessionBySessionIDRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -251,15 +283,25 @@ WHERE project_id = $1
 ORDER BY created_at DESC
 `
 
-func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]ZdxClaudeSession, error) {
+type ListClaudeSessionsRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]ListClaudeSessionsRow, error) {
 	rows, err := q.db.Query(ctx, listClaudeSessions, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxClaudeSession
+	var items []ListClaudeSessionsRow
 	for rows.Next() {
-		var i ZdxClaudeSession
+		var i ListClaudeSessionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -293,15 +335,25 @@ type ListClaudeSessionsPaginatedParams struct {
 	Offset    int32 `db:"offset" json:"offset"`
 }
 
-func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ZdxClaudeSession, error) {
+type ListClaudeSessionsPaginatedRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listClaudeSessionsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxClaudeSession
+	var items []ListClaudeSessionsPaginatedRow
 	for rows.Next() {
-		var i ZdxClaudeSession
+		var i ListClaudeSessionsPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
