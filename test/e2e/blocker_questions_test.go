@@ -149,6 +149,32 @@ func TestBlockerQuestionList(t *testing.T) {
 	}
 }
 
+func TestBlockerQuestionChoicesPersistence(t *testing.T) {
+	setupBQProject(t)
+
+	var q struct {
+		ID      int32    `json:"id"`
+		Choices []string `json:"choices"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/blocker-questions/add",
+		map[string]any{
+			"slug":        "e2e-bq",
+			"target_type": "feature",
+			"target_id":   "auth",
+			"context":     "Choices persistence test",
+			"choices":     []string{"option-a", "option-b", "option-c"},
+		},
+		&q,
+	))
+
+	if len(q.Choices) != 3 {
+		t.Fatalf("choices: want 3, got %d", len(q.Choices))
+	}
+	if q.Choices[0] != "option-a" || q.Choices[1] != "option-b" || q.Choices[2] != "option-c" {
+		t.Errorf("choices: want [option-a option-b option-c], got %v", q.Choices)
+	}
+}
+
 func TestBlockerQuestionListPending(t *testing.T) {
 	setupBQProject(t)
 
