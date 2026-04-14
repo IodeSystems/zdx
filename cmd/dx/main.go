@@ -40,6 +40,7 @@ func main() {
 		cli.RevisionCmd(),
 		cli.RefCmd(),
 		cli.QaCmd(),
+		cli.McpCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

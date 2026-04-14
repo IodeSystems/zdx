@@ -1,0 +1,549 @@
+package cli
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"fmt"
+	"net/url"
+	"os/exec"
+	"strconv"
+	"strings"
+
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+	"github.com/spf13/cobra"
+)
+
+func McpCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "mcp",
+		Short: "Start MCP server (stdio transport)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := DefaultClient()
+			if err != nil {
+				return err
+			}
+			srv := mcp.NewServer(&mcp.Implementation{
+				Name:    "dx",
+				Version: "0.1.0",
+			}, nil)
+			registerMCPTools(srv, c)
+			return srv.Run(cmd.Context(), &mcp.StdioTransport{})
+		},
+	}
+}
+
+func registerMCPTools(srv *mcp.Server, c *Client) {
+	slug := c.Slug()
+
+	// ── issue tools ──────────────────────────────────────────────────────────
+
+	type issueListInput struct {
+		Status string `json:"status,omitempty" jsonschema:"filter by status (open, closed)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "issue_list",
+		Description: "List issues, optionally filtered by status",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueListInput) (*mcp.CallToolResult, any, error) {
+		var resp struct {
+			Issues []issueItem `json:"issues"`
+		}
+		if err := c.get("/api/dx/todo/issue/list", url.Values{"slug": {slug}}, &resp); err != nil {
+			return nil, nil, err
+		}
+		if in.Status != "" {
+			var filtered []issueItem
+			for _, iss := range resp.Issues {
+				if iss.Status == in.Status {
+					filtered = append(filtered, iss)
+				}
+			}
+			resp.Issues = filtered
+		}
+		return nil, resp, nil
+	})
+
+	type issueAddInput struct {
+		Title     string `json:"title" jsonschema:"required,issue title"`
+		Context   string `json:"context,omitempty" jsonschema:"context / description"`
+		Component string `json:"component,omitempty" jsonschema:"component"`
+		BlockedBy string `json:"blocked_by,omitempty" jsonschema:"blocking issue (IS-N)"`
+		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops or impl"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "issue_add",
+		Description: "Create a new issue",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueAddInput) (*mcp.CallToolResult, any, error) {
+		issType := in.IssueType
+		if issType == "" {
+			issType = "ops"
+		}
+		var iss issueItem
+		if err := c.post("/api/dx/todo/issue/add", map[string]any{
+			"slug":       slug,
+			"title":      in.Title,
+			"context":    in.Context,
+			"component":  in.Component,
+			"blocked_by": in.BlockedBy,
+			"issue_type": issType,
+		}, &iss); err != nil {
+			return nil, nil, err
+		}
+		return nil, iss, nil
+	})
+
+	type issueShowInput struct {
+		ID string `json:"id" jsonschema:"required,issue ID (IS-N)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "issue_show",
+		Description: "Show issue detail with work log",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueShowInput) (*mcp.CallToolResult, any, error) {
+		var resp struct {
+			Issue issueItem       `json:"issue"`
+			Work  []issueWorkItem `json:"work"`
+		}
+		if err := c.get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {in.ID}}, &resp); err != nil {
+			return nil, nil, err
+		}
+		return nil, resp, nil
+	})
+
+	type issueCloseInput struct {
+		ID     string `json:"id" jsonschema:"required,issue ID (IS-N)"`
+		Reason string `json:"reason,omitempty" jsonschema:"close reason"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "issue_close",
+		Description: "Close an issue",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueCloseInput) (*mcp.CallToolResult, any, error) {
+		n, err := parseIssueNum(in.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		var ok struct {
+			OK bool `json:"ok"`
+		}
+		if err := c.post("/api/dx/todo/issue/close", map[string]any{
+			"slug":   slug,
+			"id":     n,
+			"reason": in.Reason,
+		}, &ok); err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]string{"status": "closed", "id": in.ID}, nil
+	})
+
+	type issueEditInput struct {
+		ID        string `json:"id" jsonschema:"required,issue ID (IS-N)"`
+		Title     string `json:"title,omitempty" jsonschema:"issue title"`
+		Context   string `json:"context,omitempty" jsonschema:"context / description"`
+		Priority  *int   `json:"priority,omitempty" jsonschema:"priority (1-4)"`
+		Component string `json:"component,omitempty" jsonschema:"component"`
+		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops or impl"`
+		BlockedBy string `json:"blocked_by,omitempty" jsonschema:"blocking issue (IS-N) or empty to clear"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "issue_edit",
+		Description: "Edit fields on an existing issue",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueEditInput) (*mcp.CallToolResult, any, error) {
+		n, err := parseIssueNum(in.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		body := map[string]any{"slug": slug, "id": n}
+		raw, _ := json.Marshal(in)
+		var fields map[string]any
+		json.Unmarshal(raw, &fields)
+		for k, v := range fields {
+			if k == "id" {
+				continue
+			}
+			body[k] = v
+		}
+		var ok struct {
+			OK bool `json:"ok"`
+		}
+		if err := c.post("/api/dx/todo/issue/edit", body, &ok); err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]string{"status": "updated", "id": in.ID}, nil
+	})
+
+	type issueBlockInput struct {
+		ID string `json:"id" jsonschema:"required,issue ID (IS-N)"`
+		By string `json:"by" jsonschema:"required,blocking issue (IS-N)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "issue_block",
+		Description: "Set a blocker on an issue",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueBlockInput) (*mcp.CallToolResult, any, error) {
+		n, err := parseIssueNum(in.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		var ok struct {
+			OK bool `json:"ok"`
+		}
+		if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
+			"slug":       slug,
+			"id":         n,
+			"blocked_by": in.By,
+		}, &ok); err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]string{"status": "blocked", "id": in.ID, "by": in.By}, nil
+	})
+
+	type issueUnblockInput struct {
+		ID string `json:"id" jsonschema:"required,issue ID (IS-N)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "issue_unblock",
+		Description: "Clear blockers on an issue",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueUnblockInput) (*mcp.CallToolResult, any, error) {
+		n, err := parseIssueNum(in.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		var ok struct {
+			OK bool `json:"ok"`
+		}
+		if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
+			"slug":       slug,
+			"id":         n,
+			"blocked_by": "",
+		}, &ok); err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]string{"status": "unblocked", "id": in.ID}, nil
+	})
+
+	// ── todo tools ───────────────────────────────────────────────────────────
+
+	type todoSoloInput struct {
+		Issue string `json:"issue,omitempty" jsonschema:"filter to specific issue (IS-N)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "todo_solo",
+		Description: "Get next actionable item from the workflow queue",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoSoloInput) (*mcp.CallToolResult, any, error) {
+		args := []string{"todo", "solo"}
+		if in.Issue != "" {
+			args = append(args, "--issue="+in.Issue)
+		}
+		out, err := runDX(args...)
+		if err != nil {
+			return nil, nil, fmt.Errorf("%s: %s", err, out)
+		}
+		return nil, map[string]string{"output": strings.TrimSpace(out)}, nil
+	})
+
+	type todoShowInput struct {
+		ID string `json:"id" jsonschema:"required,entity ID (IS-N, TK-N, or feature name)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "todo_show",
+		Description: "Show issue, task, or feature details",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoShowInput) (*mcp.CallToolResult, any, error) {
+		id := in.ID
+		switch {
+		case len(id) > 3 && id[:3] == "IS-":
+			var resp struct {
+				Issue issueItem       `json:"issue"`
+				Work  []issueWorkItem `json:"work"`
+			}
+			if err := c.get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {id}}, &resp); err != nil {
+				return nil, nil, err
+			}
+			return nil, resp, nil
+		case len(id) > 3 && id[:3] == "TK-":
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			var taskList struct {
+				Tasks []taskItem `json:"tasks"`
+			}
+			if err := c.get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
+				return nil, nil, err
+			}
+			for _, t := range taskList.Tasks {
+				if t.ID == int32(n) {
+					return nil, t, nil
+				}
+			}
+			return nil, nil, fmt.Errorf("task %s not found", id)
+		default:
+			var featList struct {
+				Features []featureItem `json:"features"`
+			}
+			if err := c.get("/api/features", url.Values{"slug": {slug}}, &featList); err != nil {
+				return nil, nil, err
+			}
+			for _, f := range featList.Features {
+				if f.Name == id {
+					return nil, f, nil
+				}
+			}
+			return nil, nil, fmt.Errorf("feature %q not found", id)
+		}
+	})
+
+	type todoListInput struct {
+		Issue   string `json:"issue,omitempty" jsonschema:"filter by issue (IS-N)"`
+		Feature string `json:"feature,omitempty" jsonschema:"filter by feature name"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "todo_list",
+		Description: "List tasks, optionally filtered by issue or feature",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoListInput) (*mcp.CallToolResult, any, error) {
+		var taskList struct {
+			Tasks []taskItem `json:"tasks"`
+		}
+		if in.Issue != "" {
+			if err := c.get("/api/dx/todo/issue/tasks", url.Values{
+				"slug":     {slug},
+				"issue_id": {in.Issue},
+			}, &taskList); err != nil {
+				return nil, nil, err
+			}
+		} else if in.Feature != "" {
+			if err := c.get("/api/tasks-by-feature", url.Values{
+				"slug":    {slug},
+				"feature": {in.Feature},
+			}, &taskList); err != nil {
+				return nil, nil, err
+			}
+		} else {
+			if err := c.get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
+				return nil, nil, err
+			}
+		}
+		return nil, taskList, nil
+	})
+
+	type todoDevDoneInput struct {
+		ID       string `json:"id" jsonschema:"required,task ID (TK-N)"`
+		TestPlan string `json:"test_plan,omitempty" jsonschema:"test plan description"`
+		TestRefs string `json:"test_refs,omitempty" jsonschema:"test references"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "todo_dev_done",
+		Description: "Mark a task as done",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoDevDoneInput) (*mcp.CallToolResult, any, error) {
+		n, err := parseTaskNum(in.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		var ok struct {
+			OK bool `json:"ok"`
+		}
+		if err := c.post("/api/dx/todo/dev/done", map[string]any{
+			"id":        n,
+			"test_plan": in.TestPlan,
+			"test_refs": in.TestRefs,
+		}, &ok); err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]string{"status": "done", "id": in.ID}, nil
+	})
+
+	type todoDevStartInput struct {
+		ID     string `json:"id" jsonschema:"required,task ID (TK-N)"`
+		Reason string `json:"reason,omitempty" jsonschema:"notes"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "todo_dev_start",
+		Description: "Mark a task as in-progress",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoDevStartInput) (*mcp.CallToolResult, any, error) {
+		n, err := parseTaskNum(in.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		var ok struct {
+			OK bool `json:"ok"`
+		}
+		if err := c.put("/api/task-status", map[string]any{
+			"id":     n,
+			"status": "in_progress",
+			"reason": in.Reason,
+		}, &ok); err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]string{"status": "in_progress", "id": in.ID}, nil
+	})
+
+	type todoOwnerTriageInput struct {
+		ID        string `json:"id" jsonschema:"required,issue ID (IS-N)"`
+		Priority  int    `json:"priority" jsonschema:"required,priority 1-4 (1=highest)"`
+		Title     string `json:"title,omitempty" jsonschema:"set issue title"`
+		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops or impl"`
+		Context   string `json:"context,omitempty" jsonschema:"rewrite issue context"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "todo_owner_triage",
+		Description: "Triage an issue by setting priority and optionally rewriting title/context",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoOwnerTriageInput) (*mcp.CallToolResult, any, error) {
+		n, err := parseIssueNum(in.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		body := map[string]any{
+			"slug":     slug,
+			"id":       n,
+			"priority": int32(in.Priority),
+		}
+		if in.Title != "" {
+			body["title"] = in.Title
+		}
+		if in.IssueType != "" {
+			body["issue_type"] = in.IssueType
+		}
+		if in.Context != "" {
+			body["context"] = in.Context
+		}
+		var ok struct {
+			OK bool `json:"ok"`
+		}
+		if err := c.post("/api/dx/todo/owner/triage", body, &ok); err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]any{"status": "triaged", "id": in.ID, "priority": in.Priority}, nil
+	})
+
+	type todoTechAddInput struct {
+		Text    string `json:"text" jsonschema:"required,task description"`
+		Issue   string `json:"issue,omitempty" jsonschema:"link to issue (IS-N)"`
+		Feature string `json:"feature,omitempty" jsonschema:"link to feature name"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "todo_tech_add",
+		Description: "Add a task to an issue or feature",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoTechAddInput) (*mcp.CallToolResult, any, error) {
+		var t taskItem
+		if err := c.post("/api/dx/todo/tech/add", map[string]any{
+			"slug":    slug,
+			"text":    in.Text,
+			"feature": in.Feature,
+			"issue":   in.Issue,
+		}, &t); err != nil {
+			return nil, nil, err
+		}
+		return nil, t, nil
+	})
+
+	// ── feature tools ────────────────────────────────────────────────────────
+
+	type featureListInput struct{}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "feature_list",
+		Description: "List all features",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in featureListInput) (*mcp.CallToolResult, any, error) {
+		var resp struct {
+			Features []featureItem `json:"features"`
+		}
+		if err := c.get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
+			return nil, nil, err
+		}
+		return nil, resp, nil
+	})
+
+	type featureShowInput struct {
+		Name string `json:"name" jsonschema:"required,feature name"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "feature_show",
+		Description: "Show feature detail with specs",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in featureShowInput) (*mcp.CallToolResult, any, error) {
+		var resp struct {
+			Features []featureItem `json:"features"`
+		}
+		if err := c.get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
+			return nil, nil, err
+		}
+		for _, f := range resp.Features {
+			if f.Name == in.Name {
+				return nil, f, nil
+			}
+		}
+		return nil, nil, fmt.Errorf("feature %q not found", in.Name)
+	})
+
+	// ── comment tools ────────────────────────────────────────────────────────
+
+	type commentListInput struct {
+		TargetType string `json:"target_type" jsonschema:"required,target type (issue, task, feature)"`
+		TargetID   string `json:"target_id" jsonschema:"required,target ID (IS-N, TK-N, or feature name)"`
+		Role       string `json:"role,omitempty" jsonschema:"show read/unread indicator for this role (e.g. llm, dev)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "comment_list",
+		Description: "List comments on an issue, task, or feature",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in commentListInput) (*mcp.CallToolResult, any, error) {
+		q := url.Values{
+			"slug":        {slug},
+			"target_type": {in.TargetType},
+			"target_id":   {in.TargetID},
+		}
+		if in.Role != "" {
+			q.Set("role", in.Role)
+		}
+		var resp struct {
+			Comments []commentItem `json:"comments"`
+		}
+		if err := c.get("/api/dx/comment/list", q, &resp); err != nil {
+			return nil, nil, err
+		}
+		return nil, resp, nil
+	})
+
+	type commentAddInput struct {
+		TargetType string `json:"target_type" jsonschema:"required,target type (issue, task, feature)"`
+		TargetID   string `json:"target_id" jsonschema:"required,target ID (IS-N, TK-N, or feature name)"`
+		Body       string `json:"body" jsonschema:"required,comment body"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "comment_add",
+		Description: "Add a comment to an issue, task, or feature",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in commentAddInput) (*mcp.CallToolResult, any, error) {
+		var cm commentItem
+		if err := c.post("/api/dx/comment/add", map[string]any{
+			"slug":        slug,
+			"target_type": in.TargetType,
+			"target_id":   in.TargetID,
+			"body":        in.Body,
+		}, &cm); err != nil {
+			return nil, nil, err
+		}
+		return nil, cm, nil
+	})
+}
+
+func runDX(args ...string) (string, error) {
+	cmd := exec.Command("dx", args...)
+	var buf bytes.Buffer
+	cmd.Stdout = &buf
+	cmd.Stderr = &buf
+	err := cmd.Run()
+	return buf.String(), err
+}
+
+func parseIssueNum(id string) (int32, error) {
+	if len(id) < 4 || id[:3] != "IS-" {
+		return 0, fmt.Errorf("invalid issue ID %q (expected IS-N)", id)
+	}
+	n, err := strconv.ParseInt(id[3:], 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid issue ID %q: %w", id, err)
+	}
+	return int32(n), nil
+}
+
+func parseTaskNum(id string) (int32, error) {
+	if len(id) < 4 || id[:3] != "TK-" {
+		return 0, fmt.Errorf("invalid task ID %q (expected TK-N)", id)
+	}
+	n, err := strconv.ParseInt(id[3:], 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid task ID %q: %w", id, err)
+	}
+	return int32(n), nil
+}
