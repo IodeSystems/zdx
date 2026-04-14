@@ -23,6 +23,7 @@ func main() {
 		cli.FeatureCmd(),
 		cli.GoalCmd(),
 		cli.ConstraintCmd(),
+		cli.JournalCmd(),
 		cli.ThemeCmd(),
 		cli.SpecCmd(),
 		cli.BuildCmd(),

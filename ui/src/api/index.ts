@@ -1059,3 +1059,37 @@ export const useDeleteConstraint = (slug: string) => {
     onSuccess: () => qc.invalidateQueries({ queryKey: ['constraints', slug] }),
   })
 }
+
+// ── Journal ────────────────────────────────────────────────────────────────
+
+export interface JournalEntryItem {
+  date: string
+  baseline: boolean
+  tldr: string
+  assessment: string
+  concerns: string
+  next: string
+  changelog_json: string
+  state_json: string
+}
+
+export const useJournalEntries = (slug: string, role: string) =>
+  useQuery<JournalEntryItem[]>({
+    queryKey: ['journal', slug, role],
+    queryFn: async () => {
+      const data = await apiFetch<{ entries: JournalEntryItem[] }>(
+        `/api/dx/journal/show?slug=${encodeURIComponent(slug)}&role=${encodeURIComponent(role)}`,
+      )
+      return data.entries ?? []
+    },
+    enabled: !!slug && !!role,
+  })
+
+export const useCreateJournalEntry = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { slug: string; role: string; date: string; tldr: string; assessment: string; concerns: string; next: string }) =>
+      apiPost<OKBody>('/api/dx/journal/checkin', body),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['journal', vars.slug, vars.role] }),
+  })
+}

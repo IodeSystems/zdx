@@ -22,6 +22,7 @@ import {
   useTheme,
 } from '@mui/material'
 import {
+  AutoStories as AutoStoriesIcon,
   Extension as ExtensionIcon,
   Flag as FlagIcon,
   HelpOutlined as HelpOutlineIcon,
@@ -59,6 +60,7 @@ const SECTIONS = [
   { label: 'Blockers', icon: <HelpOutlineIcon fontSize="small" />, path: 'blocker-questions' },
   { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
   { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
+  { label: 'Journal', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
   { label: 'Claude', icon: <SmartToyIcon fontSize="small" />, path: 'claude' },
   { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
   { label: 'Timings', icon: <TimerIcon fontSize="small" />, path: 'timings' },
