@@ -2566,6 +2566,13 @@ CREATE INDEX zdx_revisions_target ON public.zdx_revisions USING btree (project_i
 
 
 --
+-- Name: zdx_timed_context_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_timed_context_gin ON public.zdx_timed USING gin (context_json jsonb_path_ops);
+
+
+--
 -- Name: zdx_timed_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2577,13 +2584,6 @@ CREATE UNIQUE INDEX zdx_timed_name ON public.zdx_timed USING btree (COALESCE(pro
 --
 
 CREATE INDEX zdx_timed_project ON public.zdx_timed USING btree (project_id);
-
-
---
--- Name: zdx_timed_context_gin; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX zdx_timed_context_gin ON public.zdx_timed USING gin (context_json jsonb_path_ops);
 
 
 --
