@@ -218,7 +218,8 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// 0c. Check for pending blocker-questions on any open issue.
+	// 0c. Check for pending blocker-questions on open issues.
+	bqBlockedIssues := map[string]bool{}
 	{
 		var bqResp struct {
 			Questions []blockerQuestionItem `json:"questions"`
@@ -232,7 +233,6 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			if q.TargetType != "issue" {
 				continue
 			}
-			// Only surface questions for issues in our target set.
 			matched := false
 			for _, iss := range targetIssues {
 				if issueIDStr(iss.ID) == q.TargetID && iss.Status == "open" {
@@ -243,16 +243,31 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			if !matched {
 				continue
 			}
-			fmt.Printf("[clarify] %s  BQ-%d\n", q.TargetID, q.ID)
-			fmt.Printf("  %s\n", q.Context)
-			if len(q.Choices) > 0 {
-				for i, ch := range q.Choices {
-					fmt.Printf("    %d. %s\n", i+1, ch)
+			if issueFlag != "" {
+				// Scoped to a single issue — block until answered.
+				fmt.Printf("[clarify] %s  BQ-%d\n", q.TargetID, q.ID)
+				fmt.Printf("  %s\n", q.Context)
+				if len(q.Choices) > 0 {
+					for i, ch := range q.Choices {
+						fmt.Printf("    %d. %s\n", i+1, ch)
+					}
 				}
+				fmt.Printf("  answer: dx question answer %d --answer=\"...\"\n", q.ID)
+				return nil
 			}
-			fmt.Printf("  answer: dx question answer %d --answer=\"...\"\n", q.ID)
-			return nil
+			// Global mode — skip this issue, pick other work.
+			bqBlockedIssues[q.TargetID] = true
 		}
+	}
+	// Filter out BQ-blocked issues in global mode.
+	if issueFlag == "" && len(bqBlockedIssues) > 0 {
+		filtered := targetIssues[:0]
+		for _, iss := range targetIssues {
+			if !bqBlockedIssues[issueIDStr(iss.ID)] {
+				filtered = append(filtered, iss)
+			}
+		}
+		targetIssues = filtered
 	}
 
 	// 0d. Bootstrap: if no issues exist at all, guide agent to analyze the project.
