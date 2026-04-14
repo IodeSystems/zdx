@@ -540,3 +540,26 @@ export const useTaskCodeRefs = (slug: string, taskId: string) =>
     },
     enabled: !!slug && !!taskId,
   })
+
+// ── questions ─────────────────────────────────────────────────────────────────
+
+export interface QuestionItem {
+  id: number
+  category: string
+  question: string
+  answer: string
+  created_at: string
+  updated_at: string
+}
+
+export const useQuestions = (slug: string) =>
+  useQuery<QuestionItem[]>({
+    queryKey: ['questions', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ questions: QuestionItem[] }>(
+        `/api/dx/qa/list?slug=${encodeURIComponent(slug)}`
+      )
+      return res.questions ?? []
+    },
+    enabled: !!slug,
+  })
