@@ -26,7 +26,7 @@ export function TaskDetail({
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
-  const tasks = data ?? []
+  const tasks = data?.tasks ?? []
   // taskId is "TK-N" format; TaskItem.id is numeric
   const numericId = parseInt(taskId.replace(/^TK-/i, ''), 10)
   const task = tasks.find(t => t.id === numericId)

@@ -26,6 +26,14 @@ FROM zdx_tests WHERE project_id = @project_id AND component = @component AND nam
 SELECT id, project_id, component, name, layer, status, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 ORDER BY component, name;
 
+-- name: CountTests :one
+SELECT count(*) FROM zdx_tests WHERE project_id = $1;
+
+-- name: ListTestsPaginated :many
+SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+FROM zdx_tests WHERE project_id = $1 ORDER BY component, name
+LIMIT $2 OFFSET $3;
+
 -- name: ListTestsByLayer :many
 SELECT id, project_id, component, name, layer, status, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 AND layer = $2 ORDER BY component, name;

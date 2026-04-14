@@ -138,9 +138,12 @@ function TimedRow({ t }: { t: TimedItem }) {
 
 export function ErrorsTab({ slug, componentSlug: _componentSlug }: { slug: string; componentSlug?: string }) {
   const [tab, setTab] = useState(0)
-  const { data: errors = [], isLoading: errLoading } = useErrors(slug)
-  const { data: queries = [], isLoading: qLoading } = useSlowQueries(slug)
-  const { data: timed = [], isLoading: timedLoading } = useTimed(slug)
+  const { data: errData, isLoading: errLoading } = useErrors(slug)
+  const { data: qData, isLoading: qLoading } = useSlowQueries(slug)
+  const { data: timedData, isLoading: timedLoading } = useTimed(slug)
+  const errors = errData?.errors ?? []
+  const queries = qData?.queries ?? []
+  const timed = timedData?.items ?? []
   const clearErrors = useClearErrors(slug)
   const { data: config } = useZdxConfig()
   const isZdxProject = !!config?.zdx_project_slug && config.zdx_project_slug === slug

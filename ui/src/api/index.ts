@@ -145,13 +145,16 @@ export const useProjects = () =>
 
 // ── issues ────────────────────────────────────────────────────────────────────
 
-export const useIssues = (slug: string) =>
-  useQuery<IssueItem[]>({
-    queryKey: ['issues', slug],
+export const useIssues = (slug: string, limit?: number, offset?: number) =>
+  useQuery<{ issues: IssueItem[]; total: number }>({
+    queryKey: ['issues', slug, limit, offset],
     queryFn: async () => {
-      const { data, error } = await client.GET('/api/dx/todo/issue/list', { params: { query: { slug } } })
+      const params: Record<string, string> = { slug }
+      if (limit != null) params.limit = String(limit)
+      if (offset != null) params.offset = String(offset)
+      const { data, error } = await client.GET('/api/dx/todo/issue/list', { params: { query: params as any } })
       if (error) throw new Error(JSON.stringify(error))
-      return data?.issues ?? []
+      return { issues: data?.issues ?? [], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -213,23 +216,26 @@ export const useCloseIssue = () => {
 
 // ── tasks ─────────────────────────────────────────────────────────────────────
 
-export const useTasks = (slug: string, opts?: { feature?: string; issue?: string }) =>
-  useQuery<TaskItem[]>({
-    queryKey: ['tasks', slug, opts],
+export const useTasks = (slug: string, opts?: { feature?: string; issue?: string }, limit?: number, offset?: number) =>
+  useQuery<{ tasks: TaskItem[]; total: number }>({
+    queryKey: ['tasks', slug, opts, limit, offset],
     queryFn: async () => {
+      const pageParams = {} as Record<string, string>
+      if (limit != null) pageParams.limit = String(limit)
+      if (offset != null) pageParams.offset = String(offset)
       if (opts?.feature) {
-        const { data, error } = await client.GET('/api/tasks-by-feature', { params: { query: { slug, feature: opts.feature } } })
+        const { data, error } = await client.GET('/api/tasks-by-feature', { params: { query: { slug, feature: opts.feature, ...pageParams } as any } })
         if (error) throw new Error(JSON.stringify(error))
-        return data?.tasks ?? []
+        return { tasks: data?.tasks ?? [], total: (data as any)?.total ?? 0 }
       }
       if (opts?.issue) {
-        const { data, error } = await client.GET('/api/dx/todo/issue/tasks', { params: { query: { slug, issue_id: opts.issue } } })
+        const { data, error } = await client.GET('/api/dx/todo/issue/tasks', { params: { query: { slug, issue_id: opts.issue, ...pageParams } as any } })
         if (error) throw new Error(JSON.stringify(error))
-        return data?.tasks ?? []
+        return { tasks: data?.tasks ?? [], total: (data as any)?.total ?? 0 }
       }
-      const { data, error } = await client.GET('/api/tasks', { params: { query: { slug } } })
+      const { data, error } = await client.GET('/api/tasks', { params: { query: { slug, ...pageParams } as any } })
       if (error) throw new Error(JSON.stringify(error))
-      return data?.tasks ?? []
+      return { tasks: data?.tasks ?? [], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -280,13 +286,16 @@ export const useFeature = (slug: string, name: string) =>
 export type ErrorReportItem = components['schemas']['ErrorReportItem']
 export type SlowQueryItem = components['schemas']['SlowQueryItem']
 
-export const useErrors = (slug: string) =>
-  useQuery<ErrorReportItem[]>({
-    queryKey: ['errors', slug],
+export const useErrors = (slug: string, limit?: number, offset?: number) =>
+  useQuery<{ errors: ErrorReportItem[]; total: number }>({
+    queryKey: ['errors', slug, limit, offset],
     queryFn: async () => {
-      const { data, error } = await client.GET('/api/dx/errors', { params: { query: { slug } } })
+      const params: Record<string, string> = { slug }
+      if (limit != null) params.limit = String(limit)
+      if (offset != null) params.offset = String(offset)
+      const { data, error } = await client.GET('/api/dx/errors', { params: { query: params as any } })
       if (error) throw new Error(JSON.stringify(error))
-      return data?.errors ?? []
+      return { errors: data?.errors ?? [], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -301,13 +310,16 @@ export const useClearErrors = (slug: string) => {
   })
 }
 
-export const useSlowQueries = (slug: string) =>
-  useQuery<SlowQueryItem[]>({
-    queryKey: ['slow-queries', slug],
+export const useSlowQueries = (slug: string, limit?: number, offset?: number) =>
+  useQuery<{ queries: SlowQueryItem[]; total: number }>({
+    queryKey: ['slow-queries', slug, limit, offset],
     queryFn: async () => {
-      const { data, error } = await client.GET('/api/dx/slow-queries', { params: { query: { slug } } })
+      const params: Record<string, string> = { slug }
+      if (limit != null) params.limit = String(limit)
+      if (offset != null) params.offset = String(offset)
+      const { data, error } = await client.GET('/api/dx/slow-queries', { params: { query: params as any } })
       if (error) throw new Error(JSON.stringify(error))
-      return data?.queries ?? []
+      return { queries: data?.queries ?? [], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -320,14 +332,17 @@ export interface WorklogEntry {
   created_at: string
 }
 
-export const useWorklog = (slug: string) =>
-  useQuery<WorklogEntry[]>({
-    queryKey: ['worklog', slug],
+export const useWorklog = (slug: string, limit?: number, offset?: number) =>
+  useQuery<{ entries: WorklogEntry[]; total: number }>({
+    queryKey: ['worklog', slug, limit, offset],
     queryFn: async () => {
-      const res = await apiFetch<{ entries: WorklogEntry[] }>(
-        `/api/dx/worklog?slug=${encodeURIComponent(slug)}`
+      const params = new URLSearchParams({ slug })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      const res = await apiFetch<{ entries: WorklogEntry[]; total: number }>(
+        `/api/dx/worklog?${params}`
       )
-      return res.entries ?? []
+      return { entries: res.entries ?? [], total: res.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -356,14 +371,17 @@ export interface CommentItem {
   created_at: string
 }
 
-export const useComments = (slug: string, targetType: string, targetId: string) =>
-  useQuery<CommentItem[]>({
-    queryKey: ['comments', slug, targetType, targetId],
+export const useComments = (slug: string, targetType: string, targetId: string, limit?: number, offset?: number) =>
+  useQuery<{ comments: CommentItem[]; total: number }>({
+    queryKey: ['comments', slug, targetType, targetId, limit, offset],
     queryFn: async () => {
-      const res = await apiFetch<{ comments: CommentItem[] }>(
-        `/api/dx/comment/list?slug=${encodeURIComponent(slug)}&target_type=${targetType}&target_id=${encodeURIComponent(targetId)}`
+      const params = new URLSearchParams({ slug, target_type: targetType, target_id: targetId })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      const res = await apiFetch<{ comments: CommentItem[]; total: number }>(
+        `/api/dx/comment/list?${params}`
       )
-      return res.comments ?? []
+      return { comments: res.comments ?? [], total: res.total ?? 0 }
     },
     enabled: !!slug && !!targetType && !!targetId,
   })
@@ -383,14 +401,17 @@ export const useAddComment = () => {
   })
 }
 
-export const useMyComments = (slug: string) =>
-  useQuery<CommentItem[]>({
-    queryKey: ['comments', 'mine', slug],
+export const useMyComments = (slug: string, limit?: number, offset?: number) =>
+  useQuery<{ comments: CommentItem[]; total: number }>({
+    queryKey: ['comments', 'mine', slug, limit, offset],
     queryFn: async () => {
-      const res = await apiFetch<{ comments: CommentItem[] }>(
-        `/api/dx/comment/mine?slug=${encodeURIComponent(slug)}`
+      const params = new URLSearchParams({ slug })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      const res = await apiFetch<{ comments: CommentItem[]; total: number }>(
+        `/api/dx/comment/mine?${params}`
       )
-      return res.comments ?? []
+      return { comments: res.comments ?? [], total: res.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -423,14 +444,17 @@ export interface RevisionItem {
   created_at: string
 }
 
-export const useRevisions = (slug: string, targetType: string, targetId: string) =>
-  useQuery<RevisionItem[]>({
-    queryKey: ['revisions', slug, targetType, targetId],
+export const useRevisions = (slug: string, targetType: string, targetId: string, limit?: number, offset?: number) =>
+  useQuery<{ revisions: RevisionItem[]; total: number }>({
+    queryKey: ['revisions', slug, targetType, targetId, limit, offset],
     queryFn: async () => {
-      const res = await apiFetch<{ revisions: RevisionItem[] }>(
-        `/api/dx/revisions?slug=${encodeURIComponent(slug)}&target_type=${targetType}&target_id=${encodeURIComponent(targetId)}`
+      const params = new URLSearchParams({ slug, target_type: targetType, target_id: targetId })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      const res = await apiFetch<{ revisions: RevisionItem[]; total: number }>(
+        `/api/dx/revisions?${params}`
       )
-      return res.revisions ?? []
+      return { revisions: res.revisions ?? [], total: res.total ?? 0 }
     },
     enabled: !!slug && !!targetType && !!targetId,
   })
@@ -446,14 +470,17 @@ export interface TimedItem {
   created_at: string
 }
 
-export const useTimed = (slug: string) =>
-  useQuery<TimedItem[]>({
-    queryKey: ['timed', slug],
+export const useTimed = (slug: string, limit?: number, offset?: number) =>
+  useQuery<{ items: TimedItem[]; total: number }>({
+    queryKey: ['timed', slug, limit, offset],
     queryFn: async () => {
-      const res = await apiFetch<{ items: TimedItem[] }>(
-        `/api/dx/timed?slug=${encodeURIComponent(slug)}`
+      const params = new URLSearchParams({ slug })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      const res = await apiFetch<{ items: TimedItem[]; total: number }>(
+        `/api/dx/timed?${params}`
       )
-      return res.items ?? []
+      return { items: res.items ?? [], total: res.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -600,14 +627,17 @@ export interface QuestionItem {
   updated_at: string
 }
 
-export const useQuestions = (slug: string) =>
-  useQuery<QuestionItem[]>({
-    queryKey: ['questions', slug],
+export const useQuestions = (slug: string, limit?: number, offset?: number) =>
+  useQuery<{ questions: QuestionItem[]; total: number }>({
+    queryKey: ['questions', slug, limit, offset],
     queryFn: async () => {
-      const res = await apiFetch<{ questions: QuestionItem[] }>(
-        `/api/dx/qa/list?slug=${encodeURIComponent(slug)}`
+      const params = new URLSearchParams({ slug })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      const res = await apiFetch<{ questions: QuestionItem[]; total: number }>(
+        `/api/dx/qa/list?${params}`
       )
-      return res.questions ?? []
+      return { questions: res.questions ?? [], total: res.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -635,16 +665,18 @@ export interface BlockerQuestionItem {
   answered_at: string
 }
 
-export const useBlockerQuestions = (slug: string, status?: string) =>
-  useQuery<BlockerQuestionItem[]>({
-    queryKey: ['blocker-questions', slug, status],
+export const useBlockerQuestions = (slug: string, status?: string, limit?: number, offset?: number) =>
+  useQuery<{ questions: BlockerQuestionItem[]; total: number }>({
+    queryKey: ['blocker-questions', slug, status, limit, offset],
     queryFn: async () => {
       const params = new URLSearchParams({ slug })
       if (status) params.set('status', status)
-      const res = await apiFetch<{ questions: BlockerQuestionItem[] }>(
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      const res = await apiFetch<{ questions: BlockerQuestionItem[]; total: number }>(
         `/api/dx/blocker-questions/list?${params}`
       )
-      return res.questions ?? []
+      return { questions: res.questions ?? [], total: res.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -680,14 +712,17 @@ export interface ClaudeEventItem {
   created_at: string
 }
 
-export const useClaudeSessions = (slug: string) =>
-  useQuery<ClaudeSessionItem[]>({
-    queryKey: ['claude-sessions', slug],
+export const useClaudeSessions = (slug: string, limit?: number, offset?: number) =>
+  useQuery<{ sessions: ClaudeSessionItem[]; total: number }>({
+    queryKey: ['claude-sessions', slug, limit, offset],
     queryFn: async () => {
-      const res = await apiFetch<{ sessions: ClaudeSessionItem[] }>(
-        `/api/dx/claude/sessions?slug=${encodeURIComponent(slug)}`
+      const params = new URLSearchParams({ slug })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      const res = await apiFetch<{ sessions: ClaudeSessionItem[]; total: number }>(
+        `/api/dx/claude/sessions?${params}`
       )
-      return res.sessions ?? []
+      return { sessions: res.sessions ?? [], total: res.total ?? 0 }
     },
     enabled: !!slug,
   })

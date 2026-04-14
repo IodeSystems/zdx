@@ -14,3 +14,13 @@ SELECT id, project_id, name, duration_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE (@project_id::int IS NULL OR project_id = @project_id)
 ORDER BY duration_ms DESC;
+
+-- name: CountTimed :one
+SELECT count(*) FROM zdx_timed WHERE (@project_id::int IS NULL OR project_id = @project_id);
+
+-- name: ListTimedPaginated :many
+SELECT id, project_id, name, duration_ms, source, context_json, created_at
+FROM zdx_timed
+WHERE (@project_id::int IS NULL OR project_id = @project_id)
+ORDER BY duration_ms DESC
+LIMIT @lim OFFSET @off;

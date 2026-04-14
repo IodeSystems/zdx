@@ -474,6 +474,24 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body ProjectItem }{Body: ProjectItem{ID: row.ID, Slug: row.Slug, Name: row.Name, CreatedAt: fmtTS(row.CreatedAt)}}, nil
 		})
 
+	// ── Pagination helper ───────────────────────────────────────────────────
+
+	type PaginatedSlugInput struct {
+		Slug   string `query:"slug" required:"true"`
+		Limit  int32  `query:"limit"`
+		Offset int32  `query:"offset"`
+	}
+
+	parsePage := func(limit, offset int32) (int32, int32) {
+		if limit <= 0 || limit > 500 {
+			limit = 200
+		}
+		if offset < 0 {
+			offset = 0
+		}
+		return limit, offset
+	}
+
 	// ── Issues ──────────────────────────────────────────────────────────────
 
 	type IssueSlugInput struct {
@@ -484,16 +502,19 @@ func (s *Server) registerRoutes(api huma.API) {
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/list"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct {
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
 			Body struct {
 				Issues []IssueItem `json:"issues"`
+				Total  int64       `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListIssues(ctx, p.ID)
+			total, _ := s.q.CountIssues(ctx, p.ID)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListIssuesPaginated(ctx, db.ListIssuesPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -504,10 +525,12 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Issues []IssueItem `json:"issues"`
+					Total  int64       `json:"total"`
 				}
 			}{Body: struct {
 				Issues []IssueItem `json:"issues"`
-			}{Issues: out}}, nil
+				Total  int64       `json:"total"`
+			}{Issues: out, Total: total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "search-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/search"},
@@ -914,7 +937,7 @@ func (s *Server) registerRoutes(api huma.API) {
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-worklog", Method: http.MethodGet, Path: "/api/dx/worklog"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct {
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
 			Body struct {
 				Entries []struct {
 					IssueID    string `json:"issue_id"`
@@ -923,13 +946,16 @@ func (s *Server) registerRoutes(api huma.API) {
 					Note       string `json:"note"`
 					CreatedAt  string `json:"created_at"`
 				} `json:"entries"`
+				Total int64 `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListWorklogForProject(ctx, p.ID)
+			total, _ := s.q.CountWorklogForProject(ctx, p.ID)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListWorklogForProjectPaginated(ctx, db.ListWorklogForProjectPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -942,12 +968,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			type respBody = struct {
 				Entries []entry `json:"entries"`
+				Total   int64   `json:"total"`
 			}
 			out := make([]entry, len(rows))
 			for i, r := range rows {
 				out[i] = entry{IssueID: r.IssueID, IssueTitle: r.IssueTitle, Agent: r.Agent, Note: r.Note, CreatedAt: fmtTS(r.CreatedAt)}
 			}
-			return &struct{ Body respBody }{Body: respBody{Entries: out}}, nil
+			return &struct{ Body respBody }{Body: respBody{Entries: out, Total: total}}, nil
 		})
 
 	// ── Tasks ────────────────────────────────────────────────────────────────
@@ -955,16 +982,19 @@ func (s *Server) registerRoutes(api huma.API) {
 	type TasksSlugOutput = struct {
 		Body struct {
 			Tasks []TaskItem `json:"tasks"`
+			Total int64      `json:"total"`
 		}
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-tasks", Method: http.MethodGet, Path: "/api/tasks"},
-		func(ctx context.Context, in *IssueSlugInput) (*TasksSlugOutput, error) {
+		func(ctx context.Context, in *PaginatedSlugInput) (*TasksSlugOutput, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListTasks(ctx, p.ID)
+			total, _ := s.q.CountTasks(ctx, p.ID)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListTasksPaginated(ctx, db.ListTasksPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -974,19 +1004,24 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
-			}{Tasks: out}}, nil
+				Total int64      `json:"total"`
+			}{Tasks: out, Total: total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-tasks-by-feature", Method: http.MethodGet, Path: "/api/tasks-by-feature"},
 		func(ctx context.Context, in *struct {
 			Slug    string `query:"slug" required:"true"`
 			Feature string `query:"feature" required:"true"`
+			Limit   int32  `query:"limit"`
+			Offset  int32  `query:"offset"`
 		}) (*TasksSlugOutput, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListTasksByFeature(ctx, db.ListTasksByFeatureParams{ProjectID: p.ID, Feature: in.Feature})
+			total, _ := s.q.CountTasksByFeature(ctx, db.CountTasksByFeatureParams{ProjectID: p.ID, Feature: in.Feature})
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListTasksByFeaturePaginated(ctx, db.ListTasksByFeaturePaginatedParams{ProjectID: p.ID, Feature: in.Feature, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -996,19 +1031,24 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
-			}{Tasks: out}}, nil
+				Total int64      `json:"total"`
+			}{Tasks: out, Total: total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-tasks-for-issue", Method: http.MethodGet, Path: "/api/dx/todo/issue/tasks"},
 		func(ctx context.Context, in *struct {
 			Slug    string `query:"slug" required:"true"`
 			IssueID string `query:"issue_id" required:"true"`
+			Limit   int32  `query:"limit"`
+			Offset  int32  `query:"offset"`
 		}) (*TasksSlugOutput, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListTasksByIssue(ctx, db.ListTasksByIssueParams{ProjectID: p.ID, Issue: in.IssueID})
+			total, _ := s.q.CountTasksByIssue(ctx, db.CountTasksByIssueParams{ProjectID: p.ID, Issue: in.IssueID})
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListTasksByIssuePaginated(ctx, db.ListTasksByIssuePaginatedParams{ProjectID: p.ID, Issue: in.IssueID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -1018,7 +1058,8 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
-			}{Tasks: out}}, nil
+				Total int64      `json:"total"`
+			}{Tasks: out, Total: total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "add-task", Method: http.MethodPost, Path: "/api/dx/todo/tech/add"},
@@ -1780,16 +1821,19 @@ func (s *Server) registerRoutes(api huma.API) {
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-tests", Method: http.MethodGet, Path: "/api/dx/tests"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct {
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
 			Body struct {
 				Tests []TestItem `json:"tests"`
+				Total int64      `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListTests(ctx, p.ID)
+			total, _ := s.q.CountTests(ctx, p.ID)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListTestsPaginated(ctx, db.ListTestsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -1800,10 +1844,12 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Tests []TestItem `json:"tests"`
+					Total int64      `json:"total"`
 				}
 			}{Body: struct {
 				Tests []TestItem `json:"tests"`
-			}{Tests: out}}, nil
+				Total int64      `json:"total"`
+			}{Tests: out, Total: total}}, nil
 		})
 
 	// ── Journal ───────────────────────────────────────────────────────────────
@@ -1945,16 +1991,20 @@ func (s *Server) registerRoutes(api huma.API) {
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-errors", Method: http.MethodGet, Path: "/api/dx/errors"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct {
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
 			Body struct {
 				Errors []ErrorReportItem `json:"errors"`
+				Total  int64             `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListErrorReports(ctx, pgtype.Int4{Int32: p.ID, Valid: true})
+			pid := pgtype.Int4{Int32: p.ID, Valid: true}
+			total, _ := s.q.CountErrorReports(ctx, pid)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListErrorReportsPaginated(ctx, db.ListErrorReportsPaginatedParams{ProjectID: pid, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -1972,10 +2022,12 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Errors []ErrorReportItem `json:"errors"`
+					Total  int64             `json:"total"`
 				}
 			}{Body: struct {
 				Errors []ErrorReportItem `json:"errors"`
-			}{Errors: out}}, nil
+				Total  int64             `json:"total"`
+			}{Errors: out, Total: total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "trigger-error", Method: http.MethodGet, Path: "/api/error"},
@@ -2033,16 +2085,20 @@ func (s *Server) registerRoutes(api huma.API) {
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-slow-queries", Method: http.MethodGet, Path: "/api/dx/slow-queries"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct {
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
 			Body struct {
 				Queries []SlowQueryItem `json:"queries"`
+				Total   int64           `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListSlowQueries(ctx, pgtype.Int4{Int32: p.ID, Valid: true})
+			pid := pgtype.Int4{Int32: p.ID, Valid: true}
+			total, _ := s.q.CountSlowQueries(ctx, pid)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListSlowQueriesPaginated(ctx, db.ListSlowQueriesPaginatedParams{ProjectID: pid, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -2061,10 +2117,12 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Queries []SlowQueryItem `json:"queries"`
+					Total   int64           `json:"total"`
 				}
 			}{Body: struct {
 				Queries []SlowQueryItem `json:"queries"`
-			}{Queries: out}}, nil
+				Total   int64           `json:"total"`
+			}{Queries: out, Total: total}}, nil
 		})
 
 	// ── Timed ─────────────────────────────────────────────────────────────────
@@ -2080,19 +2138,24 @@ func (s *Server) registerRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "list-timed", Method: http.MethodGet, Path: "/api/dx/timed"},
 		func(ctx context.Context, in *struct {
-			Slug string `query:"slug,omitempty"`
+			Slug   string `query:"slug,omitempty"`
+			Limit  int32  `query:"limit"`
+			Offset int32  `query:"offset"`
 		}) (*struct {
 			Body struct {
 				Items []TimedItem `json:"items"`
+				Total int64       `json:"total"`
 			}
 		}, error) {
-			var projectID pgtype.Int4
+			var pid int32
 			if in.Slug != "" {
 				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
-					projectID = pgtype.Int4{Int32: p.ID, Valid: true}
+					pid = p.ID
 				}
 			}
-			rows, err := s.q.ListTimed(ctx, projectID.Int32)
+			total, _ := s.q.CountTimed(ctx, pid)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListTimedPaginated(ctx, db.ListTimedPaginatedParams{ProjectID: pid, Lim: limit, Off: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -2106,11 +2169,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Items []TimedItem `json:"items"`
+					Total int64       `json:"total"`
 				}
 			}{
 				Body: struct {
 					Items []TimedItem `json:"items"`
-				}{Items: out},
+					Total int64       `json:"total"`
+				}{Items: out, Total: total},
 			}, nil
 		})
 
@@ -2127,11 +2192,10 @@ func (s *Server) registerRoutes(api huma.API) {
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-my-comments", Method: http.MethodGet, Path: "/api/dx/comment/mine"},
-		func(ctx context.Context, in *struct {
-			Slug string `query:"slug" required:"true"`
-		}) (*struct {
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
 			Body struct {
 				Comments []CommentItem `json:"comments"`
+				Total    int64         `json:"total"`
 			}
 		}, error) {
 			uid := ctxUserIDVal(ctx)
@@ -2146,9 +2210,10 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListCommentsByAuthor(ctx, db.ListCommentsByAuthorParams{
-				ProjectID: p.ID,
-				Author:    user.Email,
+			total, _ := s.q.CountCommentsByAuthor(ctx, db.CountCommentsByAuthorParams{ProjectID: p.ID, Author: user.Email})
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListCommentsByAuthorPaginated(ctx, db.ListCommentsByAuthorPaginatedParams{
+				ProjectID: p.ID, Author: user.Email, Limit: limit, Offset: offset,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -2163,11 +2228,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Comments []CommentItem `json:"comments"`
+					Total    int64         `json:"total"`
 				}
 			}{
 				Body: struct {
 					Comments []CommentItem `json:"comments"`
-				}{Comments: out},
+					Total    int64         `json:"total"`
+				}{Comments: out, Total: total},
 			}, nil
 		})
 
@@ -2212,24 +2279,26 @@ func (s *Server) registerRoutes(api huma.API) {
 			TargetType string `query:"target_type"`
 			TargetID   string `query:"target_id"`
 			Role       string `query:"role"`
+			Limit      int32  `query:"limit"`
+			Offset     int32  `query:"offset"`
 		}) (*struct {
 			Body struct {
 				Comments []CommentItem `json:"comments"`
+				Total    int64         `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListComments(ctx, db.ListCommentsParams{
-				ProjectID:  p.ID,
-				TargetType: in.TargetType,
-				TargetID:   in.TargetID,
+			total, _ := s.q.CountComments(ctx, db.CountCommentsParams{ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID})
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListCommentsPaginated(ctx, db.ListCommentsPaginatedParams{
+				ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID, Limit: limit, Offset: offset,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			// If role provided, fetch the last-read timestamp once and compute per-comment unread flag.
 			var lastReadTS pgtype.Timestamptz
 			if in.Role != "" {
 				lastReadTS, _ = s.q.GetCommentRead(ctx, db.GetCommentReadParams{
@@ -2251,11 +2320,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Comments []CommentItem `json:"comments"`
+					Total    int64         `json:"total"`
 				}
 			}{
 				Body: struct {
 					Comments []CommentItem `json:"comments"`
-				}{Comments: out},
+					Total    int64         `json:"total"`
+				}{Comments: out, Total: total},
 			}, nil
 		})
 
@@ -2371,19 +2442,22 @@ func (s *Server) registerRoutes(api huma.API) {
 			Slug       string `query:"slug"`
 			TargetType string `query:"target_type"`
 			TargetID   string `query:"target_id"`
+			Limit      int32  `query:"limit"`
+			Offset     int32  `query:"offset"`
 		}) (*struct {
 			Body struct {
 				Revisions []RevisionItem `json:"revisions"`
+				Total     int64          `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListRevisions(ctx, db.ListRevisionsParams{
-				ProjectID:  p.ID,
-				TargetType: in.TargetType,
-				TargetID:   in.TargetID,
+			total, _ := s.q.CountRevisions(ctx, db.CountRevisionsParams{ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID})
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListRevisionsPaginated(ctx, db.ListRevisionsPaginatedParams{
+				ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID, Limit: limit, Offset: offset,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -2399,11 +2473,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Revisions []RevisionItem `json:"revisions"`
+					Total     int64          `json:"total"`
 				}
 			}{
 				Body: struct {
 					Revisions []RevisionItem `json:"revisions"`
-				}{Revisions: out},
+					Total     int64          `json:"total"`
+				}{Revisions: out, Total: total},
 			}, nil
 		})
 
@@ -2921,18 +2997,19 @@ func (s *Server) registerRoutes(api huma.API) {
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-questions", Method: http.MethodGet, Path: "/api/dx/qa/list"},
-		func(ctx context.Context, in *struct {
-			Slug string `query:"slug" required:"true"`
-		}) (*struct {
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
 			Body struct {
 				Questions []QuestionItem `json:"questions"`
+				Total     int64          `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListQuestions(ctx, p.ID)
+			total, _ := s.q.CountQuestions(ctx, p.ID)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListQuestionsPaginated(ctx, db.ListQuestionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -2943,11 +3020,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Questions []QuestionItem `json:"questions"`
+					Total     int64          `json:"total"`
 				}
 			}{
 				Body: struct {
 					Questions []QuestionItem `json:"questions"`
-				}{Questions: out},
+					Total     int64          `json:"total"`
+				}{Questions: out, Total: total},
 			}, nil
 		})
 
@@ -3019,9 +3098,12 @@ func (s *Server) registerRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug   string `query:"slug" required:"true"`
 			Status string `query:"status"`
+			Limit  int32  `query:"limit"`
+			Offset int32  `query:"offset"`
 		}) (*struct {
 			Body struct {
 				Questions []BlockerQuestionItem `json:"questions"`
+				Total     int64                 `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
@@ -3029,10 +3111,14 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, err
 			}
 			var rows []db.ZdxBlockerQuestion
+			var total int64
 			if in.Status == "pending" {
 				rows, err = s.q.ListPendingBlockerQuestions(ctx, p.ID)
+				total = int64(len(rows))
 			} else {
-				rows, err = s.q.ListBlockerQuestions(ctx, p.ID)
+				total, _ = s.q.CountBlockerQuestions(ctx, p.ID)
+				limit, offset := parsePage(in.Limit, in.Offset)
+				rows, err = s.q.ListBlockerQuestionsPaginated(ctx, db.ListBlockerQuestionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			}
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -3044,11 +3130,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Questions []BlockerQuestionItem `json:"questions"`
+					Total     int64                 `json:"total"`
 				}
 			}{
 				Body: struct {
 					Questions []BlockerQuestionItem `json:"questions"`
-				}{Questions: out},
+					Total     int64                 `json:"total"`
+				}{Questions: out, Total: total},
 			}, nil
 		})
 
@@ -3072,18 +3160,19 @@ func (s *Server) registerRoutes(api huma.API) {
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-claude-sessions", Method: http.MethodGet, Path: "/api/dx/claude/sessions"},
-		func(ctx context.Context, in *struct {
-			Slug string `query:"slug" required:"true"`
-		}) (*struct {
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
 			Body struct {
 				Sessions []ClaudeSessionItem `json:"sessions"`
+				Total    int64               `json:"total"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListClaudeSessions(ctx, p.ID)
+			total, _ := s.q.CountClaudeSessions(ctx, p.ID)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListClaudeSessionsPaginated(ctx, db.ListClaudeSessionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -3102,10 +3191,12 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Sessions []ClaudeSessionItem `json:"sessions"`
+					Total    int64               `json:"total"`
 				}
 			}{Body: struct {
 				Sessions []ClaudeSessionItem `json:"sessions"`
-			}{Sessions: out}}, nil
+				Total    int64               `json:"total"`
+			}{Sessions: out, Total: total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "get-claude-session-events", Method: http.MethodGet, Path: "/api/dx/claude/sessions/{sessionId}/events"},
@@ -3129,14 +3220,7 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, apiErr(404, "session not found")
 			}
 			total, _ := s.q.CountClaudeEvents(ctx, sess.ID)
-			limit := in.Limit
-			if limit <= 0 || limit > 500 {
-				limit = 200
-			}
-			offset := in.Offset
-			if offset < 0 {
-				offset = 0
-			}
+			limit, offset := parsePage(in.Limit, in.Offset)
 			rows, err := s.q.ListClaudeEventsPaginated(ctx, db.ListClaudeEventsPaginatedParams{
 				SessionPk: sess.ID,
 				Limit:     limit,

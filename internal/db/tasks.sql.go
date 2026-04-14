@@ -9,6 +9,49 @@ import (
 	"context"
 )
 
+const countTasks = `-- name: CountTasks :one
+SELECT count(*) FROM zdx_tasks WHERE project_id = $1
+`
+
+func (q *Queries) CountTasks(ctx context.Context, projectID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countTasks, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countTasksByFeature = `-- name: CountTasksByFeature :one
+SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND feature = $2
+`
+
+type CountTasksByFeatureParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Feature   string `db:"feature" json:"feature"`
+}
+
+func (q *Queries) CountTasksByFeature(ctx context.Context, arg CountTasksByFeatureParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTasksByFeature, arg.ProjectID, arg.Feature)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countTasksByIssue = `-- name: CountTasksByIssue :one
+SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND issue = $2
+`
+
+type CountTasksByIssueParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Issue     string `db:"issue" json:"issue"`
+}
+
+func (q *Queries) CountTasksByIssue(ctx context.Context, arg CountTasksByIssueParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTasksByIssue, arg.ProjectID, arg.Issue)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTask = `-- name: CreateTask :one
 INSERT INTO zdx_tasks (id, project_id, text, feature, issue)
 VALUES ($1, $2, $3, $4, $5)
@@ -142,6 +185,58 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 	return items, nil
 }
 
+const listTasksByFeaturePaginated = `-- name: ListTasksByFeaturePaginated :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListTasksByFeaturePaginatedParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Feature   string `db:"feature" json:"feature"`
+	Limit     int32  `db:"limit" json:"limit"`
+	Offset    int32  `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListTasksByFeaturePaginated(ctx context.Context, arg ListTasksByFeaturePaginatedParams) ([]ZdxTask, error) {
+	rows, err := q.db.Query(ctx, listTasksByFeaturePaginated,
+		arg.ProjectID,
+		arg.Feature,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTask
+	for rows.Next() {
+		var i ZdxTask
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTasksByIssue = `-- name: ListTasksByIssue :many
 SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC
@@ -154,6 +249,104 @@ type ListTasksByIssueParams struct {
 
 func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ZdxTask, error) {
 	rows, err := q.db.Query(ctx, listTasksByIssue, arg.ProjectID, arg.Issue)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTask
+	for rows.Next() {
+		var i ZdxTask
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTasksByIssuePaginated = `-- name: ListTasksByIssuePaginated :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListTasksByIssuePaginatedParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Issue     string `db:"issue" json:"issue"`
+	Limit     int32  `db:"limit" json:"limit"`
+	Offset    int32  `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ZdxTask, error) {
+	rows, err := q.db.Query(ctx, listTasksByIssuePaginated,
+		arg.ProjectID,
+		arg.Issue,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTask
+	for rows.Next() {
+		var i ZdxTask
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTasksPaginated = `-- name: ListTasksPaginated :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListTasksPaginatedParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	Limit     int32 `db:"limit" json:"limit"`
+	Offset    int32 `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ZdxTask, error) {
+	rows, err := q.db.Query(ctx, listTasksPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

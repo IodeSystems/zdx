@@ -188,7 +188,8 @@ function SessionDetail({
 }
 
 export function ClaudeSessionsTab({ slug, componentSlug = 'all' }: { slug: string; componentSlug?: string }) {
-  const { data: sessions = [], isLoading } = useClaudeSessions(slug)
+  const { data: sessData, isLoading } = useClaudeSessions(slug)
+  const sessions = sessData?.sessions ?? []
   const [selected, setSelected] = useState<ClaudeSessionItem | null>(null)
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>

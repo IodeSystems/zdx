@@ -8,10 +8,28 @@ SELECT id, project_id, target_type, target_id, author, body, created_at
 FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at;
 
+-- name: CountComments :one
+SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3;
+
+-- name: ListCommentsPaginated :many
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
+ORDER BY created_at
+LIMIT $4 OFFSET $5;
+
 -- name: ListCommentsByAuthor :many
 SELECT id, project_id, target_type, target_id, author, body, created_at
 FROM zdx_comments WHERE project_id = $1 AND author = $2
 ORDER BY created_at DESC;
+
+-- name: CountCommentsByAuthor :one
+SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND author = $2;
+
+-- name: ListCommentsByAuthorPaginated :many
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE project_id = $1 AND author = $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4;
 
 -- name: UpsertCommentRead :exec
 INSERT INTO zdx_comment_reads (project_id, target_type, target_id, role)
@@ -81,3 +99,12 @@ VALUES ($1, $2, $3, $4, $5, $6, $7);
 SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at;
+
+-- name: CountRevisions :one
+SELECT count(*) FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3;
+
+-- name: ListRevisionsPaginated :many
+SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
+FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
+ORDER BY created_at
+LIMIT $4 OFFSET $5;

@@ -15,7 +15,8 @@ import { useCreateQuestion, useQuestions } from '../../../../api'
 
 function QuestionsPage() {
   const { slug } = Route.useParams()
-  const { data, isLoading } = useQuestions(slug)
+  const { data: qData, isLoading } = useQuestions(slug)
+  const data = qData?.questions
   const createQuestion = useCreateQuestion()
   const [question, setQuestion] = useState('')
   const [category, setCategory] = useState('')

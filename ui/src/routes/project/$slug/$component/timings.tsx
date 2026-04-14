@@ -14,7 +14,8 @@ import { useTimed } from '../../../../api'
 
 function TimingsPage() {
   const { slug } = Route.useParams()
-  const { data, isLoading } = useTimed(slug)
+  const { data: timedData, isLoading } = useTimed(slug)
+  const data = timedData?.items
 
   if (isLoading) return <CircularProgress sx={{ m: 4 }} />
   if (!data || data.length === 0) return <Typography color="text.secondary">No timed entries.</Typography>

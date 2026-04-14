@@ -2,6 +2,14 @@
 SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at;
 
+-- name: CountIssues :one
+SELECT count(*) FROM zdx_issues WHERE project_id = $1;
+
+-- name: ListIssuesPaginated :many
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
+LIMIT $2 OFFSET $3;
+
 -- name: ListOpenIssues :many
 SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at;
@@ -63,3 +71,14 @@ JOIN zdx_issues i ON i.id = w.issue_id
 WHERE i.project_id = $1
 ORDER BY w.created_at DESC
 LIMIT 200;
+
+-- name: CountWorklogForProject :one
+SELECT count(*) FROM zdx_issue_work w JOIN zdx_issues i ON i.id = w.issue_id WHERE i.project_id = $1;
+
+-- name: ListWorklogForProjectPaginated :many
+SELECT w.id, w.issue_id, i.title AS issue_title, w.agent, w.note, w.created_at
+FROM zdx_issue_work w
+JOIN zdx_issues i ON i.id = w.issue_id
+WHERE i.project_id = $1
+ORDER BY w.created_at DESC
+LIMIT $2 OFFSET $3;

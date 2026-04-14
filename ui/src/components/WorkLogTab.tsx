@@ -37,7 +37,8 @@ function WorklogRow({ entry, slug, componentSlug }: { entry: WorklogEntry; slug:
 }
 
 export function WorkLogTab({ slug, componentSlug = 'all' }: { slug: string; componentSlug?: string }) {
-  const { data: entries = [], isLoading } = useWorklog(slug)
+  const { data: wlData, isLoading } = useWorklog(slug)
+  const entries = wlData?.entries ?? []
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 

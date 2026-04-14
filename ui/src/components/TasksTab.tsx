@@ -2,6 +2,8 @@ import { Link } from '@tanstack/react-router'
 import { Box, Chip, InputAdornment, Stack, TextField, Typography } from '@mui/material'
 import { Search as SearchIcon } from '@mui/icons-material'
 import { useTasks, type TaskItem } from '../api'
+import { useLoadMore } from '../api/pagination'
+import { LoadMore } from './LoadMore'
 
 type Task = TaskItem
 
@@ -35,11 +37,13 @@ export function TasksTab({
   onPageChange: (page: number) => void
   onSearch: (search: string) => void
 }) {
-  const { data, isLoading } = useTasks(slug)
+  const { offset, loadMore, pageSize } = useLoadMore()
+  const { data, isLoading } = useTasks(slug, undefined, pageSize, offset)
 
   if (isLoading && !data) return <Typography color="text.secondary">Loading...</Typography>
 
-  const allTasks: Task[] = data ?? []
+  const allTasks: Task[] = data?.tasks ?? []
+  const total = data?.total ?? 0
 
   const filtered = statusFilter ? allTasks.filter(t => t.status === statusFilter) : allTasks
   const tasks = search
@@ -133,6 +137,7 @@ export function TasksTab({
       {tasks.length === 0 && !isLoading && (
         <Typography variant="body2" color="text.secondary">No tasks.</Typography>
       )}
+      <LoadMore loaded={allTasks.length} total={total} onLoadMore={loadMore} />
     </Box>
   )
 }

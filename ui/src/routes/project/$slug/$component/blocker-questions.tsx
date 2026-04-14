@@ -63,7 +63,8 @@ function AnswerForm({ slug, question }: { slug: string; question: BlockerQuestio
 function BlockerQuestionsPage() {
   const { slug } = Route.useParams()
   const [filter, setFilter] = useState<string>('pending')
-  const { data, isLoading } = useBlockerQuestions(slug, filter || undefined)
+  const { data: bqData, isLoading } = useBlockerQuestions(slug, filter || undefined)
+  const data = bqData?.questions
 
   return (
     <>

@@ -9,6 +9,17 @@ import (
 	"context"
 )
 
+const countTests = `-- name: CountTests :one
+SELECT count(*) FROM zdx_tests WHERE project_id = $1
+`
+
+func (q *Queries) CountTests(ctx context.Context, projectID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countTests, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const deleteTest = `-- name: DeleteTest :exec
 DELETE FROM zdx_tests WHERE id = $1
 `
@@ -211,6 +222,47 @@ WHERE st.spec_id = $1 ORDER BY t.component, t.name
 
 func (q *Queries) ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest, error) {
 	rows, err := q.db.Query(ctx, listTestsForSpec, specID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTest
+	for rows.Next() {
+		var i ZdxTest
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Component,
+			&i.Name,
+			&i.Layer,
+			&i.Status,
+			&i.LastRunAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTestsPaginated = `-- name: ListTestsPaginated :many
+SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+FROM zdx_tests WHERE project_id = $1 ORDER BY component, name
+LIMIT $2 OFFSET $3
+`
+
+type ListTestsPaginatedParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	Limit     int32 `db:"limit" json:"limit"`
+	Offset    int32 `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListTestsPaginated(ctx context.Context, arg ListTestsPaginatedParams) ([]ZdxTest, error) {
+	rows, err := q.db.Query(ctx, listTestsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

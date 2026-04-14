@@ -48,8 +48,10 @@ export function CommentsAndRevisions({
   targetType: string
   targetId: string
 }) {
-  const { data: comments = [] } = useComments(slug, targetType, targetId)
-  const { data: revisions = [] } = useRevisions(slug, targetType, targetId)
+  const { data: commentsData } = useComments(slug, targetType, targetId)
+  const { data: revisionsData } = useRevisions(slug, targetType, targetId)
+  const comments = commentsData?.comments ?? []
+  const revisions = revisionsData?.revisions ?? []
   const addComment = useAddComment()
   const [body, setBody] = useState('')
   const [diffRevision, setDiffRevision] = useState<RevisionItem | null>(null)

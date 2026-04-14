@@ -69,7 +69,7 @@ export function IssueDetail({
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
   const issue = data?.issue
-  const linkedTasks: TaskItem[] = allTasks ?? []
+  const linkedTasks: TaskItem[] = allTasks?.tasks ?? []
   const workEntries: IssueWorkItem[] = data?.work ?? []
 
   if (!issue) {

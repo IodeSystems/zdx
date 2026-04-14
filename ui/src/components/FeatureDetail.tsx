@@ -32,7 +32,7 @@ export function FeatureDetail({
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
-  const tasks: FeatureTask[] = tasksData ?? []
+  const tasks: FeatureTask[] = tasksData?.tasks ?? []
   const specList: Spec[] = feature?.specs ?? []
 
   if (!feature) {

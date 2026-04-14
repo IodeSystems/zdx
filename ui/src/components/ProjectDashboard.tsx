@@ -73,8 +73,8 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
   const { data: issuesData } = useIssues(slug)
 
   const features = featuresData || []
-  const tasks = tasksData || []
-  const allIssues: Issue[] = issuesData || []
+  const tasks = tasksData?.tasks || []
+  const allIssues: Issue[] = issuesData?.issues || []
 
   const component = componentSlug === 'all' ? '' : componentSlug
   const issues = component ? allIssues.filter(i => i.component === component) : allIssues

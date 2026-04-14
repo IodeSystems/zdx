@@ -20,6 +20,17 @@ func (q *Queries) CountClaudeEvents(ctx context.Context, sessionPk int64) (int64
 	return count, err
 }
 
+const countClaudeSessions = `-- name: CountClaudeSessions :one
+SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1
+`
+
+func (q *Queries) CountClaudeSessions(ctx context.Context, projectID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countClaudeSessions, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createClaudeEvent = `-- name: CreateClaudeEvent :exec
 INSERT INTO zdx_claude_events (session_pk, seq, event_type, event_json)
 VALUES ($1, $2, $3, $4)
@@ -206,6 +217,47 @@ ORDER BY created_at DESC
 
 func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]ZdxClaudeSession, error) {
 	rows, err := q.db.Query(ctx, listClaudeSessions, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxClaudeSession
+	for rows.Next() {
+		var i ZdxClaudeSession
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.IssueID,
+			&i.SessionID,
+			&i.Title,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClaudeSessionsPaginated = `-- name: ListClaudeSessionsPaginated :many
+SELECT id, project_id, issue_id, session_id, title, created_at
+FROM zdx_claude_sessions
+WHERE project_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3
+`
+
+type ListClaudeSessionsPaginatedParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	Limit     int32 `db:"limit" json:"limit"`
+	Offset    int32 `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ZdxClaudeSession, error) {
+	rows, err := q.db.Query(ctx, listClaudeSessionsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

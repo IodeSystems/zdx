@@ -12,6 +12,8 @@ import {
   Typography,
 } from '@mui/material'
 import { useIssues, useSearchIssues, useSimilarIssues, type IssueItem, type SimilarIssueItem } from '../api'
+import { useLoadMore } from '../api/pagination'
+import { LoadMore } from './LoadMore'
 
 type Issue = IssueItem
 
@@ -156,11 +158,13 @@ function IssueSearch({ slug, componentSlug }: { slug: string; componentSlug: str
 
 export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; componentSlug?: string }) {
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
-  const { data, isLoading } = useIssues(slug)
+  const { offset, loadMore, pageSize } = useLoadMore()
+  const { data, isLoading } = useIssues(slug, pageSize, offset)
 
   if (isLoading && !data) return <Typography color="text.secondary">Loading...</Typography>
 
-  const allItems: Issue[] = data ?? []
+  const allItems: Issue[] = data?.issues ?? []
+  const total = data?.total ?? 0
 
   const component = componentSlug === 'all' ? '' : componentSlug
   const componentFiltered = component ? allItems.filter(i => i.component === component) : allItems
@@ -251,6 +255,7 @@ export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; compo
         {items.length === 0 && !isLoading && (
           <Typography variant="body2" color="text.secondary">No issues.</Typography>
         )}
+        <LoadMore loaded={allItems.length} total={total} onLoadMore={loadMore} />
       </Box>
     </Box>
   )

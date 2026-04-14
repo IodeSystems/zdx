@@ -84,6 +84,56 @@ func (q *Queries) AddRevision(ctx context.Context, arg AddRevisionParams) error 
 	return err
 }
 
+const countComments = `-- name: CountComments :one
+SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
+`
+
+type CountCommentsParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+}
+
+func (q *Queries) CountComments(ctx context.Context, arg CountCommentsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countComments, arg.ProjectID, arg.TargetType, arg.TargetID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countCommentsByAuthor = `-- name: CountCommentsByAuthor :one
+SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND author = $2
+`
+
+type CountCommentsByAuthorParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Author    string `db:"author" json:"author"`
+}
+
+func (q *Queries) CountCommentsByAuthor(ctx context.Context, arg CountCommentsByAuthorParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countCommentsByAuthor, arg.ProjectID, arg.Author)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countRevisions = `-- name: CountRevisions :one
+SELECT count(*) FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
+`
+
+type CountRevisionsParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+}
+
+func (q *Queries) CountRevisions(ctx context.Context, arg CountRevisionsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countRevisions, arg.ProjectID, arg.TargetType, arg.TargetID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUnreadForRole = `-- name: CountUnreadForRole :one
 SELECT COUNT(*)::int FROM zdx_comments c
 WHERE c.project_id = $1
@@ -304,6 +354,122 @@ func (q *Queries) ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAu
 	return items, nil
 }
 
+const listCommentsByAuthorPaginated = `-- name: ListCommentsByAuthorPaginated :many
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE project_id = $1 AND author = $2
+ORDER BY created_at DESC
+LIMIT $3 OFFSET $4
+`
+
+type ListCommentsByAuthorPaginatedParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Author    string `db:"author" json:"author"`
+	Limit     int32  `db:"limit" json:"limit"`
+	Offset    int32  `db:"offset" json:"offset"`
+}
+
+type ListCommentsByAuthorPaginatedRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Author     string             `db:"author" json:"author"`
+	Body       string             `db:"body" json:"body"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListCommentsByAuthorPaginated(ctx context.Context, arg ListCommentsByAuthorPaginatedParams) ([]ListCommentsByAuthorPaginatedRow, error) {
+	rows, err := q.db.Query(ctx, listCommentsByAuthorPaginated,
+		arg.ProjectID,
+		arg.Author,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCommentsByAuthorPaginatedRow
+	for rows.Next() {
+		var i ListCommentsByAuthorPaginatedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Author,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCommentsPaginated = `-- name: ListCommentsPaginated :many
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
+ORDER BY created_at
+LIMIT $4 OFFSET $5
+`
+
+type ListCommentsPaginatedParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	Limit      int32  `db:"limit" json:"limit"`
+	Offset     int32  `db:"offset" json:"offset"`
+}
+
+type ListCommentsPaginatedRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Author     string             `db:"author" json:"author"`
+	Body       string             `db:"body" json:"body"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListCommentsPaginated(ctx context.Context, arg ListCommentsPaginatedParams) ([]ListCommentsPaginatedRow, error) {
+	rows, err := q.db.Query(ctx, listCommentsPaginated,
+		arg.ProjectID,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Limit,
+		arg.Offset,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCommentsPaginatedRow
+	for rows.Next() {
+		var i ListCommentsPaginatedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Author,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRevisions = `-- name: ListRevisions :many
 SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
@@ -318,6 +484,57 @@ type ListRevisionsParams struct {
 
 func (q *Queries) ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ZdxRevision, error) {
 	rows, err := q.db.Query(ctx, listRevisions, arg.ProjectID, arg.TargetType, arg.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxRevision
+	for rows.Next() {
+		var i ZdxRevision
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Field,
+			&i.OldVal,
+			&i.NewVal,
+			&i.Agent,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRevisionsPaginated = `-- name: ListRevisionsPaginated :many
+SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
+FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
+ORDER BY created_at
+LIMIT $4 OFFSET $5
+`
+
+type ListRevisionsPaginatedParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	Limit      int32  `db:"limit" json:"limit"`
+	Offset     int32  `db:"offset" json:"offset"`
+}
+
+func (q *Queries) ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ZdxRevision, error) {
+	rows, err := q.db.Query(ctx, listRevisionsPaginated,
+		arg.ProjectID,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Limit,
+		arg.Offset,
+	)
 	if err != nil {
 		return nil, err
 	}

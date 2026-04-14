@@ -12,7 +12,8 @@ import { useMe, useMyComments } from '../../../../api'
 function ProfilePage() {
   const { slug, component } = Route.useParams()
   const { data: me } = useMe()
-  const { data: comments, isLoading } = useMyComments(slug)
+  const { data: mcData, isLoading } = useMyComments(slug)
+  const comments = mcData?.comments
 
   if (!me) return null
 

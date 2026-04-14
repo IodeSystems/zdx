@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countTimed = `-- name: CountTimed :one
+SELECT count(*) FROM zdx_timed WHERE ($1::int IS NULL OR project_id = $1)
+`
+
+func (q *Queries) CountTimed(ctx context.Context, projectID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countTimed, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const listTimed = `-- name: ListTimed :many
 SELECT id, project_id, name, duration_ms, source, context_json, created_at
 FROM zdx_timed
@@ -20,6 +31,48 @@ ORDER BY duration_ms DESC
 
 func (q *Queries) ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, error) {
 	rows, err := q.db.Query(ctx, listTimed, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTimed
+	for rows.Next() {
+		var i ZdxTimed
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.DurationMs,
+			&i.Source,
+			&i.ContextJson,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTimedPaginated = `-- name: ListTimedPaginated :many
+SELECT id, project_id, name, duration_ms, source, context_json, created_at
+FROM zdx_timed
+WHERE ($1::int IS NULL OR project_id = $1)
+ORDER BY duration_ms DESC
+LIMIT $3 OFFSET $2
+`
+
+type ListTimedPaginatedParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	Off       int32 `db:"off" json:"off"`
+	Lim       int32 `db:"lim" json:"lim"`
+}
+
+func (q *Queries) ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ZdxTimed, error) {
+	rows, err := q.db.Query(ctx, listTimedPaginated, arg.ProjectID, arg.Off, arg.Lim)
 	if err != nil {
 		return nil, err
 	}

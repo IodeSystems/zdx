@@ -2,13 +2,37 @@
 SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC;
 
+-- name: CountTasks :one
+SELECT count(*) FROM zdx_tasks WHERE project_id = $1;
+
+-- name: ListTasksPaginated :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC
+LIMIT $2 OFFSET $3;
+
 -- name: ListTasksByFeature :many
 SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC;
 
+-- name: CountTasksByFeature :one
+SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND feature = $2;
+
+-- name: ListTasksByFeaturePaginated :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC
+LIMIT $3 OFFSET $4;
+
 -- name: ListTasksByIssue :many
 SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC;
+
+-- name: CountTasksByIssue :one
+SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND issue = $2;
+
+-- name: ListTasksByIssuePaginated :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC
+LIMIT $3 OFFSET $4;
 
 -- name: CreateTask :one
 INSERT INTO zdx_tasks (id, project_id, text, feature, issue)

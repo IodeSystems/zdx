@@ -17,6 +17,16 @@ FROM zdx_claude_sessions
 WHERE project_id = $1
 ORDER BY created_at DESC;
 
+-- name: CountClaudeSessions :one
+SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1;
+
+-- name: ListClaudeSessionsPaginated :many
+SELECT id, project_id, issue_id, session_id, title, created_at
+FROM zdx_claude_sessions
+WHERE project_id = $1
+ORDER BY created_at DESC
+LIMIT $2 OFFSET $3;
+
 -- name: CreateClaudeEvent :exec
 INSERT INTO zdx_claude_events (session_pk, seq, event_type, event_json)
 VALUES ($1, $2, $3, $4);

@@ -73,7 +73,7 @@ describe('Blocker Questions UI', () => {
   test('spec 5: answering a pending question marks it answered', async () => {
     const mutateAsyncMock = vi.fn().mockResolvedValue({})
     mockedUseBlockerQuestions.mockReturnValue({
-      data: [makeBQ({ id: 10, context: 'Should we migrate?' })],
+      data: { questions: [makeBQ({ id: 10, context: 'Should we migrate?' })], total: 1 },
       isLoading: false,
     } as any)
     mockedUseAnswerBlockerQuestion.mockReturnValue({
@@ -101,7 +101,7 @@ describe('Blocker Questions UI', () => {
 
   test('spec 6: toggling between Pending and All changes filter', async () => {
     mockedUseBlockerQuestions.mockReturnValue({
-      data: [],
+      data: { questions: [], total: 0 },
       isLoading: false,
     } as any)
     mockedUseAnswerBlockerQuestion.mockReturnValue({
@@ -124,7 +124,7 @@ describe('Blocker Questions UI', () => {
 
   test('spec 7: choices appear as chips', async () => {
     mockedUseBlockerQuestions.mockReturnValue({
-      data: [makeBQ({ choices: ['postgres', 'sqlite', 'mysql'] })],
+      data: { questions: [makeBQ({ choices: ['postgres', 'sqlite', 'mysql'] })], total: 1 },
       isLoading: false,
     } as any)
     mockedUseAnswerBlockerQuestion.mockReturnValue({
@@ -143,13 +143,13 @@ describe('Blocker Questions UI', () => {
 
   test('spec 8: answered question shows answer and attribution', async () => {
     mockedUseBlockerQuestions.mockReturnValue({
-      data: [
+      data: { questions: [
         makeBQ({
           status: 'answered',
           answer: 'Use postgres for everything',
           answered_by: 'tech-lead',
         }),
-      ],
+      ], total: 1 },
       isLoading: false,
     } as any)
     mockedUseAnswerBlockerQuestion.mockReturnValue({
