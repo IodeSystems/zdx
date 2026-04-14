@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"crypto/sha256"
 	"encoding/hex"
+	"encoding/json"
 	"fmt"
 	"log"
 	"math"
@@ -204,33 +205,19 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 }
 
 // buildContextJSON folds host + free-form tags into the context_json column.
-// Order-insensitive; an empty object is returned when neither is set.
-func buildContextJSON(host string, tags map[string]string) string {
-	if host == "" && len(tags) == 0 {
-		return "{}"
-	}
-	var b strings.Builder
-	b.WriteByte('{')
-	first := true
-	write := func(k, v string) {
-		if !first {
-			b.WriteByte(',')
-		}
-		first = false
-		b.WriteByte('"')
-		b.WriteString(jsonEscape(k))
-		b.WriteString(`":"`)
-		b.WriteString(jsonEscape(v))
-		b.WriteByte('"')
-	}
+func buildContextJSON(host string, tags map[string]string) []byte {
+	m := make(map[string]string, len(tags)+1)
 	if host != "" {
-		write("host", host)
+		m["host"] = host
 	}
 	for k, v := range tags {
-		write(k, v)
+		m[k] = v
 	}
-	b.WriteByte('}')
-	return b.String()
+	if len(m) == 0 {
+		return []byte("{}")
+	}
+	b, _ := json.Marshal(m)
+	return b
 }
 
 // ── Self-token bootstrap ──────────────────────────────────────────────────
@@ -300,29 +287,4 @@ func selfIntegrationTokenPath() string {
 		return zdxHome + "/data/self-integration-token"
 	}
 	return "data/self-integration-token"
-}
-
-// jsonEscape escapes the minimum required by RFC 8259 for a JSON string.
-func jsonEscape(s string) string {
-	if !strings.ContainsAny(s, `"\`+"\n\r\t") {
-		return s
-	}
-	var b strings.Builder
-	for _, r := range s {
-		switch r {
-		case '"':
-			b.WriteString(`\"`)
-		case '\\':
-			b.WriteString(`\\`)
-		case '\n':
-			b.WriteString(`\n`)
-		case '\r':
-			b.WriteString(`\r`)
-		case '\t':
-			b.WriteString(`\t`)
-		default:
-			b.WriteRune(r)
-		}
-	}
-	return b.String()
 }

@@ -12,11 +12,18 @@ import (
 )
 
 const countTimed = `-- name: CountTimed :one
-SELECT count(*) FROM zdx_timed WHERE ($1::int IS NULL OR project_id = $1)
+SELECT count(*) FROM zdx_timed
+WHERE ($1::int IS NULL OR project_id = $1)
+  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
 `
 
-func (q *Queries) CountTimed(ctx context.Context, projectID pgtype.Int4) (int64, error) {
-	row := q.db.QueryRow(ctx, countTimed, projectID)
+type CountTimedParams struct {
+	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
+	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
+}
+
+func (q *Queries) CountTimed(ctx context.Context, arg CountTimedParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTimed, arg.ProjectID, arg.TagFilter)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -39,7 +46,7 @@ type ListTimedRow struct {
 	Count       int32              `db:"count" json:"count"`
 	TotalMs     int64              `db:"total_ms" json:"total_ms"`
 	Source      string             `db:"source" json:"source"`
-	ContextJson string             `db:"context_json" json:"context_json"`
+	ContextJson []byte             `db:"context_json" json:"context_json"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -75,16 +82,134 @@ func (q *Queries) ListTimed(ctx context.Context, projectID pgtype.Int4) ([]ListT
 	return items, nil
 }
 
+const listTimedDistinctTagKeys = `-- name: ListTimedDistinctTagKeys :many
+SELECT DISTINCT k AS tag_key
+FROM zdx_timed, jsonb_object_keys(context_json) AS k
+WHERE ($1::int IS NULL OR project_id = $1)
+ORDER BY tag_key
+`
+
+func (q *Queries) ListTimedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error) {
+	rows, err := q.db.Query(ctx, listTimedDistinctTagKeys, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []pgtype.Text
+	for rows.Next() {
+		var tag_key pgtype.Text
+		if err := rows.Scan(&tag_key); err != nil {
+			return nil, err
+		}
+		items = append(items, tag_key)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTimedDistinctTagValues = `-- name: ListTimedDistinctTagValues :many
+SELECT DISTINCT context_json->>@tag_key::text AS tag_value
+FROM zdx_timed
+WHERE ($1::int IS NULL OR project_id = $1)
+  AND context_json ? $2::text
+  AND context_json->>@tag_key::text IS NOT NULL
+ORDER BY tag_value
+`
+
+type ListTimedDistinctTagValuesParams struct {
+	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
+	TagKey    string      `db:"tag_key" json:"tag_key"`
+}
+
+func (q *Queries) ListTimedDistinctTagValues(ctx context.Context, arg ListTimedDistinctTagValuesParams) ([]interface{}, error) {
+	rows, err := q.db.Query(ctx, listTimedDistinctTagValues, arg.ProjectID, arg.TagKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []interface{}
+	for rows.Next() {
+		var tag_value interface{}
+		if err := rows.Scan(&tag_value); err != nil {
+			return nil, err
+		}
+		items = append(items, tag_value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTimedGrouped = `-- name: ListTimedGrouped :many
+SELECT
+  context_json->>@group_key::text AS group_value,
+  count(*)::int AS entry_count,
+  max(duration_ms) AS max_ms,
+  sum(total_ms)::bigint AS sum_total_ms,
+  sum(count)::int AS sum_count
+FROM zdx_timed
+WHERE ($1::int IS NULL OR project_id = $1)
+  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
+  AND context_json ? $3::text
+GROUP BY group_value
+ORDER BY max_ms DESC
+`
+
+type ListTimedGroupedParams struct {
+	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
+	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
+	GroupKey  string      `db:"group_key" json:"group_key"`
+}
+
+type ListTimedGroupedRow struct {
+	GroupValue interface{} `db:"group_value" json:"group_value"`
+	EntryCount int32       `db:"entry_count" json:"entry_count"`
+	MaxMs      interface{} `db:"max_ms" json:"max_ms"`
+	SumTotalMs int64       `db:"sum_total_ms" json:"sum_total_ms"`
+	SumCount   int32       `db:"sum_count" json:"sum_count"`
+}
+
+func (q *Queries) ListTimedGrouped(ctx context.Context, arg ListTimedGroupedParams) ([]ListTimedGroupedRow, error) {
+	rows, err := q.db.Query(ctx, listTimedGrouped, arg.ProjectID, arg.TagFilter, arg.GroupKey)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTimedGroupedRow
+	for rows.Next() {
+		var i ListTimedGroupedRow
+		if err := rows.Scan(
+			&i.GroupValue,
+			&i.EntryCount,
+			&i.MaxMs,
+			&i.SumTotalMs,
+			&i.SumCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTimedPaginated = `-- name: ListTimedPaginated :many
 SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE ($1::int IS NULL OR project_id = $1)
+  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
 ORDER BY duration_ms DESC
-LIMIT $3 OFFSET $2
+LIMIT $4 OFFSET $3
 `
 
 type ListTimedPaginatedParams struct {
 	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
+	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
 	Off       int32       `db:"off" json:"off"`
 	Lim       int32       `db:"lim" json:"lim"`
 }
@@ -99,12 +224,17 @@ type ListTimedPaginatedRow struct {
 	Count       int32              `db:"count" json:"count"`
 	TotalMs     int64              `db:"total_ms" json:"total_ms"`
 	Source      string             `db:"source" json:"source"`
-	ContextJson string             `db:"context_json" json:"context_json"`
+	ContextJson []byte             `db:"context_json" json:"context_json"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 func (q *Queries) ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ListTimedPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listTimedPaginated, arg.ProjectID, arg.Off, arg.Lim)
+	rows, err := q.db.Query(ctx, listTimedPaginated,
+		arg.ProjectID,
+		arg.TagFilter,
+		arg.Off,
+		arg.Lim,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -155,7 +285,7 @@ type UpsertTimedParams struct {
 	Name        string      `db:"name" json:"name"`
 	DurationMs  int32       `db:"duration_ms" json:"duration_ms"`
 	Source      string      `db:"source" json:"source"`
-	ContextJson string      `db:"context_json" json:"context_json"`
+	ContextJson []byte      `db:"context_json" json:"context_json"`
 	TotalMs     int64       `db:"total_ms" json:"total_ms"`
 }
 

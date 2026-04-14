@@ -1380,7 +1380,7 @@ CREATE TABLE public.zdx_timed (
     name text NOT NULL,
     duration_ms integer NOT NULL,
     source text DEFAULT ''::text NOT NULL,
-    context_json text DEFAULT '{}'::text NOT NULL,
+    context_json jsonb DEFAULT '{}'::jsonb NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     count integer DEFAULT 1 NOT NULL,
     total_ms bigint DEFAULT 0 NOT NULL,
@@ -2577,6 +2577,13 @@ CREATE UNIQUE INDEX zdx_timed_name ON public.zdx_timed USING btree (COALESCE(pro
 --
 
 CREATE INDEX zdx_timed_project ON public.zdx_timed USING btree (project_id);
+
+
+--
+-- Name: zdx_timed_context_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_timed_context_gin ON public.zdx_timed USING gin (context_json jsonb_path_ops);
 
 
 --

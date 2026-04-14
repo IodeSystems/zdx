@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 
@@ -27,12 +28,12 @@ type slowQueryItem struct {
 }
 
 type timedItem struct {
-	ID          int64  `json:"id"`
-	Name        string `json:"name"`
-	DurationMs  int32  `json:"duration_ms"`
-	Source      string `json:"source"`
-	ContextJson string `json:"context_json"`
-	CreatedAt   string `json:"created_at"`
+	ID          int64           `json:"id"`
+	Name        string          `json:"name"`
+	DurationMs  int32           `json:"duration_ms"`
+	Source      string          `json:"source"`
+	ContextJson json.RawMessage `json:"context_json"`
+	CreatedAt   string          `json:"created_at"`
 }
 
 func ErrorsCmd() *cobra.Command {

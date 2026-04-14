@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -183,22 +184,23 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 	// ── Timed ─────────────────────────────────────────────────────────────────
 
 	type TimedItem struct {
-		ID          int64  `json:"id"`
-		Name        string `json:"name"`
-		DurationMs  int32  `json:"duration_ms"`
-		Count       int32  `json:"count"`
-		TotalMs     int64  `json:"total_ms"`
-		AvgMs       int32  `json:"avg_ms"`
-		Source      string `json:"source"`
-		ContextJson string `json:"context_json"`
-		CreatedAt   string `json:"created_at"`
+		ID          int64           `json:"id"`
+		Name        string          `json:"name"`
+		DurationMs  int32           `json:"duration_ms"`
+		Count       int32           `json:"count"`
+		TotalMs     int64           `json:"total_ms"`
+		AvgMs       int32           `json:"avg_ms"`
+		Source      string          `json:"source"`
+		ContextJson json.RawMessage `json:"context_json"`
+		CreatedAt   string          `json:"created_at"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-timed", Method: http.MethodGet, Path: "/api/dx/timed"},
 		func(ctx context.Context, in *struct {
-			Slug   string `query:"slug,omitempty"`
-			Limit  int32  `query:"limit"`
-			Offset int32  `query:"offset"`
+			Slug      string `query:"slug,omitempty"`
+			Limit     int32  `query:"limit"`
+			Offset    int32  `query:"offset"`
+			TagFilter string `query:"tag_filter,omitempty"`
 		}) (*struct {
 			Body struct {
 				Items []TimedItem `json:"items"`
@@ -211,9 +213,13 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
-			total, _ := s.q.CountTimed(ctx, pid)
+			var tagFilter []byte
+			if in.TagFilter != "" {
+				tagFilter = []byte(in.TagFilter)
+			}
+			total, _ := s.q.CountTimed(ctx, db.CountTimedParams{ProjectID: pid, TagFilter: tagFilter})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTimedPaginated(ctx, db.ListTimedPaginatedParams{ProjectID: pid, Lim: limit, Off: offset})
+			rows, err := s.q.ListTimedPaginated(ctx, db.ListTimedPaginatedParams{ProjectID: pid, TagFilter: tagFilter, Lim: limit, Off: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -226,7 +232,7 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 				out[i] = TimedItem{
 					ID: r.ID, Name: r.Name, DurationMs: r.DurationMs,
 					Count: r.Count, TotalMs: r.TotalMs, AvgMs: avg,
-					Source: r.Source, ContextJson: r.ContextJson, CreatedAt: fmtTS(r.CreatedAt),
+					Source: r.Source, ContextJson: json.RawMessage(r.ContextJson), CreatedAt: fmtTS(r.CreatedAt),
 				}
 			}
 			return &struct {
@@ -240,5 +246,133 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 					Total int64       `json:"total"`
 				}{Items: out, Total: total},
 			}, nil
+		})
+
+	type TimedGroupedItem struct {
+		GroupValue string `json:"group_value"`
+		EntryCount int32  `json:"entry_count"`
+		MaxMs      int32  `json:"max_ms"`
+		SumTotalMs int64  `json:"sum_total_ms"`
+		SumCount   int32  `json:"sum_count"`
+		AvgMs      int32  `json:"avg_ms"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-timed-grouped", Method: http.MethodGet, Path: "/api/dx/timed/grouped"},
+		func(ctx context.Context, in *struct {
+			Slug      string `query:"slug,omitempty"`
+			GroupBy   string `query:"group_by"`
+			TagFilter string `query:"tag_filter,omitempty"`
+		}) (*struct {
+			Body struct {
+				Items []TimedGroupedItem `json:"items"`
+			}
+		}, error) {
+			if in.GroupBy == "" {
+				return nil, apiErr(400, "group_by is required")
+			}
+			pid := pgtype.Int4{Valid: false}
+			if in.Slug != "" {
+				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+					pid = pgtype.Int4{Int32: p.ID, Valid: true}
+				}
+			}
+			var tagFilter []byte
+			if in.TagFilter != "" {
+				tagFilter = []byte(in.TagFilter)
+			}
+			rows, err := s.q.ListTimedGrouped(ctx, db.ListTimedGroupedParams{ProjectID: pid, TagFilter: tagFilter, GroupKey: in.GroupBy})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TimedGroupedItem, len(rows))
+			for i, r := range rows {
+				gv, _ := r.GroupValue.(string)
+				maxMs, _ := r.MaxMs.(int32)
+				var avg int32
+				if r.SumCount > 0 {
+					avg = int32(r.SumTotalMs / int64(r.SumCount)) //nolint:gosec
+				}
+				out[i] = TimedGroupedItem{
+					GroupValue: gv, EntryCount: r.EntryCount,
+					MaxMs: maxMs, SumTotalMs: r.SumTotalMs, SumCount: r.SumCount, AvgMs: avg,
+				}
+			}
+			return &struct {
+				Body struct {
+					Items []TimedGroupedItem `json:"items"`
+				}
+			}{Body: struct {
+				Items []TimedGroupedItem `json:"items"`
+			}{Items: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-timed-tag-keys", Method: http.MethodGet, Path: "/api/dx/timed/tags/keys"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug,omitempty"`
+		}) (*struct {
+			Body struct {
+				Keys []string `json:"keys"`
+			}
+		}, error) {
+			pid := pgtype.Int4{Valid: false}
+			if in.Slug != "" {
+				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+					pid = pgtype.Int4{Int32: p.ID, Valid: true}
+				}
+			}
+			rows, err := s.q.ListTimedDistinctTagKeys(ctx, pid)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			keys := make([]string, 0, len(rows))
+			for _, r := range rows {
+				if r.Valid {
+					keys = append(keys, r.String)
+				}
+			}
+			return &struct {
+				Body struct {
+					Keys []string `json:"keys"`
+				}
+			}{Body: struct {
+				Keys []string `json:"keys"`
+			}{Keys: keys}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-timed-tag-values", Method: http.MethodGet, Path: "/api/dx/timed/tags/values"},
+		func(ctx context.Context, in *struct {
+			Slug   string `query:"slug,omitempty"`
+			TagKey string `query:"key"`
+		}) (*struct {
+			Body struct {
+				Values []string `json:"values"`
+			}
+		}, error) {
+			if in.TagKey == "" {
+				return nil, apiErr(400, "key is required")
+			}
+			pid := pgtype.Int4{Valid: false}
+			if in.Slug != "" {
+				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+					pid = pgtype.Int4{Int32: p.ID, Valid: true}
+				}
+			}
+			rows, err := s.q.ListTimedDistinctTagValues(ctx, db.ListTimedDistinctTagValuesParams{ProjectID: pid, TagKey: in.TagKey})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			values := make([]string, 0, len(rows))
+			for _, r := range rows {
+				if v, ok := r.(string); ok {
+					values = append(values, v)
+				}
+			}
+			return &struct {
+				Body struct {
+					Values []string `json:"values"`
+				}
+			}{Body: struct {
+				Values []string `json:"values"`
+			}{Values: values}}, nil
 		})
 }

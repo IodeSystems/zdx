@@ -507,23 +507,72 @@ export interface TimedItem {
   total_ms: number
   avg_ms: number
   source: string
-  context_json: string
+  context_json: Record<string, string>
   created_at: string
 }
 
-export const useTimed = (slug: string, limit?: number, offset?: number) =>
+export interface TimedGroupedItem {
+  group_value: string
+  entry_count: number
+  max_ms: number
+  sum_total_ms: number
+  sum_count: number
+  avg_ms: number
+}
+
+export const useTimed = (slug: string, limit?: number, offset?: number, tagFilter?: Record<string, string>) =>
   useQuery<{ items: TimedItem[]; total: number }>({
-    queryKey: ['timed', slug, limit, offset],
+    queryKey: ['timed', slug, limit, offset, tagFilter],
     queryFn: async () => {
       const params = new URLSearchParams({ slug })
       if (limit != null) params.set('limit', String(limit))
       if (offset != null) params.set('offset', String(offset))
+      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
       const res = await apiFetch<{ items: TimedItem[]; total: number }>(
         `/api/dx/timed?${params}`
       )
       return { items: res.items ?? [], total: res.total ?? 0 }
     },
     enabled: !!slug,
+  })
+
+export const useTimedGrouped = (slug: string, groupBy: string, tagFilter?: Record<string, string>) =>
+  useQuery<{ items: TimedGroupedItem[] }>({
+    queryKey: ['timed-grouped', slug, groupBy, tagFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, group_by: groupBy })
+      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
+      const res = await apiFetch<{ items: TimedGroupedItem[] }>(
+        `/api/dx/timed/grouped?${params}`
+      )
+      return { items: res.items ?? [] }
+    },
+    enabled: !!slug && !!groupBy,
+  })
+
+export const useTimedTagKeys = (slug: string) =>
+  useQuery<{ keys: string[] }>({
+    queryKey: ['timed-tag-keys', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ keys: string[] }>(
+        `/api/dx/timed/tags/keys?slug=${encodeURIComponent(slug)}`
+      )
+      return { keys: res.keys ?? [] }
+    },
+    enabled: !!slug,
+  })
+
+export const useTimedTagValues = (slug: string, key: string) =>
+  useQuery<{ values: string[] }>({
+    queryKey: ['timed-tag-values', slug, key],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, key })
+      const res = await apiFetch<{ values: string[] }>(
+        `/api/dx/timed/tags/values?${params}`
+      )
+      return { values: res.values ?? [] }
+    },
+    enabled: !!slug && !!key,
   })
 
 // ── Project git config (admin) ────────────────────────────────────────────────
