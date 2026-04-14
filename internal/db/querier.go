@@ -12,6 +12,7 @@ import (
 
 type Querier interface {
 	AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error)
+	AddCommentReaction(ctx context.Context, arg AddCommentReactionParams) (ZdxCommentReaction, error)
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
@@ -62,6 +63,7 @@ type Querier interface {
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	DeferSpec(ctx context.Context, id int32) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
+	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
 	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteInvite(ctx context.Context, id int32) error
@@ -81,7 +83,9 @@ type Querier interface {
 	GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (ZdxClaudeSession, error)
 	GetClaudeSessionTokenUsage(ctx context.Context, sessionPk int64) (GetClaudeSessionTokenUsageRow, error)
 	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
+	GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error)
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
+	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
 	GetFile(ctx context.Context, id int32) (ZdxFile, error)
 	GetInviteByToken(ctx context.Context, token string) (ZdxInvite, error)
@@ -120,6 +124,7 @@ type Querier interface {
 	ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ZdxClaudeSession, error)
 	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
 	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)
+	ListCommentReactions(ctx context.Context, commentID int32) ([]ZdxCommentReaction, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
 	ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error)
 	ListCommentsByAuthorPaginated(ctx context.Context, arg ListCommentsByAuthorPaginatedParams) ([]ListCommentsByAuthorPaginatedRow, error)

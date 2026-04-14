@@ -3,6 +3,8 @@ package cli
 import (
 	"fmt"
 	"net/url"
+	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -19,7 +21,7 @@ type commentItem struct {
 
 func CommentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "comment", Short: "Comment on issues, tasks, and features"}
-	cmd.AddCommand(commentListCmd(), commentAddCmd(), commentMarkReadCmd())
+	cmd.AddCommand(commentListCmd(), commentAddCmd(), commentMarkReadCmd(), commentReplyCmd(), commentReactCmd())
 	return cmd
 }
 
@@ -71,7 +73,7 @@ func printComments(comments []commentItem) {
 				dot = "● "
 			}
 		}
-		fmt.Printf("%s[%s] %s: %s\n", dot, date, cm.Author, cm.Body)
+		fmt.Printf("%sC-%d [%s] %s: %s\n", dot, cm.ID, date, cm.Author, cm.Body)
 	}
 }
 
@@ -92,7 +94,7 @@ func commentAddCmd() *cobra.Command {
 			}, &cm); err != nil {
 				return err
 			}
-			fmt.Printf("comment %d added\n", cm.ID)
+			fmt.Printf("C-%d added\n", cm.ID)
 			return nil
 		},
 	}
@@ -104,11 +106,48 @@ func commentAddCmd() *cobra.Command {
 func commentMarkReadCmd() *cobra.Command {
 	var role string
 	cmd := &cobra.Command{
-		Use:   "mark-read <target-type> <target-id>",
-		Short: "Mark all comments on a target as read for a role",
-		Args:  cobra.ExactArgs(2),
+		Use:   "mark-read <target-type> <target-id> | mark-read C-1,C-2,...",
+		Short: "Mark comments as read — by target or by comment IDs",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
+
+			// Check if first arg looks like C-N (batch by comment IDs)
+			if strings.HasPrefix(args[0], "C-") {
+				ids := strings.Split(args[0], ",")
+				for _, raw := range ids {
+					for _, id := range strings.Split(raw, ",") {
+						id = strings.TrimSpace(id)
+						cid, err := parseCommentID(id)
+						if err != nil {
+							return err
+						}
+						// Resolve comment to its target
+						var cm commentItem
+						if err := c.get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &cm); err != nil {
+							return fmt.Errorf("C-%d: %w", cid, err)
+						}
+						var ok struct {
+							OK bool `json:"ok"`
+						}
+						if err := c.post("/api/dx/comment/mark-read", map[string]any{
+							"slug":        c.SlugOrDie(),
+							"target_type": cm.TargetType,
+							"target_id":   cm.TargetID,
+							"role":        role,
+						}, &ok); err != nil {
+							return fmt.Errorf("C-%d: %w", cid, err)
+						}
+						fmt.Printf("C-%d marked read\n", cid)
+					}
+				}
+				return nil
+			}
+
+			// Legacy: mark-read <target-type> <target-id>
+			if len(args) < 2 {
+				return fmt.Errorf("usage: mark-read <target-type> <target-id> or mark-read C-1,C-2,...")
+			}
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -127,6 +166,100 @@ func commentMarkReadCmd() *cobra.Command {
 	cmd.Flags().StringVar(&role, "role", "", "reader role (e.g. dev, owner)")
 	cmd.MarkFlagRequired("role")
 	return cmd
+}
+
+func commentReplyCmd() *cobra.Command {
+	var body, react string
+	cmd := &cobra.Command{
+		Use:   "reply <C-N>",
+		Short: "Reply to a comment by ID (e.g. comment reply C-123 --body '...')",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := mustClient()
+			cid, err := parseCommentID(args[0])
+			if err != nil {
+				return err
+			}
+
+			// Look up original comment to find its target
+			var orig commentItem
+			if err := c.get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &orig); err != nil {
+				return fmt.Errorf("could not find C-%d: %w", cid, err)
+			}
+
+			if body != "" {
+				var cm commentItem
+				if err := c.post("/api/dx/comment/add", map[string]any{
+					"slug":        c.SlugOrDie(),
+					"target_type": orig.TargetType,
+					"target_id":   orig.TargetID,
+					"body":        body,
+				}, &cm); err != nil {
+					return err
+				}
+				fmt.Printf("C-%d added (reply to C-%d)\n", cm.ID, cid)
+			}
+
+			if react != "" {
+				var resp struct {
+					ID int32 `json:"id"`
+				}
+				if err := c.post("/api/dx/comment/react", map[string]any{
+					"slug":       c.SlugOrDie(),
+					"comment_id": cid,
+					"emoji":      react,
+				}, &resp); err != nil {
+					return err
+				}
+				fmt.Printf("reacted %s to C-%d\n", react, cid)
+			}
+
+			if body == "" && react == "" {
+				return fmt.Errorf("provide --body and/or --react")
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&body, "body", "", "reply body")
+	cmd.Flags().StringVar(&react, "react", "", "reaction emoji (e.g. thumbs-up, +1)")
+	return cmd
+}
+
+func commentReactCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "react <C-N> <emoji>",
+		Short: "React to a comment (e.g. comment react C-123 thumbs-up)",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := mustClient()
+			cid, err := parseCommentID(args[0])
+			if err != nil {
+				return err
+			}
+			var resp struct {
+				ID int32 `json:"id"`
+			}
+			if err := c.post("/api/dx/comment/react", map[string]any{
+				"slug":       c.SlugOrDie(),
+				"comment_id": cid,
+				"emoji":      args[1],
+			}, &resp); err != nil {
+				return err
+			}
+			fmt.Printf("reacted %s to C-%d\n", args[1], cid)
+			return nil
+		},
+	}
+	return cmd
+}
+
+func parseCommentID(s string) (int32, error) {
+	s = strings.TrimPrefix(s, "C-")
+	n, err := strconv.Atoi(s)
+	if err != nil {
+		return 0, fmt.Errorf("invalid comment ID %q (expected C-N)", s)
+	}
+	return int32(n), nil
 }
 
 // ── revision type for CLI use ─────────────────────────────────────────────

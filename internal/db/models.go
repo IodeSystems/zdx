@@ -70,6 +70,15 @@ type ZdxComment struct {
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxCommentReaction struct {
+	ID        int32              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	CommentID int32              `db:"comment_id" json:"comment_id"`
+	Emoji     string             `db:"emoji" json:"emoji"`
+	Reactor   string             `db:"reactor" json:"reactor"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxCommentRead struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`

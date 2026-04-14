@@ -91,6 +91,29 @@ WHERE c.project_id = @project_id
       AND r.last_read_at >= c.created_at
   );
 
+-- name: GetCommentByID :one
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE id = $1;
+
+-- name: GetCommentsByIDs :many
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE id = ANY($1::int[]);
+
+-- name: AddCommentReaction :one
+INSERT INTO zdx_comment_reactions (project_id, comment_id, emoji, reactor)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (comment_id, emoji, reactor) DO NOTHING
+RETURNING id, project_id, comment_id, emoji, reactor, created_at;
+
+-- name: ListCommentReactions :many
+SELECT id, project_id, comment_id, emoji, reactor, created_at
+FROM zdx_comment_reactions WHERE comment_id = $1
+ORDER BY created_at;
+
+-- name: DeleteCommentReaction :exec
+DELETE FROM zdx_comment_reactions
+WHERE comment_id = $1 AND emoji = $2 AND reactor = $3;
+
 -- name: AddRevision :exec
 INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent)
 VALUES ($1, $2, $3, $4, $5, $6, $7);

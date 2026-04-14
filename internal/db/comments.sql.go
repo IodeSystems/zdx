@@ -56,6 +56,39 @@ func (q *Queries) AddComment(ctx context.Context, arg AddCommentParams) (AddComm
 	return i, err
 }
 
+const addCommentReaction = `-- name: AddCommentReaction :one
+INSERT INTO zdx_comment_reactions (project_id, comment_id, emoji, reactor)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (comment_id, emoji, reactor) DO NOTHING
+RETURNING id, project_id, comment_id, emoji, reactor, created_at
+`
+
+type AddCommentReactionParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	CommentID int32  `db:"comment_id" json:"comment_id"`
+	Emoji     string `db:"emoji" json:"emoji"`
+	Reactor   string `db:"reactor" json:"reactor"`
+}
+
+func (q *Queries) AddCommentReaction(ctx context.Context, arg AddCommentReactionParams) (ZdxCommentReaction, error) {
+	row := q.db.QueryRow(ctx, addCommentReaction,
+		arg.ProjectID,
+		arg.CommentID,
+		arg.Emoji,
+		arg.Reactor,
+	)
+	var i ZdxCommentReaction
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.CommentID,
+		&i.Emoji,
+		&i.Reactor,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const addRevision = `-- name: AddRevision :exec
 INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
@@ -195,6 +228,52 @@ func (q *Queries) CountUnreadResponsesForUser(ctx context.Context, arg CountUnre
 	return column_1, err
 }
 
+const deleteCommentReaction = `-- name: DeleteCommentReaction :exec
+DELETE FROM zdx_comment_reactions
+WHERE comment_id = $1 AND emoji = $2 AND reactor = $3
+`
+
+type DeleteCommentReactionParams struct {
+	CommentID int32  `db:"comment_id" json:"comment_id"`
+	Emoji     string `db:"emoji" json:"emoji"`
+	Reactor   string `db:"reactor" json:"reactor"`
+}
+
+func (q *Queries) DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error {
+	_, err := q.db.Exec(ctx, deleteCommentReaction, arg.CommentID, arg.Emoji, arg.Reactor)
+	return err
+}
+
+const getCommentByID = `-- name: GetCommentByID :one
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE id = $1
+`
+
+type GetCommentByIDRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Author     string             `db:"author" json:"author"`
+	Body       string             `db:"body" json:"body"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error) {
+	row := q.db.QueryRow(ctx, getCommentByID, id)
+	var i GetCommentByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Author,
+		&i.Body,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getCommentRead = `-- name: GetCommentRead :one
 SELECT last_read_at FROM zdx_comment_reads
 WHERE project_id = $1 AND target_type = $2 AND target_id = $3 AND role = $4
@@ -217,6 +296,49 @@ func (q *Queries) GetCommentRead(ctx context.Context, arg GetCommentReadParams) 
 	var last_read_at pgtype.Timestamptz
 	err := row.Scan(&last_read_at)
 	return last_read_at, err
+}
+
+const getCommentsByIDs = `-- name: GetCommentsByIDs :many
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE id = ANY($1::int[])
+`
+
+type GetCommentsByIDsRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Author     string             `db:"author" json:"author"`
+	Body       string             `db:"body" json:"body"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error) {
+	rows, err := q.db.Query(ctx, getCommentsByIDs, dollar_1)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetCommentsByIDsRow
+	for rows.Next() {
+		var i GetCommentsByIDsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Author,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const hasUnreadCommentsForTarget = `-- name: HasUnreadCommentsForTarget :one
@@ -253,6 +375,39 @@ func (q *Queries) HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadC
 	var exists bool
 	err := row.Scan(&exists)
 	return exists, err
+}
+
+const listCommentReactions = `-- name: ListCommentReactions :many
+SELECT id, project_id, comment_id, emoji, reactor, created_at
+FROM zdx_comment_reactions WHERE comment_id = $1
+ORDER BY created_at
+`
+
+func (q *Queries) ListCommentReactions(ctx context.Context, commentID int32) ([]ZdxCommentReaction, error) {
+	rows, err := q.db.Query(ctx, listCommentReactions, commentID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxCommentReaction
+	for rows.Next() {
+		var i ZdxCommentReaction
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.CommentID,
+			&i.Emoji,
+			&i.Reactor,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listComments = `-- name: ListComments :many

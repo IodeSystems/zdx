@@ -2676,6 +2676,63 @@ func (s *Server) registerRoutes(api huma.API) {
 			}{Count: count}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "get-comment", Method: http.MethodGet, Path: "/api/dx/comment/get"},
+		func(ctx context.Context, in *struct {
+			ID int32 `query:"id" required:"true"`
+		}) (*struct{ Body CommentItem }, error) {
+			row, err := s.q.GetCommentByID(ctx, in.ID)
+			if err != nil {
+				return nil, apiErr(404, "comment not found")
+			}
+			return &struct{ Body CommentItem }{Body: CommentItem{
+				ID: row.ID, TargetType: row.TargetType, TargetID: row.TargetID,
+				Author: row.Author, Body: row.Body, CreatedAt: fmtTS(row.CreatedAt),
+			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "react-to-comment", Method: http.MethodPost, Path: "/api/dx/comment/react"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string `json:"slug"`
+				CommentID int32  `json:"comment_id"`
+				Emoji     string `json:"emoji"`
+			}
+		}) (*struct {
+			Body struct {
+				ID    int32  `json:"id"`
+				Emoji string `json:"emoji"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			reactor := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, err := s.q.GetUserByID(ctx, uid); err == nil {
+					reactor = u.Email
+				}
+			}
+			r, err := s.q.AddCommentReaction(ctx, db.AddCommentReactionParams{
+				ProjectID: p.ID,
+				CommentID: in.Body.CommentID,
+				Emoji:     in.Body.Emoji,
+				Reactor:   reactor,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					ID    int32  `json:"id"`
+					Emoji string `json:"emoji"`
+				}
+			}{Body: struct {
+				ID    int32  `json:"id"`
+				Emoji string `json:"emoji"`
+			}{ID: r.ID, Emoji: r.Emoji}}, nil
+		})
+
 	// ── Revisions ─────────────────────────────────────────────────────────────
 
 	type RevisionItem struct {
