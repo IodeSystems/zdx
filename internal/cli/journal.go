@@ -1,8 +1,11 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
+	"strings"
 	"time"
 
 	"github.com/spf13/cobra"
@@ -30,7 +33,7 @@ func JournalCmd() *cobra.Command {
 }
 
 func journalCheckinCmd() *cobra.Command {
-	var role, tldr, assessment, concerns, next, date string
+	var role, tldr, assessment, concerns, next, date, projectRoot string
 	cmd := &cobra.Command{
 		Use:   "checkin",
 		Short: "Record a journal check-in",
@@ -39,8 +42,8 @@ func journalCheckinCmd() *cobra.Command {
 			if date == "" {
 				date = time.Now().Format("2006-01-02")
 			}
-			var resp struct{ OK bool }
-			if err := c.post("/api/dx/journal/checkin", map[string]any{
+
+			body := map[string]any{
 				"slug":       c.SlugOrDie(),
 				"role":       role,
 				"date":       date,
@@ -48,7 +51,56 @@ func journalCheckinCmd() *cobra.Command {
 				"assessment": assessment,
 				"concerns":   concerns,
 				"next":       next,
-			}, &resp); err != nil {
+			}
+
+			if role == "tech" {
+				root := projectRoot
+				if root == "" {
+					root, _ = os.Getwd()
+				}
+
+				metrics := collectTechMetrics(root)
+
+				var prevDate string
+				var prevStateJSON string
+				params := url.Values{
+					"slug": {c.SlugOrDie()},
+					"role": {"tech"},
+				}
+				var showResp struct {
+					Entries []json.RawMessage `json:"entries"`
+				}
+				_ = c.get("/api/dx/journal/show", params, &showResp)
+				if len(showResp.Entries) > 0 {
+					var prev journalEntry
+					if json.Unmarshal(showResp.Entries[0], &prev) == nil {
+						prevDate = prev.Date
+						prevStateJSON = prev.StateJSON
+					}
+				}
+
+				commits, filesChanged := collectGitChurn(root, prevDate)
+				metrics.GitCommits = commits
+				metrics.GitFilesChanged = filesChanged
+
+				stateJSON := metricsToJSON(metrics)
+				body["state_json"] = stateJSON
+
+				if prevMetrics, ok := parseTechMetrics(prevStateJSON); ok {
+					deltas := computeDeltas(prevMetrics, metrics)
+					body["changelog_json"] = deltasToJSON(deltas)
+					fmt.Println("metrics (delta from last entry):")
+					fmt.Print(formatMetricsSummary(metrics, deltas))
+				} else {
+					body["changelog_json"] = "[]"
+					deltas := computeDeltas(TechMetrics{}, metrics)
+					fmt.Println("metrics (baseline):")
+					fmt.Print(formatMetricsSummary(metrics, deltas))
+				}
+			}
+
+			var resp struct{ OK bool }
+			if err := c.post("/api/dx/journal/checkin", body, &resp); err != nil {
 				return err
 			}
 			fmt.Println("ok")
@@ -61,6 +113,7 @@ func journalCheckinCmd() *cobra.Command {
 	cmd.Flags().StringVar(&concerns, "concerns", "", "concerns text")
 	cmd.Flags().StringVar(&next, "next", "", "next steps text")
 	cmd.Flags().StringVar(&date, "date", "", "entry date (default: today)")
+	cmd.Flags().StringVar(&projectRoot, "project-root", "", "project root directory for tech metrics (default: cwd)")
 	return cmd
 }
 
@@ -99,6 +152,23 @@ func journalShowCmd() *cobra.Command {
 				}
 				if e.Next != "" {
 					fmt.Printf("  next:       %s\n", e.Next)
+				}
+				if e.StateJSON != "" && e.StateJSON != "{}" {
+					if m, ok := parseTechMetrics(e.StateJSON); ok {
+						var deltas []MetricDelta
+						if e.ChangelogJSON != "" && e.ChangelogJSON != "[]" {
+							_ = json.Unmarshal([]byte(e.ChangelogJSON), &deltas)
+						}
+						if len(deltas) == 0 {
+							deltas = computeDeltas(TechMetrics{}, m)
+						}
+						fmt.Println("  metrics:")
+						for _, line := range strings.Split(formatMetricsSummary(m, deltas), "\n") {
+							if line != "" {
+								fmt.Printf("  %s\n", line)
+							}
+						}
+					}
 				}
 				fmt.Println()
 			}

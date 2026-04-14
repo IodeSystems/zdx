@@ -2109,27 +2109,39 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "journal-checkin", Method: http.MethodPost, Path: "/api/dx/journal/checkin"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug       string `json:"slug"`
-				Role       string `json:"role"`
-				Date       string `json:"date"`
-				Tldr       string `json:"tldr"`
-				Assessment string `json:"assessment"`
-				Concerns   string `json:"concerns"`
-				Next       string `json:"next"`
+				Slug          string `json:"slug"`
+				Role          string `json:"role"`
+				Date          string `json:"date"`
+				Tldr          string `json:"tldr"`
+				Assessment    string `json:"assessment"`
+				Concerns      string `json:"concerns"`
+				Next          string `json:"next"`
+				StateJSON     string `json:"state_json,omitempty"`
+				ChangelogJSON string `json:"changelog_json,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
+			stateJSON := in.Body.StateJSON
+			if stateJSON == "" {
+				stateJSON = "{}"
+			}
+			changelogJSON := in.Body.ChangelogJSON
+			if changelogJSON == "" {
+				changelogJSON = "{}"
+			}
 			_, err = s.q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
-				ProjectID:  p.ID,
-				Role:       in.Body.Role,
-				Date:       in.Body.Date,
-				Tldr:       in.Body.Tldr,
-				Assessment: in.Body.Assessment,
-				Concerns:   in.Body.Concerns,
-				Next:       in.Body.Next,
+				ProjectID:     p.ID,
+				Role:          in.Body.Role,
+				Date:          in.Body.Date,
+				Tldr:          in.Body.Tldr,
+				Assessment:    in.Body.Assessment,
+				Concerns:      in.Body.Concerns,
+				Next:          in.Body.Next,
+				StateJson:     stateJSON,
+				ChangelogJson: changelogJSON,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())

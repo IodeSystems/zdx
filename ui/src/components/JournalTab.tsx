@@ -13,12 +13,90 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { Add as AddIcon } from '@mui/icons-material'
-import { useState } from 'react'
+import { Add as AddIcon, TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
+import { useState, useMemo } from 'react'
 import { useJournalEntries, useCreateJournalEntry, type JournalEntryItem } from '../api'
 
-function EntryCard({ entry, prev }: { entry: JournalEntryItem; prev?: JournalEntryItem }) {
+interface MetricDelta {
+  name: string
+  prev: number
+  curr: number
+  diff: number
+}
+
+const METRIC_LABELS: Record<string, string> = {
+  go_files: 'Go files',
+  go_loc: 'Go LOC',
+  test_files: 'Test files',
+  test_functions: 'Test fns',
+  migrations: 'Migrations',
+  sql_query_files: 'SQL queries',
+  ts_files: 'TS files',
+  tsx_files: 'TSX files',
+  ts_loc: 'TS/TSX LOC',
+  git_commits_since: 'Commits',
+  git_files_changed_since: 'Files changed',
+}
+
+function MetricsGrid({ stateJson, changelogJson }: { stateJson: string; changelogJson: string }) {
+  const { metrics, deltas } = useMemo(() => {
+    let metrics: Record<string, number> = {}
+    let deltas: MetricDelta[] = []
+    try { metrics = JSON.parse(stateJson) } catch { /* empty */ }
+    try { deltas = JSON.parse(changelogJson) } catch { /* empty */ }
+    return { metrics, deltas }
+  }, [stateJson, changelogJson])
+
+  const deltaMap = useMemo(() => {
+    const m = new Map<string, MetricDelta>()
+    for (const d of deltas) m.set(d.name, d)
+    return m
+  }, [deltas])
+
+  const keys = Object.keys(metrics).filter(k => typeof metrics[k] === 'number')
+  if (keys.length === 0) return null
+
+  return (
+    <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(130px, 1fr))', gap: 0.75, mt: 1, mb: 0.5 }}>
+      {keys.map(k => {
+        const delta = deltaMap.get(k)
+        const diff = delta?.diff ?? 0
+        return (
+          <Box key={k} sx={{ px: 1, py: 0.5, borderRadius: 1, bgcolor: 'action.hover', display: 'flex', flexDirection: 'column' }}>
+            <Typography variant="caption" color="text.secondary" sx={{ fontSize: '0.65rem', lineHeight: 1.2 }}>
+              {METRIC_LABELS[k] ?? k}
+            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+              <Typography variant="body2" sx={{ fontWeight: 600, fontSize: '0.85rem' }}>
+                {metrics[k].toLocaleString()}
+              </Typography>
+              {diff !== 0 && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.25 }}>
+                  {diff > 0 ? (
+                    <TrendingUp sx={{ fontSize: 14, color: 'success.main' }} />
+                  ) : (
+                    <TrendingDown sx={{ fontSize: 14, color: 'error.main' }} />
+                  )}
+                  <Typography variant="caption" sx={{ fontSize: '0.7rem', color: diff > 0 ? 'success.main' : 'error.main' }}>
+                    {diff > 0 ? '+' : ''}{diff}
+                  </Typography>
+                </Box>
+              )}
+              {diff === 0 && delta && (
+                <TrendingFlat sx={{ fontSize: 14, color: 'text.disabled' }} />
+              )}
+            </Box>
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
+function EntryCard({ entry, prev, isTech }: { entry: JournalEntryItem; prev?: JournalEntryItem; isTech: boolean }) {
   const [expanded, setExpanded] = useState(false)
+
+  const hasMetrics = isTech && entry.state_json && entry.state_json !== '{}'
 
   const fields: { label: string; key: keyof JournalEntryItem }[] = [
     { label: 'Assessment', key: 'assessment' },
@@ -35,12 +113,16 @@ function EntryCard({ entry, prev }: { entry: JournalEntryItem; prev?: JournalEnt
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="body2" sx={{ fontWeight: 600 }}>{entry.date}</Typography>
           {entry.baseline && <Chip label="baseline" size="small" color="info" sx={{ fontSize: '0.7rem' }} />}
+          {hasMetrics && <Chip label="metrics" size="small" color="success" sx={{ fontSize: '0.65rem', height: 18 }} />}
           <Typography variant="body2" color="text.secondary" sx={{ flex: 1, ml: 1 }}>
             {entry.tldr}
           </Typography>
         </Box>
         {expanded && (
           <Box sx={{ mt: 1.5, display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+            {hasMetrics && (
+              <MetricsGrid stateJson={entry.state_json} changelogJson={entry.changelog_json} />
+            )}
             {fields.map(f => {
               const val = entry[f.key] as string
               if (!val) return null
@@ -108,7 +190,7 @@ export function JournalTab({ slug }: { slug: string }) {
         <Typography variant="body2" color="text.secondary">No journal entries yet.</Typography>
       )}
       {sorted.map((entry, i) => (
-        <EntryCard key={entry.date + i} entry={entry} prev={sorted[i + 1]} />
+        <EntryCard key={entry.date + i} entry={entry} prev={sorted[i + 1]} isTech={role === 'tech'} />
       ))}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>New Check-in ({role})</DialogTitle>

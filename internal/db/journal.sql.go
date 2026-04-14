@@ -40,19 +40,21 @@ func (q *Queries) GetLatestJournalEntry(ctx context.Context, arg GetLatestJourna
 }
 
 const insertJournalEntry = `-- name: InsertJournalEntry :one
-INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next, state_json, changelog_json)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, created_at
 `
 
 type InsertJournalEntryParams struct {
-	ProjectID  int32  `db:"project_id" json:"project_id"`
-	Role       string `db:"role" json:"role"`
-	Date       string `db:"date" json:"date"`
-	Tldr       string `db:"tldr" json:"tldr"`
-	Assessment string `db:"assessment" json:"assessment"`
-	Concerns   string `db:"concerns" json:"concerns"`
-	Next       string `db:"next" json:"next"`
+	ProjectID     int32  `db:"project_id" json:"project_id"`
+	Role          string `db:"role" json:"role"`
+	Date          string `db:"date" json:"date"`
+	Tldr          string `db:"tldr" json:"tldr"`
+	Assessment    string `db:"assessment" json:"assessment"`
+	Concerns      string `db:"concerns" json:"concerns"`
+	Next          string `db:"next" json:"next"`
+	StateJson     string `db:"state_json" json:"state_json"`
+	ChangelogJson string `db:"changelog_json" json:"changelog_json"`
 }
 
 func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error) {
@@ -64,6 +66,8 @@ func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntry
 		arg.Assessment,
 		arg.Concerns,
 		arg.Next,
+		arg.StateJson,
+		arg.ChangelogJson,
 	)
 	var i ZdxJournalEntry
 	err := row.Scan(
