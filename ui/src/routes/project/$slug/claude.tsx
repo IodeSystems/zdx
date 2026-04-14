@@ -1,11 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { ClaudeSessionsTab } from '../../../components/ClaudeSessionsTab'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 
-function ClaudeRoute() {
-  const { slug } = Route.useParams()
-  return <ClaudeSessionsTab slug={slug} />
+function ClaudeLayout() {
+  return <Outlet />
 }
 
 export const Route = createFileRoute('/project/$slug/claude')({
-  component: ClaudeRoute,
+  component: ClaudeLayout,
 })
