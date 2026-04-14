@@ -45,7 +45,8 @@ func main() {
 	if err != nil {
 		log.Fatalf("parse dsn: %v", err)
 	}
-	poolCfg.ConnConfig.Tracer = server.QueryTracer{}
+	sink := server.NewTimingSink()
+	poolCfg.ConnConfig.Tracer = server.QueryTracer{Sink: sink}
 	pool, err := pgxpool.NewWithConfig(context.Background(), poolCfg)
 	if err != nil {
 		log.Fatalf("connect: %v", err)
@@ -53,7 +54,7 @@ func main() {
 	defer pool.Close()
 
 	staticDir := os.Getenv("STATIC_DIR")
-	srv := server.New(pool, staticDir, buildSHA)
+	srv := server.New(pool, sink, staticDir, buildSHA)
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("dx-server listening on %s", addr)

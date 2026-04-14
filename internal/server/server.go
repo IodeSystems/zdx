@@ -12,7 +12,6 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/adapters/humachi"
 	"github.com/go-chi/chi/v5"
-	"github.com/jackc/pgx/v5/pgtype"
 	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/iodesystems/zdx-go/internal/db"
@@ -32,9 +31,10 @@ type Server struct {
 	api            huma.API
 	emb            *embedder
 	features       SchemaFeatures
+	sink           timingSink
 }
 
-func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
+func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Server {
 	uploadsDir := os.Getenv("UPLOADS_DIR")
 	if uploadsDir == "" {
 		if zdxHome := os.Getenv("ZDX_HOME"); zdxHome != "" {
@@ -67,21 +67,12 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 		slot:           os.Getenv("ZDX_SLOT"),
 		wsSecret:       wsSecret,
 		broker:         ws.NewBroker(os.Getenv("ZDX_VALKEY_ADDR")),
-		emb:            newEmbedder(vecDir),
+		emb:            newEmbedder(vecDir, sink),
 		features:       detectFeatures(ctx, pool),
+		sink:           sink,
 	}
 
-	s.emb.recordTiming = func(name string, durationMs int32) {
-		go func() {
-			_ = s.q.UpsertTimed(context.Background(), db.UpsertTimedParams{
-				ProjectID:   pgtype.Int4{Valid: false},
-				Name:        name,
-				DurationMs:  durationMs,
-				Source:      "embedder",
-				ContextJson: "{}",
-			})
-		}()
-	}
+	startTimingDrainer(s.q, sink)
 
 	// Load LLM config eagerly so embedder is ready on first request.
 	s.reloadEmbedder(ctx)
@@ -91,9 +82,9 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 	cfg := huma.DefaultConfig("ZDX API", "1.0.0")
 	cfg.Info.Description = "zdx developer-experience platform API"
 
+	s.mux.Use(s.sourceMiddleware)
 	s.mux.Use(s.apiKeyMiddleware)
 	s.mux.Use(s.adminMiddleware)
-	s.mux.Use(s.sqlTimingMiddleware)
 	s.mux.Use(s.timingMiddleware)
 	s.api = humachi.New(s.mux, cfg)
 
@@ -301,23 +292,13 @@ var maintenancePage = []byte(`<!doctype html>
 type contextKey int
 
 const (
-	ctxAPIKeyID   contextKey = 1
-	ctxUserID     contextKey = 2
-	ctxQueryStart contextKey = 3
-	ctxSQLTimings contextKey = 4
-	ctxUserRole   contextKey = 5
+	ctxAPIKeyID    contextKey = 1
+	ctxUserID      contextKey = 2
+	ctxQueryStart  contextKey = 3
+	ctxSource      contextKey = 4
+	ctxUserRole    contextKey = 5
+	ctxSkipTiming  contextKey = 6
 )
-
-// sqlTiming records the name and duration of a single SQL query.
-type sqlTiming struct {
-	name       string
-	durationMs int32
-}
-
-// sqlTimingSlice accumulates per-request SQL timings.
-type sqlTimingSlice struct {
-	items []sqlTiming
-}
 
 // apiKeyMiddleware validates X-Api-Key on /api/* requests, except health, openapi, and setup/bootstrap.
 // Non-/api/ paths (SPA, static assets) pass through without auth.
@@ -367,9 +348,19 @@ func (s *Server) adminMiddleware(next http.Handler) http.Handler {
 
 // ── Timing middleware ──────────────────────────────────────────────────────
 
-// timingMiddleware records the duration of each /api/ request.
-// If the request is the slowest ever for that route, it upserts to zdx_timed.
-// Non-API paths and health/openapi are skipped.
+// sourceMiddleware stamps the request path into ctx so the QueryTracer can
+// attribute every downstream query to a real URL instead of "background".
+// Runs before any handler or downstream middleware that touches the DB.
+func (s *Server) sourceMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		next.ServeHTTP(w, r.WithContext(WithSource(r.Context(), r.URL.Path)))
+	})
+}
+
+// timingMiddleware records the wall-clock duration of each /api/ request.
+// Health and openapi probes are skipped; sub-10ms requests are dropped as
+// uninteresting. Everything else is shipped to the sink for upsert by the
+// drainer. SQL-level timings are captured separately by the QueryTracer.
 func (s *Server) timingMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		path := r.URL.Path
@@ -383,50 +374,13 @@ func (s *Server) timingMiddleware(next http.Handler) http.Handler {
 		next.ServeHTTP(w, r)
 		durationMs := int32(time.Since(start).Milliseconds())
 		if durationMs < 10 {
-			return // skip trivially fast requests
-		}
-		name := "http:" + r.Method + " " + path
-		go func() {
-			_ = s.q.UpsertTimed(context.Background(), db.UpsertTimedParams{
-				ProjectID:   pgtype.Int4{Valid: false},
-				Name:        name,
-				DurationMs:  durationMs,
-				Source:      r.URL.Path,
-				ContextJson: "{}",
-			})
-		}()
-	})
-}
-
-// ── SQL timing middleware ──────────────────────────────────────────────────
-
-// sqlTimingMiddleware injects a *sqlTimingSlice into the request context so the
-// QueryTracer can accumulate per-query durations. After the handler returns,
-// any query that took ≥1ms is upserted into zdx_timed (fire-and-forget).
-func (s *Server) sqlTimingMiddleware(next http.Handler) http.Handler {
-	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		acc := &sqlTimingSlice{}
-		ctx := context.WithValue(r.Context(), ctxSQLTimings, acc)
-		next.ServeHTTP(w, r.WithContext(ctx))
-		if len(acc.items) == 0 {
 			return
 		}
-		items := acc.items
-		source := r.URL.Path
-		go func() {
-			for _, t := range items {
-				if t.durationMs < 1 {
-					continue
-				}
-				_ = s.q.UpsertTimed(context.Background(), db.UpsertTimedParams{
-					ProjectID:   pgtype.Int4{Valid: false},
-					Name:        t.name,
-					DurationMs:  t.durationMs,
-					Source:      source,
-					ContextJson: "{}",
-				})
-			}
-		}()
+		s.sink.send(Timing{
+			Name:       "http:" + r.Method + " " + path,
+			DurationMs: durationMs,
+			Source:     path,
+		})
 	})
 }
 

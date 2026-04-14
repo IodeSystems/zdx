@@ -8,12 +8,14 @@ import (
 	"github.com/jackc/pgx/v5"
 )
 
-// QueryTracer implements pgx.QueryTracer to capture per-request SQL timings.
-// Wire it into the pool via pgxpool.Config.ConnConfig.Tracer before creating
-// the pool. The server's sqlTimingMiddleware injects a *sqlTimingSlice into
-// each request context; TraceQueryEnd deposits timings there so the middleware
-// can persist them after the handler returns.
-type QueryTracer struct{}
+// QueryTracer implements pgx.QueryTracer. Every query that crosses the pool
+// is timed and pushed to Sink. Source is read from ctx (stamped by
+// sourceMiddleware for HTTP, by WithSource for background work); if missing,
+// the query is still recorded with source="background" so nothing disappears.
+// A ctx carrying ctxSkipTiming is ignored — used by the drainer itself.
+type QueryTracer struct {
+	Sink timingSink
+}
 
 type queryStartInfo struct {
 	start time.Time
@@ -21,23 +23,29 @@ type queryStartInfo struct {
 }
 
 func (QueryTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
+	if v, _ := ctx.Value(ctxSkipTiming).(bool); v {
+		return ctx
+	}
 	return context.WithValue(ctx, ctxQueryStart, queryStartInfo{
 		start: time.Now(),
 		name:  sqlQueryName(data.SQL),
 	})
 }
 
-func (QueryTracer) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryEndData) {
+func (t QueryTracer) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryEndData) {
 	info, ok := ctx.Value(ctxQueryStart).(queryStartInfo)
 	if !ok {
 		return
 	}
-	acc, ok := ctx.Value(ctxSQLTimings).(*sqlTimingSlice)
-	if !ok {
+	ms := int32(time.Since(info.start).Milliseconds()) //nolint:gosec
+	if ms < 1 {
 		return
 	}
-	ms := int32(time.Since(info.start).Milliseconds()) //nolint:gosec
-	acc.items = append(acc.items, sqlTiming{name: info.name, durationMs: ms})
+	t.Sink.send(Timing{
+		Name:       info.name,
+		Source:     sourceFromCtx(ctx),
+		DurationMs: ms,
+	})
 }
 
 // sqlQueryName extracts a short stable name from a SQL string.

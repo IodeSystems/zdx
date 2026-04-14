@@ -43,7 +43,7 @@ func New(dsn string) (*Handle, func(), error) {
 		return nil, nil, fmt.Errorf("listen: %w", err)
 	}
 
-	srv := server.New(pool, "", "e2e-test")
+	srv := server.New(pool, server.NewTimingSink(), "", "e2e-test")
 	hs := &http.Server{Handler: srv}
 	go hs.Serve(ln) //nolint:errcheck
 

@@ -16,19 +16,17 @@ import (
 	"github.com/iodesystems/zdx-go/internal/zvec"
 )
 
-type timingRecorder func(name string, durationMs int32)
-
 // embedder holds the per-project zvec indexes and the active LLM client.
 // It is safe for concurrent use; a RWMutex guards the client pointer.
 type embedder struct {
-	mu           sync.RWMutex
-	client       *llm.Client // nil when no LLM config is set
-	dataDir      string      // directory where .zvec files are stored
-	recordTiming timingRecorder
+	mu      sync.RWMutex
+	client  *llm.Client // nil when no LLM config is set
+	dataDir string      // directory where .zvec files are stored
+	sink    timingSink
 }
 
-func newEmbedder(dataDir string) *embedder {
-	return &embedder{dataDir: dataDir}
+func newEmbedder(dataDir string, sink timingSink) *embedder {
+	return &embedder{dataDir: dataDir, sink: sink}
 }
 
 // reload re-reads the LLM config from DB and replaces the active client.
@@ -53,9 +51,7 @@ func (e *embedder) embed(ctx context.Context, text string) ([]float32, error) {
 	}
 	start := time.Now()
 	vec, err := c.Embed(ctx, text)
-	if e.recordTiming != nil {
-		e.recordTiming("llm:embed", int32(time.Since(start).Milliseconds())) //nolint:gosec
-	}
+	e.sink.track(ctx, "llm:embed", start)
 	return vec, err
 }
 
@@ -92,9 +88,7 @@ func (e *embedder) upsertIssue(ctx context.Context, projectID int32, issueID str
 	if err := idx.Upsert(path, id, vec); err != nil {
 		log.Printf("embedder: upsert %s: %v", issueID, err)
 	}
-	if e.recordTiming != nil {
-		e.recordTiming("zvec:upsert-issue", int32(time.Since(start).Milliseconds())) //nolint:gosec
-	}
+	e.sink.track(ctx, "zvec:upsert-issue", start)
 }
 
 // topN returns up to n issues most similar to queryText from the project index.
@@ -118,9 +112,7 @@ func (e *embedder) topN(ctx context.Context, projectID int32, queryText string, 
 		return nil, fmt.Errorf("open index: %w", err)
 	}
 	results, err := idx.TopN(vec, n)
-	if e.recordTiming != nil {
-		e.recordTiming("zvec:search-issues", int32(time.Since(start).Milliseconds())) //nolint:gosec
-	}
+	e.sink.track(ctx, "zvec:search-issues", start)
 	return results, err
 }
 
@@ -177,9 +169,7 @@ func (e *embedder) upsertQuestion(ctx context.Context, projectID int32, question
 	if err := idx.Upsert(path, uint64(questionID), vec); err != nil { //nolint:gosec
 		log.Printf("embedder: upsert question %d: %v", questionID, err)
 	}
-	if e.recordTiming != nil {
-		e.recordTiming("zvec:upsert-question", int32(time.Since(start).Milliseconds())) //nolint:gosec
-	}
+	e.sink.track(ctx, "zvec:upsert-question", start)
 }
 
 // topNQuestions returns up to n questions most similar to queryText.
@@ -203,9 +193,7 @@ func (e *embedder) topNQuestions(ctx context.Context, projectID int32, queryText
 		return nil, fmt.Errorf("open question index: %w", err)
 	}
 	results, err := idx.TopN(vec, n)
-	if e.recordTiming != nil {
-		e.recordTiming("zvec:search-questions", int32(time.Since(start).Milliseconds())) //nolint:gosec
-	}
+	e.sink.track(ctx, "zvec:search-questions", start)
 	return results, err
 }
 
