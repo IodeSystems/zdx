@@ -163,6 +163,51 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	// 0b. Check for unread LLM comments on any feature.
+	var featList struct {
+		Features []featureItem `json:"features"`
+	}
+	if err := c.get("/api/features", querySlug(c), &featList); err != nil {
+		return err
+	}
+	for _, f := range featList.Features {
+		var unreadResp struct {
+			HasUnread bool `json:"has_unread"`
+		}
+		if err := c.get("/api/dx/comment/unread-check", url.Values{
+			"slug":        {slug},
+			"target_type": {"feature"},
+			"target_id":   {f.Name},
+			"role":        {"llm"},
+		}, &unreadResp); err != nil {
+			return err
+		}
+		if unreadResp.HasUnread {
+			fmt.Printf("[read:comments] feature %q\n", f.Name)
+			var commResp struct {
+				Comments []commentItem `json:"comments"`
+			}
+			if err := c.get("/api/dx/comment/list", url.Values{
+				"slug":        {slug},
+				"target_type": {"feature"},
+				"target_id":   {f.Name},
+				"role":        {"llm"},
+			}, &commResp); err != nil {
+				return err
+			}
+			fmt.Println()
+			printComments(commResp.Comments)
+			var ok struct{ OK bool `json:"ok"` }
+			_ = c.post("/api/dx/comment/mark-read", map[string]any{
+				"slug":        slug,
+				"target_type": "feature",
+				"target_id":   f.Name,
+				"role":        "llm",
+			}, &ok)
+			return nil
+		}
+	}
+
 	// 1. Find untriaged open issue (no priority)
 	for _, iss := range targetIssues {
 		if iss.Status == "open" && iss.Priority == "" {
@@ -175,14 +220,8 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	// Cross-cutting owner/tech checks (1b, 1c, 2a) scan all features/specs globally;
 	// skip them when --issue is set so vertical scope is preserved.
 	if issueFlag == "" {
-		// 1b. Check for ANY feature with no specs (scan all features).
-		var resp struct {
-			Features []featureItem `json:"features"`
-		}
-		if err := c.get("/api/features", querySlug(c), &resp); err != nil {
-			return err
-		}
-		for _, f := range resp.Features {
+		// 1b. Check for ANY feature with no specs (reuse featList from 0b).
+		for _, f := range featList.Features {
 			if len(f.Specs) == 0 {
 				fmt.Printf("[owner:spec]  feature %q has no specs — dx feature spec add %q\n", f.Name, f.Name)
 				return nil
@@ -393,6 +432,35 @@ func todoShowCmd() *cobra.Command {
 				for _, t := range taskList.Tasks {
 					if t.ID == taskID {
 						printTaskItem(t)
+						var commResp struct {
+							Comments []commentItem `json:"comments"`
+						}
+						if err := c.get("/api/dx/comment/list", url.Values{
+							"slug":        {slug},
+							"target_type": {"task"},
+							"target_id":   {id},
+							"role":        {"llm"},
+						}, &commResp); err == nil && len(commResp.Comments) > 0 {
+							fmt.Println("\nComments:")
+							printComments(commResp.Comments)
+						}
+						var revResp struct {
+							Revisions []revisionItem `json:"revisions"`
+						}
+						if err := c.get("/api/dx/revisions", url.Values{
+							"slug":        {slug},
+							"target_type": {"task"},
+							"target_id":   {id},
+						}, &revResp); err == nil && len(revResp.Revisions) > 0 {
+							fmt.Println("\nRevisions:")
+							for _, r := range revResp.Revisions {
+								date := r.CreatedAt
+								if len(date) >= 10 {
+									date = date[:10]
+								}
+								fmt.Printf("  [%s] %s: %s → %s (%s)\n", date, r.Field, r.OldVal, r.NewVal, r.Agent)
+							}
+						}
 						return nil
 					}
 				}
@@ -407,6 +475,35 @@ func todoShowCmd() *cobra.Command {
 				for _, f := range featList.Features {
 					if f.Name == id {
 						printFeatureItem(f)
+						var commResp struct {
+							Comments []commentItem `json:"comments"`
+						}
+						if err := c.get("/api/dx/comment/list", url.Values{
+							"slug":        {slug},
+							"target_type": {"feature"},
+							"target_id":   {f.Name},
+							"role":        {"llm"},
+						}, &commResp); err == nil && len(commResp.Comments) > 0 {
+							fmt.Println("\nComments:")
+							printComments(commResp.Comments)
+						}
+						var revResp struct {
+							Revisions []revisionItem `json:"revisions"`
+						}
+						if err := c.get("/api/dx/revisions", url.Values{
+							"slug":        {slug},
+							"target_type": {"feature"},
+							"target_id":   {f.Name},
+						}, &revResp); err == nil && len(revResp.Revisions) > 0 {
+							fmt.Println("\nRevisions:")
+							for _, r := range revResp.Revisions {
+								date := r.CreatedAt
+								if len(date) >= 10 {
+									date = date[:10]
+								}
+								fmt.Printf("  [%s] %s: %s → %s (%s)\n", date, r.Field, r.OldVal, r.NewVal, r.Agent)
+							}
+						}
 						return nil
 					}
 				}
