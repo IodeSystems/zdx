@@ -1534,6 +1534,30 @@ export const useAddTheme = () => {
   })
 }
 
+// ── Tests ─────────────────────────────────────────────────────────────────
+
+export interface TestItem {
+  id: number
+  component: string
+  name: string
+  layer: string
+  status: string
+}
+
+export const useTests = (slug: string, limit?: number, offset?: number) =>
+  useQuery<{ tests: TestItem[]; total: number }>({
+    queryKey: ['tests', slug, limit, offset],
+    queryFn: async () => {
+      const params: Record<string, string> = { slug }
+      if (limit != null) params.limit = String(limit)
+      if (offset != null) params.offset = String(offset)
+      const { data, error } = await client.GET('/api/dx/tests', { params: { query: params as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { tests: (data as any)?.tests ?? [], total: (data as any)?.total ?? 0 }
+    },
+    enabled: !!slug,
+  })
+
 export const useSetThemeStatus = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, { slug: string; theme: string; status: string }>({

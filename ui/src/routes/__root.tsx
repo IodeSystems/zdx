@@ -43,6 +43,7 @@ import {
   Timer as TimerIcon,
   Tune as TuneIcon,
   Lightbulb as LightbulbIcon,
+  Science as ScienceIcon,
   WarningAmber as WarningAmberIcon,
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
@@ -81,6 +82,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Journal', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
       { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
       { label: 'Proposals', icon: <LightbulbIcon fontSize="small" />, path: 'proposals' },
+      { label: 'Tests', icon: <ScienceIcon fontSize="small" />, path: 'tests' },
     ],
   },
   {
