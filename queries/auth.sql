@@ -31,3 +31,33 @@ SELECT u.role FROM zdx_api_keys k JOIN zdx_users u ON u.id = k.user_id WHERE k.t
 INSERT INTO zdx_api_keys (user_id, token, name)
 VALUES ($1, $2, $3)
 RETURNING id, user_id, token, name, last_used_at, created_at;
+
+-- name: ListUsers :many
+SELECT id, email, name, role, created_at FROM zdx_users ORDER BY created_at DESC;
+
+-- name: SearchUsers :many
+SELECT id, email, name, role, created_at FROM zdx_users
+WHERE email ILIKE '%' || @q::text || '%' OR name ILIKE '%' || @q::text || '%'
+ORDER BY created_at DESC;
+
+-- name: UpdateUserRole :exec
+UPDATE zdx_users SET role = $2 WHERE id = $1;
+
+-- name: ListInvites :many
+SELECT id, email, token, invited_by, expires_at, used_at, created_at
+FROM zdx_invites ORDER BY created_at DESC;
+
+-- name: CreateInvite :one
+INSERT INTO zdx_invites (email, token, invited_by)
+VALUES ($1, $2, $3)
+RETURNING id, email, token, invited_by, expires_at, used_at, created_at;
+
+-- name: DeleteInvite :exec
+DELETE FROM zdx_invites WHERE id = $1;
+
+-- name: GetInviteByToken :one
+SELECT id, email, token, invited_by, expires_at, used_at, created_at
+FROM zdx_invites WHERE token = $1 AND used_at IS NULL AND expires_at > NOW();
+
+-- name: MarkInviteUsed :exec
+UPDATE zdx_invites SET used_at = NOW() WHERE id = $1;

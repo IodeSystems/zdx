@@ -235,9 +235,9 @@ function HomeNav({ onNavigate }: { onNavigate?: () => void }) {
           <ListItemText primary="Projects" />
         </ListItemButton>
         <ListItemButton
-          selected={isAdminActive}
+          selected={lastPath === '/admin'}
           component={Link as any}
-          to="/admin/llm"
+          to={'/admin' as any}
           onClick={onNavigate}
         >
           <ListItemIcon sx={{ minWidth: 36 }}>
@@ -245,6 +245,37 @@ function HomeNav({ onNavigate }: { onNavigate?: () => void }) {
           </ListItemIcon>
           <ListItemText primary="Admin" />
         </ListItemButton>
+        {isAdminActive && (
+          <>
+            <ListItemButton
+              selected={lastPath === '/admin/users'}
+              component={Link as any}
+              to={'/admin/users' as any}
+              onClick={onNavigate}
+              sx={{ pl: 5 }}
+            >
+              <ListItemText primary="Users" />
+            </ListItemButton>
+            <ListItemButton
+              selected={lastPath === '/admin/invites'}
+              component={Link as any}
+              to={'/admin/invites' as any}
+              onClick={onNavigate}
+              sx={{ pl: 5 }}
+            >
+              <ListItemText primary="Invites" />
+            </ListItemButton>
+            <ListItemButton
+              selected={lastPath === '/admin/llm'}
+              component={Link as any}
+              to="/admin/llm"
+              onClick={onNavigate}
+              sx={{ pl: 5 }}
+            >
+              <ListItemText primary="LLM" />
+            </ListItemButton>
+          </>
+        )}
       </List>
     </>
   )

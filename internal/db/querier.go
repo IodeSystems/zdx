@@ -48,6 +48,7 @@ type Querier interface {
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (ZdxClaudeSession, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
+	CreateInvite(ctx context.Context, arg CreateInviteParams) (ZdxInvite, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (CreateTaskRow, error)
@@ -59,6 +60,7 @@ type Querier interface {
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error
+	DeleteInvite(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
 	// Will fail at the DB level (RESTRICT) if spec_tests rows reference this test.
 	// Call ListSpecsCoveredByTest first to surface what breaks.
@@ -75,6 +77,7 @@ type Querier interface {
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
 	GetFile(ctx context.Context, id int32) (ZdxFile, error)
+	GetInviteByToken(ctx context.Context, token string) (ZdxInvite, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
 	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
@@ -114,6 +117,7 @@ type Querier interface {
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ZdxErrorReport, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)
+	ListInvites(ctx context.Context) ([]ZdxInvite, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ZdxJournalEntry, error)
@@ -148,15 +152,18 @@ type Querier interface {
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
 	// Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
+	ListUsers(ctx context.Context) ([]ListUsersRow, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error)
 	ListWorklogForProjectPaginated(ctx context.Context, arg ListWorklogForProjectPaginatedParams) ([]ListWorklogForProjectPaginatedRow, error)
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
+	MarkInviteUsed(ctx context.Context, id int32) error
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskUndone(ctx context.Context, id string) error
 	NextID(ctx context.Context, kind string) (int32, error)
 	RemoveThemeBlocker(ctx context.Context, arg RemoveThemeBlockerParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
+	SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
@@ -169,6 +176,7 @@ type Querier interface {
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpdateThemeStatus(ctx context.Context, arg UpdateThemeStatusParams) error
+	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error
 	UpsertCommentRead(ctx context.Context, arg UpsertCommentReadParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (ZdxFeature, error)
 	UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (ZdxLlmConfig, error)

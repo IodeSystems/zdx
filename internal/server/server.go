@@ -68,6 +68,7 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 	cfg.Info.Description = "zdx developer-experience platform API"
 
 	s.mux.Use(s.apiKeyMiddleware)
+	s.mux.Use(s.adminMiddleware)
 	s.mux.Use(s.sqlTimingMiddleware)
 	s.mux.Use(s.timingMiddleware)
 	s.api = humachi.New(s.mux, cfg)
@@ -226,6 +227,7 @@ const (
 	ctxUserID     contextKey = 2
 	ctxQueryStart contextKey = 3
 	ctxSQLTimings contextKey = 4
+	ctxUserRole   contextKey = 5
 )
 
 // sqlTiming records the name and duration of a single SQL query.
@@ -264,7 +266,24 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 		go func() { _ = s.q.TouchApiKey(context.Background(), key.ID) }()
 		ctx := context.WithValue(r.Context(), ctxAPIKeyID, key.ID)
 		ctx = context.WithValue(ctx, ctxUserID, key.UserID)
+		if u, uErr := s.q.GetUserByID(r.Context(), key.UserID); uErr == nil {
+			ctx = context.WithValue(ctx, ctxUserRole, u.Role)
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// adminMiddleware rejects non-admin users from /api/admin/ routes.
+func (s *Server) adminMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/admin/") {
+			role := ctxUserRoleVal(r.Context())
+			if role != "admin" {
+				http.Error(w, `{"title":"Forbidden","status":403,"detail":"admin role required"}`, http.StatusForbidden)
+				return
+			}
+		}
+		next.ServeHTTP(w, r)
 	})
 }
 
@@ -341,6 +360,11 @@ func apiErr(status int, msg string) huma.StatusError {
 
 func ctxUserIDVal(ctx context.Context) int32 {
 	v, _ := ctx.Value(ctxUserID).(int32)
+	return v
+}
+
+func ctxUserRoleVal(ctx context.Context) string {
+	v, _ := ctx.Value(ctxUserRole).(string)
 	return v
 }
 

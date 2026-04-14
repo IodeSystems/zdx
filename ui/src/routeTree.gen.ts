@@ -10,8 +10,11 @@
 
 import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
+import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProjectSlugRouteImport } from './routes/project/$slug'
+import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminLlmRouteImport } from './routes/admin/llm'
+import { Route as AdminInvitesRouteImport } from './routes/admin/invites'
 import { Route as ProjectSlugIndexRouteImport } from './routes/project/$slug/index'
 import { Route as ProjectSlugSettingsRouteImport } from './routes/project/$slug/settings'
 import { Route as ProjectSlugQueueRouteImport } from './routes/project/$slug/queue'
@@ -40,14 +43,29 @@ const IndexRoute = IndexRouteImport.update({
   path: '/',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminIndexRoute = AdminIndexRouteImport.update({
+  id: '/admin/',
+  path: '/admin/',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const ProjectSlugRoute = ProjectSlugRouteImport.update({
   id: '/project/$slug',
   path: '/project/$slug',
   getParentRoute: () => rootRouteImport,
 } as any)
+const AdminUsersRoute = AdminUsersRouteImport.update({
+  id: '/admin/users',
+  path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const AdminLlmRoute = AdminLlmRouteImport.update({
   id: '/admin/llm',
   path: '/admin/llm',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminInvitesRoute = AdminInvitesRouteImport.update({
+  id: '/admin/invites',
+  path: '/admin/invites',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectSlugIndexRoute = ProjectSlugIndexRouteImport.update({
@@ -181,8 +199,11 @@ const ProjectSlugComponentFeaturesNameRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/admin/users': typeof AdminUsersRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
+  '/admin/': typeof AdminIndexRoute
   '/project/$slug/$component': typeof ProjectSlugComponentRouteWithChildren
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
@@ -208,7 +229,10 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/admin/users': typeof AdminUsersRoute
+  '/admin': typeof AdminIndexRoute
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug': typeof ProjectSlugIndexRoute
@@ -231,8 +255,11 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/admin/users': typeof AdminUsersRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
+  '/admin/': typeof AdminIndexRoute
   '/project/$slug/$component': typeof ProjectSlugComponentRouteWithChildren
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
@@ -260,8 +287,11 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/admin/invites'
     | '/admin/llm'
+    | '/admin/users'
     | '/project/$slug'
+    | '/admin/'
     | '/project/$slug/$component'
     | '/project/$slug/queue'
     | '/project/$slug/settings'
@@ -287,7 +317,10 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/admin/invites'
     | '/admin/llm'
+    | '/admin/users'
+    | '/admin'
     | '/project/$slug/queue'
     | '/project/$slug/settings'
     | '/project/$slug'
@@ -309,8 +342,11 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/admin/invites'
     | '/admin/llm'
+    | '/admin/users'
     | '/project/$slug'
+    | '/admin/'
     | '/project/$slug/$component'
     | '/project/$slug/queue'
     | '/project/$slug/settings'
@@ -337,8 +373,11 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  AdminInvitesRoute: typeof AdminInvitesRoute
   AdminLlmRoute: typeof AdminLlmRoute
+  AdminUsersRoute: typeof AdminUsersRoute
   ProjectSlugRoute: typeof ProjectSlugRouteWithChildren
+  AdminIndexRoute: typeof AdminIndexRoute
 }
 
 declare module '@tanstack/react-router' {
@@ -350,6 +389,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof IndexRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/': {
+      id: '/admin/'
+      path: '/admin'
+      fullPath: '/admin/'
+      preLoaderRoute: typeof AdminIndexRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/project/$slug': {
       id: '/project/$slug'
       path: '/project/$slug'
@@ -357,11 +403,25 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugRouteImport
       parentRoute: typeof rootRouteImport
     }
+    '/admin/users': {
+      id: '/admin/users'
+      path: '/admin/users'
+      fullPath: '/admin/users'
+      preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/admin/llm': {
       id: '/admin/llm'
       path: '/admin/llm'
       fullPath: '/admin/llm'
       preLoaderRoute: typeof AdminLlmRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/invites': {
+      id: '/admin/invites'
+      path: '/admin/invites'
+      fullPath: '/admin/invites'
+      preLoaderRoute: typeof AdminInvitesRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/project/$slug/': {
@@ -626,8 +686,11 @@ const ProjectSlugRouteWithChildren = ProjectSlugRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  AdminInvitesRoute: AdminInvitesRoute,
   AdminLlmRoute: AdminLlmRoute,
+  AdminUsersRoute: AdminUsersRoute,
   ProjectSlugRoute: ProjectSlugRouteWithChildren,
+  AdminIndexRoute: AdminIndexRoute,
 }
 export const routeTree = rootRouteImport
   ._addFileChildren(rootRouteChildren)

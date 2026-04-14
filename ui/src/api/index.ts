@@ -571,6 +571,81 @@ export const useTestLLMConfig = () =>
     mutationFn: (body) => apiPost<LLMConfigTestResult>('/api/admin/llm-config/test', body),
   })
 
+// ── Admin stats ──────────────────────────────────────────────────────────────
+
+export interface AdminStats {
+  user_count: number
+  invite_count: number
+  project_count: number
+}
+
+export const useAdminStats = () =>
+  useQuery<AdminStats>({
+    queryKey: ['admin-stats'],
+    queryFn: () => apiFetch<AdminStats>('/api/admin/stats'),
+  })
+
+// ── Users (admin) ────────────────────────────────────────────────────────────
+
+export interface AdminUserItem {
+  id: number
+  email: string
+  name: string
+  role: string
+  created_at: string
+}
+
+export const useAdminUsers = (q?: string) =>
+  useQuery<AdminUserItem[]>({
+    queryKey: ['admin-users', q ?? ''],
+    queryFn: () => {
+      const params = q ? `?q=${encodeURIComponent(q)}` : ''
+      return apiFetch<{ users: AdminUserItem[] }>(`/api/admin/users${params}`).then(r => r.users ?? [])
+    },
+  })
+
+export const useUpdateUserRole = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { id: number; role: string }>({
+    mutationFn: ({ id, role }) => apiPost<void>(`/api/admin/users/${id}/role`, { role }, 'PUT'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }) },
+  })
+}
+
+// ── Invites (admin) ──────────────────────────────────────────────────────────
+
+export interface InviteItem {
+  id: number
+  email: string
+  token: string
+  invited_by: number
+  expires_at: string
+  used_at?: string
+  created_at: string
+}
+
+export const useInvites = () =>
+  useQuery<InviteItem[]>({
+    queryKey: ['invites'],
+    queryFn: () => apiFetch<{ invites: InviteItem[] }>('/api/admin/invites').then(r => r.invites ?? []),
+  })
+
+export const useCreateInvite = () => {
+  const qc = useQueryClient()
+  return useMutation<InviteItem, Error, { email: string }>({
+    mutationFn: (body) => apiPost<InviteItem>('/api/admin/invites', body),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['invites'] }) },
+  })
+}
+
+export const useDeleteInvite = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, number>({
+    mutationFn: (id) => apiFetch<void>(`/api/admin/invites/${id}`, { method: 'DELETE' }),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['invites'] }) },
+  })
+}
+
 // ── Issue similarity ──────────────────────────────────────────────────────────
 
 export interface SimilarIssueItem {

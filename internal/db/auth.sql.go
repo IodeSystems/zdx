@@ -48,6 +48,33 @@ func (q *Queries) CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (Zdx
 	return i, err
 }
 
+const createInvite = `-- name: CreateInvite :one
+INSERT INTO zdx_invites (email, token, invited_by)
+VALUES ($1, $2, $3)
+RETURNING id, email, token, invited_by, expires_at, used_at, created_at
+`
+
+type CreateInviteParams struct {
+	Email     string `db:"email" json:"email"`
+	Token     string `db:"token" json:"token"`
+	InvitedBy int32  `db:"invited_by" json:"invited_by"`
+}
+
+func (q *Queries) CreateInvite(ctx context.Context, arg CreateInviteParams) (ZdxInvite, error) {
+	row := q.db.QueryRow(ctx, createInvite, arg.Email, arg.Token, arg.InvitedBy)
+	var i ZdxInvite
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Token,
+		&i.InvitedBy,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const createUser = `-- name: CreateUser :one
 INSERT INTO zdx_users (email, name, password_hash, role)
 VALUES ($1, $2, '', 'admin')
@@ -119,6 +146,15 @@ func (q *Queries) CreateUserWithPassword(ctx context.Context, arg CreateUserWith
 	return i, err
 }
 
+const deleteInvite = `-- name: DeleteInvite :exec
+DELETE FROM zdx_invites WHERE id = $1
+`
+
+func (q *Queries) DeleteInvite(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteInvite, id)
+	return err
+}
+
 const getApiKeyByToken = `-- name: GetApiKeyByToken :one
 SELECT id, user_id, token, name, last_used_at, created_at
 FROM zdx_api_keys WHERE token = $1
@@ -147,6 +183,26 @@ func (q *Queries) GetApiKeyUserRole(ctx context.Context, token string) (string, 
 	var role string
 	err := row.Scan(&role)
 	return role, err
+}
+
+const getInviteByToken = `-- name: GetInviteByToken :one
+SELECT id, email, token, invited_by, expires_at, used_at, created_at
+FROM zdx_invites WHERE token = $1 AND used_at IS NULL AND expires_at > NOW()
+`
+
+func (q *Queries) GetInviteByToken(ctx context.Context, token string) (ZdxInvite, error) {
+	row := q.db.QueryRow(ctx, getInviteByToken, token)
+	var i ZdxInvite
+	err := row.Scan(
+		&i.ID,
+		&i.Email,
+		&i.Token,
+		&i.InvitedBy,
+		&i.ExpiresAt,
+		&i.UsedAt,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const getUserByEmail = `-- name: GetUserByEmail :one
@@ -192,11 +248,145 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, er
 	return i, err
 }
 
+const listInvites = `-- name: ListInvites :many
+SELECT id, email, token, invited_by, expires_at, used_at, created_at
+FROM zdx_invites ORDER BY created_at DESC
+`
+
+func (q *Queries) ListInvites(ctx context.Context) ([]ZdxInvite, error) {
+	rows, err := q.db.Query(ctx, listInvites)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxInvite
+	for rows.Next() {
+		var i ZdxInvite
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Token,
+			&i.InvitedBy,
+			&i.ExpiresAt,
+			&i.UsedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUsers = `-- name: ListUsers :many
+SELECT id, email, name, role, created_at FROM zdx_users ORDER BY created_at DESC
+`
+
+type ListUsersRow struct {
+	ID        int32              `db:"id" json:"id"`
+	Email     string             `db:"email" json:"email"`
+	Name      string             `db:"name" json:"name"`
+	Role      string             `db:"role" json:"role"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListUsers(ctx context.Context) ([]ListUsersRow, error) {
+	rows, err := q.db.Query(ctx, listUsers)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUsersRow
+	for rows.Next() {
+		var i ListUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.Role,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const markInviteUsed = `-- name: MarkInviteUsed :exec
+UPDATE zdx_invites SET used_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) MarkInviteUsed(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, markInviteUsed, id)
+	return err
+}
+
+const searchUsers = `-- name: SearchUsers :many
+SELECT id, email, name, role, created_at FROM zdx_users
+WHERE email ILIKE '%' || $1::text || '%' OR name ILIKE '%' || $1::text || '%'
+ORDER BY created_at DESC
+`
+
+type SearchUsersRow struct {
+	ID        int32              `db:"id" json:"id"`
+	Email     string             `db:"email" json:"email"`
+	Name      string             `db:"name" json:"name"`
+	Role      string             `db:"role" json:"role"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error) {
+	rows, err := q.db.Query(ctx, searchUsers, q_)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchUsersRow
+	for rows.Next() {
+		var i SearchUsersRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Email,
+			&i.Name,
+			&i.Role,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const touchApiKey = `-- name: TouchApiKey :exec
 UPDATE zdx_api_keys SET last_used_at = NOW() WHERE id = $1
 `
 
 func (q *Queries) TouchApiKey(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, touchApiKey, id)
+	return err
+}
+
+const updateUserRole = `-- name: UpdateUserRole :exec
+UPDATE zdx_users SET role = $2 WHERE id = $1
+`
+
+type UpdateUserRoleParams struct {
+	ID   int32  `db:"id" json:"id"`
+	Role string `db:"role" json:"role"`
+}
+
+func (q *Queries) UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error {
+	_, err := q.db.Exec(ctx, updateUserRole, arg.ID, arg.Role)
 	return err
 }
