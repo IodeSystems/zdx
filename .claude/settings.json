@@ -13,7 +13,8 @@
     ]
   },
   "enabledPlugins": {
-    "zig-lsp@zircote-lsp": true
+    "zig-lsp@zircote-lsp": true,
+    "gopls-lsp@claude-plugins-official": true
   },
   "lspServers": {
     "zig": {
