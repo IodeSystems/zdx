@@ -1,5 +1,5 @@
 // Typed HTTP client generated from /openapi.json via openapi-typescript + openapi-fetch.
-// Regenerate with: bin/api-types
+// api.gen.ts is regenerated automatically by dx-server on startup when the spec changes.
 import createClient from 'openapi-fetch'
 import type { paths } from '../api.gen'
 

@@ -108,7 +108,7 @@ func (s *Server) checkAndRegenClient(projectRoot string) {
 	if err := tsc.Run(); err != nil {
 		log.Fatalf(
 			"[devmode] api.gen.ts was regenerated but TypeScript type-check failed.\n"+
-				"Fix the errors below, or run: bin/api-types && npm --prefix ui run build\n\n%s",
+				"Fix the TypeScript errors below, then restart dx-server.\n\n%s",
 			tscOut.String(),
 		)
 	}
