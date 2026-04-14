@@ -1,15 +1,19 @@
 import { createRootRoute, Outlet, Link, useNavigate, useMatches } from '@tanstack/react-router'
 import {
   AppBar,
+  Avatar,
+  Badge,
   Box,
-  Button,
   CssBaseline,
+  Divider,
   Drawer,
   IconButton,
   List,
   ListItemButton,
   ListItemIcon,
   ListItemText,
+  Menu,
+  MenuItem,
   TextField,
   ThemeProvider,
   Toolbar,
@@ -33,7 +37,7 @@ import {
 } from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useProjects, useMe, useLogout, useZdxConfig } from '../api'
+import { useProjects, useMe, useLogout, useUnreadCount, useZdxConfig } from '../api'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
 import { IssueReportFab } from '../components/IssueReportFab'
@@ -283,7 +287,7 @@ function AppShell() {
           <ProjectLabel />
           <Omnibox />
           <Box sx={{ flexGrow: 1 }} />
-          <LogoutButton />
+          <AvatarMenu />
         </Toolbar>
       </AppBar>
 
@@ -335,14 +339,51 @@ function AppShell() {
   )
 }
 
-function LogoutButton() {
+function AvatarMenu() {
   const { data: me } = useMe()
   const logout = useLogout()
+  const matches = useMatches()
+  const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
+  const { slug, component } = (projectMatch?.params as { slug?: string; component?: string }) ?? {}
+  const { data: unread } = useUnreadCount(slug ?? '')
+  const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+
   if (!me) return null
+
+  const initials = me.name
+    .split(/\s+/)
+    .map(w => w[0])
+    .join('')
+    .toUpperCase()
+    .slice(0, 2)
+
   return (
-    <Button color="inherit" size="small" onClick={logout} sx={{ ml: 1, opacity: 0.8 }}>
-      Sign out
-    </Button>
+    <>
+      <IconButton onClick={e => setAnchorEl(e.currentTarget)} sx={{ ml: 1 }}>
+        <Badge badgeContent={unread ?? 0} color="error" overlap="circular">
+          <Avatar sx={{ width: 28, height: 28, fontSize: '0.8rem', bgcolor: 'primary.light' }}>
+            {initials}
+          </Avatar>
+        </Badge>
+      </IconButton>
+      <Menu anchorEl={anchorEl} open={!!anchorEl} onClose={() => setAnchorEl(null)}>
+        <MenuItem disabled sx={{ opacity: '1 !important' }}>
+          <Box>
+            <Typography variant="subtitle2">{me.name}</Typography>
+            <Typography variant="caption" color="text.secondary">{me.email}</Typography>
+          </Box>
+        </MenuItem>
+        <Divider />
+        {slug && (
+          <MenuItem component="a" href={`/project/${slug}/${component || 'all'}/profile`} onClick={() => setAnchorEl(null)}>
+            Profile
+          </MenuItem>
+        )}
+        <MenuItem onClick={() => { setAnchorEl(null); logout() }}>
+          Sign out
+        </MenuItem>
+      </Menu>
+    </>
   )
 }
 

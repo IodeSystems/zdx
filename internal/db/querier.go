@@ -23,6 +23,9 @@ type Querier interface {
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)
 	CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error)
+	// Counts comments on targets where the user has previously commented,
+	// excluding the user's own comments, that are newer than the user's last read.
+	CountUnreadResponsesForUser(ctx context.Context, arg CountUnreadResponsesForUserParams) (int32, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
@@ -74,6 +77,7 @@ type Querier interface {
 	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
 	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
+	ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error)
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)

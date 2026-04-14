@@ -1792,6 +1792,41 @@ func (s *Server) registerRoutes(api huma.API) {
 		Unread     *bool  `json:"unread,omitempty"`
 	}
 
+	huma.Register(api, huma.Operation{OperationID: "list-my-comments", Method: http.MethodGet, Path: "/api/dx/comment/mine"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct{ Body struct{ Comments []CommentItem `json:"comments"` } }, error) {
+			uid := ctxUserIDVal(ctx)
+			if uid == 0 {
+				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
+			}
+			user, err := s.q.GetUserByID(ctx, uid)
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "user not found")
+			}
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListCommentsByAuthor(ctx, db.ListCommentsByAuthorParams{
+				ProjectID: p.ID,
+				Author:    user.Email,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]CommentItem, len(rows))
+			for i, r := range rows {
+				out[i] = CommentItem{
+					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
+					Author: r.Author, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
+				}
+			}
+			return &struct{ Body struct{ Comments []CommentItem `json:"comments"` } }{
+				Body: struct{ Comments []CommentItem `json:"comments"` }{Comments: out},
+			}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "add-comment", Method: http.MethodPost, Path: "/api/dx/comment/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -1914,6 +1949,44 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body struct{ HasUnread bool `json:"has_unread"` } }{
 				Body: struct{ HasUnread bool `json:"has_unread"` }{HasUnread: has},
 			}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "notifications-unread-count", Method: http.MethodGet, Path: "/api/dx/notifications/unread-count"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct {
+			Body struct {
+				Count int32 `json:"count"`
+			}
+		}, error) {
+			uid := ctxUserIDVal(ctx)
+			if uid == 0 {
+				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
+			}
+			user, err := s.q.GetUserByID(ctx, uid)
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "user not found")
+			}
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			role := fmt.Sprintf("web:%d", uid)
+			count, err := s.q.CountUnreadResponsesForUser(ctx, db.CountUnreadResponsesForUserParams{
+				ProjectID: p.ID,
+				Author:    user.Email,
+				Role:      role,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Count int32 `json:"count"`
+				}
+			}{Body: struct {
+				Count int32 `json:"count"`
+			}{Count: count}}, nil
 		})
 
 	// ── Revisions ─────────────────────────────────────────────────────────────

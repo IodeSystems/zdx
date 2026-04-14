@@ -109,6 +109,42 @@ func (q *Queries) CountUnreadForRole(ctx context.Context, arg CountUnreadForRole
 	return column_1, err
 }
 
+const countUnreadResponsesForUser = `-- name: CountUnreadResponsesForUser :one
+SELECT COUNT(*)::int FROM zdx_comments c
+WHERE c.project_id = $1
+  AND c.author != $2
+  AND EXISTS (
+    SELECT 1 FROM zdx_comments mine
+    WHERE mine.project_id = c.project_id
+      AND mine.target_type = c.target_type
+      AND mine.target_id = c.target_id
+      AND mine.author = $2
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = $3
+      AND r.last_read_at >= c.created_at
+  )
+`
+
+type CountUnreadResponsesForUserParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Author    string `db:"author" json:"author"`
+	Role      string `db:"role" json:"role"`
+}
+
+// Counts comments on targets where the user has previously commented,
+// excluding the user's own comments, that are newer than the user's last read.
+func (q *Queries) CountUnreadResponsesForUser(ctx context.Context, arg CountUnreadResponsesForUserParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countUnreadResponsesForUser, arg.ProjectID, arg.Author, arg.Role)
+	var column_1 int32
+	err := row.Scan(&column_1)
+	return column_1, err
+}
+
 const getCommentRead = `-- name: GetCommentRead :one
 SELECT last_read_at FROM zdx_comment_reads
 WHERE project_id = $1 AND target_type = $2 AND target_id = $3 AND role = $4
@@ -200,6 +236,55 @@ func (q *Queries) ListComments(ctx context.Context, arg ListCommentsParams) ([]L
 	var items []ListCommentsRow
 	for rows.Next() {
 		var i ListCommentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Author,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCommentsByAuthor = `-- name: ListCommentsByAuthor :many
+SELECT id, project_id, target_type, target_id, author, body, created_at
+FROM zdx_comments WHERE project_id = $1 AND author = $2
+ORDER BY created_at DESC
+`
+
+type ListCommentsByAuthorParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Author    string `db:"author" json:"author"`
+}
+
+type ListCommentsByAuthorRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Author     string             `db:"author" json:"author"`
+	Body       string             `db:"body" json:"body"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error) {
+	rows, err := q.db.Query(ctx, listCommentsByAuthor, arg.ProjectID, arg.Author)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCommentsByAuthorRow
+	for rows.Next() {
+		var i ListCommentsByAuthorRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,

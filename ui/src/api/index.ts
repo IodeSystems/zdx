@@ -383,6 +383,33 @@ export const useAddComment = () => {
   })
 }
 
+export const useMyComments = (slug: string) =>
+  useQuery<CommentItem[]>({
+    queryKey: ['comments', 'mine', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ comments: CommentItem[] }>(
+        `/api/dx/comment/mine?slug=${encodeURIComponent(slug)}`
+      )
+      return res.comments ?? []
+    },
+    enabled: !!slug,
+  })
+
+// ── notifications ────────────────────────────────────────────────────────────
+
+export const useUnreadCount = (slug: string) =>
+  useQuery<number>({
+    queryKey: ['notifications', 'unread-count', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ count: number }>(
+        `/api/dx/notifications/unread-count?slug=${encodeURIComponent(slug)}`
+      )
+      return res.count
+    },
+    enabled: !!slug,
+    refetchInterval: 60_000,
+  })
+
 // ── revisions ─────────────────────────────────────────────────────────────────
 
 export interface RevisionItem {
