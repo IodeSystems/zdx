@@ -25,6 +25,8 @@ type SchemaFeatures struct {
 	HasLLMConfig bool
 	// HasProjectGitConfig is true when zdx_projects has git_url (migration 019).
 	HasProjectGitConfig bool
+	// HasProjectStage is true when zdx_projects has stage (migration 031).
+	HasProjectStage bool
 }
 
 // detectFeatures inspects information_schema to determine which optional
@@ -52,8 +54,9 @@ func detectFeatures(ctx context.Context, pool *pgxpool.Pool) SchemaFeatures {
 
 	f.HasLLMConfig = tableExists("zdx_llm_configs")
 	f.HasProjectGitConfig = columnExists("zdx_projects", "git_url")
+	f.HasProjectStage = columnExists("zdx_projects", "stage")
 
-	log.Printf("schema features: llm_config=%v project_git_config=%v",
-		f.HasLLMConfig, f.HasProjectGitConfig)
+	log.Printf("schema features: llm_config=%v project_git_config=%v project_stage=%v",
+		f.HasLLMConfig, f.HasProjectGitConfig, f.HasProjectStage)
 	return f
 }

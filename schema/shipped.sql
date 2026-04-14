@@ -818,7 +818,8 @@ CREATE TABLE public.zdx_projects (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     git_url text DEFAULT ''::text NOT NULL,
     git_branch text DEFAULT 'main'::text NOT NULL,
-    git_token text DEFAULT ''::text NOT NULL
+    git_token text DEFAULT ''::text NOT NULL,
+    stage text DEFAULT ''::text NOT NULL
 );
 
 

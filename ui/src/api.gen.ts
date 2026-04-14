@@ -1547,6 +1547,7 @@ export interface components {
             id: number;
             name: string;
             slug: string;
+            stage: string;
         };
         "Remove-theme-blockerRequest": {
             /**

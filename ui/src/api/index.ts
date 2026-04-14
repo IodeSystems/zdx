@@ -539,6 +539,16 @@ export const useTestProjectGitConfig = () =>
     mutationFn: (body) => apiPost<GitConfigTestResult>('/api/admin/project-git-config/test', body),
   })
 
+// ── Project stage (admin) ────────────────────────────────────────────────────
+
+export const useSetProjectStage = () => {
+  const qc = useQueryClient()
+  return useMutation<{ stage: string }, Error, { slug: string; stage: string }>({
+    mutationFn: (body) => apiPost<{ stage: string }>('/api/admin/project-stage', body, 'PUT'),
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }) },
+  })
+}
+
 // ── LLM config (admin) ────────────────────────────────────────────────────────
 
 export interface LLMConfig {

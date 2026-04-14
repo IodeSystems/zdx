@@ -41,7 +41,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token FROM zdx_projects WHERE slug = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE slug = $1
 `
 
 func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error) {
@@ -55,6 +55,7 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject
 		&i.GitUrl,
 		&i.GitBranch,
 		&i.GitToken,
+		&i.Stage,
 	)
 	return i, err
 }
@@ -83,7 +84,7 @@ func (q *Queries) GetProjectGitConfig(ctx context.Context, slug string) (GetProj
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token FROM zdx_projects ORDER BY name
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects ORDER BY name
 `
 
 func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
@@ -103,6 +104,7 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 			&i.GitUrl,
 			&i.GitBranch,
 			&i.GitToken,
+			&i.Stage,
 		); err != nil {
 			return nil, err
 		}
@@ -145,5 +147,19 @@ func (q *Queries) SetProjectGitConfig(ctx context.Context, arg SetProjectGitConf
 		arg.GitToken,
 		arg.Slug,
 	)
+	return err
+}
+
+const setProjectStage = `-- name: SetProjectStage :exec
+UPDATE zdx_projects SET stage = $1 WHERE slug = $2
+`
+
+type SetProjectStageParams struct {
+	Stage string `db:"stage" json:"stage"`
+	Slug  string `db:"slug" json:"slug"`
+}
+
+func (q *Queries) SetProjectStage(ctx context.Context, arg SetProjectStageParams) error {
+	_, err := q.db.Exec(ctx, setProjectStage, arg.Stage, arg.Slug)
 	return err
 }

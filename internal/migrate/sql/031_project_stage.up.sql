@@ -1,0 +1,1 @@
+ALTER TABLE zdx_projects ADD COLUMN stage TEXT NOT NULL DEFAULT '';

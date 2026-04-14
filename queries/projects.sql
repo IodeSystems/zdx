@@ -1,8 +1,8 @@
 -- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token FROM zdx_projects ORDER BY name;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects ORDER BY name;
 
 -- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token FROM zdx_projects WHERE slug = $1;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE slug = $1;
 
 -- name: CreateProject :one
 INSERT INTO zdx_projects (slug, name) VALUES ($1, $2)
@@ -13,6 +13,9 @@ SELECT slug, git_url, git_branch, git_token FROM zdx_projects WHERE slug = $1;
 
 -- name: SetProjectGitConfig :exec
 UPDATE zdx_projects SET git_url = @git_url, git_branch = @git_branch, git_token = @git_token WHERE slug = @slug;
+
+-- name: SetProjectStage :exec
+UPDATE zdx_projects SET stage = @stage WHERE slug = @slug;
 
 -- name: NextID :one
 INSERT INTO zdx_id_seq (kind, next_val) VALUES ($1, 2)

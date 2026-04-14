@@ -179,6 +179,7 @@ type Querier interface {
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
+	SetProjectStage(ctx context.Context, arg SetProjectStageParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
 	TouchApiKey(ctx context.Context, id int32) error
 	UndeferSpec(ctx context.Context, id int32) error

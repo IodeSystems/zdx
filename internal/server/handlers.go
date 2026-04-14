@@ -453,6 +453,7 @@ func (s *Server) registerRoutes(api huma.API) {
 		Slug      string `json:"slug"`
 		Name      string `json:"name"`
 		CreatedAt string `json:"created_at"`
+		Stage     string `json:"stage"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-projects", Method: http.MethodGet, Path: "/api/projects"},
@@ -467,7 +468,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			out := make([]ProjectItem, len(rows))
 			for i, r := range rows {
-				out[i] = ProjectItem{ID: r.ID, Slug: r.Slug, Name: r.Name, CreatedAt: fmtTS(r.CreatedAt)}
+				out[i] = ProjectItem{ID: r.ID, Slug: r.Slug, Name: r.Name, CreatedAt: fmtTS(r.CreatedAt), Stage: r.Stage}
 			}
 			return &struct {
 				Body struct {
@@ -2914,6 +2915,37 @@ func (s *Server) registerRoutes(api huma.API) {
 			resp.Body.OK = true
 			resp.Body.Message = "ok"
 			return resp, nil
+		})
+
+	// ── Admin: project stage ──────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "set-project-stage", Method: http.MethodPut, Path: "/api/admin/project-stage"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string `json:"slug"`
+				Stage string `json:"stage"`
+			}
+		}) (*struct {
+			Body struct {
+				Stage string `json:"stage"`
+			}
+		}, error) {
+			if !s.features.HasProjectStage {
+				return nil, apiErr(http.StatusServiceUnavailable, "stage schema not yet applied — run: dx migrate up")
+			}
+			if err := s.q.SetProjectStage(ctx, db.SetProjectStageParams{
+				Stage: in.Body.Stage,
+				Slug:  in.Body.Slug,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Stage string `json:"stage"`
+				}
+			}{Body: struct {
+				Stage string `json:"stage"`
+			}{Stage: in.Body.Stage}}, nil
 		})
 
 	// ── Admin: dashboard stats ──────────────────────────────────────────────

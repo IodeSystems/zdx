@@ -230,6 +230,7 @@ type ZdxProject struct {
 	GitUrl    string             `db:"git_url" json:"git_url"`
 	GitBranch string             `db:"git_branch" json:"git_branch"`
 	GitToken  string             `db:"git_token" json:"git_token"`
+	Stage     string             `db:"stage" json:"stage"`
 }
 
 type ZdxProjectConstraint struct {
