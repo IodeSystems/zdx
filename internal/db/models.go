@@ -331,6 +331,7 @@ type ZdxTask struct {
 	Depends     string             `db:"depends" json:"depends"`
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`

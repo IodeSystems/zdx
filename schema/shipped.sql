@@ -1026,6 +1026,7 @@ CREATE TABLE public.zdx_tasks (
     depends text DEFAULT ''::text NOT NULL,
     test_plan text DEFAULT ''::text NOT NULL,
     test_refs text DEFAULT ''::text NOT NULL,
+    task_group text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT now() NOT NULL

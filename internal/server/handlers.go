@@ -72,6 +72,7 @@ type TaskItem struct {
 	Depends     string `json:"depends"`
 	TestPlan    string `json:"test_plan"`
 	TestRefs    string `json:"test_refs"`
+	TaskGroup   string `json:"task_group"`
 	CreatedAt   string `json:"created_at"`
 	CompletedAt string `json:"completed_at"`
 	UpdatedAt   string `json:"updated_at"`
@@ -1065,11 +1066,12 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "add-task", Method: http.MethodPost, Path: "/api/dx/todo/tech/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug    string  `json:"slug"`
-				Feature *string `json:"feature,omitempty"`
-				Text    string  `json:"text"`
-				Issue   *string `json:"issue,omitempty"`
-				Depends *string `json:"depends,omitempty"`
+				Slug      string  `json:"slug"`
+				Feature   *string `json:"feature,omitempty"`
+				Text      string  `json:"text"`
+				Issue     *string `json:"issue,omitempty"`
+				Depends   *string `json:"depends,omitempty"`
+				TaskGroup *string `json:"task_group,omitempty"`
 			}
 		}) (*struct{ Body TaskItem }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -1086,6 +1088,7 @@ func (s *Server) registerRoutes(api huma.API) {
 				Text:      in.Body.Text,
 				Feature:   ptrStr(in.Body.Feature),
 				Issue:     ptrStr(in.Body.Issue),
+				TaskGroup: ptrStr(in.Body.TaskGroup),
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -3531,6 +3534,7 @@ func toTaskItem(r db.ZdxTask) TaskItem {
 		Depends:     r.Depends,
 		TestPlan:    r.TestPlan,
 		TestRefs:    r.TestRefs,
+		TaskGroup:   r.TaskGroup,
 		CreatedAt:   fmtTS(r.CreatedAt),
 		CompletedAt: fmtTS(r.CompletedAt),
 		UpdatedAt:   fmtTS(r.UpdatedAt),

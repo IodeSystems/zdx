@@ -410,9 +410,10 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 	})
 
 	type todoTechAddInput struct {
-		Text    string `json:"text" jsonschema:"required,task description"`
-		Issue   string `json:"issue,omitempty" jsonschema:"link to issue (IS-N)"`
-		Feature string `json:"feature,omitempty" jsonschema:"link to feature name"`
+		Text      string `json:"text" jsonschema:"required,task description"`
+		Issue     string `json:"issue,omitempty" jsonschema:"link to issue (IS-N)"`
+		Feature   string `json:"feature,omitempty" jsonschema:"link to feature name"`
+		TaskGroup string `json:"task_group,omitempty" jsonschema:"logical task group name for batch branch workflows"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "todo_tech_add",
@@ -420,10 +421,11 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoTechAddInput) (*mcp.CallToolResult, any, error) {
 		var t taskItem
 		if err := c.post("/api/dx/todo/tech/add", map[string]any{
-			"slug":    slug,
-			"text":    in.Text,
-			"feature": in.Feature,
-			"issue":   in.Issue,
+			"slug":       slug,
+			"text":       in.Text,
+			"feature":    in.Feature,
+			"issue":      in.Issue,
+			"task_group": in.TaskGroup,
 		}, &t); err != nil {
 			return nil, nil, err
 		}

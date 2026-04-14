@@ -111,6 +111,14 @@ export function TaskDetail({
             clickable
           />
         )}
+        {task.task_group && (
+          <Chip
+            label={task.task_group}
+            size="small"
+            variant="outlined"
+            color="default"
+          />
+        )}
         {task.status === 'done' ? (
           <Button
             size="small"

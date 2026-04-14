@@ -35,12 +35,13 @@ type issueWorkItem struct {
 }
 
 type taskItem struct {
-	ID      int32  `json:"id"`
-	Text    string `json:"text"`
-	Feature string `json:"feature"`
-	Status  string `json:"status"`
-	Reason  string `json:"reason"`
-	IssueID *int32 `json:"issue_id,omitempty"`
+	ID        int32  `json:"id"`
+	Text      string `json:"text"`
+	Feature   string `json:"feature"`
+	Status    string `json:"status"`
+	Reason    string `json:"reason"`
+	IssueID   *int32 `json:"issue_id,omitempty"`
+	TaskGroup string `json:"task_group"`
 }
 
 type featureItem struct {
@@ -703,7 +704,7 @@ func todoTechCmd() *cobra.Command {
 }
 
 func todoTechAddCmd() *cobra.Command {
-	var issue, feature, text string
+	var issue, feature, text, taskGroup string
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a task",
@@ -711,10 +712,11 @@ func todoTechAddCmd() *cobra.Command {
 			c := mustClient()
 			var t taskItem
 			if err := c.post("/api/dx/todo/tech/add", map[string]any{
-				"slug":    c.SlugOrDie(),
-				"text":    text,
-				"feature": feature,
-				"issue":   issue,
+				"slug":       c.SlugOrDie(),
+				"text":       text,
+				"feature":    feature,
+				"issue":      issue,
+				"task_group": taskGroup,
 			}, &t); err != nil {
 				return err
 			}
@@ -725,6 +727,7 @@ func todoTechAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&issue, "issue", "", "link to issue (IS-N)")
 	cmd.Flags().StringVar(&feature, "feature", "", "link to feature name")
 	cmd.Flags().StringVar(&text, "text", "", "task description")
+	cmd.Flags().StringVar(&taskGroup, "task-group", "", "logical task group name")
 	cmd.MarkFlagRequired("text")
 	return cmd
 }
@@ -764,6 +767,9 @@ func printTaskItem(t taskItem) {
 	}
 	if t.Reason != "" {
 		fmt.Printf("Reason:  %s\n", t.Reason)
+	}
+	if t.TaskGroup != "" {
+		fmt.Printf("Group:   %s\n", t.TaskGroup)
 	}
 }
 

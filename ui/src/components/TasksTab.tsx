@@ -128,6 +128,9 @@ export function TasksTab({
               <Typography variant="body2">{t.text}</Typography>
             </Link>
             <Typography variant="caption" color="text.secondary">{t.feature}</Typography>
+            {t.task_group && (
+              <Typography variant="caption" color="text.disabled" sx={{ display: 'inline', ml: 1 }}>[{t.task_group}]</Typography>
+            )}
             {t.reason && (
               <Typography variant="caption" color="warning.main" sx={{ display: 'block' }}>{t.reason}</Typography>
             )}

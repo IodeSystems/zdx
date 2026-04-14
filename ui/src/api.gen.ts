@@ -971,6 +971,7 @@ export interface components {
             feature?: string;
             issue?: string;
             slug: string;
+            task_group?: string;
             text: string;
         };
         "Add-theme-blockerRequest": {
@@ -1719,6 +1720,7 @@ export interface components {
             reason: string;
             status: string;
             test_plan: string;
+            task_group: string;
             test_refs: string;
             text: string;
         };

@@ -53,9 +53,9 @@ func (q *Queries) CountTasksByIssue(ctx context.Context, arg CountTasksByIssuePa
 }
 
 const createTask = `-- name: CreateTask :one
-INSERT INTO zdx_tasks (id, project_id, text, feature, issue)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+INSERT INTO zdx_tasks (id, project_id, text, feature, issue, task_group)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 `
 
 type CreateTaskParams struct {
@@ -64,6 +64,7 @@ type CreateTaskParams struct {
 	Text      string `db:"text" json:"text"`
 	Feature   string `db:"feature" json:"feature"`
 	Issue     string `db:"issue" json:"issue"`
+	TaskGroup string `db:"task_group" json:"task_group"`
 }
 
 func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask, error) {
@@ -73,6 +74,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask
 		arg.Text,
 		arg.Feature,
 		arg.Issue,
+		arg.TaskGroup,
 	)
 	var i ZdxTask
 	err := row.Scan(
@@ -86,6 +88,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask
 		&i.Depends,
 		&i.TestPlan,
 		&i.TestRefs,
+		&i.TaskGroup,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -103,7 +106,7 @@ func (q *Queries) DeleteTask(ctx context.Context, id string) error {
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC
 `
 
@@ -127,6 +130,7 @@ func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, er
 			&i.Depends,
 			&i.TestPlan,
 			&i.TestRefs,
+			&i.TaskGroup,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -142,7 +146,7 @@ func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, er
 }
 
 const listTasksByFeature = `-- name: ListTasksByFeature :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC
 `
 
@@ -171,6 +175,7 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 			&i.Depends,
 			&i.TestPlan,
 			&i.TestRefs,
+			&i.TaskGroup,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -186,7 +191,7 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 }
 
 const listTasksByFeaturePaginated = `-- name: ListTasksByFeaturePaginated :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC
 LIMIT $3 OFFSET $4
 `
@@ -223,6 +228,7 @@ func (q *Queries) ListTasksByFeaturePaginated(ctx context.Context, arg ListTasks
 			&i.Depends,
 			&i.TestPlan,
 			&i.TestRefs,
+			&i.TaskGroup,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -238,7 +244,7 @@ func (q *Queries) ListTasksByFeaturePaginated(ctx context.Context, arg ListTasks
 }
 
 const listTasksByIssue = `-- name: ListTasksByIssue :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC
 `
 
@@ -267,6 +273,7 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 			&i.Depends,
 			&i.TestPlan,
 			&i.TestRefs,
+			&i.TaskGroup,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -282,7 +289,7 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 }
 
 const listTasksByIssuePaginated = `-- name: ListTasksByIssuePaginated :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC
 LIMIT $3 OFFSET $4
 `
@@ -319,6 +326,7 @@ func (q *Queries) ListTasksByIssuePaginated(ctx context.Context, arg ListTasksBy
 			&i.Depends,
 			&i.TestPlan,
 			&i.TestRefs,
+			&i.TaskGroup,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -334,7 +342,7 @@ func (q *Queries) ListTasksByIssuePaginated(ctx context.Context, arg ListTasksBy
 }
 
 const listTasksPaginated = `-- name: ListTasksPaginated :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC
 LIMIT $2 OFFSET $3
 `
@@ -365,6 +373,7 @@ func (q *Queries) ListTasksPaginated(ctx context.Context, arg ListTasksPaginated
 			&i.Depends,
 			&i.TestPlan,
 			&i.TestRefs,
+			&i.TaskGroup,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -407,12 +416,13 @@ func (q *Queries) MarkTaskUndone(ctx context.Context, id string) error {
 
 const updateTaskFields = `-- name: UpdateTaskFields :exec
 UPDATE zdx_tasks
-SET text      = CASE WHEN $1::text = 'text'      THEN $2::text ELSE text      END,
-    feature   = CASE WHEN $1::text = 'feature'   THEN $2::text ELSE feature   END,
-    issue     = CASE WHEN $1::text = 'issue'     THEN $2::text ELSE issue     END,
-    depends   = CASE WHEN $1::text = 'depends'   THEN $2::text ELSE depends   END,
-    test_plan = CASE WHEN $1::text = 'test_plan' THEN $2::text ELSE test_plan END,
-    test_refs = CASE WHEN $1::text = 'test_refs' THEN $2::text ELSE test_refs END,
+SET text       = CASE WHEN $1::text = 'text'       THEN $2::text ELSE text       END,
+    feature    = CASE WHEN $1::text = 'feature'    THEN $2::text ELSE feature    END,
+    issue      = CASE WHEN $1::text = 'issue'      THEN $2::text ELSE issue      END,
+    depends    = CASE WHEN $1::text = 'depends'    THEN $2::text ELSE depends    END,
+    test_plan  = CASE WHEN $1::text = 'test_plan'  THEN $2::text ELSE test_plan  END,
+    test_refs  = CASE WHEN $1::text = 'test_refs'  THEN $2::text ELSE test_refs  END,
+    task_group = CASE WHEN $1::text = 'task_group' THEN $2::text ELSE task_group END,
     updated_at = NOW()
 WHERE id = $3
 `
