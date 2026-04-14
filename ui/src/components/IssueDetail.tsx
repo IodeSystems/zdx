@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material'
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   useIssue,
   useTasks,
@@ -66,9 +66,16 @@ export function IssueDetail({
   const [closeOpen, setCloseOpen] = useState(false)
   const [closeReason, setCloseReason] = useState('')
 
+  const issue = data?.issue
+  const displayTitle = issue ? issueDisplayTitle(issue.title, issue.context) : ''
+  useEffect(() => {
+    if (!issue) return
+    document.title = `${issueId}: ${displayTitle} | zdx`
+    return () => { document.title = 'zdx' }
+  }, [issueId, displayTitle, issue])
+
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
-  const issue = data?.issue
   const linkedTasks: TaskItem[] = allTasks?.tasks ?? []
   const workEntries: IssueWorkItem[] = data?.work ?? []
 
@@ -102,7 +109,7 @@ export function IssueDetail({
       </Button>
 
       <Typography variant="h5" sx={{ mb: 1 }}>
-        {issue.id}: {issueDisplayTitle(issue.title, issue.context)}
+        {issueId}: {displayTitle}
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>

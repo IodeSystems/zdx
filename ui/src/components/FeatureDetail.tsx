@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import {
   Accordion,
@@ -88,6 +88,12 @@ export function FeatureDetail({
   const { data: feature, isLoading } = useFeature(slug, name)
   const { data: tasksData } = useTasks(slug, { feature: name })
   const router = useRouter()
+
+  useEffect(() => {
+    if (!feature) return
+    document.title = `${name}: ${feature.description || name} | zdx`
+    return () => { document.title = 'zdx' }
+  }, [name, feature?.description])
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 

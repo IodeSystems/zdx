@@ -1,3 +1,4 @@
+import { useEffect } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { Box, Button, Chip, Typography } from '@mui/material'
 import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
@@ -24,12 +25,18 @@ export function TaskDetail({
   const updateStatus = useUpdateTaskStatus()
   const router = useRouter()
 
-  if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
-
   const tasks = data?.tasks ?? []
-  // taskId is "TK-N" format; TaskItem.id is numeric
   const numericId = parseInt(taskId.replace(/^TK-/i, ''), 10)
   const task = tasks.find(t => t.id === numericId)
+
+  useEffect(() => {
+    if (!task) return
+    document.title = `${taskId}: ${task.text} | zdx`
+    return () => { document.title = 'zdx' }
+  }, [taskId, task?.text])
+
+  if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
+
   const blockedByThis = tasks.filter(t =>
     t.id !== numericId &&
     t.depends
@@ -66,7 +73,7 @@ export function TaskDetail({
       </Button>
 
       <Typography variant="h5" sx={{ mb: 1 }}>
-        {task.id}: {task.text}
+        {taskId}: {task.text}
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
