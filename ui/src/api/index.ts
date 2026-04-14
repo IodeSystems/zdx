@@ -310,6 +310,26 @@ export const useClearErrors = (slug: string) => {
   })
 }
 
+export const useReportError = (slug: string) => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { source: string; errorName: string }>({
+    mutationFn: async ({ source, errorName }) => {
+      await apiFetch('/api/dx/errors/report', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          slug,
+          source,
+          endpoint: window.location.href,
+          error_name: errorName,
+          stack_trace: `Simulated ${source} error for flow testing`,
+        }),
+      })
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['errors', slug] }) },
+  })
+}
+
 export const useSlowQueries = (slug: string, limit?: number, offset?: number) =>
   useQuery<{ queries: SlowQueryItem[]; total: number }>({
     queryKey: ['slow-queries', slug, limit, offset],
