@@ -195,6 +195,7 @@ type Querier interface {
 	TouchApiKey(ctx context.Context, id int32) error
 	UndeferSpec(ctx context.Context, id int32) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
+	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
 	UpdateFeatureField(ctx context.Context, arg UpdateFeatureFieldParams) error
 	UpdateIssue(ctx context.Context, arg UpdateIssueParams) error
 	UpdateProjectConstraint(ctx context.Context, arg UpdateProjectConstraintParams) error

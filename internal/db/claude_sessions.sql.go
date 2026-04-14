@@ -58,7 +58,7 @@ func (q *Queries) CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventPa
 const createClaudeSession = `-- name: CreateClaudeSession :one
 INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, issue_id, session_id, title, alias, created_at
+RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, created_at
 `
 
 type CreateClaudeSessionParams struct {
@@ -76,6 +76,8 @@ type CreateClaudeSessionRow struct {
 	SessionID string             `db:"session_id" json:"session_id"`
 	Title     string             `db:"title" json:"title"`
 	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -95,13 +97,15 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 		&i.SessionID,
 		&i.Title,
 		&i.Alias,
+		&i.Header,
+		&i.Summary,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getClaudeSession = `-- name: GetClaudeSession :one
-SELECT id, project_id, issue_id, session_id, title, alias, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, created_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND id = $2
 `
 
@@ -117,6 +121,8 @@ type GetClaudeSessionRow struct {
 	SessionID string             `db:"session_id" json:"session_id"`
 	Title     string             `db:"title" json:"title"`
 	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -130,13 +136,15 @@ func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionPara
 		&i.SessionID,
 		&i.Title,
 		&i.Alias,
+		&i.Header,
+		&i.Summary,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getClaudeSessionBySessionID = `-- name: GetClaudeSessionBySessionID :one
-SELECT id, project_id, issue_id, session_id, title, alias, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, created_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND session_id = $2
 `
 
@@ -152,6 +160,8 @@ type GetClaudeSessionBySessionIDRow struct {
 	SessionID string             `db:"session_id" json:"session_id"`
 	Title     string             `db:"title" json:"title"`
 	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -165,6 +175,8 @@ func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaude
 		&i.SessionID,
 		&i.Title,
 		&i.Alias,
+		&i.Header,
+		&i.Summary,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -277,7 +289,7 @@ func (q *Queries) ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeE
 }
 
 const listClaudeSessions = `-- name: ListClaudeSessions :many
-SELECT id, project_id, issue_id, session_id, title, alias, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, created_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
 ORDER BY created_at DESC
@@ -290,6 +302,8 @@ type ListClaudeSessionsRow struct {
 	SessionID string             `db:"session_id" json:"session_id"`
 	Title     string             `db:"title" json:"title"`
 	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -309,6 +323,8 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 			&i.SessionID,
 			&i.Title,
 			&i.Alias,
+			&i.Header,
+			&i.Summary,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -322,7 +338,7 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 }
 
 const listClaudeSessionsPaginated = `-- name: ListClaudeSessionsPaginated :many
-SELECT id, project_id, issue_id, session_id, title, alias, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, created_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
 ORDER BY created_at DESC
@@ -342,6 +358,8 @@ type ListClaudeSessionsPaginatedRow struct {
 	SessionID string             `db:"session_id" json:"session_id"`
 	Title     string             `db:"title" json:"title"`
 	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
@@ -361,6 +379,8 @@ func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaud
 			&i.SessionID,
 			&i.Title,
 			&i.Alias,
+			&i.Header,
+			&i.Summary,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -371,4 +391,27 @@ func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaud
 		return nil, err
 	}
 	return items, nil
+}
+
+const updateClaudeSessionSummary = `-- name: UpdateClaudeSessionSummary :exec
+UPDATE zdx_claude_sessions
+SET header = $3, summary = $4
+WHERE project_id = $1 AND id = $2
+`
+
+type UpdateClaudeSessionSummaryParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	ID        int64  `db:"id" json:"id"`
+	Header    string `db:"header" json:"header"`
+	Summary   string `db:"summary" json:"summary"`
+}
+
+func (q *Queries) UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error {
+	_, err := q.db.Exec(ctx, updateClaudeSessionSummary,
+		arg.ProjectID,
+		arg.ID,
+		arg.Header,
+		arg.Summary,
+	)
+	return err
 }

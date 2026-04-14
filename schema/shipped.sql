@@ -139,7 +139,9 @@ CREATE TABLE public.zdx_claude_sessions (
     session_id text NOT NULL,
     title text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    alias text DEFAULT ''::text NOT NULL
+    alias text DEFAULT ''::text NOT NULL,
+    header text DEFAULT ''::text NOT NULL,
+    summary text DEFAULT ''::text NOT NULL
 );
 
 

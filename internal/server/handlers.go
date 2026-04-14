@@ -4011,6 +4011,8 @@ func (s *Server) registerRoutes(api huma.API) {
 		SessionID  string `json:"session_id"`
 		Title      string `json:"title"`
 		Alias      string `json:"alias"`
+		Header     string `json:"header"`
+		Summary    string `json:"summary"`
 		EventCount int64  `json:"event_count"`
 		CreatedAt  string `json:"created_at"`
 	}
@@ -4049,6 +4051,8 @@ func (s *Server) registerRoutes(api huma.API) {
 					SessionID:  r.SessionID,
 					Title:      r.Title,
 					Alias:      r.Alias,
+					Header:     r.Header,
+					Summary:    r.Summary,
 					EventCount: cnt,
 					CreatedAt:  fmtTS(r.CreatedAt),
 				}
@@ -4088,6 +4092,8 @@ func (s *Server) registerRoutes(api huma.API) {
 				SessionID:  sess.SessionID,
 				Title:      sess.Title,
 				Alias:      sess.Alias,
+				Header:     sess.Header,
+				Summary:    sess.Summary,
 				EventCount: cnt,
 				CreatedAt:  fmtTS(sess.CreatedAt),
 			}}, nil

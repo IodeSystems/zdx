@@ -48,6 +48,8 @@ type ZdxClaudeSession struct {
 	Title     string             `db:"title" json:"title"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
 }
 
 type ZdxCodeRef struct {
