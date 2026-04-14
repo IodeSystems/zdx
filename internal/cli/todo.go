@@ -172,62 +172,53 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// 1b. Check for ANY feature with no specs (scan all features).
-	// Lazy-load feature list once if needed.
-	var allFeatures []featureItem
-	loadFeatures := func() error {
-		if allFeatures != nil {
-			return nil
-		}
+	// Cross-cutting owner/tech checks (1b, 1c, 2a) scan all features/specs globally;
+	// skip them when --issue is set so vertical scope is preserved.
+	if issueFlag == "" {
+		// 1b. Check for ANY feature with no specs (scan all features).
 		var resp struct {
 			Features []featureItem `json:"features"`
 		}
 		if err := c.get("/api/features", querySlug(c), &resp); err != nil {
 			return err
 		}
-		allFeatures = resp.Features
-		return nil
-	}
+		for _, f := range resp.Features {
+			if len(f.Specs) == 0 {
+				fmt.Printf("[owner:spec]  feature %q has no specs — dx feature spec add %q\n", f.Name, f.Name)
+				return nil
+			}
+		}
 
-	if err := loadFeatures(); err != nil {
-		return err
-	}
-	for _, f := range allFeatures {
-		if len(f.Specs) == 0 {
-			fmt.Printf("[owner:spec]  feature %q has no specs — dx feature spec add %q\n", f.Name, f.Name)
+		// 1c. Check for features due for periodic owner re-review (>30 days stale).
+		var staleResp struct {
+			Features []featureItem `json:"features"`
+		}
+		if err := c.get("/api/dx/features/stale", querySlug(c), &staleResp); err != nil {
+			return err
+		}
+		if len(staleResp.Features) > 0 {
+			f := staleResp.Features[0]
+			fmt.Printf("[owner:review]  feature %q not reviewed in >30 days — dx feature review %q\n", f.Name, f.Name)
 			return nil
 		}
-	}
 
-	// 1c. Check for features due for periodic owner re-review (>30 days stale).
-	var staleResp struct {
-		Features []featureItem `json:"features"`
-	}
-	if err := c.get("/api/dx/features/stale", querySlug(c), &staleResp); err != nil {
-		return err
-	}
-	if len(staleResp.Features) > 0 {
-		f := staleResp.Features[0]
-		fmt.Printf("[owner:review]  feature %q not reviewed in >30 days — dx feature review %q\n", f.Name, f.Name)
-		return nil
-	}
-
-	// 2a. Check for specs with no test_refs — tech lead owns this.
-	var uncoveredResp struct {
-		Specs []struct {
-			ID          int32  `json:"id"`
-			FeatureName string `json:"feature_name"`
-			Description string `json:"description"`
-			Kind        string `json:"kind"`
-		} `json:"specs"`
-	}
-	if err := c.get("/api/dx/specs/uncovered", querySlug(c), &uncoveredResp); err != nil {
-		return err
-	}
-	if len(uncoveredResp.Specs) > 0 {
-		s := uncoveredResp.Specs[0]
-		fmt.Printf("[tech:test-ref]  feature %q spec %d (%s) has no test refs — add task or link via dx spec link\n", s.FeatureName, s.ID, s.Description)
-		return nil
+		// 2a. Check for specs with no test_refs — tech lead owns this.
+		var uncoveredResp struct {
+			Specs []struct {
+				ID          int32  `json:"id"`
+				FeatureName string `json:"feature_name"`
+				Description string `json:"description"`
+				Kind        string `json:"kind"`
+			} `json:"specs"`
+		}
+		if err := c.get("/api/dx/specs/uncovered", querySlug(c), &uncoveredResp); err != nil {
+			return err
+		}
+		if len(uncoveredResp.Specs) > 0 {
+			s := uncoveredResp.Specs[0]
+			fmt.Printf("[tech:test-ref]  feature %q spec %d (%s) has no test refs — add task or link via dx spec link\n", s.FeatureName, s.ID, s.Description)
+			return nil
+		}
 	}
 
 	// 2. Find open issue with no pending tasks
