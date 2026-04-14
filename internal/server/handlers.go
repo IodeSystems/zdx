@@ -3760,6 +3760,50 @@ func (s *Server) registerRoutes(api huma.API) {
 			}{Events: out, Total: total}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "get-claude-session-token-usage", Method: http.MethodGet, Path: "/api/dx/claude/sessions/{sessionId}/token-usage"},
+		func(ctx context.Context, in *struct {
+			Slug      string `query:"slug" required:"true"`
+			SessionID int64  `path:"sessionId"`
+		}) (*struct {
+			Body struct {
+				InputTokens              int64 `json:"input_tokens"`
+				OutputTokens             int64 `json:"output_tokens"`
+				CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+				CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			if err != nil {
+				return nil, apiErr(404, "session not found")
+			}
+			usage, err := s.q.GetClaudeSessionTokenUsage(ctx, sess.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					InputTokens              int64 `json:"input_tokens"`
+					OutputTokens             int64 `json:"output_tokens"`
+					CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+					CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+				}
+			}{Body: struct {
+				InputTokens              int64 `json:"input_tokens"`
+				OutputTokens             int64 `json:"output_tokens"`
+				CacheReadInputTokens     int64 `json:"cache_read_input_tokens"`
+				CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
+			}{
+				InputTokens:              usage.InputTokens,
+				OutputTokens:             usage.OutputTokens,
+				CacheReadInputTokens:     usage.CacheReadInputTokens,
+				CacheCreationInputTokens: usage.CacheCreationInputTokens,
+			}}, nil
+		})
+
 	// Ingest endpoint: accepts JSONL body, creates session + events in one call.
 	s.mux.Post("/api/dx/claude/sessions/ingest", s.handleClaudeSessionIngest)
 

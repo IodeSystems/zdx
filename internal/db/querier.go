@@ -79,6 +79,7 @@ type Querier interface {
 	GetBlockerQuestion(ctx context.Context, arg GetBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (ZdxClaudeSession, error)
 	GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (ZdxClaudeSession, error)
+	GetClaudeSessionTokenUsage(ctx context.Context, sessionPk int64) (GetClaudeSessionTokenUsageRow, error)
 	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)

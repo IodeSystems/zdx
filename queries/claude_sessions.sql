@@ -46,3 +46,14 @@ FROM zdx_claude_events
 WHERE session_pk = $1
 ORDER BY seq
 LIMIT $2 OFFSET $3;
+
+-- name: GetClaudeSessionTokenUsage :one
+SELECT
+  coalesce(sum((event_json->'message'->'usage'->>'input_tokens')::bigint), 0)::bigint AS input_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'output_tokens')::bigint), 0)::bigint AS output_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'cache_read_input_tokens')::bigint), 0)::bigint AS cache_read_input_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'cache_creation_input_tokens')::bigint), 0)::bigint AS cache_creation_input_tokens
+FROM zdx_claude_events
+WHERE session_pk = $1
+  AND event_type = 'assistant'
+  AND event_json->'message'->'usage' IS NOT NULL;

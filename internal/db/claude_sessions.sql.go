@@ -133,6 +133,37 @@ func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaude
 	return i, err
 }
 
+const getClaudeSessionTokenUsage = `-- name: GetClaudeSessionTokenUsage :one
+SELECT
+  coalesce(sum((event_json->'message'->'usage'->>'input_tokens')::bigint), 0)::bigint AS input_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'output_tokens')::bigint), 0)::bigint AS output_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'cache_read_input_tokens')::bigint), 0)::bigint AS cache_read_input_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'cache_creation_input_tokens')::bigint), 0)::bigint AS cache_creation_input_tokens
+FROM zdx_claude_events
+WHERE session_pk = $1
+  AND event_type = 'assistant'
+  AND event_json->'message'->'usage' IS NOT NULL
+`
+
+type GetClaudeSessionTokenUsageRow struct {
+	InputTokens              int64 `db:"input_tokens" json:"input_tokens"`
+	OutputTokens             int64 `db:"output_tokens" json:"output_tokens"`
+	CacheReadInputTokens     int64 `db:"cache_read_input_tokens" json:"cache_read_input_tokens"`
+	CacheCreationInputTokens int64 `db:"cache_creation_input_tokens" json:"cache_creation_input_tokens"`
+}
+
+func (q *Queries) GetClaudeSessionTokenUsage(ctx context.Context, sessionPk int64) (GetClaudeSessionTokenUsageRow, error) {
+	row := q.db.QueryRow(ctx, getClaudeSessionTokenUsage, sessionPk)
+	var i GetClaudeSessionTokenUsageRow
+	err := row.Scan(
+		&i.InputTokens,
+		&i.OutputTokens,
+		&i.CacheReadInputTokens,
+		&i.CacheCreationInputTokens,
+	)
+	return i, err
+}
+
 const listClaudeEvents = `-- name: ListClaudeEvents :many
 SELECT id, session_pk, seq, event_type, event_json, created_at
 FROM zdx_claude_events

@@ -109,10 +109,22 @@ while true; do
   fi
 
   sfile="$PROJECT_DIR/$sid.jsonl"
-  log "claude session $sid → $sfile (issue: ${issue_id:-none})"
   save_state "${issue_id:-}" "$sid"
-
   mkdir -p "$PROJECT_DIR"
+
+  # Session header
+  start_time="$(date -Iseconds)"
+  trigger_desc="$(printf '%s' "$todo" | head -1 | sed 's/^[[:space:]]*//')"
+  log "──────────────────────────────────────────────"
+  log "SESSION START"
+  log "  session:  $sid"
+  log "  issue:    ${issue_id:-none}"
+  log "  trigger:  $trigger_desc"
+  log "  started:  $start_time"
+  log "  file:     $sfile"
+  log "  resumed:  $resumed"
+  log "──────────────────────────────────────────────"
+
   tail -F "$sfile" 2>/dev/null | tee -a "$LOG" &
   tail_pid=$!
 
@@ -127,7 +139,35 @@ while true; do
 
   kill "$tail_pid" 2>/dev/null
   wait "$tail_pid" 2>/dev/null
-  log "claude /work exited rc=$rc"
+
+  # Session summary
+  end_time="$(date -Iseconds)"
+  event_count=0
+  total_input=0
+  total_output=0
+  total_cache_read=0
+  total_cache_create=0
+  if [[ -f "$sfile" ]]; then
+    event_count="$(wc -l < "$sfile")"
+    # Extract token usage from assistant events with jq if available
+    if command -v jq &>/dev/null; then
+      usage_sums="$(jq -r 'select(.type == "assistant" and .message.usage != null) | .message.usage | [(.input_tokens // 0), (.output_tokens // 0), (.cache_read_input_tokens // 0), (.cache_creation_input_tokens // 0)] | @tsv' "$sfile" 2>/dev/null | awk -F'\t' '{i+=$1; o+=$2; cr+=$3; cc+=$4} END {printf "%d %d %d %d", i, o, cr, cc}')"
+      read -r total_input total_output total_cache_read total_cache_create <<< "$usage_sums"
+    fi
+  fi
+  duration_s=$(( $(date +%s) - $(date -d "$start_time" +%s) ))
+  duration_m=$(( duration_s / 60 ))
+  duration_rem=$(( duration_s % 60 ))
+  log "──────────────────────────────────────────────"
+  log "SESSION END"
+  log "  session:   $sid"
+  log "  issue:     ${issue_id:-none}"
+  log "  exit code: $rc"
+  log "  duration:  ${duration_m}m${duration_rem}s"
+  log "  events:    $event_count"
+  log "  tokens:    input=$total_input output=$total_output cache_read=$total_cache_read cache_create=$total_cache_create"
+  log "  ended:     $end_time"
+  log "──────────────────────────────────────────────"
 
   upload_session "$sid" "$sfile" "${issue_id:-}"
   clear_state
