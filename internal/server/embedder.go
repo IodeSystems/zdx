@@ -50,9 +50,13 @@ func (e *embedder) embed(ctx context.Context, text string) ([]float32, error) {
 	return c.Embed(ctx, text)
 }
 
-// indexPath returns the .zvec file path for a given project ID.
+// indexPath returns the .zvec file path for a given project ID and kind.
 func (e *embedder) indexPath(projectID int32) string {
 	return filepath.Join(e.dataDir, fmt.Sprintf("issues-%d.zvec", projectID))
+}
+
+func (e *embedder) questionIndexPath(projectID int32) string {
+	return filepath.Join(e.dataDir, fmt.Sprintf("questions-%d.zvec", projectID))
 }
 
 // upsertIssue embeds issueText and upserts it into the project's zvec index.
@@ -132,6 +136,50 @@ func roundUp8(d int) int {
 		return d
 	}
 	return d + (8 - d%8)
+}
+
+// upsertQuestion embeds questionText and upserts it into the project's question zvec index.
+func (e *embedder) upsertQuestion(ctx context.Context, projectID int32, questionID int32, questionText string) {
+	vec, err := e.embed(ctx, questionText)
+	if err != nil {
+		log.Printf("embedder: embed question %d: %v", questionID, err)
+		return
+	}
+	if vec == nil {
+		return
+	}
+
+	path := e.questionIndexPath(projectID)
+	idx, err := e.loadOrCreate(path, len(vec))
+	if err != nil {
+		log.Printf("embedder: open question index %s: %v", path, err)
+		return
+	}
+	if err := idx.Upsert(path, uint64(questionID), vec); err != nil { //nolint:gosec
+		log.Printf("embedder: upsert question %d: %v", questionID, err)
+	}
+}
+
+// topNQuestions returns up to n questions most similar to queryText.
+func (e *embedder) topNQuestions(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+	vec, err := e.embed(ctx, queryText)
+	if err != nil {
+		return nil, fmt.Errorf("embed query: %w", err)
+	}
+	if vec == nil {
+		return nil, nil
+	}
+
+	path := e.questionIndexPath(projectID)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	idx, err := zvec.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open question index: %w", err)
+	}
+	return idx.TopN(vec, n)
 }
 
 // issueNumericID converts "IS-42" → 42.

@@ -249,13 +249,14 @@ type ZdxProjectPermission struct {
 }
 
 type ZdxQuestion struct {
-	ID        int32              `db:"id" json:"id"`
-	ProjectID int32              `db:"project_id" json:"project_id"`
-	Category  string             `db:"category" json:"category"`
-	Question  string             `db:"question" json:"question"`
-	Answer    pgtype.Text        `db:"answer" json:"answer"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID               int32              `db:"id" json:"id"`
+	ProjectID        int32              `db:"project_id" json:"project_id"`
+	Category         string             `db:"category" json:"category"`
+	Question         string             `db:"question" json:"question"`
+	Answer           pgtype.Text        `db:"answer" json:"answer"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt        pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ParentQuestionID pgtype.Int4        `db:"parent_question_id" json:"parent_question_id"`
 }
 
 type ZdxRevision struct {

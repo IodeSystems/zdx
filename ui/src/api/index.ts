@@ -722,6 +722,7 @@ export interface QuestionItem {
   answer: string
   created_at: string
   updated_at: string
+  parent_question_id: number | null
 }
 
 export const useQuestions = (slug: string, limit?: number, offset?: number) =>
@@ -741,11 +742,43 @@ export const useQuestions = (slug: string, limit?: number, offset?: number) =>
 
 export const useCreateQuestion = () => {
   const qc = useQueryClient()
-  return useMutation<QuestionItem, Error, { slug: string; category: string; question: string }>({
+  return useMutation<
+    QuestionItem,
+    Error,
+    { slug: string; category: string; question: string; parent_question_id?: number }
+  >({
     mutationFn: (body) => apiPost<QuestionItem>('/api/dx/qa/add', body),
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['questions', v.slug] }),
   })
 }
+
+export interface SimilarQuestionItem {
+  id: number
+  question: string
+  answer: string
+  score: number
+}
+
+export const useSimilarQuestions = () =>
+  useMutation<SimilarQuestionItem[], Error, { slug: string; text: string; n?: number }>({
+    mutationFn: async (body) => {
+      const res = await apiPost<{ questions: SimilarQuestionItem[] }>('/api/dx/qa/similar', body)
+      return res.questions ?? []
+    },
+  })
+
+export const useChildQuestions = (slug: string, parentQuestionId: number | null) =>
+  useQuery<{ questions: QuestionItem[] }>({
+    queryKey: ['child-questions', slug, parentQuestionId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, parent_question_id: String(parentQuestionId) })
+      const res = await apiFetch<{ questions: QuestionItem[] }>(
+        `/api/dx/qa/children?${params}`
+      )
+      return { questions: res.questions ?? [] }
+    },
+    enabled: !!slug && parentQuestionId != null,
+  })
 
 // ── blocker questions ────────────────────────────────────────────────────────
 

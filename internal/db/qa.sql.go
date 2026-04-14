@@ -16,7 +16,7 @@ UPDATE zdx_questions
 SET answer     = $3,
     updated_at = NOW()
 WHERE project_id = $1 AND id = $2
-RETURNING id, project_id, category, question, answer, created_at, updated_at
+RETURNING id, project_id, category, question, answer, created_at, updated_at, parent_question_id
 `
 
 type AnswerQuestionParams struct {
@@ -36,6 +36,7 @@ func (q *Queries) AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) 
 		&i.Answer,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParentQuestionID,
 	)
 	return i, err
 }
@@ -52,7 +53,7 @@ func (q *Queries) CountQuestions(ctx context.Context, projectID int32) (int64, e
 }
 
 const getQuestion = `-- name: GetQuestion :one
-SELECT id, project_id, category, question, answer, created_at, updated_at
+SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
 FROM zdx_questions
 WHERE project_id = $1 AND id = $2
 `
@@ -73,24 +74,31 @@ func (q *Queries) GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQu
 		&i.Answer,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParentQuestionID,
 	)
 	return i, err
 }
 
 const insertQuestion = `-- name: InsertQuestion :one
-INSERT INTO zdx_questions (project_id, category, question)
-VALUES ($1, $2, $3)
-RETURNING id, project_id, category, question, answer, created_at, updated_at
+INSERT INTO zdx_questions (project_id, category, question, parent_question_id)
+VALUES ($1, $2, $3, $4)
+RETURNING id, project_id, category, question, answer, created_at, updated_at, parent_question_id
 `
 
 type InsertQuestionParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Category  string `db:"category" json:"category"`
-	Question  string `db:"question" json:"question"`
+	ProjectID        int32       `db:"project_id" json:"project_id"`
+	Category         string      `db:"category" json:"category"`
+	Question         string      `db:"question" json:"question"`
+	ParentQuestionID pgtype.Int4 `db:"parent_question_id" json:"parent_question_id"`
 }
 
 func (q *Queries) InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error) {
-	row := q.db.QueryRow(ctx, insertQuestion, arg.ProjectID, arg.Category, arg.Question)
+	row := q.db.QueryRow(ctx, insertQuestion,
+		arg.ProjectID,
+		arg.Category,
+		arg.Question,
+		arg.ParentQuestionID,
+	)
 	var i ZdxQuestion
 	err := row.Scan(
 		&i.ID,
@@ -100,12 +108,54 @@ func (q *Queries) InsertQuestion(ctx context.Context, arg InsertQuestionParams) 
 		&i.Answer,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.ParentQuestionID,
 	)
 	return i, err
 }
 
+const listChildQuestions = `-- name: ListChildQuestions :many
+SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
+FROM zdx_questions
+WHERE project_id = $1 AND parent_question_id = $2
+ORDER BY created_at
+`
+
+type ListChildQuestionsParams struct {
+	ProjectID        int32       `db:"project_id" json:"project_id"`
+	ParentQuestionID pgtype.Int4 `db:"parent_question_id" json:"parent_question_id"`
+}
+
+func (q *Queries) ListChildQuestions(ctx context.Context, arg ListChildQuestionsParams) ([]ZdxQuestion, error) {
+	rows, err := q.db.Query(ctx, listChildQuestions, arg.ProjectID, arg.ParentQuestionID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxQuestion
+	for rows.Next() {
+		var i ZdxQuestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Category,
+			&i.Question,
+			&i.Answer,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentQuestionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listQuestions = `-- name: ListQuestions :many
-SELECT id, project_id, category, question, answer, created_at, updated_at
+SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
 FROM zdx_questions
 WHERE project_id = $1
 ORDER BY created_at
@@ -128,6 +178,7 @@ func (q *Queries) ListQuestions(ctx context.Context, projectID int32) ([]ZdxQues
 			&i.Answer,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ParentQuestionID,
 		); err != nil {
 			return nil, err
 		}
@@ -140,7 +191,7 @@ func (q *Queries) ListQuestions(ctx context.Context, projectID int32) ([]ZdxQues
 }
 
 const listQuestionsPaginated = `-- name: ListQuestionsPaginated :many
-SELECT id, project_id, category, question, answer, created_at, updated_at
+SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
 FROM zdx_questions
 WHERE project_id = $1
 ORDER BY created_at
@@ -170,6 +221,7 @@ func (q *Queries) ListQuestionsPaginated(ctx context.Context, arg ListQuestionsP
 			&i.Answer,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.ParentQuestionID,
 		); err != nil {
 			return nil, err
 		}

@@ -196,12 +196,13 @@ type SimilarIssueItem struct {
 }
 
 type QuestionItem struct {
-	ID        int32  `json:"id"`
-	Category  string `json:"category"`
-	Question  string `json:"question"`
-	Answer    string `json:"answer"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
+	ID               int32  `json:"id"`
+	Category         string `json:"category"`
+	Question         string `json:"question"`
+	Answer           string `json:"answer"`
+	CreatedAt        string `json:"created_at"`
+	UpdatedAt        string `json:"updated_at"`
+	ParentQuestionID *int32 `json:"parent_question_id"`
 }
 
 type BlockerQuestionItem struct {
@@ -3182,24 +3183,63 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "add-question", Method: http.MethodPost, Path: "/api/dx/qa/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug     string `json:"slug"`
-				Category string `json:"category"`
-				Question string `json:"question"`
+				Slug             string `json:"slug"`
+				Category         string `json:"category"`
+				Question         string `json:"question"`
+				ParentQuestionID *int32 `json:"parent_question_id,omitempty"`
 			}
 		}) (*struct{ Body QuestionItem }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.InsertQuestion(ctx, db.InsertQuestionParams{
+			params := db.InsertQuestionParams{
 				ProjectID: p.ID,
 				Category:  in.Body.Category,
 				Question:  in.Body.Question,
-			})
+			}
+			if in.Body.ParentQuestionID != nil {
+				params.ParentQuestionID = pgtype.Int4{Int32: *in.Body.ParentQuestionID, Valid: true}
+			}
+			row, err := s.q.InsertQuestion(ctx, params)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			go s.emb.upsertQuestion(context.Background(), p.ID, row.ID, row.Question)
 			return &struct{ Body QuestionItem }{Body: toQuestionItem(row)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "similar-questions", Method: http.MethodPost, Path: "/api/dx/qa/similar"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				Text string `json:"text"`
+				N    int    `json:"n,omitempty"`
+			}
+		}) (*struct {
+			Body struct {
+				Questions []SimilarQuestionItem `json:"questions"`
+			}
+		}, error) {
+			n := in.Body.N
+			if n <= 0 {
+				n = 5
+			}
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			results, err := s.findSimilarQuestions(ctx, p.ID, in.Body.Text, n)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Questions []SimilarQuestionItem `json:"questions"`
+				}
+			}{Body: struct {
+				Questions []SimilarQuestionItem `json:"questions"`
+			}{Questions: results}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "answer-question", Method: http.MethodPost, Path: "/api/dx/qa/answer"},
@@ -3256,6 +3296,41 @@ func (s *Server) registerRoutes(api huma.API) {
 					Questions []QuestionItem `json:"questions"`
 					Total     int64          `json:"total"`
 				}{Questions: out, Total: total},
+			}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-child-questions", Method: http.MethodGet, Path: "/api/dx/qa/children"},
+		func(ctx context.Context, in *struct {
+			Slug             string `query:"slug" required:"true"`
+			ParentQuestionID int32  `query:"parent_question_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Questions []QuestionItem `json:"questions"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListChildQuestions(ctx, db.ListChildQuestionsParams{
+				ProjectID:        p.ID,
+				ParentQuestionID: pgtype.Int4{Int32: in.ParentQuestionID, Valid: true},
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]QuestionItem, len(rows))
+			for i, r := range rows {
+				out[i] = toQuestionItem(r)
+			}
+			return &struct {
+				Body struct {
+					Questions []QuestionItem `json:"questions"`
+				}
+			}{
+				Body: struct {
+					Questions []QuestionItem `json:"questions"`
+				}{Questions: out},
 			}, nil
 		})
 
@@ -3827,7 +3902,7 @@ func toCodeRefItem(r db.ZdxCodeRef) CodeRefItem {
 }
 
 func toQuestionItem(r db.ZdxQuestion) QuestionItem {
-	return QuestionItem{
+	item := QuestionItem{
 		ID:        r.ID,
 		Category:  r.Category,
 		Question:  r.Question,
@@ -3835,6 +3910,11 @@ func toQuestionItem(r db.ZdxQuestion) QuestionItem {
 		CreatedAt: fmtTS(r.CreatedAt),
 		UpdatedAt: fmtTS(r.UpdatedAt),
 	}
+	if r.ParentQuestionID.Valid {
+		v := r.ParentQuestionID.Int32
+		item.ParentQuestionID = &v
+	}
+	return item
 }
 
 func toBlockerQuestionItem(r db.ZdxBlockerQuestion) BlockerQuestionItem {

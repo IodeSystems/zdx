@@ -119,8 +119,7 @@ func (s *Server) reloadEmbedder(ctx context.Context) {
 	})
 }
 
-// reindexAllIssues bulk-indexes all open issues across all projects.
-// Runs in the background; logs progress and errors.
+// reindexAllIssues bulk-indexes all open issues and questions across all projects.
 func (s *Server) reindexAllIssues() {
 	ctx := context.Background()
 	projects, err := s.q.ListProjects(ctx)
@@ -150,6 +149,23 @@ func (s *Server) reindexAllIssues() {
 		if indexed > 0 {
 			log.Printf("reindex: indexed %d issues for project %s", indexed, p.Slug)
 		}
+
+		questions, err := s.q.ListQuestions(ctx, p.ID)
+		if err != nil {
+			log.Printf("reindex: list questions for %s: %v", p.Slug, err)
+			continue
+		}
+		qIndexed := 0
+		for _, q := range questions {
+			if q.Question == "" {
+				continue
+			}
+			s.emb.upsertQuestion(ctx, p.ID, q.ID, q.Question)
+			qIndexed++
+		}
+		if qIndexed > 0 {
+			log.Printf("reindex: indexed %d questions for project %s", qIndexed, p.Slug)
+		}
 	}
 }
 
@@ -171,6 +187,37 @@ func (s *Server) findSimilarIssues(ctx context.Context, projectID int32, queryTe
 			continue // stale index entry — skip
 		}
 		out = append(out, SimilarIssueItem{ID: id, Title: iss.Title, Context: iss.Context, Status: iss.Status, Score: r.Score})
+	}
+	return out, nil
+}
+
+type SimilarQuestionItem struct {
+	ID       int32   `json:"id"`
+	Question string  `json:"question"`
+	Answer   string  `json:"answer"`
+	Score    float32 `json:"score"`
+}
+
+func (s *Server) findSimilarQuestions(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarQuestionItem, error) {
+	results, err := s.emb.topNQuestions(ctx, projectID, queryText, n)
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return []SimilarQuestionItem{}, nil
+	}
+	out := make([]SimilarQuestionItem, 0, len(results))
+	for _, r := range results {
+		q, err := s.q.GetQuestion(ctx, db.GetQuestionParams{ProjectID: projectID, ID: int32(r.ID)}) //nolint:gosec
+		if err != nil {
+			continue
+		}
+		out = append(out, SimilarQuestionItem{
+			ID:       q.ID,
+			Question: q.Question,
+			Answer:   q.Answer.String,
+			Score:    r.Score,
+		})
 	}
 	return out, nil
 }

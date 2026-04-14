@@ -104,6 +104,7 @@ type Querier interface {
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsPaginated(ctx context.Context, arg ListBlockerQuestionsPaginatedParams) ([]ZdxBlockerQuestion, error)
+	ListChildQuestions(ctx context.Context, arg ListChildQuestionsParams) ([]ZdxQuestion, error)
 	ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxClaudeEvent, error)
 	ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeEventsPaginatedParams) ([]ZdxClaudeEvent, error)
 	ListClaudeSessions(ctx context.Context, projectID int32) ([]ZdxClaudeSession, error)
