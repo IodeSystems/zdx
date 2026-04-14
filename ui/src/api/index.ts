@@ -486,6 +486,16 @@ export const useSetLLMConfig = () => {
   })
 }
 
+export interface LLMConfigTestResult {
+  ok: boolean
+  message: string
+}
+
+export const useTestLLMConfig = () =>
+  useMutation<LLMConfigTestResult, Error, LLMConfig>({
+    mutationFn: (body) => apiPost<LLMConfigTestResult>('/api/admin/llm-config/test', body),
+  })
+
 // ── Issue similarity ──────────────────────────────────────────────────────────
 
 export interface SimilarIssueItem {

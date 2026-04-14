@@ -20,6 +20,7 @@ import (
 	"golang.org/x/crypto/bcrypt"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/llm"
 )
 
 // ── ID conversion helpers ─────────────────────────────────────────────────
@@ -2004,6 +2005,44 @@ func (s *Server) registerRoutes(api huma.API) {
 				URL:   cfg.Url,
 				Model: cfg.Model,
 			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "test-llm-config", Method: http.MethodPost, Path: "/api/admin/llm-config/test"},
+		func(ctx context.Context, in *struct{ Body LLMConfigBody }) (*struct {
+			Body struct {
+				OK      bool   `json:"ok"`
+				Message string `json:"message"`
+			}
+		}, error) {
+			apiKey := in.Body.APIKey
+			if apiKey == "" && s.features.HasLLMConfig {
+				if cur, err := s.q.GetLLMConfig(ctx); err == nil {
+					apiKey = cur.ApiKey
+				}
+			}
+			resp := &struct {
+				Body struct {
+					OK      bool   `json:"ok"`
+					Message string `json:"message"`
+				}
+			}{}
+			client := llm.New(llm.Config{
+				Type:   in.Body.Type,
+				URL:    in.Body.URL,
+				Model:  in.Body.Model,
+				APIKey: apiKey,
+			})
+			tctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			vec, err := client.Embed(tctx, "test")
+			if err != nil {
+				resp.Body.OK = false
+				resp.Body.Message = err.Error()
+				return resp, nil
+			}
+			resp.Body.OK = true
+			resp.Body.Message = fmt.Sprintf("ok (vector dim=%d)", len(vec))
+			return resp, nil
 		})
 
 	// ── Admin: project git config ─────────────────────────────────────────────

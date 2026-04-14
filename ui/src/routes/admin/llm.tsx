@@ -8,17 +8,19 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useLLMConfig, useSetLLMConfig } from '../../api'
+import { useLLMConfig, useSetLLMConfig, useTestLLMConfig } from '../../api'
 
 function LLMConfigPage() {
   const { data, isLoading } = useLLMConfig()
   const setConfig = useSetLLMConfig()
+  const testConfig = useTestLLMConfig()
 
   const [type, setType] = useState('openai')
   const [url, setUrl] = useState('')
   const [model, setModel] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [saved, setSaved] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
 
   useEffect(() => {
     if (data) {
@@ -33,6 +35,17 @@ function LLMConfigPage() {
     setConfig.mutate(
       { type, url, model, api_key: apiKey || undefined },
       { onSuccess: () => setSaved(true) },
+    )
+  }
+
+  const handleTest = () => {
+    setTestResult(null)
+    testConfig.mutate(
+      { type, url, model, api_key: apiKey || undefined },
+      {
+        onSuccess: (res) => setTestResult(res),
+        onError: (err) => setTestResult({ ok: false, message: err.message }),
+      },
     )
   }
 
@@ -77,7 +90,7 @@ function LLMConfigPage() {
           size="small"
           fullWidth
         />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Button
             variant="contained"
             onClick={handleSave}
@@ -85,14 +98,25 @@ function LLMConfigPage() {
           >
             Save
           </Button>
+          <Button
+            variant="outlined"
+            onClick={handleTest}
+            disabled={testConfig.isPending || !url}
+          >
+            {testConfig.isPending ? 'Testing…' : 'Test'}
+          </Button>
           {saved && (
-            <Typography variant="caption" color="success.main">
-              Saved
-            </Typography>
+            <Typography variant="caption" color="success.main">Saved</Typography>
           )}
           {setConfig.isError && (
-            <Typography variant="caption" color="error">
-              {setConfig.error?.message}
+            <Typography variant="caption" color="error">{setConfig.error?.message}</Typography>
+          )}
+          {testResult && (
+            <Typography
+              variant="caption"
+              color={testResult.ok ? 'success.main' : 'error'}
+            >
+              {testResult.ok ? testResult.message : `Failed: ${testResult.message}`}
             </Typography>
           )}
         </Box>
