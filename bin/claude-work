@@ -125,12 +125,20 @@ while true; do
   log "  resumed:  $resumed"
   log "──────────────────────────────────────────────"
 
+  if [[ "$resumed" == true ]]; then
+    prev_sid="$sid"
+    sid="$(uuidgen)"
+    sfile="$PROJECT_DIR/$sid.jsonl"
+    save_state "${issue_id:-}" "$sid"
+    log "forking session: $prev_sid → $sid"
+  fi
+
   tail -F "$sfile" 2>/dev/null | bin/claude-work-render | tee -a "$LOG" &
   tail_pid=$!
 
   if [[ "$resumed" == true ]]; then
     claude --dangerously-skip-permissions --chrome \
-      --session-id "$sid" --continue -p /work
+      --resume "$prev_sid" --fork-session --session-id "$sid" -p /work
   else
     claude --dangerously-skip-permissions --chrome \
       --session-id "$sid" -p /work
