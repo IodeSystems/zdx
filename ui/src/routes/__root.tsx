@@ -37,6 +37,7 @@ import {
   SmartToy as SmartToyIcon,
   Timer as TimerIcon,
   Tune as TuneIcon,
+  Lightbulb as LightbulbIcon,
   WarningAmber as WarningAmberIcon,
 } from '@mui/icons-material'
 import { theme } from '../theme'
@@ -61,6 +62,7 @@ const SECTIONS = [
   { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
   { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
   { label: 'Journal', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
+  { label: 'Proposals', icon: <LightbulbIcon fontSize="small" />, path: 'proposals' },
   { label: 'Claude', icon: <SmartToyIcon fontSize="small" />, path: 'claude' },
   { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
   { label: 'Timings', icon: <TimerIcon fontSize="small" />, path: 'timings' },

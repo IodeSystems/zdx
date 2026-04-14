@@ -56,6 +56,7 @@ type Querier interface {
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error)
 	CreateProjectConstraint(ctx context.Context, arg CreateProjectConstraintParams) (ZdxProjectConstraint, error)
 	CreateProjectGoal(ctx context.Context, arg CreateProjectGoalParams) (ZdxProjectGoal, error)
+	CreateProposal(ctx context.Context, arg CreateProposalParams) (ZdxProposal, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (CreateTaskRow, error)
 	CreateTheme(ctx context.Context, arg CreateThemeParams) (ZdxTheme, error)
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error)
@@ -76,6 +77,7 @@ type Querier interface {
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
 	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
+	FileProposal(ctx context.Context, arg FileProposalParams) error
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
 	GetBlockerQuestion(ctx context.Context, arg GetBlockerQuestionParams) (ZdxBlockerQuestion, error)
@@ -99,6 +101,7 @@ type Querier interface {
 	GetProjectConstraint(ctx context.Context, id int32) (ZdxProjectConstraint, error)
 	GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error)
 	GetProjectGoal(ctx context.Context, id int32) (ZdxProjectGoal, error)
+	GetProposal(ctx context.Context, id int32) (ZdxProposal, error)
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetTest(ctx context.Context, arg GetTestParams) (ZdxTest, error)
@@ -141,6 +144,8 @@ type Querier interface {
 	ListProjectConstraints(ctx context.Context, projectID int32) ([]ZdxProjectConstraint, error)
 	ListProjectGoals(ctx context.Context, projectID int32) ([]ZdxProjectGoal, error)
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
+	ListProposals(ctx context.Context, projectID int32) ([]ZdxProposal, error)
+	ListProposalsByStatus(ctx context.Context, arg ListProposalsByStatusParams) ([]ZdxProposal, error)
 	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	ListQuestionsPaginated(ctx context.Context, arg ListQuestionsPaginatedParams) ([]ZdxQuestion, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ZdxRevision, error)
@@ -193,6 +198,7 @@ type Querier interface {
 	UpdateIssue(ctx context.Context, arg UpdateIssueParams) error
 	UpdateProjectConstraint(ctx context.Context, arg UpdateProjectConstraintParams) error
 	UpdateProjectGoal(ctx context.Context, arg UpdateProjectGoalParams) error
+	UpdateProposalStatus(ctx context.Context, arg UpdateProposalStatusParams) error
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpdateThemeStatus(ctx context.Context, arg UpdateThemeStatusParams) error

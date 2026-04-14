@@ -704,6 +704,43 @@ ALTER SEQUENCE public.zdx_plans_id_seq OWNED BY public.zdx_plans.id;
 
 
 --
+-- Name: zdx_proposals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_proposals (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    journal_entry_id integer,
+    title text NOT NULL,
+    context text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'proposed'::text NOT NULL,
+    priority integer DEFAULT 0 NOT NULL,
+    filed_issue_id text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_proposals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_proposals_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_proposals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_proposals_id_seq OWNED BY public.zdx_proposals.id;
+
+
+--
 -- Name: zdx_project_constraints; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1553,6 +1590,13 @@ ALTER TABLE ONLY public.zdx_plans ALTER COLUMN id SET DEFAULT nextval('public.zd
 
 
 --
+-- Name: zdx_proposals id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposals ALTER COLUMN id SET DEFAULT nextval('public.zdx_proposals_id_seq'::regclass);
+
+
+--
 -- Name: zdx_project_constraints id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1950,6 +1994,14 @@ ALTER TABLE ONLY public.zdx_plans
 
 
 --
+-- Name: zdx_proposals zdx_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposals
+    ADD CONSTRAINT zdx_proposals_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_project_constraints zdx_project_constraints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2308,6 +2360,20 @@ CREATE INDEX idx_oauth_identities_user ON public.zdx_oauth_identities USING btre
 
 
 --
+-- Name: idx_proposals_journal; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposals_journal ON public.zdx_proposals USING btree (journal_entry_id);
+
+
+--
+-- Name: idx_proposals_project_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposals_project_status ON public.zdx_proposals USING btree (project_id, status);
+
+
+--
 -- Name: idx_project_constraints_project; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2631,6 +2697,30 @@ ALTER TABLE ONLY public.zdx_oauth_identities
 
 ALTER TABLE ONLY public.zdx_plans
     ADD CONSTRAINT zdx_plans_feature_id_fkey FOREIGN KEY (feature_id) REFERENCES public.zdx_features(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_proposals zdx_proposals_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposals
+    ADD CONSTRAINT zdx_proposals_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
+
+
+--
+-- Name: zdx_proposals zdx_proposals_journal_entry_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposals
+    ADD CONSTRAINT zdx_proposals_journal_entry_id_fkey FOREIGN KEY (journal_entry_id) REFERENCES public.zdx_journal_entries(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zdx_proposals zdx_proposals_filed_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposals
+    ADD CONSTRAINT zdx_proposals_filed_issue_id_fkey FOREIGN KEY (filed_issue_id) REFERENCES public.zdx_issues(id) ON DELETE SET NULL;
 
 
 --

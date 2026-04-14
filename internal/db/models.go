@@ -280,6 +280,18 @@ type ZdxProjectPermission struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxProposal struct {
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	JournalEntryID pgtype.Int4        `db:"journal_entry_id" json:"journal_entry_id"`
+	Title          string             `db:"title" json:"title"`
+	Context        string             `db:"context" json:"context"`
+	Status         string             `db:"status" json:"status"`
+	Priority       int32              `db:"priority" json:"priority"`
+	FiledIssueID   pgtype.Text        `db:"filed_issue_id" json:"filed_issue_id"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxQuestion struct {
 	ID               int32              `db:"id" json:"id"`
 	ProjectID        int32              `db:"project_id" json:"project_id"`

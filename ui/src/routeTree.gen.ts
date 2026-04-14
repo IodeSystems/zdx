@@ -24,6 +24,7 @@ import { Route as ProjectSlugComponentWorklogRouteImport } from './routes/projec
 import { Route as ProjectSlugComponentTimingsRouteImport } from './routes/project/$slug/$component/timings'
 import { Route as ProjectSlugComponentTasksRouteImport } from './routes/project/$slug/$component/tasks'
 import { Route as ProjectSlugComponentQuestionsRouteImport } from './routes/project/$slug/$component/questions'
+import { Route as ProjectSlugComponentProposalsRouteImport } from './routes/project/$slug/$component/proposals'
 import { Route as ProjectSlugComponentProfileRouteImport } from './routes/project/$slug/$component/profile'
 import { Route as ProjectSlugComponentJournalRouteImport } from './routes/project/$slug/$component/journal'
 import { Route as ProjectSlugComponentIssuesRouteImport } from './routes/project/$slug/$component/issues'
@@ -119,6 +120,12 @@ const ProjectSlugComponentQuestionsRoute =
   ProjectSlugComponentQuestionsRouteImport.update({
     id: '/questions',
     path: '/questions',
+    getParentRoute: () => ProjectSlugComponentRoute,
+  } as any)
+const ProjectSlugComponentProposalsRoute =
+  ProjectSlugComponentProposalsRouteImport.update({
+    id: '/proposals',
+    path: '/proposals',
     getParentRoute: () => ProjectSlugComponentRoute,
   } as any)
 const ProjectSlugComponentProfileRoute =
@@ -238,6 +245,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/$component/issues': typeof ProjectSlugComponentIssuesRouteWithChildren
   '/project/$slug/$component/journal': typeof ProjectSlugComponentJournalRoute
   '/project/$slug/$component/profile': typeof ProjectSlugComponentProfileRoute
+  '/project/$slug/$component/proposals': typeof ProjectSlugComponentProposalsRoute
   '/project/$slug/$component/questions': typeof ProjectSlugComponentQuestionsRoute
   '/project/$slug/$component/tasks': typeof ProjectSlugComponentTasksRouteWithChildren
   '/project/$slug/$component/timings': typeof ProjectSlugComponentTimingsRoute
@@ -266,6 +274,7 @@ export interface FileRoutesByTo {
   '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/journal': typeof ProjectSlugComponentJournalRoute
   '/project/$slug/$component/profile': typeof ProjectSlugComponentProfileRoute
+  '/project/$slug/$component/proposals': typeof ProjectSlugComponentProposalsRoute
   '/project/$slug/$component/questions': typeof ProjectSlugComponentQuestionsRoute
   '/project/$slug/$component/timings': typeof ProjectSlugComponentTimingsRoute
   '/project/$slug/$component/worklog': typeof ProjectSlugComponentWorklogRoute
@@ -299,6 +308,7 @@ export interface FileRoutesById {
   '/project/$slug/$component/issues': typeof ProjectSlugComponentIssuesRouteWithChildren
   '/project/$slug/$component/journal': typeof ProjectSlugComponentJournalRoute
   '/project/$slug/$component/profile': typeof ProjectSlugComponentProfileRoute
+  '/project/$slug/$component/proposals': typeof ProjectSlugComponentProposalsRoute
   '/project/$slug/$component/questions': typeof ProjectSlugComponentQuestionsRoute
   '/project/$slug/$component/tasks': typeof ProjectSlugComponentTasksRouteWithChildren
   '/project/$slug/$component/timings': typeof ProjectSlugComponentTimingsRoute
@@ -334,6 +344,7 @@ export interface FileRouteTypes {
     | '/project/$slug/$component/issues'
     | '/project/$slug/$component/journal'
     | '/project/$slug/$component/profile'
+    | '/project/$slug/$component/proposals'
     | '/project/$slug/$component/questions'
     | '/project/$slug/$component/tasks'
     | '/project/$slug/$component/timings'
@@ -362,6 +373,7 @@ export interface FileRouteTypes {
     | '/project/$slug/$component/errors'
     | '/project/$slug/$component/journal'
     | '/project/$slug/$component/profile'
+    | '/project/$slug/$component/proposals'
     | '/project/$slug/$component/questions'
     | '/project/$slug/$component/timings'
     | '/project/$slug/$component/worklog'
@@ -394,6 +406,7 @@ export interface FileRouteTypes {
     | '/project/$slug/$component/issues'
     | '/project/$slug/$component/journal'
     | '/project/$slug/$component/profile'
+    | '/project/$slug/$component/proposals'
     | '/project/$slug/$component/questions'
     | '/project/$slug/$component/tasks'
     | '/project/$slug/$component/timings'
@@ -522,6 +535,13 @@ declare module '@tanstack/react-router' {
       path: '/questions'
       fullPath: '/project/$slug/$component/questions'
       preLoaderRoute: typeof ProjectSlugComponentQuestionsRouteImport
+      parentRoute: typeof ProjectSlugComponentRoute
+    }
+    '/project/$slug/$component/proposals': {
+      id: '/project/$slug/$component/proposals'
+      path: '/proposals'
+      fullPath: '/project/$slug/$component/proposals'
+      preLoaderRoute: typeof ProjectSlugComponentProposalsRouteImport
       parentRoute: typeof ProjectSlugComponentRoute
     }
     '/project/$slug/$component/profile': {
@@ -713,6 +733,7 @@ interface ProjectSlugComponentRouteChildren {
   ProjectSlugComponentIssuesRoute: typeof ProjectSlugComponentIssuesRouteWithChildren
   ProjectSlugComponentJournalRoute: typeof ProjectSlugComponentJournalRoute
   ProjectSlugComponentProfileRoute: typeof ProjectSlugComponentProfileRoute
+  ProjectSlugComponentProposalsRoute: typeof ProjectSlugComponentProposalsRoute
   ProjectSlugComponentQuestionsRoute: typeof ProjectSlugComponentQuestionsRoute
   ProjectSlugComponentTasksRoute: typeof ProjectSlugComponentTasksRouteWithChildren
   ProjectSlugComponentTimingsRoute: typeof ProjectSlugComponentTimingsRoute
@@ -732,6 +753,7 @@ const ProjectSlugComponentRouteChildren: ProjectSlugComponentRouteChildren = {
   ProjectSlugComponentIssuesRoute: ProjectSlugComponentIssuesRouteWithChildren,
   ProjectSlugComponentJournalRoute: ProjectSlugComponentJournalRoute,
   ProjectSlugComponentProfileRoute: ProjectSlugComponentProfileRoute,
+  ProjectSlugComponentProposalsRoute: ProjectSlugComponentProposalsRoute,
   ProjectSlugComponentQuestionsRoute: ProjectSlugComponentQuestionsRoute,
   ProjectSlugComponentTasksRoute: ProjectSlugComponentTasksRouteWithChildren,
   ProjectSlugComponentTimingsRoute: ProjectSlugComponentTimingsRoute,

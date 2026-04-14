@@ -1093,3 +1093,55 @@ export const useCreateJournalEntry = () => {
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['journal', vars.slug, vars.role] }),
   })
 }
+
+// ── Proposals ────────────────────────────────────────────────────────────────
+
+export interface ProposalItem {
+  id: number
+  journal_entry_id?: number
+  title: string
+  context: string
+  status: string
+  priority: number
+  filed_issue_id?: string
+  created_at: string
+}
+
+export const useProposals = (slug: string, status?: string) =>
+  useQuery<ProposalItem[]>({
+    queryKey: ['proposals', slug, status],
+    queryFn: async () => {
+      let url = `/api/proposals?slug=${encodeURIComponent(slug)}`
+      if (status) url += `&status=${encodeURIComponent(status)}`
+      const data = await apiFetch<{ proposals: ProposalItem[] }>(url)
+      return data.proposals ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useCreateProposal = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { slug: string; title: string; context: string; priority: number; journal_entry_id?: number }) =>
+      apiPost<ProposalItem>('/api/proposal', body),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['proposals', vars.slug] }),
+  })
+}
+
+export const useUpdateProposal = (slug: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { id: number; status: string }) =>
+      apiPost<OKBody>('/api/proposal', body, 'PUT'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['proposals', slug] }),
+  })
+}
+
+export const useFileProposal = (slug: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { id: number; filed_issue_id: string }) =>
+      apiPost<OKBody>('/api/proposal/file', body),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['proposals', slug] }),
+  })
+}
