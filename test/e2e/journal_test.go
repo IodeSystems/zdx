@@ -7,9 +7,9 @@ import (
 )
 
 func TestJournalAddAndList(t *testing.T) {
-	slug := "e2e-journal"
+	slug := "e2e-issues"
 	apiDo(t, http.MethodPost, "/api/project",
-		map[string]string{"slug": slug, "name": "Journal Test"}, nil)
+		map[string]string{"slug": slug, "name": "E2E Issues"}, nil)
 
 	var issue struct {
 		ID int32 `json:"id"`
