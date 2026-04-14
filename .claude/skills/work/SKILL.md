@@ -16,11 +16,12 @@ Drive `./bin/dx todo` in remote mode. Issue: $ARGUMENTS (optional). **One vertic
 2. Do whatever the pick says (owner triage → tech plan → tech add → dev done)
 3. Repeat until solo prints nothing to do
 4. `./bin/dx issue close IS-N --reason=done`
-5. If serve/ or lib/zsql/ changed:
+5. If the vertical produced shippable fixes/features (server, UI, schema, queries, or any code that runs in prod):
    - Commit all changes first: `git add <files> && git commit -m '...'`
-   - If schema (internal/migrate/sql/) or queries (queries/dx.sql) changed: `~/go/bin/sqlc generate` then `go build ./...` to verify
+   - If schema (internal/migrate/sql/) or queries (queries/*.sql) changed: `~/go/bin/sqlc generate` then `go build ./...` to verify
    - `bin/ship` (never `--allow-dirty` during normal dev — that is an emergency-only escape hatch)
    - Note: migrations run automatically on dev server restart; prod migrations run via ship
+   - Skip ship for docs-only / skill-only / planning-only changes — just commit.
 6. **Stop. Report what was done. Do not pick up another vertical.**
 
 Vertical scope is automatic: solo --issue=IS-N picks only triage:IS-N, decompose:IS-N, plan: for linked features, and dev tasks with task.issue == IS-N.
