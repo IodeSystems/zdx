@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { z } from 'zod'
-import { TasksTab } from '../../../../../components/TasksTab'
+import { TasksTab } from '../../../../components/TasksTab'
 
 const searchSchema = z.object({
   status: z.string().optional(),
@@ -9,13 +9,12 @@ const searchSchema = z.object({
 })
 
 function TasksIndexRoute() {
-  const { slug, component } = Route.useParams()
+  const { slug } = Route.useParams()
   const { status, page, search } = Route.useSearch()
   const navigate = Route.useNavigate()
   return (
     <TasksTab
       slug={slug}
-      componentSlug={component}
       statusFilter={status ?? null}
       page={page ?? 1}
       search={search ?? ''}
@@ -26,7 +25,7 @@ function TasksIndexRoute() {
   )
 }
 
-export const Route = createFileRoute('/project/$slug/$component/tasks/')({
+export const Route = createFileRoute('/project/$slug/tasks/')({
   component: TasksIndexRoute,
   validateSearch: searchSchema,
 })

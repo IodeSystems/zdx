@@ -38,7 +38,7 @@ async function capturePageScreenshot(): Promise<File | null> {
   }
 }
 
-export function IssueReportFab({ slug, component }: { slug: string; component?: string }) {
+export function IssueReportFab({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)
   const [title, setTitle] = useState('')
   const [context, setContext] = useState('')
@@ -127,7 +127,7 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
         slug,
         title: title.trim() || undefined,
         context: context.trim() || undefined,
-        component: component || undefined,
+        component: undefined,
         screenshot_ids: screenshotIds,
       },
       {
@@ -167,7 +167,7 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
                 Your issue has been created.
               </Alert>
               <Link
-                href={`/project/${routeSlug}/all/issues/${createdIssue.id}`}
+                href={`/project/${routeSlug}/issues/${createdIssue.id}`}
                 variant="body1"
               >
                 IS-{createdIssue.id}: {createdIssue.title || '(untitled)'}
@@ -276,7 +276,7 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
                         <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
                           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
                             <Link
-                              href={`/project/${routeSlug}/all/issues/${iss.id}`}
+                              href={`/project/${routeSlug}/issues/${iss.id}`}
                               target="_blank"
                               rel="noopener"
                               variant="body2"

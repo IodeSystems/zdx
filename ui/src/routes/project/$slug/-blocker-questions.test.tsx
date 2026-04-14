@@ -2,11 +2,11 @@ import { describe, test, expect, afterEach, vi, beforeEach } from 'vitest'
 import { render, screen, cleanup, fireEvent, waitFor } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, CssBaseline } from '@mui/material'
-import { theme } from '../../../../theme'
-import type { BlockerQuestionItem } from '../../../../api'
+import { theme } from '../../../theme'
+import type { BlockerQuestionItem } from '../../../api'
 
-vi.mock('../../../../api', async () => {
-  const actual = await vi.importActual<typeof import('../../../../api')>('../../../../api')
+vi.mock('../../../api', async () => {
+  const actual = await vi.importActual<typeof import('../../../api')>('../../../api')
   return {
     ...actual,
     useBlockerQuestions: vi.fn(),
@@ -17,14 +17,14 @@ vi.mock('../../../../api', async () => {
 vi.mock('@tanstack/react-router', () => ({
   createFileRoute: () => {
     const fn = (opts: any) => {
-      const route = { ...opts, useParams: () => ({ slug: 'test-project', component: 'server' }) }
+      const route = { ...opts, useParams: () => ({ slug: 'test-project' }) }
       return route
     }
     return fn
   },
 }))
 
-import { useBlockerQuestions, useAnswerBlockerQuestion } from '../../../../api'
+import { useBlockerQuestions, useAnswerBlockerQuestion } from '../../../api'
 
 const mockedUseBlockerQuestions = vi.mocked(useBlockerQuestions)
 const mockedUseAnswerBlockerQuestion = vi.mocked(useAnswerBlockerQuestion)

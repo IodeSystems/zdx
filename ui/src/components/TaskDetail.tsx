@@ -13,11 +13,9 @@ const STATUS_COLORS: Record<string, 'success' | 'error' | 'warning' | 'default'>
 
 export function TaskDetail({
   slug,
-  componentSlug,
   taskId,
 }: {
   slug: string
-  componentSlug: string
   taskId: string
 }) {
   const { data, isLoading } = useTasks(slug)
@@ -83,26 +81,14 @@ export function TaskDetail({
           color={STATUS_COLORS[task.status] || 'default'}
           variant="outlined"
         />
-        {componentSlug && componentSlug !== 'all' && (
-          <Chip
-            label={componentSlug}
-            size="small"
-            variant="outlined"
-            color="secondary"
-            component={Link as any}
-            to="/project/$slug/$component"
-            params={{ slug, component: componentSlug }}
-            clickable
-          />
-        )}
         {task.feature && (
           <Chip
             label={task.feature}
             size="small"
             variant="outlined"
             component={Link as any}
-            to="/project/$slug/$component/features/$name"
-            params={{ slug, component: componentSlug, name: task.feature }}
+            to="/project/$slug/features/$name"
+            params={{ slug, name: task.feature }}
             clickable
           />
         )}
@@ -113,8 +99,8 @@ export function TaskDetail({
             variant="outlined"
             color="info"
             component={Link as any}
-            to="/project/$slug/$component/issues/$id"
-            params={{ slug, component: componentSlug, id: `IS-${task.issue_id}` }}
+            to="/project/$slug/issues/$id"
+            params={{ slug, id: `IS-${task.issue_id}` }}
             clickable
           />
         )}
@@ -196,8 +182,8 @@ export function TaskDetail({
                     color="warning"
                     variant="outlined"
                     component={Link as any}
-                    to="/project/$slug/$component/tasks/$id"
-                    params={{ slug, component: componentSlug, id: ref.toUpperCase() }}
+                    to="/project/$slug/tasks/$id"
+                    params={{ slug, id: ref.toUpperCase() }}
                     clickable
                   />
                 )
@@ -222,8 +208,8 @@ export function TaskDetail({
                 color="default"
                 variant="outlined"
                 component={Link as any}
-                to="/project/$slug/$component/tasks/$id"
-                params={{ slug, component: componentSlug, id: `TK-${t.id}` }}
+                to="/project/$slug/tasks/$id"
+                params={{ slug, id: `TK-${t.id}` }}
                 clickable
               />
             ))}

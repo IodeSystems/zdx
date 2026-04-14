@@ -4,6 +4,6 @@ function FeaturesLayout() {
   return <Outlet />
 }
 
-export const Route = createFileRoute('/project/$slug/$component/features')({
+export const Route = createFileRoute('/project/$slug/features')({
   component: FeaturesLayout,
 })

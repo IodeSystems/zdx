@@ -10,7 +10,7 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import { useTimed } from '../../../../api'
+import { useTimed } from '../../../api'
 
 function TimingsPage() {
   const { slug } = Route.useParams()
@@ -49,6 +49,6 @@ function TimingsPage() {
   )
 }
 
-export const Route = createFileRoute('/project/$slug/$component/timings')({
+export const Route = createFileRoute('/project/$slug/timings')({
   component: TimingsPage,
 })

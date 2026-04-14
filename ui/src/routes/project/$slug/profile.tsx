@@ -7,10 +7,10 @@ import {
   Stack,
   Typography,
 } from '@mui/material'
-import { useMe, useMyComments } from '../../../../api'
+import { useMe, useMyComments } from '../../../api'
 
 function ProfilePage() {
-  const { slug, component } = Route.useParams()
+  const { slug } = Route.useParams()
   const { data: me } = useMe()
   const { data: mcData, isLoading } = useMyComments(slug)
   const comments = mcData?.comments
@@ -42,7 +42,7 @@ function ProfilePage() {
               <Chip label={c.target_type} size="small" variant="outlined" />
               <Typography
                 component="a"
-                href={`/project/${slug}/${component}/${c.target_type}s/${c.target_id}`}
+                href={`/project/${slug}/${c.target_type}s/${c.target_id}`}
                 variant="body2"
                 color="primary"
                 sx={{ fontWeight: 500, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
@@ -61,6 +61,6 @@ function ProfilePage() {
   )
 }
 
-export const Route = createFileRoute('/project/$slug/$component/profile')({
+export const Route = createFileRoute('/project/$slug/profile')({
   component: ProfilePage,
 })

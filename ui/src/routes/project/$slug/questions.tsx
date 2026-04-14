@@ -19,7 +19,7 @@ import {
   useSimilarQuestions,
   type QuestionItem,
   type SimilarQuestionItem,
-} from '../../../../api'
+} from '../../../api'
 
 function SimilarQuestionsList({
   items,
@@ -223,6 +223,6 @@ function QuestionsPage() {
   )
 }
 
-export const Route = createFileRoute('/project/$slug/$component/questions')({
+export const Route = createFileRoute('/project/$slug/questions')({
   component: QuestionsPage,
 })

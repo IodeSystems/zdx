@@ -17,7 +17,7 @@ import {
   useBlockerQuestions,
   useAnswerBlockerQuestion,
   type BlockerQuestionItem,
-} from '../../../../api'
+} from '../../../api'
 
 function AnswerForm({ slug, question }: { slug: string; question: BlockerQuestionItem }) {
   const answerMutation = useAnswerBlockerQuestion()
@@ -135,6 +135,6 @@ function BlockerQuestionsPage() {
   )
 }
 
-export const Route = createFileRoute('/project/$slug/$component/blocker-questions')({
+export const Route = createFileRoute('/project/$slug/blocker-questions')({
   component: BlockerQuestionsPage,
 })

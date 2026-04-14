@@ -78,11 +78,9 @@ function SpecRow({ spec }: { spec: Spec }) {
 
 export function FeatureDetail({
   slug,
-  componentSlug,
   name,
 }: {
   slug: string
-  componentSlug: string
   name: string
 }) {
   const { data: feature, isLoading } = useFeature(slug, name)
@@ -213,8 +211,8 @@ export function FeatureDetail({
                 <TaskIcon status={t.status} />
                 <Box sx={{ flex: 1 }}>
                   <Link
-                    to="/project/$slug/$component/tasks/$id"
-                    params={{ slug, component: componentSlug, id: `TK-${t.id}` }}
+                    to="/project/$slug/tasks/$id"
+                    params={{ slug, id: `TK-${t.id}` }}
                     style={{ textDecoration: 'none', color: 'inherit' }}
                   >
                     <Typography variant="body2">{t.text}</Typography>

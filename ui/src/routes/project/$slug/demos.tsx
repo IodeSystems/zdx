@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Box, Typography } from '@mui/material'
-import { DemosSection } from '../../../../components/DemoPlayer'
+import { DemosSection } from '../../../components/DemoPlayer'
 
 function DemosRoute() {
   return (
@@ -11,6 +11,6 @@ function DemosRoute() {
   )
 }
 
-export const Route = createFileRoute('/project/$slug/$component/demos')({
+export const Route = createFileRoute('/project/$slug/demos')({
   component: DemosRoute,
 })

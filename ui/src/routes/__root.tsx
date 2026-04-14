@@ -46,6 +46,7 @@ import { useProjects, useMe, useLogout, useUnreadCount, useZdxConfig } from '../
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
 import { IssueReportFab } from '../components/IssueReportFab'
+import { useComponentFilter } from '../components/ComponentContext'
 import { useState, type FormEvent } from 'react'
 
 const queryClient = new QueryClient()
@@ -99,20 +100,20 @@ function Omnibox() {
 
     const issueMatch = input.match(/^IS-(\d+)$/i)
     if (issueMatch) {
-      navigate({ to: '/project/$slug/$component/issues/$id', params: { slug: currentSlug, component: 'all', id: `IS-${issueMatch[1]}` } })
+      navigate({ to: '/project/$slug/issues/$id', params: { slug: currentSlug, id: `IS-${issueMatch[1]}` } })
       setValue('')
       return
     }
 
     const taskMatch = input.match(/^TK-(\d+)$/i)
     if (taskMatch) {
-      navigate({ to: '/project/$slug/$component/tasks/$id', params: { slug: currentSlug, component: 'all', id: `TK-${taskMatch[1]}` } })
+      navigate({ to: '/project/$slug/tasks/$id', params: { slug: currentSlug, id: `TK-${taskMatch[1]}` } })
       setValue('')
       return
     }
 
     // Treat anything else as a feature name
-    navigate({ to: '/project/$slug/$component/features/$name', params: { slug: currentSlug, component: 'all', name: input } })
+    navigate({ to: '/project/$slug/features/$name', params: { slug: currentSlug, name: input } })
     setValue('')
   }
 
@@ -144,13 +145,12 @@ function Omnibox() {
 function SectionNav({ onNavigate }: { onNavigate?: () => void }) {
   const matches = useMatches()
   const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
-  const projectParams = (projectMatch?.params as { slug?: string; component?: string }) || {}
-  const currentSlug = projectParams.slug
-  const currentComponent = projectParams.component || 'all'
+  const currentSlug = (projectMatch?.params as { slug?: string })?.slug
+  const { component, setComponent } = useComponentFilter()
   const lastRouteId = (matches[matches.length - 1]?.routeId as string) || ''
   const isQueueActive = lastRouteId === '/project/$slug/queue'
   const activePath = (() => {
-    const prefix = '/project/$slug/$component/'
+    const prefix = '/project/$slug/'
     if (!lastRouteId.startsWith(prefix)) return ''
     return lastRouteId.slice(prefix.length)
   })()
@@ -163,9 +163,17 @@ function SectionNav({ onNavigate }: { onNavigate?: () => void }) {
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textTransform: 'uppercase', letterSpacing: 0.5 }}>
           Component
         </Typography>
-        <Typography variant="body2" sx={{ fontWeight: 600 }}>
-          {currentComponent}
-        </Typography>
+        <TextField
+          select
+          size="small"
+          value={component}
+          onChange={e => setComponent(e.target.value)}
+          slotProps={{ select: { native: true } }}
+          sx={{ mt: 0.5, width: '100%', '& .MuiInputBase-input': { py: 0.5, fontSize: '0.85rem' } }}
+        >
+          <option value="">All</option>
+          <option value="server">server</option>
+        </TextField>
       </Box>
       <List dense>
         <ListItemButton
@@ -185,8 +193,8 @@ function SectionNav({ onNavigate }: { onNavigate?: () => void }) {
             key={s.path}
             selected={activePath === s.path}
             component={Link as any}
-            to={`/project/$slug/$component/${s.path}` as any}
-            params={{ slug: currentSlug, component: currentComponent }}
+            to={`/project/$slug/${s.path}` as any}
+            params={{ slug: currentSlug }}
             onClick={onNavigate}
           >
             <ListItemIcon sx={{ minWidth: 36 }}>
@@ -290,12 +298,12 @@ function HomeNav({ onNavigate }: { onNavigate?: () => void }) {
 function ReportFab() {
   const matches = useMatches()
   const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
-  const { slug: routeSlug, component: routeComponent } = (projectMatch?.params as { slug?: string; component?: string }) ?? {}
+  const routeSlug = (projectMatch?.params as { slug?: string })?.slug
   const { data: config } = useZdxConfig()
   const zdxSlug = config?.zdx_project_slug || ''
   const slug = zdxSlug || routeSlug
   if (!slug) return null
-  return <IssueReportFab slug={slug} component={zdxSlug ? undefined : routeComponent} />
+  return <IssueReportFab slug={slug} />
 }
 
 function AppShell() {
@@ -386,7 +394,7 @@ function AvatarMenu() {
   const logout = useLogout()
   const matches = useMatches()
   const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
-  const { slug, component } = (projectMatch?.params as { slug?: string; component?: string }) ?? {}
+  const slug = (projectMatch?.params as { slug?: string })?.slug
   const { data: unread } = useUnreadCount(slug ?? '')
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
 
@@ -417,7 +425,7 @@ function AvatarMenu() {
         </MenuItem>
         <Divider />
         {slug && (
-          <MenuItem component="a" href={`/project/${slug}/${component || 'all'}/profile`} onClick={() => setAnchorEl(null)}>
+          <MenuItem component="a" href={`/project/${slug}/profile`} onClick={() => setAnchorEl(null)}>
             Profile
           </MenuItem>
         )}

@@ -9,6 +9,7 @@ import {
 } from '@mui/material'
 import { Extension as ExtensionIcon, TaskAlt as TaskAltIcon, BugReport as BugReportIcon } from '@mui/icons-material'
 import { useFeatures, useTasks, useIssues, type IssueItem } from '../api'
+import { useComponentFilter } from './ComponentContext'
 
 type Issue = IssueItem
 
@@ -26,7 +27,6 @@ const PRIORITY_COLORS: Record<string, 'error' | 'warning' | 'default' | 'info'> 
 
 function SummaryCard({
   slug,
-  componentSlug,
   section,
   title,
   icon,
@@ -34,7 +34,6 @@ function SummaryCard({
   secondary,
 }: {
   slug: string
-  componentSlug: string
   section: 'features' | 'tasks' | 'issues'
   title: string
   icon: React.ReactNode
@@ -45,8 +44,8 @@ function SummaryCard({
     <Card variant="outlined" sx={{ flex: '1 1 220px', minWidth: 220 }}>
       <CardActionArea
         component={Link as any}
-        to={`/project/$slug/$component/${section}` as any}
-        params={{ slug, component: componentSlug }}
+        to={`/project/$slug/${section}` as any}
+        params={{ slug }}
       >
         <CardContent>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, color: 'text.secondary' }}>
@@ -67,7 +66,8 @@ function SummaryCard({
   )
 }
 
-export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string; componentSlug?: string }) {
+export function ProjectDashboard({ slug }: { slug: string }) {
+  const { component } = useComponentFilter()
   const { data: featuresData } = useFeatures(slug)
   const { data: tasksData } = useTasks(slug)
   const { data: issuesData } = useIssues(slug)
@@ -76,7 +76,6 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
   const tasks = tasksData?.tasks || []
   const allIssues: Issue[] = issuesData?.issues || []
 
-  const component = componentSlug === 'all' ? '' : componentSlug
   const issues = component ? allIssues.filter(i => i.component === component) : allIssues
 
   const openIssues = issues.filter(i => i.status !== 'done' && i.status !== 'closed')
@@ -93,27 +92,25 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
     .sort((a, b) => (b.created_at > a.created_at ? 1 : -1))
     .slice(0, 5)
 
-  const isComponentScope = componentSlug !== 'all'
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 1 }}>
         {slug}
-        {isComponentScope && (
+        {component && (
           <Typography component="span" variant="h5" color="text.secondary" sx={{ ml: 1 }}>
-            / {componentSlug}
+            / {component}
           </Typography>
         )}
       </Typography>
       <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
-        {isComponentScope
-          ? `Component dashboard — issues filtered to ${componentSlug}; features and tasks remain project-wide.`
+        {component
+          ? `Component dashboard — issues filtered to ${component}; features and tasks remain project-wide.`
           : 'Project dashboard — overview, then drill into a section.'}
       </Typography>
 
       <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 2, mb: 4 }}>
         <SummaryCard
           slug={slug}
-          componentSlug={componentSlug}
           section="features"
           title="Features"
           icon={<ExtensionIcon fontSize="small" />}
@@ -121,7 +118,6 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
         />
         <SummaryCard
           slug={slug}
-          componentSlug={componentSlug}
           section="issues"
           title="Open issues"
           icon={<BugReportIcon fontSize="small" />}
@@ -142,7 +138,6 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
         />
         <SummaryCard
           slug={slug}
-          componentSlug={componentSlug}
           section="tasks"
           title="Tasks"
           icon={<TaskAltIcon fontSize="small" />}
@@ -164,8 +159,8 @@ export function ProjectDashboard({ slug, componentSlug = 'all' }: { slug: string
               <Card key={i.id} variant="outlined">
                 <CardActionArea
                   component={Link as any}
-                  to="/project/$slug/$component/issues/$id"
-                  params={{ slug, component: componentSlug, id: `IS-${i.id}` }}
+                  to="/project/$slug/issues/$id"
+                  params={{ slug, id: `IS-${i.id}` }}
                 >
                   <CardContent sx={{ py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
                     <Chip

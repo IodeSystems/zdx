@@ -22,14 +22,12 @@ const STATUS_RANK: Record<string, number> = { blocked: 0, open: 1, 'in-progress'
 
 export function TasksTab({
   slug,
-  componentSlug,
   statusFilter,
   search,
   onStatusFilter,
   onSearch,
 }: {
   slug: string
-  componentSlug: string
   statusFilter: string | null
   page: number
   search: string
@@ -121,8 +119,8 @@ export function TasksTab({
           </Typography>
           <Box sx={{ flex: 1 }}>
             <Link
-              to="/project/$slug/$component/tasks/$id"
-              params={{ slug, component: componentSlug, id: `TK-${t.id}` }}
+              to="/project/$slug/tasks/$id"
+              params={{ slug, id: `TK-${t.id}` }}
               style={{ textDecoration: 'none', color: 'inherit' }}
             >
               <Typography variant="body2">{t.text}</Typography>

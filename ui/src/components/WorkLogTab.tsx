@@ -6,15 +6,15 @@ function fmtDate(ts: string) {
   return ts ? ts.slice(0, 10) : ''
 }
 
-function WorklogRow({ entry, slug, componentSlug }: { entry: WorklogEntry; slug: string; componentSlug: string }) {
+function WorklogRow({ entry, slug }: { entry: WorklogEntry; slug: string }) {
   return (
     <Box sx={{ py: 1, borderBottom: 1, borderColor: 'divider', display: 'flex', gap: 1, alignItems: 'flex-start' }}>
       <Typography variant="caption" color="text.secondary" sx={{ minWidth: 72, pt: 0.25 }}>
         {fmtDate(entry.created_at)}
       </Typography>
       <Link
-        to="/project/$slug/$component/issues/$id"
-        params={{ slug, component: componentSlug, id: entry.issue_id }}
+        to="/project/$slug/issues/$id"
+        params={{ slug, id: entry.issue_id }}
         style={{ textDecoration: 'none' }}
       >
         <Chip label={entry.issue_id} size="small" variant="outlined" sx={{ cursor: 'pointer' }} />
@@ -36,7 +36,7 @@ function WorklogRow({ entry, slug, componentSlug }: { entry: WorklogEntry; slug:
   )
 }
 
-export function WorkLogTab({ slug, componentSlug = 'all' }: { slug: string; componentSlug?: string }) {
+export function WorkLogTab({ slug }: { slug: string }) {
   const { data: wlData, isLoading } = useWorklog(slug)
   const entries = wlData?.entries ?? []
 
@@ -51,7 +51,7 @@ export function WorkLogTab({ slug, componentSlug = 'all' }: { slug: string; comp
         <Typography variant="body2" color="text.secondary">No work log entries.</Typography>
       ) : (
         entries.map((e, i) => (
-          <WorklogRow key={i} entry={e} slug={slug} componentSlug={componentSlug} />
+          <WorklogRow key={i} entry={e} slug={slug} />
         ))
       )}
     </Box>

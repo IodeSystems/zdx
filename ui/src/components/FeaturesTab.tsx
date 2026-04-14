@@ -12,24 +12,23 @@ import {
 import { Search as SearchIcon } from '@mui/icons-material'
 import { useState } from 'react'
 import { useFeatures, type FeatureItem } from '../api'
+import { useComponentFilter } from './ComponentContext'
 
 type Feature = FeatureItem
 
 export function FeaturesTab({
   slug,
-  componentSlug = 'all',
 }: {
   slug: string
-  componentSlug?: string
   categoryFilter?: string
 }) {
+  const { component } = useComponentFilter()
   const { data, isLoading } = useFeatures(slug)
   const [search, setSearch] = useState('')
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
   const allFeatures: Feature[] = data || []
 
-  const component = componentSlug === 'all' ? '' : componentSlug
   const componentFiltered = component ? allFeatures.filter(f => f.component === component) : allFeatures
 
   const features = search
@@ -39,7 +38,6 @@ export function FeaturesTab({
       )
     : componentFiltered
 
-  // Group by category; uncategorized goes to '' bucket rendered last
   const grouped = features.reduce((acc, f) => {
     const cat = f.category || ''
     ;(acc[cat] ||= []).push(f)
@@ -88,7 +86,7 @@ export function FeaturesTab({
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
             {grouped[cat].map(f => (
-              <FeatureCard key={f.id} feature={f} slug={slug} componentSlug={componentSlug} />
+              <FeatureCard key={f.id} feature={f} slug={slug} />
             ))}
           </Box>
         </Box>
@@ -101,13 +99,13 @@ export function FeaturesTab({
   )
 }
 
-function FeatureCard({ feature: f, slug, componentSlug }: { feature: Feature; slug: string; componentSlug: string }) {
+function FeatureCard({ feature: f, slug }: { feature: Feature; slug: string }) {
   return (
     <Card variant="outlined">
       <CardActionArea
         component={Link as any}
-        to="/project/$slug/$component/features/$name"
-        params={{ slug, component: componentSlug, name: f.name }}
+        to="/project/$slug/features/$name"
+        params={{ slug, name: f.name }}
       >
         <CardContent sx={{ py: 1.25 }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>

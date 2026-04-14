@@ -281,12 +281,10 @@ function SessionDetail({
   slug,
   session,
   onBack,
-  componentSlug,
 }: {
   slug: string
   session: ClaudeSessionItem
   onBack: () => void
-  componentSlug: string
 }) {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
@@ -328,8 +326,8 @@ function SessionDetail({
         </Typography>
         {session.issue_id && (
           <Link
-            to="/project/$slug/$component/issues/$id"
-            params={{ slug, component: componentSlug, id: session.issue_id }}
+            to="/project/$slug/issues/$id"
+            params={{ slug, id: session.issue_id }}
             style={{ textDecoration: 'none' }}
           >
             <Chip label={session.issue_id} size="small" variant="outlined" sx={{ cursor: 'pointer' }} />
@@ -377,7 +375,7 @@ function SessionDetail({
   )
 }
 
-export function ClaudeSessionsTab({ slug, componentSlug = 'all' }: { slug: string; componentSlug?: string }) {
+export function ClaudeSessionsTab({ slug }: { slug: string }) {
   const { data: sessData, isLoading } = useClaudeSessions(slug)
   const sessions = sessData?.sessions ?? []
   const [selected, setSelected] = useState<ClaudeSessionItem | null>(null)
@@ -390,7 +388,6 @@ export function ClaudeSessionsTab({ slug, componentSlug = 'all' }: { slug: strin
         slug={slug}
         session={selected}
         onBack={() => setSelected(null)}
-        componentSlug={componentSlug}
       />
     )
   }

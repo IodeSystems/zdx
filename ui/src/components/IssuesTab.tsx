@@ -14,6 +14,7 @@ import {
 import { useIssues, useSearchIssues, useSimilarIssues, type IssueItem, type SimilarIssueItem } from '../api'
 import { useLoadMore } from '../api/pagination'
 import { LoadMore } from './LoadMore'
+import { useComponentFilter } from './ComponentContext'
 
 type Issue = IssueItem
 
@@ -49,7 +50,7 @@ const STATUS_COLORS: Record<string, 'warning' | 'info' | 'secondary' | 'success'
 
 const STATUS_RANK: Record<string, number> = { open: 0, triaged: 1, 'in-progress': 2, done: 3, closed: 4 }
 
-function IssueSearch({ slug, componentSlug }: { slug: string; componentSlug: string }) {
+function IssueSearch({ slug }: { slug: string }) {
   const navigate = useNavigate()
   const [inputValue, setInputValue] = useState('')
   const [ftsQuery, setFtsQuery] = useState('')
@@ -111,7 +112,7 @@ function IssueSearch({ slug, componentSlug }: { slug: string; componentSlug: str
       onChange={(_, value) => {
         if (!value || typeof value === 'string') return
         const id = value.group === 'Text match' ? `IS-${value.item.id}` : value.item.id
-        navigate({ to: '/project/$slug/$component/issues/$id', params: { slug, component: componentSlug, id } })
+        navigate({ to: '/project/$slug/issues/$id', params: { slug, id } })
         setInputValue('')
       }}
       renderInput={params => (
@@ -156,7 +157,8 @@ function IssueSearch({ slug, componentSlug }: { slug: string; componentSlug: str
   )
 }
 
-export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; componentSlug?: string }) {
+export function IssuesTab({ slug }: { slug: string }) {
+  const { component } = useComponentFilter()
   const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const { offset, loadMore, pageSize } = useLoadMore()
   const { data, isLoading } = useIssues(slug, pageSize, offset)
@@ -166,7 +168,6 @@ export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; compo
   const allItems: Issue[] = data?.issues ?? []
   const total = data?.total ?? 0
 
-  const component = componentSlug === 'all' ? '' : componentSlug
   const componentFiltered = component ? allItems.filter(i => i.component === component) : allItems
 
   const items = statusFilter
@@ -187,7 +188,7 @@ export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; compo
       <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
         <Typography variant="subtitle2" color="text.secondary">
           {statusFilter ? `${items.length} of ${componentFiltered.length}` : `${componentFiltered.length}`} issues
-          {componentSlug !== 'all' && ` (component=${componentSlug})`}
+          {component && ` (component=${component})`}
           {statusFilter && ` — filtered: ${statusFilter}`}
         </Typography>
         <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
@@ -215,7 +216,7 @@ export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; compo
           )}
         </Stack>
         <Box sx={{ ml: 'auto' }}>
-          <IssueSearch slug={slug} componentSlug={componentSlug} />
+          <IssueSearch slug={slug} />
         </Box>
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
@@ -225,8 +226,8 @@ export function IssuesTab({ slug, componentSlug = 'all' }: { slug: string; compo
             <Card key={i.id} variant="outlined">
               <CardActionArea
                 component={Link as any}
-                to="/project/$slug/$component/issues/$id"
-                params={{ slug, component: componentSlug, id: `IS-${i.id}` }}
+                to="/project/$slug/issues/$id"
+                params={{ slug, id: `IS-${i.id}` }}
               >
                 <CardContent sx={{ py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
                   <Chip

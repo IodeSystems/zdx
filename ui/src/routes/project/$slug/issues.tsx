@@ -4,6 +4,6 @@ function IssuesLayout() {
   return <Outlet />
 }
 
-export const Route = createFileRoute('/project/$slug/$component/issues')({
+export const Route = createFileRoute('/project/$slug/issues')({
   component: IssuesLayout,
 })

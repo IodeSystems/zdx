@@ -16,31 +16,29 @@ import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminLlmRouteImport } from './routes/admin/llm'
 import { Route as AdminInvitesRouteImport } from './routes/admin/invites'
 import { Route as ProjectSlugIndexRouteImport } from './routes/project/$slug/index'
+import { Route as ProjectSlugWorklogRouteImport } from './routes/project/$slug/worklog'
+import { Route as ProjectSlugTimingsRouteImport } from './routes/project/$slug/timings'
+import { Route as ProjectSlugTasksRouteImport } from './routes/project/$slug/tasks'
 import { Route as ProjectSlugSettingsRouteImport } from './routes/project/$slug/settings'
 import { Route as ProjectSlugQueueRouteImport } from './routes/project/$slug/queue'
-import { Route as ProjectSlugComponentRouteImport } from './routes/project/$slug/$component'
-import { Route as ProjectSlugComponentIndexRouteImport } from './routes/project/$slug/$component/index'
-import { Route as ProjectSlugComponentWorklogRouteImport } from './routes/project/$slug/$component/worklog'
-import { Route as ProjectSlugComponentTimingsRouteImport } from './routes/project/$slug/$component/timings'
-import { Route as ProjectSlugComponentTasksRouteImport } from './routes/project/$slug/$component/tasks'
-import { Route as ProjectSlugComponentQuestionsRouteImport } from './routes/project/$slug/$component/questions'
-import { Route as ProjectSlugComponentProposalsRouteImport } from './routes/project/$slug/$component/proposals'
-import { Route as ProjectSlugComponentProfileRouteImport } from './routes/project/$slug/$component/profile'
-import { Route as ProjectSlugComponentJournalRouteImport } from './routes/project/$slug/$component/journal'
-import { Route as ProjectSlugComponentIssuesRouteImport } from './routes/project/$slug/$component/issues'
-import { Route as ProjectSlugComponentGoalsRouteImport } from './routes/project/$slug/$component/goals'
-import { Route as ProjectSlugComponentFeaturesRouteImport } from './routes/project/$slug/$component/features'
-import { Route as ProjectSlugComponentErrorsRouteImport } from './routes/project/$slug/$component/errors'
-import { Route as ProjectSlugComponentDemosRouteImport } from './routes/project/$slug/$component/demos'
-import { Route as ProjectSlugComponentClaudeRouteImport } from './routes/project/$slug/$component/claude'
-import { Route as ProjectSlugComponentBlockerQuestionsRouteImport } from './routes/project/$slug/$component/blocker-questions'
-import { Route as ProjectSlugComponentTasksIndexRouteImport } from './routes/project/$slug/$component/tasks/index'
-import { Route as ProjectSlugComponentIssuesIndexRouteImport } from './routes/project/$slug/$component/issues/index'
-import { Route as ProjectSlugComponentGoalsIndexRouteImport } from './routes/project/$slug/$component/goals/index'
-import { Route as ProjectSlugComponentFeaturesIndexRouteImport } from './routes/project/$slug/$component/features/index'
-import { Route as ProjectSlugComponentTasksIdRouteImport } from './routes/project/$slug/$component/tasks/$id'
-import { Route as ProjectSlugComponentIssuesIdRouteImport } from './routes/project/$slug/$component/issues/$id'
-import { Route as ProjectSlugComponentFeaturesNameRouteImport } from './routes/project/$slug/$component/features/$name'
+import { Route as ProjectSlugQuestionsRouteImport } from './routes/project/$slug/questions'
+import { Route as ProjectSlugProposalsRouteImport } from './routes/project/$slug/proposals'
+import { Route as ProjectSlugProfileRouteImport } from './routes/project/$slug/profile'
+import { Route as ProjectSlugJournalRouteImport } from './routes/project/$slug/journal'
+import { Route as ProjectSlugIssuesRouteImport } from './routes/project/$slug/issues'
+import { Route as ProjectSlugGoalsRouteImport } from './routes/project/$slug/goals'
+import { Route as ProjectSlugFeaturesRouteImport } from './routes/project/$slug/features'
+import { Route as ProjectSlugErrorsRouteImport } from './routes/project/$slug/errors'
+import { Route as ProjectSlugDemosRouteImport } from './routes/project/$slug/demos'
+import { Route as ProjectSlugClaudeRouteImport } from './routes/project/$slug/claude'
+import { Route as ProjectSlugBlockerQuestionsRouteImport } from './routes/project/$slug/blocker-questions'
+import { Route as ProjectSlugTasksIndexRouteImport } from './routes/project/$slug/tasks/index'
+import { Route as ProjectSlugIssuesIndexRouteImport } from './routes/project/$slug/issues/index'
+import { Route as ProjectSlugGoalsIndexRouteImport } from './routes/project/$slug/goals/index'
+import { Route as ProjectSlugFeaturesIndexRouteImport } from './routes/project/$slug/features/index'
+import { Route as ProjectSlugTasksIdRouteImport } from './routes/project/$slug/tasks/$id'
+import { Route as ProjectSlugIssuesIdRouteImport } from './routes/project/$slug/issues/$id'
+import { Route as ProjectSlugFeaturesNameRouteImport } from './routes/project/$slug/features/$name'
 
 const IndexRoute = IndexRouteImport.update({
   id: '/',
@@ -77,6 +75,21 @@ const ProjectSlugIndexRoute = ProjectSlugIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProjectSlugRoute,
 } as any)
+const ProjectSlugWorklogRoute = ProjectSlugWorklogRouteImport.update({
+  id: '/worklog',
+  path: '/worklog',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugTimingsRoute = ProjectSlugTimingsRouteImport.update({
+  id: '/timings',
+  path: '/timings',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugTasksRoute = ProjectSlugTasksRouteImport.update({
+  id: '/tasks',
+  path: '/tasks',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
 const ProjectSlugSettingsRoute = ProjectSlugSettingsRouteImport.update({
   id: '/settings',
   path: '/settings',
@@ -87,143 +100,98 @@ const ProjectSlugQueueRoute = ProjectSlugQueueRouteImport.update({
   path: '/queue',
   getParentRoute: () => ProjectSlugRoute,
 } as any)
-const ProjectSlugComponentRoute = ProjectSlugComponentRouteImport.update({
-  id: '/$component',
-  path: '/$component',
+const ProjectSlugQuestionsRoute = ProjectSlugQuestionsRouteImport.update({
+  id: '/questions',
+  path: '/questions',
   getParentRoute: () => ProjectSlugRoute,
 } as any)
-const ProjectSlugComponentIndexRoute =
-  ProjectSlugComponentIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentWorklogRoute =
-  ProjectSlugComponentWorklogRouteImport.update({
-    id: '/worklog',
-    path: '/worklog',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentTimingsRoute =
-  ProjectSlugComponentTimingsRouteImport.update({
-    id: '/timings',
-    path: '/timings',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentTasksRoute =
-  ProjectSlugComponentTasksRouteImport.update({
-    id: '/tasks',
-    path: '/tasks',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentQuestionsRoute =
-  ProjectSlugComponentQuestionsRouteImport.update({
-    id: '/questions',
-    path: '/questions',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentProposalsRoute =
-  ProjectSlugComponentProposalsRouteImport.update({
-    id: '/proposals',
-    path: '/proposals',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentProfileRoute =
-  ProjectSlugComponentProfileRouteImport.update({
-    id: '/profile',
-    path: '/profile',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentJournalRoute =
-  ProjectSlugComponentJournalRouteImport.update({
-    id: '/journal',
-    path: '/journal',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentIssuesRoute =
-  ProjectSlugComponentIssuesRouteImport.update({
-    id: '/issues',
-    path: '/issues',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentGoalsRoute =
-  ProjectSlugComponentGoalsRouteImport.update({
-    id: '/goals',
-    path: '/goals',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentFeaturesRoute =
-  ProjectSlugComponentFeaturesRouteImport.update({
-    id: '/features',
-    path: '/features',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentErrorsRoute =
-  ProjectSlugComponentErrorsRouteImport.update({
-    id: '/errors',
-    path: '/errors',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentDemosRoute =
-  ProjectSlugComponentDemosRouteImport.update({
-    id: '/demos',
-    path: '/demos',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentClaudeRoute =
-  ProjectSlugComponentClaudeRouteImport.update({
-    id: '/claude',
-    path: '/claude',
-    getParentRoute: () => ProjectSlugComponentRoute,
-  } as any)
-const ProjectSlugComponentBlockerQuestionsRoute =
-  ProjectSlugComponentBlockerQuestionsRouteImport.update({
+const ProjectSlugProposalsRoute = ProjectSlugProposalsRouteImport.update({
+  id: '/proposals',
+  path: '/proposals',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugProfileRoute = ProjectSlugProfileRouteImport.update({
+  id: '/profile',
+  path: '/profile',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugJournalRoute = ProjectSlugJournalRouteImport.update({
+  id: '/journal',
+  path: '/journal',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugIssuesRoute = ProjectSlugIssuesRouteImport.update({
+  id: '/issues',
+  path: '/issues',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugGoalsRoute = ProjectSlugGoalsRouteImport.update({
+  id: '/goals',
+  path: '/goals',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugFeaturesRoute = ProjectSlugFeaturesRouteImport.update({
+  id: '/features',
+  path: '/features',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugErrorsRoute = ProjectSlugErrorsRouteImport.update({
+  id: '/errors',
+  path: '/errors',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugDemosRoute = ProjectSlugDemosRouteImport.update({
+  id: '/demos',
+  path: '/demos',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugClaudeRoute = ProjectSlugClaudeRouteImport.update({
+  id: '/claude',
+  path: '/claude',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugBlockerQuestionsRoute =
+  ProjectSlugBlockerQuestionsRouteImport.update({
     id: '/blocker-questions',
     path: '/blocker-questions',
-    getParentRoute: () => ProjectSlugComponentRoute,
+    getParentRoute: () => ProjectSlugRoute,
   } as any)
-const ProjectSlugComponentTasksIndexRoute =
-  ProjectSlugComponentTasksIndexRouteImport.update({
+const ProjectSlugTasksIndexRoute = ProjectSlugTasksIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectSlugTasksRoute,
+} as any)
+const ProjectSlugIssuesIndexRoute = ProjectSlugIssuesIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectSlugIssuesRoute,
+} as any)
+const ProjectSlugGoalsIndexRoute = ProjectSlugGoalsIndexRouteImport.update({
+  id: '/',
+  path: '/',
+  getParentRoute: () => ProjectSlugGoalsRoute,
+} as any)
+const ProjectSlugFeaturesIndexRoute =
+  ProjectSlugFeaturesIndexRouteImport.update({
     id: '/',
     path: '/',
-    getParentRoute: () => ProjectSlugComponentTasksRoute,
+    getParentRoute: () => ProjectSlugFeaturesRoute,
   } as any)
-const ProjectSlugComponentIssuesIndexRoute =
-  ProjectSlugComponentIssuesIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => ProjectSlugComponentIssuesRoute,
-  } as any)
-const ProjectSlugComponentGoalsIndexRoute =
-  ProjectSlugComponentGoalsIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => ProjectSlugComponentGoalsRoute,
-  } as any)
-const ProjectSlugComponentFeaturesIndexRoute =
-  ProjectSlugComponentFeaturesIndexRouteImport.update({
-    id: '/',
-    path: '/',
-    getParentRoute: () => ProjectSlugComponentFeaturesRoute,
-  } as any)
-const ProjectSlugComponentTasksIdRoute =
-  ProjectSlugComponentTasksIdRouteImport.update({
-    id: '/$id',
-    path: '/$id',
-    getParentRoute: () => ProjectSlugComponentTasksRoute,
-  } as any)
-const ProjectSlugComponentIssuesIdRoute =
-  ProjectSlugComponentIssuesIdRouteImport.update({
-    id: '/$id',
-    path: '/$id',
-    getParentRoute: () => ProjectSlugComponentIssuesRoute,
-  } as any)
-const ProjectSlugComponentFeaturesNameRoute =
-  ProjectSlugComponentFeaturesNameRouteImport.update({
-    id: '/$name',
-    path: '/$name',
-    getParentRoute: () => ProjectSlugComponentFeaturesRoute,
-  } as any)
+const ProjectSlugTasksIdRoute = ProjectSlugTasksIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProjectSlugTasksRoute,
+} as any)
+const ProjectSlugIssuesIdRoute = ProjectSlugIssuesIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProjectSlugIssuesRoute,
+} as any)
+const ProjectSlugFeaturesNameRoute = ProjectSlugFeaturesNameRouteImport.update({
+  id: '/$name',
+  path: '/$name',
+  getParentRoute: () => ProjectSlugFeaturesRoute,
+} as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -232,32 +200,30 @@ export interface FileRoutesByFullPath {
   '/admin/users': typeof AdminUsersRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
   '/admin/': typeof AdminIndexRoute
-  '/project/$slug/$component': typeof ProjectSlugComponentRouteWithChildren
+  '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
+  '/project/$slug/claude': typeof ProjectSlugClaudeRoute
+  '/project/$slug/demos': typeof ProjectSlugDemosRoute
+  '/project/$slug/errors': typeof ProjectSlugErrorsRoute
+  '/project/$slug/features': typeof ProjectSlugFeaturesRouteWithChildren
+  '/project/$slug/goals': typeof ProjectSlugGoalsRouteWithChildren
+  '/project/$slug/issues': typeof ProjectSlugIssuesRouteWithChildren
+  '/project/$slug/journal': typeof ProjectSlugJournalRoute
+  '/project/$slug/profile': typeof ProjectSlugProfileRoute
+  '/project/$slug/proposals': typeof ProjectSlugProposalsRoute
+  '/project/$slug/questions': typeof ProjectSlugQuestionsRoute
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
+  '/project/$slug/tasks': typeof ProjectSlugTasksRouteWithChildren
+  '/project/$slug/timings': typeof ProjectSlugTimingsRoute
+  '/project/$slug/worklog': typeof ProjectSlugWorklogRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
-  '/project/$slug/$component/blocker-questions': typeof ProjectSlugComponentBlockerQuestionsRoute
-  '/project/$slug/$component/claude': typeof ProjectSlugComponentClaudeRoute
-  '/project/$slug/$component/demos': typeof ProjectSlugComponentDemosRoute
-  '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
-  '/project/$slug/$component/features': typeof ProjectSlugComponentFeaturesRouteWithChildren
-  '/project/$slug/$component/goals': typeof ProjectSlugComponentGoalsRouteWithChildren
-  '/project/$slug/$component/issues': typeof ProjectSlugComponentIssuesRouteWithChildren
-  '/project/$slug/$component/journal': typeof ProjectSlugComponentJournalRoute
-  '/project/$slug/$component/profile': typeof ProjectSlugComponentProfileRoute
-  '/project/$slug/$component/proposals': typeof ProjectSlugComponentProposalsRoute
-  '/project/$slug/$component/questions': typeof ProjectSlugComponentQuestionsRoute
-  '/project/$slug/$component/tasks': typeof ProjectSlugComponentTasksRouteWithChildren
-  '/project/$slug/$component/timings': typeof ProjectSlugComponentTimingsRoute
-  '/project/$slug/$component/worklog': typeof ProjectSlugComponentWorklogRoute
-  '/project/$slug/$component/': typeof ProjectSlugComponentIndexRoute
-  '/project/$slug/$component/features/$name': typeof ProjectSlugComponentFeaturesNameRoute
-  '/project/$slug/$component/issues/$id': typeof ProjectSlugComponentIssuesIdRoute
-  '/project/$slug/$component/tasks/$id': typeof ProjectSlugComponentTasksIdRoute
-  '/project/$slug/$component/features/': typeof ProjectSlugComponentFeaturesIndexRoute
-  '/project/$slug/$component/goals/': typeof ProjectSlugComponentGoalsIndexRoute
-  '/project/$slug/$component/issues/': typeof ProjectSlugComponentIssuesIndexRoute
-  '/project/$slug/$component/tasks/': typeof ProjectSlugComponentTasksIndexRoute
+  '/project/$slug/features/$name': typeof ProjectSlugFeaturesNameRoute
+  '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
+  '/project/$slug/tasks/$id': typeof ProjectSlugTasksIdRoute
+  '/project/$slug/features/': typeof ProjectSlugFeaturesIndexRoute
+  '/project/$slug/goals/': typeof ProjectSlugGoalsIndexRoute
+  '/project/$slug/issues/': typeof ProjectSlugIssuesIndexRoute
+  '/project/$slug/tasks/': typeof ProjectSlugTasksIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -265,27 +231,26 @@ export interface FileRoutesByTo {
   '/admin/llm': typeof AdminLlmRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin': typeof AdminIndexRoute
+  '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
+  '/project/$slug/claude': typeof ProjectSlugClaudeRoute
+  '/project/$slug/demos': typeof ProjectSlugDemosRoute
+  '/project/$slug/errors': typeof ProjectSlugErrorsRoute
+  '/project/$slug/journal': typeof ProjectSlugJournalRoute
+  '/project/$slug/profile': typeof ProjectSlugProfileRoute
+  '/project/$slug/proposals': typeof ProjectSlugProposalsRoute
+  '/project/$slug/questions': typeof ProjectSlugQuestionsRoute
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
+  '/project/$slug/timings': typeof ProjectSlugTimingsRoute
+  '/project/$slug/worklog': typeof ProjectSlugWorklogRoute
   '/project/$slug': typeof ProjectSlugIndexRoute
-  '/project/$slug/$component/blocker-questions': typeof ProjectSlugComponentBlockerQuestionsRoute
-  '/project/$slug/$component/claude': typeof ProjectSlugComponentClaudeRoute
-  '/project/$slug/$component/demos': typeof ProjectSlugComponentDemosRoute
-  '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
-  '/project/$slug/$component/journal': typeof ProjectSlugComponentJournalRoute
-  '/project/$slug/$component/profile': typeof ProjectSlugComponentProfileRoute
-  '/project/$slug/$component/proposals': typeof ProjectSlugComponentProposalsRoute
-  '/project/$slug/$component/questions': typeof ProjectSlugComponentQuestionsRoute
-  '/project/$slug/$component/timings': typeof ProjectSlugComponentTimingsRoute
-  '/project/$slug/$component/worklog': typeof ProjectSlugComponentWorklogRoute
-  '/project/$slug/$component': typeof ProjectSlugComponentIndexRoute
-  '/project/$slug/$component/features/$name': typeof ProjectSlugComponentFeaturesNameRoute
-  '/project/$slug/$component/issues/$id': typeof ProjectSlugComponentIssuesIdRoute
-  '/project/$slug/$component/tasks/$id': typeof ProjectSlugComponentTasksIdRoute
-  '/project/$slug/$component/features': typeof ProjectSlugComponentFeaturesIndexRoute
-  '/project/$slug/$component/goals': typeof ProjectSlugComponentGoalsIndexRoute
-  '/project/$slug/$component/issues': typeof ProjectSlugComponentIssuesIndexRoute
-  '/project/$slug/$component/tasks': typeof ProjectSlugComponentTasksIndexRoute
+  '/project/$slug/features/$name': typeof ProjectSlugFeaturesNameRoute
+  '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
+  '/project/$slug/tasks/$id': typeof ProjectSlugTasksIdRoute
+  '/project/$slug/features': typeof ProjectSlugFeaturesIndexRoute
+  '/project/$slug/goals': typeof ProjectSlugGoalsIndexRoute
+  '/project/$slug/issues': typeof ProjectSlugIssuesIndexRoute
+  '/project/$slug/tasks': typeof ProjectSlugTasksIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -295,32 +260,30 @@ export interface FileRoutesById {
   '/admin/users': typeof AdminUsersRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
   '/admin/': typeof AdminIndexRoute
-  '/project/$slug/$component': typeof ProjectSlugComponentRouteWithChildren
+  '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
+  '/project/$slug/claude': typeof ProjectSlugClaudeRoute
+  '/project/$slug/demos': typeof ProjectSlugDemosRoute
+  '/project/$slug/errors': typeof ProjectSlugErrorsRoute
+  '/project/$slug/features': typeof ProjectSlugFeaturesRouteWithChildren
+  '/project/$slug/goals': typeof ProjectSlugGoalsRouteWithChildren
+  '/project/$slug/issues': typeof ProjectSlugIssuesRouteWithChildren
+  '/project/$slug/journal': typeof ProjectSlugJournalRoute
+  '/project/$slug/profile': typeof ProjectSlugProfileRoute
+  '/project/$slug/proposals': typeof ProjectSlugProposalsRoute
+  '/project/$slug/questions': typeof ProjectSlugQuestionsRoute
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
+  '/project/$slug/tasks': typeof ProjectSlugTasksRouteWithChildren
+  '/project/$slug/timings': typeof ProjectSlugTimingsRoute
+  '/project/$slug/worklog': typeof ProjectSlugWorklogRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
-  '/project/$slug/$component/blocker-questions': typeof ProjectSlugComponentBlockerQuestionsRoute
-  '/project/$slug/$component/claude': typeof ProjectSlugComponentClaudeRoute
-  '/project/$slug/$component/demos': typeof ProjectSlugComponentDemosRoute
-  '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
-  '/project/$slug/$component/features': typeof ProjectSlugComponentFeaturesRouteWithChildren
-  '/project/$slug/$component/goals': typeof ProjectSlugComponentGoalsRouteWithChildren
-  '/project/$slug/$component/issues': typeof ProjectSlugComponentIssuesRouteWithChildren
-  '/project/$slug/$component/journal': typeof ProjectSlugComponentJournalRoute
-  '/project/$slug/$component/profile': typeof ProjectSlugComponentProfileRoute
-  '/project/$slug/$component/proposals': typeof ProjectSlugComponentProposalsRoute
-  '/project/$slug/$component/questions': typeof ProjectSlugComponentQuestionsRoute
-  '/project/$slug/$component/tasks': typeof ProjectSlugComponentTasksRouteWithChildren
-  '/project/$slug/$component/timings': typeof ProjectSlugComponentTimingsRoute
-  '/project/$slug/$component/worklog': typeof ProjectSlugComponentWorklogRoute
-  '/project/$slug/$component/': typeof ProjectSlugComponentIndexRoute
-  '/project/$slug/$component/features/$name': typeof ProjectSlugComponentFeaturesNameRoute
-  '/project/$slug/$component/issues/$id': typeof ProjectSlugComponentIssuesIdRoute
-  '/project/$slug/$component/tasks/$id': typeof ProjectSlugComponentTasksIdRoute
-  '/project/$slug/$component/features/': typeof ProjectSlugComponentFeaturesIndexRoute
-  '/project/$slug/$component/goals/': typeof ProjectSlugComponentGoalsIndexRoute
-  '/project/$slug/$component/issues/': typeof ProjectSlugComponentIssuesIndexRoute
-  '/project/$slug/$component/tasks/': typeof ProjectSlugComponentTasksIndexRoute
+  '/project/$slug/features/$name': typeof ProjectSlugFeaturesNameRoute
+  '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
+  '/project/$slug/tasks/$id': typeof ProjectSlugTasksIdRoute
+  '/project/$slug/features/': typeof ProjectSlugFeaturesIndexRoute
+  '/project/$slug/goals/': typeof ProjectSlugGoalsIndexRoute
+  '/project/$slug/issues/': typeof ProjectSlugIssuesIndexRoute
+  '/project/$slug/tasks/': typeof ProjectSlugTasksIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -331,32 +294,30 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/project/$slug'
     | '/admin/'
-    | '/project/$slug/$component'
+    | '/project/$slug/blocker-questions'
+    | '/project/$slug/claude'
+    | '/project/$slug/demos'
+    | '/project/$slug/errors'
+    | '/project/$slug/features'
+    | '/project/$slug/goals'
+    | '/project/$slug/issues'
+    | '/project/$slug/journal'
+    | '/project/$slug/profile'
+    | '/project/$slug/proposals'
+    | '/project/$slug/questions'
     | '/project/$slug/queue'
     | '/project/$slug/settings'
+    | '/project/$slug/tasks'
+    | '/project/$slug/timings'
+    | '/project/$slug/worklog'
     | '/project/$slug/'
-    | '/project/$slug/$component/blocker-questions'
-    | '/project/$slug/$component/claude'
-    | '/project/$slug/$component/demos'
-    | '/project/$slug/$component/errors'
-    | '/project/$slug/$component/features'
-    | '/project/$slug/$component/goals'
-    | '/project/$slug/$component/issues'
-    | '/project/$slug/$component/journal'
-    | '/project/$slug/$component/profile'
-    | '/project/$slug/$component/proposals'
-    | '/project/$slug/$component/questions'
-    | '/project/$slug/$component/tasks'
-    | '/project/$slug/$component/timings'
-    | '/project/$slug/$component/worklog'
-    | '/project/$slug/$component/'
-    | '/project/$slug/$component/features/$name'
-    | '/project/$slug/$component/issues/$id'
-    | '/project/$slug/$component/tasks/$id'
-    | '/project/$slug/$component/features/'
-    | '/project/$slug/$component/goals/'
-    | '/project/$slug/$component/issues/'
-    | '/project/$slug/$component/tasks/'
+    | '/project/$slug/features/$name'
+    | '/project/$slug/issues/$id'
+    | '/project/$slug/tasks/$id'
+    | '/project/$slug/features/'
+    | '/project/$slug/goals/'
+    | '/project/$slug/issues/'
+    | '/project/$slug/tasks/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -364,27 +325,26 @@ export interface FileRouteTypes {
     | '/admin/llm'
     | '/admin/users'
     | '/admin'
+    | '/project/$slug/blocker-questions'
+    | '/project/$slug/claude'
+    | '/project/$slug/demos'
+    | '/project/$slug/errors'
+    | '/project/$slug/journal'
+    | '/project/$slug/profile'
+    | '/project/$slug/proposals'
+    | '/project/$slug/questions'
     | '/project/$slug/queue'
     | '/project/$slug/settings'
+    | '/project/$slug/timings'
+    | '/project/$slug/worklog'
     | '/project/$slug'
-    | '/project/$slug/$component/blocker-questions'
-    | '/project/$slug/$component/claude'
-    | '/project/$slug/$component/demos'
-    | '/project/$slug/$component/errors'
-    | '/project/$slug/$component/journal'
-    | '/project/$slug/$component/profile'
-    | '/project/$slug/$component/proposals'
-    | '/project/$slug/$component/questions'
-    | '/project/$slug/$component/timings'
-    | '/project/$slug/$component/worklog'
-    | '/project/$slug/$component'
-    | '/project/$slug/$component/features/$name'
-    | '/project/$slug/$component/issues/$id'
-    | '/project/$slug/$component/tasks/$id'
-    | '/project/$slug/$component/features'
-    | '/project/$slug/$component/goals'
-    | '/project/$slug/$component/issues'
-    | '/project/$slug/$component/tasks'
+    | '/project/$slug/features/$name'
+    | '/project/$slug/issues/$id'
+    | '/project/$slug/tasks/$id'
+    | '/project/$slug/features'
+    | '/project/$slug/goals'
+    | '/project/$slug/issues'
+    | '/project/$slug/tasks'
   id:
     | '__root__'
     | '/'
@@ -393,32 +353,30 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/project/$slug'
     | '/admin/'
-    | '/project/$slug/$component'
+    | '/project/$slug/blocker-questions'
+    | '/project/$slug/claude'
+    | '/project/$slug/demos'
+    | '/project/$slug/errors'
+    | '/project/$slug/features'
+    | '/project/$slug/goals'
+    | '/project/$slug/issues'
+    | '/project/$slug/journal'
+    | '/project/$slug/profile'
+    | '/project/$slug/proposals'
+    | '/project/$slug/questions'
     | '/project/$slug/queue'
     | '/project/$slug/settings'
+    | '/project/$slug/tasks'
+    | '/project/$slug/timings'
+    | '/project/$slug/worklog'
     | '/project/$slug/'
-    | '/project/$slug/$component/blocker-questions'
-    | '/project/$slug/$component/claude'
-    | '/project/$slug/$component/demos'
-    | '/project/$slug/$component/errors'
-    | '/project/$slug/$component/features'
-    | '/project/$slug/$component/goals'
-    | '/project/$slug/$component/issues'
-    | '/project/$slug/$component/journal'
-    | '/project/$slug/$component/profile'
-    | '/project/$slug/$component/proposals'
-    | '/project/$slug/$component/questions'
-    | '/project/$slug/$component/tasks'
-    | '/project/$slug/$component/timings'
-    | '/project/$slug/$component/worklog'
-    | '/project/$slug/$component/'
-    | '/project/$slug/$component/features/$name'
-    | '/project/$slug/$component/issues/$id'
-    | '/project/$slug/$component/tasks/$id'
-    | '/project/$slug/$component/features/'
-    | '/project/$slug/$component/goals/'
-    | '/project/$slug/$component/issues/'
-    | '/project/$slug/$component/tasks/'
+    | '/project/$slug/features/$name'
+    | '/project/$slug/issues/$id'
+    | '/project/$slug/tasks/$id'
+    | '/project/$slug/features/'
+    | '/project/$slug/goals/'
+    | '/project/$slug/issues/'
+    | '/project/$slug/tasks/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -481,6 +439,27 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugIndexRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
+    '/project/$slug/worklog': {
+      id: '/project/$slug/worklog'
+      path: '/worklog'
+      fullPath: '/project/$slug/worklog'
+      preLoaderRoute: typeof ProjectSlugWorklogRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
+    '/project/$slug/timings': {
+      id: '/project/$slug/timings'
+      path: '/timings'
+      fullPath: '/project/$slug/timings'
+      preLoaderRoute: typeof ProjectSlugTimingsRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
+    '/project/$slug/tasks': {
+      id: '/project/$slug/tasks'
+      path: '/tasks'
+      fullPath: '/project/$slug/tasks'
+      preLoaderRoute: typeof ProjectSlugTasksRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
     '/project/$slug/settings': {
       id: '/project/$slug/settings'
       path: '/settings'
@@ -495,286 +474,222 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugQueueRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component': {
-      id: '/project/$slug/$component'
-      path: '/$component'
-      fullPath: '/project/$slug/$component'
-      preLoaderRoute: typeof ProjectSlugComponentRouteImport
+    '/project/$slug/questions': {
+      id: '/project/$slug/questions'
+      path: '/questions'
+      fullPath: '/project/$slug/questions'
+      preLoaderRoute: typeof ProjectSlugQuestionsRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/': {
-      id: '/project/$slug/$component/'
-      path: '/'
-      fullPath: '/project/$slug/$component/'
-      preLoaderRoute: typeof ProjectSlugComponentIndexRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
-    }
-    '/project/$slug/$component/worklog': {
-      id: '/project/$slug/$component/worklog'
-      path: '/worklog'
-      fullPath: '/project/$slug/$component/worklog'
-      preLoaderRoute: typeof ProjectSlugComponentWorklogRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
-    }
-    '/project/$slug/$component/timings': {
-      id: '/project/$slug/$component/timings'
-      path: '/timings'
-      fullPath: '/project/$slug/$component/timings'
-      preLoaderRoute: typeof ProjectSlugComponentTimingsRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
-    }
-    '/project/$slug/$component/tasks': {
-      id: '/project/$slug/$component/tasks'
-      path: '/tasks'
-      fullPath: '/project/$slug/$component/tasks'
-      preLoaderRoute: typeof ProjectSlugComponentTasksRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
-    }
-    '/project/$slug/$component/questions': {
-      id: '/project/$slug/$component/questions'
-      path: '/questions'
-      fullPath: '/project/$slug/$component/questions'
-      preLoaderRoute: typeof ProjectSlugComponentQuestionsRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
-    }
-    '/project/$slug/$component/proposals': {
-      id: '/project/$slug/$component/proposals'
+    '/project/$slug/proposals': {
+      id: '/project/$slug/proposals'
       path: '/proposals'
-      fullPath: '/project/$slug/$component/proposals'
-      preLoaderRoute: typeof ProjectSlugComponentProposalsRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/proposals'
+      preLoaderRoute: typeof ProjectSlugProposalsRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/profile': {
-      id: '/project/$slug/$component/profile'
+    '/project/$slug/profile': {
+      id: '/project/$slug/profile'
       path: '/profile'
-      fullPath: '/project/$slug/$component/profile'
-      preLoaderRoute: typeof ProjectSlugComponentProfileRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/profile'
+      preLoaderRoute: typeof ProjectSlugProfileRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/journal': {
-      id: '/project/$slug/$component/journal'
+    '/project/$slug/journal': {
+      id: '/project/$slug/journal'
       path: '/journal'
-      fullPath: '/project/$slug/$component/journal'
-      preLoaderRoute: typeof ProjectSlugComponentJournalRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/journal'
+      preLoaderRoute: typeof ProjectSlugJournalRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/issues': {
-      id: '/project/$slug/$component/issues'
+    '/project/$slug/issues': {
+      id: '/project/$slug/issues'
       path: '/issues'
-      fullPath: '/project/$slug/$component/issues'
-      preLoaderRoute: typeof ProjectSlugComponentIssuesRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/issues'
+      preLoaderRoute: typeof ProjectSlugIssuesRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/goals': {
-      id: '/project/$slug/$component/goals'
+    '/project/$slug/goals': {
+      id: '/project/$slug/goals'
       path: '/goals'
-      fullPath: '/project/$slug/$component/goals'
-      preLoaderRoute: typeof ProjectSlugComponentGoalsRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/goals'
+      preLoaderRoute: typeof ProjectSlugGoalsRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/features': {
-      id: '/project/$slug/$component/features'
+    '/project/$slug/features': {
+      id: '/project/$slug/features'
       path: '/features'
-      fullPath: '/project/$slug/$component/features'
-      preLoaderRoute: typeof ProjectSlugComponentFeaturesRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/features'
+      preLoaderRoute: typeof ProjectSlugFeaturesRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/errors': {
-      id: '/project/$slug/$component/errors'
+    '/project/$slug/errors': {
+      id: '/project/$slug/errors'
       path: '/errors'
-      fullPath: '/project/$slug/$component/errors'
-      preLoaderRoute: typeof ProjectSlugComponentErrorsRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/errors'
+      preLoaderRoute: typeof ProjectSlugErrorsRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/demos': {
-      id: '/project/$slug/$component/demos'
+    '/project/$slug/demos': {
+      id: '/project/$slug/demos'
       path: '/demos'
-      fullPath: '/project/$slug/$component/demos'
-      preLoaderRoute: typeof ProjectSlugComponentDemosRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/demos'
+      preLoaderRoute: typeof ProjectSlugDemosRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/claude': {
-      id: '/project/$slug/$component/claude'
+    '/project/$slug/claude': {
+      id: '/project/$slug/claude'
       path: '/claude'
-      fullPath: '/project/$slug/$component/claude'
-      preLoaderRoute: typeof ProjectSlugComponentClaudeRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/claude'
+      preLoaderRoute: typeof ProjectSlugClaudeRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/blocker-questions': {
-      id: '/project/$slug/$component/blocker-questions'
+    '/project/$slug/blocker-questions': {
+      id: '/project/$slug/blocker-questions'
       path: '/blocker-questions'
-      fullPath: '/project/$slug/$component/blocker-questions'
-      preLoaderRoute: typeof ProjectSlugComponentBlockerQuestionsRouteImport
-      parentRoute: typeof ProjectSlugComponentRoute
+      fullPath: '/project/$slug/blocker-questions'
+      preLoaderRoute: typeof ProjectSlugBlockerQuestionsRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/$component/tasks/': {
-      id: '/project/$slug/$component/tasks/'
+    '/project/$slug/tasks/': {
+      id: '/project/$slug/tasks/'
       path: '/'
-      fullPath: '/project/$slug/$component/tasks/'
-      preLoaderRoute: typeof ProjectSlugComponentTasksIndexRouteImport
-      parentRoute: typeof ProjectSlugComponentTasksRoute
+      fullPath: '/project/$slug/tasks/'
+      preLoaderRoute: typeof ProjectSlugTasksIndexRouteImport
+      parentRoute: typeof ProjectSlugTasksRoute
     }
-    '/project/$slug/$component/issues/': {
-      id: '/project/$slug/$component/issues/'
+    '/project/$slug/issues/': {
+      id: '/project/$slug/issues/'
       path: '/'
-      fullPath: '/project/$slug/$component/issues/'
-      preLoaderRoute: typeof ProjectSlugComponentIssuesIndexRouteImport
-      parentRoute: typeof ProjectSlugComponentIssuesRoute
+      fullPath: '/project/$slug/issues/'
+      preLoaderRoute: typeof ProjectSlugIssuesIndexRouteImport
+      parentRoute: typeof ProjectSlugIssuesRoute
     }
-    '/project/$slug/$component/goals/': {
-      id: '/project/$slug/$component/goals/'
+    '/project/$slug/goals/': {
+      id: '/project/$slug/goals/'
       path: '/'
-      fullPath: '/project/$slug/$component/goals/'
-      preLoaderRoute: typeof ProjectSlugComponentGoalsIndexRouteImport
-      parentRoute: typeof ProjectSlugComponentGoalsRoute
+      fullPath: '/project/$slug/goals/'
+      preLoaderRoute: typeof ProjectSlugGoalsIndexRouteImport
+      parentRoute: typeof ProjectSlugGoalsRoute
     }
-    '/project/$slug/$component/features/': {
-      id: '/project/$slug/$component/features/'
+    '/project/$slug/features/': {
+      id: '/project/$slug/features/'
       path: '/'
-      fullPath: '/project/$slug/$component/features/'
-      preLoaderRoute: typeof ProjectSlugComponentFeaturesIndexRouteImport
-      parentRoute: typeof ProjectSlugComponentFeaturesRoute
+      fullPath: '/project/$slug/features/'
+      preLoaderRoute: typeof ProjectSlugFeaturesIndexRouteImport
+      parentRoute: typeof ProjectSlugFeaturesRoute
     }
-    '/project/$slug/$component/tasks/$id': {
-      id: '/project/$slug/$component/tasks/$id'
+    '/project/$slug/tasks/$id': {
+      id: '/project/$slug/tasks/$id'
       path: '/$id'
-      fullPath: '/project/$slug/$component/tasks/$id'
-      preLoaderRoute: typeof ProjectSlugComponentTasksIdRouteImport
-      parentRoute: typeof ProjectSlugComponentTasksRoute
+      fullPath: '/project/$slug/tasks/$id'
+      preLoaderRoute: typeof ProjectSlugTasksIdRouteImport
+      parentRoute: typeof ProjectSlugTasksRoute
     }
-    '/project/$slug/$component/issues/$id': {
-      id: '/project/$slug/$component/issues/$id'
+    '/project/$slug/issues/$id': {
+      id: '/project/$slug/issues/$id'
       path: '/$id'
-      fullPath: '/project/$slug/$component/issues/$id'
-      preLoaderRoute: typeof ProjectSlugComponentIssuesIdRouteImport
-      parentRoute: typeof ProjectSlugComponentIssuesRoute
+      fullPath: '/project/$slug/issues/$id'
+      preLoaderRoute: typeof ProjectSlugIssuesIdRouteImport
+      parentRoute: typeof ProjectSlugIssuesRoute
     }
-    '/project/$slug/$component/features/$name': {
-      id: '/project/$slug/$component/features/$name'
+    '/project/$slug/features/$name': {
+      id: '/project/$slug/features/$name'
       path: '/$name'
-      fullPath: '/project/$slug/$component/features/$name'
-      preLoaderRoute: typeof ProjectSlugComponentFeaturesNameRouteImport
-      parentRoute: typeof ProjectSlugComponentFeaturesRoute
+      fullPath: '/project/$slug/features/$name'
+      preLoaderRoute: typeof ProjectSlugFeaturesNameRouteImport
+      parentRoute: typeof ProjectSlugFeaturesRoute
     }
   }
 }
 
-interface ProjectSlugComponentFeaturesRouteChildren {
-  ProjectSlugComponentFeaturesNameRoute: typeof ProjectSlugComponentFeaturesNameRoute
-  ProjectSlugComponentFeaturesIndexRoute: typeof ProjectSlugComponentFeaturesIndexRoute
+interface ProjectSlugFeaturesRouteChildren {
+  ProjectSlugFeaturesNameRoute: typeof ProjectSlugFeaturesNameRoute
+  ProjectSlugFeaturesIndexRoute: typeof ProjectSlugFeaturesIndexRoute
 }
 
-const ProjectSlugComponentFeaturesRouteChildren: ProjectSlugComponentFeaturesRouteChildren =
-  {
-    ProjectSlugComponentFeaturesNameRoute:
-      ProjectSlugComponentFeaturesNameRoute,
-    ProjectSlugComponentFeaturesIndexRoute:
-      ProjectSlugComponentFeaturesIndexRoute,
-  }
-
-const ProjectSlugComponentFeaturesRouteWithChildren =
-  ProjectSlugComponentFeaturesRoute._addFileChildren(
-    ProjectSlugComponentFeaturesRouteChildren,
-  )
-
-interface ProjectSlugComponentGoalsRouteChildren {
-  ProjectSlugComponentGoalsIndexRoute: typeof ProjectSlugComponentGoalsIndexRoute
+const ProjectSlugFeaturesRouteChildren: ProjectSlugFeaturesRouteChildren = {
+  ProjectSlugFeaturesNameRoute: ProjectSlugFeaturesNameRoute,
+  ProjectSlugFeaturesIndexRoute: ProjectSlugFeaturesIndexRoute,
 }
 
-const ProjectSlugComponentGoalsRouteChildren: ProjectSlugComponentGoalsRouteChildren =
-  {
-    ProjectSlugComponentGoalsIndexRoute: ProjectSlugComponentGoalsIndexRoute,
-  }
+const ProjectSlugFeaturesRouteWithChildren =
+  ProjectSlugFeaturesRoute._addFileChildren(ProjectSlugFeaturesRouteChildren)
 
-const ProjectSlugComponentGoalsRouteWithChildren =
-  ProjectSlugComponentGoalsRoute._addFileChildren(
-    ProjectSlugComponentGoalsRouteChildren,
-  )
-
-interface ProjectSlugComponentIssuesRouteChildren {
-  ProjectSlugComponentIssuesIdRoute: typeof ProjectSlugComponentIssuesIdRoute
-  ProjectSlugComponentIssuesIndexRoute: typeof ProjectSlugComponentIssuesIndexRoute
+interface ProjectSlugGoalsRouteChildren {
+  ProjectSlugGoalsIndexRoute: typeof ProjectSlugGoalsIndexRoute
 }
 
-const ProjectSlugComponentIssuesRouteChildren: ProjectSlugComponentIssuesRouteChildren =
-  {
-    ProjectSlugComponentIssuesIdRoute: ProjectSlugComponentIssuesIdRoute,
-    ProjectSlugComponentIssuesIndexRoute: ProjectSlugComponentIssuesIndexRoute,
-  }
-
-const ProjectSlugComponentIssuesRouteWithChildren =
-  ProjectSlugComponentIssuesRoute._addFileChildren(
-    ProjectSlugComponentIssuesRouteChildren,
-  )
-
-interface ProjectSlugComponentTasksRouteChildren {
-  ProjectSlugComponentTasksIdRoute: typeof ProjectSlugComponentTasksIdRoute
-  ProjectSlugComponentTasksIndexRoute: typeof ProjectSlugComponentTasksIndexRoute
+const ProjectSlugGoalsRouteChildren: ProjectSlugGoalsRouteChildren = {
+  ProjectSlugGoalsIndexRoute: ProjectSlugGoalsIndexRoute,
 }
 
-const ProjectSlugComponentTasksRouteChildren: ProjectSlugComponentTasksRouteChildren =
-  {
-    ProjectSlugComponentTasksIdRoute: ProjectSlugComponentTasksIdRoute,
-    ProjectSlugComponentTasksIndexRoute: ProjectSlugComponentTasksIndexRoute,
-  }
+const ProjectSlugGoalsRouteWithChildren =
+  ProjectSlugGoalsRoute._addFileChildren(ProjectSlugGoalsRouteChildren)
 
-const ProjectSlugComponentTasksRouteWithChildren =
-  ProjectSlugComponentTasksRoute._addFileChildren(
-    ProjectSlugComponentTasksRouteChildren,
-  )
-
-interface ProjectSlugComponentRouteChildren {
-  ProjectSlugComponentBlockerQuestionsRoute: typeof ProjectSlugComponentBlockerQuestionsRoute
-  ProjectSlugComponentClaudeRoute: typeof ProjectSlugComponentClaudeRoute
-  ProjectSlugComponentDemosRoute: typeof ProjectSlugComponentDemosRoute
-  ProjectSlugComponentErrorsRoute: typeof ProjectSlugComponentErrorsRoute
-  ProjectSlugComponentFeaturesRoute: typeof ProjectSlugComponentFeaturesRouteWithChildren
-  ProjectSlugComponentGoalsRoute: typeof ProjectSlugComponentGoalsRouteWithChildren
-  ProjectSlugComponentIssuesRoute: typeof ProjectSlugComponentIssuesRouteWithChildren
-  ProjectSlugComponentJournalRoute: typeof ProjectSlugComponentJournalRoute
-  ProjectSlugComponentProfileRoute: typeof ProjectSlugComponentProfileRoute
-  ProjectSlugComponentProposalsRoute: typeof ProjectSlugComponentProposalsRoute
-  ProjectSlugComponentQuestionsRoute: typeof ProjectSlugComponentQuestionsRoute
-  ProjectSlugComponentTasksRoute: typeof ProjectSlugComponentTasksRouteWithChildren
-  ProjectSlugComponentTimingsRoute: typeof ProjectSlugComponentTimingsRoute
-  ProjectSlugComponentWorklogRoute: typeof ProjectSlugComponentWorklogRoute
-  ProjectSlugComponentIndexRoute: typeof ProjectSlugComponentIndexRoute
+interface ProjectSlugIssuesRouteChildren {
+  ProjectSlugIssuesIdRoute: typeof ProjectSlugIssuesIdRoute
+  ProjectSlugIssuesIndexRoute: typeof ProjectSlugIssuesIndexRoute
 }
 
-const ProjectSlugComponentRouteChildren: ProjectSlugComponentRouteChildren = {
-  ProjectSlugComponentBlockerQuestionsRoute:
-    ProjectSlugComponentBlockerQuestionsRoute,
-  ProjectSlugComponentClaudeRoute: ProjectSlugComponentClaudeRoute,
-  ProjectSlugComponentDemosRoute: ProjectSlugComponentDemosRoute,
-  ProjectSlugComponentErrorsRoute: ProjectSlugComponentErrorsRoute,
-  ProjectSlugComponentFeaturesRoute:
-    ProjectSlugComponentFeaturesRouteWithChildren,
-  ProjectSlugComponentGoalsRoute: ProjectSlugComponentGoalsRouteWithChildren,
-  ProjectSlugComponentIssuesRoute: ProjectSlugComponentIssuesRouteWithChildren,
-  ProjectSlugComponentJournalRoute: ProjectSlugComponentJournalRoute,
-  ProjectSlugComponentProfileRoute: ProjectSlugComponentProfileRoute,
-  ProjectSlugComponentProposalsRoute: ProjectSlugComponentProposalsRoute,
-  ProjectSlugComponentQuestionsRoute: ProjectSlugComponentQuestionsRoute,
-  ProjectSlugComponentTasksRoute: ProjectSlugComponentTasksRouteWithChildren,
-  ProjectSlugComponentTimingsRoute: ProjectSlugComponentTimingsRoute,
-  ProjectSlugComponentWorklogRoute: ProjectSlugComponentWorklogRoute,
-  ProjectSlugComponentIndexRoute: ProjectSlugComponentIndexRoute,
+const ProjectSlugIssuesRouteChildren: ProjectSlugIssuesRouteChildren = {
+  ProjectSlugIssuesIdRoute: ProjectSlugIssuesIdRoute,
+  ProjectSlugIssuesIndexRoute: ProjectSlugIssuesIndexRoute,
 }
 
-const ProjectSlugComponentRouteWithChildren =
-  ProjectSlugComponentRoute._addFileChildren(ProjectSlugComponentRouteChildren)
+const ProjectSlugIssuesRouteWithChildren =
+  ProjectSlugIssuesRoute._addFileChildren(ProjectSlugIssuesRouteChildren)
+
+interface ProjectSlugTasksRouteChildren {
+  ProjectSlugTasksIdRoute: typeof ProjectSlugTasksIdRoute
+  ProjectSlugTasksIndexRoute: typeof ProjectSlugTasksIndexRoute
+}
+
+const ProjectSlugTasksRouteChildren: ProjectSlugTasksRouteChildren = {
+  ProjectSlugTasksIdRoute: ProjectSlugTasksIdRoute,
+  ProjectSlugTasksIndexRoute: ProjectSlugTasksIndexRoute,
+}
+
+const ProjectSlugTasksRouteWithChildren =
+  ProjectSlugTasksRoute._addFileChildren(ProjectSlugTasksRouteChildren)
 
 interface ProjectSlugRouteChildren {
-  ProjectSlugComponentRoute: typeof ProjectSlugComponentRouteWithChildren
+  ProjectSlugBlockerQuestionsRoute: typeof ProjectSlugBlockerQuestionsRoute
+  ProjectSlugClaudeRoute: typeof ProjectSlugClaudeRoute
+  ProjectSlugDemosRoute: typeof ProjectSlugDemosRoute
+  ProjectSlugErrorsRoute: typeof ProjectSlugErrorsRoute
+  ProjectSlugFeaturesRoute: typeof ProjectSlugFeaturesRouteWithChildren
+  ProjectSlugGoalsRoute: typeof ProjectSlugGoalsRouteWithChildren
+  ProjectSlugIssuesRoute: typeof ProjectSlugIssuesRouteWithChildren
+  ProjectSlugJournalRoute: typeof ProjectSlugJournalRoute
+  ProjectSlugProfileRoute: typeof ProjectSlugProfileRoute
+  ProjectSlugProposalsRoute: typeof ProjectSlugProposalsRoute
+  ProjectSlugQuestionsRoute: typeof ProjectSlugQuestionsRoute
   ProjectSlugQueueRoute: typeof ProjectSlugQueueRoute
   ProjectSlugSettingsRoute: typeof ProjectSlugSettingsRoute
+  ProjectSlugTasksRoute: typeof ProjectSlugTasksRouteWithChildren
+  ProjectSlugTimingsRoute: typeof ProjectSlugTimingsRoute
+  ProjectSlugWorklogRoute: typeof ProjectSlugWorklogRoute
   ProjectSlugIndexRoute: typeof ProjectSlugIndexRoute
 }
 
 const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
-  ProjectSlugComponentRoute: ProjectSlugComponentRouteWithChildren,
+  ProjectSlugBlockerQuestionsRoute: ProjectSlugBlockerQuestionsRoute,
+  ProjectSlugClaudeRoute: ProjectSlugClaudeRoute,
+  ProjectSlugDemosRoute: ProjectSlugDemosRoute,
+  ProjectSlugErrorsRoute: ProjectSlugErrorsRoute,
+  ProjectSlugFeaturesRoute: ProjectSlugFeaturesRouteWithChildren,
+  ProjectSlugGoalsRoute: ProjectSlugGoalsRouteWithChildren,
+  ProjectSlugIssuesRoute: ProjectSlugIssuesRouteWithChildren,
+  ProjectSlugJournalRoute: ProjectSlugJournalRoute,
+  ProjectSlugProfileRoute: ProjectSlugProfileRoute,
+  ProjectSlugProposalsRoute: ProjectSlugProposalsRoute,
+  ProjectSlugQuestionsRoute: ProjectSlugQuestionsRoute,
   ProjectSlugQueueRoute: ProjectSlugQueueRoute,
   ProjectSlugSettingsRoute: ProjectSlugSettingsRoute,
+  ProjectSlugTasksRoute: ProjectSlugTasksRouteWithChildren,
+  ProjectSlugTimingsRoute: ProjectSlugTimingsRoute,
+  ProjectSlugWorklogRoute: ProjectSlugWorklogRoute,
   ProjectSlugIndexRoute: ProjectSlugIndexRoute,
 }
 

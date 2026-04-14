@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { FeaturesTab } from '../../../../../components/FeaturesTab'
+import { FeaturesTab } from '../../../../components/FeaturesTab'
 import { z } from 'zod'
 
 const searchSchema = z.object({
@@ -7,12 +7,12 @@ const searchSchema = z.object({
 })
 
 function FeaturesIndexRoute() {
-  const { slug, component } = Route.useParams()
+  const { slug } = Route.useParams()
   const { category } = Route.useSearch()
-  return <FeaturesTab slug={slug} componentSlug={component} categoryFilter={category} />
+  return <FeaturesTab slug={slug} categoryFilter={category} />
 }
 
-export const Route = createFileRoute('/project/$slug/$component/features/')({
+export const Route = createFileRoute('/project/$slug/features/')({
   component: FeaturesIndexRoute,
   validateSearch: searchSchema,
 })

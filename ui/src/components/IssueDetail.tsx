@@ -51,11 +51,9 @@ const STATUS_COLORS: Record<string, 'warning' | 'info' | 'secondary' | 'success'
 
 export function IssueDetail({
   slug,
-  componentSlug,
   issueId,
 }: {
   slug: string
-  componentSlug: string
   issueId: string
 }) {
   const { data, isLoading } = useIssue(slug, issueId)
@@ -193,8 +191,8 @@ export function IssueDetail({
               <Box
                 key={t.id}
                 component={Link as any}
-                to="/project/$slug/$component/tasks/$id"
-                params={{ slug, component: componentSlug, id: t.id }}
+                to="/project/$slug/tasks/$id"
+                params={{ slug, id: t.id }}
                 sx={{ display: 'flex', gap: 1, alignItems: 'center', textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
               >
                 <Chip label={t.status} size="small" color={t.status === 'done' ? 'success' : 'default'} variant="outlined" />

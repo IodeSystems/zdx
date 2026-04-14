@@ -136,7 +136,7 @@ function TimedRow({ t }: { t: TimedItem }) {
   )
 }
 
-export function ErrorsTab({ slug, componentSlug: _componentSlug }: { slug: string; componentSlug?: string }) {
+export function ErrorsTab({ slug }: { slug: string }) {
   const [tab, setTab] = useState(0)
   const { data: errData, isLoading: errLoading } = useErrors(slug)
   const { data: qData, isLoading: qLoading } = useSlowQueries(slug)
