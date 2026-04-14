@@ -186,6 +186,7 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 					DurationMs:  ev.DurationMs,
 					Source:      ev.Source,
 					ContextJson: ctxJSON,
+					TotalMs:     int64(ev.DurationMs),
 				}); err != nil {
 					log.Printf("ingest: UpsertTimed %q: %v", ev.Name, err)
 					continue

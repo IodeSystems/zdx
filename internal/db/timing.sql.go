@@ -137,7 +137,7 @@ func (q *Queries) ListTimedPaginated(ctx context.Context, arg ListTimedPaginated
 
 const upsertTimed = `-- name: UpsertTimed :exec
 INSERT INTO zdx_timed (project_id, component, environment, name, duration_ms, source, context_json, count, total_ms)
-VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $5::bigint)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $8)
 ON CONFLICT (COALESCE(project_id, 0), component, environment, name)
 DO UPDATE SET
   duration_ms  = GREATEST(zdx_timed.duration_ms, EXCLUDED.duration_ms),
@@ -156,6 +156,7 @@ type UpsertTimedParams struct {
 	DurationMs  int32       `db:"duration_ms" json:"duration_ms"`
 	Source      string      `db:"source" json:"source"`
 	ContextJson string      `db:"context_json" json:"context_json"`
+	TotalMs     int64       `db:"total_ms" json:"total_ms"`
 }
 
 func (q *Queries) UpsertTimed(ctx context.Context, arg UpsertTimedParams) error {
@@ -167,6 +168,7 @@ func (q *Queries) UpsertTimed(ctx context.Context, arg UpsertTimedParams) error 
 		arg.DurationMs,
 		arg.Source,
 		arg.ContextJson,
+		arg.TotalMs,
 	)
 	return err
 }
