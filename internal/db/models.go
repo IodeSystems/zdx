@@ -17,6 +17,20 @@ type ZdxApiKey struct {
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxBlockerQuestion struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Context    string             `db:"context" json:"context"`
+	Choices    []byte             `db:"choices" json:"choices"`
+	Answer     string             `db:"answer" json:"answer"`
+	AnsweredBy string             `db:"answered_by" json:"answered_by"`
+	Status     string             `db:"status" json:"status"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	AnsweredAt pgtype.Timestamptz `db:"answered_at" json:"answered_at"`
+}
+
 type ZdxCodeRef struct {
 	ID        int32              `db:"id" json:"id"`
 	ProjectID int32              `db:"project_id" json:"project_id"`

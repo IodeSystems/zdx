@@ -1220,10 +1220,56 @@ ALTER SEQUENCE public.zdx_work_log_id_seq OWNED BY public.zdx_work_log.id;
 
 
 --
+-- Name: zdx_blocker_questions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_blocker_questions (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    target_type text NOT NULL,
+    target_id text NOT NULL,
+    context text DEFAULT ''::text NOT NULL,
+    choices jsonb DEFAULT '[]'::jsonb NOT NULL,
+    answer text DEFAULT ''::text NOT NULL,
+    answered_by text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'pending'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    answered_at timestamp with time zone
+);
+
+
+--
+-- Name: zdx_blocker_questions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_blocker_questions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_blocker_questions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_blocker_questions_id_seq OWNED BY public.zdx_blocker_questions.id;
+
+
+--
 -- Name: zdx_api_keys id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_api_keys ALTER COLUMN id SET DEFAULT nextval('public.zdx_api_keys_id_seq'::regclass);
+
+
+--
+-- Name: zdx_blocker_questions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_blocker_questions ALTER COLUMN id SET DEFAULT nextval('public.zdx_blocker_questions_id_seq'::regclass);
 
 
 --
@@ -1443,6 +1489,14 @@ ALTER TABLE ONLY public.zdx_api_keys
 
 ALTER TABLE ONLY public.zdx_api_keys
     ADD CONSTRAINT zdx_api_keys_token_key UNIQUE (token);
+
+
+--
+-- Name: zdx_blocker_questions zdx_blocker_questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_blocker_questions
+    ADD CONSTRAINT zdx_blocker_questions_pkey PRIMARY KEY (id);
 
 
 --
@@ -1902,6 +1956,20 @@ ALTER TABLE ONLY public.zdx_work_log
 
 
 --
+-- Name: idx_blocker_questions_pending; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_blocker_questions_pending ON public.zdx_blocker_questions USING btree (project_id, status) WHERE (status = 'pending'::text);
+
+
+--
+-- Name: idx_blocker_questions_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_blocker_questions_target ON public.zdx_blocker_questions USING btree (project_id, target_type, target_id);
+
+
+--
 -- Name: idx_comments_target; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2047,6 +2115,14 @@ CREATE INDEX zdx_timed_project ON public.zdx_timed USING btree (project_id);
 
 ALTER TABLE ONLY public.zdx_api_keys
     ADD CONSTRAINT zdx_api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.zdx_users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_blocker_questions zdx_blocker_questions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_blocker_questions
+    ADD CONSTRAINT zdx_blocker_questions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

@@ -23,6 +23,7 @@ import {
 } from '@mui/material'
 import {
   Extension as ExtensionIcon,
+  HelpOutlined as HelpOutlineIcon,
   TaskAlt as TaskAltIcon,
   BugReport as BugReportIcon,
   History as HistoryIcon,
@@ -52,6 +53,7 @@ const SECTIONS = [
   { label: 'Tasks', icon: <TaskAltIcon fontSize="small" />, path: 'tasks' },
   { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
   { label: 'Questions', icon: <QuestionAnswerIcon fontSize="small" />, path: 'questions' },
+  { label: 'Blockers', icon: <HelpOutlineIcon fontSize="small" />, path: 'blocker-questions' },
   { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
   { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
   { label: 'Timings', icon: <TimerIcon fontSize="small" />, path: 'timings' },

@@ -192,6 +192,19 @@ type QuestionItem struct {
 	UpdatedAt string `json:"updated_at"`
 }
 
+type BlockerQuestionItem struct {
+	ID         int32    `json:"id"`
+	TargetType string   `json:"target_type"`
+	TargetID   string   `json:"target_id"`
+	Context    string   `json:"context"`
+	Choices    []string `json:"choices"`
+	Answer     string   `json:"answer"`
+	AnsweredBy string   `json:"answered_by"`
+	Status     string   `json:"status"`
+	CreatedAt  string   `json:"created_at"`
+	AnsweredAt string   `json:"answered_at"`
+}
+
 type WriteTodoInput struct {
 	Text     string `json:"text"`
 	Key      string `json:"key"`
@@ -2839,6 +2852,107 @@ func (s *Server) registerRoutes(api huma.API) {
 			}, nil
 		})
 
+	// ── Blocker questions ──────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "add-blocker-question", Method: http.MethodPost, Path: "/api/dx/blocker-questions/add"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug       string   `json:"slug"`
+				TargetType string   `json:"target_type"`
+				TargetID   string   `json:"target_id"`
+				Context    string   `json:"context"`
+				Choices    []string `json:"choices,omitempty"`
+			}
+		}) (*struct{ Body BlockerQuestionItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			choicesJSON, _ := json.Marshal(in.Body.Choices)
+			if in.Body.Choices == nil {
+				choicesJSON = []byte("[]")
+			}
+			row, err := s.q.InsertBlockerQuestion(ctx, db.InsertBlockerQuestionParams{
+				ProjectID:  p.ID,
+				TargetType: in.Body.TargetType,
+				TargetID:   in.Body.TargetID,
+				Context:    in.Body.Context,
+				Choices:    choicesJSON,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body BlockerQuestionItem }{Body: toBlockerQuestionItem(row)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "answer-blocker-question", Method: http.MethodPost, Path: "/api/dx/blocker-questions/answer"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug       string `json:"slug"`
+				ID         int32  `json:"id"`
+				Answer     string `json:"answer"`
+				AnsweredBy string `json:"answered_by,omitempty"`
+			}
+		}) (*struct{ Body BlockerQuestionItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.AnswerBlockerQuestion(ctx, db.AnswerBlockerQuestionParams{
+				ProjectID:  p.ID,
+				ID:         in.Body.ID,
+				Answer:     in.Body.Answer,
+				AnsweredBy: in.Body.AnsweredBy,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			row, err := s.q.GetBlockerQuestion(ctx, db.GetBlockerQuestionParams{
+				ProjectID: p.ID,
+				ID:        in.Body.ID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body BlockerQuestionItem }{Body: toBlockerQuestionItem(row)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-blocker-questions", Method: http.MethodGet, Path: "/api/dx/blocker-questions/list"},
+		func(ctx context.Context, in *struct {
+			Slug   string `query:"slug" required:"true"`
+			Status string `query:"status"`
+		}) (*struct {
+			Body struct {
+				Questions []BlockerQuestionItem `json:"questions"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			var rows []db.ZdxBlockerQuestion
+			if in.Status == "pending" {
+				rows, err = s.q.ListPendingBlockerQuestions(ctx, p.ID)
+			} else {
+				rows, err = s.q.ListBlockerQuestions(ctx, p.ID)
+			}
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]BlockerQuestionItem, len(rows))
+			for i, r := range rows {
+				out[i] = toBlockerQuestionItem(r)
+			}
+			return &struct {
+				Body struct {
+					Questions []BlockerQuestionItem `json:"questions"`
+				}
+			}{
+				Body: struct {
+					Questions []BlockerQuestionItem `json:"questions"`
+				}{Questions: out},
+			}, nil
+		})
+
 	// ── File upload (raw chi — huma doesn't handle multipart) ─────────────────
 	s.mux.Post("/api/upload", s.handleUpload)
 	s.mux.Get("/api/files/{id}", s.handleFileServe)
@@ -3093,5 +3207,25 @@ func toQuestionItem(r db.ZdxQuestion) QuestionItem {
 		Answer:    r.Answer.String,
 		CreatedAt: fmtTS(r.CreatedAt),
 		UpdatedAt: fmtTS(r.UpdatedAt),
+	}
+}
+
+func toBlockerQuestionItem(r db.ZdxBlockerQuestion) BlockerQuestionItem {
+	var choices []string
+	_ = json.Unmarshal(r.Choices, &choices)
+	if choices == nil {
+		choices = []string{}
+	}
+	return BlockerQuestionItem{
+		ID:         r.ID,
+		TargetType: r.TargetType,
+		TargetID:   r.TargetID,
+		Context:    r.Context,
+		Choices:    choices,
+		Answer:     r.Answer,
+		AnsweredBy: r.AnsweredBy,
+		Status:     r.Status,
+		CreatedAt:  fmtTS(r.CreatedAt),
+		AnsweredAt: fmtTS(r.AnsweredAt),
 	}
 }

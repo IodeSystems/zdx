@@ -15,6 +15,7 @@ type Querier interface {
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
+	AnswerBlockerQuestion(ctx context.Context, arg AnswerBlockerQuestionParams) error
 	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
 	AttachCodeRefToIssue(ctx context.Context, arg AttachCodeRefToIssueParams) error
@@ -48,6 +49,7 @@ type Querier interface {
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
+	GetBlockerQuestion(ctx context.Context, arg GetBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
@@ -68,12 +70,15 @@ type Querier interface {
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
 	HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadCommentsForTargetParams) (bool, error)
+	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error)
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
+	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
+	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
 	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
 	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
@@ -83,6 +88,7 @@ type Querier interface {
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ZdxJournalEntry, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
+	ListPendingBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
 	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ZdxRevision, error)

@@ -40,6 +40,7 @@ func main() {
 		cli.RevisionCmd(),
 		cli.RefCmd(),
 		cli.QaCmd(),
+		cli.QuestionCmd(),
 		cli.McpCmd(),
 	)
 

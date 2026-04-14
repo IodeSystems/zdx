@@ -619,3 +619,44 @@ export const useCreateQuestion = () => {
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['questions', v.slug] }),
   })
 }
+
+// ── blocker questions ────────────────────────────────────────────────────────
+
+export interface BlockerQuestionItem {
+  id: number
+  target_type: string
+  target_id: string
+  context: string
+  choices: string[]
+  answer: string
+  answered_by: string
+  status: string
+  created_at: string
+  answered_at: string
+}
+
+export const useBlockerQuestions = (slug: string, status?: string) =>
+  useQuery<BlockerQuestionItem[]>({
+    queryKey: ['blocker-questions', slug, status],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug })
+      if (status) params.set('status', status)
+      const res = await apiFetch<{ questions: BlockerQuestionItem[] }>(
+        `/api/dx/blocker-questions/list?${params}`
+      )
+      return res.questions ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useAnswerBlockerQuestion = () => {
+  const qc = useQueryClient()
+  return useMutation<
+    BlockerQuestionItem,
+    Error,
+    { slug: string; id: number; answer: string; answered_by?: string }
+  >({
+    mutationFn: (body) => apiPost<BlockerQuestionItem>('/api/dx/blocker-questions/answer', body),
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['blocker-questions', v.slug] }),
+  })
+}
