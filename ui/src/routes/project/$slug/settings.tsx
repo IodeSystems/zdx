@@ -8,17 +8,23 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useProjectGitConfig, useSetProjectGitConfig } from '../../../api'
+import {
+  useProjectGitConfig,
+  useSetProjectGitConfig,
+  useTestProjectGitConfig,
+} from '../../../api'
 
 function ProjectSettingsPage() {
   const { slug } = Route.useParams()
   const { data, isLoading } = useProjectGitConfig(slug)
   const setConfig = useSetProjectGitConfig()
+  const testConfig = useTestProjectGitConfig()
 
   const [gitUrl, setGitUrl] = useState('')
   const [gitBranch, setGitBranch] = useState('main')
   const [gitToken, setGitToken] = useState('')
   const [saved, setSaved] = useState(false)
+  const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
 
   useEffect(() => {
     if (data) {
@@ -32,6 +38,17 @@ function ProjectSettingsPage() {
     setConfig.mutate(
       { slug, git_url: gitUrl, git_branch: gitBranch, git_token: gitToken || undefined },
       { onSuccess: () => setSaved(true) },
+    )
+  }
+
+  const handleTest = () => {
+    setTestResult(null)
+    testConfig.mutate(
+      { slug, git_url: gitUrl, git_branch: gitBranch, git_token: gitToken || undefined },
+      {
+        onSuccess: (res) => setTestResult(res),
+        onError: (err) => setTestResult({ ok: false, message: err.message }),
+      },
     )
   }
 
@@ -73,7 +90,7 @@ function ProjectSettingsPage() {
           size="small"
           fullWidth
         />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
           <Button
             variant="contained"
             onClick={handleSave}
@@ -81,11 +98,26 @@ function ProjectSettingsPage() {
           >
             Save
           </Button>
+          <Button
+            variant="outlined"
+            onClick={handleTest}
+            disabled={testConfig.isPending || !gitUrl}
+          >
+            {testConfig.isPending ? 'Testing…' : 'Test'}
+          </Button>
           {saved && (
             <Typography variant="caption" color="success.main">Saved</Typography>
           )}
           {setConfig.isError && (
             <Typography variant="caption" color="error">{setConfig.error?.message}</Typography>
+          )}
+          {testResult && (
+            <Typography
+              variant="caption"
+              color={testResult.ok ? 'success.main' : 'error'}
+            >
+              {testResult.ok ? 'Connection OK' : `Failed: ${testResult.message}`}
+            </Typography>
           )}
         </Box>
       </Paper>

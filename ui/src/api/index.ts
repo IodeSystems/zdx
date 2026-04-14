@@ -453,6 +453,16 @@ export const useSetProjectGitConfig = () => {
   })
 }
 
+export interface GitConfigTestResult {
+  ok: boolean
+  message: string
+}
+
+export const useTestProjectGitConfig = () =>
+  useMutation<GitConfigTestResult, Error, { slug: string } & GitConfig>({
+    mutationFn: (body) => apiPost<GitConfigTestResult>('/api/admin/project-git-config/test', body),
+  })
+
 // ── LLM config (admin) ────────────────────────────────────────────────────────
 
 export interface LLMConfig {

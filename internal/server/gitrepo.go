@@ -89,6 +89,27 @@ func recentCommits(dir, branch string, n int) ([]GitCommit, error) {
 	return commits, nil
 }
 
+// gitLsRemote verifies reachability of gitURL and presence of branch without cloning.
+// gitURL may embed a token: https://<token>@github.com/org/repo.git
+func gitLsRemote(gitURL, branch string) error {
+	if gitURL == "" {
+		return fmt.Errorf("git URL is required")
+	}
+	if branch == "" {
+		branch = "main"
+	}
+	cmd := exec.Command("git", "ls-remote", "--heads", "--exit-code", gitURL, branch)
+	cmd.Env = gitEnv()
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("%w: %s", err, strings.TrimSpace(string(out)))
+	}
+	if strings.TrimSpace(string(out)) == "" {
+		return fmt.Errorf("branch %q not found on remote", branch)
+	}
+	return nil
+}
+
 // gitEnv returns a minimal env for git commands (no SSH agent forwarding issues).
 func gitEnv() []string {
 	// Inherit PATH and HOME; suppress interactive prompts.

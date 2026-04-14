@@ -2057,6 +2057,47 @@ func (s *Server) registerRoutes(api huma.API) {
 			}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "test-project-git-config", Method: http.MethodPost, Path: "/api/admin/project-git-config/test"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string `json:"slug"`
+				GitURL    string `json:"git_url"`
+				GitBranch string `json:"git_branch"`
+				GitToken  string `json:"git_token,omitempty"`
+			}
+		}) (*struct {
+			Body struct {
+				OK      bool   `json:"ok"`
+				Message string `json:"message"`
+			}
+		}, error) {
+			gitURL := in.Body.GitURL
+			branch := in.Body.GitBranch
+			token := in.Body.GitToken
+			if token == "" && s.features.HasProjectGitConfig && in.Body.Slug != "" {
+				if row, err := s.q.GetProjectGitConfig(ctx, in.Body.Slug); err == nil {
+					token = row.GitToken
+				}
+			}
+			if token != "" && strings.HasPrefix(gitURL, "https://") {
+				gitURL = "https://" + token + "@" + strings.TrimPrefix(gitURL, "https://")
+			}
+			resp := &struct {
+				Body struct {
+					OK      bool   `json:"ok"`
+					Message string `json:"message"`
+				}
+			}{}
+			if err := gitLsRemote(gitURL, branch); err != nil {
+				resp.Body.OK = false
+				resp.Body.Message = err.Error()
+				return resp, nil
+			}
+			resp.Body.OK = true
+			resp.Body.Message = "ok"
+			return resp, nil
+		})
+
 	// ── Issue similarity ───────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "similar-issues", Method: http.MethodPost, Path: "/api/dx/issues/similar"},
