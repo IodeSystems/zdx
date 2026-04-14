@@ -218,13 +218,15 @@ export const useCloseIssue = () => {
 
 // ── tasks ─────────────────────────────────────────────────────────────────────
 
-export const useTasks = (slug: string, opts?: { feature?: string; issue?: string }, limit?: number, offset?: number) =>
+export const useTasks = (slug: string, opts?: { feature?: string; issue?: string; status?: string; search?: string }, limit?: number, offset?: number) =>
   useQuery<{ tasks: TaskItem[]; total: number }>({
     queryKey: ['tasks', slug, opts, limit, offset],
     queryFn: async () => {
       const pageParams = {} as Record<string, string>
       if (limit != null) pageParams.limit = String(limit)
       if (offset != null) pageParams.offset = String(offset)
+      if (opts?.status) pageParams.status = opts.status
+      if (opts?.search) pageParams.search = opts.search
       if (opts?.feature) {
         const { data, error } = await client.GET('/api/tasks-by-feature', { params: { query: { slug, feature: opts.feature, ...pageParams } as any } })
         if (error) throw new Error(JSON.stringify(error))

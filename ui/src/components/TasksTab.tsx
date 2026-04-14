@@ -1,11 +1,12 @@
+import { useEffect, useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
-import { Box, Chip, InputAdornment, Stack, TextField, Typography } from '@mui/material'
-import { Search as SearchIcon } from '@mui/icons-material'
+import { Box, Chip, IconButton, InputAdornment, Stack, TextField, Typography } from '@mui/material'
+import { Search as SearchIcon, NavigateBefore, NavigateNext } from '@mui/icons-material'
 import { useTasks, type TaskItem } from '../api'
-import { useLoadMore } from '../api/pagination'
-import { LoadMore } from './LoadMore'
 
 type Task = TaskItem
+
+const TASKS_PAGE_SIZE = 50
 
 function TaskIcon({ status }: { status: string }) {
   const icon = status === 'done' ? '\u2713' : status === 'blocked' ? '\u2717' : '\u25CB'
@@ -18,13 +19,15 @@ const STATUS_COLORS: Record<string, 'success' | 'error' | 'warning' | 'default'>
   blocked: 'error',
 }
 
-const STATUS_RANK: Record<string, number> = { blocked: 0, open: 1, 'in-progress': 2, done: 3 }
+const STATUSES = ['pending', 'blocked', 'done']
 
 export function TasksTab({
   slug,
   statusFilter,
+  page,
   search,
   onStatusFilter,
+  onPageChange,
   onSearch,
 }: {
   slug: string
@@ -35,27 +38,30 @@ export function TasksTab({
   onPageChange: (page: number) => void
   onSearch: (search: string) => void
 }) {
-  const { offset, loadMore, pageSize } = useLoadMore()
-  const { data, isLoading } = useTasks(slug, undefined, pageSize, offset)
+  const [localSearch, setLocalSearch] = useState(search)
+  const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
+
+  useEffect(() => { setLocalSearch(search) }, [search])
+
+  function handleSearchChange(value: string) {
+    setLocalSearch(value)
+    clearTimeout(debounceRef.current)
+    debounceRef.current = setTimeout(() => onSearch(value), 300)
+  }
+
+  const offset = (page - 1) * TASKS_PAGE_SIZE
+  const { data, isLoading } = useTasks(
+    slug,
+    { status: statusFilter ?? undefined, search: search || undefined },
+    TASKS_PAGE_SIZE,
+    offset,
+  )
 
   if (isLoading && !data) return <Typography color="text.secondary">Loading...</Typography>
 
-  const allTasks: Task[] = data?.tasks ?? []
+  const tasks: Task[] = data?.tasks ?? []
   const total = data?.total ?? 0
-
-  const filtered = statusFilter ? allTasks.filter(t => t.status === statusFilter) : allTasks
-  const tasks = search
-    ? filtered.filter(t =>
-        t.text.toLowerCase().includes(search.toLowerCase()) ||
-        t.feature.toLowerCase().includes(search.toLowerCase()) ||
-        `TK-${t.id}`.toLowerCase().includes(search.toLowerCase())
-      )
-    : filtered
-
-  const statusCounts = allTasks.reduce((acc, t) => {
-    acc[t.status] = (acc[t.status] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
+  const totalPages = Math.max(1, Math.ceil(total / TASKS_PAGE_SIZE))
 
   function toggleFilter(status: string) {
     onStatusFilter(statusFilter === status ? null : status)
@@ -65,15 +71,15 @@ export function TasksTab({
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
         <Typography variant="subtitle2" color="text.secondary">
-          {statusFilter ? `${tasks.length} of ${allTasks.length}` : `${allTasks.length}`} tasks
+          {total} tasks
           {statusFilter && ` — filtered: ${statusFilter}`}
           {search && ` — search: "${search}"`}
         </Typography>
         <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
-          {Object.entries(statusCounts).sort(([a], [b]) => (STATUS_RANK[a] ?? 99) - (STATUS_RANK[b] ?? 99)).map(([status, count]) => (
+          {STATUSES.map((status) => (
             <Chip
               key={status}
-              label={`${status} (${count})`}
+              label={status}
               size="small"
               color={STATUS_COLORS[status] || 'default'}
               variant={statusFilter === status ? 'filled' : 'outlined'}
@@ -95,8 +101,8 @@ export function TasksTab({
       <TextField
         size="small"
         placeholder="Search tasks…"
-        value={search}
-        onChange={(e) => onSearch(e.target.value)}
+        value={localSearch}
+        onChange={(e) => handleSearchChange(e.target.value)}
         sx={{ mb: 2, width: 280 }}
         slotProps={{
           input: {
@@ -138,7 +144,19 @@ export function TasksTab({
       {tasks.length === 0 && !isLoading && (
         <Typography variant="body2" color="text.secondary">No tasks.</Typography>
       )}
-      <LoadMore loaded={allTasks.length} total={total} onLoadMore={loadMore} />
+      {totalPages > 1 && (
+        <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: 1, py: 1 }}>
+          <IconButton size="small" disabled={page <= 1} onClick={() => onPageChange(page - 1)}>
+            <NavigateBefore />
+          </IconButton>
+          <Typography variant="body2" color="text.secondary">
+            Page {page} of {totalPages}
+          </Typography>
+          <IconButton size="small" disabled={page >= totalPages} onClick={() => onPageChange(page + 1)}>
+            <NavigateNext />
+          </IconButton>
+        </Box>
+      )}
     </Box>
   )
 }

@@ -41,7 +41,7 @@ type Querier interface {
 	CountQuestions(ctx context.Context, projectID int32) (int64, error)
 	CountRevisions(ctx context.Context, arg CountRevisionsParams) (int64, error)
 	CountSlowQueries(ctx context.Context, projectID pgtype.Int4) (int64, error)
-	CountTasks(ctx context.Context, projectID int32) (int64, error)
+	CountTasks(ctx context.Context, arg CountTasksParams) (int64, error)
 	CountTasksByFeature(ctx context.Context, arg CountTasksByFeatureParams) (int64, error)
 	CountTasksByIssue(ctx context.Context, arg CountTasksByIssueParams) (int64, error)
 	CountTests(ctx context.Context, projectID int32) (int64, error)

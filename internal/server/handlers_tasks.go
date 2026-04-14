@@ -24,9 +24,9 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountTasks(ctx, p.ID)
+			total, _ := s.q.CountTasks(ctx, db.CountTasksParams{ProjectID: p.ID, StatusFilter: in.Status, Search: in.Search})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTasksPaginated(ctx, db.ListTasksPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			rows, err := s.q.ListTasksPaginated(ctx, db.ListTasksPaginatedParams{ProjectID: p.ID, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -46,14 +46,16 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			Feature string `query:"feature" required:"true"`
 			Limit   int32  `query:"limit"`
 			Offset  int32  `query:"offset"`
+			Status  string `query:"status"`
+			Search  string `query:"search"`
 		}) (*TasksSlugOutput, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountTasksByFeature(ctx, db.CountTasksByFeatureParams{ProjectID: p.ID, Feature: in.Feature})
+			total, _ := s.q.CountTasksByFeature(ctx, db.CountTasksByFeatureParams{ProjectID: p.ID, Feature: in.Feature, StatusFilter: in.Status, Search: in.Search})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTasksByFeaturePaginated(ctx, db.ListTasksByFeaturePaginatedParams{ProjectID: p.ID, Feature: in.Feature, Limit: limit, Offset: offset})
+			rows, err := s.q.ListTasksByFeaturePaginated(ctx, db.ListTasksByFeaturePaginatedParams{ProjectID: p.ID, Feature: in.Feature, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -73,14 +75,16 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			IssueID string `query:"issue_id" required:"true"`
 			Limit   int32  `query:"limit"`
 			Offset  int32  `query:"offset"`
+			Status  string `query:"status"`
+			Search  string `query:"search"`
 		}) (*TasksSlugOutput, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountTasksByIssue(ctx, db.CountTasksByIssueParams{ProjectID: p.ID, Issue: in.IssueID})
+			total, _ := s.q.CountTasksByIssue(ctx, db.CountTasksByIssueParams{ProjectID: p.ID, Issue: in.IssueID, StatusFilter: in.Status, Search: in.Search})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTasksByIssuePaginated(ctx, db.ListTasksByIssuePaginatedParams{ProjectID: p.ID, Issue: in.IssueID, Limit: limit, Offset: offset})
+			rows, err := s.q.ListTasksByIssuePaginated(ctx, db.ListTasksByIssuePaginatedParams{ProjectID: p.ID, Issue: in.IssueID, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}

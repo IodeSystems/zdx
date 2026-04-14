@@ -228,6 +228,8 @@ type PaginatedSlugInput struct {
 	Slug   string `query:"slug" required:"true"`
 	Limit  int32  `query:"limit"`
 	Offset int32  `query:"offset"`
+	Status string `query:"status"`
+	Search string `query:"search"`
 }
 
 type IssueSlugInput struct {
