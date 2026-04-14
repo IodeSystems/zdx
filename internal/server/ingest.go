@@ -6,6 +6,7 @@ import (
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
+	"log"
 	"math"
 	"net/http"
 	"os"
@@ -174,9 +175,10 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 			env := in.Body.Environment
 			host := in.Body.Host
 
+			accepted := 0
 			for _, ev := range in.Body.Events {
 				ctxJSON := buildContextJSON(host, ev.Tags)
-				_ = s.q.UpsertTimed(ctx, db.UpsertTimedParams{
+				if err := s.q.UpsertTimed(ctx, db.UpsertTimedParams{
 					ProjectID:   pgtype.Int4{Int32: row.ProjectID, Valid: true},
 					Component:   component,
 					Environment: env,
@@ -184,7 +186,11 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 					DurationMs:  ev.DurationMs,
 					Source:      ev.Source,
 					ContextJson: ctxJSON,
-				})
+				}); err != nil {
+					log.Printf("ingest: UpsertTimed %q: %v", ev.Name, err)
+					continue
+				}
+				accepted++
 			}
 			return &struct {
 				Body struct {
@@ -192,7 +198,7 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 				}
 			}{Body: struct {
 				Accepted int `json:"accepted"`
-			}{Accepted: len(in.Body.Events)}}, nil
+			}{Accepted: accepted}}, nil
 		})
 }
 
