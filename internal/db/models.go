@@ -300,6 +300,7 @@ type ZdxTask struct {
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type ZdxTaskCodeRef struct {

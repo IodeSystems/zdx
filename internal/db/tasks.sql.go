@@ -12,7 +12,7 @@ import (
 const createTask = `-- name: CreateTask :one
 INSERT INTO zdx_tasks (id, project_id, text, feature, issue)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
 `
 
 type CreateTaskParams struct {
@@ -45,6 +45,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (ZdxTask
 		&i.TestRefs,
 		&i.CreatedAt,
 		&i.CompletedAt,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -59,8 +60,8 @@ func (q *Queries) DeleteTask(ctx context.Context, id string) error {
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at
-FROM zdx_tasks WHERE project_id = $1 ORDER BY created_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC
 `
 
 func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, error) {
@@ -85,6 +86,7 @@ func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, er
 			&i.TestRefs,
 			&i.CreatedAt,
 			&i.CompletedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -97,8 +99,8 @@ func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ZdxTask, er
 }
 
 const listTasksByFeature = `-- name: ListTasksByFeature :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at
-FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY created_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC
 `
 
 type ListTasksByFeatureParams struct {
@@ -128,6 +130,7 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 			&i.TestRefs,
 			&i.CreatedAt,
 			&i.CompletedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -140,8 +143,8 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 }
 
 const listTasksByIssue = `-- name: ListTasksByIssue :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at
-FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY created_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC
 `
 
 type ListTasksByIssueParams struct {
@@ -171,6 +174,7 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 			&i.TestRefs,
 			&i.CreatedAt,
 			&i.CompletedAt,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -184,7 +188,7 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 
 const markTaskDone = `-- name: MarkTaskDone :exec
 UPDATE zdx_tasks
-SET status = 'done', test_plan = $2, test_refs = $3, completed_at = NOW()
+SET status = 'done', test_plan = $2, test_refs = $3, completed_at = NOW(), updated_at = NOW()
 WHERE id = $1
 `
 
@@ -200,7 +204,7 @@ func (q *Queries) MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) erro
 }
 
 const markTaskUndone = `-- name: MarkTaskUndone :exec
-UPDATE zdx_tasks SET status = 'pending', completed_at = NULL WHERE id = $1
+UPDATE zdx_tasks SET status = 'pending', completed_at = NULL, updated_at = NOW() WHERE id = $1
 `
 
 func (q *Queries) MarkTaskUndone(ctx context.Context, id string) error {
@@ -215,7 +219,8 @@ SET text      = CASE WHEN $1::text = 'text'      THEN $2::text ELSE text      EN
     issue     = CASE WHEN $1::text = 'issue'     THEN $2::text ELSE issue     END,
     depends   = CASE WHEN $1::text = 'depends'   THEN $2::text ELSE depends   END,
     test_plan = CASE WHEN $1::text = 'test_plan' THEN $2::text ELSE test_plan END,
-    test_refs = CASE WHEN $1::text = 'test_refs' THEN $2::text ELSE test_refs END
+    test_refs = CASE WHEN $1::text = 'test_refs' THEN $2::text ELSE test_refs END,
+    updated_at = NOW()
 WHERE id = $3
 `
 
@@ -231,7 +236,7 @@ func (q *Queries) UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsPara
 }
 
 const updateTaskStatus = `-- name: UpdateTaskStatus :exec
-UPDATE zdx_tasks SET status = $2, reason = $3 WHERE id = $1
+UPDATE zdx_tasks SET status = $2, reason = $3, updated_at = NOW() WHERE id = $1
 `
 
 type UpdateTaskStatusParams struct {

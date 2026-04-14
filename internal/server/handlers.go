@@ -73,6 +73,7 @@ type TaskItem struct {
 	TestRefs    string `json:"test_refs"`
 	CreatedAt   string `json:"created_at"`
 	CompletedAt string `json:"completed_at"`
+	UpdatedAt   string `json:"updated_at"`
 }
 
 type FeatureItem struct {
@@ -2612,6 +2613,7 @@ func toTaskItem(r db.ZdxTask) TaskItem {
 		TestRefs:    r.TestRefs,
 		CreatedAt:   fmtTS(r.CreatedAt),
 		CompletedAt: fmtTS(r.CompletedAt),
+		UpdatedAt:   fmtTS(r.UpdatedAt),
 	}
 	if r.Issue != "" {
 		n := issueIntID(r.Issue)

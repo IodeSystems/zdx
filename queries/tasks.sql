@@ -1,30 +1,30 @@
 -- name: ListTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at
-FROM zdx_tasks WHERE project_id = $1 ORDER BY created_at;
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC;
 
 -- name: ListTasksByFeature :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at
-FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY created_at;
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC;
 
 -- name: ListTasksByIssue :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at
-FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY created_at;
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC;
 
 -- name: CreateTask :one
 INSERT INTO zdx_tasks (id, project_id, text, feature, issue)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at;
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at;
 
 -- name: UpdateTaskStatus :exec
-UPDATE zdx_tasks SET status = $2, reason = $3 WHERE id = $1;
+UPDATE zdx_tasks SET status = $2, reason = $3, updated_at = NOW() WHERE id = $1;
 
 -- name: MarkTaskDone :exec
 UPDATE zdx_tasks
-SET status = 'done', test_plan = $2, test_refs = $3, completed_at = NOW()
+SET status = 'done', test_plan = $2, test_refs = $3, completed_at = NOW(), updated_at = NOW()
 WHERE id = $1;
 
 -- name: MarkTaskUndone :exec
-UPDATE zdx_tasks SET status = 'pending', completed_at = NULL WHERE id = $1;
+UPDATE zdx_tasks SET status = 'pending', completed_at = NULL, updated_at = NOW() WHERE id = $1;
 
 -- name: DeleteTask :exec
 DELETE FROM zdx_tasks WHERE id = $1;
@@ -36,5 +36,6 @@ SET text      = CASE WHEN @field::text = 'text'      THEN @value::text ELSE text
     issue     = CASE WHEN @field::text = 'issue'     THEN @value::text ELSE issue     END,
     depends   = CASE WHEN @field::text = 'depends'   THEN @value::text ELSE depends   END,
     test_plan = CASE WHEN @field::text = 'test_plan' THEN @value::text ELSE test_plan END,
-    test_refs = CASE WHEN @field::text = 'test_refs' THEN @value::text ELSE test_refs END
+    test_refs = CASE WHEN @field::text = 'test_refs' THEN @value::text ELSE test_refs END,
+    updated_at = NOW()
 WHERE id = @id;
