@@ -18,6 +18,7 @@ import (
 type DemoRecorder struct {
 	t     *testing.T
 	name  string
+	dxBin string
 	env   []string
 	steps []demoStep
 }
@@ -41,15 +42,25 @@ type demoLog struct {
 // dxBin must be a path to the compiled dx binary (e.g. "bin/dx").
 func newRecorder(t *testing.T, name, dxBin string) *DemoRecorder {
 	t.Helper()
-	if _, err := os.Stat(dxBin); err != nil {
-		t.Fatalf("dx binary not found at %q — run: go build -o %s ./cmd/dx/", dxBin, dxBin)
+	root, err := findRoot()
+	if err != nil {
+		t.Fatalf("cannot find project root: %v", err)
 	}
+	abs := filepath.Join(root, dxBin)
+	if _, err := os.Stat(abs); err != nil {
+		t.Fatalf("dx binary not found at %q — run: go build -o %s ./cmd/dx/", abs, dxBin)
+	}
+	slug := "demo-" + name
+	apiDo(t, "POST", "/api/project",
+		map[string]string{"slug": slug, "name": "Demo " + name}, nil)
 	return &DemoRecorder{
-		t:    t,
-		name: name,
+		t:     t,
+		name:  name,
+		dxBin: abs,
 		env: append(os.Environ(),
 			"DX_REMOTE_URL="+srv.URL,
 			"DX_REMOTE_API_KEY="+srv.AdminToken,
+			"DX_REMOTE_SLUG="+slug,
 		),
 	}
 }
@@ -57,7 +68,7 @@ func newRecorder(t *testing.T, name, dxBin string) *DemoRecorder {
 // Run executes a dx subcommand and records the interaction.
 func (r *DemoRecorder) Run(args ...string) {
 	r.t.Helper()
-	cmd := exec.Command("bin/dx", args...)
+	cmd := exec.Command(r.dxBin, args...)
 	cmd.Env = r.env
 
 	var stdout, stderr bytes.Buffer
@@ -91,7 +102,8 @@ func (r *DemoRecorder) Run(args ...string) {
 
 // Save writes the structured log. Called automatically via t.Cleanup.
 func (r *DemoRecorder) Save() {
-	dir := filepath.Join(".zdx", "demo", "cli")
+	root, _ := findRoot()
+	dir := filepath.Join(root, ".zdx", "demo", "cli")
 	if err := os.MkdirAll(dir, 0755); err != nil {
 		r.t.Logf("demo save: mkdir: %v", err)
 		return
@@ -116,12 +128,10 @@ func TestDemoCLI_ProjectAndIssueFlow(t *testing.T) {
 	rec := newRecorder(t, "project-issue-flow", "bin/dx")
 	t.Cleanup(rec.Save)
 
-	rec.Run("project", "add", "--name=Demo Project", "--slug=demo-proj")
-	rec.Run("issue", "add", "--slug=demo-proj", "--title=First issue", "--context=Added via CLI demo")
-	rec.Run("issue", "list", "--slug=demo-proj")
-	rec.Run("todo", "solo", "--slug=demo-proj")
+	rec.Run("issue", "add", "--title=First issue", "--context=Added via CLI demo")
+	rec.Run("issue", "list")
+	rec.Run("todo", "solo")
 
-	// Minimal assertion: no step should have exited non-zero.
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
 			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
@@ -133,18 +143,16 @@ func TestDemoCLI_TaskFlow(t *testing.T) {
 	rec := newRecorder(t, "task-flow", "bin/dx")
 	t.Cleanup(rec.Save)
 
-	rec.Run("project", "add", "--name=Task Demo", "--slug=demo-tasks")
-	rec.Run("issue", "add", "--slug=demo-tasks", "--title=Implement feature X")
+	rec.Run("issue", "add", "--title=Implement feature X")
 
-	// Read the issue ID from the previous step's output.
 	issueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
 	if issueID == "" {
 		t.Skip("could not extract issue ID from output")
 	}
 
-	rec.Run("todo", "tech", "add", "--slug=demo-tasks", "--issue="+issueID, "--text=Write the implementation")
-	rec.Run("todo", "issue", "tasks", "--slug=demo-tasks", "--id="+issueID)
-	rec.Run("todo", "solo", "--slug=demo-tasks")
+	rec.Run("todo", "tech", "add", "--issue="+issueID, "--text=Write the implementation")
+	rec.Run("todo", "list", "--issue="+issueID)
+	rec.Run("todo", "solo")
 
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {

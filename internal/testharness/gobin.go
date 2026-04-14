@@ -58,7 +58,7 @@ func (a *GoBinAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
 		runPattern = f.Feature
 	}
 
-	args := []string{"-test.v", "-test.json"}
+	args := []string{"-test.v"}
 	if runPattern != "" {
 		args = append(args, "-test.run="+runPattern)
 	}
@@ -71,13 +71,31 @@ func (a *GoBinAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
 		env = append(env, "GOCOVERDIR="+a.CoverDir)
 	}
 
-	cmd := exec.CommandContext(ctx, a.Bin, args...)
-	cmd.Env = env
+	// Pipe test binary output through test2json for structured JSON.
+	testCmd := exec.CommandContext(ctx, a.Bin, args...)
+	testCmd.Env = env
+	testCmd.Stderr = os.Stderr
+
+	testOut, err := testCmd.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("stdout pipe: %w", err)
+	}
+
+	jsonCmd := exec.CommandContext(ctx, "go", "tool", "test2json")
+	jsonCmd.Stdin = testOut
 
 	var jsonBuf bytes.Buffer
-	cmd.Stdout = io.MultiWriter(os.Stdout, &jsonBuf)
-	cmd.Stderr = os.Stderr
-	_ = cmd.Run() // non-zero on test failure — expected
+	jsonCmd.Stdout = io.MultiWriter(os.Stdout, &jsonBuf)
+	jsonCmd.Stderr = os.Stderr
+
+	if err := jsonCmd.Start(); err != nil {
+		return nil, fmt.Errorf("start test2json: %w", err)
+	}
+	if err := testCmd.Start(); err != nil {
+		return nil, fmt.Errorf("start test binary: %w", err)
+	}
+	_ = testCmd.Wait()
+	_ = jsonCmd.Wait()
 
 	return parseGoTestJSON(jsonBuf.Bytes(), a.Comp, a.Layers()[0]), nil
 }
