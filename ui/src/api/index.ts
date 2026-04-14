@@ -1225,6 +1225,9 @@ export interface ClaudeSessionItem {
   issue_id: string
   session_id: string
   title: string
+  header: string
+  summary: string
+  status: string
   event_count: number
   created_at: string
 }

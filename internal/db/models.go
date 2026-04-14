@@ -50,6 +50,7 @@ type ZdxClaudeSession struct {
 	Alias     string             `db:"alias" json:"alias"`
 	Header    string             `db:"header" json:"header"`
 	Summary   string             `db:"summary" json:"summary"`
+	Status    string             `db:"status" json:"status"`
 }
 
 type ZdxCodeRef struct {

@@ -47,6 +47,7 @@ func main() {
 		cli.QuestionCmd(),
 		cli.McpCmd(),
 		cli.TimeCmd(),
+		cli.ClaudeCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

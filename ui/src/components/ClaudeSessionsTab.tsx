@@ -422,6 +422,18 @@ export function SessionDetail({
         <Typography variant="subtitle2">
           {session?.title || session?.session_id?.slice(0, 8) || `Session #${sessionId}`}
         </Typography>
+        {session?.status && (
+          <Chip
+            label={session.status}
+            size="small"
+            sx={{
+              height: 20,
+              fontSize: '0.7rem',
+              bgcolor: session.status === 'ok' ? 'success.main' : session.status === 'churn' ? 'warning.main' : session.status === 'errored' ? 'error.main' : 'grey.500',
+              color: '#fff',
+            }}
+          />
+        )}
         {session?.issue_id && (
           <Link
             to="/project/$slug/issues/$id"
@@ -435,6 +447,20 @@ export function SessionDetail({
           {allEvents.length} / {total} events
         </Typography>
       </Box>
+      {(session?.header || session?.summary) && (
+        <Box sx={{ mb: 1, p: 1.5, bgcolor: 'action.hover', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+          {session.header && (
+            <Typography variant="subtitle2" sx={{ mb: session.summary ? 0.5 : 0 }}>
+              {session.header}
+            </Typography>
+          )}
+          {session.summary && (
+            <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.85rem' }}>
+              {session.summary}
+            </Typography>
+          )}
+        </Box>
+      )}
       {tokenUsage && (tokenUsage.input_tokens > 0 || tokenUsage.output_tokens > 0) && (
         <Box sx={{ display: 'flex', gap: 0.5, mb: 1, flexWrap: 'wrap' }}>
           <Chip label={`In: ${fmtTokens(tokenUsage.input_tokens)}`} size="small" sx={{ height: 20, fontSize: '0.7rem' }} />
@@ -497,16 +523,46 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
             >
               <ListItemButton sx={{ borderBottom: 1, borderColor: 'divider' }}>
                 <ListItemText
-                  primary={s.title || s.session_id.slice(0, 12)}
+                  primary={
+                    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                        {s.title || s.session_id.slice(0, 12)}
+                      </Typography>
+                      {s.status && (
+                        <Chip
+                          label={s.status}
+                          size="small"
+                          sx={{
+                            height: 18,
+                            fontSize: '0.65rem',
+                            bgcolor: s.status === 'ok' ? 'success.main' : s.status === 'churn' ? 'warning.main' : s.status === 'errored' ? 'error.main' : 'grey.500',
+                            color: '#fff',
+                          }}
+                        />
+                      )}
+                    </Box>
+                  }
                   secondary={
-                    <Box component="span" sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                      <Typography component="span" variant="caption" color="text.secondary">
-                        {fmtDate(s.created_at)}
-                      </Typography>
-                      {s.issue_id && <Chip label={s.issue_id} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.7rem' }} />}
-                      <Typography component="span" variant="caption" color="text.disabled">
-                        {s.event_count} events
-                      </Typography>
+                    <Box component="span" sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                      {s.header && (
+                        <Typography component="span" variant="caption" color="text.primary" noWrap>
+                          {s.header}
+                        </Typography>
+                      )}
+                      {s.summary && (
+                        <Typography component="span" variant="caption" color="text.secondary" noWrap>
+                          {s.summary.slice(0, 120)}
+                        </Typography>
+                      )}
+                      <Box component="span" sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                        <Typography component="span" variant="caption" color="text.secondary">
+                          {fmtDate(s.created_at)}
+                        </Typography>
+                        {s.issue_id && <Chip label={s.issue_id} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.7rem' }} />}
+                        <Typography component="span" variant="caption" color="text.disabled">
+                          {s.event_count} events
+                        </Typography>
+                      </Box>
                     </Box>
                   }
                 />

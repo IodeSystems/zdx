@@ -75,6 +75,10 @@ func (c *Client) put(path string, body any, out any) error {
 	return c.doJSON("PUT", path, body, out)
 }
 
+func (c *Client) patch(path string, body any, out any) error {
+	return c.doJSON("PATCH", path, body, out)
+}
+
 func (c *Client) doJSON(method, path string, body any, out any) error {
 	b, err := json.Marshal(body)
 	if err != nil {

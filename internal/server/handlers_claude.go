@@ -21,6 +21,7 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 		Alias      string `json:"alias"`
 		Header     string `json:"header"`
 		Summary    string `json:"summary"`
+		Status     string `json:"status"`
 		EventCount int64  `json:"event_count"`
 		CreatedAt  string `json:"created_at"`
 	}
@@ -61,6 +62,7 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 					Alias:      r.Alias,
 					Header:     r.Header,
 					Summary:    r.Summary,
+					Status:     r.Status,
 					EventCount: cnt,
 					CreatedAt:  fmtTS(r.CreatedAt),
 				}
@@ -102,6 +104,7 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 				Alias:      sess.Alias,
 				Header:     sess.Header,
 				Summary:    sess.Summary,
+				Status:     sess.Status,
 				EventCount: cnt,
 				CreatedAt:  fmtTS(sess.CreatedAt),
 			}}, nil
@@ -200,6 +203,42 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 				CacheReadInputTokens:     usage.CacheReadInputTokens,
 				CacheCreationInputTokens: usage.CacheCreationInputTokens,
 			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "update-claude-session-summary", Method: http.MethodPatch, Path: "/api/dx/claude/sessions/{sessionId}/summary"},
+		func(ctx context.Context, in *struct {
+			Slug      string `query:"slug" required:"true"`
+			SessionID int64  `path:"sessionId"`
+			Body      struct {
+				Header  string `json:"header"`
+				Summary string `json:"summary"`
+				Status  string `json:"status"`
+			}
+		}) (*struct {
+			Body struct {
+				OK bool `json:"ok"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.UpdateClaudeSessionSummary(ctx, db.UpdateClaudeSessionSummaryParams{
+				ProjectID: p.ID,
+				ID:        in.SessionID,
+				Header:    in.Body.Header,
+				Summary:   in.Body.Summary,
+				Status:    in.Body.Status,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					OK bool `json:"ok"`
+				}
+			}{Body: struct {
+				OK bool `json:"ok"`
+			}{OK: true}}, nil
 		})
 
 	// Ingest endpoint: accepts JSONL body, creates session + events in one call.
