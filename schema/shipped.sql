@@ -736,6 +736,78 @@ ALTER SEQUENCE public.zdx_project_permissions_id_seq OWNED BY public.zdx_project
 
 
 --
+-- Name: zdx_project_goals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_project_goals (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    title text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    priority integer DEFAULT 1 NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_project_goals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_project_goals_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_project_goals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_project_goals_id_seq OWNED BY public.zdx_project_goals.id;
+
+
+--
+-- Name: zdx_project_constraints; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_project_constraints (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    title text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    priority integer DEFAULT 1 NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_project_constraints_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_project_constraints_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_project_constraints_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_project_constraints_id_seq OWNED BY public.zdx_project_constraints.id;
+
+
+--
 -- Name: zdx_projects; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1453,6 +1525,20 @@ ALTER TABLE ONLY public.zdx_project_permissions ALTER COLUMN id SET DEFAULT next
 
 
 --
+-- Name: zdx_project_goals id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_project_goals ALTER COLUMN id SET DEFAULT nextval('public.zdx_project_goals_id_seq'::regclass);
+
+
+--
+-- Name: zdx_project_constraints id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_project_constraints ALTER COLUMN id SET DEFAULT nextval('public.zdx_project_constraints_id_seq'::regclass);
+
+
+--
 -- Name: zdx_projects id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1838,6 +1924,38 @@ ALTER TABLE ONLY public.zdx_project_permissions
 
 
 --
+-- Name: zdx_project_goals zdx_project_goals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_project_goals
+    ADD CONSTRAINT zdx_project_goals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_project_goals zdx_project_goals_project_id_title_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_project_goals
+    ADD CONSTRAINT zdx_project_goals_project_id_title_key UNIQUE (project_id, title);
+
+
+--
+-- Name: zdx_project_constraints zdx_project_constraints_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_project_constraints
+    ADD CONSTRAINT zdx_project_constraints_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_project_constraints zdx_project_constraints_project_id_title_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_project_constraints
+    ADD CONSTRAINT zdx_project_constraints_project_id_title_key UNIQUE (project_id, title);
+
+
+--
 -- Name: zdx_projects zdx_projects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2129,6 +2247,20 @@ CREATE INDEX idx_oauth_identities_user ON public.zdx_oauth_identities USING btre
 --
 
 CREATE INDEX idx_questions_parent ON public.zdx_questions USING btree (parent_question_id) WHERE (parent_question_id IS NOT NULL);
+
+
+--
+-- Name: idx_project_goals_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_project_goals_project ON public.zdx_project_goals USING btree (project_id);
+
+
+--
+-- Name: idx_project_constraints_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_project_constraints_project ON public.zdx_project_constraints USING btree (project_id);
 
 
 --
@@ -2442,6 +2574,22 @@ ALTER TABLE ONLY public.zdx_project_permissions
 
 ALTER TABLE ONLY public.zdx_project_permissions
     ADD CONSTRAINT zdx_project_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.zdx_users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_project_goals zdx_project_goals_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_project_goals
+    ADD CONSTRAINT zdx_project_goals_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
+
+
+--
+-- Name: zdx_project_constraints zdx_project_constraints_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_project_constraints
+    ADD CONSTRAINT zdx_project_constraints_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
 
 
 --

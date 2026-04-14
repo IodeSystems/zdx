@@ -232,12 +232,34 @@ type ZdxProject struct {
 	GitToken  string             `db:"git_token" json:"git_token"`
 }
 
+type ZdxProjectConstraint struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
+	Description string             `db:"description" json:"description"`
+	Priority    int32              `db:"priority" json:"priority"`
+	Status      string             `db:"status" json:"status"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type ZdxProjectGitConfig struct {
 	ID        int32  `db:"id" json:"id"`
 	ProjectID int32  `db:"project_id" json:"project_id"`
 	CloneUrl  string `db:"clone_url" json:"clone_url"`
 	AuthType  string `db:"auth_type" json:"auth_type"`
 	AuthToken string `db:"auth_token" json:"auth_token"`
+}
+
+type ZdxProjectGoal struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
+	Description string             `db:"description" json:"description"`
+	Priority    int32              `db:"priority" json:"priority"`
+	Status      string             `db:"status" json:"status"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type ZdxProjectPermission struct {

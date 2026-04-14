@@ -23,6 +23,7 @@ import {
 } from '@mui/material'
 import {
   Extension as ExtensionIcon,
+  Flag as FlagIcon,
   HelpOutlined as HelpOutlineIcon,
   TaskAlt as TaskAltIcon,
   BugReport as BugReportIcon,
@@ -50,6 +51,7 @@ const queryClient = new QueryClient()
 const DRAWER_WIDTH = 220
 
 const SECTIONS = [
+  { label: 'Goals', icon: <FlagIcon fontSize="small" />, path: 'goals' },
   { label: 'Features', icon: <ExtensionIcon fontSize="small" />, path: 'features' },
   { label: 'Tasks', icon: <TaskAltIcon fontSize="small" />, path: 'tasks' },
   { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },

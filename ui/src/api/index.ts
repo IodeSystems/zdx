@@ -933,3 +933,97 @@ export const useClaudeSessionEvents = (slug: string, sessionId: number | null, l
     },
     enabled: !!slug && sessionId != null,
   })
+
+// ── Goals & Constraints ──────────────────────────────────────────────────
+
+export interface GoalItem {
+  id: number
+  title: string
+  description: string
+  priority: number
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export interface ConstraintItem {
+  id: number
+  title: string
+  description: string
+  priority: number
+  status: string
+  created_at: string
+  updated_at: string
+}
+
+export const useGoals = (slug: string) =>
+  useQuery<GoalItem[]>({
+    queryKey: ['goals', slug],
+    queryFn: async () => {
+      const data = await apiFetch<{ goals: GoalItem[] }>(`/api/goals?slug=${encodeURIComponent(slug)}`)
+      return data.goals ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useCreateGoal = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { slug: string; title: string; description: string; priority: number; status?: string }) =>
+      apiPost<GoalItem>('/api/goal', body),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['goals', vars.slug] }),
+  })
+}
+
+export const useUpdateGoal = (slug: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { id: number; title: string; description: string; priority: number; status: string }) =>
+      apiPost<OKBody>('/api/goal', body, 'PUT'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['goals', slug] }),
+  })
+}
+
+export const useDeleteGoal = (slug: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => apiPost<OKBody>('/api/goal', { id }, 'DELETE'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['goals', slug] }),
+  })
+}
+
+export const useConstraints = (slug: string) =>
+  useQuery<ConstraintItem[]>({
+    queryKey: ['constraints', slug],
+    queryFn: async () => {
+      const data = await apiFetch<{ constraints: ConstraintItem[] }>(`/api/constraints?slug=${encodeURIComponent(slug)}`)
+      return data.constraints ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useCreateConstraint = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { slug: string; title: string; description: string; priority: number; status?: string }) =>
+      apiPost<ConstraintItem>('/api/constraint', body),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['constraints', vars.slug] }),
+  })
+}
+
+export const useUpdateConstraint = (slug: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { id: number; title: string; description: string; priority: number; status: string }) =>
+      apiPost<OKBody>('/api/constraint', body, 'PUT'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['constraints', slug] }),
+  })
+}
+
+export const useDeleteConstraint = (slug: string) => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => apiPost<OKBody>('/api/constraint', { id }, 'DELETE'),
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['constraints', slug] }),
+  })
+}

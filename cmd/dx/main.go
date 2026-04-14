@@ -21,6 +21,8 @@ func main() {
 		cli.TodoCmd(),
 		cli.IssueCmd(),
 		cli.FeatureCmd(),
+		cli.GoalCmd(),
+		cli.ConstraintCmd(),
 		cli.ThemeCmd(),
 		cli.SpecCmd(),
 		cli.BuildCmd(),
