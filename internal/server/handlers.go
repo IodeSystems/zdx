@@ -1746,6 +1746,41 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	type TestItem struct {
+		ID        int32  `json:"id"`
+		Component string `json:"component"`
+		Name      string `json:"name"`
+		Layer     string `json:"layer"`
+		Status    string `json:"status"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-tests", Method: http.MethodGet, Path: "/api/dx/tests"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Tests []TestItem `json:"tests"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListTests(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TestItem, len(rows))
+			for i, r := range rows {
+				out[i] = TestItem{ID: r.ID, Component: r.Component, Name: r.Name, Layer: r.Layer, Status: r.Status}
+			}
+			return &struct {
+				Body struct {
+					Tests []TestItem `json:"tests"`
+				}
+			}{Body: struct {
+				Tests []TestItem `json:"tests"`
+			}{Tests: out}}, nil
+		})
+
 	// ── Journal ───────────────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "journal-checkin", Method: http.MethodPost, Path: "/api/dx/journal/checkin"},
