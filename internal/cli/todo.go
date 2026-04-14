@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 )
@@ -13,6 +14,9 @@ const triageGuidance = `  triage checklist:
     2. dup-check: dx issue list; close duplicates with --reason=duplicate
     3. rewrite prescriptively: title=intended outcome; context=should/did/direction
     4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl> --priority=<1-4>
+    if the issue is too vague to triage, create clarification questions instead:
+      dx question add --target-type=issue --target-id=IS-N --context="<question>" --choices="opt1,opt2,..."
+    solo will block progress on the issue until all questions are answered.
 `
 
 // ── wire types (match server JSON) ────────────────────────────────────────────
@@ -214,7 +218,44 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// 0c. Bootstrap: if no issues exist at all, guide agent to analyze the project.
+	// 0c. Check for pending blocker-questions on any open issue.
+	{
+		var bqResp struct {
+			Questions []blockerQuestionItem `json:"questions"`
+			Total     int                   `json:"total"`
+		}
+		bqParams := url.Values{"slug": {slug}, "status": {"pending"}}
+		if err := c.get("/api/dx/blocker-questions/list", bqParams, &bqResp); err != nil {
+			return err
+		}
+		for _, q := range bqResp.Questions {
+			if q.TargetType != "issue" {
+				continue
+			}
+			// Only surface questions for issues in our target set.
+			matched := false
+			for _, iss := range targetIssues {
+				if issueIDStr(iss.ID) == q.TargetID && iss.Status == "open" {
+					matched = true
+					break
+				}
+			}
+			if !matched {
+				continue
+			}
+			fmt.Printf("[clarify] %s  BQ-%d\n", q.TargetID, q.ID)
+			fmt.Printf("  %s\n", q.Context)
+			if len(q.Choices) > 0 {
+				for i, ch := range q.Choices {
+					fmt.Printf("    %d. %s\n", i+1, ch)
+				}
+			}
+			fmt.Printf("  answer: dx question answer %d --answer=\"...\"\n", q.ID)
+			return nil
+		}
+	}
+
+	// 0d. Bootstrap: if no issues exist at all, guide agent to analyze the project.
 	if issueFlag == "" && len(issueList.Issues) == 0 && len(featList.Features) == 0 {
 		fmt.Printf("[bootstrap] %s\n", slug)
 		fmt.Println(`
@@ -653,7 +694,8 @@ func todoOwnerCmd() *cobra.Command {
 }
 
 func todoOwnerTriageCmd() *cobra.Command {
-	var priority, title, issueType, context string
+	var priority, title, issueType, context, questions string
+	var clarify bool
 	cmd := &cobra.Command{
 		Use:   "triage <IS-N>",
 		Short: "Set issue priority",
@@ -661,10 +703,71 @@ func todoOwnerTriageCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			pri, _ := strconv.ParseInt(priority, 10, 32)
 			c := mustClient()
+			slug := c.SlugOrDie()
+
+			if clarify {
+				if questions == "" {
+					return fmt.Errorf("--clarify requires --questions")
+				}
+				// Parse questions: semicolon-separated, each optionally containing pipe-separated choices
+				// Format: "question text|choice1,choice2;another question"
+				parts := strings.Split(questions, ";")
+				for _, part := range parts {
+					part = strings.TrimSpace(part)
+					if part == "" {
+						continue
+					}
+					qCtx := part
+					var choiceList []string
+					if idx := strings.Index(part, "|"); idx >= 0 {
+						qCtx = strings.TrimSpace(part[:idx])
+						for _, ch := range strings.Split(part[idx+1:], ",") {
+							ch = strings.TrimSpace(ch)
+							if ch != "" {
+								choiceList = append(choiceList, ch)
+							}
+						}
+					}
+					var q blockerQuestionItem
+					if err := c.post("/api/dx/blocker-questions/add", map[string]any{
+						"slug":        slug,
+						"target_type": "issue",
+						"target_id":   id,
+						"context":     qCtx,
+						"choices":     choiceList,
+					}, &q); err != nil {
+						return err
+					}
+					fmt.Printf("BQ-%d  [issue:%s]  %s\n", q.ID, id, qCtx)
+				}
+				if title != "" || context != "" {
+					body := map[string]any{
+						"slug":     slug,
+						"id":       int32(n),
+						"priority": int32(0),
+					}
+					if title != "" {
+						body["title"] = title
+					}
+					if context != "" {
+						body["context"] = context
+					}
+					var ok struct {
+						OK bool `json:"ok"`
+					}
+					_ = c.post("/api/dx/todo/owner/triage", body, &ok)
+				}
+				fmt.Printf("%s needs clarification — solo will block until questions are answered\n", id)
+				return nil
+			}
+
+			if priority == "" {
+				return fmt.Errorf("--priority is required (use --clarify for vague issues)")
+			}
+			pri, _ := strconv.ParseInt(priority, 10, 32)
 			body := map[string]any{
-				"slug":     c.SlugOrDie(),
+				"slug":     slug,
 				"id":       int32(n),
 				"priority": int32(pri),
 			}
@@ -691,7 +794,8 @@ func todoOwnerTriageCmd() *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "set issue title")
 	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops or impl")
 	cmd.Flags().StringVar(&context, "context", "", "rewrite issue context (answer embedded question, clarify scope)")
-	cmd.MarkFlagRequired("priority")
+	cmd.Flags().BoolVar(&clarify, "clarify", false, "create clarification questions instead of triaging (requires --questions)")
+	cmd.Flags().StringVar(&questions, "questions", "", "semicolon-separated questions; use | for choices: \"question|a,b,c;question2\"")
 	return cmd
 }
 
