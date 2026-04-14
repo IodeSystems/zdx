@@ -46,18 +46,11 @@ upload_session() {
   log "upload: session $sid → HTTP $http_code"
 }
 
-# Two Ctrl+C within 2s exits the loop; a single Ctrl+C just interrupts the
-# current claude/sleep and continues to the next iteration.
-last_int=0
+# Ctrl+C exits immediately.
 on_int() {
-  now=$(date +%s)
-  if (( now - last_int <= 2 )); then
-    log "interrupt: exiting"
-    kill 0 2>/dev/null
-    exit 130
-  fi
-  last_int=$now
-  log "interrupt: press Ctrl+C again within 2s to exit"
+  log "interrupt: exiting"
+  kill 0 2>/dev/null
+  exit 130
 }
 trap on_int INT
 
