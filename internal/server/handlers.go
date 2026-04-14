@@ -3924,6 +3924,7 @@ func (s *Server) registerRoutes(api huma.API) {
 		IssueID    string `json:"issue_id"`
 		SessionID  string `json:"session_id"`
 		Title      string `json:"title"`
+		Alias      string `json:"alias"`
 		EventCount int64  `json:"event_count"`
 		CreatedAt  string `json:"created_at"`
 	}
@@ -3961,6 +3962,7 @@ func (s *Server) registerRoutes(api huma.API) {
 					IssueID:    r.IssueID,
 					SessionID:  r.SessionID,
 					Title:      r.Title,
+					Alias:      r.Alias,
 					EventCount: cnt,
 					CreatedAt:  fmtTS(r.CreatedAt),
 				}
@@ -4181,6 +4183,7 @@ func (s *Server) handleClaudeSessionIngest(w http.ResponseWriter, r *http.Reques
 	slug := r.URL.Query().Get("slug")
 	sessionUUID := r.URL.Query().Get("session_id")
 	issueID := r.URL.Query().Get("issue_id")
+	alias := r.URL.Query().Get("alias")
 
 	if slug == "" || sessionUUID == "" {
 		http.Error(w, `{"title":"Bad Request","status":400,"detail":"slug and session_id required"}`, http.StatusBadRequest)
@@ -4228,6 +4231,7 @@ func (s *Server) handleClaudeSessionIngest(w http.ResponseWriter, r *http.Reques
 		IssueID:   issueID,
 		SessionID: sessionUUID,
 		Title:     title,
+		Alias:     alias,
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {

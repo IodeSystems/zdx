@@ -1,18 +1,18 @@
 -- name: CreateClaudeSession :one
-INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title)
-VALUES ($1, $2, $3, $4)
-RETURNING id, project_id, issue_id, session_id, title, created_at;
+INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, project_id, issue_id, session_id, title, alias, created_at;
 
 -- name: GetClaudeSession :one
-SELECT id, project_id, issue_id, session_id, title, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, created_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND id = $2;
 
 -- name: GetClaudeSessionBySessionID :one
-SELECT id, project_id, issue_id, session_id, title, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, created_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND session_id = $2;
 
 -- name: ListClaudeSessions :many
-SELECT id, project_id, issue_id, session_id, title, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, created_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
 ORDER BY created_at DESC;
@@ -21,7 +21,7 @@ ORDER BY created_at DESC;
 SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1;
 
 -- name: ListClaudeSessionsPaginated :many
-SELECT id, project_id, issue_id, session_id, title, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, created_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
 ORDER BY created_at DESC

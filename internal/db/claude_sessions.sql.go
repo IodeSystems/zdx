@@ -54,9 +54,9 @@ func (q *Queries) CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventPa
 }
 
 const createClaudeSession = `-- name: CreateClaudeSession :one
-INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title)
-VALUES ($1, $2, $3, $4)
-RETURNING id, project_id, issue_id, session_id, title, created_at
+INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, project_id, issue_id, session_id, title, alias, created_at
 `
 
 type CreateClaudeSessionParams struct {
@@ -64,6 +64,7 @@ type CreateClaudeSessionParams struct {
 	IssueID   string `db:"issue_id" json:"issue_id"`
 	SessionID string `db:"session_id" json:"session_id"`
 	Title     string `db:"title" json:"title"`
+	Alias     string `db:"alias" json:"alias"`
 }
 
 func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (ZdxClaudeSession, error) {
@@ -72,6 +73,7 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 		arg.IssueID,
 		arg.SessionID,
 		arg.Title,
+		arg.Alias,
 	)
 	var i ZdxClaudeSession
 	err := row.Scan(
@@ -80,13 +82,14 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 		&i.IssueID,
 		&i.SessionID,
 		&i.Title,
+		&i.Alias,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getClaudeSession = `-- name: GetClaudeSession :one
-SELECT id, project_id, issue_id, session_id, title, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, created_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND id = $2
 `
 
@@ -104,13 +107,14 @@ func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionPara
 		&i.IssueID,
 		&i.SessionID,
 		&i.Title,
+		&i.Alias,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const getClaudeSessionBySessionID = `-- name: GetClaudeSessionBySessionID :one
-SELECT id, project_id, issue_id, session_id, title, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, created_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND session_id = $2
 `
 
@@ -128,6 +132,7 @@ func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaude
 		&i.IssueID,
 		&i.SessionID,
 		&i.Title,
+		&i.Alias,
 		&i.CreatedAt,
 	)
 	return i, err
@@ -240,7 +245,7 @@ func (q *Queries) ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeE
 }
 
 const listClaudeSessions = `-- name: ListClaudeSessions :many
-SELECT id, project_id, issue_id, session_id, title, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, created_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
 ORDER BY created_at DESC
@@ -261,6 +266,7 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Zd
 			&i.IssueID,
 			&i.SessionID,
 			&i.Title,
+			&i.Alias,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -274,7 +280,7 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Zd
 }
 
 const listClaudeSessionsPaginated = `-- name: ListClaudeSessionsPaginated :many
-SELECT id, project_id, issue_id, session_id, title, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, created_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
 ORDER BY created_at DESC
@@ -302,6 +308,7 @@ func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaud
 			&i.IssueID,
 			&i.SessionID,
 			&i.Title,
+			&i.Alias,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

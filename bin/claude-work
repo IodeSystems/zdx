@@ -3,6 +3,13 @@ set -u
 
 cd "$(dirname "$0")/.."
 
+ALIAS=""
+for arg in "$@"; do
+  case "$arg" in
+    --alias=*) ALIAS="${arg#--alias=}" ;;
+  esac
+done
+
 mkdir -p .zdx/logs .zdx/cache
 LOG=.zdx/logs/claude-work.log
 STATE_FILE=.zdx/cache/claude-work-state
@@ -28,7 +35,7 @@ upload_session() {
     log "upload: skipped (no session file)"
     return
   fi
-  local url="${ZDX_URL}/api/dx/claude/sessions/ingest?slug=${ZDX_SLUG}&session_id=${sid}&issue_id=${issue_id}"
+  local url="${ZDX_URL}/api/dx/claude/sessions/ingest?slug=${ZDX_SLUG}&session_id=${sid}&issue_id=${issue_id}&alias=${ALIAS}"
   local http_code
   http_code=$(curl -s -o /dev/null -w '%{http_code}' \
     -X POST \

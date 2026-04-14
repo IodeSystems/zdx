@@ -46,6 +46,7 @@ type ZdxClaudeSession struct {
 	IssueID   string             `db:"issue_id" json:"issue_id"`
 	SessionID string             `db:"session_id" json:"session_id"`
 	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
