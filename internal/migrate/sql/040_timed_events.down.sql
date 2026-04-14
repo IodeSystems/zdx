@@ -1,0 +1,1 @@
+DROP TABLE IF EXISTS zdx_timed_events;

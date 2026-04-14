@@ -42,6 +42,7 @@ type Querier interface {
 	CountTasksByIssue(ctx context.Context, arg CountTasksByIssueParams) (int64, error)
 	CountTests(ctx context.Context, projectID int32) (int64, error)
 	CountTimed(ctx context.Context, arg CountTimedParams) (int64, error)
+	CountTimedEvents(ctx context.Context, arg CountTimedEventsParams) (int64, error)
 	CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error)
 	// Counts comments on targets where the user has previously commented,
 	// excluding the user's own comments, that are newer than the user's last read.
@@ -77,6 +78,7 @@ type Querier interface {
 	// Will fail at the DB level (RESTRICT) if spec_tests rows reference this test.
 	// Call ListSpecsCoveredByTest first to surface what breaks.
 	DeleteTest(ctx context.Context, id int32) error
+	DeleteTimedEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
 	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
@@ -120,6 +122,7 @@ type Querier interface {
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
+	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
@@ -177,6 +180,8 @@ type Querier interface {
 	ListTimed(ctx context.Context, projectID pgtype.Int4) ([]ListTimedRow, error)
 	ListTimedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListTimedDistinctTagValues(ctx context.Context, arg ListTimedDistinctTagValuesParams) ([]interface{}, error)
+	ListTimedEvents(ctx context.Context, arg ListTimedEventsParams) ([]ZdxTimedEvent, error)
+	ListTimedEventsGrouped(ctx context.Context, arg ListTimedEventsGroupedParams) ([]ListTimedEventsGroupedRow, error)
 	ListTimedGrouped(ctx context.Context, arg ListTimedGroupedParams) ([]ListTimedGroupedRow, error)
 	ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ListTimedPaginatedRow, error)
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)

@@ -463,6 +463,18 @@ type ZdxTimed struct {
 	Environment string             `db:"environment" json:"environment"`
 }
 
+type ZdxTimedEvent struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
+	Name        string             `db:"name" json:"name"`
+	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson []byte             `db:"context_json" json:"context_json"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxTodo struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`

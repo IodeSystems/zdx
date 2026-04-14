@@ -92,6 +92,8 @@ func main() {
 		}
 	}
 
+	srv.StartTimedEventsRetention(context.Background())
+
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("dx-server listening on %s", addr)
 	if err := http.ListenAndServe(addr, srv); err != nil {

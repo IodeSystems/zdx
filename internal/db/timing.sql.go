@@ -29,6 +29,74 @@ func (q *Queries) CountTimed(ctx context.Context, arg CountTimedParams) (int64, 
 	return count, err
 }
 
+const countTimedEvents = `-- name: CountTimedEvents :one
+SELECT count(*) FROM zdx_timed_events
+WHERE ($1::int IS NULL OR project_id = $1)
+  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
+  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
+  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
+`
+
+type CountTimedEventsParams struct {
+	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
+	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
+	Since     pgtype.Timestamptz `db:"since" json:"since"`
+	Until     pgtype.Timestamptz `db:"until" json:"until"`
+}
+
+func (q *Queries) CountTimedEvents(ctx context.Context, arg CountTimedEventsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countTimedEvents,
+		arg.ProjectID,
+		arg.TagFilter,
+		arg.Since,
+		arg.Until,
+	)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const deleteTimedEventsOlderThan = `-- name: DeleteTimedEventsOlderThan :execrows
+DELETE FROM zdx_timed_events
+WHERE created_at < $1::timestamptz
+`
+
+func (q *Queries) DeleteTimedEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteTimedEventsOlderThan, cutoff)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const insertTimedEvent = `-- name: InsertTimedEvent :exec
+INSERT INTO zdx_timed_events (project_id, component, environment, name, duration_ms, source, context_json)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+`
+
+type InsertTimedEventParams struct {
+	ProjectID   pgtype.Int4 `db:"project_id" json:"project_id"`
+	Component   string      `db:"component" json:"component"`
+	Environment string      `db:"environment" json:"environment"`
+	Name        string      `db:"name" json:"name"`
+	DurationMs  int32       `db:"duration_ms" json:"duration_ms"`
+	Source      string      `db:"source" json:"source"`
+	ContextJson []byte      `db:"context_json" json:"context_json"`
+}
+
+func (q *Queries) InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error {
+	_, err := q.db.Exec(ctx, insertTimedEvent,
+		arg.ProjectID,
+		arg.Component,
+		arg.Environment,
+		arg.Name,
+		arg.DurationMs,
+		arg.Source,
+		arg.ContextJson,
+	)
+	return err
+}
+
 const listTimed = `-- name: ListTimed :many
 SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
@@ -136,6 +204,131 @@ func (q *Queries) ListTimedDistinctTagValues(ctx context.Context, arg ListTimedD
 			return nil, err
 		}
 		items = append(items, tag_value)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTimedEvents = `-- name: ListTimedEvents :many
+SELECT id, project_id, component, environment, name, duration_ms, source, context_json, created_at
+FROM zdx_timed_events
+WHERE ($1::int IS NULL OR project_id = $1)
+  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
+  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
+  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
+ORDER BY created_at DESC
+LIMIT $6 OFFSET $5
+`
+
+type ListTimedEventsParams struct {
+	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
+	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
+	Since     pgtype.Timestamptz `db:"since" json:"since"`
+	Until     pgtype.Timestamptz `db:"until" json:"until"`
+	Off       int32              `db:"off" json:"off"`
+	Lim       int32              `db:"lim" json:"lim"`
+}
+
+func (q *Queries) ListTimedEvents(ctx context.Context, arg ListTimedEventsParams) ([]ZdxTimedEvent, error) {
+	rows, err := q.db.Query(ctx, listTimedEvents,
+		arg.ProjectID,
+		arg.TagFilter,
+		arg.Since,
+		arg.Until,
+		arg.Off,
+		arg.Lim,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTimedEvent
+	for rows.Next() {
+		var i ZdxTimedEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Component,
+			&i.Environment,
+			&i.Name,
+			&i.DurationMs,
+			&i.Source,
+			&i.ContextJson,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTimedEventsGrouped = `-- name: ListTimedEventsGrouped :many
+SELECT
+  context_json->>@group_key::text AS group_value,
+  count(*)::int AS entry_count,
+  max(duration_ms) AS max_ms,
+  sum(duration_ms)::bigint AS sum_ms,
+  min(created_at) AS first_seen,
+  max(created_at) AS last_seen
+FROM zdx_timed_events
+WHERE ($1::int IS NULL OR project_id = $1)
+  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
+  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
+  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
+  AND context_json ? $5::text
+GROUP BY group_value
+ORDER BY max_ms DESC
+`
+
+type ListTimedEventsGroupedParams struct {
+	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
+	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
+	Since     pgtype.Timestamptz `db:"since" json:"since"`
+	Until     pgtype.Timestamptz `db:"until" json:"until"`
+	GroupKey  string             `db:"group_key" json:"group_key"`
+}
+
+type ListTimedEventsGroupedRow struct {
+	GroupValue interface{} `db:"group_value" json:"group_value"`
+	EntryCount int32       `db:"entry_count" json:"entry_count"`
+	MaxMs      interface{} `db:"max_ms" json:"max_ms"`
+	SumMs      int64       `db:"sum_ms" json:"sum_ms"`
+	FirstSeen  interface{} `db:"first_seen" json:"first_seen"`
+	LastSeen   interface{} `db:"last_seen" json:"last_seen"`
+}
+
+func (q *Queries) ListTimedEventsGrouped(ctx context.Context, arg ListTimedEventsGroupedParams) ([]ListTimedEventsGroupedRow, error) {
+	rows, err := q.db.Query(ctx, listTimedEventsGrouped,
+		arg.ProjectID,
+		arg.TagFilter,
+		arg.Since,
+		arg.Until,
+		arg.GroupKey,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTimedEventsGroupedRow
+	for rows.Next() {
+		var i ListTimedEventsGroupedRow
+		if err := rows.Scan(
+			&i.GroupValue,
+			&i.EntryCount,
+			&i.MaxMs,
+			&i.SumMs,
+			&i.FirstSeen,
+			&i.LastSeen,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

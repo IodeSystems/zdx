@@ -56,3 +56,45 @@ WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND context_json ? @tag_key::text
   AND context_json->>@tag_key::text IS NOT NULL
 ORDER BY tag_value;
+
+-- name: InsertTimedEvent :exec
+INSERT INTO zdx_timed_events (project_id, component, environment, name, duration_ms, source, context_json)
+VALUES (@project_id, @component, @environment, @name, @duration_ms, @source, @context_json);
+
+-- name: ListTimedEvents :many
+SELECT id, project_id, component, environment, name, duration_ms, source, context_json, created_at
+FROM zdx_timed_events
+WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
+  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
+  AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
+  AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
+ORDER BY created_at DESC
+LIMIT @lim OFFSET @off;
+
+-- name: CountTimedEvents :one
+SELECT count(*) FROM zdx_timed_events
+WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
+  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
+  AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
+  AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz);
+
+-- name: ListTimedEventsGrouped :many
+SELECT
+  context_json->>@group_key::text AS group_value,
+  count(*)::int AS entry_count,
+  max(duration_ms) AS max_ms,
+  sum(duration_ms)::bigint AS sum_ms,
+  min(created_at) AS first_seen,
+  max(created_at) AS last_seen
+FROM zdx_timed_events
+WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
+  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
+  AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
+  AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
+  AND context_json ? @group_key::text
+GROUP BY group_value
+ORDER BY max_ms DESC;
+
+-- name: DeleteTimedEventsOlderThan :execrows
+DELETE FROM zdx_timed_events
+WHERE created_at < @cutoff::timestamptz;

@@ -179,8 +179,9 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 			accepted := 0
 			for _, ev := range in.Body.Events {
 				ctxJSON := buildContextJSON(host, ev.Tags)
+				pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
 				if err := s.q.UpsertTimed(ctx, db.UpsertTimedParams{
-					ProjectID:   pgtype.Int4{Int32: row.ProjectID, Valid: true},
+					ProjectID:   pid,
 					Component:   component,
 					Environment: env,
 					Name:        ev.Name,
@@ -191,6 +192,17 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 				}); err != nil {
 					log.Printf("ingest: UpsertTimed %q: %v", ev.Name, err)
 					continue
+				}
+				if err := s.q.InsertTimedEvent(ctx, db.InsertTimedEventParams{
+					ProjectID:   pid,
+					Component:   component,
+					Environment: env,
+					Name:        ev.Name,
+					DurationMs:  ev.DurationMs,
+					Source:      ev.Source,
+					ContextJson: ctxJSON,
+				}); err != nil {
+					log.Printf("ingest: InsertTimedEvent %q: %v", ev.Name, err)
 				}
 				accepted++
 			}

@@ -1409,6 +1409,42 @@ ALTER SEQUENCE public.zdx_timed_id_seq OWNED BY public.zdx_timed.id;
 
 
 --
+-- Name: zdx_timed_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_timed_events (
+    id bigint NOT NULL,
+    project_id integer,
+    component text DEFAULT ''::text NOT NULL,
+    environment text DEFAULT ''::text NOT NULL,
+    name text NOT NULL,
+    duration_ms integer NOT NULL,
+    source text DEFAULT ''::text NOT NULL,
+    context_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_timed_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_timed_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_timed_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_timed_events_id_seq OWNED BY public.zdx_timed_events.id;
+
+
+--
 -- Name: zdx_todos; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1757,6 +1793,13 @@ ALTER TABLE ONLY public.zdx_themes ALTER COLUMN id SET DEFAULT nextval('public.z
 --
 
 ALTER TABLE ONLY public.zdx_timed ALTER COLUMN id SET DEFAULT nextval('public.zdx_timed_id_seq'::regclass);
+
+
+--
+-- Name: zdx_timed_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_timed_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_timed_events_id_seq'::regclass);
 
 
 --
@@ -2309,6 +2352,14 @@ ALTER TABLE ONLY public.zdx_timed
 
 
 --
+-- Name: zdx_timed_events zdx_timed_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_timed_events
+    ADD CONSTRAINT zdx_timed_events_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_todos zdx_todos_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2584,6 +2635,20 @@ CREATE UNIQUE INDEX zdx_timed_name ON public.zdx_timed USING btree (COALESCE(pro
 --
 
 CREATE INDEX zdx_timed_project ON public.zdx_timed USING btree (project_id);
+
+
+--
+-- Name: zdx_timed_events_project_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_timed_events_project_created ON public.zdx_timed_events USING btree (project_id, created_at);
+
+
+--
+-- Name: zdx_timed_events_context_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_timed_events_context_gin ON public.zdx_timed_events USING gin (context_json jsonb_path_ops);
 
 
 --
@@ -3016,6 +3081,14 @@ ALTER TABLE ONLY public.zdx_themes
 
 ALTER TABLE ONLY public.zdx_timed
     ADD CONSTRAINT zdx_timed_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_timed_events zdx_timed_events_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_timed_events
+    ADD CONSTRAINT zdx_timed_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
