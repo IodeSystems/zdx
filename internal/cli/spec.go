@@ -2,6 +2,7 @@ package cli
 
 import (
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -12,7 +13,7 @@ func SpecCmd() *cobra.Command {
 		Use:   "spec",
 		Short: "Feature spec management (BDD statements)",
 	}
-	cmd.AddCommand(specAddCmd(), specListCmd())
+	cmd.AddCommand(specAddCmd(), specListCmd(), specLinkCmd(), specUnlinkCmd())
 	return cmd
 }
 
@@ -74,6 +75,62 @@ func specListCmd() *cobra.Command {
 				return nil
 			}
 			return fmt.Errorf("feature not found: %s", args[0])
+		},
+	}
+}
+
+func specLinkCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "link <spec-id> <test-id>",
+		Short: "Link a test to a spec",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			specID, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid spec-id: %s", args[0])
+			}
+			testID, err := strconv.Atoi(args[1])
+			if err != nil {
+				return fmt.Errorf("invalid test-id: %s", args[1])
+			}
+			c := mustClient()
+			var ok struct{ OK bool }
+			if err := c.post("/api/dx/specs/link-test", map[string]any{
+				"spec_id": specID,
+				"test_id": testID,
+			}, &ok); err != nil {
+				return err
+			}
+			fmt.Printf("linked spec %d ↔ test %d\n", specID, testID)
+			return nil
+		},
+	}
+}
+
+func specUnlinkCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "unlink <spec-id> <test-id>",
+		Short: "Unlink a test from a spec",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			specID, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid spec-id: %s", args[0])
+			}
+			testID, err := strconv.Atoi(args[1])
+			if err != nil {
+				return fmt.Errorf("invalid test-id: %s", args[1])
+			}
+			c := mustClient()
+			var ok struct{ OK bool }
+			if err := c.post("/api/dx/specs/unlink-test", map[string]any{
+				"spec_id": specID,
+				"test_id": testID,
+			}, &ok); err != nil {
+				return err
+			}
+			fmt.Printf("unlinked spec %d ↔ test %d\n", specID, testID)
+			return nil
 		},
 	}
 }

@@ -1297,6 +1297,38 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "link-spec-test", Method: http.MethodPost, Path: "/api/dx/specs/link-test"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SpecID int32 `json:"spec_id"`
+				TestID int32 `json:"test_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.LinkSpecTest(ctx, db.LinkSpecTestParams{
+				SpecID: in.Body.SpecID,
+				TestID: in.Body.TestID,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "unlink-spec-test", Method: http.MethodPost, Path: "/api/dx/specs/unlink-test"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SpecID int32 `json:"spec_id"`
+				TestID int32 `json:"test_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.UnlinkSpecTest(ctx, db.UnlinkSpecTestParams{
+				SpecID: in.Body.SpecID,
+				TestID: in.Body.TestID,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "list-stale-features", Method: http.MethodGet, Path: "/api/dx/features/stale"},
 		func(ctx context.Context, in *struct {
 			Slug      string `query:"slug" required:"true"`
