@@ -32,6 +32,17 @@ issue is closed and shipped.**
 Vertical scope is automatic: solo --issue=IS-N picks only triage:IS-N, decompose:IS-N, plan: for linked features, and
 dev tasks with task.issue == IS-N.
 
+**Bootstrap** (when solo emits `[bootstrap] <slug>`):
+
+This means the project has zero issues and zero features — it's brand new. Follow the printed guidance:
+
+1. **Scan the codebase** thoroughly — read directory trees, entry points, configs, schema, routes, UI structure.
+2. **Create features** for each conceptual capability you discover (e.g. "auth", "api-server", "task-management",
+   "data-pipeline"). Use `dx feature add <name> --desc="..."` for each.
+3. **Create a setup issue** for zdx integration: close-hooks, component config, and verifying the solo cycle.
+4. **Re-run `dx todo solo`** — the normal triage flow will now engage on the setup issue.
+5. Continue the vertical loop from there.
+
 **Triage** (when solo emits `[triage] IS-N`):
 
 1. **Verify independently.** Reproduce or read the relevant code/UI before accepting the report at face value.
