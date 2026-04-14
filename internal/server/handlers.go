@@ -96,6 +96,7 @@ type SpecItem struct {
 	ID          int32  `json:"id"`
 	Description string `json:"description"`
 	Kind        string `json:"kind"`
+	Deferred    bool   `json:"deferred"`
 }
 
 type UncoveredSpecItem struct {
@@ -1324,6 +1325,30 @@ func (s *Server) registerRoutes(api huma.API) {
 				SpecID: in.Body.SpecID,
 				TestID: in.Body.TestID,
 			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "defer-spec", Method: http.MethodPost, Path: "/api/dx/specs/defer"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SpecID int32 `json:"spec_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.DeferSpec(ctx, in.Body.SpecID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "undefer-spec", Method: http.MethodPost, Path: "/api/dx/specs/undefer"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SpecID int32 `json:"spec_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.UndeferSpec(ctx, in.Body.SpecID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -3452,6 +3477,7 @@ func toFeatureItem(f db.ZdxFeature, specs []db.ZdxSpec) FeatureItem {
 			ID:          sp.ID,
 			Description: sp.Description,
 			Kind:        sp.Kind,
+			Deferred:    sp.Deferred,
 		}
 	}
 	return item

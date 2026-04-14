@@ -295,6 +295,7 @@ type ZdxSpec struct {
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	Description string `db:"description" json:"description"`
 	Kind        string `db:"kind" json:"kind"`
+	Deferred    bool   `db:"deferred" json:"deferred"`
 }
 
 type ZdxSpecTest struct {

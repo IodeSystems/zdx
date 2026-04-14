@@ -60,6 +60,7 @@ type specItem struct {
 	ID          int32  `json:"id"`
 	Description string `json:"description"`
 	Kind        string `json:"kind"`
+	Deferred    bool   `json:"deferred"`
 }
 
 func issueIDStr(n int32) string { return fmt.Sprintf("IS-%d", n) }

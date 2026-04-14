@@ -26,24 +26,31 @@ WHERE project_id = @project_id AND name = @name;
 DELETE FROM zdx_features WHERE id = $1;
 
 -- name: ListSpecs :many
-SELECT id, feature_id, description, kind FROM zdx_specs WHERE feature_id = $1 ORDER BY id;
+SELECT id, feature_id, description, kind, deferred FROM zdx_specs WHERE feature_id = $1 ORDER BY id;
 
 -- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind
+SELECT s.id, s.feature_id, s.description, s.kind, s.deferred
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
 ORDER BY s.feature_id, s.id;
 
 -- name: ListUncoveredSpecs :many
--- Specs that have no entries in zdx_spec_tests (no test coverage).
+-- Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
 SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE f.project_id = $1
   AND st.spec_id IS NULL
+  AND s.deferred = false
 ORDER BY f.name, s.id;
+
+-- name: DeferSpec :exec
+UPDATE zdx_specs SET deferred = true WHERE id = $1;
+
+-- name: UndeferSpec :exec
+UPDATE zdx_specs SET deferred = false WHERE id = $1;
 
 -- name: MarkFeatureReviewed :exec
 UPDATE zdx_features SET last_reviewed_at = NOW()

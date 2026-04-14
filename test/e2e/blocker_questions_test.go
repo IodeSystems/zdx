@@ -178,7 +178,9 @@ func TestBlockerQuestionChoicesPersistence(t *testing.T) {
 func TestBlockerQuestionListPending(t *testing.T) {
 	setupBQProject(t)
 
-	var pending struct{ ID int32 `json:"id"` }
+	var pending struct {
+		ID int32 `json:"id"`
+	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/blocker-questions/add",
 		map[string]any{
 			"slug":        "e2e-bq",
@@ -189,7 +191,9 @@ func TestBlockerQuestionListPending(t *testing.T) {
 		&pending,
 	))
 
-	var answeredQ struct{ ID int32 `json:"id"` }
+	var answeredQ struct {
+		ID int32 `json:"id"`
+	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/blocker-questions/add",
 		map[string]any{
 			"slug":        "e2e-bq",

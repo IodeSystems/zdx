@@ -13,7 +13,7 @@ import (
 type Querier interface {
 	AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error)
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
-	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
+	AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
 	AnswerBlockerQuestion(ctx context.Context, arg AnswerBlockerQuestionParams) error
 	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
@@ -40,6 +40,7 @@ type Querier interface {
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
+	DeferSpec(ctx context.Context, id int32) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error
@@ -103,7 +104,7 @@ type Querier interface {
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error)
 	// Used to show what breaks if a test is deleted.
-	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ZdxSpec, error)
+	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ListSpecsCoveredByTestRow, error)
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error)
 	// Features not reviewed in more than @stale_days days (or never reviewed).
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ZdxFeature, error)
@@ -116,7 +117,7 @@ type Querier interface {
 	ListThemes(ctx context.Context, projectID int32) ([]ListThemesRow, error)
 	ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, error)
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
-	// Specs that have no entries in zdx_spec_tests (no test coverage).
+	// Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error)
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
@@ -131,6 +132,7 @@ type Querier interface {
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
 	TouchApiKey(ctx context.Context, id int32) error
+	UndeferSpec(ctx context.Context, id int32) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
 	UpdateFeatureField(ctx context.Context, arg UpdateFeatureFieldParams) error
 	UpdateIssue(ctx context.Context, arg UpdateIssueParams) error

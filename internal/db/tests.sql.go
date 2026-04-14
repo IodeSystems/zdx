@@ -96,16 +96,23 @@ JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE st.test_id = $1 ORDER BY s.id
 `
 
+type ListSpecsCoveredByTestRow struct {
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+}
+
 // Used to show what breaks if a test is deleted.
-func (q *Queries) ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ZdxSpec, error) {
+func (q *Queries) ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ListSpecsCoveredByTestRow, error) {
 	rows, err := q.db.Query(ctx, listSpecsCoveredByTest, testID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxSpec
+	var items []ListSpecsCoveredByTestRow
 	for rows.Next() {
-		var i ZdxSpec
+		var i ListSpecsCoveredByTestRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.FeatureID,

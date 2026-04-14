@@ -20,9 +20,16 @@ type AddSpecParams struct {
 	Kind        string `db:"kind" json:"kind"`
 }
 
-func (q *Queries) AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error) {
+type AddSpecRow struct {
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+}
+
+func (q *Queries) AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, error) {
 	row := q.db.QueryRow(ctx, addSpec, arg.FeatureID, arg.Description, arg.Kind)
-	var i ZdxSpec
+	var i AddSpecRow
 	err := row.Scan(
 		&i.ID,
 		&i.FeatureID,
@@ -30,6 +37,15 @@ func (q *Queries) AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, erro
 		&i.Kind,
 	)
 	return i, err
+}
+
+const deferSpec = `-- name: DeferSpec :exec
+UPDATE zdx_specs SET deferred = true WHERE id = $1
+`
+
+func (q *Queries) DeferSpec(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deferSpec, id)
+	return err
 }
 
 const deleteFeature = `-- name: DeleteFeature :exec
@@ -126,7 +142,7 @@ func (q *Queries) ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeatu
 }
 
 const listSpecs = `-- name: ListSpecs :many
-SELECT id, feature_id, description, kind FROM zdx_specs WHERE feature_id = $1 ORDER BY id
+SELECT id, feature_id, description, kind, deferred FROM zdx_specs WHERE feature_id = $1 ORDER BY id
 `
 
 func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error) {
@@ -143,6 +159,7 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, er
 			&i.FeatureID,
 			&i.Description,
 			&i.Kind,
+			&i.Deferred,
 		); err != nil {
 			return nil, err
 		}
@@ -155,7 +172,7 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, er
 }
 
 const listSpecsForProject = `-- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind
+SELECT s.id, s.feature_id, s.description, s.kind, s.deferred
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
@@ -176,6 +193,7 @@ func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]Z
 			&i.FeatureID,
 			&i.Description,
 			&i.Kind,
+			&i.Deferred,
 		); err != nil {
 			return nil, err
 		}
@@ -239,6 +257,7 @@ JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE f.project_id = $1
   AND st.spec_id IS NULL
+  AND s.deferred = false
 ORDER BY f.name, s.id
 `
 
@@ -250,7 +269,7 @@ type ListUncoveredSpecsRow struct {
 	FeatureName string `db:"feature_name" json:"feature_name"`
 }
 
-// Specs that have no entries in zdx_spec_tests (no test coverage).
+// Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
 func (q *Queries) ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error) {
 	rows, err := q.db.Query(ctx, listUncoveredSpecs, projectID)
 	if err != nil {
@@ -289,6 +308,15 @@ type MarkFeatureReviewedParams struct {
 
 func (q *Queries) MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error {
 	_, err := q.db.Exec(ctx, markFeatureReviewed, arg.ProjectID, arg.Name)
+	return err
+}
+
+const undeferSpec = `-- name: UndeferSpec :exec
+UPDATE zdx_specs SET deferred = false WHERE id = $1
+`
+
+func (q *Queries) UndeferSpec(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, undeferSpec, id)
 	return err
 }
 

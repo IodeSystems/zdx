@@ -1,0 +1,1 @@
+ALTER TABLE zdx_specs ADD COLUMN deferred BOOLEAN NOT NULL DEFAULT false;

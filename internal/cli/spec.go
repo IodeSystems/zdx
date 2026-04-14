@@ -13,7 +13,7 @@ func SpecCmd() *cobra.Command {
 		Use:   "spec",
 		Short: "Feature spec management (BDD statements)",
 	}
-	cmd.AddCommand(specAddCmd(), specListCmd(), specLinkCmd(), specUnlinkCmd())
+	cmd.AddCommand(specAddCmd(), specListCmd(), specLinkCmd(), specUnlinkCmd(), specDeferCmd(), specUndeferCmd())
 	return cmd
 }
 
@@ -70,7 +70,11 @@ func specListCmd() *cobra.Command {
 					return nil
 				}
 				for _, s := range f.Specs {
-					fmt.Printf("%-4d [%-14s]  %s\n", s.ID, s.Kind, s.Description)
+					tag := ""
+					if s.Deferred {
+						tag = " (deferred)"
+					}
+					fmt.Printf("%-4d [%-14s]  %s%s\n", s.ID, s.Kind, s.Description, tag)
 				}
 				return nil
 			}
@@ -102,6 +106,52 @@ func specLinkCmd() *cobra.Command {
 				return err
 			}
 			fmt.Printf("linked spec %d ↔ test %d\n", specID, testID)
+			return nil
+		},
+	}
+}
+
+func specDeferCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "defer <spec-id>",
+		Short: "Mark a spec as deferred (skipped by solo tech:test-ref)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			specID, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid spec-id: %s", args[0])
+			}
+			c := mustClient()
+			var ok struct{ OK bool }
+			if err := c.post("/api/dx/specs/defer", map[string]any{
+				"spec_id": specID,
+			}, &ok); err != nil {
+				return err
+			}
+			fmt.Printf("deferred spec %d\n", specID)
+			return nil
+		},
+	}
+}
+
+func specUndeferCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "undefer <spec-id>",
+		Short: "Un-defer a spec (re-enable solo tech:test-ref checks)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			specID, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid spec-id: %s", args[0])
+			}
+			c := mustClient()
+			var ok struct{ OK bool }
+			if err := c.post("/api/dx/specs/undefer", map[string]any{
+				"spec_id": specID,
+			}, &ok); err != nil {
+				return err
+			}
+			fmt.Printf("un-deferred spec %d\n", specID)
 			return nil
 		},
 	}
