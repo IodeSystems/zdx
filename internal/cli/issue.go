@@ -115,11 +115,15 @@ func issueShowCmd() *cobra.Command {
 
 func issueCloseCmd() *cobra.Command {
 	var reason string
+	var duplicateOf string
 	cmd := &cobra.Command{
 		Use:   "close <IS-N>",
 		Short: "Close an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if reason == "duplicate" && duplicateOf == "" {
+				return fmt.Errorf("--duplicate-of is required when --reason=duplicate")
+			}
 			if err := runCloseHooks(); err != nil {
 				return err
 			}
@@ -129,11 +133,15 @@ func issueCloseCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/todo/issue/close", map[string]any{
+			body := map[string]any{
 				"slug":   c.SlugOrDie(),
 				"id":     int32(n),
 				"reason": reason,
-			}, &ok); err != nil {
+			}
+			if duplicateOf != "" {
+				body["duplicate_of"] = duplicateOf
+			}
+			if err := c.post("/api/dx/todo/issue/close", body, &ok); err != nil {
 				return err
 			}
 			fmt.Printf("%s closed\n", id)
@@ -141,6 +149,7 @@ func issueCloseCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&reason, "reason", "", "close reason")
+	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
 	return cmd
 }
 

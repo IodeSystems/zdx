@@ -562,7 +562,8 @@ CREATE TABLE public.zdx_issues (
     context text DEFAULT ''::text NOT NULL,
     blocked_by text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    issue_type text DEFAULT 'ops'::text NOT NULL
+    issue_type text DEFAULT 'ops'::text NOT NULL,
+    duplicate_of text DEFAULT ''::text NOT NULL
 );
 
 

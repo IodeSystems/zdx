@@ -1,0 +1,1 @@
+ALTER TABLE zdx_issues ADD COLUMN duplicate_of TEXT NOT NULL DEFAULT '';

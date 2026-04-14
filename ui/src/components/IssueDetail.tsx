@@ -1,5 +1,6 @@
 import { Link, useRouter } from '@tanstack/react-router'
 import {
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -16,7 +17,9 @@ import {
   useIssue,
   useTasks,
   useCloseIssue,
+  useSearchIssues,
   useIssueCodeRefs,
+  type IssueItem,
   type IssueWorkItem,
   type TaskItem,
 } from '../api'
@@ -65,6 +68,9 @@ export function IssueDetail({
   const router = useRouter()
   const [closeOpen, setCloseOpen] = useState(false)
   const [closeReason, setCloseReason] = useState('')
+  const [duplicateOf, setDuplicateOf] = useState<IssueItem | null>(null)
+  const [dupSearch, setDupSearch] = useState('')
+  const { data: dupResults } = useSearchIssues(slug, dupSearch, closeReason === 'duplicate' && dupSearch.length > 1)
 
   const onWsMessage = useCallback(() => {
     refetch()
@@ -149,8 +155,21 @@ export function IssueDetail({
             sx={{ textDecoration: 'none' }}
           />
         )}
+        {issue.duplicate_of && (
+          <Chip
+            label={`duplicate of: ${issue.duplicate_of}`}
+            size="small"
+            variant="outlined"
+            color="info"
+            component={Link as any}
+            to="/project/$slug/issues/$id"
+            params={{ slug, id: issue.duplicate_of }}
+            clickable
+            sx={{ textDecoration: 'none' }}
+          />
+        )}
         {(issue.status === 'open' || issue.status === 'triaged' || issue.status === 'in-progress') && (
-          <Button size="small" variant="outlined" color="warning" onClick={() => { setCloseReason(''); setCloseOpen(true) }}>
+          <Button size="small" variant="outlined" color="warning" onClick={() => { setCloseReason(''); setDuplicateOf(null); setDupSearch(''); setCloseOpen(true) }}>
             Close
           </Button>
         )}
@@ -161,24 +180,44 @@ export function IssueDetail({
         <DialogContent>
           <TextField
             fullWidth
+            select
             label="Reason"
-            multiline
-            rows={3}
             value={closeReason}
-            onChange={e => setCloseReason(e.target.value)}
+            onChange={e => { setCloseReason(e.target.value); if (e.target.value !== 'duplicate') { setDuplicateOf(null); setDupSearch('') } }}
             sx={{ mt: 1 }}
             autoFocus
-          />
+            slotProps={{ select: { native: true } }}
+          >
+            <option value="">Select reason...</option>
+            <option value="done">Done</option>
+            <option value="duplicate">Duplicate</option>
+            <option value="wontfix">Won't fix</option>
+            <option value="invalid">Invalid</option>
+          </TextField>
+          {closeReason === 'duplicate' && (
+            <Autocomplete
+              options={(dupResults ?? []).filter(i => `IS-${i.id}` !== issueId)}
+              getOptionLabel={(o) => `IS-${o.id}: ${o.title || o.context?.slice(0, 60) || '(no title)'}`}
+              value={duplicateOf}
+              onChange={(_, v) => setDuplicateOf(v)}
+              inputValue={dupSearch}
+              onInputChange={(_, v) => setDupSearch(v)}
+              renderInput={(params) => <TextField {...params} label="Duplicate of" placeholder="Search issues..." />}
+              sx={{ mt: 2 }}
+              noOptionsText={dupSearch.length < 2 ? 'Type to search...' : 'No issues found'}
+              isOptionEqualToValue={(o, v) => o.id === v.id}
+            />
+          )}
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setCloseOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
             color="warning"
-            disabled={closeIssue.isPending || !closeReason.trim()}
+            disabled={closeIssue.isPending || !closeReason.trim() || (closeReason === 'duplicate' && !duplicateOf)}
             onClick={() => {
               closeIssue.mutate(
-                { slug, id: issue.id, reason: closeReason },
+                { slug, id: issue.id, reason: closeReason, ...(duplicateOf ? { duplicate_of: `IS-${duplicateOf.id}` } : {}) } as any,
                 { onSuccess: () => setCloseOpen(false) },
               )
             }}

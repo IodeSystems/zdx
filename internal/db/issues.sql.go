@@ -27,16 +27,17 @@ func (q *Queries) AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams
 }
 
 const closeIssue = `-- name: CloseIssue :exec
-UPDATE zdx_issues SET status = 'closed' WHERE project_id = $1 AND id = $2
+UPDATE zdx_issues SET status = 'closed', duplicate_of = $1 WHERE project_id = $2 AND id = $3
 `
 
 type CloseIssueParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	ID        string `db:"id" json:"id"`
+	DuplicateOf string `db:"duplicate_of" json:"duplicate_of"`
+	ProjectID   int32  `db:"project_id" json:"project_id"`
+	ID          string `db:"id" json:"id"`
 }
 
 func (q *Queries) CloseIssue(ctx context.Context, arg CloseIssueParams) error {
-	_, err := q.db.Exec(ctx, closeIssue, arg.ProjectID, arg.ID)
+	_, err := q.db.Exec(ctx, closeIssue, arg.DuplicateOf, arg.ProjectID, arg.ID)
 	return err
 }
 
@@ -65,7 +66,7 @@ func (q *Queries) CountWorklogForProject(ctx context.Context, projectID int32) (
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, blocked_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 `
 
 type CreateIssueParams struct {
@@ -102,12 +103,13 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		&i.BlockedBy,
 		&i.CreatedAt,
 		&i.IssueType,
+		&i.DuplicateOf,
 	)
 	return i, err
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 AND id = $2
 `
 
@@ -130,6 +132,7 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 		&i.BlockedBy,
 		&i.CreatedAt,
 		&i.IssueType,
+		&i.DuplicateOf,
 	)
 	return i, err
 }
@@ -165,7 +168,7 @@ func (q *Queries) GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueW
 }
 
 const listIssues = `-- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
 `
 
@@ -189,6 +192,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 			&i.BlockedBy,
 			&i.CreatedAt,
 			&i.IssueType,
+			&i.DuplicateOf,
 		); err != nil {
 			return nil, err
 		}
@@ -201,7 +205,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 }
 
 const listIssuesPaginated = `-- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
 LIMIT $2 OFFSET $3
 `
@@ -232,6 +236,7 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 			&i.BlockedBy,
 			&i.CreatedAt,
 			&i.IssueType,
+			&i.DuplicateOf,
 		); err != nil {
 			return nil, err
 		}
@@ -244,7 +249,7 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 }
 
 const listOpenIssues = `-- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at
 `
 
@@ -268,6 +273,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 			&i.BlockedBy,
 			&i.CreatedAt,
 			&i.IssueType,
+			&i.DuplicateOf,
 		); err != nil {
 			return nil, err
 		}
@@ -390,7 +396,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -423,6 +429,7 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]Z
 			&i.BlockedBy,
 			&i.CreatedAt,
 			&i.IssueType,
+			&i.DuplicateOf,
 		); err != nil {
 			return nil, err
 		}

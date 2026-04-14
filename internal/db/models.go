@@ -137,16 +137,17 @@ type ZdxInvite struct {
 }
 
 type ZdxIssue struct {
-	ID        string             `db:"id" json:"id"`
-	ProjectID int32              `db:"project_id" json:"project_id"`
-	Title     string             `db:"title" json:"title"`
-	Status    string             `db:"status" json:"status"`
-	Priority  string             `db:"priority" json:"priority"`
-	Component string             `db:"component" json:"component"`
-	Context   string             `db:"context" json:"context"`
-	BlockedBy string             `db:"blocked_by" json:"blocked_by"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	IssueType string             `db:"issue_type" json:"issue_type"`
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
+	Status      string             `db:"status" json:"status"`
+	Priority    string             `db:"priority" json:"priority"`
+	Component   string             `db:"component" json:"component"`
+	Context     string             `db:"context" json:"context"`
+	BlockedBy   string             `db:"blocked_by" json:"blocked_by"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	IssueType   string             `db:"issue_type" json:"issue_type"`
+	DuplicateOf string             `db:"duplicate_of" json:"duplicate_of"`
 }
 
 type ZdxIssueBlock struct {

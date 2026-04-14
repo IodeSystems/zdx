@@ -49,17 +49,18 @@ func fmtTS(ts pgtype.Timestamptz) string {
 // ── Response types ─────────────────────────────────────────────────────────
 
 type IssueItem struct {
-	ID        int32  `json:"id" doc:"Server integer ID; CLI formats as IS-N"`
-	Title     string `json:"title"`
-	Status    string `json:"status"`
-	Priority  string `json:"priority"`
-	Component string `json:"component"`
-	Features  string `json:"features"`
-	BlockedBy string `json:"blocked_by"`
-	Context   string `json:"context"`
-	Source    string `json:"source"`
-	IssueType string `json:"issue_type"`
-	CreatedAt string `json:"created_at"`
+	ID          int32  `json:"id" doc:"Server integer ID; CLI formats as IS-N"`
+	Title       string `json:"title"`
+	Status      string `json:"status"`
+	Priority    string `json:"priority"`
+	Component   string `json:"component"`
+	Features    string `json:"features"`
+	BlockedBy   string `json:"blocked_by"`
+	Context     string `json:"context"`
+	Source      string `json:"source"`
+	IssueType   string `json:"issue_type"`
+	DuplicateOf string `json:"duplicate_of,omitempty"`
+	CreatedAt   string `json:"created_at"`
 }
 
 type TaskItem struct {
@@ -813,10 +814,11 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "close-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/close"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug   string  `json:"slug"`
-				ID     int32   `json:"id"`
-				Reason *string `json:"reason,omitempty"`
-				Notes  *string `json:"notes,omitempty"`
+				Slug        string  `json:"slug"`
+				ID          int32   `json:"id"`
+				Reason      *string `json:"reason,omitempty"`
+				Notes       *string `json:"notes,omitempty"`
+				DuplicateOf *string `json:"duplicate_of,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -824,23 +826,30 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
+			reason := ptrStr(in.Body.Reason)
+			duplicateOf := ptrStr(in.Body.DuplicateOf)
+			if reason == "duplicate" && duplicateOf == "" {
+				return nil, apiErr(400, "duplicate_of is required when reason is duplicate")
+			}
 			agent := ""
 			if uid := ctxUserIDVal(ctx); uid != 0 {
 				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
 					agent = u.Email
 				}
 			}
-			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
+			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			s.recordRevision(ctx, p.ID, "issue", issueID, "status", "open", "closed", agent)
-			reason := ptrStr(in.Body.Reason)
 			notes := ptrStr(in.Body.Notes)
 			note := "[closed"
 			if reason != "" {
 				note += ":" + reason
 			}
 			note += "] "
+			if duplicateOf != "" {
+				note += "duplicate of " + duplicateOf + " "
+			}
 			if notes != "" {
 				note += notes
 			}
@@ -4354,15 +4363,16 @@ func (s *Server) recordRevision(ctx context.Context, projectID int32, targetType
 
 func toIssueItem(r db.ZdxIssue) IssueItem {
 	return IssueItem{
-		ID:        issueIntID(r.ID),
-		Title:     r.Title,
-		Status:    r.Status,
-		Priority:  r.Priority,
-		Component: r.Component,
-		BlockedBy: r.BlockedBy,
-		Context:   r.Context,
-		IssueType: r.IssueType,
-		CreatedAt: fmtTS(r.CreatedAt),
+		ID:          issueIntID(r.ID),
+		Title:       r.Title,
+		Status:      r.Status,
+		Priority:    r.Priority,
+		Component:   r.Component,
+		BlockedBy:   r.BlockedBy,
+		Context:     r.Context,
+		IssueType:   r.IssueType,
+		DuplicateOf: r.DuplicateOf,
+		CreatedAt:   fmtTS(r.CreatedAt),
 	}
 }
 

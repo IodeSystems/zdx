@@ -1,21 +1,21 @@
 -- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at;
 
 -- name: CountIssues :one
 SELECT count(*) FROM zdx_issues WHERE project_id = $1;
 
 -- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
 LIMIT $2 OFFSET $3;
 
 -- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at;
 
 -- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues
 WHERE project_id = @project_id
   AND (title ILIKE '%' || @query::text || '%' OR context ILIKE '%' || @query::text || '%')
@@ -23,13 +23,13 @@ ORDER BY priority NULLS LAST, created_at
 LIMIT 20;
 
 -- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
+SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
 -- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, blocked_by)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type;
+RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of;
 
 -- name: UpdateIssue :exec
 UPDATE zdx_issues
@@ -41,7 +41,7 @@ SET title      = COALESCE(NULLIF(@title, ''),      title),
 WHERE project_id = @project_id AND id = @id;
 
 -- name: CloseIssue :exec
-UPDATE zdx_issues SET status = 'closed' WHERE project_id = $1 AND id = $2;
+UPDATE zdx_issues SET status = 'closed', duplicate_of = @duplicate_of WHERE project_id = @project_id AND id = @id;
 
 -- name: ReopenIssue :exec
 UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2;

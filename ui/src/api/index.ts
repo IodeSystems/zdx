@@ -8,6 +8,7 @@ import type { components } from '../api.gen'
 
 export type { components }
 export type IssueItem = components['schemas']['IssueItem']
+export type ShowIssueResponse = components['schemas']['Show-issueResponse']
 export type IssueWorkItem = components['schemas']['IssueWorkItem']
 export type TaskItem = components['schemas']['TaskItem']
 export type FeatureItem = components['schemas']['FeatureItem']
@@ -15,7 +16,6 @@ export type SpecItem = components['schemas']['SpecItem']
 export type ProjectItem = components['schemas']['ProjectItem']
 export type MeItem = components['schemas']['MeItem']
 export type OKBody = components['schemas']['OKBody']
-export type ShowIssueResponse = components['schemas']['Show-issueResponse']
 
 // SoloItem is not in the OpenAPI spec (undocumented endpoint).
 export interface SoloItem {
