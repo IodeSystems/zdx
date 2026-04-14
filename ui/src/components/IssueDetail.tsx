@@ -137,7 +137,17 @@ export function IssueDetail({
           <Chip label={issue.issue_type} size="small" variant="outlined" color={issue.issue_type === 'impl' ? 'secondary' : 'default'} />
         )}
         {issue.blocked_by && (
-          <Chip label={`blocked by: ${issue.blocked_by}`} size="small" variant="outlined" color="warning" />
+          <Chip
+            label={`blocked by: ${issue.blocked_by}`}
+            size="small"
+            variant="outlined"
+            color="warning"
+            component={Link as any}
+            to="/project/$slug/issues/$id"
+            params={{ slug, id: issue.blocked_by }}
+            clickable
+            sx={{ textDecoration: 'none' }}
+          />
         )}
         {(issue.status === 'open' || issue.status === 'triaged' || issue.status === 'in-progress') && (
           <Button size="small" variant="outlined" color="warning" onClick={() => { setCloseReason(''); setCloseOpen(true) }}>
