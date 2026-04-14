@@ -1719,6 +1719,13 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, err
 			}
 			for _, r := range in.Body.Results {
+				_, _ = s.q.UpsertTest(ctx, db.UpsertTestParams{
+					ProjectID: p.ID,
+					Component: r.Driver,
+					Name:      r.TestName,
+					Layer:     "integration",
+					Status:    r.Status,
+				})
 				_ = s.q.UpsertTestResult(ctx, db.UpsertTestResultParams{
 					ProjectID:  p.ID,
 					Driver:     r.Driver,
