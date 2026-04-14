@@ -73,13 +73,14 @@ type Config struct {
 // Client holds the in-memory buffer and the background flusher.
 // A Client is safe for concurrent use.
 type Client struct {
-	cfg     Config
-	events  chan event
-	flushed chan struct{}
-	stop    chan struct{}
-	wg      sync.WaitGroup
-	closed  atomic.Bool
-	dropped atomic.Uint64
+	cfg           Config
+	events        chan event
+	counterEvents chan counterEvent
+	flushed       chan struct{}
+	stop          chan struct{}
+	wg            sync.WaitGroup
+	closed        atomic.Bool
+	dropped       atomic.Uint64
 }
 
 // event is the wire-format struct used directly in JSON payloads.
@@ -97,6 +98,20 @@ type batch struct {
 	Environment string  `json:"environment,omitempty"`
 	Host        string  `json:"host,omitempty"`
 	Events      []event `json:"events"`
+}
+
+type counterEvent struct {
+	Name   string            `json:"name"`
+	Value  int32             `json:"value"`
+	Source string            `json:"source,omitempty"`
+	Tags   map[string]string `json:"tags,omitempty"`
+}
+
+type counterBatch struct {
+	Component   string         `json:"component,omitempty"`
+	Environment string         `json:"environment,omitempty"`
+	Host        string         `json:"host,omitempty"`
+	Events      []counterEvent `json:"events"`
 }
 
 // New validates cfg, fills in defaults, and starts the background flusher.
@@ -124,13 +139,15 @@ func New(cfg Config) (*Client, error) {
 		cfg.OnError = func(error, int) {}
 	}
 	c := &Client{
-		cfg:     cfg,
-		events:  make(chan event, cfg.BufferSize),
-		flushed: make(chan struct{}),
-		stop:    make(chan struct{}),
+		cfg:           cfg,
+		events:        make(chan event, cfg.BufferSize),
+		counterEvents: make(chan counterEvent, cfg.BufferSize),
+		flushed:       make(chan struct{}),
+		stop:          make(chan struct{}),
 	}
-	c.wg.Add(1)
+	c.wg.Add(2)
 	go c.run()
+	go c.runCounters()
 	return c, nil
 }
 
@@ -160,6 +177,33 @@ func (c *Client) RecordWithSource(name, source string, duration time.Duration, t
 	ev := event{Name: name, DurationMs: ms, Source: source, Tags: tags}
 	select {
 	case c.events <- ev:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// RecordCounter enqueues a counter event. Non-blocking: if the buffer is full
+// the event is dropped and the Dropped() counter is incremented.
+func (c *Client) RecordCounter(name string, value int32, tags Tags) {
+	if c.closed.Load() {
+		return
+	}
+	ev := counterEvent{Name: name, Value: value, Tags: tags}
+	select {
+	case c.counterEvents <- ev:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// RecordCounterWithSource is like RecordCounter but also stamps a source label.
+func (c *Client) RecordCounterWithSource(name, source string, value int32, tags Tags) {
+	if c.closed.Load() {
+		return
+	}
+	ev := counterEvent{Name: name, Value: value, Source: source, Tags: tags}
+	select {
+	case c.counterEvents <- ev:
 	default:
 		c.dropped.Add(1)
 	}
@@ -227,6 +271,85 @@ func (c *Client) run() {
 			}
 		}
 	}
+}
+
+// runCounters is the counter flusher goroutine — mirrors run() for counter events.
+func (c *Client) runCounters() {
+	defer c.wg.Done()
+	ticker := time.NewTicker(c.cfg.FlushInterval)
+	defer ticker.Stop()
+	buf := make([]counterEvent, 0, c.cfg.MaxBatch)
+	for {
+		select {
+		case ev := <-c.counterEvents:
+			buf = append(buf, ev)
+			if len(buf) >= c.cfg.MaxBatch {
+				c.flushCounters(buf)
+				buf = buf[:0]
+			}
+		case <-ticker.C:
+			if len(buf) > 0 {
+				c.flushCounters(buf)
+				buf = buf[:0]
+			}
+		case <-c.stop:
+			for {
+				select {
+				case ev := <-c.counterEvents:
+					buf = append(buf, ev)
+				default:
+					if len(buf) > 0 {
+						c.flushCounters(buf)
+					}
+					return
+				}
+			}
+		}
+	}
+}
+
+func (c *Client) flushCounters(events []counterEvent) {
+	payload := counterBatch{
+		Component:   c.cfg.Component,
+		Environment: c.cfg.Environment,
+		Host:        c.cfg.Host,
+		Events:      events,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		c.dropped.Add(uint64(len(events)))
+		c.cfg.OnError(fmt.Errorf("marshal: %w", err), len(events))
+		return
+	}
+	url := c.cfg.Endpoint + "/api/ingest/counters"
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(1<<attempt) * 200 * time.Millisecond)
+		}
+		req, rErr := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		if rErr != nil {
+			lastErr = rErr
+			break
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+		resp, doErr := c.cfg.HTTPClient.Do(req)
+		if doErr != nil {
+			lastErr = doErr
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return
+		}
+		lastErr = fmt.Errorf("ingest returned %d", resp.StatusCode)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+			break
+		}
+	}
+	c.dropped.Add(uint64(len(events)))
+	c.cfg.OnError(lastErr, len(events))
 }
 
 // flush POSTs one batch with exponential backoff. On terminal failure the

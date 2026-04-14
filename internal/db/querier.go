@@ -30,6 +30,8 @@ type Querier interface {
 	CountClosedTasks(ctx context.Context, projectID int32) (int64, error)
 	CountComments(ctx context.Context, arg CountCommentsParams) (int64, error)
 	CountCommentsByAuthor(ctx context.Context, arg CountCommentsByAuthorParams) (int64, error)
+	CountCounted(ctx context.Context, arg CountCountedParams) (int64, error)
+	CountCounterEvents(ctx context.Context, arg CountCounterEventsParams) (int64, error)
 	CountErrorReports(ctx context.Context, projectID pgtype.Int4) (int64, error)
 	CountIssues(ctx context.Context, projectID int32) (int64, error)
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
@@ -68,6 +70,7 @@ type Querier interface {
 	DeferSpec(ctx context.Context, id int32) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
+	DeleteCounterEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteIntegrationToken(ctx context.Context, id int32) error
@@ -117,6 +120,7 @@ type Querier interface {
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
 	HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadCommentsForTargetParams) (bool, error)
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
+	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error)
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
@@ -139,6 +143,12 @@ type Querier interface {
 	ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error)
 	ListCommentsByAuthorPaginated(ctx context.Context, arg ListCommentsByAuthorPaginatedParams) ([]ListCommentsByAuthorPaginatedRow, error)
 	ListCommentsPaginated(ctx context.Context, arg ListCommentsPaginatedParams) ([]ListCommentsPaginatedRow, error)
+	ListCountedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
+	ListCountedDistinctTagValues(ctx context.Context, arg ListCountedDistinctTagValuesParams) ([]interface{}, error)
+	ListCountedGrouped(ctx context.Context, arg ListCountedGroupedParams) ([]ListCountedGroupedRow, error)
+	ListCountedPaginated(ctx context.Context, arg ListCountedPaginatedParams) ([]ListCountedPaginatedRow, error)
+	ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error)
+	ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error)
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ZdxErrorReport, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)
@@ -219,6 +229,7 @@ type Querier interface {
 	UpdateThemeStatus(ctx context.Context, arg UpdateThemeStatusParams) error
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error
 	UpsertCommentRead(ctx context.Context, arg UpsertCommentReadParams) error
+	UpsertCounted(ctx context.Context, arg UpsertCountedParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (ZdxFeature, error)
 	UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (ZdxLlmConfig, error)
 	UpsertPlan(ctx context.Context, arg UpsertPlanParams) (ZdxPlan, error)

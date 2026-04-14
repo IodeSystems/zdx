@@ -91,6 +91,32 @@ type ZdxCommentRead struct {
 	LastReadAt pgtype.Timestamptz `db:"last_read_at" json:"last_read_at"`
 }
 
+type ZdxCounted struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
+	Name        string             `db:"name" json:"name"`
+	Value       int32              `db:"value" json:"value"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson []byte             `db:"context_json" json:"context_json"`
+	Count       int32              `db:"count" json:"count"`
+	TotalValue  int64              `db:"total_value" json:"total_value"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ZdxCounterEvent struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
+	Name        string             `db:"name" json:"name"`
+	Value       int32              `db:"value" json:"value"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson []byte             `db:"context_json" json:"context_json"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxErrorReport struct {
 	ID         int64              `db:"id" json:"id"`
 	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`

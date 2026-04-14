@@ -575,6 +575,84 @@ export const useTimedTagValues = (slug: string, key: string) =>
     enabled: !!slug && !!key,
   })
 
+// ── counters ──────────────────────────────────────────────────────────────────
+
+export interface CountedItem {
+  id: number
+  name: string
+  value: number
+  count: number
+  total_value: number
+  avg_value: number
+  source: string
+  context_json: Record<string, string>
+  created_at: string
+}
+
+export interface CountedGroupedItem {
+  group_value: string
+  entry_count: number
+  max_value: number
+  sum_total_value: number
+  sum_count: number
+  avg_value: number
+}
+
+export const useCounted = (slug: string, limit?: number, offset?: number, tagFilter?: Record<string, string>) =>
+  useQuery<{ items: CountedItem[]; total: number }>({
+    queryKey: ['counted', slug, limit, offset, tagFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
+      const res = await apiFetch<{ items: CountedItem[]; total: number }>(
+        `/api/dx/counted?${params}`
+      )
+      return { items: res.items ?? [], total: res.total ?? 0 }
+    },
+    enabled: !!slug,
+  })
+
+export const useCountedGrouped = (slug: string, groupBy: string, tagFilter?: Record<string, string>) =>
+  useQuery<{ items: CountedGroupedItem[] }>({
+    queryKey: ['counted-grouped', slug, groupBy, tagFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, group_by: groupBy })
+      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
+      const res = await apiFetch<{ items: CountedGroupedItem[] }>(
+        `/api/dx/counted/grouped?${params}`
+      )
+      return { items: res.items ?? [] }
+    },
+    enabled: !!slug && !!groupBy,
+  })
+
+export const useCountedTagKeys = (slug: string) =>
+  useQuery<{ keys: string[] }>({
+    queryKey: ['counted-tag-keys', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ keys: string[] }>(
+        `/api/dx/counted/tags/keys?slug=${encodeURIComponent(slug)}`
+      )
+      return { keys: res.keys ?? [] }
+    },
+    enabled: !!slug,
+  })
+
+export const useCountedTagValues = (slug: string, key: string) =>
+  useQuery<{ values: string[] }>({
+    queryKey: ['counted-tag-values', slug, key],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, key })
+      const res = await apiFetch<{ values: string[] }>(
+        `/api/dx/counted/tags/values?${params}`
+      )
+      return { values: res.values ?? [] }
+    },
+    enabled: !!slug && !!key,
+  })
+
 // ── Project git config (admin) ────────────────────────────────────────────────
 
 export interface GitConfig {

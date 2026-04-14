@@ -92,16 +92,23 @@ func WithoutTiming(ctx context.Context) context.Context {
 	return context.WithValue(ctx, ctxSkipTiming, true)
 }
 
-// StartTimedEventsRetention deletes zdx_timed_events rows older than 30 days.
-// Runs once immediately, then every 24 hours.
+// StartTimedEventsRetention deletes zdx_timed_events and zdx_counter_events
+// rows older than 30 days. Runs once immediately, then every 24 hours.
 func (s *Server) StartTimedEventsRetention(ctx context.Context) {
 	cleanup := func() {
 		cutoff := pgtype.Timestamptz{Time: time.Now().AddDate(0, 0, -30), Valid: true}
-		n, err := s.q.DeleteTimedEventsOlderThan(WithoutTiming(ctx), cutoff)
+		noTiming := WithoutTiming(ctx)
+		n, err := s.q.DeleteTimedEventsOlderThan(noTiming, cutoff)
 		if err != nil {
 			log.Printf("timed-events retention: %v", err)
 		} else if n > 0 {
 			log.Printf("timed-events retention: deleted %d rows", n)
+		}
+		cn, cerr := s.q.DeleteCounterEventsOlderThan(noTiming, cutoff)
+		if cerr != nil {
+			log.Printf("counter-events retention: %v", cerr)
+		} else if cn > 0 {
+			log.Printf("counter-events retention: deleted %d rows", cn)
 		}
 	}
 	cleanup()

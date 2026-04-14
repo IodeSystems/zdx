@@ -216,6 +216,107 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 		})
 }
 
+// ── Counter ingest endpoint ────────────────────────────────────────────────
+
+type IngestCounterEvent struct {
+	Name   string            `json:"name"`
+	Value  int32             `json:"value"`
+	Source string            `json:"source,omitempty"`
+	Tags   map[string]string `json:"tags,omitempty"`
+}
+
+type IngestCounterBatch struct {
+	Component   string               `json:"component,omitempty"`
+	Environment string               `json:"environment,omitempty"`
+	Host        string               `json:"host,omitempty"`
+	Events      []IngestCounterEvent `json:"events"`
+}
+
+func (s *Server) registerCounterIngestRoutes(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "ingest-counters",
+		Method:      http.MethodPost,
+		Path:        "/api/ingest/counters",
+		Summary:     "Ingest a batch of counter events",
+	},
+		func(ctx context.Context, in *struct {
+			Authorization string `header:"Authorization"`
+			Body          IngestCounterBatch
+		}) (*struct {
+			Body struct {
+				Accepted int `json:"accepted"`
+			}
+		}, error) {
+			ctx = WithoutTiming(ctx)
+			token := strings.TrimPrefix(in.Authorization, "Bearer ")
+			if token == in.Authorization || token == "" {
+				return nil, apiErr(http.StatusUnauthorized, "missing bearer token")
+			}
+			row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(token))
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "invalid token")
+			}
+			if row.RevokedAt.Valid {
+				return nil, apiErr(http.StatusUnauthorized, "token revoked")
+			}
+			if len(in.Body.Events) == 0 {
+				return &struct {
+					Body struct {
+						Accepted int `json:"accepted"`
+					}
+				}{}, nil
+			}
+			if !s.ingestLimiter.allow(row.ID, float64(len(in.Body.Events))) {
+				return nil, apiErr(http.StatusTooManyRequests, "rate limit exceeded")
+			}
+
+			component := in.Body.Component
+			if component == "" && row.Component.Valid {
+				component = row.Component.String
+			}
+			env := in.Body.Environment
+			host := in.Body.Host
+
+			accepted := 0
+			for _, ev := range in.Body.Events {
+				ctxJSON := buildContextJSON(host, ev.Tags)
+				pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
+				if err := s.q.UpsertCounted(ctx, db.UpsertCountedParams{
+					ProjectID:   pid,
+					Component:   component,
+					Environment: env,
+					Name:        ev.Name,
+					Value:       ev.Value,
+					Source:      ev.Source,
+					ContextJson: ctxJSON,
+					TotalValue:  int64(ev.Value),
+				}); err != nil {
+					log.Printf("ingest: UpsertCounted %q: %v", ev.Name, err)
+					continue
+				}
+				if err := s.q.InsertCounterEvent(ctx, db.InsertCounterEventParams{
+					ProjectID:   pid,
+					Component:   component,
+					Environment: env,
+					Name:        ev.Name,
+					Value:       ev.Value,
+					Source:      ev.Source,
+					ContextJson: ctxJSON,
+				}); err != nil {
+					log.Printf("ingest: InsertCounterEvent %q: %v", ev.Name, err)
+				}
+				accepted++
+			}
+			return &struct {
+				Body struct {
+					Accepted int `json:"accepted"`
+				}
+			}{Body: struct {
+				Accepted int `json:"accepted"`
+			}{Accepted: accepted}}, nil
+		})
+}
+
 // buildContextJSON folds host + free-form tags into the context_json column.
 func buildContextJSON(host string, tags map[string]string) []byte {
 	m := make(map[string]string, len(tags)+1)
