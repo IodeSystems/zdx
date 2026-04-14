@@ -19,7 +19,7 @@ import {
   Tooltip,
   Typography,
 } from '@mui/material'
-import { Add as AddIcon, AttachFile as AttachFileIcon, Close as CloseIcon } from '@mui/icons-material'
+import { Add as AddIcon, AttachFile as AttachFileIcon, CameraAlt as CameraAltIcon, Close as CloseIcon } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
 import { useCreateIssue, useUploadFile, useSimilarIssues, type SimilarIssueItem, type IssueItem } from '../api'
 import { useMatches } from '@tanstack/react-router'
@@ -60,10 +60,13 @@ export function IssueReportFab({ slug }: { slug: string }) {
   const uploadFile = useUploadFile()
   const findSimilar = useSimilarIssues()
 
-  const handleOpen = async () => {
+  const handleOpen = () => {
     setSimilarIssues(null)
     setPreflight(false)
     setOpen(true)
+  }
+
+  const handleCaptureScreenshot = async () => {
     setCapturing(true)
     const file = await capturePageScreenshot()
     setCapturing(false)
@@ -209,7 +212,10 @@ export function IssueReportFab({ slug }: { slug: string }) {
                   onChange={handleFileChange}
                 />
                 {capturing ? (
-                  <Typography variant="caption" color="text.secondary">Capturing screenshot…</Typography>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                    <CircularProgress size={16} />
+                    <Typography variant="caption" color="text.secondary">Capturing screenshot…</Typography>
+                  </Box>
                 ) : screenshotPreview ? (
                   <Box sx={{ position: 'relative', display: 'inline-block' }}>
                     <Box
@@ -242,13 +248,18 @@ export function IssueReportFab({ slug }: { slug: string }) {
                 ) : (
                   !showSimilar && (
                     <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                      <Tooltip title="Attach screenshot">
+                      <Tooltip title="Capture page screenshot">
+                        <IconButton size="small" onClick={handleCaptureScreenshot}>
+                          <CameraAltIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Tooltip title="Attach file">
                         <IconButton size="small" onClick={() => fileInputRef.current?.click()}>
                           <AttachFileIcon fontSize="small" />
                         </IconButton>
                       </Tooltip>
                       <Typography variant="caption" color="text.secondary">
-                        Attach screenshot (optional)
+                        Screenshot (optional)
                       </Typography>
                     </Box>
                   )
