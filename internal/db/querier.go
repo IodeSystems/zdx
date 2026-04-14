@@ -23,11 +23,14 @@ type Querier interface {
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)
+	CountClaudeEvents(ctx context.Context, sessionPk int64) (int64, error)
 	CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error)
 	// Counts comments on targets where the user has previously commented,
 	// excluding the user's own comments, that are newer than the user's last read.
 	CountUnreadResponsesForUser(ctx context.Context, arg CountUnreadResponsesForUserParams) (int32, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
+	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
+	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (ZdxClaudeSession, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
@@ -50,6 +53,8 @@ type Querier interface {
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
 	GetBlockerQuestion(ctx context.Context, arg GetBlockerQuestionParams) (ZdxBlockerQuestion, error)
+	GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (ZdxClaudeSession, error)
+	GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (ZdxClaudeSession, error)
 	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
@@ -79,6 +84,9 @@ type Querier interface {
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
+	ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxClaudeEvent, error)
+	ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeEventsPaginatedParams) ([]ZdxClaudeEvent, error)
+	ListClaudeSessions(ctx context.Context, projectID int32) ([]ZdxClaudeSession, error)
 	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
 	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)

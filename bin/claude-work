@@ -8,8 +8,34 @@ LOG=.zdx/logs/claude-work.log
 
 PROJECT_DIR="$HOME/.claude/projects/$(pwd | tr / -)"
 
+# Load zdx remote config for session upload.
+ZDX_URL="$(grep -A1 '^remote:' .zdx/config.yaml | grep 'url:' | awk '{print $2}' | tr -d '"'"'"'')"
+ZDX_SLUG="$(grep -A2 '^remote:' .zdx/config.yaml | grep 'slug:' | awk '{print $2}' | tr -d '"'"'"'')"
+ZDX_KEY="$(cat .zdx/credentials 2>/dev/null | tr -d '[:space:]')"
+
 log() {
   printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "$LOG"
+}
+
+upload_session() {
+  local sid="$1" sfile="$2" issue_id="$3"
+  if [[ -z "$ZDX_URL" || -z "$ZDX_SLUG" || -z "$ZDX_KEY" ]]; then
+    log "upload: skipped (no remote config)"
+    return
+  fi
+  if [[ ! -f "$sfile" ]]; then
+    log "upload: skipped (no session file)"
+    return
+  fi
+  local url="${ZDX_URL}/api/dx/claude/sessions/ingest?slug=${ZDX_SLUG}&session_id=${sid}&issue_id=${issue_id}"
+  local http_code
+  http_code=$(curl -s -o /dev/null -w '%{http_code}' \
+    -X POST \
+    -H "X-Api-Key: ${ZDX_KEY}" \
+    -H "Content-Type: application/x-ndjson" \
+    --data-binary "@${sfile}" \
+    "$url")
+  log "upload: session $sid → HTTP $http_code"
 }
 
 # Two Ctrl+C within 2s exits the loop; a single Ctrl+C just interrupts the
@@ -33,9 +59,12 @@ while true; do
     log "todo solo:"
     printf '%s\n' "$todo" | tee -a "$LOG"
 
+    # Extract issue ID from solo output (e.g. "IS-53").
+    issue_id="$(printf '%s' "$todo" | grep -oP 'IS-\d+' | head -1)"
+
     sid="$(uuidgen)"
     sfile="$PROJECT_DIR/$sid.jsonl"
-    log "claude session $sid → $sfile"
+    log "claude session $sid → $sfile (issue: ${issue_id:-none})"
 
     # tail -F retries the missing file until claude creates it.
     mkdir -p "$PROJECT_DIR"
@@ -49,6 +78,8 @@ while true; do
     kill "$tail_pid" 2>/dev/null
     wait "$tail_pid" 2>/dev/null
     log "claude /work exited rc=$rc"
+
+    upload_session "$sid" "$sfile" "${issue_id:-}"
   else
     log "idle; sleeping 60s"
     sleep 60

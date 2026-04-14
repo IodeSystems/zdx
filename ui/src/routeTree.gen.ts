@@ -25,6 +25,7 @@ import { Route as ProjectSlugComponentProfileRouteImport } from './routes/projec
 import { Route as ProjectSlugComponentIssuesRouteImport } from './routes/project/$slug/$component/issues'
 import { Route as ProjectSlugComponentFeaturesRouteImport } from './routes/project/$slug/$component/features'
 import { Route as ProjectSlugComponentErrorsRouteImport } from './routes/project/$slug/$component/errors'
+import { Route as ProjectSlugComponentClaudeRouteImport } from './routes/project/$slug/$component/claude'
 import { Route as ProjectSlugComponentBlockerQuestionsRouteImport } from './routes/project/$slug/$component/blocker-questions'
 import { Route as ProjectSlugComponentTasksIndexRouteImport } from './routes/project/$slug/$component/tasks/index'
 import { Route as ProjectSlugComponentIssuesIndexRouteImport } from './routes/project/$slug/$component/issues/index'
@@ -122,6 +123,12 @@ const ProjectSlugComponentErrorsRoute =
     path: '/errors',
     getParentRoute: () => ProjectSlugComponentRoute,
   } as any)
+const ProjectSlugComponentClaudeRoute =
+  ProjectSlugComponentClaudeRouteImport.update({
+    id: '/claude',
+    path: '/claude',
+    getParentRoute: () => ProjectSlugComponentRoute,
+  } as any)
 const ProjectSlugComponentBlockerQuestionsRoute =
   ProjectSlugComponentBlockerQuestionsRouteImport.update({
     id: '/blocker-questions',
@@ -174,6 +181,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
   '/project/$slug/$component/blocker-questions': typeof ProjectSlugComponentBlockerQuestionsRoute
+  '/project/$slug/$component/claude': typeof ProjectSlugComponentClaudeRoute
   '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/features': typeof ProjectSlugComponentFeaturesRouteWithChildren
   '/project/$slug/$component/issues': typeof ProjectSlugComponentIssuesRouteWithChildren
@@ -197,6 +205,7 @@ export interface FileRoutesByTo {
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug': typeof ProjectSlugIndexRoute
   '/project/$slug/$component/blocker-questions': typeof ProjectSlugComponentBlockerQuestionsRoute
+  '/project/$slug/$component/claude': typeof ProjectSlugComponentClaudeRoute
   '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/profile': typeof ProjectSlugComponentProfileRoute
   '/project/$slug/$component/questions': typeof ProjectSlugComponentQuestionsRoute
@@ -220,6 +229,7 @@ export interface FileRoutesById {
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
   '/project/$slug/$component/blocker-questions': typeof ProjectSlugComponentBlockerQuestionsRoute
+  '/project/$slug/$component/claude': typeof ProjectSlugComponentClaudeRoute
   '/project/$slug/$component/errors': typeof ProjectSlugComponentErrorsRoute
   '/project/$slug/$component/features': typeof ProjectSlugComponentFeaturesRouteWithChildren
   '/project/$slug/$component/issues': typeof ProjectSlugComponentIssuesRouteWithChildren
@@ -247,6 +257,7 @@ export interface FileRouteTypes {
     | '/project/$slug/settings'
     | '/project/$slug/'
     | '/project/$slug/$component/blocker-questions'
+    | '/project/$slug/$component/claude'
     | '/project/$slug/$component/errors'
     | '/project/$slug/$component/features'
     | '/project/$slug/$component/issues'
@@ -270,6 +281,7 @@ export interface FileRouteTypes {
     | '/project/$slug/settings'
     | '/project/$slug'
     | '/project/$slug/$component/blocker-questions'
+    | '/project/$slug/$component/claude'
     | '/project/$slug/$component/errors'
     | '/project/$slug/$component/profile'
     | '/project/$slug/$component/questions'
@@ -292,6 +304,7 @@ export interface FileRouteTypes {
     | '/project/$slug/settings'
     | '/project/$slug/'
     | '/project/$slug/$component/blocker-questions'
+    | '/project/$slug/$component/claude'
     | '/project/$slug/$component/errors'
     | '/project/$slug/$component/features'
     | '/project/$slug/$component/issues'
@@ -429,6 +442,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugComponentErrorsRouteImport
       parentRoute: typeof ProjectSlugComponentRoute
     }
+    '/project/$slug/$component/claude': {
+      id: '/project/$slug/$component/claude'
+      path: '/claude'
+      fullPath: '/project/$slug/$component/claude'
+      preLoaderRoute: typeof ProjectSlugComponentClaudeRouteImport
+      parentRoute: typeof ProjectSlugComponentRoute
+    }
     '/project/$slug/$component/blocker-questions': {
       id: '/project/$slug/$component/blocker-questions'
       path: '/blocker-questions'
@@ -533,6 +553,7 @@ const ProjectSlugComponentTasksRouteWithChildren =
 
 interface ProjectSlugComponentRouteChildren {
   ProjectSlugComponentBlockerQuestionsRoute: typeof ProjectSlugComponentBlockerQuestionsRoute
+  ProjectSlugComponentClaudeRoute: typeof ProjectSlugComponentClaudeRoute
   ProjectSlugComponentErrorsRoute: typeof ProjectSlugComponentErrorsRoute
   ProjectSlugComponentFeaturesRoute: typeof ProjectSlugComponentFeaturesRouteWithChildren
   ProjectSlugComponentIssuesRoute: typeof ProjectSlugComponentIssuesRouteWithChildren
@@ -547,6 +568,7 @@ interface ProjectSlugComponentRouteChildren {
 const ProjectSlugComponentRouteChildren: ProjectSlugComponentRouteChildren = {
   ProjectSlugComponentBlockerQuestionsRoute:
     ProjectSlugComponentBlockerQuestionsRoute,
+  ProjectSlugComponentClaudeRoute: ProjectSlugComponentClaudeRoute,
   ProjectSlugComponentErrorsRoute: ProjectSlugComponentErrorsRoute,
   ProjectSlugComponentFeaturesRoute:
     ProjectSlugComponentFeaturesRouteWithChildren,

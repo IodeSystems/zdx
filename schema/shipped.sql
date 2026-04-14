@@ -2486,7 +2486,58 @@ ALTER TABLE ONLY public.zdx_work_log
 
 
 --
--- PostgreSQL database dump complete
+-- Name: zdx_claude_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
+CREATE TABLE public.zdx_claude_sessions (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    issue_id text DEFAULT ''::text NOT NULL,
+    session_id text NOT NULL,
+    title text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
+CREATE SEQUENCE public.zdx_claude_sessions_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.zdx_claude_sessions_id_seq OWNED BY public.zdx_claude_sessions.id;
+ALTER TABLE ONLY public.zdx_claude_sessions ALTER COLUMN id SET DEFAULT nextval('public.zdx_claude_sessions_id_seq'::regclass);
+ALTER TABLE ONLY public.zdx_claude_sessions ADD CONSTRAINT zdx_claude_sessions_pkey PRIMARY KEY (id);
+ALTER TABLE ONLY public.zdx_claude_sessions ADD CONSTRAINT zdx_claude_sessions_project_id_session_id_key UNIQUE (project_id, session_id);
+CREATE INDEX zdx_claude_sessions_project ON public.zdx_claude_sessions USING btree (project_id);
+ALTER TABLE ONLY public.zdx_claude_sessions ADD CONSTRAINT zdx_claude_sessions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+--
+-- Name: zdx_claude_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_claude_events (
+    id bigint NOT NULL,
+    session_pk bigint NOT NULL,
+    seq integer NOT NULL,
+    event_type text DEFAULT ''::text NOT NULL,
+    event_json jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+CREATE SEQUENCE public.zdx_claude_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+ALTER SEQUENCE public.zdx_claude_events_id_seq OWNED BY public.zdx_claude_events.id;
+ALTER TABLE ONLY public.zdx_claude_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_claude_events_id_seq'::regclass);
+ALTER TABLE ONLY public.zdx_claude_events ADD CONSTRAINT zdx_claude_events_pkey PRIMARY KEY (id);
+CREATE INDEX zdx_claude_events_session ON public.zdx_claude_events USING btree (session_pk, seq);
+ALTER TABLE ONLY public.zdx_claude_events ADD CONSTRAINT zdx_claude_events_session_pk_fkey FOREIGN KEY (session_pk) REFERENCES public.zdx_claude_sessions(id) ON DELETE CASCADE;
+
+--
+-- PostgreSQL database dump complete
+--

@@ -31,6 +31,24 @@ type ZdxBlockerQuestion struct {
 	AnsweredAt pgtype.Timestamptz `db:"answered_at" json:"answered_at"`
 }
 
+type ZdxClaudeEvent struct {
+	ID        int64              `db:"id" json:"id"`
+	SessionPk int64              `db:"session_pk" json:"session_pk"`
+	Seq       int32              `db:"seq" json:"seq"`
+	EventType string             `db:"event_type" json:"event_type"`
+	EventJson []byte             `db:"event_json" json:"event_json"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ZdxClaudeSession struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxCodeRef struct {
 	ID        int32              `db:"id" json:"id"`
 	ProjectID int32              `db:"project_id" json:"project_id"`

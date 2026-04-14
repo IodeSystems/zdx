@@ -660,3 +660,50 @@ export const useAnswerBlockerQuestion = () => {
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['blocker-questions', v.slug] }),
   })
 }
+
+// ── Claude sessions ──────────────────────────────────────────────────────────
+
+export interface ClaudeSessionItem {
+  id: number
+  issue_id: string
+  session_id: string
+  title: string
+  event_count: number
+  created_at: string
+}
+
+export interface ClaudeEventItem {
+  id: number
+  seq: number
+  event_type: string
+  event_json: Record<string, unknown>
+  created_at: string
+}
+
+export const useClaudeSessions = (slug: string) =>
+  useQuery<ClaudeSessionItem[]>({
+    queryKey: ['claude-sessions', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ sessions: ClaudeSessionItem[] }>(
+        `/api/dx/claude/sessions?slug=${encodeURIComponent(slug)}`
+      )
+      return res.sessions ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useClaudeSessionEvents = (slug: string, sessionId: number | null, limit = 200, offset = 0) =>
+  useQuery<{ events: ClaudeEventItem[]; total: number }>({
+    queryKey: ['claude-events', slug, sessionId, limit, offset],
+    queryFn: async () => {
+      const params = new URLSearchParams({
+        slug,
+        limit: String(limit),
+        offset: String(offset),
+      })
+      return apiFetch<{ events: ClaudeEventItem[]; total: number }>(
+        `/api/dx/claude/sessions/${sessionId}/events?${params}`
+      )
+    },
+    enabled: !!slug && sessionId != null,
+  })

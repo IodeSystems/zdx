@@ -32,6 +32,7 @@ import {
   PlaylistPlay as PlaylistPlayIcon,
   QuestionAnswer as QuestionAnswerIcon,
   Settings as SettingsIcon,
+  SmartToy as SmartToyIcon,
   Timer as TimerIcon,
   Tune as TuneIcon,
   WarningAmber as WarningAmberIcon,
@@ -55,6 +56,7 @@ const SECTIONS = [
   { label: 'Questions', icon: <QuestionAnswerIcon fontSize="small" />, path: 'questions' },
   { label: 'Blockers', icon: <HelpOutlineIcon fontSize="small" />, path: 'blocker-questions' },
   { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
+  { label: 'Claude', icon: <SmartToyIcon fontSize="small" />, path: 'claude' },
   { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
   { label: 'Timings', icon: <TimerIcon fontSize="small" />, path: 'timings' },
 ] as const
