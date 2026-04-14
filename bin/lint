@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# Parallel lint runner with sqlc drift check.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+FAIL=0
+PIDS=()
+LABELS=()
+LOGS_DIR=$(mktemp -d)
+trap 'rm -rf "$LOGS_DIR"' EXIT
+
+run() {
+  local label="$1"; shift
+  "$@" > "$LOGS_DIR/$label.out" 2>&1 &
+  PIDS+=($!)
+  LABELS+=("$label")
+}
+
+# ── Parallel lint jobs ────────────────────────────────────────────────────────
+
+run "gofmt" bash -c '
+  BAD=$(gofmt -l .)
+  if [ -n "$BAD" ]; then
+    echo "gofmt: files need formatting:"
+    echo "$BAD"
+    exit 1
+  fi
+'
+
+run "govet" go vet ./...
+
+run "sqlcvet" bash -c '
+  SQLC=$(command -v sqlc || echo "$HOME/go/bin/sqlc")
+  "$SQLC" vet
+'
+
+run "tsc" bash -c 'cd ui && npx tsc --noEmit'
+
+run "eslint" bash -c 'cd ui && npm run lint'
+
+run "knip" bash -c 'cd ui && npm run lint:knip'
+
+run "sqlc-drift" bash -c '
+  SQLC=$(command -v sqlc || echo "$HOME/go/bin/sqlc")
+  TMPDIR=$(mktemp -d)
+  trap "rm -rf $TMPDIR" EXIT
+  cp sqlc.yaml "$TMPDIR/sqlc.yaml"
+  sed -i "s|out: \"internal/db\"|out: \"$TMPDIR/db\"|" "$TMPDIR/sqlc.yaml"
+  "$SQLC" generate -f "$TMPDIR/sqlc.yaml"
+  if ! diff -rq internal/db "$TMPDIR/db" >/dev/null 2>&1; then
+    echo "sqlc drift detected — committed internal/db/ does not match generated output."
+    echo "Run: bin/db gen (or sqlc generate)"
+    diff -r internal/db "$TMPDIR/db" || true
+    exit 1
+  fi
+'
+
+# ── Wait and report ──────────────────────────────────────────────────────────
+
+for i in "${!PIDS[@]}"; do
+  set +e
+  wait "${PIDS[$i]}"
+  RC=$?
+  set -e
+  if [ $RC -ne 0 ]; then
+    echo ""
+    echo "FAIL: ${LABELS[$i]}"
+    cat "$LOGS_DIR/${LABELS[$i]}.out"
+    FAIL=1
+  else
+    echo "OK:   ${LABELS[$i]}"
+  fi
+done
+
+if [ $FAIL -ne 0 ]; then
+  echo ""
+  echo "[lint] Some checks failed."
+  exit 1
+fi
+
+echo ""
+echo "[lint] All checks passed."

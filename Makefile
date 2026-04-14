@@ -1,17 +1,13 @@
-.PHONY: build generate sqlgen ui test clean
+.PHONY: build generate ui test clean
 
 build: generate
 	go build -o bin/dx ./cmd/dx
 	go build -o bin/dx-server ./cmd/dx-server
+	go build -o bin/db ./cmd/db
 
-# Generate easyjson marshal code + TypeScript types from internal/apitypes
 generate:
 	go run github.com/mailru/easyjson/easyjson -all internal/apitypes/types.go
 	~/go/bin/tygo generate
-
-# Regenerate typed DB query wrappers from queries/ + migrations/
-sqlgen:
-	sqlc generate
 
 ui: generate
 	cd ui && npm ci && npm run build

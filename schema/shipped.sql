@@ -2,7 +2,6 @@
 -- PostgreSQL database dump
 --
 
-\restrict xyxNmRYvmFFOw03rqqRrs9TBoOHjnt5qkfxqetpDBE27DZLf8z4XSyEPuqXLwFy
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
 -- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
@@ -22,16 +21,6 @@ SET row_security = off;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
-
---
--- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.schema_migrations (
-    version bigint NOT NULL,
-    dirty boolean NOT NULL
-);
-
 
 --
 -- Name: zdx_api_keys; Type: TABLE; Schema: public; Owner: -
@@ -1441,14 +1430,6 @@ ALTER TABLE ONLY public.zdx_work_log ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
--- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.schema_migrations
-    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
-
-
---
 -- Name: zdx_api_keys zdx_api_keys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2432,5 +2413,4 @@ ALTER TABLE ONLY public.zdx_work_log
 -- PostgreSQL database dump complete
 --
 
-\unrestrict xyxNmRYvmFFOw03rqqRrs9TBoOHjnt5qkfxqetpDBE27DZLf8z4XSyEPuqXLwFy
 

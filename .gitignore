@@ -3,6 +3,7 @@ deploy/
 bin/dx
 bin/dx-server
 bin/dx-bin
+bin/db
 ui/node_modules/
 ui/dist/
 schema/next.sql
