@@ -651,6 +651,8 @@ export const useDeleteInvite = () => {
 export interface SimilarIssueItem {
   id: string
   title: string
+  context: string
+  status: string
   score: number
 }
 

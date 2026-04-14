@@ -188,9 +188,11 @@ type CodeRefItem struct {
 }
 
 type SimilarIssueItem struct {
-	ID    string  `json:"id"`
-	Title string  `json:"title"`
-	Score float32 `json:"score"`
+	ID      string  `json:"id"`
+	Title   string  `json:"title"`
+	Context string  `json:"context"`
+	Status  string  `json:"status"`
+	Score   float32 `json:"score"`
 }
 
 type QuestionItem struct {

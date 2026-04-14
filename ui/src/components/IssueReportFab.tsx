@@ -3,6 +3,9 @@ import {
   Alert,
   Box,
   Button,
+  Card,
+  CardContent,
+  Chip,
   CircularProgress,
   Dialog,
   DialogActions,
@@ -267,24 +270,40 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                     Similar existing issues — is yours already reported?
                   </Typography>
-                  <Box component="ul" sx={{ m: 0, pl: 2 }}>
+                  <Box sx={{ maxHeight: 300, overflowY: 'auto', display: 'flex', flexDirection: 'column', gap: 1 }}>
                     {similarIssues!.map(iss => (
-                      <Box component="li" key={iss.id} sx={{ mb: 0.5 }}>
-                        <Link
-                          href={`/project/${routeSlug}/all/issues/${iss.id}`}
-                          target="_blank"
-                          rel="noopener"
-                          variant="body2"
-                        >
-                          {iss.id}
-                        </Link>
-                        <Typography variant="body2" component="span" sx={{ ml: 0.5 }}>
-                          {iss.title || '(untitled)'}
-                        </Typography>
-                        <Typography variant="caption" color="text.secondary" sx={{ ml: 0.5 }}>
-                          ({(iss.score * 100).toFixed(0)}%)
-                        </Typography>
-                      </Box>
+                      <Card key={iss.id} variant="outlined" sx={{ flexShrink: 0 }}>
+                        <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                            <Link
+                              href={`/project/${routeSlug}/all/issues/${iss.id}`}
+                              target="_blank"
+                              rel="noopener"
+                              variant="body2"
+                              sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}
+                            >
+                              {iss.id}
+                            </Link>
+                            <Typography variant="body2" sx={{ fontWeight: 500, flex: 1, minWidth: 0 }} noWrap>
+                              {iss.title || '(untitled)'}
+                            </Typography>
+                            <Chip label={iss.status || 'open'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
+                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                              {(iss.score * 100).toFixed(0)}%
+                            </Typography>
+                          </Box>
+                          {iss.context && (
+                            <Typography variant="body2" color="text.secondary" sx={{
+                              overflow: 'hidden',
+                              display: '-webkit-box',
+                              WebkitLineClamp: 3,
+                              WebkitBoxOrient: 'vertical',
+                            }}>
+                              {iss.context}
+                            </Typography>
+                          )}
+                        </CardContent>
+                      </Card>
                     ))}
                   </Box>
                 </Box>
