@@ -23,7 +23,7 @@ func (q *Queries) CountTimed(ctx context.Context, projectID pgtype.Int4) (int64,
 }
 
 const listTimed = `-- name: ListTimed :many
-SELECT id, project_id, name, duration_ms, count, total_ms, source, context_json, created_at
+SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE ($1::int IS NULL OR project_id = $1)
 ORDER BY duration_ms DESC
@@ -32,6 +32,8 @@ ORDER BY duration_ms DESC
 type ListTimedRow struct {
 	ID          int64              `db:"id" json:"id"`
 	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
 	Name        string             `db:"name" json:"name"`
 	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
 	Count       int32              `db:"count" json:"count"`
@@ -53,6 +55,8 @@ func (q *Queries) ListTimed(ctx context.Context, projectID pgtype.Int4) ([]ListT
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Component,
+			&i.Environment,
 			&i.Name,
 			&i.DurationMs,
 			&i.Count,
@@ -72,7 +76,7 @@ func (q *Queries) ListTimed(ctx context.Context, projectID pgtype.Int4) ([]ListT
 }
 
 const listTimedPaginated = `-- name: ListTimedPaginated :many
-SELECT id, project_id, name, duration_ms, count, total_ms, source, context_json, created_at
+SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE ($1::int IS NULL OR project_id = $1)
 ORDER BY duration_ms DESC
@@ -88,6 +92,8 @@ type ListTimedPaginatedParams struct {
 type ListTimedPaginatedRow struct {
 	ID          int64              `db:"id" json:"id"`
 	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
 	Name        string             `db:"name" json:"name"`
 	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
 	Count       int32              `db:"count" json:"count"`
@@ -109,6 +115,8 @@ func (q *Queries) ListTimedPaginated(ctx context.Context, arg ListTimedPaginated
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Component,
+			&i.Environment,
 			&i.Name,
 			&i.DurationMs,
 			&i.Count,
@@ -128,9 +136,9 @@ func (q *Queries) ListTimedPaginated(ctx context.Context, arg ListTimedPaginated
 }
 
 const upsertTimed = `-- name: UpsertTimed :exec
-INSERT INTO zdx_timed (project_id, name, duration_ms, source, context_json, count, total_ms)
-VALUES ($1, $2, $3, $4, $5, 1, $3)
-ON CONFLICT (COALESCE(project_id, 0), name)
+INSERT INTO zdx_timed (project_id, component, environment, name, duration_ms, source, context_json, count, total_ms)
+VALUES ($1, $2, $3, $4, $5, $6, $7, 1, $5)
+ON CONFLICT (COALESCE(project_id, 0), component, environment, name)
 DO UPDATE SET
   duration_ms  = GREATEST(zdx_timed.duration_ms, EXCLUDED.duration_ms),
   source       = CASE WHEN EXCLUDED.duration_ms > zdx_timed.duration_ms THEN EXCLUDED.source ELSE zdx_timed.source END,
@@ -142,6 +150,8 @@ DO UPDATE SET
 
 type UpsertTimedParams struct {
 	ProjectID   pgtype.Int4 `db:"project_id" json:"project_id"`
+	Component   string      `db:"component" json:"component"`
+	Environment string      `db:"environment" json:"environment"`
 	Name        string      `db:"name" json:"name"`
 	DurationMs  int32       `db:"duration_ms" json:"duration_ms"`
 	Source      string      `db:"source" json:"source"`
@@ -151,6 +161,8 @@ type UpsertTimedParams struct {
 func (q *Queries) UpsertTimed(ctx context.Context, arg UpsertTimedParams) error {
 	_, err := q.db.Exec(ctx, upsertTimed,
 		arg.ProjectID,
+		arg.Component,
+		arg.Environment,
 		arg.Name,
 		arg.DurationMs,
 		arg.Source,

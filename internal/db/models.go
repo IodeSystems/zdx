@@ -128,6 +128,17 @@ type ZdxIDSeq struct {
 	NextVal int32  `db:"next_val" json:"next_val"`
 }
 
+type ZdxIntegrationToken struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Component   pgtype.Text        `db:"component" json:"component"`
+	Name        string             `db:"name" json:"name"`
+	TokenHash   string             `db:"token_hash" json:"token_hash"`
+	TokenPrefix string             `db:"token_prefix" json:"token_prefix"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	RevokedAt   pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+}
+
 type ZdxInvite struct {
 	ID        int32              `db:"id" json:"id"`
 	Email     string             `db:"email" json:"email"`
@@ -448,6 +459,8 @@ type ZdxTimed struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	Count       int32              `db:"count" json:"count"`
 	TotalMs     int64              `db:"total_ms" json:"total_ms"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
 }
 
 type ZdxTodo struct {

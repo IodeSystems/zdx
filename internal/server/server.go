@@ -32,6 +32,7 @@ type Server struct {
 	emb            *embedder
 	features       SchemaFeatures
 	sink           timingSink
+	ingestLimiter  *ingestRateLimiter
 }
 
 func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Server {
@@ -70,9 +71,8 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 		emb:            newEmbedder(vecDir, sink),
 		features:       detectFeatures(ctx, pool),
 		sink:           sink,
+		ingestLimiter:  newIngestRateLimiter(1000, 10000),
 	}
-
-	startTimingDrainer(s.q, sink)
 
 	// Load LLM config eagerly so embedder is ready on first request.
 	s.reloadEmbedder(ctx)
@@ -292,12 +292,12 @@ var maintenancePage = []byte(`<!doctype html>
 type contextKey int
 
 const (
-	ctxAPIKeyID    contextKey = 1
-	ctxUserID      contextKey = 2
-	ctxQueryStart  contextKey = 3
-	ctxSource      contextKey = 4
-	ctxUserRole    contextKey = 5
-	ctxSkipTiming  contextKey = 6
+	ctxAPIKeyID   contextKey = 1
+	ctxUserID     contextKey = 2
+	ctxQueryStart contextKey = 3
+	ctxSource     contextKey = 4
+	ctxUserRole   contextKey = 5
+	ctxSkipTiming contextKey = 6
 )
 
 // apiKeyMiddleware validates X-Api-Key on /api/* requests, except health, openapi, and setup/bootstrap.
@@ -307,7 +307,7 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 		path := r.URL.Path
 		if !strings.HasPrefix(path, "/api/") ||
 			(r.Method == http.MethodGet && (path == "/api/health" || path == "/api/error" || strings.HasPrefix(path, "/openapi"))) ||
-			(r.Method == http.MethodPost && (path == "/api/setup/bootstrap" || path == "/api/auth/login" || path == "/api/auth/register" || path == "/api/dx/errors/report")) {
+			(r.Method == http.MethodPost && (path == "/api/setup/bootstrap" || path == "/api/auth/login" || path == "/api/auth/register" || path == "/api/dx/errors/report" || path == "/api/ingest/timings")) {
 			next.ServeHTTP(w, r)
 			return
 		}
@@ -366,6 +366,7 @@ func (s *Server) timingMiddleware(next http.Handler) http.Handler {
 		path := r.URL.Path
 		if !strings.HasPrefix(path, "/api/") ||
 			path == "/api/health" ||
+			path == "/api/ingest/timings" ||
 			strings.HasPrefix(path, "/openapi") {
 			next.ServeHTTP(w, r)
 			return

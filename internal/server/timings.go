@@ -4,9 +4,7 @@ import (
 	"context"
 	"time"
 
-	"github.com/jackc/pgx/v5/pgtype"
-
-	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/pkg/zdxclient"
 )
 
 // Timing is a single observation queued for persistence by the drainer.
@@ -28,19 +26,13 @@ func NewTimingSink() timingSink {
 	return make(chan Timing, 4096)
 }
 
-// startTimingDrainer consumes the sink and persists each timing via UpsertTimed.
-// Runs on a skip-flagged ctx so its own query doesn't recurse through the tracer.
-func startTimingDrainer(q *db.Queries, sink <-chan Timing) {
-	ctx := WithoutTiming(context.Background())
+// StartSinkToClient forwards every Timing on sink to c.RecordWithSource.
+// zdx-server itself becomes a client of its own ingest endpoint — no direct
+// zdx_timed writes happen anywhere except inside the ingest handler.
+func StartSinkToClient(sink <-chan Timing, c *zdxclient.Client) {
 	go func() {
 		for t := range sink {
-			_ = q.UpsertTimed(ctx, db.UpsertTimedParams{
-				ProjectID:   pgtype.Int4{Valid: false},
-				Name:        t.Name,
-				DurationMs:  t.DurationMs,
-				Source:      t.Source,
-				ContextJson: "{}",
-			})
+			c.RecordWithSource(t.Name, t.Source, time.Duration(t.DurationMs)*time.Millisecond, nil)
 		}
 	}()
 }

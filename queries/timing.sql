@@ -1,7 +1,7 @@
 -- name: UpsertTimed :exec
-INSERT INTO zdx_timed (project_id, name, duration_ms, source, context_json, count, total_ms)
-VALUES (@project_id, @name, @duration_ms, @source, @context_json, 1, @duration_ms)
-ON CONFLICT (COALESCE(project_id, 0), name)
+INSERT INTO zdx_timed (project_id, component, environment, name, duration_ms, source, context_json, count, total_ms)
+VALUES (@project_id, @component, @environment, @name, @duration_ms, @source, @context_json, 1, @duration_ms)
+ON CONFLICT (COALESCE(project_id, 0), component, environment, name)
 DO UPDATE SET
   duration_ms  = GREATEST(zdx_timed.duration_ms, EXCLUDED.duration_ms),
   source       = CASE WHEN EXCLUDED.duration_ms > zdx_timed.duration_ms THEN EXCLUDED.source ELSE zdx_timed.source END,
@@ -11,7 +11,7 @@ DO UPDATE SET
   created_at   = NOW();
 
 -- name: ListTimed :many
-SELECT id, project_id, name, duration_ms, count, total_ms, source, context_json, created_at
+SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
 ORDER BY duration_ms DESC;
@@ -20,7 +20,7 @@ ORDER BY duration_ms DESC;
 SELECT count(*) FROM zdx_timed WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id));
 
 -- name: ListTimedPaginated :many
-SELECT id, project_id, name, duration_ms, count, total_ms, source, context_json, created_at
+SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
 ORDER BY duration_ms DESC

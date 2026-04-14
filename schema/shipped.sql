@@ -1347,7 +1347,9 @@ CREATE TABLE public.zdx_timed (
     context_json text DEFAULT '{}'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     count integer DEFAULT 1 NOT NULL,
-    total_ms bigint DEFAULT 0 NOT NULL
+    total_ms bigint DEFAULT 0 NOT NULL,
+    component text DEFAULT ''::text NOT NULL,
+    environment text DEFAULT ''::text NOT NULL
 );
 
 
@@ -2495,7 +2497,7 @@ CREATE INDEX zdx_revisions_target ON public.zdx_revisions USING btree (project_i
 -- Name: zdx_timed_name; Type: INDEX; Schema: public; Owner: -
 --
 
-CREATE UNIQUE INDEX zdx_timed_name ON public.zdx_timed USING btree (COALESCE(project_id, 0), name);
+CREATE UNIQUE INDEX zdx_timed_name ON public.zdx_timed USING btree (COALESCE(project_id, 0), component, environment, name);
 
 
 --
@@ -2951,6 +2953,86 @@ ALTER TABLE ONLY public.zdx_todos
 
 ALTER TABLE ONLY public.zdx_work_log
     ADD CONSTRAINT zdx_work_log_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_integration_token; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_integration_token (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    component text,
+    name text DEFAULT ''::text NOT NULL,
+    token_hash text NOT NULL,
+    token_prefix text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    revoked_at timestamp with time zone
+);
+
+
+--
+-- Name: zdx_integration_token_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_integration_token_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_integration_token_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_integration_token_id_seq OWNED BY public.zdx_integration_token.id;
+
+
+--
+-- Name: zdx_integration_token id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_integration_token ALTER COLUMN id SET DEFAULT nextval('public.zdx_integration_token_id_seq'::regclass);
+
+
+--
+-- Name: zdx_integration_token zdx_integration_token_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_integration_token
+    ADD CONSTRAINT zdx_integration_token_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_integration_token_hash; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX zdx_integration_token_hash ON public.zdx_integration_token USING btree (token_hash);
+
+
+--
+-- Name: zdx_integration_token_prefix; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_integration_token_prefix ON public.zdx_integration_token USING btree (token_prefix);
+
+
+--
+-- Name: zdx_integration_token_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_integration_token_project ON public.zdx_integration_token USING btree (project_id);
+
+
+--
+-- Name: zdx_integration_token zdx_integration_token_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_integration_token
+    ADD CONSTRAINT zdx_integration_token_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

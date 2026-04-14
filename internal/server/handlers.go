@@ -3401,6 +3401,142 @@ func (s *Server) registerRoutes(api huma.API) {
 			return &struct{}{}, nil
 		})
 
+	// ── Admin: integration tokens ─────────────────────────────────────────────
+
+	type IntegrationTokenItem struct {
+		ID          int32  `json:"id"`
+		ProjectID   int32  `json:"project_id"`
+		Component   string `json:"component,omitempty"`
+		Name        string `json:"name"`
+		TokenPrefix string `json:"token_prefix"`
+		CreatedAt   string `json:"created_at"`
+		RevokedAt   string `json:"revoked_at,omitempty"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-integration-tokens", Method: http.MethodGet, Path: "/api/admin/integration-tokens"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug,omitempty"`
+		}) (*struct {
+			Body struct {
+				Items []IntegrationTokenItem `json:"items"`
+			}
+		}, error) {
+			pid := pgtype.Int4{Valid: false}
+			if in.Slug != "" {
+				p, err := getProject(ctx, s.q, in.Slug)
+				if err != nil {
+					return nil, err
+				}
+				pid = pgtype.Int4{Int32: p.ID, Valid: true}
+			}
+			rows, err := s.q.ListIntegrationTokens(ctx, pid)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			items := make([]IntegrationTokenItem, len(rows))
+			for i, r := range rows {
+				it := IntegrationTokenItem{
+					ID:          r.ID,
+					ProjectID:   r.ProjectID,
+					Name:        r.Name,
+					TokenPrefix: r.TokenPrefix,
+					CreatedAt:   r.CreatedAt.Time.Format(time.RFC3339),
+				}
+				if r.Component.Valid {
+					it.Component = r.Component.String
+				}
+				if r.RevokedAt.Valid {
+					it.RevokedAt = r.RevokedAt.Time.Format(time.RFC3339)
+				}
+				items[i] = it
+			}
+			return &struct {
+				Body struct {
+					Items []IntegrationTokenItem `json:"items"`
+				}
+			}{Body: struct {
+				Items []IntegrationTokenItem `json:"items"`
+			}{Items: items}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "create-integration-token", Method: http.MethodPost, Path: "/api/admin/integration-tokens"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string `json:"slug"`
+				Component string `json:"component,omitempty"`
+				Name      string `json:"name"`
+			}
+		}) (*struct {
+			Body struct {
+				IntegrationTokenItem
+				Token string `json:"token"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			token, err := generateIntegrationToken()
+			if err != nil {
+				return nil, apiErr(500, "generate token: "+err.Error())
+			}
+			comp := pgtype.Text{Valid: false}
+			if in.Body.Component != "" {
+				comp = pgtype.Text{String: in.Body.Component, Valid: true}
+			}
+			row, err := s.q.CreateIntegrationToken(ctx, db.CreateIntegrationTokenParams{
+				ProjectID:   p.ID,
+				Component:   comp,
+				Name:        in.Body.Name,
+				TokenHash:   hashIntegrationToken(token),
+				TokenPrefix: tokenPrefix(token),
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			item := IntegrationTokenItem{
+				ID:          row.ID,
+				ProjectID:   row.ProjectID,
+				Name:        row.Name,
+				TokenPrefix: row.TokenPrefix,
+				CreatedAt:   row.CreatedAt.Time.Format(time.RFC3339),
+			}
+			if row.Component.Valid {
+				item.Component = row.Component.String
+			}
+			return &struct {
+				Body struct {
+					IntegrationTokenItem
+					Token string `json:"token"`
+				}
+			}{Body: struct {
+				IntegrationTokenItem
+				Token string `json:"token"`
+			}{IntegrationTokenItem: item, Token: token}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "revoke-integration-token", Method: http.MethodPost, Path: "/api/admin/integration-tokens/{id}/revoke"},
+		func(ctx context.Context, in *struct {
+			ID int32 `path:"id"`
+		}) (*struct{}, error) {
+			if err := s.q.RevokeIntegrationToken(ctx, in.ID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{}{}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "delete-integration-token", Method: http.MethodDelete, Path: "/api/admin/integration-tokens/{id}"},
+		func(ctx context.Context, in *struct {
+			ID int32 `path:"id"`
+		}) (*struct{}, error) {
+			if err := s.q.DeleteIntegrationToken(ctx, in.ID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{}{}, nil
+		})
+
+	s.registerIngestRoutes(api)
+
 	// ── Issue similarity ───────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "similar-issues", Method: http.MethodPost, Path: "/api/dx/issues/similar"},

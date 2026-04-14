@@ -1,0 +1,277 @@
+// Package zdxclient is the Go client for pushing timing metrics to zdx.
+//
+// It buffers events in memory and flushes them to zdx's ingest endpoint on
+// a timer or when the batch fills. Enqueue is always non-blocking: on
+// overflow, events are dropped and the dropped counter is incremented.
+// The client owns a single goroutine that does HTTP I/O so callers can
+// Record from any goroutine at any rate without backpressure.
+//
+// Typical lifecycle:
+//
+//	c, err := zdxclient.New(zdxclient.Config{
+//	    Endpoint: "https://zdx.example.com",
+//	    Token:    os.Getenv("ZDX_TOKEN"),
+//	    Component: "my-service",
+//	})
+//	if err != nil { ... }
+//	defer c.Close(context.Background())
+//
+//	c.Record("db:query", duration, nil)
+package zdxclient
+
+import (
+	"bytes"
+	"context"
+	"encoding/json"
+	"errors"
+	"fmt"
+	"net/http"
+	"sync"
+	"sync/atomic"
+	"time"
+)
+
+// Tags is a free-form label map attached to a single event. Values are folded
+// into the server's context_json column.
+type Tags map[string]string
+
+// Config controls a Client's endpoint, identity, and batching behavior.
+// Only Endpoint and Token are required; other fields have sensible defaults.
+type Config struct {
+	// Endpoint is the zdx base URL, e.g. "https://zdx.example.com". No trailing slash required.
+	Endpoint string
+
+	// Token is the bearer token issued by an admin via POST /api/admin/integration-tokens.
+	Token string
+
+	// Component overrides the token's default component for every event. Optional.
+	Component string
+
+	// Environment is stamped on every event — e.g. "prod", "staging", "dev". Optional.
+	Environment string
+
+	// Host is stamped on every event's context_json. Defaults to os.Hostname. Optional.
+	Host string
+
+	// FlushInterval is the max time an event waits before being sent. Defaults to 5s.
+	FlushInterval time.Duration
+
+	// MaxBatch is the number of events that triggers an immediate flush. Defaults to 500.
+	MaxBatch int
+
+	// BufferSize is the ring-buffer capacity. Overflow drops events. Defaults to 4096.
+	BufferSize int
+
+	// HTTPClient is the transport used for POSTs. Defaults to &http.Client{Timeout: 10s}.
+	HTTPClient *http.Client
+
+	// OnError is called for transport/HTTP errors with the number of events affected.
+	// Defaults to no-op. Use this to wire into your logger.
+	OnError func(err error, eventCount int)
+}
+
+// Client holds the in-memory buffer and the background flusher.
+// A Client is safe for concurrent use.
+type Client struct {
+	cfg     Config
+	events  chan event
+	flushed chan struct{}
+	stop    chan struct{}
+	wg      sync.WaitGroup
+	closed  atomic.Bool
+	dropped atomic.Uint64
+}
+
+// event is the wire-format struct used directly in JSON payloads.
+// Matches server-side IngestEvent one-to-one.
+type event struct {
+	Name       string            `json:"name"`
+	DurationMs int32             `json:"duration_ms"`
+	Source     string            `json:"source,omitempty"`
+	Tags       map[string]string `json:"tags,omitempty"`
+}
+
+// batch matches server-side IngestBatch.
+type batch struct {
+	Component   string  `json:"component,omitempty"`
+	Environment string  `json:"environment,omitempty"`
+	Host        string  `json:"host,omitempty"`
+	Events      []event `json:"events"`
+}
+
+// New validates cfg, fills in defaults, and starts the background flusher.
+// Call Close when done to drain remaining events.
+func New(cfg Config) (*Client, error) {
+	if cfg.Endpoint == "" {
+		return nil, errors.New("zdxclient: Endpoint is required")
+	}
+	if cfg.Token == "" {
+		return nil, errors.New("zdxclient: Token is required")
+	}
+	if cfg.FlushInterval <= 0 {
+		cfg.FlushInterval = 5 * time.Second
+	}
+	if cfg.MaxBatch <= 0 {
+		cfg.MaxBatch = 500
+	}
+	if cfg.BufferSize <= 0 {
+		cfg.BufferSize = 4096
+	}
+	if cfg.HTTPClient == nil {
+		cfg.HTTPClient = &http.Client{Timeout: 10 * time.Second}
+	}
+	if cfg.OnError == nil {
+		cfg.OnError = func(error, int) {}
+	}
+	c := &Client{
+		cfg:     cfg,
+		events:  make(chan event, cfg.BufferSize),
+		flushed: make(chan struct{}),
+		stop:    make(chan struct{}),
+	}
+	c.wg.Add(1)
+	go c.run()
+	return c, nil
+}
+
+// Record enqueues a timing event. Non-blocking: if the buffer is full the
+// event is dropped and the Dropped() counter is incremented. Callers should
+// Record freely from hot paths without worrying about latency.
+func (c *Client) Record(name string, duration time.Duration, tags Tags) {
+	if c.closed.Load() {
+		return
+	}
+	ms := int32(duration.Milliseconds()) //nolint:gosec
+	ev := event{Name: name, DurationMs: ms, Tags: tags}
+	select {
+	case c.events <- ev:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// RecordWithSource is like Record but also stamps a source label on the event
+// (e.g. the URL path that originated the work). Useful for HTTP handlers.
+func (c *Client) RecordWithSource(name, source string, duration time.Duration, tags Tags) {
+	if c.closed.Load() {
+		return
+	}
+	ms := int32(duration.Milliseconds()) //nolint:gosec
+	ev := event{Name: name, DurationMs: ms, Source: source, Tags: tags}
+	select {
+	case c.events <- ev:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// Dropped returns the cumulative number of events dropped due to buffer
+// overflow or HTTP errors. Useful to surface as its own metric.
+func (c *Client) Dropped() uint64 {
+	return c.dropped.Load()
+}
+
+// Close stops the background flusher and drains any buffered events.
+// Returns when the drain completes or ctx is canceled. Idempotent.
+func (c *Client) Close(ctx context.Context) error {
+	if c.closed.Swap(true) {
+		return nil
+	}
+	close(c.stop)
+	done := make(chan struct{})
+	go func() {
+		c.wg.Wait()
+		close(done)
+	}()
+	select {
+	case <-done:
+		return nil
+	case <-ctx.Done():
+		return ctx.Err()
+	}
+}
+
+// run is the flusher goroutine. It collects events until MaxBatch or
+// FlushInterval fires, then POSTs. On stop, it drains any remaining buffered
+// events before returning.
+func (c *Client) run() {
+	defer c.wg.Done()
+	ticker := time.NewTicker(c.cfg.FlushInterval)
+	defer ticker.Stop()
+	buf := make([]event, 0, c.cfg.MaxBatch)
+	for {
+		select {
+		case ev := <-c.events:
+			buf = append(buf, ev)
+			if len(buf) >= c.cfg.MaxBatch {
+				c.flush(buf)
+				buf = buf[:0]
+			}
+		case <-ticker.C:
+			if len(buf) > 0 {
+				c.flush(buf)
+				buf = buf[:0]
+			}
+		case <-c.stop:
+			// Drain anything still in the channel, then flush the leftover.
+			for {
+				select {
+				case ev := <-c.events:
+					buf = append(buf, ev)
+				default:
+					if len(buf) > 0 {
+						c.flush(buf)
+					}
+					return
+				}
+			}
+		}
+	}
+}
+
+// flush POSTs one batch with exponential backoff. On terminal failure the
+// batch is discarded and OnError is called with the event count.
+func (c *Client) flush(events []event) {
+	payload := batch{
+		Component:   c.cfg.Component,
+		Environment: c.cfg.Environment,
+		Host:        c.cfg.Host,
+		Events:      events,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		c.dropped.Add(uint64(len(events)))
+		c.cfg.OnError(fmt.Errorf("marshal: %w", err), len(events))
+		return
+	}
+	url := c.cfg.Endpoint + "/api/ingest/timings"
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(1<<attempt) * 200 * time.Millisecond)
+		}
+		req, rErr := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		if rErr != nil {
+			lastErr = rErr
+			break
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+		resp, doErr := c.cfg.HTTPClient.Do(req)
+		if doErr != nil {
+			lastErr = doErr
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return
+		}
+		lastErr = fmt.Errorf("ingest returned %d", resp.StatusCode)
+		// Don't retry 4xx — the server is telling us something we can't fix.
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+			break
+		}
+	}
+	c.dropped.Add(uint64(len(events)))
+	c.cfg.OnError(lastErr, len(events))
+}

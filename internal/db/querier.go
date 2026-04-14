@@ -52,6 +52,7 @@ type Querier interface {
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
+	CreateIntegrationToken(ctx context.Context, arg CreateIntegrationTokenParams) (CreateIntegrationTokenRow, error)
 	CreateInvite(ctx context.Context, arg CreateInviteParams) (ZdxInvite, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error)
@@ -68,6 +69,7 @@ type Querier interface {
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
 	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error
+	DeleteIntegrationToken(ctx context.Context, id int32) error
 	DeleteInvite(ctx context.Context, id int32) error
 	DeleteProjectConstraint(ctx context.Context, id int32) error
 	DeleteProjectGoal(ctx context.Context, id int32) error
@@ -91,6 +93,7 @@ type Querier interface {
 	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error)
 	GetFile(ctx context.Context, id int32) (ZdxFile, error)
+	GetIntegrationTokenByHash(ctx context.Context, tokenHash string) (GetIntegrationTokenByHashRow, error)
 	GetInviteByToken(ctx context.Context, token string) (ZdxInvite, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
 	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
@@ -136,6 +139,7 @@ type Querier interface {
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ZdxErrorReport, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)
+	ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error)
 	ListInvites(ctx context.Context) ([]ZdxInvite, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error)
@@ -185,6 +189,7 @@ type Querier interface {
 	NextID(ctx context.Context, kind string) (int32, error)
 	RemoveThemeBlocker(ctx context.Context, arg RemoveThemeBlockerParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
+	RevokeIntegrationToken(ctx context.Context, id int32) error
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
 	SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
