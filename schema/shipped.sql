@@ -781,8 +781,7 @@ CREATE TABLE public.zdx_questions (
     question text NOT NULL,
     answer text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    parent_question_id integer REFERENCES public.zdx_questions(id) ON DELETE SET NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -2129,8 +2128,6 @@ CREATE INDEX idx_oauth_identities_user ON public.zdx_oauth_identities USING btre
 --
 
 CREATE INDEX idx_questions_project ON public.zdx_questions USING btree (project_id);
-
-CREATE INDEX idx_questions_parent ON public.zdx_questions USING btree (parent_question_id) WHERE parent_question_id IS NOT NULL;
 
 
 --
