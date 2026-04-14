@@ -668,13 +668,15 @@ func (s *Server) registerRoutes(api huma.API) {
 			s.recordRevision(ctx, p.ID, "issue", issueID, "status", "open", "closed", agent)
 			reason := ptrStr(in.Body.Reason)
 			notes := ptrStr(in.Body.Notes)
-			if reason != "" || notes != "" {
-				note := reason
-				if notes != "" {
-					note += "\n" + notes
-				}
-				_ = s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
+			note := "[closed"
+			if reason != "" {
+				note += ":" + reason
 			}
+			note += "] "
+			if notes != "" {
+				note += notes
+			}
+			_ = s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -785,10 +787,11 @@ func (s *Server) registerRoutes(api huma.API) {
 		func(ctx context.Context, in *IssueSlugInput) (*struct {
 			Body struct {
 				Entries []struct {
-					IssueID   string `json:"issue_id"`
-					Agent     string `json:"agent"`
-					Note      string `json:"note"`
-					CreatedAt string `json:"created_at"`
+					IssueID    string `json:"issue_id"`
+					IssueTitle string `json:"issue_title"`
+					Agent      string `json:"agent"`
+					Note       string `json:"note"`
+					CreatedAt  string `json:"created_at"`
 				} `json:"entries"`
 			}
 		}, error) {
@@ -801,17 +804,18 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			type entry = struct {
-				IssueID   string `json:"issue_id"`
-				Agent     string `json:"agent"`
-				Note      string `json:"note"`
-				CreatedAt string `json:"created_at"`
+				IssueID    string `json:"issue_id"`
+				IssueTitle string `json:"issue_title"`
+				Agent      string `json:"agent"`
+				Note       string `json:"note"`
+				CreatedAt  string `json:"created_at"`
 			}
 			type respBody = struct {
 				Entries []entry `json:"entries"`
 			}
 			out := make([]entry, len(rows))
 			for i, r := range rows {
-				out[i] = entry{IssueID: r.IssueID, Agent: r.Agent, Note: r.Note, CreatedAt: fmtTS(r.CreatedAt)}
+				out[i] = entry{IssueID: r.IssueID, IssueTitle: r.IssueTitle, Agent: r.Agent, Note: r.Note, CreatedAt: fmtTS(r.CreatedAt)}
 			}
 			return &struct{ Body respBody }{Body: respBody{Entries: out}}, nil
 		})

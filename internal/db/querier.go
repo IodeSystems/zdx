@@ -100,7 +100,7 @@ type Querier interface {
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
 	// Specs that have no entries in zdx_spec_tests (no test coverage).
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
-	ListWorklogForProject(ctx context.Context, projectID int32) ([]ZdxIssueWork, error)
+	ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error)
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskUndone(ctx context.Context, id string) error

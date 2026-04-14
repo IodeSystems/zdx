@@ -20,12 +20,17 @@ function WorklogRow({ entry, slug, componentSlug }: { entry: WorklogEntry; slug:
         <Chip label={entry.issue_id} size="small" variant="outlined" sx={{ cursor: 'pointer' }} />
       </Link>
       <Box sx={{ flex: 1 }}>
+        {entry.issue_title && (
+          <Typography component="span" variant="body2" sx={{ fontWeight: 500, mr: 1 }}>
+            {entry.issue_title}
+          </Typography>
+        )}
         {entry.agent && (
           <Typography component="span" variant="caption" color="text.disabled" sx={{ mr: 1 }}>
             [{entry.agent}]
           </Typography>
         )}
-        <Typography component="span" variant="body2">{entry.note}</Typography>
+        <Typography component="span" variant="body2" color="text.secondary">{entry.note}</Typography>
       </Box>
     </Box>
   )

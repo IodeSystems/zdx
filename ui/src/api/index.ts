@@ -314,6 +314,7 @@ export const useSlowQueries = (slug: string) =>
 
 export interface WorklogEntry {
   issue_id: string
+  issue_title: string
   agent: string
   note: string
   created_at: string

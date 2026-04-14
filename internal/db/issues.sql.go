@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const appendIssueWork = `-- name: AppendIssueWork :exec
@@ -211,7 +213,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 }
 
 const listWorklogForProject = `-- name: ListWorklogForProject :many
-SELECT w.id, w.issue_id, w.agent, w.note, w.created_at
+SELECT w.id, w.issue_id, i.title AS issue_title, w.agent, w.note, w.created_at
 FROM zdx_issue_work w
 JOIN zdx_issues i ON i.id = w.issue_id
 WHERE i.project_id = $1
@@ -219,18 +221,28 @@ ORDER BY w.created_at DESC
 LIMIT 200
 `
 
-func (q *Queries) ListWorklogForProject(ctx context.Context, projectID int32) ([]ZdxIssueWork, error) {
+type ListWorklogForProjectRow struct {
+	ID         int32              `db:"id" json:"id"`
+	IssueID    string             `db:"issue_id" json:"issue_id"`
+	IssueTitle string             `db:"issue_title" json:"issue_title"`
+	Agent      string             `db:"agent" json:"agent"`
+	Note       string             `db:"note" json:"note"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error) {
 	rows, err := q.db.Query(ctx, listWorklogForProject, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxIssueWork
+	var items []ListWorklogForProjectRow
 	for rows.Next() {
-		var i ZdxIssueWork
+		var i ListWorklogForProjectRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.IssueID,
+			&i.IssueTitle,
 			&i.Agent,
 			&i.Note,
 			&i.CreatedAt,
