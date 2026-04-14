@@ -161,6 +161,28 @@ while true; do
     if command -v jq &>/dev/null; then
       usage_sums="$(jq -r 'select(.type == "assistant" and .message.usage != null) | .message.usage | [(.input_tokens // 0), (.output_tokens // 0), (.cache_read_input_tokens // 0), (.cache_creation_input_tokens // 0)] | @tsv' "$sfile" 2>/dev/null | awk -F'\t' '{i+=$1; o+=$2; cr+=$3; cc+=$4} END {printf "%d %d %d %d", i, o, cr, cc}')"
       read -r total_input total_output total_cache_read total_cache_create <<< "$usage_sums"
+      # Sum subagent usage
+      subagent_dir="$PROJECT_DIR/$sid/subagents"
+      if [[ -d "$subagent_dir" ]]; then
+        for agent_jsonl in "$subagent_dir"/agent-*.jsonl; do
+          [[ -f "$agent_jsonl" ]] || continue
+          agent_sums="$(jq -r 'select(.type == "assistant" and .message.usage != null) | .message.usage | [(.input_tokens // 0), (.output_tokens // 0), (.cache_read_input_tokens // 0), (.cache_creation_input_tokens // 0)] | @tsv' "$agent_jsonl" 2>/dev/null | awk -F'\t' '{i+=$1; o+=$2; cr+=$3; cc+=$4} END {printf "%d %d %d %d", i, o, cr, cc}')"
+          read -r ai ao acr acc <<< "$agent_sums"
+          total_input=$(( total_input + ai ))
+          total_output=$(( total_output + ao ))
+          total_cache_read=$(( total_cache_read + acr ))
+          total_cache_create=$(( total_cache_create + acc ))
+          # Per-agent breakdown
+          agent_meta="${agent_jsonl%.jsonl}.meta.json"
+          agent_label="$(basename "$agent_jsonl")"
+          if [[ -f "$agent_meta" ]]; then
+            agent_type="$(jq -r '.agentType // "unknown"' "$agent_meta" 2>/dev/null)"
+            agent_desc="$(jq -r '.description // ""' "$agent_meta" 2>/dev/null)"
+            agent_label="${agent_type}: ${agent_desc}"
+          fi
+          log "  subagent:  ${agent_label}  input=$ai output=$ao cache_read=$acr cache_create=$acc"
+        done
+      fi
     fi
   fi
   duration_s=$(( $(date +%s) - $(date -d "$start_time" +%s) ))
