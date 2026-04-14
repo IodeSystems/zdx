@@ -227,6 +227,64 @@ func (q *Queries) GetClaudeSessionTokenUsage(ctx context.Context, sessionPk int6
 	return i, err
 }
 
+const getClaudeSessionTokenUsageByAgent = `-- name: GetClaudeSessionTokenUsageByAgent :many
+SELECT
+  agent_id,
+  agent_type,
+  agent_description,
+  coalesce(sum((event_json->'message'->'usage'->>'input_tokens')::bigint), 0)::bigint AS input_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'output_tokens')::bigint), 0)::bigint AS output_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'cache_read_input_tokens')::bigint), 0)::bigint AS cache_read_input_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'cache_creation_input_tokens')::bigint), 0)::bigint AS cache_creation_input_tokens,
+  count(*)::bigint AS event_count
+FROM zdx_claude_events
+WHERE session_pk = $1
+  AND event_type = 'assistant'
+  AND event_json->'message'->'usage' IS NOT NULL
+GROUP BY agent_id, agent_type, agent_description
+ORDER BY event_count DESC
+`
+
+type GetClaudeSessionTokenUsageByAgentRow struct {
+	AgentID                  string `db:"agent_id" json:"agent_id"`
+	AgentType                string `db:"agent_type" json:"agent_type"`
+	AgentDescription         string `db:"agent_description" json:"agent_description"`
+	InputTokens              int64  `db:"input_tokens" json:"input_tokens"`
+	OutputTokens             int64  `db:"output_tokens" json:"output_tokens"`
+	CacheReadInputTokens     int64  `db:"cache_read_input_tokens" json:"cache_read_input_tokens"`
+	CacheCreationInputTokens int64  `db:"cache_creation_input_tokens" json:"cache_creation_input_tokens"`
+	EventCount               int64  `db:"event_count" json:"event_count"`
+}
+
+func (q *Queries) GetClaudeSessionTokenUsageByAgent(ctx context.Context, sessionPk int64) ([]GetClaudeSessionTokenUsageByAgentRow, error) {
+	rows, err := q.db.Query(ctx, getClaudeSessionTokenUsageByAgent, sessionPk)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetClaudeSessionTokenUsageByAgentRow
+	for rows.Next() {
+		var i GetClaudeSessionTokenUsageByAgentRow
+		if err := rows.Scan(
+			&i.AgentID,
+			&i.AgentType,
+			&i.AgentDescription,
+			&i.InputTokens,
+			&i.OutputTokens,
+			&i.CacheReadInputTokens,
+			&i.CacheCreationInputTokens,
+			&i.EventCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClaudeEvents = `-- name: ListClaudeEvents :many
 SELECT id, session_pk, seq, event_type, event_json, created_at, agent_id, is_sidechain, agent_type, agent_description
 FROM zdx_claude_events

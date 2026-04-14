@@ -3,6 +3,12 @@ import {
   Box,
   Chip,
   Collapse,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Typography,
   List,
   ListItemButton,
@@ -21,7 +27,9 @@ import {
   useClaudeSession,
   useInfiniteClaudeSessionEvents,
   useClaudeSessionTokenUsage,
+  useClaudeSessionTokenUsageByAgent,
   type ClaudeEventItem,
+  type AgentTokenUsage,
 } from '../api'
 import { fmtDate } from '../utils/date'
 
@@ -367,6 +375,66 @@ function getSummary(event: ClaudeEventItem): string {
   return ''
 }
 
+const AGENT_TYPE_COLORS: Record<string, string> = {
+  Explore: '#2196f3',
+  'code-reviewer': '#9c27b0',
+  'general-purpose': '#4caf50',
+  Plan: '#ff9800',
+}
+
+function AgentBreakdown({ agents }: { agents: AgentTokenUsage[] }) {
+  if (agents.length <= 1) return null
+
+  return (
+    <Box sx={{ mb: 1 }}>
+      <Typography variant="caption" color="text.secondary" sx={{ mb: 0.5, display: 'block' }}>
+        Token usage by agent
+      </Typography>
+      <TableContainer>
+        <Table size="small" sx={{ '& td, & th': { px: 1, py: 0.25, fontSize: '0.75rem', border: 'none' } }}>
+          <TableHead>
+            <TableRow sx={{ '& th': { color: 'text.secondary', fontWeight: 600 } }}>
+              <TableCell>Agent</TableCell>
+              <TableCell align="right">Input</TableCell>
+              <TableCell align="right">Output</TableCell>
+              <TableCell align="right">Cache Read</TableCell>
+              <TableCell align="right">Cache Write</TableCell>
+              <TableCell align="right">Events</TableCell>
+            </TableRow>
+          </TableHead>
+          <TableBody>
+            {agents.map((a, i) => {
+              const label = a.agent_id ? (a.agent_description || a.agent_type || a.agent_id) : 'Main thread'
+              const typeColor = AGENT_TYPE_COLORS[a.agent_type] ?? '#888'
+              return (
+                <TableRow key={i} sx={{ '&:hover': { bgcolor: 'action.hover' } }}>
+                  <TableCell>
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+                      {a.agent_type && (
+                        <Chip
+                          label={a.agent_type}
+                          size="small"
+                          sx={{ height: 18, fontSize: '0.65rem', bgcolor: typeColor, color: '#fff' }}
+                        />
+                      )}
+                      <Typography variant="caption" noWrap sx={{ maxWidth: 200 }}>{label}</Typography>
+                    </Box>
+                  </TableCell>
+                  <TableCell align="right">{fmtTokens(a.input_tokens)}</TableCell>
+                  <TableCell align="right">{fmtTokens(a.output_tokens)}</TableCell>
+                  <TableCell align="right">{a.cache_read_input_tokens > 0 ? fmtTokens(a.cache_read_input_tokens) : '-'}</TableCell>
+                  <TableCell align="right">{a.cache_creation_input_tokens > 0 ? fmtTokens(a.cache_creation_input_tokens) : '-'}</TableCell>
+                  <TableCell align="right">{a.event_count}</TableCell>
+                </TableRow>
+              )
+            })}
+          </TableBody>
+        </Table>
+      </TableContainer>
+    </Box>
+  )
+}
+
 export function SessionDetail({
   slug,
   sessionId,
@@ -383,6 +451,7 @@ export function SessionDetail({
   const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } =
     useInfiniteClaudeSessionEvents(slug, sessionId)
   const { data: tokenUsage } = useClaudeSessionTokenUsage(slug, sessionId)
+  const { data: agentUsage } = useClaudeSessionTokenUsageByAgent(slug, sessionId)
 
   const allEvents = useMemo(
     () => data?.pages.flatMap((p) => p.events) ?? [],
@@ -470,6 +539,7 @@ export function SessionDetail({
           )}
         </Box>
       )}
+      {agentUsage?.agents && <AgentBreakdown agents={agentUsage.agents} />}
 
       <Box
         ref={containerRef}

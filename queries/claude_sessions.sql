@@ -62,3 +62,20 @@ FROM zdx_claude_events
 WHERE session_pk = $1
   AND event_type = 'assistant'
   AND event_json->'message'->'usage' IS NOT NULL;
+
+-- name: GetClaudeSessionTokenUsageByAgent :many
+SELECT
+  agent_id,
+  agent_type,
+  agent_description,
+  coalesce(sum((event_json->'message'->'usage'->>'input_tokens')::bigint), 0)::bigint AS input_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'output_tokens')::bigint), 0)::bigint AS output_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'cache_read_input_tokens')::bigint), 0)::bigint AS cache_read_input_tokens,
+  coalesce(sum((event_json->'message'->'usage'->>'cache_creation_input_tokens')::bigint), 0)::bigint AS cache_creation_input_tokens,
+  count(*)::bigint AS event_count
+FROM zdx_claude_events
+WHERE session_pk = $1
+  AND event_type = 'assistant'
+  AND event_json->'message'->'usage' IS NOT NULL
+GROUP BY agent_id, agent_type, agent_description
+ORDER BY event_count DESC;

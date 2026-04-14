@@ -1305,6 +1305,27 @@ export const useClaudeSessionTokenUsage = (slug: string, sessionId: number | nul
     enabled: !!slug && sessionId != null,
   })
 
+export interface AgentTokenUsage {
+  agent_id: string
+  agent_type: string
+  agent_description: string
+  input_tokens: number
+  output_tokens: number
+  cache_read_input_tokens: number
+  cache_creation_input_tokens: number
+  event_count: number
+}
+
+export const useClaudeSessionTokenUsageByAgent = (slug: string, sessionId: number | null) =>
+  useQuery<{ agents: AgentTokenUsage[] }>({
+    queryKey: ['claude-token-usage-by-agent', slug, sessionId],
+    queryFn: () =>
+      apiFetch<{ agents: AgentTokenUsage[] }>(
+        `/api/dx/claude/sessions/${sessionId}/token-usage/by-agent?slug=${encodeURIComponent(slug)}`
+      ),
+    enabled: !!slug && sessionId != null,
+  })
+
 // ── Goals & Constraints ──────────────────────────────────────────────────
 
 export interface GoalItem {

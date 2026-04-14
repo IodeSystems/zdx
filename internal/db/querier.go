@@ -96,6 +96,7 @@ type Querier interface {
 	GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error)
 	GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (GetClaudeSessionBySessionIDRow, error)
 	GetClaudeSessionTokenUsage(ctx context.Context, sessionPk int64) (GetClaudeSessionTokenUsageRow, error)
+	GetClaudeSessionTokenUsageByAgent(ctx context.Context, sessionPk int64) ([]GetClaudeSessionTokenUsageByAgentRow, error)
 	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
 	GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error)
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)

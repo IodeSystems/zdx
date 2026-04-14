@@ -205,6 +205,60 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 			}}, nil
 		})
 
+	type AgentTokenUsageRow struct {
+		AgentID                  string `json:"agent_id"`
+		AgentType                string `json:"agent_type"`
+		AgentDescription         string `json:"agent_description"`
+		InputTokens              int64  `json:"input_tokens"`
+		OutputTokens             int64  `json:"output_tokens"`
+		CacheReadInputTokens     int64  `json:"cache_read_input_tokens"`
+		CacheCreationInputTokens int64  `json:"cache_creation_input_tokens"`
+		EventCount               int64  `json:"event_count"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "get-claude-session-token-usage-by-agent", Method: http.MethodGet, Path: "/api/dx/claude/sessions/{sessionId}/token-usage/by-agent"},
+		func(ctx context.Context, in *struct {
+			Slug      string `query:"slug" required:"true"`
+			SessionID int64  `path:"sessionId"`
+		}) (*struct {
+			Body struct {
+				Agents []AgentTokenUsageRow `json:"agents"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			if err != nil {
+				return nil, apiErr(404, "session not found")
+			}
+			rows, err := s.q.GetClaudeSessionTokenUsageByAgent(ctx, sess.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			agents := make([]AgentTokenUsageRow, len(rows))
+			for i, r := range rows {
+				agents[i] = AgentTokenUsageRow{
+					AgentID:                  r.AgentID,
+					AgentType:                r.AgentType,
+					AgentDescription:         r.AgentDescription,
+					InputTokens:              r.InputTokens,
+					OutputTokens:             r.OutputTokens,
+					CacheReadInputTokens:     r.CacheReadInputTokens,
+					CacheCreationInputTokens: r.CacheCreationInputTokens,
+					EventCount:               r.EventCount,
+				}
+			}
+			return &struct {
+				Body struct {
+					Agents []AgentTokenUsageRow `json:"agents"`
+				}
+			}{Body: struct {
+				Agents []AgentTokenUsageRow `json:"agents"`
+			}{Agents: agents}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "update-claude-session-summary", Method: http.MethodPatch, Path: "/api/dx/claude/sessions/{sessionId}/summary"},
 		func(ctx context.Context, in *struct {
 			Slug      string `query:"slug" required:"true"`
