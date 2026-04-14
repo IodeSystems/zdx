@@ -12,6 +12,7 @@ schema/compat-result.txt
 .zdx/smoke.json
 .zdx/test-index.json
 .zdx/metrics-latest.yaml
+.zdx/logs/
 .claude/projects/
 .claude/scheduled_tasks.lock
 ui/tsconfig.tsbuildinfo

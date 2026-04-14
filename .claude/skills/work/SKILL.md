@@ -46,7 +46,9 @@ Vertical scope is automatic: solo --issue=IS-N picks only triage:IS-N, decompose
 
 **Done** when the vertical is empty and no unblocked leaf work remains, or when a blocker stops progress. Then stop — do not pick up a new issue.
 
-**Post-work DX analysis** (only when you flailed — retried commands, hit unexpected errors, or had to deviate from the happy path):
+**Before stopping:** the git tree must be clean. Run `git status` — if anything is uncommitted (staged, unstaged, or untracked work-product), commit it (or ship it per step 5) before reporting done. Do not leave dangling changes for the next session: you have the context now, the next dev won't.
+
+**Post-work DX analysis** (only when you flailed — retried commands, had to look up documentation for confusing command, or had to work around a lack of commands for your intent, hit unexpected errors, or had to deviate from the happy path):
 1. For each point of friction, ask: could a better error message, flag, or guard have guided me correctly on the first attempt?
 2. If yes, file an issue: `./bin/dx issue add --title="..." --context="<what happened, what the tool said, what it should have said or done instead>"`
 3. Report the filed issue IDs.

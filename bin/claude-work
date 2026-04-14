@@ -1,0 +1,42 @@
+#!/usr/bin/env bash
+set -u
+
+cd "$(dirname "$0")/.."
+
+mkdir -p .zdx/logs
+LOG=.zdx/logs/claude-work.log
+
+PROJECT_DIR="$HOME/.claude/projects/$(pwd | tr / -)"
+
+log() {
+  printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "$LOG"
+}
+
+while true; do
+  todo="$(./bin/dx todo solo 2>/dev/null)"
+  if [[ -n "$todo" ]]; then
+    log "todo solo:"
+    printf '%s\n' "$todo" | tee -a "$LOG"
+
+    sid="$(uuidgen)"
+    sfile="$PROJECT_DIR/$sid.jsonl"
+    log "claude session $sid → $sfile"
+
+    # Pre-create so tail -F finds it immediately
+    mkdir -p "$PROJECT_DIR"
+    : > "$sfile"
+    tail -F "$sfile" 2>/dev/null | tee -a "$LOG" &
+    tail_pid=$!
+
+    claude --dangerously-skip-permissions --chrome \
+      --session-id "$sid" -p /work
+    rc=$?
+
+    kill "$tail_pid" 2>/dev/null
+    wait "$tail_pid" 2>/dev/null
+    log "claude /work exited rc=$rc"
+  else
+    log "idle; sleeping 60s"
+    sleep 60
+  fi
+done
