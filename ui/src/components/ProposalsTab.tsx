@@ -20,6 +20,7 @@ import {
   useFileProposal,
   type ProposalItem,
 } from '../api'
+import { MarkdownContent } from './MarkdownContent'
 
 const STATUS_COLORS: Record<string, 'success' | 'warning' | 'default' | 'error' | 'info'> = {
   proposed: 'info',
@@ -38,11 +39,13 @@ const emptyForm: FormState = { title: '', context: '', priority: 0 }
 
 function ProposalCard({
   proposal,
+  slug,
   onBacklog,
   onDismiss,
   onFile,
 }: {
   proposal: ProposalItem
+  slug: string
   onBacklog: () => void
   onDismiss: () => void
   onFile: () => void
@@ -66,9 +69,9 @@ function ProposalCard({
           )}
         </Box>
         {proposal.context && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25, whiteSpace: 'pre-wrap' }}>
-            {proposal.context}
-          </Typography>
+          <Box sx={{ mt: 0.25 }}>
+            <MarkdownContent slug={slug}>{proposal.context}</MarkdownContent>
+          </Box>
         )}
         {proposal.status === 'proposed' && (
           <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
@@ -129,6 +132,7 @@ export function ProposalsTab({ slug }: { slug: string }) {
           <ProposalCard
             key={p.id}
             proposal={p}
+            slug={slug}
             onBacklog={() => update.mutateAsync({ id: p.id, status: 'backlogged' })}
             onDismiss={() => update.mutateAsync({ id: p.id, status: 'dismissed' })}
             onFile={() => handleFile(p)}
@@ -149,6 +153,7 @@ export function ProposalsTab({ slug }: { slug: string }) {
               <ProposalCard
                 key={p.id}
                 proposal={p}
+                slug={slug}
                 onBacklog={() => update.mutateAsync({ id: p.id, status: 'backlogged' })}
                 onDismiss={() => update.mutateAsync({ id: p.id, status: 'dismissed' })}
                 onFile={() => handleFile(p)}

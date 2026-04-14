@@ -15,6 +15,7 @@ import {
 } from '@mui/icons-material'
 import { useFeature, useTasks, useSpecTests, type TaskItem, type SpecItem as BaseSpecItem } from '../api'
 import { DemosSection } from './DemoPlayer'
+import { MarkdownContent } from './MarkdownContent'
 
 type FeatureTask = TaskItem
 type Spec = BaseSpecItem & { deferred?: boolean }
@@ -151,7 +152,7 @@ export function FeatureDetail({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             What
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{feature.what}</Typography>
+          <MarkdownContent slug={slug}>{feature.what}</MarkdownContent>
         </Box>
       )}
 
@@ -160,7 +161,7 @@ export function FeatureDetail({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Why
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{feature.why}</Typography>
+          <MarkdownContent slug={slug}>{feature.why}</MarkdownContent>
         </Box>
       )}
 
@@ -169,7 +170,7 @@ export function FeatureDetail({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Done when
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{feature.done_when}</Typography>
+          <MarkdownContent slug={slug}>{feature.done_when}</MarkdownContent>
         </Box>
       )}
 
@@ -178,7 +179,7 @@ export function FeatureDetail({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Description
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{feature.description}</Typography>
+          <MarkdownContent slug={slug}>{feature.description}</MarkdownContent>
         </Box>
       )}
 

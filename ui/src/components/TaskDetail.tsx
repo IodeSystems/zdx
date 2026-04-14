@@ -6,6 +6,7 @@ import { useTasks, useUpdateTaskStatus, useTaskCodeRefs } from '../api'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
+import { MarkdownContent } from './MarkdownContent'
 
 const STATUS_COLORS: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
   done: 'success',
@@ -151,9 +152,7 @@ export function TaskDetail({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Test Plan
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {task.test_plan}
-          </Typography>
+          <MarkdownContent slug={slug}>{task.test_plan}</MarkdownContent>
         </Box>
       )}
 

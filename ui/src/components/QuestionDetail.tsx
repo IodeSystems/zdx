@@ -14,6 +14,7 @@ import {
   type QuestionItem,
 } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { MarkdownContent } from './MarkdownContent'
 
 function ChildQuestionCard({ item, slug }: { item: QuestionItem; slug: string }) {
   const { data: childData } = useChildQuestions(slug, item.id)
@@ -38,9 +39,9 @@ function ChildQuestionCard({ item, slug }: { item: QuestionItem; slug: string })
         </Box>
         <Typography variant="body1" sx={{ fontWeight: 500 }}>{item.question}</Typography>
         {item.answer ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
-            {item.answer}
-          </Typography>
+          <Box sx={{ mt: 1 }}>
+            <MarkdownContent slug={slug} color="text.secondary">{item.answer}</MarkdownContent>
+          </Box>
         ) : (
           <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>No answer yet.</Typography>
         )}
@@ -127,9 +128,7 @@ export function QuestionDetail({ slug, questionId }: { slug: string; questionId:
         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
           Question
         </Typography>
-        <Typography variant="body1" sx={{ whiteSpace: 'pre-wrap' }}>
-          {question.question}
-        </Typography>
+        <MarkdownContent slug={slug} variant="body1">{question.question}</MarkdownContent>
       </Box>
 
       {question.answer && (
@@ -137,9 +136,7 @@ export function QuestionDetail({ slug, questionId }: { slug: string; questionId:
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Answer
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {question.answer}
-          </Typography>
+          <MarkdownContent slug={slug}>{question.answer}</MarkdownContent>
         </Box>
       )}
 

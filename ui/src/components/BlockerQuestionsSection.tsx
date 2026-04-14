@@ -13,6 +13,7 @@ import {
   useAnswerBlockerQuestion,
   type BlockerQuestionItem,
 } from '../api'
+import { MarkdownContent } from './MarkdownContent'
 
 function InlineAnswerForm({ slug, question }: { slug: string; question: BlockerQuestionItem }) {
   const answerMutation = useAnswerBlockerQuestion()
@@ -84,9 +85,7 @@ export function BlockerQuestionsSection({
               color={q.status === 'pending' ? 'warning' : 'success'}
             />
           </Box>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {q.context}
-          </Typography>
+          <MarkdownContent slug={slug}>{q.context}</MarkdownContent>
           {q.choices.length > 0 && (
             <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
               {q.choices.map((c, i) => (
@@ -96,9 +95,7 @@ export function BlockerQuestionsSection({
           )}
           {q.answer ? (
             <Box sx={{ mt: 1, p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
-              <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                {q.answer}
-              </Typography>
+              <MarkdownContent slug={slug}>{q.answer}</MarkdownContent>
               {q.answered_by && (
                 <Typography variant="caption" color="text.secondary">
                   — {q.answered_by}

@@ -31,6 +31,7 @@ import { useChannel } from '../hooks/useChannel'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
+import { MarkdownContent } from './MarkdownContent'
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -281,9 +282,7 @@ export function IssueDetail({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Context
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {issue.context}
-          </Typography>
+          <MarkdownContent slug={slug}>{issue.context}</MarkdownContent>
         </Box>
       )}
 

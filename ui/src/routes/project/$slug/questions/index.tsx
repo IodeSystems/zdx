@@ -20,13 +20,16 @@ import {
   type QuestionItem,
   type SimilarQuestionItem,
 } from '../../../../api'
+import { MarkdownContent } from '../../../../components/MarkdownContent'
 
 function SimilarQuestionsList({
   items,
+  slug,
   onProceed,
   onCancel,
 }: {
   items: SimilarQuestionItem[]
+  slug: string
   onProceed: () => void
   onCancel: () => void
 }) {
@@ -45,9 +48,9 @@ function SimilarQuestionsList({
           </Box>
           <Typography variant="body2" sx={{ fontWeight: 500 }}>{q.question}</Typography>
           {q.answer ? (
-            <Typography variant="body2" color="text.secondary" sx={{ mt: 0.5, whiteSpace: 'pre-wrap' }}>
-              {q.answer}
-            </Typography>
+            <Box sx={{ mt: 0.5 }}>
+              <MarkdownContent slug={slug} color="text.secondary">{q.answer}</MarkdownContent>
+            </Box>
           ) : (
             <Typography variant="body2" color="text.disabled" sx={{ mt: 0.5 }}>No answer yet.</Typography>
           )}
@@ -110,9 +113,9 @@ function QuestionCard({ item, slug, depth = 0 }: { item: QuestionItem; slug: str
           <Typography variant="body1" sx={{ fontWeight: 500 }}>{item.question}</Typography>
         </Box>
         {item.answer ? (
-          <Typography variant="body2" color="text.secondary" sx={{ mt: 1, whiteSpace: 'pre-wrap' }}>
-            {item.answer}
-          </Typography>
+          <Box sx={{ mt: 1 }}>
+            <MarkdownContent slug={slug} color="text.secondary">{item.answer}</MarkdownContent>
+          </Box>
         ) : (
           <Typography variant="body2" color="text.disabled" sx={{ mt: 1 }}>No answer yet.</Typography>
         )}
@@ -204,6 +207,7 @@ function QuestionsPage() {
           {showSimilar && similarQuestions.data && similarQuestions.data.length > 0 && (
             <SimilarQuestionsList
               items={similarQuestions.data}
+              slug={slug}
               onProceed={doSubmit}
               onCancel={() => setShowSimilar(false)}
             />

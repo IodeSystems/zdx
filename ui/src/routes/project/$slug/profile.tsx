@@ -8,6 +8,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useMe, useMyComments } from '../../../api'
+import { MarkdownContent } from '../../../components/MarkdownContent'
 
 function ProfilePage() {
   const { slug } = Route.useParams()
@@ -53,7 +54,7 @@ function ProfilePage() {
                 {new Date(c.created_at).toLocaleString()}
               </Typography>
             </Box>
-            <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>{c.body}</Typography>
+            <MarkdownContent slug={slug}>{c.body}</MarkdownContent>
           </Paper>
         ))
       )}

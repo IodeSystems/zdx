@@ -17,6 +17,7 @@ import {
   useSearchIssues,
   type IssueItem,
 } from '../api'
+import { MarkdownContent } from './MarkdownContent'
 
 const PRIORITY_LABELS: Record<number, string> = { 1: 'urgent', 2: 'high', 3: 'medium', 4: 'low' }
 const PRIORITY_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
@@ -89,9 +90,7 @@ export function ThemeDetail({ slug, name }: { slug: string; name: string }) {
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Description
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-            {theme.description}
-          </Typography>
+          <MarkdownContent slug={slug}>{theme.description}</MarkdownContent>
         </Box>
       )}
 

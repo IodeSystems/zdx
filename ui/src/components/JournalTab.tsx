@@ -16,6 +16,7 @@ import {
 import { Add as AddIcon, TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
 import { useJournalEntries, useCreateJournalEntry, type JournalEntryItem } from '../api'
+import { MarkdownContent } from './MarkdownContent'
 
 interface MetricDelta {
   name: string
@@ -93,7 +94,7 @@ function MetricsGrid({ stateJson, changelogJson }: { stateJson: string; changelo
   )
 }
 
-function EntryCard({ entry, prev, isTech }: { entry: JournalEntryItem; prev?: JournalEntryItem; isTech: boolean }) {
+function EntryCard({ entry, prev, isTech, slug }: { entry: JournalEntryItem; prev?: JournalEntryItem; isTech: boolean; slug: string }) {
   const [expanded, setExpanded] = useState(false)
 
   const hasMetrics = isTech && entry.state_json && entry.state_json !== '{}'
@@ -136,7 +137,9 @@ function EntryCard({ entry, prev, isTech }: { entry: JournalEntryItem; prev?: Jo
                       <Chip label="changed" size="small" color="warning" sx={{ fontSize: '0.65rem', ml: 0.5, height: 18 }} />
                     )}
                   </Typography>
-                  <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.25 }}>{val}</Typography>
+                  <Box sx={{ mt: 0.25 }}>
+                    <MarkdownContent slug={slug}>{val}</MarkdownContent>
+                  </Box>
                 </Box>
               )
             })}
@@ -190,7 +193,7 @@ export function JournalTab({ slug }: { slug: string }) {
         <Typography variant="body2" color="text.secondary">No journal entries yet.</Typography>
       )}
       {sorted.map((entry, i) => (
-        <EntryCard key={entry.date + i} entry={entry} prev={sorted[i + 1]} isTech={role === 'tech'} />
+        <EntryCard key={entry.date + i} entry={entry} prev={sorted[i + 1]} isTech={role === 'tech'} slug={slug} />
       ))}
       <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>New Check-in ({role})</DialogTitle>

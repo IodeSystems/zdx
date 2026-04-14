@@ -13,6 +13,7 @@ import {
 } from '@mui/material'
 import { Close as CloseIcon, CompareArrows as DiffIcon } from '@mui/icons-material'
 import { useComments, useAddComment, useRevisions, type RevisionItem } from '../api'
+import { MarkdownContent } from './MarkdownContent'
 
 function DiffModal({ revision, onClose }: { revision: RevisionItem; onClose: () => void }) {
   return (
@@ -113,7 +114,9 @@ export function CommentsAndRevisions({
           <Typography variant="caption" color="text.secondary">
             {c.created_at.slice(0, 10)} — {c.author || 'anonymous'}
           </Typography>
-          <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap', mt: 0.25 }}>{c.body}</Typography>
+          <Box sx={{ mt: 0.25 }}>
+            <MarkdownContent slug={slug}>{c.body}</MarkdownContent>
+          </Box>
         </Box>
       ))}
 

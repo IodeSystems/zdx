@@ -18,6 +18,7 @@ import {
   useAnswerBlockerQuestion,
   type BlockerQuestionItem,
 } from '../../../api'
+import { MarkdownContent } from '../../../components/MarkdownContent'
 
 function AnswerForm({ slug, question }: { slug: string; question: BlockerQuestionItem }) {
   const answerMutation = useAnswerBlockerQuestion()
@@ -127,9 +128,7 @@ function BlockerQuestionsPage() {
                 BQ-{item.id}
               </Typography>
             </Box>
-            <Typography variant="body1" sx={{ fontWeight: 500, whiteSpace: 'pre-wrap' }}>
-              {item.context}
-            </Typography>
+            <MarkdownContent slug={slug} variant="body1">{item.context}</MarkdownContent>
             {item.choices.length > 0 && (
               <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
                 {item.choices.map((c, i) => (
@@ -139,9 +138,7 @@ function BlockerQuestionsPage() {
             )}
             {item.answer ? (
               <Box sx={{ mt: 1.5, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
-                <Typography variant="body2" sx={{ whiteSpace: 'pre-wrap' }}>
-                  {item.answer}
-                </Typography>
+                <MarkdownContent slug={slug}>{item.answer}</MarkdownContent>
                 {item.answered_by && (
                   <Typography variant="caption" color="text.secondary">
                     — {item.answered_by}
