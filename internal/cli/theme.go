@@ -88,7 +88,9 @@ func themeStatusCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/themes/status", map[string]any{
 				"slug":   c.SlugOrDie(),
 				"theme":  args[0],

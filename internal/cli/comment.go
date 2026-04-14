@@ -109,7 +109,9 @@ func commentMarkReadCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/comment/mark-read", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"target_type": args[0],
@@ -178,4 +180,3 @@ func revisionListCmd() *cobra.Command {
 		},
 	}
 }
-

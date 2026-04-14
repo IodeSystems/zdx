@@ -63,15 +63,15 @@ type vitestReport struct {
 }
 
 type vitestFileResult struct {
-	TestFilePath string            `json:"testFilePath"`
-	Status       string            `json:"status"` // "passed" | "failed"
+	TestFilePath string             `json:"testFilePath"`
+	Status       string             `json:"status"` // "passed" | "failed"
 	TestResults  []vitestTestResult `json:"testResults"`
 }
 
 type vitestTestResult struct {
-	FullName string  `json:"fullName"`
-	Status   string  `json:"status"` // "passed" | "failed" | "skipped"
-	Duration float64 `json:"duration"` // ms
+	FullName        string   `json:"fullName"`
+	Status          string   `json:"status"`   // "passed" | "failed" | "skipped"
+	Duration        float64  `json:"duration"` // ms
 	FailureMessages []string `json:"failureMessages"`
 }
 

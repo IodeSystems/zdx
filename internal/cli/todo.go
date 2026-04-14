@@ -152,7 +152,9 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			fmt.Println()
 			printComments(commResp.Comments)
 			// Mark read so next solo run advances.
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			_ = c.post("/api/dx/comment/mark-read", map[string]any{
 				"slug":        slug,
 				"target_type": "issue",
@@ -197,7 +199,9 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			}
 			fmt.Println()
 			printComments(commResp.Comments)
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			_ = c.post("/api/dx/comment/mark-read", map[string]any{
 				"slug":        slug,
 				"target_type": "feature",
@@ -544,7 +548,9 @@ func todoDevDoneCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/todo/dev/done", map[string]any{
 				"id":        int32(n),
 				"test_plan": testPlan,
@@ -570,7 +576,9 @@ func todoDevUndoneCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/todo/dev/undone", map[string]any{"id": int32(n)}, &ok); err != nil {
 				return err
 			}
@@ -590,7 +598,9 @@ func todoDevStartCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.put("/api/task-status", map[string]any{
 				"id":     int32(n),
 				"status": "in_progress",
@@ -639,7 +649,9 @@ func todoOwnerTriageCmd() *cobra.Command {
 			if context != "" {
 				body["context"] = context
 			}
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/todo/owner/triage", body, &ok); err != nil {
 				return err
 			}
@@ -727,7 +739,6 @@ func printTaskItem(t taskItem) {
 		fmt.Printf("Reason:  %s\n", t.Reason)
 	}
 }
-
 
 // RunTodo kept for compatibility.
 func RunTodo(_ []string) {}

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box,
   Button,
@@ -20,18 +20,17 @@ function ProjectSettingsPage() {
   const setConfig = useSetProjectGitConfig()
   const testConfig = useTestProjectGitConfig()
 
+  const [initialized, setInitialized] = useState(false)
   const [gitUrl, setGitUrl] = useState('')
   const [gitBranch, setGitBranch] = useState('main')
   const [gitToken, setGitToken] = useState('')
   const [saved, setSaved] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
-
-  useEffect(() => {
-    if (data) {
-      setGitUrl(data.git_url || '')
-      setGitBranch(data.git_branch || 'main')
-    }
-  }, [data])
+  if (data && !initialized) {
+    setInitialized(true)
+    setGitUrl(data.git_url || '')
+    setGitBranch(data.git_branch || 'main')
+  }
 
   const handleSave = () => {
     setSaved(false)

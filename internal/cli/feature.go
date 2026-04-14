@@ -162,7 +162,9 @@ func featureReviewCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/feature/review", map[string]any{
 				"slug":    c.SlugOrDie(),
 				"feature": args[0],

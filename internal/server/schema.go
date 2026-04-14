@@ -11,15 +11,15 @@ import (
 // Detected once at startup via information_schema inspection.
 //
 // Migration rules for straddle-safe deploys:
-//  - Add columns as NOT NULL DEFAULT <val> (or nullable) so old binaries
-//    that don't SELECT them continue to work against the new schema.
-//  - Never remove or rename columns in a single deploy. Deprecate first
-//    (stop writing), deploy, then drop in a follow-up migration.
-//  - Never change column types incompatibly.
-//  - Handlers that use new schema additions must gate on the corresponding
-//    SchemaFeature flag and return 503 gracefully if absent.
-//  - compat-check will flag incompatible migrations; use
-//    bin/ship --non-compatible-migration for breaking changes.
+//   - Add columns as NOT NULL DEFAULT <val> (or nullable) so old binaries
+//     that don't SELECT them continue to work against the new schema.
+//   - Never remove or rename columns in a single deploy. Deprecate first
+//     (stop writing), deploy, then drop in a follow-up migration.
+//   - Never change column types incompatibly.
+//   - Handlers that use new schema additions must gate on the corresponding
+//     SchemaFeature flag and return 503 gracefully if absent.
+//   - compat-check will flag incompatible migrations; use
+//     bin/ship --non-compatible-migration for breaking changes.
 type SchemaFeatures struct {
 	// HasLLMConfig is true when the zdx_llm_configs table exists (migration 018).
 	HasLLMConfig bool

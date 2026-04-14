@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   Alert,
   Box,
@@ -40,7 +40,6 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
   const [title, setTitle] = useState('')
   const [context, setContext] = useState('')
   const [screenshot, setScreenshot] = useState<File | null>(null)
-  const [screenshotPreview, setScreenshotPreview] = useState<string | null>(null)
   const [capturing, setCapturing] = useState(false)
   // preflight state
   const [similarIssues, setSimilarIssues] = useState<SimilarIssueItem[] | null>(null)
@@ -48,12 +47,10 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
   const fileInputRef = useRef<HTMLInputElement>(null)
   const matches = useMatches()
 
+  const screenshotPreview = useMemo(() => screenshot ? URL.createObjectURL(screenshot) : null, [screenshot])
   useEffect(() => {
-    if (!screenshot) { setScreenshotPreview(null); return }
-    const url = URL.createObjectURL(screenshot)
-    setScreenshotPreview(url)
-    return () => URL.revokeObjectURL(url)
-  }, [screenshot])
+    return () => { if (screenshotPreview) URL.revokeObjectURL(screenshotPreview) }
+  }, [screenshotPreview])
 
   const createIssue = useCreateIssue()
   const uploadFile = useUploadFile()

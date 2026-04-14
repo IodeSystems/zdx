@@ -56,8 +56,8 @@ type Suite struct {
 }
 
 type Lint struct {
-	Zig      LintZig   `yaml:"zig"`
-	External []Step    `yaml:"external"`
+	Zig      LintZig `yaml:"zig"`
+	External []Step  `yaml:"external"`
 }
 
 type LintZig struct {

@@ -1,5 +1,5 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useState, useEffect } from 'react'
+import { useState } from 'react'
 import {
   Box,
   Button,
@@ -15,20 +15,19 @@ function LLMConfigPage() {
   const setConfig = useSetLLMConfig()
   const testConfig = useTestLLMConfig()
 
+  const [initialized, setInitialized] = useState(false)
   const [type, setType] = useState('openai')
   const [url, setUrl] = useState('')
   const [model, setModel] = useState('')
   const [apiKey, setApiKey] = useState('')
   const [saved, setSaved] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
-
-  useEffect(() => {
-    if (data) {
-      setType(data.type || 'openai')
-      setUrl(data.url || '')
-      setModel(data.model || '')
-    }
-  }, [data])
+  if (data && !initialized) {
+    setInitialized(true)
+    setType(data.type || 'openai')
+    setUrl(data.url || '')
+    setModel(data.model || '')
+  }
 
   const handleSave = () => {
     setSaved(false)

@@ -222,8 +222,8 @@ var maintenancePage = []byte(`<!doctype html>
 type contextKey int
 
 const (
-	ctxAPIKeyID  contextKey = 1
-	ctxUserID    contextKey = 2
+	ctxAPIKeyID   contextKey = 1
+	ctxUserID     contextKey = 2
 	ctxQueryStart contextKey = 3
 	ctxSQLTimings contextKey = 4
 )

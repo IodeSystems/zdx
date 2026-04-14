@@ -23,7 +23,9 @@ func specAddCmd() *cobra.Command {
 		Short: "Add a spec statement to a feature",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			// The update-specs endpoint uses field=kind, value=description.
 			if err := c.post("/api/dx/specs/update", map[string]any{
 				"slug":    c.SlugOrDie(),

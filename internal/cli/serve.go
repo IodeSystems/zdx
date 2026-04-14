@@ -46,7 +46,7 @@ func ServeCmd() *cobra.Command {
 			vite.Dir = uiDir
 			vite.Stdout = os.Stdout
 			vite.Stderr = os.Stderr
-			vite.Env = append(os.Environ())
+			vite.Env = os.Environ()
 			if err := vite.Start(); err != nil {
 				return fmt.Errorf("vite: %w", err)
 			}

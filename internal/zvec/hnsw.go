@@ -263,7 +263,7 @@ func sortItems2(items []searchItem) {
 func (h *HNSWIndex) searchLayer(q []float32, ep []uint32, ef, lc int) []uint32 {
 	visited := map[uint32]bool{}
 
-	var cands []searchItem // min-heap semantics: pop smallest sim
+	var cands []searchItem  // min-heap semantics: pop smallest sim
 	var result []searchItem // max-heap semantics: pop largest sim (so we can evict worst)
 
 	push := func(idx uint32, sim float32) {
@@ -729,7 +729,6 @@ func assignLayer(m int) int {
 	mL := 1.0 / math.Log(float64(m))
 	return int(math.Floor(-math.Log(rand.Float64()) * mL))
 }
-
 
 func minInt(a, b int) int {
 	if a < b {

@@ -45,12 +45,14 @@ run "sqlc-drift" bash -c '
   TMPDIR=$(mktemp -d)
   trap "rm -rf $TMPDIR" EXIT
   cp sqlc.yaml "$TMPDIR/sqlc.yaml"
-  sed -i "s|out: \"internal/db\"|out: \"$TMPDIR/db\"|" "$TMPDIR/sqlc.yaml"
+  ln -s "$(pwd)/schema" "$TMPDIR/schema"
+  ln -s "$(pwd)/queries" "$TMPDIR/queries"
+  sed -i "s|out: \"internal/db\"|out: \"db\"|" "$TMPDIR/sqlc.yaml"
   "$SQLC" generate -f "$TMPDIR/sqlc.yaml"
-  if ! diff -rq internal/db "$TMPDIR/db" >/dev/null 2>&1; then
+  if ! diff -rq --exclude=queries.go internal/db "$TMPDIR/db" >/dev/null 2>&1; then
     echo "sqlc drift detected — committed internal/db/ does not match generated output."
     echo "Run: bin/db gen (or sqlc generate)"
-    diff -r internal/db "$TMPDIR/db" || true
+    diff -r --exclude=queries.go internal/db "$TMPDIR/db" || true
     exit 1
   fi
 '

@@ -66,8 +66,8 @@ func refIssueAttachCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
 			body := map[string]any{
-				"slug":     c.SlugOrDie(),
-				"issue_id": args[0],
+				"slug":      c.SlugOrDie(),
+				"issue_id":  args[0],
 				"file_path": filePath,
 			}
 			if gitHash != "" {
@@ -138,7 +138,9 @@ func refIssueDetachCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid ref id: %s", args[1])
 			}
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/code-refs/issue/detach", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"issue_id":    args[0],
@@ -234,7 +236,9 @@ func refTaskDetachCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid ref id: %s", args[1])
 			}
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/code-refs/task/detach", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"task_id":     args[0],

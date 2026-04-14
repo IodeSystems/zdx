@@ -61,10 +61,12 @@ function IssueSearch({ slug, componentSlug }: { slug: string; componentSlug: str
     if (ftsTimer.current) clearTimeout(ftsTimer.current)
     if (vecTimer.current) clearTimeout(vecTimer.current)
     if (!inputValue.trim()) {
-      setFtsQuery('')
-      setVecQuery('')
-      setVecResults([])
-      return
+      ftsTimer.current = setTimeout(() => setFtsQuery(''), 0)
+      vecTimer.current = setTimeout(() => { setVecQuery(''); setVecResults([]) }, 0)
+      return () => {
+        if (ftsTimer.current) clearTimeout(ftsTimer.current)
+        if (vecTimer.current) clearTimeout(vecTimer.current)
+      }
     }
     ftsTimer.current = setTimeout(() => setFtsQuery(inputValue), 150)
     vecTimer.current = setTimeout(() => setVecQuery(inputValue), 500)
@@ -75,7 +77,7 @@ function IssueSearch({ slug, componentSlug }: { slug: string; componentSlug: str
   }, [inputValue])
 
   useEffect(() => {
-    if (!vecQuery.trim()) { setVecResults([]); return }
+    if (!vecQuery.trim()) return
     findSimilar.mutate({ slug, text: vecQuery, n: 5 }, {
       onSuccess: (items) => setVecResults(items),
       onError: () => setVecResults([]),

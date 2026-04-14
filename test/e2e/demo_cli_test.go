@@ -16,19 +16,19 @@ import (
 // DemoRecorder runs dx CLI commands against the test server and records each
 // interaction to a structured JSON log in .zdx/demo/cli/<name>.json.
 type DemoRecorder struct {
-	t    *testing.T
-	name string
-	env  []string
+	t     *testing.T
+	name  string
+	env   []string
 	steps []demoStep
 }
 
 type demoStep struct {
-	Cmd        string `json:"cmd"`
+	Cmd        string   `json:"cmd"`
 	Args       []string `json:"args"`
-	Stdout     string `json:"stdout"`
-	Stderr     string `json:"stderr,omitempty"`
-	ExitCode   int    `json:"exit_code"`
-	DurationMs int64  `json:"duration_ms"`
+	Stdout     string   `json:"stdout"`
+	Stderr     string   `json:"stderr,omitempty"`
+	ExitCode   int      `json:"exit_code"`
+	DurationMs int64    `json:"duration_ms"`
 }
 
 type demoLog struct {
@@ -163,4 +163,3 @@ func extractFirstID(output string) string {
 	}
 	return ""
 }
-

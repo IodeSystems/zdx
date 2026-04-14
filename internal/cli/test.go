@@ -23,13 +23,13 @@ import (
 
 // TestResult is written to .zdx/test-results.json after a run.
 type TestResult struct {
-	Component string  `json:"component"`
-	Suite     string  `json:"suite"`
-	Runner    string  `json:"runner"`
-	Status    string  `json:"status"` // pass | fail | skip
+	Component  string `json:"component"`
+	Suite      string `json:"suite"`
+	Runner     string `json:"runner"`
+	Status     string `json:"status"` // pass | fail | skip
 	DurationMs int64  `json:"duration_ms"`
-	RunAt     string  `json:"run_at"`
-	Output    string  `json:"output,omitempty"`
+	RunAt      string `json:"run_at"`
+	Output     string `json:"output,omitempty"`
 }
 
 func TestCmd() *cobra.Command {
