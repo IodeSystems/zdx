@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useEffect } from 'react'
 import {
   Box,
   Chip,
+  Collapse,
   Typography,
   List,
   ListItemButton,
@@ -9,7 +10,7 @@ import {
   IconButton,
   CircularProgress,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { ArrowBack as ArrowBackIcon, ExpandMore as ExpandMoreIcon, ChevronRight as ChevronRightIcon } from '@mui/icons-material'
 import { Link } from '@tanstack/react-router'
 import Markdown from 'react-markdown'
 import remarkGfm from 'remark-gfm'
@@ -109,6 +110,38 @@ function getContentBlocks(event: ClaudeEventItem): Record<string, unknown>[] {
   return []
 }
 
+function AgentBlock({ input }: { input: Record<string, unknown> }) {
+  const [showPrompt, setShowPrompt] = useState(false)
+  const desc = (input.description as string) || 'Agent'
+  const prompt = input.prompt as string | undefined
+  const subType = input.subagent_type as string | undefined
+
+  return (
+    <Box sx={{ mt: 0.5 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
+        {subType && <Chip label={subType} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />}
+        <Typography variant="caption" color="text.secondary">{desc}</Typography>
+      </Box>
+      {prompt && (
+        <>
+          <Box
+            onClick={(e) => { e.stopPropagation(); setShowPrompt(!showPrompt) }}
+            sx={{ display: 'flex', alignItems: 'center', cursor: 'pointer', mt: 0.5, color: 'text.secondary', '&:hover': { color: 'text.primary' } }}
+          >
+            {showPrompt ? <ExpandMoreIcon sx={{ fontSize: 16 }} /> : <ChevronRightIcon sx={{ fontSize: 16 }} />}
+            <Typography variant="caption">Prompt</Typography>
+          </Box>
+          <Collapse in={showPrompt}>
+            <Box sx={{ mt: 0.5, p: 1, bgcolor: 'action.hover', borderRadius: 1, fontSize: '0.75rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 300, overflow: 'auto', fontFamily: 'monospace' }}>
+              {prompt}
+            </Box>
+          </Collapse>
+        </>
+      )}
+    </Box>
+  )
+}
+
 function RichContent({ event }: { event: ClaudeEventItem }) {
   const blocks = getContentBlocks(event)
   if (blocks.length === 0) {
@@ -167,6 +200,8 @@ function RichContent({ event }: { event: ClaudeEventItem }) {
                     <SyntaxHighlighter style={oneDark} language="text" PreTag="div" customStyle={{ fontSize: '0.7rem', margin: '4px 0 0', borderRadius: 4, maxHeight: 200 }}>{input.content.slice(0, 2000)}</SyntaxHighlighter>
                   )}
                 </Box>
+              ) : name === 'Agent' ? (
+                <AgentBlock input={input} />
               ) : name === 'Grep' || name === 'Glob' ? (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>{input.pattern as string}{input.path ? ` in ${input.path}` : ''}</Typography>
               ) : (
