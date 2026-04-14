@@ -1,5 +1,3 @@
-//go:build demo
-
 package e2e
 
 import (

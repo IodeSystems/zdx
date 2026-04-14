@@ -35,14 +35,14 @@ type TestResult struct {
 func TestCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "test",
-		Short: "Run tests across all components (vitest + Go e2e + demo)",
+		Short: "Run tests across all components (vitest + Go e2e)",
 		Long: `Fuses all test adapters into one run. Adapters are auto-detected:
   - vitest (ui/)         unit layer   — requires source checkout
-  - bin/zdx-test          integration  — built with: dx test e2e build
-  - bin/zdx-test-demo         demo         — built with: dx test e2e demo-build
+  - bin/zdx-test          integration + demo — built with: dx test e2e build
 
 Filters apply across all adapters. Use DX_TEST_* env vars to parameterise
-without flags (useful for CI matrix).`,
+without flags (useful for CI matrix). Pass --layer demo (or --filter Demo)
+to target the browser/CLI recording tests.`,
 		RunE: testHarnessRunE,
 	}
 	cmd.Flags().String("filter", "", "test name substring/regex (applied to all adapters)")
@@ -84,44 +84,35 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// ── Go binary adapter (API / integration) ─────────────────────────────
-	if f.Component == "" || f.Component == "api" {
-		if f.Layer == "" || f.Layer == testharness.LayerIntegration {
+	// ── Go binary adapter (API / integration + demo) ──────────────────────
+	if f.Component == "" || f.Component == "api" || f.Component == "demo" {
+		wantsDemo := f.Layer == testharness.LayerDemo || f.Component == "demo"
+		wantsIntegration := f.Layer == "" || f.Layer == testharness.LayerIntegration
+		if wantsIntegration || wantsDemo {
 			if _, err := os.Stat(testBin); err == nil {
 				env := buildE2EEnv(dbURL)
 				coverDir := ""
 				if coverage {
 					coverDir = testharness.CoverageDir("api")
 				}
+				// --layer demo (or --component demo) narrows to TestDemo* when
+				// the user hasn't already supplied a filter.
+				if wantsDemo && !wantsIntegration && f.Name == "" {
+					f.Name = "^TestDemo"
+				}
 				a := &testharness.GoBinAdapter{
 					Bin:      testBin,
 					Comp:     "api",
-					Layer_:   []testharness.Layer{testharness.LayerIntegration},
+					Layer_:   []testharness.Layer{testharness.LayerIntegration, testharness.LayerDemo},
 					Env:      env,
 					CoverDir: coverDir,
 				}
 				if shard != "" {
-					// Respect explicit shard on the e2e binary.
-					_ = shard // GoBinAdapter handles it via -test.run; see runE2ELocal for full sharding
+					_ = shard
 				}
 				h.Register(a)
 			} else {
 				fmt.Fprintln(os.Stderr, "[test] e2e binary not found — skipping api adapter (run: dx test e2e build)")
-			}
-		}
-	}
-
-	// ── Demo adapter ──────────────────────────────────────────────────────
-	if f.Component == "" || f.Component == "demo" {
-		if f.Layer == "" || f.Layer == testharness.LayerDemo {
-			demoBin := "bin/zdx-test-demo"
-			if _, err := os.Stat(demoBin); err == nil {
-				h.Register(&testharness.GoBinAdapter{
-					Bin:    demoBin,
-					Comp:   "demo",
-					Layer_: []testharness.Layer{testharness.LayerDemo},
-					Env:    buildE2EEnv(dbURL),
-				})
 			}
 		}
 	}
@@ -191,9 +182,11 @@ func testListCmd() *cobra.Command {
 				}
 			}
 
-			// ── zdx-test binary ───────────────────────────────────────────
-			if component == "" || component == "api" {
-				if layer == "" || layer == string(testharness.LayerIntegration) {
+			// ── zdx-test binary (integration + demo) ──────────────────────
+			if component == "" || component == "api" || component == "demo" {
+				wantsDemo := layer == string(testharness.LayerDemo) || component == "demo"
+				wantsIntegration := layer == "" || layer == string(testharness.LayerIntegration)
+				if wantsIntegration || wantsDemo {
 					if _, err := os.Stat(testBin); err == nil {
 						a := &testharness.GoBinAdapter{Bin: testBin, Comp: "api"}
 						names, err := a.List(context.Background())
@@ -201,29 +194,21 @@ func testListCmd() *cobra.Command {
 							fmt.Fprintf(os.Stderr, "  [api] list failed: %v\n", err)
 						} else {
 							for _, n := range names {
-								fmt.Printf("  %-8s %-12s %s\n", "api", "integration", n)
+								l := "integration"
+								if strings.HasPrefix(n, "TestDemo") {
+									l = "demo"
+								}
+								if wantsDemo && !wantsIntegration && l != "demo" {
+									continue
+								}
+								if wantsIntegration && !wantsDemo && l != "integration" {
+									continue
+								}
+								fmt.Printf("  %-8s %-12s %s\n", "api", l, n)
 							}
 						}
 					} else {
 						fmt.Printf("  %-8s %-12s %s\n", "api", "integration", "(build: dx test e2e build)")
-					}
-				}
-			}
-
-			// ── demo binary ───────────────────────────────────────────────
-			if component == "" || component == "demo" {
-				if layer == "" || layer == string(testharness.LayerDemo) {
-					demoBin := "bin/zdx-test-demo"
-					if _, err := os.Stat(demoBin); err == nil {
-						a := &testharness.GoBinAdapter{Bin: demoBin, Comp: "demo"}
-						names, err := a.List(context.Background())
-						if err != nil {
-							fmt.Fprintf(os.Stderr, "  [demo] list failed: %v\n", err)
-						} else {
-							for _, n := range names {
-								fmt.Printf("  %-8s %-12s %s\n", "demo", "demo", n)
-							}
-						}
 					}
 				}
 			}
@@ -386,7 +371,7 @@ func testE2ECmd() *cobra.Command {
 		Use:   "e2e",
 		Short: "Distributable e2e test binary",
 	}
-	cmd.AddCommand(testE2EBuildCmd(), testE2ERunCmd(), testDemoBuildCmd())
+	cmd.AddCommand(testE2EBuildCmd(), testE2ERunCmd())
 	return cmd
 }
 
@@ -396,16 +381,6 @@ func testE2EBuildCmd() *cobra.Command {
 		Short: "Compile e2e test binary to " + testBin,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			return runShell("go test -c -o "+testBin+" "+testPkg, "")
-		},
-	}
-}
-
-func testDemoBuildCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "demo-build",
-		Short: "Compile demo test binary to bin/zdx-test-demo (includes browser + CLI recording)",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			return runShell("go test -c -tags=demo -o bin/zdx-test-demo "+testPkg, "")
 		},
 	}
 }
