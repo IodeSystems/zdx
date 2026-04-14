@@ -17,7 +17,9 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/golang/snappy"
 	"github.com/jackc/pgx/v5/pgtype"
+	"github.com/prometheus/prometheus/prompb"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
@@ -498,6 +500,110 @@ func (s *Server) registerLogIngestRoutes(api huma.API) {
 			}{Body: struct {
 				Accepted int `json:"accepted"`
 			}{Accepted: accepted}}, nil
+		})
+}
+
+// ── Prometheus remote_write ingest ───────────────────────────────────────
+
+func (s *Server) registerPromIngestRoutes(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "ingest-prom",
+		Method:      http.MethodPost,
+		Path:        "/api/ingest/prom",
+		Summary:     "Ingest Prometheus remote_write v1",
+	},
+		func(ctx context.Context, in *struct {
+			Authorization string `header:"Authorization"`
+			ContentType   string `header:"Content-Type"`
+			RawBody       []byte
+		}) (*struct{}, error) {
+			ctx = WithoutTiming(ctx)
+			token := strings.TrimPrefix(in.Authorization, "Bearer ")
+			if token == in.Authorization || token == "" {
+				return nil, apiErr(http.StatusUnauthorized, "missing bearer token")
+			}
+			row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(token))
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "invalid token")
+			}
+			if row.RevokedAt.Valid {
+				return nil, apiErr(http.StatusUnauthorized, "token revoked")
+			}
+
+			decoded, err := snappy.Decode(nil, in.RawBody)
+			if err != nil {
+				return nil, apiErr(http.StatusBadRequest, "snappy decode: "+err.Error())
+			}
+
+			var req prompb.WriteRequest
+			if err := req.Unmarshal(decoded); err != nil {
+				return nil, apiErr(http.StatusBadRequest, "protobuf decode: "+err.Error())
+			}
+
+			var sampleCount int
+			for _, ts := range req.Timeseries {
+				sampleCount += len(ts.Samples)
+			}
+			if sampleCount == 0 {
+				return &struct{}{}, nil
+			}
+			if !s.ingestLimiter.allow(row.ID, float64(sampleCount)) {
+				return nil, apiErr(http.StatusTooManyRequests, "rate limit exceeded")
+			}
+
+			component := ""
+			if row.Component.Valid {
+				component = row.Component.String
+			}
+			pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
+
+			for _, ts := range req.Timeseries {
+				name := ""
+				tags := make(map[string]string)
+				for _, l := range ts.Labels {
+					if l.Name == "__name__" {
+						name = l.Value
+					} else {
+						tags[l.Name] = l.Value
+					}
+				}
+				if name == "" {
+					continue
+				}
+				ctxJSON := buildContextJSON("", tags)
+
+				for _, sample := range ts.Samples {
+					durationMs := int32(math.Round(sample.Value))
+					sampleTime := time.UnixMilli(sample.Timestamp)
+
+					if err := s.q.UpsertTimed(ctx, db.UpsertTimedParams{
+						ProjectID:   pid,
+						Component:   component,
+						Environment: "",
+						Name:        name,
+						DurationMs:  durationMs,
+						Source:      "prometheus",
+						ContextJson: ctxJSON,
+						TotalMs:     int64(durationMs),
+					}); err != nil {
+						log.Printf("ingest/prom: UpsertTimed %q: %v", name, err)
+						continue
+					}
+					if err := s.q.InsertTimedEventAt(ctx, db.InsertTimedEventAtParams{
+						ProjectID:   pid,
+						Component:   component,
+						Environment: "",
+						Name:        name,
+						DurationMs:  durationMs,
+						Source:      "prometheus",
+						ContextJson: ctxJSON,
+						CreatedAt:   pgtype.Timestamptz{Time: sampleTime, Valid: true},
+					}); err != nil {
+						log.Printf("ingest/prom: InsertTimedEventAt %q: %v", name, err)
+					}
+				}
+			}
+			return &struct{}{}, nil
 		})
 }
 

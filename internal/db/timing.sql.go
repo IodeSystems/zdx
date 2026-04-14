@@ -97,6 +97,36 @@ func (q *Queries) InsertTimedEvent(ctx context.Context, arg InsertTimedEventPara
 	return err
 }
 
+const insertTimedEventAt = `-- name: InsertTimedEventAt :exec
+INSERT INTO zdx_timed_events (project_id, component, environment, name, duration_ms, source, context_json, created_at)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+`
+
+type InsertTimedEventAtParams struct {
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
+	Name        string             `db:"name" json:"name"`
+	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson []byte             `db:"context_json" json:"context_json"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error {
+	_, err := q.db.Exec(ctx, insertTimedEventAt,
+		arg.ProjectID,
+		arg.Component,
+		arg.Environment,
+		arg.Name,
+		arg.DurationMs,
+		arg.Source,
+		arg.ContextJson,
+		arg.CreatedAt,
+	)
+	return err
+}
+
 const listTimed = `-- name: ListTimed :many
 SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed

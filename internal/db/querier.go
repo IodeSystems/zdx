@@ -133,6 +133,7 @@ type Querier interface {
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
+	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)

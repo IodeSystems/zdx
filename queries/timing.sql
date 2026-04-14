@@ -61,6 +61,10 @@ ORDER BY tag_value;
 INSERT INTO zdx_timed_events (project_id, component, environment, name, duration_ms, source, context_json)
 VALUES (@project_id, @component, @environment, @name, @duration_ms, @source, @context_json);
 
+-- name: InsertTimedEventAt :exec
+INSERT INTO zdx_timed_events (project_id, component, environment, name, duration_ms, source, context_json, created_at)
+VALUES (@project_id, @component, @environment, @name, @duration_ms, @source, @context_json, @created_at);
+
 -- name: ListTimedEvents :many
 SELECT id, project_id, component, environment, name, duration_ms, source, context_json, created_at
 FROM zdx_timed_events
