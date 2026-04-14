@@ -693,6 +693,66 @@ export const useAnswerBlockerQuestion = () => {
   })
 }
 
+// ── Spec tests ───────────────────────────────────────────────────────────
+
+export interface SpecTestItem {
+  id: number
+  component: string
+  name: string
+  layer: string
+  status: string
+}
+
+export const useSpecTests = (specId: number, enabled = true) =>
+  useQuery<SpecTestItem[]>({
+    queryKey: ['spec-tests', specId],
+    queryFn: async () => {
+      const res = await apiFetch<{ tests: SpecTestItem[] }>(
+        `/api/dx/specs/tests?spec_id=${specId}`
+      )
+      return res.tests ?? []
+    },
+    enabled: enabled && specId > 0,
+  })
+
+// ── Demos ────────────────────────────────────────────────────────────────
+
+export interface DemoListItem {
+  type: 'cli' | 'video'
+  name: string
+}
+
+export interface CLIDemoStep {
+  cmd: string
+  args: string[]
+  stdout: string
+  stderr?: string
+  exit_code: number
+  duration_ms: number
+}
+
+export interface CLIDemoData {
+  name: string
+  recorded_at: string
+  steps: CLIDemoStep[]
+}
+
+export const useDemos = () =>
+  useQuery<DemoListItem[]>({
+    queryKey: ['demos'],
+    queryFn: async () => {
+      const res = await apiFetch<{ demos: DemoListItem[] }>('/api/dx/demos')
+      return res.demos ?? []
+    },
+  })
+
+export const useDemoContent = (type: string, name: string) =>
+  useQuery<CLIDemoData>({
+    queryKey: ['demo', type, name],
+    queryFn: () => apiFetch<CLIDemoData>(`/api/dx/demos/${encodeURIComponent(type)}/${encodeURIComponent(name)}`),
+    enabled: type === 'cli' && !!name,
+  })
+
 // ── Claude sessions ──────────────────────────────────────────────────────────
 
 export interface ClaudeSessionItem {

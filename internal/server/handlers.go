@@ -100,6 +100,14 @@ type SpecItem struct {
 	Deferred    bool   `json:"deferred"`
 }
 
+type SpecTestItem struct {
+	ID        int32  `json:"id"`
+	Component string `json:"component"`
+	Name      string `json:"name"`
+	Layer     string `json:"layer"`
+	Status    string `json:"status"`
+}
+
 type UncoveredSpecItem struct {
 	ID          int32  `json:"id"`
 	FeatureID   int32  `json:"feature_id"`
@@ -1396,6 +1404,31 @@ func (s *Server) registerRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-spec-tests", Method: http.MethodGet, Path: "/api/dx/specs/tests"},
+		func(ctx context.Context, in *struct {
+			SpecID int32 `query:"spec_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Tests []SpecTestItem `json:"tests"`
+			}
+		}, error) {
+			rows, err := s.q.ListTestsForSpec(ctx, in.SpecID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]SpecTestItem, len(rows))
+			for i, r := range rows {
+				out[i] = SpecTestItem{ID: r.ID, Component: r.Component, Name: r.Name, Layer: r.Layer, Status: r.Status}
+			}
+			return &struct {
+				Body struct {
+					Tests []SpecTestItem `json:"tests"`
+				}
+			}{Body: struct {
+				Tests []SpecTestItem `json:"tests"`
+			}{Tests: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-stale-features", Method: http.MethodGet, Path: "/api/dx/features/stale"},
@@ -3259,6 +3292,10 @@ func (s *Server) registerRoutes(api huma.API) {
 	// ── File upload (raw chi — huma doesn't handle multipart) ─────────────────
 	s.mux.Post("/api/upload", s.handleUpload)
 	s.mux.Get("/api/files/{id}", s.handleFileServe)
+
+	// ── Demos (filesystem-backed) ────────────────────────────────────────────
+	s.mux.Get("/api/dx/demos", s.handleListDemos)
+	s.mux.Get("/api/dx/demos/{type}/{name}", s.handleServeDemo)
 }
 
 // handleUpload accepts multipart/form-data with a single "file" field.
@@ -3625,4 +3662,89 @@ func toBlockerQuestionItem(r db.ZdxBlockerQuestion) BlockerQuestionItem {
 		CreatedAt:  fmtTS(r.CreatedAt),
 		AnsweredAt: fmtTS(r.AnsweredAt),
 	}
+}
+
+// ── Demo handlers ────────────────────────────────────────────────────────
+
+func (s *Server) demosDir() string {
+	if d := os.Getenv("DEMOS_DIR"); d != "" {
+		return d
+	}
+	return ".zdx/demo"
+}
+
+type DemoListItem struct {
+	Type string `json:"type"`
+	Name string `json:"name"`
+}
+
+func (s *Server) handleListDemos(w http.ResponseWriter, r *http.Request) {
+	base := s.demosDir()
+	var items []DemoListItem
+
+	for _, subdir := range []string{"cli", "video"} {
+		dir := filepath.Join(base, subdir)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+			items = append(items, DemoListItem{Type: subdir, Name: name})
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{"demos": items})
+}
+
+func (s *Server) handleServeDemo(w http.ResponseWriter, r *http.Request) {
+	demoType := chi.URLParam(r, "type")
+	demoName := chi.URLParam(r, "name")
+
+	if demoType != "cli" && demoType != "video" {
+		http.NotFound(w, r)
+		return
+	}
+	if strings.Contains(demoName, "/") || strings.Contains(demoName, "..") {
+		http.NotFound(w, r)
+		return
+	}
+
+	base := s.demosDir()
+	var absPath string
+	switch demoType {
+	case "cli":
+		absPath = filepath.Join(base, "cli", demoName+".json")
+	case "video":
+		// Video files are content-addressed; try with known extensions.
+		for _, ext := range []string{".webm", ".mp4"} {
+			candidate := filepath.Join(base, "video", demoName+ext)
+			if _, err := os.Stat(candidate); err == nil {
+				absPath = candidate
+				break
+			}
+		}
+	}
+
+	if absPath == "" {
+		http.NotFound(w, r)
+		return
+	}
+
+	switch demoType {
+	case "cli":
+		w.Header().Set("Content-Type", "application/json")
+	case "video":
+		ext := filepath.Ext(absPath)
+		if ext == ".webm" {
+			w.Header().Set("Content-Type", "video/webm")
+		} else {
+			w.Header().Set("Content-Type", "video/mp4")
+		}
+	}
+	http.ServeFile(w, r, absPath)
 }

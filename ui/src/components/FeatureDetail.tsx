@@ -1,20 +1,79 @@
+import { useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import {
+  Accordion,
+  AccordionSummary,
+  AccordionDetails,
   Box,
   Button,
   Chip,
   Typography,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
-import { useFeature, useTasks, type TaskItem, type SpecItem } from '../api'
+import {
+  ArrowBack as ArrowBackIcon,
+  ExpandMore as ExpandMoreIcon,
+} from '@mui/icons-material'
+import { useFeature, useTasks, useSpecTests, type TaskItem, type SpecItem as BaseSpecItem } from '../api'
+import { DemosSection } from './DemoPlayer'
 
 type FeatureTask = TaskItem
-type Spec = SpecItem
+type Spec = BaseSpecItem & { deferred?: boolean }
 
 function TaskIcon({ status }: { status: string }) {
   const icon = status === 'done' ? '\u2713' : status === 'blocked' ? '\u2717' : '\u25CB'
   const color = status === 'done' ? 'success.main' : status === 'blocked' ? 'error.main' : 'warning.main'
   return <Typography component="span" sx={{ color, fontWeight: 600, mr: 1 }}>{icon}</Typography>
+}
+
+function TestStatusIcon({ status }: { status: string }) {
+  const icon = status === 'pass' ? '\u2713' : status === 'fail' ? '\u2717' : '\u25CB'
+  const color = status === 'pass' ? 'success.main' : status === 'fail' ? 'error.main' : 'text.secondary'
+  return <Typography component="span" sx={{ color, fontWeight: 600, mr: 0.5, fontSize: '0.85rem' }}>{icon}</Typography>
+}
+
+function SpecRow({ spec }: { spec: Spec }) {
+  const [expanded, setExpanded] = useState(false)
+  const { data: tests, isLoading } = useSpecTests(spec.id, expanded)
+
+  return (
+    <Accordion
+      disableGutters
+      variant="outlined"
+      expanded={expanded}
+      onChange={(_, e) => setExpanded(e)}
+      sx={{ '&:before': { display: 'none' } }}
+    >
+      <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flex: 1 }}>
+          <Chip label={spec.kind} size="small" variant="outlined" color="info" />
+          {spec.deferred && <Chip label="deferred" size="small" color="default" />}
+          <Typography variant="body2" sx={{ flex: 1 }}>{spec.description}</Typography>
+        </Box>
+      </AccordionSummary>
+      <AccordionDetails sx={{ pt: 0 }}>
+        {isLoading && <Typography variant="caption" color="text.secondary">Loading tests...</Typography>}
+        {tests && tests.length === 0 && (
+          <Typography variant="caption" color="text.secondary">No linked tests</Typography>
+        )}
+        {tests && tests.length > 0 && (
+          <Box>
+            <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+              Linked tests ({tests.length})
+            </Typography>
+            {tests.map(t => (
+              <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.25 }}>
+                <TestStatusIcon status={t.status} />
+                <Chip label={t.layer} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.7rem' }} />
+                <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
+                  {t.component}/{t.name}
+                </Typography>
+              </Box>
+            ))}
+          </Box>
+        )}
+      </AccordionDetails>
+    </Accordion>
+  )
 }
 
 export function FeatureDetail({
@@ -51,7 +110,6 @@ export function FeatureDetail({
     )
   }
 
-  // Group tasks by status for a quick visual breakdown.
   const grouped = tasks.reduce((acc, t) => {
     const k = t.status || 'pending'
     ;(acc[k] ||= []).push(t)
@@ -125,16 +183,13 @@ export function FeatureDetail({
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             Specs ({specList.length})
           </Typography>
-          {specList.map((s: Spec) => (
-            <Box key={s.id} sx={{ py: 0.75, borderBottom: 1, borderColor: 'divider' }}>
-              <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
-                <Chip label={s.kind} size="small" variant="outlined" color="info" />
-                <Typography variant="body2">{s.description}</Typography>
-              </Box>
-            </Box>
-          ))}
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {specList.map((s: Spec) => <SpecRow key={s.id} spec={s} />)}
+          </Box>
         </Box>
       )}
+
+      <DemosSection />
 
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
         Tasks ({tasks.length})

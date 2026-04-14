@@ -55,6 +55,7 @@ const SECTIONS = [
   { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
   { label: 'Questions', icon: <QuestionAnswerIcon fontSize="small" />, path: 'questions' },
   { label: 'Blockers', icon: <HelpOutlineIcon fontSize="small" />, path: 'blocker-questions' },
+  { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
   { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
   { label: 'Claude', icon: <SmartToyIcon fontSize="small" />, path: 'claude' },
   { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
