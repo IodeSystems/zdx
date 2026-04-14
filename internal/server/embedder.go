@@ -10,17 +10,21 @@ import (
 	"strconv"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/iodesystems/zdx-go/internal/llm"
 	"github.com/iodesystems/zdx-go/internal/zvec"
 )
 
+type timingRecorder func(name string, durationMs int32)
+
 // embedder holds the per-project zvec indexes and the active LLM client.
 // It is safe for concurrent use; a RWMutex guards the client pointer.
 type embedder struct {
-	mu      sync.RWMutex
-	client  *llm.Client // nil when no LLM config is set
-	dataDir string      // directory where .zvec files are stored
+	mu           sync.RWMutex
+	client       *llm.Client // nil when no LLM config is set
+	dataDir      string      // directory where .zvec files are stored
+	recordTiming timingRecorder
 }
 
 func newEmbedder(dataDir string) *embedder {
@@ -47,7 +51,12 @@ func (e *embedder) embed(ctx context.Context, text string) ([]float32, error) {
 	if c == nil {
 		return nil, nil
 	}
-	return c.Embed(ctx, text)
+	start := time.Now()
+	vec, err := c.Embed(ctx, text)
+	if e.recordTiming != nil {
+		e.recordTiming("llm:embed", int32(time.Since(start).Milliseconds())) //nolint:gosec
+	}
+	return vec, err
 }
 
 // indexPath returns the .zvec file path for a given project ID and kind.
@@ -74,6 +83,7 @@ func (e *embedder) upsertIssue(ctx context.Context, projectID int32, issueID str
 	id := issueNumericID(issueID)
 	path := e.indexPath(projectID)
 
+	start := time.Now()
 	idx, err := e.loadOrCreate(path, len(vec))
 	if err != nil {
 		log.Printf("embedder: open index %s: %v", path, err)
@@ -81,6 +91,9 @@ func (e *embedder) upsertIssue(ctx context.Context, projectID int32, issueID str
 	}
 	if err := idx.Upsert(path, id, vec); err != nil {
 		log.Printf("embedder: upsert %s: %v", issueID, err)
+	}
+	if e.recordTiming != nil {
+		e.recordTiming("zvec:upsert-issue", int32(time.Since(start).Milliseconds())) //nolint:gosec
 	}
 }
 
@@ -99,11 +112,16 @@ func (e *embedder) topN(ctx context.Context, projectID int32, queryText string, 
 		return nil, nil // index not built yet
 	}
 
+	start := time.Now()
 	idx, err := zvec.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open index: %w", err)
 	}
-	return idx.TopN(vec, n)
+	results, err := idx.TopN(vec, n)
+	if e.recordTiming != nil {
+		e.recordTiming("zvec:search-issues", int32(time.Since(start).Milliseconds())) //nolint:gosec
+	}
+	return results, err
 }
 
 // loadOrCreate loads an existing index or creates a new one if missing.
@@ -150,6 +168,7 @@ func (e *embedder) upsertQuestion(ctx context.Context, projectID int32, question
 	}
 
 	path := e.questionIndexPath(projectID)
+	start := time.Now()
 	idx, err := e.loadOrCreate(path, len(vec))
 	if err != nil {
 		log.Printf("embedder: open question index %s: %v", path, err)
@@ -157,6 +176,9 @@ func (e *embedder) upsertQuestion(ctx context.Context, projectID int32, question
 	}
 	if err := idx.Upsert(path, uint64(questionID), vec); err != nil { //nolint:gosec
 		log.Printf("embedder: upsert question %d: %v", questionID, err)
+	}
+	if e.recordTiming != nil {
+		e.recordTiming("zvec:upsert-question", int32(time.Since(start).Milliseconds())) //nolint:gosec
 	}
 }
 
@@ -175,11 +197,16 @@ func (e *embedder) topNQuestions(ctx context.Context, projectID int32, queryText
 		return nil, nil
 	}
 
+	start := time.Now()
 	idx, err := zvec.Open(path)
 	if err != nil {
 		return nil, fmt.Errorf("open question index: %w", err)
 	}
-	return idx.TopN(vec, n)
+	results, err := idx.TopN(vec, n)
+	if e.recordTiming != nil {
+		e.recordTiming("zvec:search-questions", int32(time.Since(start).Milliseconds())) //nolint:gosec
+	}
+	return results, err
 }
 
 // issueNumericID converts "IS-42" → 42.

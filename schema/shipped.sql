@@ -1343,7 +1343,9 @@ CREATE TABLE public.zdx_timed (
     duration_ms integer NOT NULL,
     source text DEFAULT ''::text NOT NULL,
     context_json text DEFAULT '{}'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    count integer DEFAULT 1 NOT NULL,
+    total_ms bigint DEFAULT 0 NOT NULL
 );
 
 

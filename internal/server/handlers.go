@@ -2583,6 +2583,9 @@ func (s *Server) registerRoutes(api huma.API) {
 		ID          int64  `json:"id"`
 		Name        string `json:"name"`
 		DurationMs  int32  `json:"duration_ms"`
+		Count       int32  `json:"count"`
+		TotalMs     int64  `json:"total_ms"`
+		AvgMs       int32  `json:"avg_ms"`
 		Source      string `json:"source"`
 		ContextJson string `json:"context_json"`
 		CreatedAt   string `json:"created_at"`
@@ -2599,10 +2602,10 @@ func (s *Server) registerRoutes(api huma.API) {
 				Total int64       `json:"total"`
 			}
 		}, error) {
-			var pid int32
+			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
 				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
-					pid = p.ID
+					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
 			total, _ := s.q.CountTimed(ctx, pid)
@@ -2613,8 +2616,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			}
 			out := make([]TimedItem, len(rows))
 			for i, r := range rows {
+				var avg int32
+				if r.Count > 0 {
+					avg = int32(r.TotalMs / int64(r.Count)) //nolint:gosec
+				}
 				out[i] = TimedItem{
 					ID: r.ID, Name: r.Name, DurationMs: r.DurationMs,
+					Count: r.Count, TotalMs: r.TotalMs, AvgMs: avg,
 					Source: r.Source, ContextJson: r.ContextJson, CreatedAt: fmtTS(r.CreatedAt),
 				}
 			}

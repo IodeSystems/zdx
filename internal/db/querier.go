@@ -41,7 +41,7 @@ type Querier interface {
 	CountTasksByFeature(ctx context.Context, arg CountTasksByFeatureParams) (int64, error)
 	CountTasksByIssue(ctx context.Context, arg CountTasksByIssueParams) (int64, error)
 	CountTests(ctx context.Context, projectID int32) (int64, error)
-	CountTimed(ctx context.Context, projectID int32) (int64, error)
+	CountTimed(ctx context.Context, projectID pgtype.Int4) (int64, error)
 	CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error)
 	// Counts comments on targets where the user has previously commented,
 	// excluding the user's own comments, that are newer than the user's last read.
@@ -170,8 +170,8 @@ type Querier interface {
 	ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest, error)
 	ListTestsPaginated(ctx context.Context, arg ListTestsPaginatedParams) ([]ZdxTest, error)
 	ListThemes(ctx context.Context, projectID int32) ([]ListThemesRow, error)
-	ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, error)
-	ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ZdxTimed, error)
+	ListTimed(ctx context.Context, projectID pgtype.Int4) ([]ListTimedRow, error)
+	ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ListTimedPaginatedRow, error)
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
 	// Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)

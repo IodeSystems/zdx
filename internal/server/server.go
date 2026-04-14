@@ -71,6 +71,18 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 		features:       detectFeatures(ctx, pool),
 	}
 
+	s.emb.recordTiming = func(name string, durationMs int32) {
+		go func() {
+			_ = s.q.UpsertTimed(context.Background(), db.UpsertTimedParams{
+				ProjectID:   pgtype.Int4{Valid: false},
+				Name:        name,
+				DurationMs:  durationMs,
+				Source:      "embedder",
+				ContextJson: "{}",
+			})
+		}()
+	}
+
 	// Load LLM config eagerly so embedder is ready on first request.
 	s.reloadEmbedder(ctx)
 	// Index any issues not yet in the vector store (e.g. pre-dating LLM config setup).

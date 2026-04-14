@@ -444,6 +444,8 @@ type ZdxTimed struct {
 	Source      string             `db:"source" json:"source"`
 	ContextJson string             `db:"context_json" json:"context_json"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	Count       int32              `db:"count" json:"count"`
+	TotalMs     int64              `db:"total_ms" json:"total_ms"`
 }
 
 type ZdxTodo struct {

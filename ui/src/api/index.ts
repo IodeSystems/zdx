@@ -487,6 +487,9 @@ export interface TimedItem {
   id: number
   name: string
   duration_ms: number
+  count: number
+  total_ms: number
+  avg_ms: number
   source: string
   context_json: string
   created_at: string

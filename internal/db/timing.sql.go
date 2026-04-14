@@ -15,7 +15,7 @@ const countTimed = `-- name: CountTimed :one
 SELECT count(*) FROM zdx_timed WHERE ($1::int IS NULL OR project_id = $1)
 `
 
-func (q *Queries) CountTimed(ctx context.Context, projectID int32) (int64, error) {
+func (q *Queries) CountTimed(ctx context.Context, projectID pgtype.Int4) (int64, error) {
 	row := q.db.QueryRow(ctx, countTimed, projectID)
 	var count int64
 	err := row.Scan(&count)
@@ -23,26 +23,40 @@ func (q *Queries) CountTimed(ctx context.Context, projectID int32) (int64, error
 }
 
 const listTimed = `-- name: ListTimed :many
-SELECT id, project_id, name, duration_ms, source, context_json, created_at
+SELECT id, project_id, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE ($1::int IS NULL OR project_id = $1)
 ORDER BY duration_ms DESC
 `
 
-func (q *Queries) ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, error) {
+type ListTimedRow struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Name        string             `db:"name" json:"name"`
+	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
+	Count       int32              `db:"count" json:"count"`
+	TotalMs     int64              `db:"total_ms" json:"total_ms"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson string             `db:"context_json" json:"context_json"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListTimed(ctx context.Context, projectID pgtype.Int4) ([]ListTimedRow, error) {
 	rows, err := q.db.Query(ctx, listTimed, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTimed
+	var items []ListTimedRow
 	for rows.Next() {
-		var i ZdxTimed
+		var i ListTimedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
 			&i.Name,
 			&i.DurationMs,
+			&i.Count,
+			&i.TotalMs,
 			&i.Source,
 			&i.ContextJson,
 			&i.CreatedAt,
@@ -58,7 +72,7 @@ func (q *Queries) ListTimed(ctx context.Context, projectID int32) ([]ZdxTimed, e
 }
 
 const listTimedPaginated = `-- name: ListTimedPaginated :many
-SELECT id, project_id, name, duration_ms, source, context_json, created_at
+SELECT id, project_id, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE ($1::int IS NULL OR project_id = $1)
 ORDER BY duration_ms DESC
@@ -66,25 +80,39 @@ LIMIT $3 OFFSET $2
 `
 
 type ListTimedPaginatedParams struct {
-	ProjectID int32 `db:"project_id" json:"project_id"`
-	Off       int32 `db:"off" json:"off"`
-	Lim       int32 `db:"lim" json:"lim"`
+	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
+	Off       int32       `db:"off" json:"off"`
+	Lim       int32       `db:"lim" json:"lim"`
 }
 
-func (q *Queries) ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ZdxTimed, error) {
+type ListTimedPaginatedRow struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Name        string             `db:"name" json:"name"`
+	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
+	Count       int32              `db:"count" json:"count"`
+	TotalMs     int64              `db:"total_ms" json:"total_ms"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson string             `db:"context_json" json:"context_json"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ListTimedPaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listTimedPaginated, arg.ProjectID, arg.Off, arg.Lim)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTimed
+	var items []ListTimedPaginatedRow
 	for rows.Next() {
-		var i ZdxTimed
+		var i ListTimedPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
 			&i.Name,
 			&i.DurationMs,
+			&i.Count,
+			&i.TotalMs,
 			&i.Source,
 			&i.ContextJson,
 			&i.CreatedAt,
@@ -100,15 +128,16 @@ func (q *Queries) ListTimedPaginated(ctx context.Context, arg ListTimedPaginated
 }
 
 const upsertTimed = `-- name: UpsertTimed :exec
-INSERT INTO zdx_timed (project_id, name, duration_ms, source, context_json)
-VALUES ($1, $2, $3, $4, $5)
+INSERT INTO zdx_timed (project_id, name, duration_ms, source, context_json, count, total_ms)
+VALUES ($1, $2, $3, $4, $5, 1, $3)
 ON CONFLICT (COALESCE(project_id, 0), name)
 DO UPDATE SET
-  duration_ms  = EXCLUDED.duration_ms,
-  source       = EXCLUDED.source,
-  context_json = EXCLUDED.context_json,
+  duration_ms  = GREATEST(zdx_timed.duration_ms, EXCLUDED.duration_ms),
+  source       = CASE WHEN EXCLUDED.duration_ms > zdx_timed.duration_ms THEN EXCLUDED.source ELSE zdx_timed.source END,
+  context_json = CASE WHEN EXCLUDED.duration_ms > zdx_timed.duration_ms THEN EXCLUDED.context_json ELSE zdx_timed.context_json END,
+  count        = zdx_timed.count + 1,
+  total_ms     = zdx_timed.total_ms + EXCLUDED.duration_ms,
   created_at   = NOW()
-WHERE EXCLUDED.duration_ms > zdx_timed.duration_ms
 `
 
 type UpsertTimedParams struct {
