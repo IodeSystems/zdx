@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   Alert,
   Box,
@@ -23,7 +23,7 @@ function AnswerForm({ slug, question }: { slug: string; question: BlockerQuestio
   const answerMutation = useAnswerBlockerQuestion()
   const [answer, setAnswer] = useState('')
 
-  const submit = async (e: React.FormEvent) => {
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!answer.trim()) return
     await answerMutation.mutateAsync({ slug, id: question.id, answer: answer.trim() })
@@ -60,6 +60,13 @@ function AnswerForm({ slug, question }: { slug: string; question: BlockerQuestio
   )
 }
 
+function targetLink(slug: string, targetType: string, targetId: string): { to: string; params: Record<string, string> } | null {
+  if (targetType === 'issue') return { to: '/project/$slug/issues/$id', params: { slug, id: targetId } }
+  if (targetType === 'task') return { to: '/project/$slug/tasks/$id', params: { slug, id: targetId } }
+  if (targetType === 'feature') return { to: '/project/$slug/features/$name', params: { slug, name: targetId } }
+  return null
+}
+
 function BlockerQuestionsPage() {
   const { slug } = Route.useParams()
   const [filter, setFilter] = useState<string>('pending')
@@ -89,12 +96,28 @@ function BlockerQuestionsPage() {
         data.map(item => (
           <Paper key={item.id} variant="outlined" sx={{ p: 2, mb: 2 }}>
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-              <Chip
-                label={`${item.target_type}:${item.target_id}`}
-                size="small"
-                color="primary"
-                variant="outlined"
-              />
+              {(() => {
+                const link = targetLink(slug, item.target_type, item.target_id)
+                return link ? (
+                  <Chip
+                    label={`${item.target_type}:${item.target_id}`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                    component={Link as any}
+                    to={link.to}
+                    params={link.params}
+                    clickable
+                  />
+                ) : (
+                  <Chip
+                    label={`${item.target_type}:${item.target_id}`}
+                    size="small"
+                    color="primary"
+                    variant="outlined"
+                  />
+                )
+              })()}
               <Chip
                 label={item.status}
                 size="small"

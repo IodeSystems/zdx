@@ -3,6 +3,7 @@ import { Link, useRouter } from '@tanstack/react-router'
 import { Box, Button, Chip, Typography } from '@mui/material'
 import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
 import { useTasks, useUpdateTaskStatus, useTaskCodeRefs } from '../api'
+import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
 
@@ -222,6 +223,8 @@ export function TaskDetail({
           Completed: {task.completed_at}
         </Typography>
       )}
+
+      <BlockerQuestionsSection slug={slug} targetType="task" targetId={taskId} />
 
       <CodeRefs refs={codeRefs ?? []} />
 

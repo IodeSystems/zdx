@@ -20,6 +20,7 @@ import {
   type IssueWorkItem,
   type TaskItem,
 } from '../api'
+import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
 
@@ -204,6 +205,8 @@ export function IssueDetail({
           </Box>
         </Box>
       )}
+
+      <BlockerQuestionsSection slug={slug} targetType="issue" targetId={issueId} />
 
       <CodeRefs refs={codeRefs ?? []} />
 

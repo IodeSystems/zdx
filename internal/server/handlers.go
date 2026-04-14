@@ -3873,6 +3873,43 @@ func (s *Server) registerRoutes(api huma.API) {
 			}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-blocker-questions-by-target", Method: http.MethodGet, Path: "/api/dx/blocker-questions/by-target"},
+		func(ctx context.Context, in *struct {
+			Slug       string `query:"slug" required:"true"`
+			TargetType string `query:"target_type" required:"true"`
+			TargetID   string `query:"target_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Questions []BlockerQuestionItem `json:"questions"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListBlockerQuestionsByTarget(ctx, db.ListBlockerQuestionsByTargetParams{
+				ProjectID:  p.ID,
+				TargetType: in.TargetType,
+				TargetID:   in.TargetID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]BlockerQuestionItem, len(rows))
+			for i, r := range rows {
+				out[i] = toBlockerQuestionItem(r)
+			}
+			return &struct {
+				Body struct {
+					Questions []BlockerQuestionItem `json:"questions"`
+				}
+			}{
+				Body: struct {
+					Questions []BlockerQuestionItem `json:"questions"`
+				}{Questions: out},
+			}, nil
+		})
+
 	// ── Claude sessions ──────────────────────────────────────────────────────
 
 	type ClaudeSessionItem struct {

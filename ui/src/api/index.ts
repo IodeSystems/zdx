@@ -822,6 +822,19 @@ export const useBlockerQuestions = (slug: string, status?: string, limit?: numbe
     enabled: !!slug,
   })
 
+export const useBlockerQuestionsByTarget = (slug: string, targetType: string, targetId: string) =>
+  useQuery<{ questions: BlockerQuestionItem[] }>({
+    queryKey: ['blocker-questions-by-target', slug, targetType, targetId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, target_type: targetType, target_id: targetId })
+      const res = await apiFetch<{ questions: BlockerQuestionItem[] }>(
+        `/api/dx/blocker-questions/by-target?${params}`
+      )
+      return { questions: res.questions ?? [] }
+    },
+    enabled: !!slug && !!targetType && !!targetId,
+  })
+
 export const useAnswerBlockerQuestion = () => {
   const qc = useQueryClient()
   return useMutation<
@@ -830,7 +843,10 @@ export const useAnswerBlockerQuestion = () => {
     { slug: string; id: number; answer: string; answered_by?: string }
   >({
     mutationFn: (body) => apiPost<BlockerQuestionItem>('/api/dx/blocker-questions/answer', body),
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['blocker-questions', v.slug] }),
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['blocker-questions', v.slug] })
+      qc.invalidateQueries({ queryKey: ['blocker-questions-by-target', v.slug] })
+    },
   })
 }
 
