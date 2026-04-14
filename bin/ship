@@ -310,7 +310,7 @@ run_compat_check() {
   fi
 
   echo "[compat] Applying migrations to next container..."
-  DATABASE_URL="$DSN_NEXT" ./bin/dx migrate up
+  DATABASE_URL="$DSN_NEXT" ./deploy/dist/dx migrate up
 
   echo "[compat] Dumping next schema..."
   docker exec zdx-compat-next \

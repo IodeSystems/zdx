@@ -781,7 +781,8 @@ CREATE TABLE public.zdx_questions (
     question text NOT NULL,
     answer text,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    parent_question_id integer
 );
 
 
@@ -2129,6 +2130,8 @@ CREATE INDEX idx_oauth_identities_user ON public.zdx_oauth_identities USING btre
 
 CREATE INDEX idx_questions_project ON public.zdx_questions USING btree (project_id);
 
+CREATE INDEX idx_questions_parent ON public.zdx_questions USING btree (parent_question_id) WHERE (parent_question_id IS NOT NULL);
+
 
 --
 -- Name: idx_slow_queries_created_at; Type: INDEX; Schema: public; Owner: -
@@ -2442,6 +2445,9 @@ ALTER TABLE ONLY public.zdx_project_permissions
 
 ALTER TABLE ONLY public.zdx_questions
     ADD CONSTRAINT zdx_questions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+ALTER TABLE ONLY public.zdx_questions
+    ADD CONSTRAINT zdx_questions_parent_question_id_fkey FOREIGN KEY (parent_question_id) REFERENCES public.zdx_questions(id) ON DELETE SET NULL;
 
 
 --
