@@ -11,7 +11,7 @@ import (
 
 func IssueCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "issue", Short: "Issue management"}
-	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueBlockCmd(), issueUnblockCmd())
+	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueEditCmd(), issueBlockCmd(), issueUnblockCmd())
 	return cmd
 }
 
@@ -126,7 +126,9 @@ func issueCloseCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/todo/issue/close", map[string]any{
 				"slug":   c.SlugOrDie(),
 				"id":     int32(n),
@@ -174,7 +176,9 @@ func issueBlockCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
 				"slug":       c.SlugOrDie(),
 				"id":         int32(n),
@@ -200,7 +204,9 @@ func issueUnblockCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
-			var ok struct{ OK bool `json:"ok"` }
+			var ok struct {
+				OK bool `json:"ok"`
+			}
 			if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
 				"slug":       c.SlugOrDie(),
 				"id":         int32(n),
@@ -212,6 +218,58 @@ func issueUnblockCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func issueEditCmd() *cobra.Command {
+	var title, ctx, component, blockedBy, issueType string
+	var priority int
+	cmd := &cobra.Command{
+		Use:   "edit <IS-N>",
+		Short: "Edit fields on an existing issue",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			c := mustClient()
+			body := map[string]any{
+				"slug": c.SlugOrDie(),
+				"id":   int32(n),
+			}
+			if cmd.Flags().Changed("title") {
+				body["title"] = title
+			}
+			if cmd.Flags().Changed("context") {
+				body["context"] = ctx
+			}
+			if cmd.Flags().Changed("priority") {
+				body["priority"] = int32(priority)
+			}
+			if cmd.Flags().Changed("component") {
+				body["component"] = component
+			}
+			if cmd.Flags().Changed("type") {
+				body["issue_type"] = issueType
+			}
+			if cmd.Flags().Changed("blocked-by") {
+				body["blocked_by"] = blockedBy
+			}
+			var ok struct {
+				OK bool `json:"ok"`
+			}
+			if err := c.post("/api/dx/todo/issue/edit", body, &ok); err != nil {
+				return err
+			}
+			fmt.Printf("%s updated\n", id)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&title, "title", "", "issue title")
+	cmd.Flags().StringVar(&ctx, "context", "", "context / description")
+	cmd.Flags().IntVar(&priority, "priority", 0, "priority (1-4)")
+	cmd.Flags().StringVar(&component, "component", "", "component")
+	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops or impl")
+	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issue (IS-N), empty to clear")
+	return cmd
 }
 
 // RunIssue kept for compatibility.

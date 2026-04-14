@@ -78,18 +78,18 @@ type TaskItem struct {
 }
 
 type FeatureItem struct {
-	ID          int32       `json:"id"`
-	Name        string      `json:"name"`
-	Description string      `json:"description"`
-	What        string      `json:"what"`
-	Why         string      `json:"why"`
-	DoneWhen    string      `json:"done_when"`
-	Component   string      `json:"component"`
-	Category    string      `json:"category"`
-	PlanType    string      `json:"plan_type"`
-	PlanStatus  string      `json:"plan_status"`
-	HasTestRefs bool        `json:"has_test_refs"`
-	Specs       []SpecItem  `json:"specs"`
+	ID          int32      `json:"id"`
+	Name        string     `json:"name"`
+	Description string     `json:"description"`
+	What        string     `json:"what"`
+	Why         string     `json:"why"`
+	DoneWhen    string     `json:"done_when"`
+	Component   string     `json:"component"`
+	Category    string     `json:"category"`
+	PlanType    string     `json:"plan_type"`
+	PlanStatus  string     `json:"plan_status"`
+	HasTestRefs bool       `json:"has_test_refs"`
+	Specs       []SpecItem `json:"specs"`
 }
 
 type SpecItem struct {
@@ -424,7 +424,11 @@ func (s *Server) registerRoutes(api huma.API) {
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-projects", Method: http.MethodGet, Path: "/api/projects"},
-		func(ctx context.Context, _ *struct{}) (*struct{ Body struct{ Projects []ProjectItem `json:"projects"` } }, error) {
+		func(ctx context.Context, _ *struct{}) (*struct {
+			Body struct {
+				Projects []ProjectItem `json:"projects"`
+			}
+		}, error) {
 			rows, err := s.q.ListProjects(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -433,7 +437,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = ProjectItem{ID: r.ID, Slug: r.Slug, Name: r.Name, CreatedAt: fmtTS(r.CreatedAt)}
 			}
-			return &struct{ Body struct{ Projects []ProjectItem `json:"projects"` } }{Body: struct{ Projects []ProjectItem `json:"projects"` }{Projects: out}}, nil
+			return &struct {
+				Body struct {
+					Projects []ProjectItem `json:"projects"`
+				}
+			}{Body: struct {
+				Projects []ProjectItem `json:"projects"`
+			}{Projects: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "create-project", Method: http.MethodPost, Path: "/api/project"},
@@ -452,11 +462,19 @@ func (s *Server) registerRoutes(api huma.API) {
 
 	// ── Issues ──────────────────────────────────────────────────────────────
 
-	type IssueSlugInput struct{ Slug string `query:"slug" required:"true"` }
-	type IssueIntIDInput struct{ ID int32 `json:"id"` }
+	type IssueSlugInput struct {
+		Slug string `query:"slug" required:"true"`
+	}
+	type IssueIntIDInput struct {
+		ID int32 `json:"id"`
+	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/list"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Issues []IssueItem `json:"issues"` } }, error) {
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Issues []IssueItem `json:"issues"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -469,14 +487,24 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = toIssueItem(r)
 			}
-			return &struct{ Body struct{ Issues []IssueItem `json:"issues"` } }{Body: struct{ Issues []IssueItem `json:"issues"` }{Issues: out}}, nil
+			return &struct {
+				Body struct {
+					Issues []IssueItem `json:"issues"`
+				}
+			}{Body: struct {
+				Issues []IssueItem `json:"issues"`
+			}{Issues: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "search-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/search"},
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
 			Q    string `query:"q" required:"true"`
-		}) (*struct{ Body struct{ Issues []IssueItem `json:"issues"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Issues []IssueItem `json:"issues"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -489,8 +517,14 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = toIssueItem(r)
 			}
-			return &struct{ Body struct{ Issues []IssueItem `json:"issues"` } }{
-				Body: struct{ Issues []IssueItem `json:"issues"` }{Issues: out},
+			return &struct {
+				Body struct {
+					Issues []IssueItem `json:"issues"`
+				}
+			}{
+				Body: struct {
+					Issues []IssueItem `json:"issues"`
+				}{Issues: out},
 			}, nil
 		})
 
@@ -640,6 +674,79 @@ func (s *Server) registerRoutes(api huma.API) {
 						oldVal = oldIssue.Context
 					}
 					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val, agent)
+				}
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "edit-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/edit"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string  `json:"slug"`
+				ID        int32   `json:"id"`
+				Title     *string `json:"title,omitempty"`
+				Context   *string `json:"context,omitempty"`
+				Priority  *int32  `json:"priority,omitempty"`
+				IssueType *string `json:"issue_type,omitempty"`
+				Component *string `json:"component,omitempty"`
+				BlockedBy *string `json:"blocked_by,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(in.Body.ID)
+			agent := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
+					agent = u.Email
+				}
+			}
+			oldIssue, _ := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+
+			if in.Body.Priority != nil {
+				newPriority := strconv.Itoa(int(*in.Body.Priority))
+				if err := s.q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
+					ID:        issueID,
+					Priority:  newPriority,
+					ProjectID: p.ID,
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				if oldIssue.Priority != newPriority {
+					s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority, agent)
+				}
+			}
+
+			fieldMap := map[string]*string{
+				"title":      in.Body.Title,
+				"issue_type": in.Body.IssueType,
+				"context":    in.Body.Context,
+				"component":  in.Body.Component,
+				"blocked_by": in.Body.BlockedBy,
+			}
+			oldValMap := map[string]string{
+				"title":      oldIssue.Title,
+				"issue_type": oldIssue.IssueType,
+				"context":    oldIssue.Context,
+				"component":  oldIssue.Component,
+				"blocked_by": oldIssue.BlockedBy,
+			}
+			for field, val := range fieldMap {
+				if val == nil {
+					continue
+				}
+				if err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+					Field:     field,
+					Value:     *val,
+					ProjectID: p.ID,
+					ID:        issueID,
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				if oldValMap[field] != *val {
+					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldValMap[field], *val, agent)
 				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -851,7 +958,9 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = toTaskItem(r)
 			}
-			return &TasksSlugOutput{Body: struct{ Tasks []TaskItem `json:"tasks"` }{Tasks: out}}, nil
+			return &TasksSlugOutput{Body: struct {
+				Tasks []TaskItem `json:"tasks"`
+			}{Tasks: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-tasks-by-feature", Method: http.MethodGet, Path: "/api/tasks-by-feature"},
@@ -871,7 +980,9 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = toTaskItem(r)
 			}
-			return &TasksSlugOutput{Body: struct{ Tasks []TaskItem `json:"tasks"` }{Tasks: out}}, nil
+			return &TasksSlugOutput{Body: struct {
+				Tasks []TaskItem `json:"tasks"`
+			}{Tasks: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-tasks-for-issue", Method: http.MethodGet, Path: "/api/dx/todo/issue/tasks"},
@@ -891,7 +1002,9 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = toTaskItem(r)
 			}
-			return &TasksSlugOutput{Body: struct{ Tasks []TaskItem `json:"tasks"` }{Tasks: out}}, nil
+			return &TasksSlugOutput{Body: struct {
+				Tasks []TaskItem `json:"tasks"`
+			}{Tasks: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "add-task", Method: http.MethodPost, Path: "/api/dx/todo/tech/add"},
@@ -946,7 +1059,9 @@ func (s *Server) registerRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "mark-task-undone", Method: http.MethodPost, Path: "/api/dx/todo/dev/undone"},
 		func(ctx context.Context, in *struct {
-			Body struct{ ID int32 `json:"id"` }
+			Body struct {
+				ID int32 `json:"id"`
+			}
 		}) (*struct{ Body OKBody }, error) {
 			if err := s.q.MarkTaskUndone(ctx, taskIDFromInt(in.Body.ID)); err != nil {
 				return nil, apiErr(500, err.Error())
@@ -973,7 +1088,9 @@ func (s *Server) registerRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "unblock-task", Method: http.MethodPost, Path: "/api/dx/todo/dev/unblock"},
 		func(ctx context.Context, in *struct {
-			Body struct{ ID int32 `json:"id"` }
+			Body struct {
+				ID int32 `json:"id"`
+			}
 		}) (*struct{ Body OKBody }, error) {
 			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     taskIDFromInt(in.Body.ID),
@@ -1005,7 +1122,9 @@ func (s *Server) registerRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "delete-task", Method: http.MethodDelete, Path: "/api/task"},
 		func(ctx context.Context, in *struct {
-			Body struct{ ID int32 `json:"id"` }
+			Body struct {
+				ID int32 `json:"id"`
+			}
 		}) (*struct{ Body OKBody }, error) {
 			if err := s.q.DeleteTask(ctx, taskIDFromInt(in.Body.ID)); err != nil {
 				return nil, apiErr(500, err.Error())
@@ -1028,8 +1147,16 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "get-task-commit-refs", Method: http.MethodGet, Path: "/api/dx/todo/dev/commit-refs"},
 		func(ctx context.Context, in *struct {
 			ID int32 `query:"id" required:"true"`
-		}) (*struct{ Body struct{ CommitRefs string `json:"commit_refs"` } }, error) {
-			return &struct{ Body struct{ CommitRefs string `json:"commit_refs"` } }{}, nil
+		}) (*struct {
+			Body struct {
+				CommitRefs string `json:"commit_refs"`
+			}
+		}, error) {
+			return &struct {
+				Body struct {
+					CommitRefs string `json:"commit_refs"`
+				}
+			}{}, nil
 		})
 
 	// ── Features ─────────────────────────────────────────────────────────────
@@ -1094,7 +1221,9 @@ func (s *Server) registerRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "delete-feature", Method: http.MethodDelete, Path: "/api/feature"},
 		func(ctx context.Context, in *struct {
-			Body struct{ ID int32 `json:"id"` }
+			Body struct {
+				ID int32 `json:"id"`
+			}
 		}) (*struct{ Body OKBody }, error) {
 			if err := s.q.DeleteFeature(ctx, in.Body.ID); err != nil {
 				return nil, apiErr(500, err.Error())
@@ -1274,7 +1403,11 @@ func (s *Server) registerRoutes(api huma.API) {
 	// ── Themes ────────────────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "list-themes", Method: http.MethodGet, Path: "/api/dx/themes"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Themes []ThemeItem `json:"themes"` } }, error) {
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Themes []ThemeItem `json:"themes"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -1296,7 +1429,13 @@ func (s *Server) registerRoutes(api huma.API) {
 					CreatedAt:   fmtTS(r.CreatedAt),
 				}
 			}
-			return &struct{ Body struct{ Themes []ThemeItem `json:"themes"` } }{Body: struct{ Themes []ThemeItem `json:"themes"` }{Themes: out}}, nil
+			return &struct {
+				Body struct {
+					Themes []ThemeItem `json:"themes"`
+				}
+			}{Body: struct {
+				Themes []ThemeItem `json:"themes"`
+			}{Themes: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "add-theme", Method: http.MethodPost, Path: "/api/dx/themes/add"},
@@ -1414,7 +1553,11 @@ func (s *Server) registerRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
 			Key  string `query:"key" required:"true"`
-		}) (*struct{ Body struct{ Value string `json:"value"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Value string `json:"value"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -1423,7 +1566,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				val = ""
 			}
-			return &struct{ Body struct{ Value string `json:"value"` } }{Body: struct{ Value string `json:"value"` }{Value: val}}, nil
+			return &struct {
+				Body struct {
+					Value string `json:"value"`
+				}
+			}{Body: struct {
+				Value string `json:"value"`
+			}{Value: val}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "set-state", Method: http.MethodPost, Path: "/api/dx/state"},
@@ -1451,7 +1600,11 @@ func (s *Server) registerRoutes(api huma.API) {
 	// ── Todos ─────────────────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "list-todos", Method: http.MethodGet, Path: "/api/dx/todos"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Todos []TodoItem `json:"todos"` } }, error) {
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Todos []TodoItem `json:"todos"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -1464,13 +1617,19 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = toTodoItem(r)
 			}
-			return &struct{ Body struct{ Todos []TodoItem `json:"todos"` } }{Body: struct{ Todos []TodoItem `json:"todos"` }{Todos: out}}, nil
+			return &struct {
+				Body struct {
+					Todos []TodoItem `json:"todos"`
+				}
+			}{Body: struct {
+				Todos []TodoItem `json:"todos"`
+			}{Todos: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "write-todos", Method: http.MethodPost, Path: "/api/dx/todos"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug  string `json:"slug"`
+				Slug  string           `json:"slug"`
 				Todos []WriteTodoInput `json:"todos"`
 			}
 		}) (*struct{ Body OKBody }, error) {
@@ -1506,7 +1665,7 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "submit-test-results", Method: http.MethodPost, Path: "/api/dx/test-results/submit"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug    string `json:"slug"`
+				Slug    string            `json:"slug"`
 				Results []TestResultInput `json:"results"`
 			}
 		}) (*struct{ Body OKBody }, error) {
@@ -1572,7 +1731,11 @@ func (s *Server) registerRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
 			Role string `query:"role" required:"true"`
-		}) (*struct{ Body struct{ Entries []JournalEntryItem `json:"entries"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Entries []JournalEntryItem `json:"entries"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -1594,23 +1757,43 @@ func (s *Server) registerRoutes(api huma.API) {
 					StateJSON:     r.StateJson,
 				}
 			}
-			return &struct{ Body struct{ Entries []JournalEntryItem `json:"entries"` } }{Body: struct{ Entries []JournalEntryItem `json:"entries"` }{Entries: out}}, nil
+			return &struct {
+				Body struct {
+					Entries []JournalEntryItem `json:"entries"`
+				}
+			}{Body: struct {
+				Entries []JournalEntryItem `json:"entries"`
+			}{Entries: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "journal-state", Method: http.MethodGet, Path: "/api/dx/journal/state"},
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
 			Role string `query:"role" required:"true"`
-		}) (*struct{ Body struct{ StateJSON string `json:"state_json"` } }, error) {
+		}) (*struct {
+			Body struct {
+				StateJSON string `json:"state_json"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			entry, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: in.Role})
 			if err != nil {
-				return &struct{ Body struct{ StateJSON string `json:"state_json"` } }{}, nil
+				return &struct {
+					Body struct {
+						StateJSON string `json:"state_json"`
+					}
+				}{}, nil
 			}
-			return &struct{ Body struct{ StateJSON string `json:"state_json"` } }{Body: struct{ StateJSON string `json:"state_json"` }{StateJSON: entry.StateJson}}, nil
+			return &struct {
+				Body struct {
+					StateJSON string `json:"state_json"`
+				}
+			}{Body: struct {
+				StateJSON string `json:"state_json"`
+			}{StateJSON: entry.StateJson}}, nil
 		})
 
 	// ── Errors ────────────────────────────────────────────────────────────────
@@ -1650,7 +1833,11 @@ func (s *Server) registerRoutes(api huma.API) {
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-errors", Method: http.MethodGet, Path: "/api/dx/errors"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Errors []ErrorReportItem `json:"errors"` } }, error) {
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Errors []ErrorReportItem `json:"errors"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -1670,7 +1857,13 @@ func (s *Server) registerRoutes(api huma.API) {
 					CreatedAt:  fmtTS(r.CreatedAt),
 				}
 			}
-			return &struct{ Body struct{ Errors []ErrorReportItem `json:"errors"` } }{Body: struct{ Errors []ErrorReportItem `json:"errors"` }{Errors: out}}, nil
+			return &struct {
+				Body struct {
+					Errors []ErrorReportItem `json:"errors"`
+				}
+			}{Body: struct {
+				Errors []ErrorReportItem `json:"errors"`
+			}{Errors: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "trigger-error", Method: http.MethodGet, Path: "/api/error"},
@@ -1728,7 +1921,11 @@ func (s *Server) registerRoutes(api huma.API) {
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-slow-queries", Method: http.MethodGet, Path: "/api/dx/slow-queries"},
-		func(ctx context.Context, in *IssueSlugInput) (*struct{ Body struct{ Queries []SlowQueryItem `json:"queries"` } }, error) {
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Queries []SlowQueryItem `json:"queries"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -1749,7 +1946,13 @@ func (s *Server) registerRoutes(api huma.API) {
 					CreatedAt:   fmtTS(r.CreatedAt),
 				}
 			}
-			return &struct{ Body struct{ Queries []SlowQueryItem `json:"queries"` } }{Body: struct{ Queries []SlowQueryItem `json:"queries"` }{Queries: out}}, nil
+			return &struct {
+				Body struct {
+					Queries []SlowQueryItem `json:"queries"`
+				}
+			}{Body: struct {
+				Queries []SlowQueryItem `json:"queries"`
+			}{Queries: out}}, nil
 		})
 
 	// ── Timed ─────────────────────────────────────────────────────────────────
@@ -1766,7 +1969,11 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "list-timed", Method: http.MethodGet, Path: "/api/dx/timed"},
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug,omitempty"`
-		}) (*struct{ Body struct{ Items []TimedItem `json:"items"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Items []TimedItem `json:"items"`
+			}
+		}, error) {
 			var projectID pgtype.Int4
 			if in.Slug != "" {
 				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
@@ -1784,8 +1991,14 @@ func (s *Server) registerRoutes(api huma.API) {
 					Source: r.Source, ContextJson: r.ContextJson, CreatedAt: fmtTS(r.CreatedAt),
 				}
 			}
-			return &struct{ Body struct{ Items []TimedItem `json:"items"` } }{
-				Body: struct{ Items []TimedItem `json:"items"` }{Items: out},
+			return &struct {
+				Body struct {
+					Items []TimedItem `json:"items"`
+				}
+			}{
+				Body: struct {
+					Items []TimedItem `json:"items"`
+				}{Items: out},
 			}, nil
 		})
 
@@ -1804,7 +2017,11 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "list-my-comments", Method: http.MethodGet, Path: "/api/dx/comment/mine"},
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
-		}) (*struct{ Body struct{ Comments []CommentItem `json:"comments"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Comments []CommentItem `json:"comments"`
+			}
+		}, error) {
 			uid := ctxUserIDVal(ctx)
 			if uid == 0 {
 				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
@@ -1831,8 +2048,14 @@ func (s *Server) registerRoutes(api huma.API) {
 					Author: r.Author, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
 				}
 			}
-			return &struct{ Body struct{ Comments []CommentItem `json:"comments"` } }{
-				Body: struct{ Comments []CommentItem `json:"comments"` }{Comments: out},
+			return &struct {
+				Body struct {
+					Comments []CommentItem `json:"comments"`
+				}
+			}{
+				Body: struct {
+					Comments []CommentItem `json:"comments"`
+				}{Comments: out},
 			}, nil
 		})
 
@@ -1877,7 +2100,11 @@ func (s *Server) registerRoutes(api huma.API) {
 			TargetType string `query:"target_type"`
 			TargetID   string `query:"target_id"`
 			Role       string `query:"role"`
-		}) (*struct{ Body struct{ Comments []CommentItem `json:"comments"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Comments []CommentItem `json:"comments"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -1909,8 +2136,14 @@ func (s *Server) registerRoutes(api huma.API) {
 				}
 				out[i] = ci
 			}
-			return &struct{ Body struct{ Comments []CommentItem `json:"comments"` } }{
-				Body: struct{ Comments []CommentItem `json:"comments"` }{Comments: out},
+			return &struct {
+				Body struct {
+					Comments []CommentItem `json:"comments"`
+				}
+			}{
+				Body: struct {
+					Comments []CommentItem `json:"comments"`
+				}{Comments: out},
 			}, nil
 		})
 
@@ -1944,7 +2177,11 @@ func (s *Server) registerRoutes(api huma.API) {
 			TargetType string `query:"target_type" required:"true"`
 			TargetID   string `query:"target_id" required:"true"`
 			Role       string `query:"role" required:"true"`
-		}) (*struct{ Body struct{ HasUnread bool `json:"has_unread"` } }, error) {
+		}) (*struct {
+			Body struct {
+				HasUnread bool `json:"has_unread"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -1955,8 +2192,14 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body struct{ HasUnread bool `json:"has_unread"` } }{
-				Body: struct{ HasUnread bool `json:"has_unread"` }{HasUnread: has},
+			return &struct {
+				Body struct {
+					HasUnread bool `json:"has_unread"`
+				}
+			}{
+				Body: struct {
+					HasUnread bool `json:"has_unread"`
+				}{HasUnread: has},
 			}, nil
 		})
 
@@ -2016,7 +2259,11 @@ func (s *Server) registerRoutes(api huma.API) {
 			Slug       string `query:"slug"`
 			TargetType string `query:"target_type"`
 			TargetID   string `query:"target_id"`
-		}) (*struct{ Body struct{ Revisions []RevisionItem `json:"revisions"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Revisions []RevisionItem `json:"revisions"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -2037,8 +2284,14 @@ func (s *Server) registerRoutes(api huma.API) {
 					Agent: r.Agent, CreatedAt: fmtTS(r.CreatedAt),
 				}
 			}
-			return &struct{ Body struct{ Revisions []RevisionItem `json:"revisions"` } }{
-				Body: struct{ Revisions []RevisionItem `json:"revisions"` }{Revisions: out},
+			return &struct {
+				Body struct {
+					Revisions []RevisionItem `json:"revisions"`
+				}
+			}{
+				Body: struct {
+					Revisions []RevisionItem `json:"revisions"`
+				}{Revisions: out},
 			}, nil
 		})
 
@@ -2376,7 +2629,11 @@ func (s *Server) registerRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug    string `query:"slug" required:"true"`
 			IssueID string `query:"issue_id" required:"true"`
-		}) (*struct{ Body struct{ Refs []CodeRefItem `json:"refs"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Refs []CodeRefItem `json:"refs"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -2390,8 +2647,14 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = toCodeRefItem(r)
 			}
-			return &struct{ Body struct{ Refs []CodeRefItem `json:"refs"` } }{
-				Body: struct{ Refs []CodeRefItem `json:"refs"` }{Refs: out},
+			return &struct {
+				Body struct {
+					Refs []CodeRefItem `json:"refs"`
+				}
+			}{
+				Body: struct {
+					Refs []CodeRefItem `json:"refs"`
+				}{Refs: out},
 			}, nil
 		})
 
@@ -2451,7 +2714,11 @@ func (s *Server) registerRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug   string `query:"slug" required:"true"`
 			TaskID string `query:"task_id" required:"true"`
-		}) (*struct{ Body struct{ Refs []CodeRefItem `json:"refs"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Refs []CodeRefItem `json:"refs"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -2465,8 +2732,14 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = toCodeRefItem(r)
 			}
-			return &struct{ Body struct{ Refs []CodeRefItem `json:"refs"` } }{
-				Body: struct{ Refs []CodeRefItem `json:"refs"` }{Refs: out},
+			return &struct {
+				Body struct {
+					Refs []CodeRefItem `json:"refs"`
+				}
+			}{
+				Body: struct {
+					Refs []CodeRefItem `json:"refs"`
+				}{Refs: out},
 			}, nil
 		})
 
@@ -2538,7 +2811,11 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "list-questions", Method: http.MethodGet, Path: "/api/dx/qa/list"},
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
-		}) (*struct{ Body struct{ Questions []QuestionItem `json:"questions"` } }, error) {
+		}) (*struct {
+			Body struct {
+				Questions []QuestionItem `json:"questions"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -2551,8 +2828,14 @@ func (s *Server) registerRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = toQuestionItem(r)
 			}
-			return &struct{ Body struct{ Questions []QuestionItem `json:"questions"` } }{
-				Body: struct{ Questions []QuestionItem `json:"questions"` }{Questions: out},
+			return &struct {
+				Body struct {
+					Questions []QuestionItem `json:"questions"`
+				}
+			}{
+				Body: struct {
+					Questions []QuestionItem `json:"questions"`
+				}{Questions: out},
 			}, nil
 		})
 
@@ -2676,7 +2959,13 @@ func (s *Server) featuresWithSpecs(ctx context.Context, slug string) (*struct {
 	for i, f := range rows {
 		out[i] = toFeatureItem(f, specsByFeature[f.ID])
 	}
-	return &struct{ Body struct{ Features []FeatureItem `json:"features"` } }{Body: struct{ Features []FeatureItem `json:"features"` }{Features: out}}, nil
+	return &struct {
+		Body struct {
+			Features []FeatureItem `json:"features"`
+		}
+	}{Body: struct {
+		Features []FeatureItem `json:"features"`
+	}{Features: out}}, nil
 }
 
 func (s *Server) resolveTheme(ctx context.Context, projectID int32, ref string) (db.ZdxTheme, error) {
