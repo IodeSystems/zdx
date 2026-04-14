@@ -25,6 +25,12 @@ Drive `./bin/dx todo` in remote mode. Issue: $ARGUMENTS (optional). **One vertic
 
 Vertical scope is automatic: solo --issue=IS-N picks only triage:IS-N, decompose:IS-N, plan: for linked features, and dev tasks with task.issue == IS-N.
 
+**Triage** (when solo emits `[triage] IS-N`):
+1. **Verify independently.** Reproduce or read the relevant code/UI before accepting the report at face value.
+2. **Dup-check.** `./bin/dx issue list` and scan open + recent closed issues for similar work. If a close match exists, close the new one as duplicate (`--reason=duplicate`) and reopen the prior issue with the new context if it adds detail.
+3. **Rewrite prescriptively.** Title = intended outcome (not symptom). Context covers: (a) what *should* happen, (b) what *did* happen, (c) implementation direction if known.
+4. **Apply** via `./bin/dx todo owner triage IS-N --title=... --context=... --type=<ops|impl> --priority=<1-4>`.
+
 **Blocked issues:** if the vertical is empty because IS-N is blocked by other issues:
 1. Run `./bin/dx todo show IS-N` to read the `Blocked:` list.
 2. For each blocking issue, check if it is itself blocked: `./bin/dx todo show IS-X`.

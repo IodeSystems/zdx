@@ -8,6 +8,13 @@ import (
 	"github.com/spf13/cobra"
 )
 
+const triageGuidance = `  triage checklist:
+    1. verify independently (reproduce or read the code)
+    2. dup-check: dx issue list; close duplicates with --reason=duplicate
+    3. rewrite prescriptively: title=intended outcome; context=should/did/direction
+    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl> --priority=<1-4>
+`
+
 // ── wire types (match server JSON) ────────────────────────────────────────────
 
 type issueItem struct {
@@ -160,6 +167,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	for _, iss := range targetIssues {
 		if iss.Status == "open" && iss.Priority == "" {
 			fmt.Printf("[triage] %s  %s\n", issueIDStr(iss.ID), iss.Title)
+			fmt.Print(triageGuidance)
 			return nil
 		}
 	}
