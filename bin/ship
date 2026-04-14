@@ -534,6 +534,21 @@ echo "[ship] Deployed commit: $DEPLOYED_GIT_HASH"
 if [ -f schema/next.sql ]; then
   cp schema/next.sql schema/shipped.sql
   echo "[ship] schema/shipped.sql updated."
+
+  # Validate shipped.sql contains every table from up-migrations.
+  MISSING=0
+  while IFS= read -r tbl; do
+    if ! grep -qi "CREATE TABLE.*${tbl}" schema/shipped.sql; then
+      echo "[ship] ERROR: shipped.sql missing table: $tbl"
+      MISSING=1
+    fi
+  done < <(grep -hoi 'CREATE TABLE [a-z_]*' "$MIGRATION_DIR"/*.up.sql | awk '{print $3}' | sort -u)
+  if [ "$MISSING" -ne 0 ]; then
+    echo "[ship] REFUSING to commit shipped.sql — pg_dump produced incomplete schema."
+    echo "[ship] Investigate the compat-check pg_dump or regenerate manually."
+    exit 1
+  fi
+  echo "[ship] shipped.sql validation: OK (all migration tables present)."
 fi
 
 echo ""
