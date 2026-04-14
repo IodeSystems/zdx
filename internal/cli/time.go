@@ -15,13 +15,24 @@ import (
 )
 
 func TimeCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "time",
+		Short: "Timing instrumentation commands",
+	}
+
+	cmd.AddCommand(timeRunCmd())
+	cmd.AddCommand(TimeGoCompileCmd())
+
+	return cmd
+}
+
+func timeRunCmd() *cobra.Command {
 	var name, component, env string
 
 	cmd := &cobra.Command{
-		Use:                "time [flags] -- cmd [args...]",
-		Short:              "Run a command and ingest its wall-clock duration",
-		DisableFlagParsing: false,
-		Args:               cobra.MinimumNArgs(1),
+		Use:   "run [flags] -- cmd [args...]",
+		Short: "Run a command and ingest its wall-clock duration",
+		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if name == "" {
 				name = args[0]
