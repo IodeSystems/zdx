@@ -3,8 +3,9 @@ set -u
 
 cd "$(dirname "$0")/.."
 
-mkdir -p .zdx/logs
+mkdir -p .zdx/logs .zdx/cache
 LOG=.zdx/logs/claude-work.log
+STATE_FILE=.zdx/cache/claude-work-state
 
 PROJECT_DIR="$HOME/.claude/projects/$(pwd | tr / -)"
 
@@ -53,35 +54,81 @@ on_int() {
 }
 trap on_int INT
 
+save_state() {
+  printf '%s\n%s\n' "$1" "$2" > "$STATE_FILE"
+}
+
+clear_state() {
+  rm -f "$STATE_FILE"
+}
+
+load_state() {
+  if [[ -f "$STATE_FILE" ]]; then
+    saved_issue="$(sed -n '1p' "$STATE_FILE")"
+    saved_sid="$(sed -n '2p' "$STATE_FILE")"
+    if [[ -n "$saved_issue" ]]; then
+      local status
+      status="$(./bin/dx todo show "$saved_issue" 2>/dev/null | grep -oP '^Status:\s+\K\S+')"
+      if [[ "$status" == "open" ]]; then
+        log "resuming interrupted session: issue=$saved_issue sid=$saved_sid"
+        return 0
+      fi
+      log "stale state: $saved_issue is $status, clearing"
+    fi
+    clear_state
+  fi
+  return 1
+}
+
 while true; do
-  todo="$(./bin/dx todo solo 2>/dev/null)"
-  if [[ -n "$todo" ]]; then
-    log "todo solo:"
+  resumed=false
+  if load_state; then
+    issue_id="$saved_issue"
+    sid="$saved_sid"
+    todo="$(./bin/dx todo solo --issue="$issue_id" 2>/dev/null)"
+    if [[ -z "$todo" ]]; then
+      log "resumed issue $issue_id has no remaining work, clearing state"
+      clear_state
+      continue
+    fi
+    resumed=true
+    log "todo solo --issue=$issue_id (resumed):"
     printf '%s\n' "$todo" | tee -a "$LOG"
+  else
+    todo="$(./bin/dx todo solo 2>/dev/null)"
+    if [[ -n "$todo" ]]; then
+      log "todo solo:"
+      printf '%s\n' "$todo" | tee -a "$LOG"
+      issue_id="$(printf '%s' "$todo" | grep -oP 'IS-\d+' | head -1)"
+      sid="$(uuidgen)"
+    else
+      log "idle; sleeping 60s"
+      sleep 60
+      continue
+    fi
+  fi
 
-    # Extract issue ID from solo output (e.g. "IS-53").
-    issue_id="$(printf '%s' "$todo" | grep -oP 'IS-\d+' | head -1)"
+  sfile="$PROJECT_DIR/$sid.jsonl"
+  log "claude session $sid → $sfile (issue: ${issue_id:-none})"
+  save_state "${issue_id:-}" "$sid"
 
-    sid="$(uuidgen)"
-    sfile="$PROJECT_DIR/$sid.jsonl"
-    log "claude session $sid → $sfile (issue: ${issue_id:-none})"
+  mkdir -p "$PROJECT_DIR"
+  tail -F "$sfile" 2>/dev/null | tee -a "$LOG" &
+  tail_pid=$!
 
-    # tail -F retries the missing file until claude creates it.
-    mkdir -p "$PROJECT_DIR"
-    tail -F "$sfile" 2>/dev/null | tee -a "$LOG" &
-    tail_pid=$!
-
+  if [[ "$resumed" == true ]]; then
+    claude --dangerously-skip-permissions --chrome \
+      --session-id "$sid" --continue -p /work
+  else
     claude --dangerously-skip-permissions --chrome \
       --session-id "$sid" -p /work
-    rc=$?
-
-    kill "$tail_pid" 2>/dev/null
-    wait "$tail_pid" 2>/dev/null
-    log "claude /work exited rc=$rc"
-
-    upload_session "$sid" "$sfile" "${issue_id:-}"
-  else
-    log "idle; sleeping 60s"
-    sleep 60
   fi
+  rc=$?
+
+  kill "$tail_pid" 2>/dev/null
+  wait "$tail_pid" 2>/dev/null
+  log "claude /work exited rc=$rc"
+
+  upload_session "$sid" "$sfile" "${issue_id:-}"
+  clear_state
 done
