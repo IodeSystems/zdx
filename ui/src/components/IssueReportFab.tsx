@@ -18,7 +18,7 @@ import {
 } from '@mui/material'
 import { Add as AddIcon, AttachFile as AttachFileIcon, Close as CloseIcon } from '@mui/icons-material'
 import html2canvas from 'html2canvas'
-import { useCreateIssue, useUploadFile, useSimilarIssues, type SimilarIssueItem } from '../api'
+import { useCreateIssue, useUploadFile, useSimilarIssues, type SimilarIssueItem, type IssueItem } from '../api'
 import { useMatches } from '@tanstack/react-router'
 
 async function capturePageScreenshot(): Promise<File | null> {
@@ -44,6 +44,7 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
   // preflight state
   const [similarIssues, setSimilarIssues] = useState<SimilarIssueItem[] | null>(null)
   const [preflight, setPreflight] = useState(false)
+  const [createdIssue, setCreatedIssue] = useState<IssueItem | null>(null)
   const fileInputRef = useRef<HTMLInputElement>(null)
   const matches = useMatches()
 
@@ -73,6 +74,7 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
     setScreenshot(null)
     setSimilarIssues(null)
     setPreflight(false)
+    setCreatedIssue(null)
   }
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -94,8 +96,12 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
       { slug, text, n: 5 },
       {
         onSuccess: (issues) => {
-          setSimilarIssues(issues)
           setPreflight(false)
+          if (issues.length === 0) {
+            doSubmit()
+          } else {
+            setSimilarIssues(issues)
+          }
         },
         onError: () => {
           // If similarity check fails, proceed to submit
@@ -121,7 +127,12 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
         component: component || undefined,
         screenshot_ids: screenshotIds,
       },
-      { onSuccess: handleClose },
+      {
+        onSuccess: (issue) => {
+          setCreatedIssue(issue)
+          setSimilarIssues(null)
+        },
+      },
     )
   }
 
@@ -145,98 +156,114 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
       </Fab>
 
       <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>Report Issue</DialogTitle>
-        <DialogContent>
-          <TextField
-            autoFocus
-            fullWidth
-            label="Title (optional — filled by owner)"
-            value={title}
-            onChange={e => setTitle(e.target.value)}
-            sx={{ mt: 1, mb: 2 }}
-            disabled={showSimilar}
-          />
-          <TextField
-            fullWidth
-            label="Context"
-            multiline
-            rows={4}
-            value={context}
-            onChange={e => setContext(e.target.value)}
-            placeholder="Steps to reproduce, observed vs expected, links…"
-            disabled={showSimilar}
-          />
-          <Box sx={{ mt: 1.5 }}>
-            <input
-              ref={fileInputRef}
-              type="file"
-              accept="image/png,image/jpeg,image/gif,image/webp"
-              style={{ display: 'none' }}
-              onChange={handleFileChange}
-            />
-            {capturing ? (
-              <Typography variant="caption" color="text.secondary">Capturing screenshot…</Typography>
-            ) : screenshotPreview ? (
-              <Box sx={{ position: 'relative', display: 'inline-block' }}>
-                <Box
-                  component="img"
-                  src={screenshotPreview}
-                  alt="Screenshot preview"
-                  onClick={() => !showSimilar && fileInputRef.current?.click()}
-                  sx={{
-                    display: 'block',
-                    maxWidth: '100%',
-                    maxHeight: 200,
-                    borderRadius: 1,
-                    border: '1px solid',
-                    borderColor: 'divider',
-                    cursor: showSimilar ? 'default' : 'pointer',
-                  }}
+        {createdIssue ? (
+          <>
+            <DialogTitle>Issue Reported</DialogTitle>
+            <DialogContent>
+              <Alert severity="success" sx={{ mb: 2 }}>
+                Your issue has been created.
+              </Alert>
+              <Link
+                href={`/project/${routeSlug}/all/issues/${createdIssue.id}`}
+                variant="body1"
+              >
+                IS-{createdIssue.id}: {createdIssue.title || '(untitled)'}
+              </Link>
+            </DialogContent>
+            <DialogActions>
+              <Button variant="contained" onClick={handleClose}>Done</Button>
+            </DialogActions>
+          </>
+        ) : (
+          <>
+            <DialogTitle>Report Issue</DialogTitle>
+            <DialogContent>
+              <TextField
+                autoFocus
+                fullWidth
+                label="Title (optional — filled by owner)"
+                value={title}
+                onChange={e => setTitle(e.target.value)}
+                sx={{ mt: 1, mb: 2 }}
+                disabled={showSimilar}
+              />
+              <TextField
+                fullWidth
+                label="Context"
+                multiline
+                rows={4}
+                value={context}
+                onChange={e => setContext(e.target.value)}
+                placeholder="Steps to reproduce, observed vs expected, links…"
+                disabled={showSimilar}
+              />
+              <Box sx={{ mt: 1.5 }}>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/png,image/jpeg,image/gif,image/webp"
+                  style={{ display: 'none' }}
+                  onChange={handleFileChange}
                 />
-                {!showSimilar && (
-                  <Tooltip title="Remove screenshot">
-                    <IconButton
-                      size="small"
-                      onClick={() => setScreenshot(null)}
-                      sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'background.paper' }}
-                    >
-                      <CloseIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
+                {capturing ? (
+                  <Typography variant="caption" color="text.secondary">Capturing screenshot…</Typography>
+                ) : screenshotPreview ? (
+                  <Box sx={{ position: 'relative', display: 'inline-block' }}>
+                    <Box
+                      component="img"
+                      src={screenshotPreview}
+                      alt="Screenshot preview"
+                      onClick={() => !showSimilar && fileInputRef.current?.click()}
+                      sx={{
+                        display: 'block',
+                        maxWidth: '100%',
+                        maxHeight: 200,
+                        borderRadius: 1,
+                        border: '1px solid',
+                        borderColor: 'divider',
+                        cursor: showSimilar ? 'default' : 'pointer',
+                      }}
+                    />
+                    {!showSimilar && (
+                      <Tooltip title="Remove screenshot">
+                        <IconButton
+                          size="small"
+                          onClick={() => setScreenshot(null)}
+                          sx={{ position: 'absolute', top: 4, right: 4, bgcolor: 'background.paper' }}
+                        >
+                          <CloseIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                    )}
+                  </Box>
+                ) : (
+                  !showSimilar && (
+                    <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+                      <Tooltip title="Attach screenshot">
+                        <IconButton size="small" onClick={() => fileInputRef.current?.click()}>
+                          <AttachFileIcon fontSize="small" />
+                        </IconButton>
+                      </Tooltip>
+                      <Typography variant="caption" color="text.secondary">
+                        Attach screenshot (optional)
+                      </Typography>
+                    </Box>
+                  )
                 )}
               </Box>
-            ) : (
-              !showSimilar && (
-                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Tooltip title="Attach screenshot">
-                    <IconButton size="small" onClick={() => fileInputRef.current?.click()}>
-                      <AttachFileIcon fontSize="small" />
-                    </IconButton>
-                  </Tooltip>
-                  <Typography variant="caption" color="text.secondary">
-                    Attach screenshot (optional)
-                  </Typography>
+
+              {/* Preflight spinner */}
+              {preflight && (
+                <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
+                  <CircularProgress size={16} />
+                  <Typography variant="caption" color="text.secondary">Checking for similar issues…</Typography>
                 </Box>
-              )
-            )}
-          </Box>
+              )}
 
-          {/* Preflight spinner */}
-          {preflight && (
-            <Box sx={{ mt: 2, display: 'flex', alignItems: 'center', gap: 1 }}>
-              <CircularProgress size={16} />
-              <Typography variant="caption" color="text.secondary">Checking for similar issues…</Typography>
-            </Box>
-          )}
-
-          {/* Similar issues list */}
-          {showSimilar && (
-            <Box sx={{ mt: 2 }}>
-              <Divider sx={{ mb: 1.5 }} />
-              {similarIssues!.length === 0 ? (
-                <Alert severity="success" sx={{ mb: 1 }}>No similar issues found.</Alert>
-              ) : (
-                <>
+              {/* Similar issues list */}
+              {showSimilar && (
+                <Box sx={{ mt: 2 }}>
+                  <Divider sx={{ mb: 1.5 }} />
                   <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1 }}>
                     Similar existing issues — is yours already reported?
                   </Typography>
@@ -260,35 +287,35 @@ export function IssueReportFab({ slug, component }: { slug: string; component?: 
                       </Box>
                     ))}
                   </Box>
+                </Box>
+              )}
+            </DialogContent>
+
+            <DialogActions>
+              <Button onClick={handleClose}>Cancel</Button>
+              {!showSimilar ? (
+                <Button
+                  variant="contained"
+                  disabled={isPending}
+                  onClick={handlePreflight}
+                >
+                  {preflight ? <CircularProgress size={16} color="inherit" /> : 'Submit'}
+                </Button>
+              ) : (
+                <>
+                  <Button onClick={() => setSimilarIssues(null)}>Edit</Button>
+                  <Button
+                    variant="contained"
+                    disabled={createIssue.isPending || uploadFile.isPending}
+                    onClick={doSubmit}
+                  >
+                    Submit anyway
+                  </Button>
                 </>
               )}
-            </Box>
-          )}
-        </DialogContent>
-
-        <DialogActions>
-          <Button onClick={handleClose}>Cancel</Button>
-          {!showSimilar ? (
-            <Button
-              variant="contained"
-              disabled={isPending}
-              onClick={handlePreflight}
-            >
-              {preflight ? <CircularProgress size={16} color="inherit" /> : 'Submit'}
-            </Button>
-          ) : (
-            <>
-              <Button onClick={() => setSimilarIssues(null)}>Edit</Button>
-              <Button
-                variant="contained"
-                disabled={createIssue.isPending || uploadFile.isPending}
-                onClick={doSubmit}
-              >
-                Submit anyway
-              </Button>
-            </>
-          )}
-        </DialogActions>
+            </DialogActions>
+          </>
+        )}
       </Dialog>
     </>
   )
