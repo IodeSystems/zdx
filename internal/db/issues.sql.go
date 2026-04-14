@@ -41,8 +41,8 @@ func (q *Queries) CloseIssue(ctx context.Context, arg CloseIssueParams) error {
 }
 
 const createIssue = `-- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, blocked_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type
 `
 
@@ -54,6 +54,7 @@ type CreateIssueParams struct {
 	Priority  string `db:"priority" json:"priority"`
 	Component string `db:"component" json:"component"`
 	IssueType string `db:"issue_type" json:"issue_type"`
+	BlockedBy string `db:"blocked_by" json:"blocked_by"`
 }
 
 func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error) {
@@ -65,6 +66,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		arg.Priority,
 		arg.Component,
 		arg.IssueType,
+		arg.BlockedBy,
 	)
 	var i ZdxIssue
 	err := row.Scan(

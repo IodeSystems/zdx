@@ -563,6 +563,9 @@ func (s *Server) registerRoutes(api huma.API) {
 			if in.Body.IssueType != nil {
 				params.IssueType = *in.Body.IssueType
 			}
+			if in.Body.BlockedBy != nil {
+				params.BlockedBy = *in.Body.BlockedBy
+			}
 			row, err := s.q.CreateIssue(ctx, params)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -731,15 +734,21 @@ func (s *Server) registerRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "issue-set-blocked-by", Method: http.MethodPost, Path: "/api/dx/todo/issue/set-blocked-by"},
 		func(ctx context.Context, in *struct {
 			Body struct {
+				Slug      string `json:"slug"`
 				ID        int32  `json:"id"`
 				BlockedBy string `json:"blocked_by"`
 			}
 		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
 			issueID := issueIDFromInt(in.Body.ID)
-			err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
-				Field: "blocked_by",
-				Value: in.Body.BlockedBy,
-				ID:    issueID,
+			err = s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+				Field:     "blocked_by",
+				Value:     in.Body.BlockedBy,
+				ProjectID: p.ID,
+				ID:        issueID,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())

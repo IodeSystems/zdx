@@ -19,8 +19,8 @@ SELECT id, project_id, title, status, priority, component, context, blocked_by, 
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
 -- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, blocked_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type;
 
 -- name: UpdateIssue :exec

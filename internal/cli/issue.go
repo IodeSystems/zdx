@@ -11,7 +11,7 @@ import (
 
 func IssueCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "issue", Short: "Issue management"}
-	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd())
+	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueBlockCmd(), issueUnblockCmd())
 	return cmd
 }
 
@@ -162,6 +162,56 @@ func runCloseHooks() error {
 		}
 	}
 	return nil
+}
+
+func issueBlockCmd() *cobra.Command {
+	var by string
+	cmd := &cobra.Command{
+		Use:   "block <IS-N>",
+		Short: "Set a blocker on an issue",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			c := mustClient()
+			var ok struct{ OK bool `json:"ok"` }
+			if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
+				"slug":       c.SlugOrDie(),
+				"id":         int32(n),
+				"blocked_by": by,
+			}, &ok); err != nil {
+				return err
+			}
+			fmt.Printf("%s blocked by %s\n", id, by)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&by, "by", "", "blocking issue (IS-N)")
+	cmd.MarkFlagRequired("by")
+	return cmd
+}
+
+func issueUnblockCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "unblock <IS-N>",
+		Short: "Clear blockers on an issue",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			c := mustClient()
+			var ok struct{ OK bool `json:"ok"` }
+			if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
+				"slug":       c.SlugOrDie(),
+				"id":         int32(n),
+				"blocked_by": "",
+			}, &ok); err != nil {
+				return err
+			}
+			fmt.Printf("%s unblocked\n", id)
+			return nil
+		},
+	}
 }
 
 // RunIssue kept for compatibility.
