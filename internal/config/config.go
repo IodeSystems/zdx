@@ -30,6 +30,11 @@ type Component struct {
 	Test  map[string]Suite `yaml:"test"`
 	Lint  Lint             `yaml:"lint"`
 	Watch map[string]Watch `yaml:"watch"`
+	Close Close            `yaml:"close"`
+}
+
+type Close struct {
+	Steps []Step `yaml:"steps"`
 }
 
 type Build struct {
@@ -198,6 +203,20 @@ func (c *Config) AllBuildSteps(component string) []NamedStep {
 			continue
 		}
 		for _, s := range comp.Build.Steps {
+			out = append(out, NamedStep{Component: name, Step: s})
+		}
+	}
+	return out
+}
+
+// AllCloseSteps aggregates close steps across components (optionally filtered).
+func (c *Config) AllCloseSteps(component string) []NamedStep {
+	var out []NamedStep
+	for name, comp := range c.Components {
+		if component != "" && name != component {
+			continue
+		}
+		for _, s := range comp.Close.Steps {
 			out = append(out, NamedStep{Component: name, Step: s})
 		}
 	}

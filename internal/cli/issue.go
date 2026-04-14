@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 
+	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/spf13/cobra"
 )
 
@@ -119,6 +120,9 @@ func issueCloseCmd() *cobra.Command {
 		Short: "Close an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runCloseHooks(); err != nil {
+				return err
+			}
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
@@ -136,6 +140,28 @@ func issueCloseCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&reason, "reason", "", "close reason")
 	return cmd
+}
+
+func runCloseHooks() error {
+	cfg := config.Load()
+	if cfg == nil {
+		return nil
+	}
+	steps := cfg.AllCloseSteps("")
+	if len(steps) == 0 {
+		return nil
+	}
+	for _, ns := range steps {
+		label := ns.Name
+		if label == "" {
+			label = ns.Run
+		}
+		fmt.Printf("[close] %s: %s\n", ns.Component, label)
+		if err := runShell(ns.Run, ns.CWD); err != nil {
+			return fmt.Errorf("close hook %q failed: %w", label, err)
+		}
+	}
+	return nil
 }
 
 // RunIssue kept for compatibility.

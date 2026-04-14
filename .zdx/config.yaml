@@ -15,3 +15,9 @@ components:
     lint:
       go:
         dirs: [internal, cmd]
+    close:
+      steps:
+        - name: gen
+          run: ./bin/db gen
+        - name: lint
+          run: ./bin/lint

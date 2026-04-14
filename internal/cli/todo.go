@@ -538,6 +538,9 @@ func todoDevDoneCmd() *cobra.Command {
 		Short: "Mark task done",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if err := runCloseHooks(); err != nil {
+				return err
+			}
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := mustClient()
