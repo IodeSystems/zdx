@@ -1,6 +1,6 @@
 -- name: UpsertTimed :exec
 INSERT INTO zdx_timed (project_id, component, environment, name, duration_ms, source, context_json, count, total_ms)
-VALUES (@project_id, @component, @environment, @name, @duration_ms, @source, @context_json, 1, @duration_ms)
+VALUES (@project_id, @component, @environment, @name, @duration_ms, @source, @context_json, 1, @duration_ms::bigint)
 ON CONFLICT (COALESCE(project_id, 0), component, environment, name)
 DO UPDATE SET
   duration_ms  = GREATEST(zdx_timed.duration_ms, EXCLUDED.duration_ms),
