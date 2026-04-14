@@ -117,6 +117,19 @@ type ZdxCounterEvent struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxErrorEvent struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
+	Name        string             `db:"name" json:"name"`
+	Message     string             `db:"message" json:"message"`
+	StackTrace  string             `db:"stack_trace" json:"stack_trace"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson []byte             `db:"context_json" json:"context_json"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxErrorReport struct {
 	ID         int64              `db:"id" json:"id"`
 	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
@@ -242,6 +255,18 @@ type ZdxLlmConfig struct {
 	Model     string             `db:"model" json:"model"`
 	ApiKey    string             `db:"api_key" json:"api_key"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ZdxLogEvent struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
+	Level       string             `db:"level" json:"level"`
+	Message     string             `db:"message" json:"message"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson []byte             `db:"context_json" json:"context_json"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type ZdxOauthIdentity struct {

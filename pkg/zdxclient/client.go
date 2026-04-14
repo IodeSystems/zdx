@@ -76,6 +76,8 @@ type Client struct {
 	cfg           Config
 	events        chan event
 	counterEvents chan counterEvent
+	errorEvents   chan errorEvent
+	logEvents     chan logEvent
 	flushed       chan struct{}
 	stop          chan struct{}
 	wg            sync.WaitGroup
@@ -114,6 +116,35 @@ type counterBatch struct {
 	Events      []counterEvent `json:"events"`
 }
 
+type errorEvent struct {
+	Name       string            `json:"name"`
+	Message    string            `json:"message,omitempty"`
+	StackTrace string            `json:"stack_trace,omitempty"`
+	Source     string            `json:"source,omitempty"`
+	Tags       map[string]string `json:"tags,omitempty"`
+}
+
+type errorBatch struct {
+	Component   string       `json:"component,omitempty"`
+	Environment string       `json:"environment,omitempty"`
+	Host        string       `json:"host,omitempty"`
+	Events      []errorEvent `json:"events"`
+}
+
+type logEvent struct {
+	Level   string            `json:"level,omitempty"`
+	Message string            `json:"message"`
+	Source  string            `json:"source,omitempty"`
+	Tags    map[string]string `json:"tags,omitempty"`
+}
+
+type logBatch struct {
+	Component   string     `json:"component,omitempty"`
+	Environment string     `json:"environment,omitempty"`
+	Host        string     `json:"host,omitempty"`
+	Events      []logEvent `json:"events"`
+}
+
 // New validates cfg, fills in defaults, and starts the background flusher.
 // Call Close when done to drain remaining events.
 func New(cfg Config) (*Client, error) {
@@ -142,12 +173,16 @@ func New(cfg Config) (*Client, error) {
 		cfg:           cfg,
 		events:        make(chan event, cfg.BufferSize),
 		counterEvents: make(chan counterEvent, cfg.BufferSize),
+		errorEvents:   make(chan errorEvent, cfg.BufferSize),
+		logEvents:     make(chan logEvent, cfg.BufferSize),
 		flushed:       make(chan struct{}),
 		stop:          make(chan struct{}),
 	}
-	c.wg.Add(2)
+	c.wg.Add(4)
 	go c.run()
 	go c.runCounters()
+	go c.runErrors()
+	go c.runLogs()
 	return c, nil
 }
 
@@ -204,6 +239,58 @@ func (c *Client) RecordCounterWithSource(name, source string, value int32, tags 
 	ev := counterEvent{Name: name, Value: value, Source: source, Tags: tags}
 	select {
 	case c.counterEvents <- ev:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// RecordError enqueues an error event. Non-blocking.
+func (c *Client) RecordError(name, message string, tags Tags) {
+	if c.closed.Load() {
+		return
+	}
+	ev := errorEvent{Name: name, Message: message, Tags: tags}
+	select {
+	case c.errorEvents <- ev:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// RecordErrorWithStack is like RecordError but includes a stack trace and source.
+func (c *Client) RecordErrorWithStack(name, message, stackTrace, source string, tags Tags) {
+	if c.closed.Load() {
+		return
+	}
+	ev := errorEvent{Name: name, Message: message, StackTrace: stackTrace, Source: source, Tags: tags}
+	select {
+	case c.errorEvents <- ev:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// RecordLog enqueues a structured log event. Non-blocking.
+func (c *Client) RecordLog(level, message string, tags Tags) {
+	if c.closed.Load() {
+		return
+	}
+	ev := logEvent{Level: level, Message: message, Tags: tags}
+	select {
+	case c.logEvents <- ev:
+	default:
+		c.dropped.Add(1)
+	}
+}
+
+// RecordLogWithSource is like RecordLog but includes a source label.
+func (c *Client) RecordLogWithSource(level, message, source string, tags Tags) {
+	if c.closed.Load() {
+		return
+	}
+	ev := logEvent{Level: level, Message: message, Source: source, Tags: tags}
+	select {
+	case c.logEvents <- ev:
 	default:
 		c.dropped.Add(1)
 	}
@@ -322,6 +409,162 @@ func (c *Client) flushCounters(events []counterEvent) {
 		return
 	}
 	url := c.cfg.Endpoint + "/api/ingest/counters"
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(1<<attempt) * 200 * time.Millisecond)
+		}
+		req, rErr := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		if rErr != nil {
+			lastErr = rErr
+			break
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+		resp, doErr := c.cfg.HTTPClient.Do(req)
+		if doErr != nil {
+			lastErr = doErr
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return
+		}
+		lastErr = fmt.Errorf("ingest returned %d", resp.StatusCode)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+			break
+		}
+	}
+	c.dropped.Add(uint64(len(events)))
+	c.cfg.OnError(lastErr, len(events))
+}
+
+func (c *Client) runErrors() {
+	defer c.wg.Done()
+	ticker := time.NewTicker(c.cfg.FlushInterval)
+	defer ticker.Stop()
+	buf := make([]errorEvent, 0, c.cfg.MaxBatch)
+	for {
+		select {
+		case ev := <-c.errorEvents:
+			buf = append(buf, ev)
+			if len(buf) >= c.cfg.MaxBatch {
+				c.flushErrors(buf)
+				buf = buf[:0]
+			}
+		case <-ticker.C:
+			if len(buf) > 0 {
+				c.flushErrors(buf)
+				buf = buf[:0]
+			}
+		case <-c.stop:
+			for {
+				select {
+				case ev := <-c.errorEvents:
+					buf = append(buf, ev)
+				default:
+					if len(buf) > 0 {
+						c.flushErrors(buf)
+					}
+					return
+				}
+			}
+		}
+	}
+}
+
+func (c *Client) flushErrors(events []errorEvent) {
+	payload := errorBatch{
+		Component:   c.cfg.Component,
+		Environment: c.cfg.Environment,
+		Host:        c.cfg.Host,
+		Events:      events,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		c.dropped.Add(uint64(len(events)))
+		c.cfg.OnError(fmt.Errorf("marshal: %w", err), len(events))
+		return
+	}
+	url := c.cfg.Endpoint + "/api/ingest/errors"
+	var lastErr error
+	for attempt := 0; attempt < 3; attempt++ {
+		if attempt > 0 {
+			time.Sleep(time.Duration(1<<attempt) * 200 * time.Millisecond)
+		}
+		req, rErr := http.NewRequest(http.MethodPost, url, bytes.NewReader(body))
+		if rErr != nil {
+			lastErr = rErr
+			break
+		}
+		req.Header.Set("Content-Type", "application/json")
+		req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+		resp, doErr := c.cfg.HTTPClient.Do(req)
+		if doErr != nil {
+			lastErr = doErr
+			continue
+		}
+		_ = resp.Body.Close()
+		if resp.StatusCode >= 200 && resp.StatusCode < 300 {
+			return
+		}
+		lastErr = fmt.Errorf("ingest returned %d", resp.StatusCode)
+		if resp.StatusCode >= 400 && resp.StatusCode < 500 && resp.StatusCode != http.StatusTooManyRequests {
+			break
+		}
+	}
+	c.dropped.Add(uint64(len(events)))
+	c.cfg.OnError(lastErr, len(events))
+}
+
+func (c *Client) runLogs() {
+	defer c.wg.Done()
+	ticker := time.NewTicker(c.cfg.FlushInterval)
+	defer ticker.Stop()
+	buf := make([]logEvent, 0, c.cfg.MaxBatch)
+	for {
+		select {
+		case ev := <-c.logEvents:
+			buf = append(buf, ev)
+			if len(buf) >= c.cfg.MaxBatch {
+				c.flushLogs(buf)
+				buf = buf[:0]
+			}
+		case <-ticker.C:
+			if len(buf) > 0 {
+				c.flushLogs(buf)
+				buf = buf[:0]
+			}
+		case <-c.stop:
+			for {
+				select {
+				case ev := <-c.logEvents:
+					buf = append(buf, ev)
+				default:
+					if len(buf) > 0 {
+						c.flushLogs(buf)
+					}
+					return
+				}
+			}
+		}
+	}
+}
+
+func (c *Client) flushLogs(events []logEvent) {
+	payload := logBatch{
+		Component:   c.cfg.Component,
+		Environment: c.cfg.Environment,
+		Host:        c.cfg.Host,
+		Events:      events,
+	}
+	body, err := json.Marshal(payload)
+	if err != nil {
+		c.dropped.Add(uint64(len(events)))
+		c.cfg.OnError(fmt.Errorf("marshal: %w", err), len(events))
+		return
+	}
+	url := c.cfg.Endpoint + "/api/ingest/logs"
 	var lastErr error
 	for attempt := 0; attempt < 3; attempt++ {
 		if attempt > 0 {

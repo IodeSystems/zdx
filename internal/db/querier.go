@@ -32,8 +32,10 @@ type Querier interface {
 	CountCommentsByAuthor(ctx context.Context, arg CountCommentsByAuthorParams) (int64, error)
 	CountCounted(ctx context.Context, arg CountCountedParams) (int64, error)
 	CountCounterEvents(ctx context.Context, arg CountCounterEventsParams) (int64, error)
+	CountErrorEvents(ctx context.Context, arg CountErrorEventsParams) (int64, error)
 	CountErrorReports(ctx context.Context, projectID pgtype.Int4) (int64, error)
 	CountIssues(ctx context.Context, projectID int32) (int64, error)
+	CountLogEvents(ctx context.Context, arg CountLogEventsParams) (int64, error)
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
 	CountQuestions(ctx context.Context, projectID int32) (int64, error)
@@ -71,10 +73,12 @@ type Querier interface {
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
 	DeleteCounterEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
+	DeleteErrorEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteIntegrationToken(ctx context.Context, id int32) error
 	DeleteInvite(ctx context.Context, id int32) error
+	DeleteLogEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteProjectConstraint(ctx context.Context, id int32) error
 	DeleteProjectGoal(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
@@ -121,8 +125,10 @@ type Querier interface {
 	HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadCommentsForTargetParams) (bool, error)
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
+	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
 	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error)
+	InsertLogEvent(ctx context.Context, arg InsertLogEventParams) error
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
@@ -149,6 +155,10 @@ type Querier interface {
 	ListCountedPaginated(ctx context.Context, arg ListCountedPaginatedParams) ([]ListCountedPaginatedRow, error)
 	ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error)
 	ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error)
+	ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error)
+	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
+	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
+	ListErrorEventsGrouped(ctx context.Context, arg ListErrorEventsGroupedParams) ([]ListErrorEventsGroupedRow, error)
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ZdxErrorReport, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)
@@ -157,6 +167,10 @@ type Querier interface {
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ZdxJournalEntry, error)
+	ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([]ZdxLogEvent, error)
+	ListLogEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
+	ListLogEventsDistinctTagValues(ctx context.Context, arg ListLogEventsDistinctTagValuesParams) ([]interface{}, error)
+	ListLogEventsGrouped(ctx context.Context, arg ListLogEventsGroupedParams) ([]ListLogEventsGroupedRow, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListPendingBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListProjectConstraints(ctx context.Context, projectID int32) ([]ZdxProjectConstraint, error)

@@ -110,6 +110,18 @@ func (s *Server) StartTimedEventsRetention(ctx context.Context) {
 		} else if cn > 0 {
 			log.Printf("counter-events retention: deleted %d rows", cn)
 		}
+		en, eerr := s.q.DeleteErrorEventsOlderThan(noTiming, cutoff)
+		if eerr != nil {
+			log.Printf("error-events retention: %v", eerr)
+		} else if en > 0 {
+			log.Printf("error-events retention: deleted %d rows", en)
+		}
+		ln, lerr := s.q.DeleteLogEventsOlderThan(noTiming, cutoff)
+		if lerr != nil {
+			log.Printf("log-events retention: %v", lerr)
+		} else if ln > 0 {
+			log.Printf("log-events retention: deleted %d rows", ln)
+		}
 	}
 	cleanup()
 	go func() {

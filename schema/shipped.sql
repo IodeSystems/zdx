@@ -378,6 +378,43 @@ ALTER SEQUENCE public.zdx_counter_events_id_seq OWNED BY public.zdx_counter_even
 
 
 --
+-- Name: zdx_error_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_error_events (
+    id bigint NOT NULL,
+    project_id integer,
+    component text DEFAULT ''::text NOT NULL,
+    environment text DEFAULT ''::text NOT NULL,
+    name text NOT NULL,
+    message text DEFAULT ''::text NOT NULL,
+    stack_trace text DEFAULT ''::text NOT NULL,
+    source text DEFAULT ''::text NOT NULL,
+    context_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_error_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_error_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_error_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_error_events_id_seq OWNED BY public.zdx_error_events.id;
+
+
+--
 -- Name: zdx_error_reports; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -409,6 +446,42 @@ CREATE SEQUENCE public.zdx_error_reports_id_seq
 --
 
 ALTER SEQUENCE public.zdx_error_reports_id_seq OWNED BY public.zdx_error_reports.id;
+
+
+--
+-- Name: zdx_log_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_log_events (
+    id bigint NOT NULL,
+    project_id integer,
+    component text DEFAULT ''::text NOT NULL,
+    environment text DEFAULT ''::text NOT NULL,
+    level text DEFAULT 'info'::text NOT NULL,
+    message text NOT NULL,
+    source text DEFAULT ''::text NOT NULL,
+    context_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_log_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_log_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_log_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_log_events_id_seq OWNED BY public.zdx_log_events.id;
 
 
 --
@@ -1695,10 +1768,24 @@ ALTER TABLE ONLY public.zdx_counter_events ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- Name: zdx_error_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_error_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_error_events_id_seq'::regclass);
+
+
+--
 -- Name: zdx_error_reports id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_error_reports ALTER COLUMN id SET DEFAULT nextval('public.zdx_error_reports_id_seq'::regclass);
+
+
+--
+-- Name: zdx_log_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_log_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_log_events_id_seq'::regclass);
 
 
 --
@@ -2024,11 +2111,27 @@ ALTER TABLE ONLY public.zdx_counter_events
 
 
 --
+-- Name: zdx_error_events zdx_error_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_error_events
+    ADD CONSTRAINT zdx_error_events_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_error_reports zdx_error_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_error_reports
     ADD CONSTRAINT zdx_error_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_log_events zdx_log_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_log_events
+    ADD CONSTRAINT zdx_log_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -2728,6 +2831,34 @@ CREATE INDEX zdx_counter_events_project_created ON public.zdx_counter_events USI
 
 
 --
+-- Name: zdx_error_events_context_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_error_events_context_gin ON public.zdx_error_events USING gin (context_json jsonb_path_ops);
+
+
+--
+-- Name: zdx_error_events_project_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_error_events_project_created ON public.zdx_error_events USING btree (project_id, created_at);
+
+
+--
+-- Name: zdx_log_events_context_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_log_events_context_gin ON public.zdx_log_events USING gin (context_json jsonb_path_ops);
+
+
+--
+-- Name: zdx_log_events_project_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_log_events_project_created ON public.zdx_log_events USING btree (project_id, created_at);
+
+
+--
 -- Name: zdx_integration_token_hash; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2879,11 +3010,27 @@ ALTER TABLE ONLY public.zdx_counter_events
 
 
 --
+-- Name: zdx_error_events zdx_error_events_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_error_events
+    ADD CONSTRAINT zdx_error_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zdx_error_reports zdx_error_reports_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_error_reports
     ADD CONSTRAINT zdx_error_reports_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_log_events zdx_log_events_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_log_events
+    ADD CONSTRAINT zdx_log_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

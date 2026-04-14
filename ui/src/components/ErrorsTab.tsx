@@ -1,18 +1,30 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Box,
   Button,
   Card,
   CardContent,
   Chip,
+  CircularProgress,
   Collapse,
+  FormControl,
   IconButton,
+  InputLabel,
+  MenuItem,
+  Paper,
+  Select,
   Tab,
+  Table,
+  TableBody,
+  TableCell,
+  TableContainer,
+  TableHead,
+  TableRow,
   Tabs,
   Typography,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
-import { useErrors, useSlowQueries, useTimed, useClearErrors, useReportError, type ErrorReportItem, type SlowQueryItem, type TimedItem } from '../api'
+import { useErrors, useSlowQueries, useTimed, useClearErrors, useReportError, useErrorEvents, useErrorEventsGrouped, useErrorEventsTagKeys, useErrorEventsTagValues, type ErrorReportItem, type SlowQueryItem, type TimedItem } from '../api'
 
 function fmtDate(ts: string) {
   return ts ? ts.slice(0, 10) : ''
@@ -136,6 +148,22 @@ function TimedRow({ t }: { t: TimedItem }) {
   )
 }
 
+function ErrorEventTagFilterSelect({ slug, tagKey, value, onChange }: {
+  slug: string; tagKey: string; value: string; onChange: (v: string) => void
+}) {
+  const { data } = useErrorEventsTagValues(slug, tagKey)
+  const values = data?.values ?? []
+  return (
+    <FormControl size="small" sx={{ minWidth: 140 }}>
+      <InputLabel>{tagKey}</InputLabel>
+      <Select value={value} label={tagKey} onChange={e => onChange(e.target.value as string)}>
+        <MenuItem value="">All</MenuItem>
+        {values.map(v => <MenuItem key={v} value={v}>{v}</MenuItem>)}
+      </Select>
+    </FormControl>
+  )
+}
+
 export function ErrorsTab({ slug }: { slug: string }) {
   const [tab, setTab] = useState(0)
   const { data: errData, isLoading: errLoading } = useErrors(slug)
@@ -147,12 +175,29 @@ export function ErrorsTab({ slug }: { slug: string }) {
   const clearErrors = useClearErrors(slug)
   const reportError = useReportError(slug)
 
+  const [eeFilters, setEeFilters] = useState<Record<string, string>>({})
+  const [eeGroupBy, setEeGroupBy] = useState('')
+  const { data: eeKeysData } = useErrorEventsTagKeys(slug)
+  const eeTagKeys = eeKeysData?.keys ?? []
+  const eeActiveFilters = useMemo(() => {
+    const f: Record<string, string> = {}
+    for (const [k, v] of Object.entries(eeFilters)) {
+      if (v) f[k] = v
+    }
+    return Object.keys(f).length > 0 ? f : undefined
+  }, [eeFilters])
+  const { data: eeData, isLoading: eeLoading } = useErrorEvents(slug, undefined, undefined, eeActiveFilters)
+  const { data: eeGroupedData, isLoading: eeGroupLoading } = useErrorEventsGrouped(slug, eeGroupBy, eeActiveFilters)
+  const errorEvents = eeData?.items ?? []
+  const eeGrouped = eeGroupedData?.items
+
   return (
     <Box>
       <Tabs value={tab} onChange={(_, v) => setTab(v)} sx={{ mb: 2, borderBottom: 1, borderColor: 'divider' }}>
         <Tab label={`Errors (${errors.length})`} />
         <Tab label={`Slow queries (${queries.length})`} />
         <Tab label={`Timed (${timed.length})`} />
+        <Tab label={`Error Events (${errorEvents.length})`} />
       </Tabs>
 
       {tab === 0 && (
@@ -204,6 +249,99 @@ export function ErrorsTab({ slug }: { slug: string }) {
             <Typography color="text.secondary">No timed records.</Typography>
           )}
           {timed.map(t => <TimedRow key={t.id} t={t} />)}
+        </>
+      )}
+
+      {tab === 3 && (
+        <>
+          {eeTagKeys.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
+              {eeTagKeys.map(k => (
+                <ErrorEventTagFilterSelect
+                  key={k} slug={slug} tagKey={k} value={eeFilters[k] ?? ''}
+                  onChange={v => setEeFilters(prev => ({ ...prev, [k]: v }))}
+                />
+              ))}
+              <FormControl size="small" sx={{ minWidth: 140 }}>
+                <InputLabel>Group by</InputLabel>
+                <Select value={eeGroupBy} label="Group by" onChange={e => setEeGroupBy(e.target.value as string)}>
+                  <MenuItem value="">None</MenuItem>
+                  {eeTagKeys.map(k => <MenuItem key={k} value={k}>{k}</MenuItem>)}
+                </Select>
+              </FormControl>
+              {(eeActiveFilters || eeGroupBy) && (
+                <Chip label="Clear filters" size="small" onDelete={() => { setEeFilters({}); setEeGroupBy('') }} />
+              )}
+            </Box>
+          )}
+          {eeGroupBy && (
+            <>
+              <Typography variant="subtitle2" sx={{ mb: 1 }}>Grouped by: {eeGroupBy}</Typography>
+              {eeGroupLoading ? <CircularProgress size={20} /> : (
+                <TableContainer component={Paper} variant="outlined" sx={{ mb: 3 }}>
+                  <Table size="small">
+                    <TableHead>
+                      <TableRow>
+                        <TableCell>{eeGroupBy}</TableCell>
+                        <TableCell align="right">Count</TableCell>
+                        <TableCell>First Seen</TableCell>
+                        <TableCell>Last Seen</TableCell>
+                      </TableRow>
+                    </TableHead>
+                    <TableBody>
+                      {(eeGrouped ?? []).map(item => (
+                        <TableRow key={item.group_value} hover>
+                          <TableCell>{item.group_value}</TableCell>
+                          <TableCell align="right">{item.entry_count}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{new Date(item.first_seen).toLocaleString()}</TableCell>
+                          <TableCell sx={{ whiteSpace: 'nowrap' }}>{new Date(item.last_seen).toLocaleString()}</TableCell>
+                        </TableRow>
+                      ))}
+                    </TableBody>
+                  </Table>
+                </TableContainer>
+              )}
+            </>
+          )}
+          {eeLoading && !errorEvents.length && (
+            <Typography color="text.secondary">Loading...</Typography>
+          )}
+          {!eeLoading && errorEvents.length === 0 && (
+            <Typography color="text.secondary">No error events from SDK ingest.</Typography>
+          )}
+          <TableContainer component={Paper} variant="outlined">
+            <Table size="small">
+              <TableHead>
+                <TableRow>
+                  <TableCell>Name</TableCell>
+                  <TableCell>Message</TableCell>
+                  <TableCell>Source</TableCell>
+                  <TableCell>Component</TableCell>
+                  <TableCell>Tags</TableCell>
+                  <TableCell>Time</TableCell>
+                </TableRow>
+              </TableHead>
+              <TableBody>
+                {errorEvents.map(item => (
+                  <TableRow key={item.id} hover>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>{item.name}</TableCell>
+                    <TableCell sx={{ maxWidth: 300, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{item.message}</TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }}>{item.source}</TableCell>
+                    <TableCell sx={{ fontSize: '0.75rem' }}>{item.component}</TableCell>
+                    <TableCell sx={{ maxWidth: 200 }}>
+                      <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+                        {Object.entries(item.context_json ?? {}).map(([k, v]) => (
+                          <Chip key={k} label={`${k}=${v}`} size="small" variant="outlined"
+                            sx={{ fontSize: '0.7rem', height: 20 }} />
+                        ))}
+                      </Box>
+                    </TableCell>
+                    <TableCell sx={{ whiteSpace: 'nowrap' }}>{new Date(item.created_at).toLocaleString()}</TableCell>
+                  </TableRow>
+                ))}
+              </TableBody>
+            </Table>
+          </TableContainer>
         </>
       )}
     </Box>

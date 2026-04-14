@@ -317,6 +317,190 @@ func (s *Server) registerCounterIngestRoutes(api huma.API) {
 		})
 }
 
+// ── Error ingest endpoint ─────────────────────────────────────────────────
+
+type IngestErrorEvent struct {
+	Name       string            `json:"name"`
+	Message    string            `json:"message,omitempty"`
+	StackTrace string            `json:"stack_trace,omitempty"`
+	Source     string            `json:"source,omitempty"`
+	Tags       map[string]string `json:"tags,omitempty"`
+}
+
+type IngestErrorBatch struct {
+	Component   string             `json:"component,omitempty"`
+	Environment string             `json:"environment,omitempty"`
+	Host        string             `json:"host,omitempty"`
+	Events      []IngestErrorEvent `json:"events"`
+}
+
+func (s *Server) registerErrorIngestRoutes(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "ingest-errors",
+		Method:      http.MethodPost,
+		Path:        "/api/ingest/errors",
+		Summary:     "Ingest a batch of error events",
+	},
+		func(ctx context.Context, in *struct {
+			Authorization string `header:"Authorization"`
+			Body          IngestErrorBatch
+		}) (*struct {
+			Body struct {
+				Accepted int `json:"accepted"`
+			}
+		}, error) {
+			ctx = WithoutTiming(ctx)
+			token := strings.TrimPrefix(in.Authorization, "Bearer ")
+			if token == in.Authorization || token == "" {
+				return nil, apiErr(http.StatusUnauthorized, "missing bearer token")
+			}
+			row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(token))
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "invalid token")
+			}
+			if row.RevokedAt.Valid {
+				return nil, apiErr(http.StatusUnauthorized, "token revoked")
+			}
+			if len(in.Body.Events) == 0 {
+				return &struct {
+					Body struct {
+						Accepted int `json:"accepted"`
+					}
+				}{}, nil
+			}
+			if !s.ingestLimiter.allow(row.ID, float64(len(in.Body.Events))) {
+				return nil, apiErr(http.StatusTooManyRequests, "rate limit exceeded")
+			}
+
+			component := in.Body.Component
+			if component == "" && row.Component.Valid {
+				component = row.Component.String
+			}
+			env := in.Body.Environment
+			host := in.Body.Host
+
+			accepted := 0
+			for _, ev := range in.Body.Events {
+				ctxJSON := buildContextJSON(host, ev.Tags)
+				pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
+				if err := s.q.InsertErrorEvent(ctx, db.InsertErrorEventParams{
+					ProjectID:   pid,
+					Component:   component,
+					Environment: env,
+					Name:        ev.Name,
+					Message:     ev.Message,
+					StackTrace:  ev.StackTrace,
+					Source:      ev.Source,
+					ContextJson: ctxJSON,
+				}); err != nil {
+					log.Printf("ingest: InsertErrorEvent %q: %v", ev.Name, err)
+					continue
+				}
+				accepted++
+			}
+			return &struct {
+				Body struct {
+					Accepted int `json:"accepted"`
+				}
+			}{Body: struct {
+				Accepted int `json:"accepted"`
+			}{Accepted: accepted}}, nil
+		})
+}
+
+// ── Log ingest endpoint ──────────────────────────────────────────────────
+
+type IngestLogEvent struct {
+	Level   string            `json:"level,omitempty"`
+	Message string            `json:"message"`
+	Source  string            `json:"source,omitempty"`
+	Tags    map[string]string `json:"tags,omitempty"`
+}
+
+type IngestLogBatch struct {
+	Component   string           `json:"component,omitempty"`
+	Environment string           `json:"environment,omitempty"`
+	Host        string           `json:"host,omitempty"`
+	Events      []IngestLogEvent `json:"events"`
+}
+
+func (s *Server) registerLogIngestRoutes(api huma.API) {
+	huma.Register(api, huma.Operation{
+		OperationID: "ingest-logs",
+		Method:      http.MethodPost,
+		Path:        "/api/ingest/logs",
+		Summary:     "Ingest a batch of log events",
+	},
+		func(ctx context.Context, in *struct {
+			Authorization string `header:"Authorization"`
+			Body          IngestLogBatch
+		}) (*struct {
+			Body struct {
+				Accepted int `json:"accepted"`
+			}
+		}, error) {
+			ctx = WithoutTiming(ctx)
+			token := strings.TrimPrefix(in.Authorization, "Bearer ")
+			if token == in.Authorization || token == "" {
+				return nil, apiErr(http.StatusUnauthorized, "missing bearer token")
+			}
+			row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(token))
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "invalid token")
+			}
+			if row.RevokedAt.Valid {
+				return nil, apiErr(http.StatusUnauthorized, "token revoked")
+			}
+			if len(in.Body.Events) == 0 {
+				return &struct {
+					Body struct {
+						Accepted int `json:"accepted"`
+					}
+				}{}, nil
+			}
+			if !s.ingestLimiter.allow(row.ID, float64(len(in.Body.Events))) {
+				return nil, apiErr(http.StatusTooManyRequests, "rate limit exceeded")
+			}
+
+			component := in.Body.Component
+			if component == "" && row.Component.Valid {
+				component = row.Component.String
+			}
+			env := in.Body.Environment
+			host := in.Body.Host
+
+			accepted := 0
+			for _, ev := range in.Body.Events {
+				level := ev.Level
+				if level == "" {
+					level = "info"
+				}
+				ctxJSON := buildContextJSON(host, ev.Tags)
+				pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
+				if err := s.q.InsertLogEvent(ctx, db.InsertLogEventParams{
+					ProjectID:   pid,
+					Component:   component,
+					Environment: env,
+					Level:       level,
+					Message:     ev.Message,
+					Source:      ev.Source,
+					ContextJson: ctxJSON,
+				}); err != nil {
+					log.Printf("ingest: InsertLogEvent: %v", err)
+					continue
+				}
+				accepted++
+			}
+			return &struct {
+				Body struct {
+					Accepted int `json:"accepted"`
+				}
+			}{Body: struct {
+				Accepted int `json:"accepted"`
+			}{Accepted: accepted}}, nil
+		})
+}
+
 // buildContextJSON folds host + free-form tags into the context_json column.
 func buildContextJSON(host string, tags map[string]string) []byte {
 	m := make(map[string]string, len(tags)+1)

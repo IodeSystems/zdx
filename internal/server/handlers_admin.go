@@ -551,4 +551,6 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 
 	s.registerIngestRoutes(api)
 	s.registerCounterIngestRoutes(api)
+	s.registerErrorIngestRoutes(api)
+	s.registerLogIngestRoutes(api)
 }

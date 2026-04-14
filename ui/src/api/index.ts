@@ -653,6 +653,157 @@ export const useCountedTagValues = (slug: string, key: string) =>
     enabled: !!slug && !!key,
   })
 
+// ── error events ────────────────────────────────────────────────────────────────
+
+export interface ErrorEventItem {
+  id: number
+  name: string
+  message: string
+  stack_trace: string
+  source: string
+  component: string
+  environment: string
+  context_json: Record<string, string>
+  created_at: string
+}
+
+export interface ErrorEventGroupedItem {
+  group_value: string
+  entry_count: number
+  first_seen: string
+  last_seen: string
+}
+
+export const useErrorEvents = (slug: string, limit?: number, offset?: number, tagFilter?: Record<string, string>) =>
+  useQuery<{ items: ErrorEventItem[]; total: number }>({
+    queryKey: ['error-events', slug, limit, offset, tagFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
+      const res = await apiFetch<{ items: ErrorEventItem[]; total: number }>(
+        `/api/dx/error-events?${params}`
+      )
+      return { items: res.items ?? [], total: res.total ?? 0 }
+    },
+    enabled: !!slug,
+  })
+
+export const useErrorEventsGrouped = (slug: string, groupBy: string, tagFilter?: Record<string, string>) =>
+  useQuery<{ items: ErrorEventGroupedItem[] }>({
+    queryKey: ['error-events-grouped', slug, groupBy, tagFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, group_by: groupBy })
+      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
+      const res = await apiFetch<{ items: ErrorEventGroupedItem[] }>(
+        `/api/dx/error-events/grouped?${params}`
+      )
+      return { items: res.items ?? [] }
+    },
+    enabled: !!slug && !!groupBy,
+  })
+
+export const useErrorEventsTagKeys = (slug: string) =>
+  useQuery<{ keys: string[] }>({
+    queryKey: ['error-events-tag-keys', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ keys: string[] }>(
+        `/api/dx/error-events/tags/keys?slug=${encodeURIComponent(slug)}`
+      )
+      return { keys: res.keys ?? [] }
+    },
+    enabled: !!slug,
+  })
+
+export const useErrorEventsTagValues = (slug: string, key: string) =>
+  useQuery<{ values: string[] }>({
+    queryKey: ['error-events-tag-values', slug, key],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, key })
+      const res = await apiFetch<{ values: string[] }>(
+        `/api/dx/error-events/tags/values?${params}`
+      )
+      return { values: res.values ?? [] }
+    },
+    enabled: !!slug && !!key,
+  })
+
+// ── log events ──────────────────────────────────────────────────────────────────
+
+export interface LogEventItem {
+  id: number
+  level: string
+  message: string
+  source: string
+  component: string
+  environment: string
+  context_json: Record<string, string>
+  created_at: string
+}
+
+export interface LogEventGroupedItem {
+  group_value: string
+  entry_count: number
+  first_seen: string
+  last_seen: string
+}
+
+export const useLogEvents = (slug: string, limit?: number, offset?: number, tagFilter?: Record<string, string>) =>
+  useQuery<{ items: LogEventItem[]; total: number }>({
+    queryKey: ['log-events', slug, limit, offset, tagFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug })
+      if (limit != null) params.set('limit', String(limit))
+      if (offset != null) params.set('offset', String(offset))
+      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
+      const res = await apiFetch<{ items: LogEventItem[]; total: number }>(
+        `/api/dx/log-events?${params}`
+      )
+      return { items: res.items ?? [], total: res.total ?? 0 }
+    },
+    enabled: !!slug,
+  })
+
+export const useLogEventsGrouped = (slug: string, groupBy: string, tagFilter?: Record<string, string>) =>
+  useQuery<{ items: LogEventGroupedItem[] }>({
+    queryKey: ['log-events-grouped', slug, groupBy, tagFilter],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, group_by: groupBy })
+      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
+      const res = await apiFetch<{ items: LogEventGroupedItem[] }>(
+        `/api/dx/log-events/grouped?${params}`
+      )
+      return { items: res.items ?? [] }
+    },
+    enabled: !!slug && !!groupBy,
+  })
+
+export const useLogEventsTagKeys = (slug: string) =>
+  useQuery<{ keys: string[] }>({
+    queryKey: ['log-events-tag-keys', slug],
+    queryFn: async () => {
+      const res = await apiFetch<{ keys: string[] }>(
+        `/api/dx/log-events/tags/keys?slug=${encodeURIComponent(slug)}`
+      )
+      return { keys: res.keys ?? [] }
+    },
+    enabled: !!slug,
+  })
+
+export const useLogEventsTagValues = (slug: string, key: string) =>
+  useQuery<{ values: string[] }>({
+    queryKey: ['log-events-tag-values', slug, key],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, key })
+      const res = await apiFetch<{ values: string[] }>(
+        `/api/dx/log-events/tags/values?${params}`
+      )
+      return { values: res.values ?? [] }
+    },
+    enabled: !!slug && !!key,
+  })
+
 // ── Project git config (admin) ────────────────────────────────────────────────
 
 export interface GitConfig {

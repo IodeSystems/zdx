@@ -37,6 +37,7 @@ import {
   Settings as SettingsIcon,
   SmartToy as SmartToyIcon,
   PlusOne as PlusOneIcon,
+  TextSnippet as TextSnippetIcon,
   Timer as TimerIcon,
   Tune as TuneIcon,
   Lightbulb as LightbulbIcon,
@@ -71,6 +72,7 @@ const SECTIONS = [
   { label: 'Errors', icon: <WarningAmberIcon fontSize="small" />, path: 'errors' },
   { label: 'Timings', icon: <TimerIcon fontSize="small" />, path: 'timings' },
   { label: 'Counters', icon: <PlusOneIcon fontSize="small" />, path: 'counters' },
+  { label: 'Logs', icon: <TextSnippetIcon fontSize="small" />, path: 'logs' },
 ] as const
 
 const PROJECT_NAV_EXTRAS = [
