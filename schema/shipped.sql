@@ -2,7 +2,7 @@
 -- PostgreSQL database dump
 --
 
-\restrict de2RM6aEjGKrwraXYOc7HUQdwgp37IG3hzBTneJ3RaVeQDF1HGAdkkU5ISar5a0
+\restrict izfMcnn9DeQOshBQdFr7qHPlffvwhk5v4sft5z0OrgGIzaAqR1Fexjc8dcSB9vO
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
 -- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
@@ -65,6 +65,42 @@ CREATE SEQUENCE public.zdx_api_keys_id_seq
 --
 
 ALTER SEQUENCE public.zdx_api_keys_id_seq OWNED BY public.zdx_api_keys.id;
+
+
+--
+-- Name: zdx_code_refs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_code_refs (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    file_path text NOT NULL,
+    git_hash text DEFAULT ''::text NOT NULL,
+    line_start integer DEFAULT 0 NOT NULL,
+    line_end integer DEFAULT 0 NOT NULL,
+    note text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_code_refs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_code_refs_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_code_refs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_code_refs_id_seq OWNED BY public.zdx_code_refs.id;
 
 
 --
@@ -183,7 +219,8 @@ CREATE TABLE public.zdx_features (
     why text DEFAULT ''::text NOT NULL,
     done_when text DEFAULT ''::text NOT NULL,
     component text DEFAULT ''::text NOT NULL,
-    category text DEFAULT ''::text NOT NULL
+    category text DEFAULT ''::text NOT NULL,
+    last_reviewed_at timestamp with time zone
 );
 
 
@@ -294,6 +331,16 @@ ALTER SEQUENCE public.zdx_invites_id_seq OWNED BY public.zdx_invites.id;
 CREATE TABLE public.zdx_issue_blocks (
     issue_id text NOT NULL,
     blocked_by_id text NOT NULL
+);
+
+
+--
+-- Name: zdx_issue_code_refs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_issue_code_refs (
+    issue_id text NOT NULL,
+    code_ref_id integer NOT NULL
 );
 
 
@@ -429,6 +476,21 @@ CREATE SEQUENCE public.zdx_journal_entries_id_seq
 --
 
 ALTER SEQUENCE public.zdx_journal_entries_id_seq OWNED BY public.zdx_journal_entries.id;
+
+
+--
+-- Name: zdx_llm_configs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_llm_configs (
+    id boolean DEFAULT true NOT NULL,
+    type text DEFAULT 'openai'::text NOT NULL,
+    url text DEFAULT ''::text NOT NULL,
+    model text DEFAULT ''::text NOT NULL,
+    api_key text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT zdx_llm_configs_singleton CHECK ((id = true))
+);
 
 
 --
@@ -588,7 +650,10 @@ CREATE TABLE public.zdx_projects (
     id integer NOT NULL,
     slug text NOT NULL,
     name text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    git_url text DEFAULT ''::text NOT NULL,
+    git_branch text DEFAULT 'main'::text NOT NULL,
+    git_token text DEFAULT ''::text NOT NULL
 );
 
 
@@ -610,6 +675,41 @@ CREATE SEQUENCE public.zdx_projects_id_seq
 --
 
 ALTER SEQUENCE public.zdx_projects_id_seq OWNED BY public.zdx_projects.id;
+
+
+--
+-- Name: zdx_questions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_questions (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    category text DEFAULT ''::text NOT NULL,
+    question text NOT NULL,
+    answer text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_questions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_questions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_questions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_questions_id_seq OWNED BY public.zdx_questions.id;
 
 
 --
@@ -807,6 +907,16 @@ CREATE TABLE public.zdx_state (
 
 
 --
+-- Name: zdx_task_code_refs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_task_code_refs (
+    task_id text NOT NULL,
+    code_ref_id integer NOT NULL
+);
+
+
+--
 -- Name: zdx_tasks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -822,7 +932,8 @@ CREATE TABLE public.zdx_tasks (
     test_plan text DEFAULT ''::text NOT NULL,
     test_refs text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    completed_at timestamp with time zone
+    completed_at timestamp with time zone,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -1127,6 +1238,13 @@ ALTER TABLE ONLY public.zdx_api_keys ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: zdx_code_refs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_code_refs ALTER COLUMN id SET DEFAULT nextval('public.zdx_code_refs_id_seq'::regclass);
+
+
+--
 -- Name: zdx_comment_reads id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1222,6 +1340,13 @@ ALTER TABLE ONLY public.zdx_project_permissions ALTER COLUMN id SET DEFAULT next
 --
 
 ALTER TABLE ONLY public.zdx_projects ALTER COLUMN id SET DEFAULT nextval('public.zdx_projects_id_seq'::regclass);
+
+
+--
+-- Name: zdx_questions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_questions ALTER COLUMN id SET DEFAULT nextval('public.zdx_questions_id_seq'::regclass);
 
 
 --
@@ -1340,6 +1465,14 @@ ALTER TABLE ONLY public.zdx_api_keys
 
 
 --
+-- Name: zdx_code_refs zdx_code_refs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_code_refs
+    ADD CONSTRAINT zdx_code_refs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_comment_reads zdx_comment_reads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1428,6 +1561,14 @@ ALTER TABLE ONLY public.zdx_issue_blocks
 
 
 --
+-- Name: zdx_issue_code_refs zdx_issue_code_refs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issue_code_refs
+    ADD CONSTRAINT zdx_issue_code_refs_pkey PRIMARY KEY (issue_id, code_ref_id);
+
+
+--
 -- Name: zdx_issue_features zdx_issue_features_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1473,6 +1614,14 @@ ALTER TABLE ONLY public.zdx_issues
 
 ALTER TABLE ONLY public.zdx_journal_entries
     ADD CONSTRAINT zdx_journal_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_llm_configs zdx_llm_configs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_llm_configs
+    ADD CONSTRAINT zdx_llm_configs_pkey PRIMARY KEY (id);
 
 
 --
@@ -1564,6 +1713,14 @@ ALTER TABLE ONLY public.zdx_projects
 
 
 --
+-- Name: zdx_questions zdx_questions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_questions
+    ADD CONSTRAINT zdx_questions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_revisions zdx_revisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1633,6 +1790,14 @@ ALTER TABLE ONLY public.zdx_sprints
 
 ALTER TABLE ONLY public.zdx_state
     ADD CONSTRAINT zdx_state_pkey PRIMARY KEY (project_id, key);
+
+
+--
+-- Name: zdx_task_code_refs zdx_task_code_refs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_task_code_refs
+    ADD CONSTRAINT zdx_task_code_refs_pkey PRIMARY KEY (task_id, code_ref_id);
 
 
 --
@@ -1777,6 +1942,13 @@ CREATE INDEX idx_error_reports_source ON public.zdx_error_reports USING btree (s
 
 
 --
+-- Name: idx_issue_code_refs_issue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_issue_code_refs_issue ON public.zdx_issue_code_refs USING btree (issue_id);
+
+
+--
 -- Name: idx_issue_files_issue; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -1795,6 +1967,13 @@ CREATE INDEX idx_journal_project_role ON public.zdx_journal_entries USING btree 
 --
 
 CREATE INDEX idx_oauth_identities_user ON public.zdx_oauth_identities USING btree (user_id);
+
+
+--
+-- Name: idx_questions_project; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_questions_project ON public.zdx_questions USING btree (project_id);
 
 
 --
@@ -1823,6 +2002,13 @@ CREATE INDEX idx_slow_queries_sql_hash ON public.zdx_slow_queries USING btree (s
 --
 
 CREATE INDEX idx_spec_tests_test ON public.zdx_spec_tests USING btree (test_id);
+
+
+--
+-- Name: idx_task_code_refs_task; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_task_code_refs_task ON public.zdx_task_code_refs USING btree (task_id);
 
 
 --
@@ -1880,6 +2066,14 @@ CREATE INDEX zdx_timed_project ON public.zdx_timed USING btree (project_id);
 
 ALTER TABLE ONLY public.zdx_api_keys
     ADD CONSTRAINT zdx_api_keys_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.zdx_users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_code_refs zdx_code_refs_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_code_refs
+    ADD CONSTRAINT zdx_code_refs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
@@ -1944,6 +2138,22 @@ ALTER TABLE ONLY public.zdx_issue_blocks
 
 ALTER TABLE ONLY public.zdx_issue_blocks
     ADD CONSTRAINT zdx_issue_blocks_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_issue_code_refs zdx_issue_code_refs_code_ref_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issue_code_refs
+    ADD CONSTRAINT zdx_issue_code_refs_code_ref_id_fkey FOREIGN KEY (code_ref_id) REFERENCES public.zdx_code_refs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_issue_code_refs zdx_issue_code_refs_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issue_code_refs
+    ADD CONSTRAINT zdx_issue_code_refs_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
 
 
 --
@@ -2043,6 +2253,14 @@ ALTER TABLE ONLY public.zdx_project_permissions
 
 
 --
+-- Name: zdx_questions zdx_questions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_questions
+    ADD CONSTRAINT zdx_questions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zdx_revisions zdx_revisions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2104,6 +2322,22 @@ ALTER TABLE ONLY public.zdx_sprints
 
 ALTER TABLE ONLY public.zdx_state
     ADD CONSTRAINT zdx_state_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_task_code_refs zdx_task_code_refs_code_ref_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_task_code_refs
+    ADD CONSTRAINT zdx_task_code_refs_code_ref_id_fkey FOREIGN KEY (code_ref_id) REFERENCES public.zdx_code_refs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_task_code_refs zdx_task_code_refs_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_task_code_refs
+    ADD CONSTRAINT zdx_task_code_refs_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
 
 
 --
@@ -2198,5 +2432,5 @@ ALTER TABLE ONLY public.zdx_work_log
 -- PostgreSQL database dump complete
 --
 
-\unrestrict de2RM6aEjGKrwraXYOc7HUQdwgp37IG3hzBTneJ3RaVeQDF1HGAdkkU5ISar5a0
+\unrestrict izfMcnn9DeQOshBQdFr7qHPlffvwhk5v4sft5z0OrgGIzaAqR1Fexjc8dcSB9vO
 
