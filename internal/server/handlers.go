@@ -668,7 +668,9 @@ func (s *Server) registerRoutes(api huma.API) {
 				})
 			}
 			go s.emb.upsertIssue(context.Background(), p.ID, row.ID, row.Title+" "+row.Context)
-			return &struct{ Body IssueItem }{Body: toIssueItem(row)}, nil
+			item := toIssueItem(row)
+			s.publishIssue(in.Body.Slug, row.ID, "issue.created", item)
+			return &struct{ Body IssueItem }{Body: item}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "triage-issue", Method: http.MethodPost, Path: "/api/dx/todo/owner/triage"},
@@ -843,6 +845,7 @@ func (s *Server) registerRoutes(api huma.API) {
 				note += notes
 			}
 			_ = s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
+			s.publishIssue(in.Body.Slug, issueID, "issue.closed", map[string]any{"id": issueID, "reason": reason})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -1130,6 +1133,7 @@ func (s *Server) registerRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.publish(fmt.Sprintf("task:%s", id), "task.done", map[string]any{"id": id})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -2653,10 +2657,13 @@ func (s *Server) registerRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body CommentItem }{Body: CommentItem{
+			item := CommentItem{
 				ID: c.ID, TargetType: c.TargetType, TargetID: c.TargetID,
 				Author: c.Author, Body: c.Body, CreatedAt: fmtTS(c.CreatedAt),
-			}}, nil
+			}
+			s.publish(fmt.Sprintf("project:%s:comments", in.Body.Slug), "comment.added", item)
+			s.publish(fmt.Sprintf("%s:%s", in.Body.TargetType, in.Body.TargetID), "comment.added", item)
+			return &struct{ Body CommentItem }{Body: item}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-comments", Method: http.MethodGet, Path: "/api/dx/comment/list"},

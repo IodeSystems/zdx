@@ -17,6 +17,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/llm"
+	"github.com/iodesystems/zdx-go/internal/ws"
 )
 
 type Server struct {
@@ -25,6 +26,9 @@ type Server struct {
 	buildSHA       string
 	zdxProjectSlug string
 	uploadsDir     string
+	slot           string // "current", "next", or "" (dev); controls WS endpoint registration
+	wsSecret       string
+	broker         ws.Broker
 	api            huma.API
 	emb            *embedder
 	features       SchemaFeatures
@@ -48,6 +52,11 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 		}
 	}
 
+	wsSecret := os.Getenv("ZDX_WS_SECRET")
+	if wsSecret == "" {
+		wsSecret, _ = ws.GenerateSecret()
+	}
+
 	ctx := context.Background()
 	s := &Server{
 		q:              db.New(pool),
@@ -55,6 +64,9 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 		buildSHA:       buildSHA,
 		zdxProjectSlug: os.Getenv("ZDX_PROJECT_SLUG"),
 		uploadsDir:     uploadsDir,
+		slot:           os.Getenv("ZDX_SLOT"),
+		wsSecret:       wsSecret,
+		broker:         ws.NewBroker(os.Getenv("ZDX_VALKEY_ADDR")),
 		emb:            newEmbedder(vecDir),
 		features:       detectFeatures(ctx, pool),
 	}
@@ -74,6 +86,7 @@ func New(pool *pgxpool.Pool, staticDir, buildSHA string) *Server {
 	s.api = humachi.New(s.mux, cfg)
 
 	s.registerRoutes(s.api)
+	s.registerWSRoutes(s.api)
 
 	// SPA fallback: anything not under /api/ or /openapi* serves static files.
 	if staticDir != "" {
@@ -96,6 +109,12 @@ func spaPath(urlPath, staticDir string) string {
 		return candidate
 	}
 	return "index.html"
+}
+
+// IsWSEnabled reports whether this server instance should register WebSocket endpoints.
+// WS is disabled on the "next" deploy slot to keep load segregated during rolling deploys.
+func (s *Server) IsWSEnabled() bool {
+	return s.slot != "next"
 }
 
 // reloadEmbedder re-reads the LLM config from DB and refreshes the embedder client.

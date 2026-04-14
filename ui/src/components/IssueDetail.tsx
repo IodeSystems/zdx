@@ -11,7 +11,7 @@ import {
   Typography,
 } from '@mui/material'
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import {
   useIssue,
   useTasks,
@@ -20,6 +20,7 @@ import {
   type IssueWorkItem,
   type TaskItem,
 } from '../api'
+import { useChannel } from '../hooks/useChannel'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
@@ -57,13 +58,19 @@ export function IssueDetail({
   slug: string
   issueId: string
 }) {
-  const { data, isLoading } = useIssue(slug, issueId)
-  const { data: allTasks } = useTasks(slug, { issue: issueId })
+  const { data, isLoading, refetch } = useIssue(slug, issueId)
+  const { data: allTasks, refetch: refetchTasks } = useTasks(slug, { issue: issueId })
   const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
   const closeIssue = useCloseIssue()
   const router = useRouter()
   const [closeOpen, setCloseOpen] = useState(false)
   const [closeReason, setCloseReason] = useState('')
+
+  const onWsMessage = useCallback(() => {
+    refetch()
+    refetchTasks()
+  }, [refetch, refetchTasks])
+  useChannel(`issue:${issueId}`, onWsMessage)
 
   const issue = data?.issue
   const displayTitle = issue ? issueDisplayTitle(issue.title, issue.context) : ''
