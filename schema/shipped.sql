@@ -198,40 +198,6 @@ ALTER SEQUENCE public.zdx_code_refs_id_seq OWNED BY public.zdx_code_refs.id;
 
 
 --
--- Name: zdx_comment_reads; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_comment_reads (
-    id integer NOT NULL,
-    project_id integer NOT NULL,
-    target_type text NOT NULL,
-    target_id text NOT NULL,
-    role text NOT NULL,
-    last_read_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-
---
--- Name: zdx_comment_reads_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.zdx_comment_reads_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: zdx_comment_reads_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.zdx_comment_reads_id_seq OWNED BY public.zdx_comment_reads.id;
-
-
---
 -- Name: zdx_comment_reactions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -263,6 +229,40 @@ CREATE SEQUENCE public.zdx_comment_reactions_id_seq
 --
 
 ALTER SEQUENCE public.zdx_comment_reactions_id_seq OWNED BY public.zdx_comment_reactions.id;
+
+
+--
+-- Name: zdx_comment_reads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_comment_reads (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    target_type text NOT NULL,
+    target_id text NOT NULL,
+    role text NOT NULL,
+    last_read_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_comment_reads_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_comment_reads_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_comment_reads_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_comment_reads_id_seq OWNED BY public.zdx_comment_reads.id;
 
 
 --
@@ -1469,17 +1469,17 @@ ALTER TABLE ONLY public.zdx_code_refs ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
--- Name: zdx_comment_reads id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_comment_reads ALTER COLUMN id SET DEFAULT nextval('public.zdx_comment_reads_id_seq'::regclass);
-
-
---
 -- Name: zdx_comment_reactions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_comment_reactions ALTER COLUMN id SET DEFAULT nextval('public.zdx_comment_reactions_id_seq'::regclass);
+
+
+--
+-- Name: zdx_comment_reads id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_comment_reads ALTER COLUMN id SET DEFAULT nextval('public.zdx_comment_reads_id_seq'::regclass);
 
 
 --
@@ -1742,6 +1742,22 @@ ALTER TABLE ONLY public.zdx_code_refs
 
 
 --
+-- Name: zdx_comment_reactions zdx_comment_reactions_comment_id_emoji_reactor_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_comment_reactions
+    ADD CONSTRAINT zdx_comment_reactions_comment_id_emoji_reactor_key UNIQUE (comment_id, emoji, reactor);
+
+
+--
+-- Name: zdx_comment_reactions zdx_comment_reactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_comment_reactions
+    ADD CONSTRAINT zdx_comment_reactions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_comment_reads zdx_comment_reads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -1755,22 +1771,6 @@ ALTER TABLE ONLY public.zdx_comment_reads
 
 ALTER TABLE ONLY public.zdx_comment_reads
     ADD CONSTRAINT zdx_comment_reads_project_id_target_type_target_id_role_key UNIQUE (project_id, target_type, target_id, role);
-
-
---
--- Name: zdx_comment_reactions zdx_comment_reactions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_comment_reactions
-    ADD CONSTRAINT zdx_comment_reactions_pkey PRIMARY KEY (id);
-
-
---
--- Name: zdx_comment_reactions zdx_comment_reactions_comment_id_emoji_reactor_key; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_comment_reactions
-    ADD CONSTRAINT zdx_comment_reactions_comment_id_emoji_reactor_key UNIQUE (comment_id, emoji, reactor);
 
 
 --
@@ -2252,17 +2252,17 @@ CREATE INDEX idx_blocker_questions_target ON public.zdx_blocker_questions USING 
 
 
 --
--- Name: idx_comments_target; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_comments_target ON public.zdx_comments USING btree (project_id, target_type, target_id);
-
-
---
 -- Name: idx_comment_reactions_comment; Type: INDEX; Schema: public; Owner: -
 --
 
 CREATE INDEX idx_comment_reactions_comment ON public.zdx_comment_reactions USING btree (comment_id);
+
+
+--
+-- Name: idx_comments_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_comments_target ON public.zdx_comments USING btree (project_id, target_type, target_id);
 
 
 --
@@ -2474,11 +2474,11 @@ ALTER TABLE ONLY public.zdx_code_refs
 
 
 --
--- Name: zdx_comment_reads zdx_comment_reads_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: zdx_comment_reactions zdx_comment_reactions_comment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.zdx_comment_reads
-    ADD CONSTRAINT zdx_comment_reads_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.zdx_comment_reactions
+    ADD CONSTRAINT zdx_comment_reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.zdx_comments(id) ON DELETE CASCADE;
 
 
 --
@@ -2490,11 +2490,11 @@ ALTER TABLE ONLY public.zdx_comment_reactions
 
 
 --
--- Name: zdx_comment_reactions zdx_comment_reactions_comment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+-- Name: zdx_comment_reads zdx_comment_reads_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
-ALTER TABLE ONLY public.zdx_comment_reactions
-    ADD CONSTRAINT zdx_comment_reactions_comment_id_fkey FOREIGN KEY (comment_id) REFERENCES public.zdx_comments(id) ON DELETE CASCADE;
+ALTER TABLE ONLY public.zdx_comment_reads
+    ADD CONSTRAINT zdx_comment_reads_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
