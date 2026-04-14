@@ -53,6 +53,18 @@ This means the project has zero issues and zero features — it's brand new. Fol
    what *did* happen, (c) implementation direction if known.
 4. **Apply** via `./bin/dx todo owner triage IS-N --title=... --context=... --type=<ops|impl> --priority=<1-4>`.
 
+
+**Comments** (when solo emits `[read:comments] IS-N` or `[read:comments] <feature-name>`):
+
+Solo surfaces unread comments that need a response. After reading the comments:
+
+1. **Understand the comment.** Read the context — is it a question, a request for clarification, feedback, or a decision?
+2. **Reply.** Post a response: `./bin/dx comment add <target-type> <target-id> --body="<your reply>"`.
+   - target-type is `issue`, `task`, or `feature` depending on what solo showed.
+   - Answer questions, acknowledge feedback, or explain decisions.
+3. **Mark read.** Solo marks comments read automatically after showing them, but if you need to manually:
+   `./bin/dx comment mark-read <target-type> <target-id> --role=llm`
+4. Continue the vertical loop — comments are handled inline, not as separate work items.
 **Blocked issues:** if the vertical is empty because IS-N is blocked by other issues:
 
 1. Run `./bin/dx todo show IS-N` to read the `Blocked:` list.
