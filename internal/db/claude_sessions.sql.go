@@ -34,15 +34,19 @@ func (q *Queries) CountClaudeSessions(ctx context.Context, projectID int32) (int
 }
 
 const createClaudeEvent = `-- name: CreateClaudeEvent :exec
-INSERT INTO zdx_claude_events (session_pk, seq, event_type, event_json)
-VALUES ($1, $2, $3, $4)
+INSERT INTO zdx_claude_events (session_pk, seq, event_type, event_json, agent_id, is_sidechain, agent_type, agent_description)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type CreateClaudeEventParams struct {
-	SessionPk int64  `db:"session_pk" json:"session_pk"`
-	Seq       int32  `db:"seq" json:"seq"`
-	EventType string `db:"event_type" json:"event_type"`
-	EventJson []byte `db:"event_json" json:"event_json"`
+	SessionPk        int64  `db:"session_pk" json:"session_pk"`
+	Seq              int32  `db:"seq" json:"seq"`
+	EventType        string `db:"event_type" json:"event_type"`
+	EventJson        []byte `db:"event_json" json:"event_json"`
+	AgentID          string `db:"agent_id" json:"agent_id"`
+	IsSidechain      bool   `db:"is_sidechain" json:"is_sidechain"`
+	AgentType        string `db:"agent_type" json:"agent_type"`
+	AgentDescription string `db:"agent_description" json:"agent_description"`
 }
 
 func (q *Queries) CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error {
@@ -51,6 +55,10 @@ func (q *Queries) CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventPa
 		arg.Seq,
 		arg.EventType,
 		arg.EventJson,
+		arg.AgentID,
+		arg.IsSidechain,
+		arg.AgentType,
+		arg.AgentDescription,
 	)
 	return err
 }
@@ -220,7 +228,7 @@ func (q *Queries) GetClaudeSessionTokenUsage(ctx context.Context, sessionPk int6
 }
 
 const listClaudeEvents = `-- name: ListClaudeEvents :many
-SELECT id, session_pk, seq, event_type, event_json, created_at
+SELECT id, session_pk, seq, event_type, event_json, created_at, agent_id, is_sidechain, agent_type, agent_description
 FROM zdx_claude_events
 WHERE session_pk = $1
 ORDER BY seq
@@ -242,6 +250,10 @@ func (q *Queries) ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxC
 			&i.EventType,
 			&i.EventJson,
 			&i.CreatedAt,
+			&i.AgentID,
+			&i.IsSidechain,
+			&i.AgentType,
+			&i.AgentDescription,
 		); err != nil {
 			return nil, err
 		}
@@ -254,7 +266,7 @@ func (q *Queries) ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxC
 }
 
 const listClaudeEventsPaginated = `-- name: ListClaudeEventsPaginated :many
-SELECT id, session_pk, seq, event_type, event_json, created_at
+SELECT id, session_pk, seq, event_type, event_json, created_at, agent_id, is_sidechain, agent_type, agent_description
 FROM zdx_claude_events
 WHERE session_pk = $1
 ORDER BY seq DESC
@@ -283,6 +295,10 @@ func (q *Queries) ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeE
 			&i.EventType,
 			&i.EventJson,
 			&i.CreatedAt,
+			&i.AgentID,
+			&i.IsSidechain,
+			&i.AgentType,
+			&i.AgentDescription,
 		); err != nil {
 			return nil, err
 		}

@@ -254,6 +254,10 @@ func (s *Server) handleClaudeSessionIngest(w http.ResponseWriter, r *http.Reques
 	sessionUUID := r.URL.Query().Get("session_id")
 	issueID := r.URL.Query().Get("issue_id")
 	alias := r.URL.Query().Get("alias")
+	agentID := r.URL.Query().Get("agent_id")
+	agentType := r.URL.Query().Get("agent_type")
+	agentDesc := r.URL.Query().Get("agent_description")
+	isSidechain := agentID != ""
 
 	if slug == "" || sessionUUID == "" {
 		http.Error(w, `{"title":"Bad Request","status":400,"detail":"slug and session_id required"}`, http.StatusBadRequest)
@@ -296,6 +300,9 @@ func (s *Server) handleClaudeSessionIngest(w http.ResponseWriter, r *http.Reques
 		}
 	}
 
+	var sessionPK int64
+	var sessionID string
+
 	sess, err := s.q.CreateClaudeSession(ctx, db.CreateClaudeSessionParams{
 		ProjectID: p.ID,
 		IssueID:   issueID,
@@ -305,14 +312,36 @@ func (s *Server) handleClaudeSessionIngest(w http.ResponseWriter, r *http.Reques
 	})
 	if err != nil {
 		if strings.Contains(err.Error(), "duplicate key") {
-			http.Error(w, `{"title":"Conflict","status":409,"detail":"session already exists"}`, http.StatusConflict)
+			// Subagent uploads reuse the parent session.
+			existing, lookupErr := s.q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
+				ProjectID: p.ID,
+				SessionID: sessionUUID,
+			})
+			if lookupErr != nil {
+				http.Error(w, `{"title":"Conflict","status":409,"detail":"session already exists"}`, http.StatusConflict)
+				return
+			}
+			sessionPK = existing.ID
+			sessionID = existing.SessionID
+		} else {
+			http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
 			return
 		}
-		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
-		return
+	} else {
+		sessionPK = sess.ID
+		sessionID = sess.SessionID
 	}
 
-	for seq, line := range lines {
+	// For appending to existing sessions, offset seq past existing events.
+	seqOffset := int32(0)
+	if sess.ID == 0 {
+		cnt, cntErr := s.q.CountClaudeEvents(ctx, sessionPK)
+		if cntErr == nil {
+			seqOffset = int32(cnt)
+		}
+	}
+
+	for i, line := range lines {
 		if strings.TrimSpace(line) == "" {
 			continue
 		}
@@ -324,17 +353,21 @@ func (s *Server) handleClaudeSessionIngest(w http.ResponseWriter, r *http.Reques
 			}
 		}
 		_ = s.q.CreateClaudeEvent(ctx, db.CreateClaudeEventParams{
-			SessionPk: sess.ID,
-			Seq:       int32(seq),
-			EventType: eventType,
-			EventJson: []byte(line),
+			SessionPk:        sessionPK,
+			Seq:              seqOffset + int32(i),
+			EventType:        eventType,
+			EventJson:        []byte(line),
+			AgentID:          agentID,
+			IsSidechain:      isSidechain,
+			AgentType:        agentType,
+			AgentDescription: agentDesc,
 		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"id":         sess.ID,
-		"session_id": sess.SessionID,
+		"id":         sessionPK,
+		"session_id": sessionID,
 		"events":     len(lines),
 	})
 }

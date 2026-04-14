@@ -105,7 +105,11 @@ CREATE TABLE public.zdx_claude_events (
     seq integer NOT NULL,
     event_type text DEFAULT ''::text NOT NULL,
     event_json jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    agent_id text DEFAULT ''::text NOT NULL,
+    is_sidechain boolean DEFAULT false NOT NULL,
+    agent_type text DEFAULT ''::text NOT NULL,
+    agent_description text DEFAULT ''::text NOT NULL
 );
 
 

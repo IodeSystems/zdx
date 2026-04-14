@@ -32,12 +32,16 @@ type ZdxBlockerQuestion struct {
 }
 
 type ZdxClaudeEvent struct {
-	ID        int64              `db:"id" json:"id"`
-	SessionPk int64              `db:"session_pk" json:"session_pk"`
-	Seq       int32              `db:"seq" json:"seq"`
-	EventType string             `db:"event_type" json:"event_type"`
-	EventJson []byte             `db:"event_json" json:"event_json"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID               int64              `db:"id" json:"id"`
+	SessionPk        int64              `db:"session_pk" json:"session_pk"`
+	Seq              int32              `db:"seq" json:"seq"`
+	EventType        string             `db:"event_type" json:"event_type"`
+	EventJson        []byte             `db:"event_json" json:"event_json"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	AgentID          string             `db:"agent_id" json:"agent_id"`
+	IsSidechain      bool               `db:"is_sidechain" json:"is_sidechain"`
+	AgentType        string             `db:"agent_type" json:"agent_type"`
+	AgentDescription string             `db:"agent_description" json:"agent_description"`
 }
 
 type ZdxClaudeSession struct {

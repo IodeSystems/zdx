@@ -44,6 +44,40 @@ upload_session() {
     --data-binary "@${sfile}" \
     "$url")
   log "upload: session $sid → HTTP $http_code"
+  # Upload subagent transcripts recursively
+  upload_subagents "$sid" "$issue_id" "$(dirname "$sfile")/$sid/subagents"
+}
+
+upload_subagents() {
+  local sid="$1" issue_id="$2" subdir="$3"
+  [[ -d "$subdir" ]] || return 0
+  for agent_jsonl in "$subdir"/agent-*.jsonl; do
+    [[ -f "$agent_jsonl" ]] || continue
+    local agent_file
+    agent_file="$(basename "$agent_jsonl")"
+    local agent_id="${agent_file%.jsonl}"
+    local agent_meta="${agent_jsonl%.jsonl}.meta.json"
+    local agent_type="" agent_desc=""
+    if [[ -f "$agent_meta" ]] && command -v jq &>/dev/null; then
+      agent_type="$(jq -r '.agentType // ""' "$agent_meta" 2>/dev/null)"
+      agent_desc="$(jq -r '.description // ""' "$agent_meta" 2>/dev/null)"
+    fi
+    local url="${ZDX_URL}/api/dx/claude/sessions/ingest?slug=${ZDX_SLUG}&session_id=${sid}&issue_id=${issue_id}&alias=${ALIAS}"
+    url+="&agent_id=$(printf '%s' "$agent_id" | jq -sRr @uri)"
+    url+="&agent_type=$(printf '%s' "$agent_type" | jq -sRr @uri)"
+    url+="&agent_description=$(printf '%s' "$agent_desc" | jq -sRr @uri)"
+    local http_code
+    http_code=$(curl -s -o /dev/null -w '%{http_code}' \
+      -X POST \
+      -H "X-Api-Key: ${ZDX_KEY}" \
+      -H "Content-Type: application/x-ndjson" \
+      --data-binary "@${agent_jsonl}" \
+      "$url")
+    log "upload: subagent $agent_id → HTTP $http_code"
+    # Recurse into nested subagents
+    local nested_subdir="${agent_jsonl%.jsonl}/subagents"
+    upload_subagents "$sid" "$issue_id" "$nested_subdir"
+  done
 }
 
 # Ctrl+C exits immediately.
