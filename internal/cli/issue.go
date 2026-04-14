@@ -15,7 +15,8 @@ func IssueCmd() *cobra.Command {
 }
 
 func issueListCmd() *cobra.Command {
-	return &cobra.Command{
+	var status string
+	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List issues",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -31,15 +32,20 @@ func issueListCmd() *cobra.Command {
 				return nil
 			}
 			for _, iss := range resp.Issues {
-				status := iss.Status
-				if iss.BlockedBy != "" {
-					status += " [blocked:" + iss.BlockedBy + "]"
+				if status != "" && iss.Status != status {
+					continue
 				}
-				fmt.Printf("%-8s %-30s %s\n", issueIDStr(iss.ID), status, iss.Title)
+				s := iss.Status
+				if iss.BlockedBy != "" {
+					s += " [blocked:" + iss.BlockedBy + "]"
+				}
+				fmt.Printf("%-8s %-30s %s\n", issueIDStr(iss.ID), s, iss.Title)
 			}
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&status, "status", "", "filter by status (open, closed)")
+	return cmd
 }
 
 func issueAddCmd() *cobra.Command {
