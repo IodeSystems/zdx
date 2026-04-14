@@ -125,7 +125,7 @@ while true; do
   log "  resumed:  $resumed"
   log "──────────────────────────────────────────────"
 
-  tail -F "$sfile" 2>/dev/null | tee -a "$LOG" &
+  tail -F "$sfile" 2>/dev/null | bin/claude-work-render | tee -a "$LOG" &
   tail_pid=$!
 
   if [[ "$resumed" == true ]]; then
