@@ -573,3 +573,11 @@ export const useQuestions = (slug: string) =>
     },
     enabled: !!slug,
   })
+
+export const useCreateQuestion = () => {
+  const qc = useQueryClient()
+  return useMutation<QuestionItem, Error, { slug: string; category: string; question: string }>({
+    mutationFn: (body) => apiPost<QuestionItem>('/api/dx/qa/add', body),
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['questions', v.slug] }),
+  })
+}
