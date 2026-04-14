@@ -983,6 +983,16 @@ export interface TokenUsage {
   cache_creation_input_tokens: number
 }
 
+export const useClaudeSession = (slug: string, sessionId: number | null) =>
+  useQuery<ClaudeSessionItem>({
+    queryKey: ['claude-session', slug, sessionId],
+    queryFn: () =>
+      apiFetch<ClaudeSessionItem>(
+        `/api/dx/claude/sessions/${sessionId}?slug=${encodeURIComponent(slug)}`
+      ),
+    enabled: !!slug && sessionId != null,
+  })
+
 export const useClaudeSessionTokenUsage = (slug: string, sessionId: number | null) =>
   useQuery<TokenUsage>({
     queryKey: ['claude-token-usage', slug, sessionId],

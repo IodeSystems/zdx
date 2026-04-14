@@ -18,9 +18,9 @@ import { Prism as SyntaxHighlighter } from 'react-syntax-highlighter'
 import { oneDark } from 'react-syntax-highlighter/dist/esm/styles/prism'
 import {
   useClaudeSessions,
+  useClaudeSession,
   useInfiniteClaudeSessionEvents,
   useClaudeSessionTokenUsage,
-  type ClaudeSessionItem,
   type ClaudeEventItem,
 } from '../api'
 
@@ -48,10 +48,13 @@ function fmtDuration(ms: number): string {
   return `${Math.floor(ms / 60000)}m${Math.round((ms % 60000) / 1000)}s`
 }
 
+type ToolResultContent = string | Record<string, unknown>[]
+type ToolResultMap = Map<string, ToolResultContent>
 type ToolDurations = Map<string, number>
 
 function buildToolDurations(events: ClaudeEventItem[]): ToolDurations {
-  const toolUseTimestamps = new Map<string, string>()
+  const toolUseTs = new Map<string, string>()
+  const toolResultTs = new Map<string, string>()
   const durations = new Map<string, number>()
 
   for (const event of events) {
@@ -64,7 +67,7 @@ function buildToolDurations(events: ClaudeEventItem[]): ToolDurations {
           const b = block as Record<string, unknown>
           if (b.type === 'tool_use' && typeof b.id === 'string') {
             const ts = (ev.timestamp as string) || event.created_at
-            if (ts) toolUseTimestamps.set(b.id, ts)
+            if (ts) toolUseTs.set(b.id, ts)
           }
         }
       }
@@ -75,18 +78,47 @@ function buildToolDurations(events: ClaudeEventItem[]): ToolDurations {
         for (const block of content) {
           const b = block as Record<string, unknown>
           if (b.type === 'tool_result' && typeof b.tool_use_id === 'string') {
-            const startTs = toolUseTimestamps.get(b.tool_use_id)
-            const endTs = (ev.timestamp as string) || event.created_at
-            if (startTs && endTs) {
-              const ms = new Date(endTs).getTime() - new Date(startTs).getTime()
-              if (ms >= 0) durations.set(b.tool_use_id, ms)
-            }
+            const ts = (ev.timestamp as string) || event.created_at
+            if (ts) toolResultTs.set(b.tool_use_id, ts)
           }
         }
       }
     }
   }
+
+  for (const [id, startTs] of toolUseTs) {
+    const endTs = toolResultTs.get(id)
+    if (endTs) {
+      const ms = new Date(endTs).getTime() - new Date(startTs).getTime()
+      if (ms >= 0) durations.set(id, ms)
+    }
+  }
   return durations
+}
+
+function buildToolResultMap(events: ClaudeEventItem[]): { resultMap: ToolResultMap; toolResultEventIds: Set<number> } {
+  const resultMap = new Map<string, ToolResultContent>()
+  const toolResultEventIds = new Set<number>()
+
+  for (const event of events) {
+    if (event.event_type !== 'user') continue
+    const blocks = getContentBlocks(event)
+    const allToolResults = blocks.every((b) => b.type === 'tool_result')
+    if (!allToolResults || blocks.length === 0) continue
+
+    toolResultEventIds.add(event.id)
+    for (const block of blocks) {
+      if (block.type === 'tool_result' && typeof block.tool_use_id === 'string') {
+        const content = block.content
+        if (typeof content === 'string') {
+          resultMap.set(block.tool_use_id as string, content)
+        } else if (Array.isArray(content)) {
+          resultMap.set(block.tool_use_id as string, content as Record<string, unknown>[])
+        }
+      }
+    }
+  }
+  return { resultMap, toolResultEventIds }
 }
 
 function getToolInfo(event: ClaudeEventItem): { toolName?: string; toolUseId?: string } {
@@ -142,7 +174,30 @@ function AgentBlock({ input }: { input: Record<string, unknown> }) {
   )
 }
 
-function RichContent({ event }: { event: ClaudeEventItem }) {
+function ToolResultInline({ content }: { content: ToolResultContent }) {
+  if (typeof content === 'string') {
+    return (
+      <Box component="pre" sx={{ m: 0, mt: 0.5, p: 1, bgcolor: 'background.default', borderRadius: 1, fontSize: '0.7rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 300, overflow: 'auto' }}>
+        {content.slice(0, 5000)}
+      </Box>
+    )
+  }
+  if (Array.isArray(content)) {
+    return (
+      <>
+        {content.map((c, j) => {
+          if (c.type === 'text' && typeof c.text === 'string') {
+            return <Box key={j} component="pre" sx={{ m: 0, mt: 0.5, p: 1, bgcolor: 'background.default', borderRadius: 1, fontSize: '0.7rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 300, overflow: 'auto' }}>{(c.text as string).slice(0, 5000)}</Box>
+          }
+          return null
+        })}
+      </>
+    )
+  }
+  return null
+}
+
+function RichContent({ event, toolResultMap }: { event: ClaudeEventItem; toolResultMap?: ToolResultMap }) {
   const blocks = getContentBlocks(event)
   if (blocks.length === 0) {
     return (
@@ -176,6 +231,8 @@ function RichContent({ event }: { event: ClaudeEventItem }) {
         if (block.type === 'tool_use') {
           const name = block.name as string
           const input = block.input as Record<string, unknown>
+          const toolUseId = block.id as string | undefined
+          const inlineResult = toolUseId && toolResultMap ? toolResultMap.get(toolUseId) : undefined
           return (
             <Box key={i} sx={{ mt: 0.5, p: 1, bgcolor: 'background.default', borderRadius: 1, border: 1, borderColor: 'divider' }}>
               <Typography variant="caption" sx={{ fontWeight: 600 }}>{name}</Typography>
@@ -209,6 +266,7 @@ function RichContent({ event }: { event: ClaudeEventItem }) {
                   {JSON.stringify(input, null, 2)}
                 </Box>
               )}
+              {inlineResult !== undefined && <ToolResultInline content={inlineResult} />}
             </Box>
           )
         }
@@ -240,7 +298,7 @@ function RichContent({ event }: { event: ClaudeEventItem }) {
   )
 }
 
-function EventRow({ event, toolDurations }: { event: ClaudeEventItem; toolDurations: ToolDurations }) {
+function EventRow({ event, toolDurations, toolResultMap }: { event: ClaudeEventItem; toolDurations: ToolDurations; toolResultMap: ToolResultMap }) {
   const [expanded, setExpanded] = useState(false)
   const color = EVENT_COLORS[event.event_type] ?? '#888'
 
@@ -282,7 +340,7 @@ function EventRow({ event, toolDurations }: { event: ClaudeEventItem; toolDurati
       </Box>
       {expanded && (
         <Box sx={{ mt: 1, maxHeight: 500, overflow: 'auto' }}>
-          <RichContent event={event} />
+          <RichContent event={event} toolResultMap={toolResultMap} />
         </Box>
       )}
     </Box>
@@ -312,21 +370,22 @@ function getSummary(event: ClaudeEventItem): string {
   return ''
 }
 
-function SessionDetail({
+export function SessionDetail({
   slug,
-  session,
+  sessionId,
   onBack,
 }: {
   slug: string
-  session: ClaudeSessionItem
-  onBack: () => void
+  sessionId: number
+  onBack?: () => void
 }) {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
 
+  const { data: session } = useClaudeSession(slug, sessionId)
   const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } =
-    useInfiniteClaudeSessionEvents(slug, session.id)
-  const { data: tokenUsage } = useClaudeSessionTokenUsage(slug, session.id)
+    useInfiniteClaudeSessionEvents(slug, sessionId)
+  const { data: tokenUsage } = useClaudeSessionTokenUsage(slug, sessionId)
 
   const allEvents = useMemo(
     () => data?.pages.flatMap((p) => p.events) ?? [],
@@ -334,6 +393,8 @@ function SessionDetail({
   )
   const total = data?.pages[0]?.total ?? 0
   const toolDurations = useMemo(() => buildToolDurations(allEvents), [allEvents])
+  const { resultMap: toolResultMap, toolResultEventIds } = useMemo(() => buildToolResultMap(allEvents), [allEvents])
+  const visibleEvents = useMemo(() => allEvents.filter((e) => !toolResultEventIds.has(e.id)), [allEvents, toolResultEventIds])
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -353,13 +414,15 @@ function SessionDetail({
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100%' }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
-        <IconButton size="small" onClick={onBack}>
-          <ArrowBackIcon fontSize="small" />
-        </IconButton>
+        {onBack && (
+          <IconButton size="small" onClick={onBack}>
+            <ArrowBackIcon fontSize="small" />
+          </IconButton>
+        )}
         <Typography variant="subtitle2">
-          {session.title || session.session_id.slice(0, 8)}
+          {session?.title || session?.session_id?.slice(0, 8) || `Session #${sessionId}`}
         </Typography>
-        {session.issue_id && (
+        {session?.issue_id && (
           <Link
             to="/project/$slug/issues/$id"
             params={{ slug, id: session.issue_id }}
@@ -392,8 +455,8 @@ function SessionDetail({
           overflow: 'auto',
         }}
       >
-        {allEvents.map((e) => (
-          <EventRow key={e.id} event={e} toolDurations={toolDurations} />
+        {visibleEvents.map((e) => (
+          <EventRow key={e.id} event={e} toolDurations={toolDurations} toolResultMap={toolResultMap} />
         ))}
         {hasNextPage && (
           <Box ref={sentinelRef} sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
@@ -413,19 +476,8 @@ function SessionDetail({
 export function ClaudeSessionsTab({ slug }: { slug: string }) {
   const { data: sessData, isLoading } = useClaudeSessions(slug)
   const sessions = sessData?.sessions ?? []
-  const [selected, setSelected] = useState<ClaudeSessionItem | null>(null)
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
-
-  if (selected) {
-    return (
-      <SessionDetail
-        slug={slug}
-        session={selected}
-        onBack={() => setSelected(null)}
-      />
-    )
-  }
 
   return (
     <Box>
@@ -437,22 +489,29 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
       ) : (
         <List dense disablePadding>
           {sessions.map((s) => (
-            <ListItemButton key={s.id} onClick={() => setSelected(s)} sx={{ borderBottom: 1, borderColor: 'divider' }}>
-              <ListItemText
-                primary={s.title || s.session_id.slice(0, 12)}
-                secondary={
-                  <Box component="span" sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                    <Typography component="span" variant="caption" color="text.secondary">
-                      {fmtDate(s.created_at)}
-                    </Typography>
-                    {s.issue_id && <Chip label={s.issue_id} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.7rem' }} />}
-                    <Typography component="span" variant="caption" color="text.disabled">
-                      {s.event_count} events
-                    </Typography>
-                  </Box>
-                }
-              />
-            </ListItemButton>
+            <Link
+              key={s.id}
+              to="/project/$slug/claude/$sessionId"
+              params={{ slug, sessionId: String(s.id) }}
+              style={{ textDecoration: 'none', color: 'inherit' }}
+            >
+              <ListItemButton sx={{ borderBottom: 1, borderColor: 'divider' }}>
+                <ListItemText
+                  primary={s.title || s.session_id.slice(0, 12)}
+                  secondary={
+                    <Box component="span" sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                      <Typography component="span" variant="caption" color="text.secondary">
+                        {fmtDate(s.created_at)}
+                      </Typography>
+                      {s.issue_id && <Chip label={s.issue_id} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.7rem' }} />}
+                      <Typography component="span" variant="caption" color="text.disabled">
+                        {s.event_count} events
+                      </Typography>
+                    </Box>
+                  }
+                />
+              </ListItemButton>
+            </Link>
           ))}
         </List>
       )}

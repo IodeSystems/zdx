@@ -4003,6 +4003,35 @@ func (s *Server) registerRoutes(api huma.API) {
 			}{Sessions: out, Total: total}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "get-claude-session", Method: http.MethodGet, Path: "/api/dx/claude/sessions/{sessionId}"},
+		func(ctx context.Context, in *struct {
+			Slug      string `query:"slug" required:"true"`
+			SessionID int64  `path:"sessionId"`
+		}) (*struct {
+			Body ClaudeSessionItem
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			if err != nil {
+				return nil, apiErr(404, "session not found")
+			}
+			cnt, _ := s.q.CountClaudeEvents(ctx, sess.ID)
+			return &struct {
+				Body ClaudeSessionItem
+			}{Body: ClaudeSessionItem{
+				ID:         sess.ID,
+				IssueID:    sess.IssueID,
+				SessionID:  sess.SessionID,
+				Title:      sess.Title,
+				Alias:      sess.Alias,
+				EventCount: cnt,
+				CreatedAt:  fmtTS(sess.CreatedAt),
+			}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "get-claude-session-events", Method: http.MethodGet, Path: "/api/dx/claude/sessions/{sessionId}/events"},
 		func(ctx context.Context, in *struct {
 			Slug      string `query:"slug" required:"true"`

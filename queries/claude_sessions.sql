@@ -44,7 +44,7 @@ SELECT count(*) FROM zdx_claude_events WHERE session_pk = $1;
 SELECT id, session_pk, seq, event_type, event_json, created_at
 FROM zdx_claude_events
 WHERE session_pk = $1
-ORDER BY seq
+ORDER BY seq DESC
 LIMIT $2 OFFSET $3;
 
 -- name: GetClaudeSessionTokenUsage :one
