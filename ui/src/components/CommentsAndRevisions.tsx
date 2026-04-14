@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   Box,
   Button,
@@ -12,7 +12,7 @@ import {
   Typography,
 } from '@mui/material'
 import { Close as CloseIcon, CompareArrows as DiffIcon } from '@mui/icons-material'
-import { useComments, useAddComment, useRevisions, type RevisionItem } from '../api'
+import { useComments, useAddComment, useMarkCommentsRead, useRevisions, type RevisionItem } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 
 function DiffModal({ revision, onClose }: { revision: RevisionItem; onClose: () => void }) {
@@ -54,8 +54,18 @@ export function CommentsAndRevisions({
   const comments = commentsData?.comments ?? []
   const revisions = revisionsData?.revisions ?? []
   const addComment = useAddComment()
+  const markRead = useMarkCommentsRead()
   const [body, setBody] = useState('')
   const [diffRevision, setDiffRevision] = useState<RevisionItem | null>(null)
+  const hasMarkedRead = useRef(false)
+
+  const hasUnread = comments.some(c => c.unread)
+  useEffect(() => {
+    if (hasUnread && !hasMarkedRead.current) {
+      hasMarkedRead.current = true
+      markRead.mutate({ slug, target_type: targetType, target_id: targetId })
+    }
+  }, [hasUnread, slug, targetType, targetId])
 
   const handleAddComment = () => {
     if (!body.trim()) return
@@ -110,8 +120,8 @@ export function CommentsAndRevisions({
         Comments ({comments.length})
       </Typography>
       {comments.map(c => (
-        <Box key={c.id} sx={{ mb: 1.5, borderLeft: 2, borderColor: 'primary.light', pl: 1.5 }}>
-          <Typography variant="caption" color="text.secondary">
+        <Box key={c.id} sx={{ mb: 1.5, borderLeft: 2, borderColor: c.unread ? 'info.main' : 'success.light', pl: 1.5 }}>
+          <Typography variant="caption" sx={{ color: c.unread ? '#1976d2' : '#2e7d32' }}>
             {c.created_at.slice(0, 10)} — {c.author || 'anonymous'}
           </Typography>
           <Box sx={{ mt: 0.25 }}>

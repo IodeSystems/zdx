@@ -391,13 +391,14 @@ export interface CommentItem {
   author: string
   body: string
   created_at: string
+  unread?: boolean
 }
 
 export const useComments = (slug: string, targetType: string, targetId: string, limit?: number, offset?: number) =>
   useQuery<{ comments: CommentItem[]; total: number }>({
     queryKey: ['comments', slug, targetType, targetId, limit, offset],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, target_type: targetType, target_id: targetId })
+      const params = new URLSearchParams({ slug, target_type: targetType, target_id: targetId, role: 'dev' })
       if (limit != null) params.set('limit', String(limit))
       if (offset != null) params.set('offset', String(offset))
       const res = await apiFetch<{ comments: CommentItem[]; total: number }>(
@@ -416,6 +417,21 @@ export const useAddComment = () => {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(p),
+      }),
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['comments', vars.slug, vars.target_type, vars.target_id] })
+    },
+  })
+}
+
+export const useMarkCommentsRead = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (p: { slug: string; target_type: string; target_id: string }) =>
+      apiFetch<{ ok: boolean }>('/api/dx/comment/mark-read', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ ...p, role: 'dev' }),
       }),
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['comments', vars.slug, vars.target_type, vars.target_id] })
