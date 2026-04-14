@@ -1,0 +1,612 @@
+package server
+
+import (
+	"context"
+	"net/http"
+	"strconv"
+	"strings"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/iodesystems/zdx-go/internal/db"
+)
+
+func (s *Server) registerIssueRoutes(api huma.API) {
+	type IssueIntIDInput struct {
+		ID int32 `json:"id"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/list"},
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
+			Body struct {
+				Issues []IssueItem `json:"issues"`
+				Total  int64       `json:"total"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			total, _ := s.q.CountIssues(ctx, p.ID)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListIssuesPaginated(ctx, db.ListIssuesPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]IssueItem, len(rows))
+			for i, r := range rows {
+				out[i] = toIssueItem(r)
+			}
+			return &struct {
+				Body struct {
+					Issues []IssueItem `json:"issues"`
+					Total  int64       `json:"total"`
+				}
+			}{Body: struct {
+				Issues []IssueItem `json:"issues"`
+				Total  int64       `json:"total"`
+			}{Issues: out, Total: total}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "search-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/search"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			Q    string `query:"q" required:"true"`
+		}) (*struct {
+			Body struct {
+				Issues []IssueItem `json:"issues"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.SearchIssues(ctx, db.SearchIssuesParams{ProjectID: p.ID, Query: in.Q})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]IssueItem, len(rows))
+			for i, r := range rows {
+				out[i] = toIssueItem(r)
+			}
+			return &struct {
+				Body struct {
+					Issues []IssueItem `json:"issues"`
+				}
+			}{
+				Body: struct {
+					Issues []IssueItem `json:"issues"`
+				}{Issues: out},
+			}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "show-issue", Method: http.MethodGet, Path: "/api/dx/todo/issue/show"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   string `query:"id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Issue IssueItem       `json:"issue"`
+				Work  []IssueWorkItem `json:"work"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(intFromPrefixed(in.ID, "IS-"))
+			row, err := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "issue not found: "+in.ID)
+			}
+			work, _ := s.q.GetIssueWork(ctx, issueID)
+			workItems := make([]IssueWorkItem, len(work))
+			for i, w := range work {
+				workItems[i] = IssueWorkItem{Agent: w.Agent, Note: w.Note, CreatedAt: fmtTS(w.CreatedAt)}
+			}
+			type respBody = struct {
+				Issue IssueItem       `json:"issue"`
+				Work  []IssueWorkItem `json:"work"`
+			}
+			return &struct{ Body respBody }{Body: respBody{Issue: toIssueItem(row), Work: workItems}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "add-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/add"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug          string  `json:"slug"`
+				Title         *string `json:"title,omitempty"`
+				Source        *string `json:"source,omitempty"`
+				Context       *string `json:"context,omitempty"`
+				BlockedBy     *string `json:"blocked_by,omitempty"`
+				Component     *string `json:"component,omitempty"`
+				IssueType     *string `json:"issue_type,omitempty"`
+				ScreenshotIDs []int32 `json:"screenshot_ids,omitempty"`
+			}
+		}) (*struct{ Body IssueItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			id, err := s.q.NextIssueID(ctx)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			params := db.CreateIssueParams{
+				ID:        id,
+				ProjectID: p.ID,
+				IssueType: "ops",
+			}
+			if in.Body.Title != nil {
+				params.Title = *in.Body.Title
+			}
+			if in.Body.Context != nil {
+				params.Context = *in.Body.Context
+			}
+			if in.Body.Component != nil {
+				params.Component = *in.Body.Component
+			}
+			if in.Body.IssueType != nil {
+				params.IssueType = *in.Body.IssueType
+			}
+			if in.Body.BlockedBy != nil {
+				params.BlockedBy = *in.Body.BlockedBy
+			}
+			row, err := s.q.CreateIssue(ctx, params)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			for _, fid := range in.Body.ScreenshotIDs {
+				_ = s.q.AttachFileToIssue(ctx, db.AttachFileToIssueParams{
+					IssueID: row.ID,
+					FileID:  fid,
+					Kind:    "screenshot",
+				})
+			}
+			go s.emb.upsertIssue(context.Background(), p.ID, row.ID, row.Title+" "+row.Context)
+			item := toIssueItem(row)
+			s.publishIssue(in.Body.Slug, row.ID, "issue.created", item)
+			return &struct{ Body IssueItem }{Body: item}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "triage-issue", Method: http.MethodPost, Path: "/api/dx/todo/owner/triage"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string  `json:"slug"`
+				ID        int32   `json:"id"`
+				Priority  int32   `json:"priority"`
+				Title     *string `json:"title,omitempty"`
+				IssueType *string `json:"issue_type,omitempty"`
+				Context   *string `json:"context,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(in.Body.ID)
+			agent := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
+					agent = u.Email
+				}
+			}
+			// Capture old values for revision log
+			oldIssue, _ := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+			newPriority := strconv.Itoa(int(in.Body.Priority))
+			if err := s.q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
+				ID:        issueID,
+				Priority:  newPriority,
+				ProjectID: p.ID,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if oldIssue.Priority != newPriority {
+				s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority, agent)
+			}
+			for field, val := range map[string]*string{
+				"title":      in.Body.Title,
+				"issue_type": in.Body.IssueType,
+				"context":    in.Body.Context,
+			} {
+				if val != nil && *val != "" {
+					if err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+						Field:     field,
+						Value:     *val,
+						ProjectID: p.ID,
+						ID:        issueID,
+					}); err != nil {
+						return nil, apiErr(500, err.Error())
+					}
+					oldVal := ""
+					switch field {
+					case "title":
+						oldVal = oldIssue.Title
+					case "issue_type":
+						oldVal = oldIssue.IssueType
+					case "context":
+						oldVal = oldIssue.Context
+					}
+					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val, agent)
+				}
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "edit-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/edit"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string  `json:"slug"`
+				ID        int32   `json:"id"`
+				Title     *string `json:"title,omitempty"`
+				Context   *string `json:"context,omitempty"`
+				Priority  *int32  `json:"priority,omitempty"`
+				IssueType *string `json:"issue_type,omitempty"`
+				Component *string `json:"component,omitempty"`
+				BlockedBy *string `json:"blocked_by,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(in.Body.ID)
+			agent := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
+					agent = u.Email
+				}
+			}
+			oldIssue, _ := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+
+			if in.Body.Priority != nil {
+				newPriority := strconv.Itoa(int(*in.Body.Priority))
+				if err := s.q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
+					ID:        issueID,
+					Priority:  newPriority,
+					ProjectID: p.ID,
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				if oldIssue.Priority != newPriority {
+					s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority, agent)
+				}
+			}
+
+			fieldMap := map[string]*string{
+				"title":      in.Body.Title,
+				"issue_type": in.Body.IssueType,
+				"context":    in.Body.Context,
+				"component":  in.Body.Component,
+				"blocked_by": in.Body.BlockedBy,
+			}
+			oldValMap := map[string]string{
+				"title":      oldIssue.Title,
+				"issue_type": oldIssue.IssueType,
+				"context":    oldIssue.Context,
+				"component":  oldIssue.Component,
+				"blocked_by": oldIssue.BlockedBy,
+			}
+			for field, val := range fieldMap {
+				if val == nil {
+					continue
+				}
+				if err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+					Field:     field,
+					Value:     *val,
+					ProjectID: p.ID,
+					ID:        issueID,
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				if oldValMap[field] != *val {
+					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldValMap[field], *val, agent)
+				}
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "close-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/close"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug        string  `json:"slug"`
+				ID          int32   `json:"id"`
+				Reason      *string `json:"reason,omitempty"`
+				Notes       *string `json:"notes,omitempty"`
+				DuplicateOf *string `json:"duplicate_of,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(in.Body.ID)
+			reason := ptrStr(in.Body.Reason)
+			duplicateOf := ptrStr(in.Body.DuplicateOf)
+			if reason == "duplicate" && duplicateOf == "" {
+				return nil, apiErr(400, "duplicate_of is required when reason is duplicate")
+			}
+			agent := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
+					agent = u.Email
+				}
+			}
+			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			s.recordRevision(ctx, p.ID, "issue", issueID, "status", "open", "closed", agent)
+			notes := ptrStr(in.Body.Notes)
+			note := "[closed"
+			if reason != "" {
+				note += ":" + reason
+			}
+			note += "] "
+			if duplicateOf != "" {
+				note += "duplicate of " + duplicateOf + " "
+			}
+			if notes != "" {
+				note += notes
+			}
+			_ = s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
+			s.publishIssue(in.Body.Slug, issueID, "issue.closed", map[string]any{"id": issueID, "reason": reason})
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "reopen-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/reopen"},
+		func(ctx context.Context, in *struct {
+			Body IssueIntIDInput
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.ID)
+			_ = s.q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: 0})
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "update-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/update"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID    int32  `json:"id"`
+				Field string `json:"field"`
+				Value string `json:"value"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.ID)
+			err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+				Field: in.Body.Field,
+				Value: in.Body.Value,
+				ID:    issueID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "issue-kind", Method: http.MethodPost, Path: "/api/dx/todo/issue/kind"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID   int32  `json:"id"`
+				Kind string `json:"kind"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.ID)
+			err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+				Field: "component",
+				Value: in.Body.Kind,
+				ID:    issueID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "issue-set-blocked-by", Method: http.MethodPost, Path: "/api/dx/todo/issue/set-blocked-by"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string `json:"slug"`
+				ID        int32  `json:"id"`
+				BlockedBy string `json:"blocked_by"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(in.Body.ID)
+			err = s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+				Field:     "blocked_by",
+				Value:     in.Body.BlockedBy,
+				ProjectID: p.ID,
+				ID:        issueID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// set-features is a no-op on the Go side — features are linked via task.issue
+	huma.Register(api, huma.Operation{OperationID: "issue-set-features", Method: http.MethodPost, Path: "/api/dx/todo/issue/set-features"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID       int32  `json:"id"`
+				Features string `json:"features"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// Issue work
+	huma.Register(api, huma.Operation{OperationID: "append-issue-work", Method: http.MethodPost, Path: "/api/issue-work"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				IssueID   int32  `json:"issue_id"`
+				EntryType string `json:"entry_type"`
+				ByRole    string `json:"by_role"`
+				Note      string `json:"note"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			issueID := issueIDFromInt(in.Body.IssueID)
+			note := in.Body.Note
+			if in.Body.EntryType != "" {
+				note = "[" + in.Body.EntryType + "] " + note
+			}
+			if err := s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{
+				IssueID: issueID,
+				Agent:   in.Body.ByRole,
+				Note:    note,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-worklog", Method: http.MethodGet, Path: "/api/dx/worklog"},
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
+			Body struct {
+				Entries []struct {
+					IssueID    string `json:"issue_id"`
+					IssueTitle string `json:"issue_title"`
+					Agent      string `json:"agent"`
+					Note       string `json:"note"`
+					CreatedAt  string `json:"created_at"`
+				} `json:"entries"`
+				Total int64 `json:"total"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			total, _ := s.q.CountWorklogForProject(ctx, p.ID)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListWorklogForProjectPaginated(ctx, db.ListWorklogForProjectPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			type entry = struct {
+				IssueID    string `json:"issue_id"`
+				IssueTitle string `json:"issue_title"`
+				Agent      string `json:"agent"`
+				Note       string `json:"note"`
+				CreatedAt  string `json:"created_at"`
+			}
+			type respBody = struct {
+				Entries []entry `json:"entries"`
+				Total   int64   `json:"total"`
+			}
+			out := make([]entry, len(rows))
+			for i, r := range rows {
+				out[i] = entry{IssueID: r.IssueID, IssueTitle: r.IssueTitle, Agent: r.Agent, Note: r.Note, CreatedAt: fmtTS(r.CreatedAt)}
+			}
+			return &struct{ Body respBody }{Body: respBody{Entries: out, Total: total}}, nil
+		})
+
+	// ── Issue similarity ───────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "similar-issues", Method: http.MethodPost, Path: "/api/dx/issues/similar"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				Text string `json:"text"`
+				N    int    `json:"n,omitempty"`
+			}
+		}) (*struct {
+			Body struct {
+				Issues []SimilarIssueItem `json:"issues"`
+			}
+		}, error) {
+			n := in.Body.N
+			if n <= 0 {
+				n = 5
+			}
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			results, err := s.findSimilarIssues(ctx, p.ID, in.Body.Text, n)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Issues []SimilarIssueItem `json:"issues"`
+				}
+			}{Body: struct {
+				Issues []SimilarIssueItem `json:"issues"`
+			}{Issues: results}}, nil
+		})
+
+	// ── Git commits ───────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "list-git-commits", Method: http.MethodGet, Path: "/api/dx/git/commits"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			N    int    `query:"n"`
+		}) (*struct {
+			Body struct {
+				Commits []GitCommit `json:"commits"`
+			}
+		}, error) {
+			if !s.features.HasProjectGitConfig {
+				return &struct {
+					Body struct {
+						Commits []GitCommit `json:"commits"`
+					}
+				}{}, nil
+			}
+			n := in.N
+			if n <= 0 || n > 100 {
+				n = 20
+			}
+			row, err := s.q.GetProjectGitConfig(ctx, in.Slug)
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
+			}
+			if row.GitUrl == "" {
+				return nil, apiErr(http.StatusUnprocessableEntity, "git URL not configured for project "+in.Slug)
+			}
+			// Embed token into URL for HTTPS auth if provided.
+			gitURL := row.GitUrl
+			if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
+				gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
+			}
+			dir := s.repoDir(in.Slug)
+			branch := row.GitBranch
+			if branch == "" {
+				branch = "main"
+			}
+			if err := ensureRepo(dir, gitURL, branch); err != nil {
+				return nil, apiErr(500, "git: "+err.Error())
+			}
+			commits, err := recentCommits(dir, branch, n)
+			if err != nil {
+				return nil, apiErr(500, "git: "+err.Error())
+			}
+			return &struct {
+				Body struct {
+					Commits []GitCommit `json:"commits"`
+				}
+			}{Body: struct {
+				Commits []GitCommit `json:"commits"`
+			}{Commits: commits}}, nil
+		})
+}
+
+// ── Model → response converter ────────────────────────────────────────────
+
+func toIssueItem(r db.ZdxIssue) IssueItem {
+	return IssueItem{
+		ID:          issueIntID(r.ID),
+		Title:       r.Title,
+		Status:      r.Status,
+		Priority:    r.Priority,
+		Component:   r.Component,
+		BlockedBy:   r.BlockedBy,
+		Context:     r.Context,
+		IssueType:   r.IssueType,
+		DuplicateOf: r.DuplicateOf,
+		CreatedAt:   fmtTS(r.CreatedAt),
+	}
+}

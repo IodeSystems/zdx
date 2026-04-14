@@ -1,0 +1,388 @@
+package server
+
+import (
+	"context"
+	"net/http"
+
+	"github.com/danielgtaylor/huma/v2"
+
+	"github.com/iodesystems/zdx-go/internal/db"
+)
+
+func (s *Server) registerDxRoutes(api huma.API) {
+	// ── State ─────────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "get-state", Method: http.MethodGet, Path: "/api/dx/state"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			Key  string `query:"key" required:"true"`
+		}) (*struct {
+			Body struct {
+				Value string `json:"value"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			val, err := s.q.GetState(ctx, db.GetStateParams{ProjectID: p.ID, Key: in.Key})
+			if err != nil {
+				val = ""
+			}
+			return &struct {
+				Body struct {
+					Value string `json:"value"`
+				}
+			}{Body: struct {
+				Value string `json:"value"`
+			}{Value: val}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "set-state", Method: http.MethodPost, Path: "/api/dx/state"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string `json:"slug"`
+				Key   string `json:"key"`
+				Value string `json:"value"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.SetState(ctx, db.SetStateParams{
+				ProjectID: p.ID,
+				Key:       in.Body.Key,
+				Value:     in.Body.Value,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Todos ─────────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "list-todos", Method: http.MethodGet, Path: "/api/dx/todos"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Todos []TodoItem `json:"todos"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListTodos(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TodoItem, len(rows))
+			for i, r := range rows {
+				out[i] = toTodoItem(r)
+			}
+			return &struct {
+				Body struct {
+					Todos []TodoItem `json:"todos"`
+				}
+			}{Body: struct {
+				Todos []TodoItem `json:"todos"`
+			}{Todos: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "write-todos", Method: http.MethodPost, Path: "/api/dx/todos"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string           `json:"slug"`
+				Todos []WriteTodoInput `json:"todos"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.DeleteTodosForProject(ctx, p.ID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			for _, t := range in.Body.Todos {
+				status := t.Status
+				if status == "" {
+					status = "open"
+				}
+				_, err := s.q.CreateTodo(ctx, db.CreateTodoParams{
+					ProjectID: p.ID,
+					Text:      t.Text,
+					Key:       t.Key,
+					Persona:   t.Persona,
+					Priority:  t.Priority,
+					Status:    status,
+				})
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Test results ──────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "submit-test-results", Method: http.MethodPost, Path: "/api/dx/test-results/submit"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string            `json:"slug"`
+				Results []TestResultInput `json:"results"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			for _, r := range in.Body.Results {
+				_, _ = s.q.UpsertTest(ctx, db.UpsertTestParams{
+					ProjectID: p.ID,
+					Component: r.Driver,
+					Name:      r.TestName,
+					Layer:     "integration",
+					Status:    r.Status,
+				})
+				_ = s.q.UpsertTestResult(ctx, db.UpsertTestResultParams{
+					ProjectID:  p.ID,
+					Driver:     r.Driver,
+					TestName:   r.TestName,
+					Feature:    r.Feature,
+					Status:     r.Status,
+					DurationMs: r.DurationMS,
+				})
+				_ = s.q.InsertTestResultHistory(ctx, db.InsertTestResultHistoryParams{
+					ProjectID:  p.ID,
+					Driver:     r.Driver,
+					TestName:   r.TestName,
+					Feature:    r.Feature,
+					Status:     r.Status,
+					DurationMs: r.DurationMS,
+				})
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	type TestItem struct {
+		ID        int32  `json:"id"`
+		Component string `json:"component"`
+		Name      string `json:"name"`
+		Layer     string `json:"layer"`
+		Status    string `json:"status"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-tests", Method: http.MethodGet, Path: "/api/dx/tests"},
+		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
+			Body struct {
+				Tests []TestItem `json:"tests"`
+				Total int64      `json:"total"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			total, _ := s.q.CountTests(ctx, p.ID)
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := s.q.ListTestsPaginated(ctx, db.ListTestsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TestItem, len(rows))
+			for i, r := range rows {
+				out[i] = TestItem{ID: r.ID, Component: r.Component, Name: r.Name, Layer: r.Layer, Status: r.Status}
+			}
+			return &struct {
+				Body struct {
+					Tests []TestItem `json:"tests"`
+					Total int64      `json:"total"`
+				}
+			}{Body: struct {
+				Tests []TestItem `json:"tests"`
+				Total int64      `json:"total"`
+			}{Tests: out, Total: total}}, nil
+		})
+
+	// ── Journal ───────────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "journal-checkin", Method: http.MethodPost, Path: "/api/dx/journal/checkin"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug          string `json:"slug"`
+				Role          string `json:"role"`
+				Date          string `json:"date"`
+				Tldr          string `json:"tldr"`
+				Assessment    string `json:"assessment"`
+				Concerns      string `json:"concerns"`
+				Next          string `json:"next"`
+				StateJSON     string `json:"state_json,omitempty"`
+				ChangelogJSON string `json:"changelog_json,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			stateJSON := in.Body.StateJSON
+			if stateJSON == "" {
+				stateJSON = "{}"
+			}
+			changelogJSON := in.Body.ChangelogJSON
+			if changelogJSON == "" {
+				changelogJSON = "{}"
+			}
+			_, err = s.q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
+				ProjectID:     p.ID,
+				Role:          in.Body.Role,
+				Date:          in.Body.Date,
+				Tldr:          in.Body.Tldr,
+				Assessment:    in.Body.Assessment,
+				Concerns:      in.Body.Concerns,
+				Next:          in.Body.Next,
+				StateJson:     stateJSON,
+				ChangelogJson: changelogJSON,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "journal-show", Method: http.MethodGet, Path: "/api/dx/journal/show"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			Role string `query:"role" required:"true"`
+		}) (*struct {
+			Body struct {
+				Entries []JournalEntryItem `json:"entries"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: in.Role})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]JournalEntryItem, len(rows))
+			for i, r := range rows {
+				out[i] = JournalEntryItem{
+					Date:          r.Date,
+					Baseline:      r.Baseline,
+					Tldr:          r.Tldr,
+					Assessment:    r.Assessment,
+					Concerns:      r.Concerns,
+					Next:          r.Next,
+					ChangelogJSON: r.ChangelogJson,
+					StateJSON:     r.StateJson,
+				}
+			}
+			return &struct {
+				Body struct {
+					Entries []JournalEntryItem `json:"entries"`
+				}
+			}{Body: struct {
+				Entries []JournalEntryItem `json:"entries"`
+			}{Entries: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "journal-state", Method: http.MethodGet, Path: "/api/dx/journal/state"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			Role string `query:"role" required:"true"`
+		}) (*struct {
+			Body struct {
+				StateJSON string `json:"state_json"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			entry, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: in.Role})
+			if err != nil {
+				return &struct {
+					Body struct {
+						StateJSON string `json:"state_json"`
+					}
+				}{}, nil
+			}
+			return &struct {
+				Body struct {
+					StateJSON string `json:"state_json"`
+				}
+			}{Body: struct {
+				StateJSON string `json:"state_json"`
+			}{StateJSON: entry.StateJson}}, nil
+		})
+
+	// ── Solo Health ──────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "solo-health", Method: http.MethodGet, Path: "/api/dx/solo/health"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct {
+			Body struct {
+				GoalCount        int64  `json:"goal_count"`
+				ConstraintCount  int64  `json:"constraint_count"`
+				OwnerJournalDate string `json:"owner_journal_date"`
+				TechJournalDate  string `json:"tech_journal_date"`
+				ClosedTaskCount  int64  `json:"closed_task_count"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			goalCount, _ := s.q.CountProjectGoals(ctx, p.ID)
+			constraintCount, _ := s.q.CountProjectConstraints(ctx, p.ID)
+			closedTaskCount, _ := s.q.CountClosedTasks(ctx, p.ID)
+
+			var ownerDate, techDate string
+			if oe, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: "owner"}); err == nil {
+				ownerDate = oe.Date
+			}
+			if te, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: "tech"}); err == nil {
+				techDate = te.Date
+			}
+
+			return &struct {
+				Body struct {
+					GoalCount        int64  `json:"goal_count"`
+					ConstraintCount  int64  `json:"constraint_count"`
+					OwnerJournalDate string `json:"owner_journal_date"`
+					TechJournalDate  string `json:"tech_journal_date"`
+					ClosedTaskCount  int64  `json:"closed_task_count"`
+				}
+			}{Body: struct {
+				GoalCount        int64  `json:"goal_count"`
+				ConstraintCount  int64  `json:"constraint_count"`
+				OwnerJournalDate string `json:"owner_journal_date"`
+				TechJournalDate  string `json:"tech_journal_date"`
+				ClosedTaskCount  int64  `json:"closed_task_count"`
+			}{
+				GoalCount:        goalCount,
+				ConstraintCount:  constraintCount,
+				OwnerJournalDate: ownerDate,
+				TechJournalDate:  techDate,
+				ClosedTaskCount:  closedTaskCount,
+			}}, nil
+		})
+}
+
+// ── Model → response converter ────────────────────────────────────────────
+
+func toTodoItem(r db.ZdxTodo) TodoItem {
+	return TodoItem{
+		ID:         r.ID,
+		Text:       r.Text,
+		Key:        r.Key,
+		Persona:    r.Persona,
+		Priority:   r.Priority,
+		Status:     r.Status,
+		CreatedAt:  fmtTS(r.CreatedAt),
+		ResolvedAt: fmtTS(r.ResolvedAt),
+	}
+}
