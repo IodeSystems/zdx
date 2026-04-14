@@ -304,6 +304,80 @@ ALTER SEQUENCE public.zdx_comments_id_seq OWNED BY public.zdx_comments.id;
 
 
 --
+-- Name: zdx_counted; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_counted (
+    id bigint NOT NULL,
+    project_id integer,
+    component text DEFAULT ''::text NOT NULL,
+    environment text DEFAULT ''::text NOT NULL,
+    name text NOT NULL,
+    value integer NOT NULL,
+    source text DEFAULT ''::text NOT NULL,
+    context_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    count integer DEFAULT 1 NOT NULL,
+    total_value bigint DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_counted_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_counted_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_counted_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_counted_id_seq OWNED BY public.zdx_counted.id;
+
+
+--
+-- Name: zdx_counter_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_counter_events (
+    id bigint NOT NULL,
+    project_id integer,
+    component text DEFAULT ''::text NOT NULL,
+    environment text DEFAULT ''::text NOT NULL,
+    name text NOT NULL,
+    value integer NOT NULL,
+    source text DEFAULT ''::text NOT NULL,
+    context_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_counter_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_counter_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_counter_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_counter_events_id_seq OWNED BY public.zdx_counter_events.id;
+
+
+--
 -- Name: zdx_error_reports; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1607,6 +1681,20 @@ ALTER TABLE ONLY public.zdx_comments ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: zdx_counted id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_counted ALTER COLUMN id SET DEFAULT nextval('public.zdx_counted_id_seq'::regclass);
+
+
+--
+-- Name: zdx_counter_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_counter_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_counter_events_id_seq'::regclass);
+
+
+--
 -- Name: zdx_error_reports id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -1917,6 +2005,22 @@ ALTER TABLE ONLY public.zdx_comment_reads
 
 ALTER TABLE ONLY public.zdx_comments
     ADD CONSTRAINT zdx_comments_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_counted zdx_counted_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_counted
+    ADD CONSTRAINT zdx_counted_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_counter_events zdx_counter_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_counter_events
+    ADD CONSTRAINT zdx_counter_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -2589,6 +2693,41 @@ CREATE INDEX zdx_claude_sessions_project ON public.zdx_claude_sessions USING btr
 
 
 --
+-- Name: zdx_counted_context_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_counted_context_gin ON public.zdx_counted USING gin (context_json jsonb_path_ops);
+
+
+--
+-- Name: zdx_counted_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX zdx_counted_name ON public.zdx_counted USING btree (COALESCE(project_id, 0), component, environment, name);
+
+
+--
+-- Name: zdx_counted_project_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_counted_project_created ON public.zdx_counted USING btree (project_id, created_at);
+
+
+--
+-- Name: zdx_counter_events_context_gin; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_counter_events_context_gin ON public.zdx_counter_events USING gin (context_json jsonb_path_ops);
+
+
+--
+-- Name: zdx_counter_events_project_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_counter_events_project_created ON public.zdx_counter_events USING btree (project_id, created_at);
+
+
+--
 -- Name: zdx_integration_token_hash; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -2721,6 +2860,22 @@ ALTER TABLE ONLY public.zdx_comment_reads
 
 ALTER TABLE ONLY public.zdx_comments
     ADD CONSTRAINT zdx_comments_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_counted zdx_counted_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_counted
+    ADD CONSTRAINT zdx_counted_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_counter_events zdx_counter_events_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_counter_events
+    ADD CONSTRAINT zdx_counter_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
@@ -3114,82 +3269,6 @@ ALTER TABLE ONLY public.zdx_todos
 ALTER TABLE ONLY public.zdx_work_log
     ADD CONSTRAINT zdx_work_log_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
 
-
---
--- Name: zdx_counted; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_counted (
-    id bigint NOT NULL,
-    project_id integer,
-    component text DEFAULT ''::text NOT NULL,
-    environment text DEFAULT ''::text NOT NULL,
-    name text NOT NULL,
-    value integer NOT NULL,
-    source text DEFAULT ''::text NOT NULL,
-    context_json jsonb DEFAULT '{}'::jsonb NOT NULL,
-    count integer DEFAULT 1 NOT NULL,
-    total_value bigint DEFAULT 0 NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-CREATE SEQUENCE public.zdx_counted_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.zdx_counted_id_seq OWNED BY public.zdx_counted.id;
-
-ALTER TABLE ONLY public.zdx_counted ALTER COLUMN id SET DEFAULT nextval('public.zdx_counted_id_seq'::regclass);
-
-ALTER TABLE ONLY public.zdx_counted
-    ADD CONSTRAINT zdx_counted_pkey PRIMARY KEY (id);
-
-CREATE UNIQUE INDEX zdx_counted_name ON public.zdx_counted USING btree (COALESCE(project_id, 0), component, environment, name);
-
-CREATE INDEX zdx_counted_project_created ON public.zdx_counted USING btree (project_id, created_at);
-CREATE INDEX zdx_counted_context_gin ON public.zdx_counted USING gin (context_json jsonb_path_ops);
-
-ALTER TABLE ONLY public.zdx_counted
-    ADD CONSTRAINT zdx_counted_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
-
---
--- Name: zdx_counter_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_counter_events (
-    id bigint NOT NULL,
-    project_id integer,
-    component text DEFAULT ''::text NOT NULL,
-    environment text DEFAULT ''::text NOT NULL,
-    name text NOT NULL,
-    value integer NOT NULL,
-    source text DEFAULT ''::text NOT NULL,
-    context_json jsonb DEFAULT '{}'::jsonb NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-CREATE SEQUENCE public.zdx_counter_events_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.zdx_counter_events_id_seq OWNED BY public.zdx_counter_events.id;
-
-ALTER TABLE ONLY public.zdx_counter_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_counter_events_id_seq'::regclass);
-
-ALTER TABLE ONLY public.zdx_counter_events
-    ADD CONSTRAINT zdx_counter_events_pkey PRIMARY KEY (id);
-
-CREATE INDEX zdx_counter_events_project_created ON public.zdx_counter_events USING btree (project_id, created_at);
-CREATE INDEX zdx_counter_events_context_gin ON public.zdx_counter_events USING gin (context_json jsonb_path_ops);
-
-ALTER TABLE ONLY public.zdx_counter_events
-    ADD CONSTRAINT zdx_counter_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 --
 -- PostgreSQL database dump complete
