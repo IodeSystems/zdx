@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countClosedTasks = `-- name: CountClosedTasks :one
+SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND status = 'done'
+`
+
+func (q *Queries) CountClosedTasks(ctx context.Context, projectID int32) (int64, error) {
+	row := q.db.QueryRow(ctx, countClosedTasks, projectID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countTasks = `-- name: CountTasks :one
 SELECT count(*) FROM zdx_tasks WHERE project_id = $1
 `

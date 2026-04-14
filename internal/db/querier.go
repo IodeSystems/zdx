@@ -27,6 +27,7 @@ type Querier interface {
 	CountBlockerQuestions(ctx context.Context, projectID int32) (int64, error)
 	CountClaudeEvents(ctx context.Context, sessionPk int64) (int64, error)
 	CountClaudeSessions(ctx context.Context, projectID int32) (int64, error)
+	CountClosedTasks(ctx context.Context, projectID int32) (int64, error)
 	CountComments(ctx context.Context, arg CountCommentsParams) (int64, error)
 	CountCommentsByAuthor(ctx context.Context, arg CountCommentsByAuthorParams) (int64, error)
 	CountErrorReports(ctx context.Context, projectID pgtype.Int4) (int64, error)

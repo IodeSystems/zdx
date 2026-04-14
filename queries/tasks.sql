@@ -5,6 +5,9 @@ FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC;
 -- name: CountTasks :one
 SELECT count(*) FROM zdx_tasks WHERE project_id = $1;
 
+-- name: CountClosedTasks :one
+SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND status = 'done';
+
 -- name: ListTasksPaginated :many
 SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC

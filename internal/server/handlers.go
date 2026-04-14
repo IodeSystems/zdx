@@ -2353,6 +2353,59 @@ func (s *Server) registerRoutes(api huma.API) {
 			}{StateJSON: entry.StateJson}}, nil
 		})
 
+	// ── Solo Health ──────────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "solo-health", Method: http.MethodGet, Path: "/api/dx/solo/health"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct {
+			Body struct {
+				GoalCount        int64  `json:"goal_count"`
+				ConstraintCount  int64  `json:"constraint_count"`
+				OwnerJournalDate string `json:"owner_journal_date"`
+				TechJournalDate  string `json:"tech_journal_date"`
+				ClosedTaskCount  int64  `json:"closed_task_count"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			goalCount, _ := s.q.CountProjectGoals(ctx, p.ID)
+			constraintCount, _ := s.q.CountProjectConstraints(ctx, p.ID)
+			closedTaskCount, _ := s.q.CountClosedTasks(ctx, p.ID)
+
+			var ownerDate, techDate string
+			if oe, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: "owner"}); err == nil {
+				ownerDate = oe.Date
+			}
+			if te, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: "tech"}); err == nil {
+				techDate = te.Date
+			}
+
+			return &struct {
+				Body struct {
+					GoalCount        int64  `json:"goal_count"`
+					ConstraintCount  int64  `json:"constraint_count"`
+					OwnerJournalDate string `json:"owner_journal_date"`
+					TechJournalDate  string `json:"tech_journal_date"`
+					ClosedTaskCount  int64  `json:"closed_task_count"`
+				}
+			}{Body: struct {
+				GoalCount        int64  `json:"goal_count"`
+				ConstraintCount  int64  `json:"constraint_count"`
+				OwnerJournalDate string `json:"owner_journal_date"`
+				TechJournalDate  string `json:"tech_journal_date"`
+				ClosedTaskCount  int64  `json:"closed_task_count"`
+			}{
+				GoalCount:        goalCount,
+				ConstraintCount:  constraintCount,
+				OwnerJournalDate: ownerDate,
+				TechJournalDate:  techDate,
+				ClosedTaskCount:  closedTaskCount,
+			}}, nil
+		})
+
 	// ── Errors ────────────────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "report-error", Method: http.MethodPost, Path: "/api/dx/errors/report"},

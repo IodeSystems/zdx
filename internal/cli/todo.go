@@ -5,6 +5,7 @@ import (
 	"net/url"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 )
@@ -294,6 +295,32 @@ Analyze the project to bootstrap its feature catalog and first issue:
 
 4. Run dx todo solo again to start the normal triage flow.`)
 		return nil
+	}
+
+	// 0e. Check project health: goals, constraints, journal cadence.
+	// Only in global mode — these are cross-cutting owner/tech concerns.
+	if issueFlag == "" {
+		var health struct {
+			GoalCount        int64  `json:"goal_count"`
+			ConstraintCount  int64  `json:"constraint_count"`
+			OwnerJournalDate string `json:"owner_journal_date"`
+			TechJournalDate  string `json:"tech_journal_date"`
+			ClosedTaskCount  int64  `json:"closed_task_count"`
+		}
+		if err := c.get("/api/dx/solo/health", url.Values{"slug": {slug}}, &health); err == nil {
+			if health.GoalCount == 0 {
+				fmt.Println("[owner:goals]  project has no goals defined — dx goal add <title>")
+				return nil
+			}
+			if health.ConstraintCount == 0 {
+				fmt.Println("[owner:constraints]  project has no constraints defined — dx constraint add <title>")
+				return nil
+			}
+			if overdue, role := journalOverdue(health.OwnerJournalDate, health.TechJournalDate, health.ClosedTaskCount); overdue {
+				fmt.Printf("[%s:journal]  %s journal check-in overdue — dx journal checkin --%s\n", role, role, role)
+				return nil
+			}
+		}
 	}
 
 	// 1. Find untriaged open issue (no priority)
@@ -894,6 +921,36 @@ func printTaskItem(t taskItem) {
 	if t.TaskGroup != "" {
 		fmt.Printf("Group:   %s\n", t.TaskGroup)
 	}
+}
+
+// journalOverdue returns true and the role name if either owner or tech journal
+// is overdue. Cadence: max(7, 30 / max(1, closedTasks/10)) days between entries.
+// More completed tasks → more frequent check-ins; minimum weekly, maximum monthly.
+func journalOverdue(ownerDate, techDate string, closedTasks int64) (bool, string) {
+	now := time.Now()
+	cadenceDays := 30.0 / max(1.0, float64(closedTasks)/10.0)
+	if cadenceDays < 7 {
+		cadenceDays = 7
+	}
+
+	check := func(dateStr string) bool {
+		if dateStr == "" {
+			return true
+		}
+		t, err := time.Parse("2006-01-02", dateStr)
+		if err != nil {
+			return true
+		}
+		return now.Sub(t).Hours()/24 > cadenceDays
+	}
+
+	if check(ownerDate) {
+		return true, "owner"
+	}
+	if check(techDate) {
+		return true, "tech"
+	}
+	return false, ""
 }
 
 // RunTodo kept for compatibility.
