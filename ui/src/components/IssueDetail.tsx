@@ -19,9 +19,13 @@ import {
   useCloseIssue,
   useSearchIssues,
   useIssueCodeRefs,
+  useListThemes,
+  useAddThemeBlocker,
+  useRemoveThemeBlocker,
   type IssueItem,
   type IssueWorkItem,
   type TaskItem,
+  type ThemeItem,
 } from '../api'
 import { useChannel } from '../hooks/useChannel'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
@@ -71,6 +75,10 @@ export function IssueDetail({
   const [duplicateOf, setDuplicateOf] = useState<IssueItem | null>(null)
   const [dupSearch, setDupSearch] = useState('')
   const { data: dupResults } = useSearchIssues(slug, dupSearch, closeReason === 'duplicate' && dupSearch.length > 1)
+  const { data: allThemes } = useListThemes(slug)
+  const addThemeBlocker = useAddThemeBlocker()
+  const removeThemeBlocker = useRemoveThemeBlocker()
+  const [themeInput, setThemeInput] = useState('')
 
   const onWsMessage = useCallback(() => {
     refetch()
@@ -90,6 +98,9 @@ export function IssueDetail({
 
   const linkedTasks: TaskItem[] = allTasks?.tasks ?? []
   const workEntries: IssueWorkItem[] = data?.work ?? []
+  const blockingThemes = (allThemes ?? []).filter(t => t.blockers.split(',').includes(issueId))
+  const blockingThemeIds = new Set(blockingThemes.map(t => t.id))
+  const availableThemes = (allThemes ?? []).filter(t => t.status === 'active' && !blockingThemeIds.has(t.id))
 
   if (!issue) {
     return (
@@ -168,12 +179,50 @@ export function IssueDetail({
             sx={{ textDecoration: 'none' }}
           />
         )}
+        {blockingThemes.map(t => (
+          <Chip
+            key={t.id}
+            label={t.name}
+            size="small"
+            variant="outlined"
+            color="secondary"
+            component={Link as any}
+            to="/project/$slug/themes/$name"
+            params={{ slug, name: t.name }}
+            clickable
+            sx={{ textDecoration: 'none' }}
+            onDelete={() => removeThemeBlocker.mutate({ slug, theme: `TH-${t.id}`, issue: issueId })}
+          />
+        ))}
         {(issue.status === 'open' || issue.status === 'triaged' || issue.status === 'in-progress') && (
           <Button size="small" variant="outlined" color="warning" onClick={() => { setCloseReason(''); setDuplicateOf(null); setDupSearch(''); setCloseOpen(true) }}>
             Close
           </Button>
         )}
       </Box>
+
+      {availableThemes.length > 0 && (
+        <Box sx={{ mb: 2 }}>
+          <Autocomplete<ThemeItem>
+            size="small"
+            options={availableThemes}
+            getOptionLabel={(o) => o.name}
+            inputValue={themeInput}
+            onInputChange={(_, v) => setThemeInput(v)}
+            onChange={(_, v) => {
+              if (v) {
+                addThemeBlocker.mutate({ slug, theme: `TH-${v.id}`, issue: issueId })
+                setThemeInput('')
+              }
+            }}
+            value={null}
+            renderInput={(params) => <TextField {...params} label="Add theme" placeholder="Search themes..." />}
+            sx={{ maxWidth: 300 }}
+            noOptionsText="No themes"
+            isOptionEqualToValue={(o, v) => o.id === v.id}
+          />
+        </Box>
+      )}
 
       <Dialog open={closeOpen} onClose={() => setCloseOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Close {issue.id}</DialogTitle>

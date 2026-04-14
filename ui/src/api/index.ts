@@ -16,6 +16,7 @@ export type SpecItem = components['schemas']['SpecItem']
 export type ProjectItem = components['schemas']['ProjectItem']
 export type MeItem = components['schemas']['MeItem']
 export type OKBody = components['schemas']['OKBody']
+export type ThemeItem = components['schemas']['ThemeItem']
 
 // SoloItem is not in the OpenAPI spec (undocumented endpoint).
 export interface SoloItem {
@@ -1169,5 +1170,66 @@ export const useFileProposal = (slug: string) => {
     mutationFn: (body: { id: number; filed_issue_id: string }) =>
       apiPost<OKBody>('/api/proposal/file', body),
     onSuccess: () => qc.invalidateQueries({ queryKey: ['proposals', slug] }),
+  })
+}
+
+// ── themes ───────────────────────────────────────────────────────────────────
+
+export const useListThemes = (slug: string) =>
+  useQuery<ThemeItem[]>({
+    queryKey: ['themes', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/themes', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.themes ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useAddThemeBlocker = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, { slug: string; theme: string; issue: string }>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/themes/block', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['themes', v.slug] }),
+  })
+}
+
+export const useRemoveThemeBlocker = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, { slug: string; theme: string; issue: string }>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/themes/unblock', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['themes', v.slug] }),
+  })
+}
+
+export const useAddTheme = () => {
+  const qc = useQueryClient()
+  return useMutation<ThemeItem, Error, components['schemas']['Add-themeRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/themes/add', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['themes', v.slug] }),
+  })
+}
+
+export const useSetThemeStatus = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, { slug: string; theme: string; status: string }>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/themes/status', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['themes', v.slug] }),
   })
 }

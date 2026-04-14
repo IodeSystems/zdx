@@ -23,6 +23,7 @@ import {
 } from '@mui/material'
 import {
   AutoStories as AutoStoriesIcon,
+  Bookmark as BookmarkIcon,
   Extension as ExtensionIcon,
   Flag as FlagIcon,
   HelpOutlined as HelpOutlineIcon,
@@ -56,6 +57,7 @@ const DRAWER_WIDTH = 220
 const SECTIONS = [
   { label: 'Goals', icon: <FlagIcon fontSize="small" />, path: 'goals' },
   { label: 'Features', icon: <ExtensionIcon fontSize="small" />, path: 'features' },
+  { label: 'Themes', icon: <BookmarkIcon fontSize="small" />, path: 'themes' },
   { label: 'Tasks', icon: <TaskAltIcon fontSize="small" />, path: 'tasks' },
   { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
   { label: 'Questions', icon: <QuestionAnswerIcon fontSize="small" />, path: 'questions' },

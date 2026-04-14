@@ -31,11 +31,13 @@ import { Route as ProjectSlugErrorsRouteImport } from './routes/project/$slug/er
 import { Route as ProjectSlugDemosRouteImport } from './routes/project/$slug/demos'
 import { Route as ProjectSlugClaudeRouteImport } from './routes/project/$slug/claude'
 import { Route as ProjectSlugBlockerQuestionsRouteImport } from './routes/project/$slug/blocker-questions'
+import { Route as ProjectSlugThemesIndexRouteImport } from './routes/project/$slug/themes/index'
 import { Route as ProjectSlugTasksIndexRouteImport } from './routes/project/$slug/tasks/index'
 import { Route as ProjectSlugQuestionsIndexRouteImport } from './routes/project/$slug/questions/index'
 import { Route as ProjectSlugIssuesIndexRouteImport } from './routes/project/$slug/issues/index'
 import { Route as ProjectSlugGoalsIndexRouteImport } from './routes/project/$slug/goals/index'
 import { Route as ProjectSlugFeaturesIndexRouteImport } from './routes/project/$slug/features/index'
+import { Route as ProjectSlugThemesNameRouteImport } from './routes/project/$slug/themes/$name'
 import { Route as ProjectSlugTasksIdRouteImport } from './routes/project/$slug/tasks/$id'
 import { Route as ProjectSlugQuestionsIdRouteImport } from './routes/project/$slug/questions/$id'
 import { Route as ProjectSlugIssuesIdRouteImport } from './routes/project/$slug/issues/$id'
@@ -152,6 +154,11 @@ const ProjectSlugBlockerQuestionsRoute =
     path: '/blocker-questions',
     getParentRoute: () => ProjectSlugRoute,
   } as any)
+const ProjectSlugThemesIndexRoute = ProjectSlugThemesIndexRouteImport.update({
+  id: '/themes/',
+  path: '/themes/',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
 const ProjectSlugTasksIndexRoute = ProjectSlugTasksIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -179,6 +186,11 @@ const ProjectSlugFeaturesIndexRoute =
     path: '/',
     getParentRoute: () => ProjectSlugFeaturesRoute,
   } as any)
+const ProjectSlugThemesNameRoute = ProjectSlugThemesNameRouteImport.update({
+  id: '/themes/$name',
+  path: '/themes/$name',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
 const ProjectSlugTasksIdRoute = ProjectSlugTasksIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -227,11 +239,13 @@ export interface FileRoutesByFullPath {
   '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
   '/project/$slug/questions/$id': typeof ProjectSlugQuestionsIdRoute
   '/project/$slug/tasks/$id': typeof ProjectSlugTasksIdRoute
+  '/project/$slug/themes/$name': typeof ProjectSlugThemesNameRoute
   '/project/$slug/features/': typeof ProjectSlugFeaturesIndexRoute
   '/project/$slug/goals/': typeof ProjectSlugGoalsIndexRoute
   '/project/$slug/issues/': typeof ProjectSlugIssuesIndexRoute
   '/project/$slug/questions/': typeof ProjectSlugQuestionsIndexRoute
   '/project/$slug/tasks/': typeof ProjectSlugTasksIndexRoute
+  '/project/$slug/themes/': typeof ProjectSlugThemesIndexRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -255,11 +269,13 @@ export interface FileRoutesByTo {
   '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
   '/project/$slug/questions/$id': typeof ProjectSlugQuestionsIdRoute
   '/project/$slug/tasks/$id': typeof ProjectSlugTasksIdRoute
+  '/project/$slug/themes/$name': typeof ProjectSlugThemesNameRoute
   '/project/$slug/features': typeof ProjectSlugFeaturesIndexRoute
   '/project/$slug/goals': typeof ProjectSlugGoalsIndexRoute
   '/project/$slug/issues': typeof ProjectSlugIssuesIndexRoute
   '/project/$slug/questions': typeof ProjectSlugQuestionsIndexRoute
   '/project/$slug/tasks': typeof ProjectSlugTasksIndexRoute
+  '/project/$slug/themes': typeof ProjectSlugThemesIndexRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -289,11 +305,13 @@ export interface FileRoutesById {
   '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
   '/project/$slug/questions/$id': typeof ProjectSlugQuestionsIdRoute
   '/project/$slug/tasks/$id': typeof ProjectSlugTasksIdRoute
+  '/project/$slug/themes/$name': typeof ProjectSlugThemesNameRoute
   '/project/$slug/features/': typeof ProjectSlugFeaturesIndexRoute
   '/project/$slug/goals/': typeof ProjectSlugGoalsIndexRoute
   '/project/$slug/issues/': typeof ProjectSlugIssuesIndexRoute
   '/project/$slug/questions/': typeof ProjectSlugQuestionsIndexRoute
   '/project/$slug/tasks/': typeof ProjectSlugTasksIndexRoute
+  '/project/$slug/themes/': typeof ProjectSlugThemesIndexRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -324,11 +342,13 @@ export interface FileRouteTypes {
     | '/project/$slug/issues/$id'
     | '/project/$slug/questions/$id'
     | '/project/$slug/tasks/$id'
+    | '/project/$slug/themes/$name'
     | '/project/$slug/features/'
     | '/project/$slug/goals/'
     | '/project/$slug/issues/'
     | '/project/$slug/questions/'
     | '/project/$slug/tasks/'
+    | '/project/$slug/themes/'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -352,11 +372,13 @@ export interface FileRouteTypes {
     | '/project/$slug/issues/$id'
     | '/project/$slug/questions/$id'
     | '/project/$slug/tasks/$id'
+    | '/project/$slug/themes/$name'
     | '/project/$slug/features'
     | '/project/$slug/goals'
     | '/project/$slug/issues'
     | '/project/$slug/questions'
     | '/project/$slug/tasks'
+    | '/project/$slug/themes'
   id:
     | '__root__'
     | '/'
@@ -385,11 +407,13 @@ export interface FileRouteTypes {
     | '/project/$slug/issues/$id'
     | '/project/$slug/questions/$id'
     | '/project/$slug/tasks/$id'
+    | '/project/$slug/themes/$name'
     | '/project/$slug/features/'
     | '/project/$slug/goals/'
     | '/project/$slug/issues/'
     | '/project/$slug/questions/'
     | '/project/$slug/tasks/'
+    | '/project/$slug/themes/'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -557,6 +581,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugBlockerQuestionsRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
+    '/project/$slug/themes/': {
+      id: '/project/$slug/themes/'
+      path: '/themes'
+      fullPath: '/project/$slug/themes/'
+      preLoaderRoute: typeof ProjectSlugThemesIndexRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
     '/project/$slug/tasks/': {
       id: '/project/$slug/tasks/'
       path: '/'
@@ -591,6 +622,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/project/$slug/features/'
       preLoaderRoute: typeof ProjectSlugFeaturesIndexRouteImport
       parentRoute: typeof ProjectSlugFeaturesRoute
+    }
+    '/project/$slug/themes/$name': {
+      id: '/project/$slug/themes/$name'
+      path: '/themes/$name'
+      fullPath: '/project/$slug/themes/$name'
+      preLoaderRoute: typeof ProjectSlugThemesNameRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
     '/project/$slug/tasks/$id': {
       id: '/project/$slug/tasks/$id'
@@ -691,7 +729,9 @@ interface ProjectSlugRouteChildren {
   ProjectSlugWorklogRoute: typeof ProjectSlugWorklogRoute
   ProjectSlugIndexRoute: typeof ProjectSlugIndexRoute
   ProjectSlugQuestionsIdRoute: typeof ProjectSlugQuestionsIdRoute
+  ProjectSlugThemesNameRoute: typeof ProjectSlugThemesNameRoute
   ProjectSlugQuestionsIndexRoute: typeof ProjectSlugQuestionsIndexRoute
+  ProjectSlugThemesIndexRoute: typeof ProjectSlugThemesIndexRoute
 }
 
 const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
@@ -712,7 +752,9 @@ const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
   ProjectSlugWorklogRoute: ProjectSlugWorklogRoute,
   ProjectSlugIndexRoute: ProjectSlugIndexRoute,
   ProjectSlugQuestionsIdRoute: ProjectSlugQuestionsIdRoute,
+  ProjectSlugThemesNameRoute: ProjectSlugThemesNameRoute,
   ProjectSlugQuestionsIndexRoute: ProjectSlugQuestionsIndexRoute,
+  ProjectSlugThemesIndexRoute: ProjectSlugThemesIndexRoute,
 }
 
 const ProjectSlugRouteWithChildren = ProjectSlugRoute._addFileChildren(
