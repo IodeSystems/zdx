@@ -212,6 +212,15 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	for _, iss := range targetIssues {
 		if iss.Status == "open" && iss.Priority == "" {
 			fmt.Printf("[triage] %s  %s\n", issueIDStr(iss.ID), iss.Title)
+			if iss.IssueType != "" {
+				fmt.Printf("  type:      %s\n", iss.IssueType)
+			}
+			if iss.Component != "" {
+				fmt.Printf("  component: %s\n", iss.Component)
+			}
+			if iss.Context != "" {
+				fmt.Printf("\n%s\n", iss.Context)
+			}
 			fmt.Print(triageGuidance)
 			return nil
 		}
