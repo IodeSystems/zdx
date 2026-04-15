@@ -23,6 +23,27 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: zdx_agents; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_agents (
+    id text NOT NULL,
+    project_id integer NOT NULL,
+    session_id text DEFAULT ''::text NOT NULL,
+    worktree_path text DEFAULT ''::text NOT NULL,
+    worktree_branch text DEFAULT ''::text NOT NULL,
+    pid integer DEFAULT 0 NOT NULL,
+    status text DEFAULT 'active'::text NOT NULL,
+    task_group text DEFAULT ''::text NOT NULL,
+    compose_project text DEFAULT ''::text NOT NULL,
+    server_port integer DEFAULT 0 NOT NULL,
+    database_url text DEFAULT ''::text NOT NULL,
+    last_heartbeat timestamp with time zone DEFAULT now() NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: zdx_api_keys; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1365,7 +1386,10 @@ CREATE TABLE public.zdx_tasks (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     completed_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    task_group text DEFAULT ''::text NOT NULL
+    task_group text DEFAULT ''::text NOT NULL,
+    claimed_by text,
+    claimed_at timestamp with time zone,
+    lease_expires_at timestamp with time zone
 );
 
 
@@ -2001,6 +2025,14 @@ ALTER TABLE ONLY public.zdx_users ALTER COLUMN id SET DEFAULT nextval('public.zd
 --
 
 ALTER TABLE ONLY public.zdx_work_log ALTER COLUMN id SET DEFAULT nextval('public.zdx_work_log_id_seq'::regclass);
+
+
+--
+-- Name: zdx_agents zdx_agents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_agents
+    ADD CONSTRAINT zdx_agents_pkey PRIMARY KEY (id);
 
 
 --
@@ -2927,6 +2959,14 @@ CREATE INDEX zdx_timed_project ON public.zdx_timed USING btree (project_id);
 
 
 --
+-- Name: zdx_agents zdx_agents_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_agents
+    ADD CONSTRAINT zdx_agents_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zdx_api_keys zdx_api_keys_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3324,6 +3364,14 @@ ALTER TABLE ONLY public.zdx_task_code_refs
 
 ALTER TABLE ONLY public.zdx_task_code_refs
     ADD CONSTRAINT zdx_task_code_refs_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_tasks zdx_tasks_claimed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_tasks
+    ADD CONSTRAINT zdx_tasks_claimed_by_fkey FOREIGN KEY (claimed_by) REFERENCES public.zdx_agents(id);
 
 
 --

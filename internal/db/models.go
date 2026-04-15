@@ -8,6 +8,22 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type ZdxAgent struct {
+	ID             string             `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	WorktreePath   string             `db:"worktree_path" json:"worktree_path"`
+	WorktreeBranch string             `db:"worktree_branch" json:"worktree_branch"`
+	Pid            int32              `db:"pid" json:"pid"`
+	Status         string             `db:"status" json:"status"`
+	TaskGroup      string             `db:"task_group" json:"task_group"`
+	ComposeProject string             `db:"compose_project" json:"compose_project"`
+	ServerPort     int32              `db:"server_port" json:"server_port"`
+	DatabaseUrl    string             `db:"database_url" json:"database_url"`
+	LastHeartbeat  pgtype.Timestamptz `db:"last_heartbeat" json:"last_heartbeat"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxApiKey struct {
 	ID         int32              `db:"id" json:"id"`
 	UserID     int32              `db:"user_id" json:"user_id"`
@@ -436,20 +452,23 @@ type ZdxState struct {
 }
 
 type ZdxTask struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
+	ID             string             `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Feature        string             `db:"feature" json:"feature"`
+	Status         string             `db:"status" json:"status"`
+	Reason         string             `db:"reason" json:"reason"`
+	Issue          string             `db:"issue" json:"issue"`
+	Depends        string             `db:"depends" json:"depends"`
+	TestPlan       string             `db:"test_plan" json:"test_plan"`
+	TestRefs       string             `db:"test_refs" json:"test_refs"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	TaskGroup      string             `db:"task_group" json:"task_group"`
+	ClaimedBy      pgtype.Text        `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
 }
 
 type ZdxTaskCodeRef struct {
