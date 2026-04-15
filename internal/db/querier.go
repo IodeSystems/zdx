@@ -11,6 +11,7 @@ import (
 )
 
 type Querier interface {
+	AcceptQuestionProposal(ctx context.Context, arg AcceptQuestionProposalParams) (ZdxQuestionProposal, error)
 	AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error)
 	AddCommentReaction(ctx context.Context, arg AddCommentReactionParams) (ZdxCommentReaction, error)
 	AddIssueBlock(ctx context.Context, arg AddIssueBlockParams) error
@@ -43,6 +44,7 @@ type Querier interface {
 	CountLogEvents(ctx context.Context, arg CountLogEventsParams) (int64, error)
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
+	CountQuestionProposalsByQuestion(ctx context.Context, arg CountQuestionProposalsByQuestionParams) (int64, error)
 	CountQuestions(ctx context.Context, projectID int32) (int64, error)
 	CountRevisions(ctx context.Context, arg CountRevisionsParams) (int64, error)
 	CountSlowQueries(ctx context.Context, projectID pgtype.Int4) (int64, error)
@@ -94,6 +96,7 @@ type Querier interface {
 	DeleteTest(ctx context.Context, id int32) error
 	DeleteTimedEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
+	DenyQuestionProposal(ctx context.Context, arg DenyQuestionProposalParams) (ZdxQuestionProposal, error)
 	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error
@@ -126,6 +129,7 @@ type Querier interface {
 	GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error)
 	GetProjectGoal(ctx context.Context, id int32) (ZdxProjectGoal, error)
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
+	GetQuestionProposal(ctx context.Context, arg GetQuestionProposalParams) (ZdxQuestionProposal, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetTask(ctx context.Context, id string) (GetTaskRow, error)
 	GetTaskWithReview(ctx context.Context, id string) (GetTaskWithReviewRow, error)
@@ -143,6 +147,7 @@ type Querier interface {
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error)
 	InsertLogEvent(ctx context.Context, arg InsertLogEventParams) error
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
+	InsertQuestionProposal(ctx context.Context, arg InsertQuestionProposalParams) (ZdxQuestionProposal, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
@@ -195,6 +200,7 @@ type Querier interface {
 	ListProjectConstraints(ctx context.Context, projectID int32) ([]ZdxProjectConstraint, error)
 	ListProjectGoals(ctx context.Context, projectID int32) ([]ZdxProjectGoal, error)
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
+	ListQuestionProposalsByQuestion(ctx context.Context, arg ListQuestionProposalsByQuestionParams) ([]ZdxQuestionProposal, error)
 	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	ListQuestionsPaginated(ctx context.Context, arg ListQuestionsPaginatedParams) ([]ZdxQuestion, error)
 	ListResolutionCommits(ctx context.Context, resolutionID string) ([]ZdxIssueResolutionCommit, error)

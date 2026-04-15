@@ -44,6 +44,7 @@ func main() {
 		cli.RefCmd(),
 		cli.QaCmd(),
 		cli.QuestionCmd(),
+		cli.QuestionProposalCmd(),
 		cli.McpCmd(),
 		cli.TimeCmd(),
 		cli.ClaudeCmd(),

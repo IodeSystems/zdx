@@ -323,6 +323,157 @@ func (s *Server) registerQARoutes(api huma.API) {
 			}, nil
 		})
 
+	// ── Question proposals ───────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "add-question-proposal", Method: http.MethodPost, Path: "/api/dx/question-proposals/add"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug         string `json:"slug"`
+				QuestionID   int32  `json:"question_id"`
+				QuestionType string `json:"question_type"`
+				Title        string `json:"title"`
+				Context      string `json:"context"`
+			}
+		}) (*struct{ Body QuestionProposalItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := s.q.InsertQuestionProposal(ctx, db.InsertQuestionProposalParams{
+				ProjectID:    p.ID,
+				QuestionID:   in.Body.QuestionID,
+				QuestionType: in.Body.QuestionType,
+				Title:        in.Body.Title,
+				Context:      in.Body.Context,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body QuestionProposalItem }{Body: toQuestionProposalItem(row)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-question-proposals", Method: http.MethodGet, Path: "/api/dx/question-proposals/by-question"},
+		func(ctx context.Context, in *struct {
+			Slug         string `query:"slug" required:"true"`
+			QuestionID   int32  `query:"question_id" required:"true"`
+			QuestionType string `query:"question_type" required:"true"`
+		}) (*struct {
+			Body struct {
+				Proposals []QuestionProposalItem `json:"proposals"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListQuestionProposalsByQuestion(ctx, db.ListQuestionProposalsByQuestionParams{
+				ProjectID:    p.ID,
+				QuestionID:   in.QuestionID,
+				QuestionType: in.QuestionType,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]QuestionProposalItem, len(rows))
+			for i, r := range rows {
+				out[i] = toQuestionProposalItem(r)
+			}
+			return &struct {
+				Body struct {
+					Proposals []QuestionProposalItem `json:"proposals"`
+				}
+			}{
+				Body: struct {
+					Proposals []QuestionProposalItem `json:"proposals"`
+				}{Proposals: out},
+			}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "accept-question-proposal", Method: http.MethodPost, Path: "/api/dx/question-proposals/accept"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				ID   int32  `json:"id"`
+			}
+		}) (*struct {
+			Body struct {
+				Proposal QuestionProposalItem `json:"proposal"`
+				Issue    IssueItem            `json:"issue"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			proposal, err := s.q.GetQuestionProposal(ctx, db.GetQuestionProposalParams{
+				ProjectID: p.ID,
+				ID:        in.Body.ID,
+			})
+			if err != nil {
+				return nil, apiErr(404, "proposal not found")
+			}
+			issueID, err := s.q.NextIssueID(ctx)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			issue, err := s.q.CreateIssue(ctx, db.CreateIssueParams{
+				ID:        issueID,
+				ProjectID: p.ID,
+				Title:     proposal.Title,
+				Context:   proposal.Context,
+				IssueType: "ops",
+				Status:    "open",
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			go s.emb.upsertIssue(context.Background(), p.ID, issue.ID, proposal.Title+" "+proposal.Context)
+			accepted, err := s.q.AcceptQuestionProposal(ctx, db.AcceptQuestionProposalParams{
+				ProjectID:      p.ID,
+				ID:             in.Body.ID,
+				CreatedIssueID: pgtype.Text{String: issue.ID, Valid: true},
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			issueItem := toIssueItem(issue)
+			s.publishIssue(in.Body.Slug, issue.ID, "issue.created", issueItem)
+			return &struct {
+				Body struct {
+					Proposal QuestionProposalItem `json:"proposal"`
+					Issue    IssueItem            `json:"issue"`
+				}
+			}{
+				Body: struct {
+					Proposal QuestionProposalItem `json:"proposal"`
+					Issue    IssueItem            `json:"issue"`
+				}{Proposal: toQuestionProposalItem(accepted), Issue: issueItem},
+			}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "deny-question-proposal", Method: http.MethodPost, Path: "/api/dx/question-proposals/deny"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug   string `json:"slug"`
+				ID     int32  `json:"id"`
+				Reason string `json:"reason"`
+			}
+		}) (*struct{ Body QuestionProposalItem }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := s.q.DenyQuestionProposal(ctx, db.DenyQuestionProposalParams{
+				ProjectID:    p.ID,
+				ID:           in.Body.ID,
+				DeniedReason: in.Body.Reason,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body QuestionProposalItem }{Body: toQuestionProposalItem(row)}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "list-blocker-questions-by-target", Method: http.MethodGet, Path: "/api/dx/blocker-questions/by-target"},
 		func(ctx context.Context, in *struct {
 			Slug       string `query:"slug" required:"true"`
@@ -377,6 +528,21 @@ func toQuestionItem(r db.ZdxQuestion) QuestionItem {
 		item.ParentQuestionID = &v
 	}
 	return item
+}
+
+func toQuestionProposalItem(r db.ZdxQuestionProposal) QuestionProposalItem {
+	return QuestionProposalItem{
+		ID:             r.ID,
+		QuestionID:     r.QuestionID,
+		QuestionType:   r.QuestionType,
+		Title:          r.Title,
+		Context:        r.Context,
+		Status:         r.Status,
+		DeniedReason:   r.DeniedReason,
+		CreatedIssueID: r.CreatedIssueID.String,
+		CreatedAt:      fmtTS(r.CreatedAt),
+		UpdatedAt:      fmtTS(r.UpdatedAt),
+	}
 }
 
 func toBlockerQuestionItem(r db.ZdxBlockerQuestion) BlockerQuestionItem {

@@ -398,6 +398,20 @@ type ZdxQuestion struct {
 	ParentQuestionID pgtype.Int4        `db:"parent_question_id" json:"parent_question_id"`
 }
 
+type ZdxQuestionProposal struct {
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	QuestionID     int32              `db:"question_id" json:"question_id"`
+	QuestionType   string             `db:"question_type" json:"question_type"`
+	Title          string             `db:"title" json:"title"`
+	Context        string             `db:"context" json:"context"`
+	Status         string             `db:"status" json:"status"`
+	DeniedReason   string             `db:"denied_reason" json:"denied_reason"`
+	CreatedIssueID pgtype.Text        `db:"created_issue_id" json:"created_issue_id"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type ZdxRevision struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`

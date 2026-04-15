@@ -216,6 +216,19 @@ type BlockerQuestionItem struct {
 	AnsweredAt string   `json:"answered_at"`
 }
 
+type QuestionProposalItem struct {
+	ID             int32  `json:"id"`
+	QuestionID     int32  `json:"question_id"`
+	QuestionType   string `json:"question_type"`
+	Title          string `json:"title"`
+	Context        string `json:"context"`
+	Status         string `json:"status"`
+	DeniedReason   string `json:"denied_reason"`
+	CreatedIssueID string `json:"created_issue_id"`
+	CreatedAt      string `json:"created_at"`
+	UpdatedAt      string `json:"updated_at"`
+}
+
 type StaleCommentItem struct {
 	ID          int32  `json:"id"`
 	TargetType  string `json:"target_type"`

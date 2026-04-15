@@ -1158,6 +1158,52 @@ ALTER SEQUENCE public.zdx_questions_id_seq OWNED BY public.zdx_questions.id;
 
 
 --
+-- Name: zdx_question_proposals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_question_proposals (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    question_id integer NOT NULL,
+    question_type text DEFAULT 'qa'::text NOT NULL,
+    title text NOT NULL,
+    context text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'proposed'::text NOT NULL,
+    denied_reason text DEFAULT ''::text NOT NULL,
+    created_issue_id text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_question_proposals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_question_proposals_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_question_proposals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_question_proposals_id_seq OWNED BY public.zdx_question_proposals.id;
+
+
+--
+-- Name: zdx_question_proposals id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_question_proposals ALTER COLUMN id SET DEFAULT nextval('public.zdx_question_proposals_id_seq'::regclass);
+
+
+--
 -- Name: zdx_revisions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2488,6 +2534,14 @@ ALTER TABLE ONLY public.zdx_questions
 
 
 --
+-- Name: zdx_question_proposals zdx_question_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_question_proposals
+    ADD CONSTRAINT zdx_question_proposals_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_revisions zdx_revisions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2836,6 +2890,20 @@ CREATE INDEX idx_questions_parent ON public.zdx_questions USING btree (parent_qu
 --
 
 CREATE INDEX idx_questions_project ON public.zdx_questions USING btree (project_id);
+
+
+--
+-- Name: idx_question_proposals_question; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_question_proposals_question ON public.zdx_question_proposals USING btree (project_id, question_id, question_type);
+
+
+--
+-- Name: idx_question_proposals_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_question_proposals_status ON public.zdx_question_proposals USING btree (project_id, status);
 
 
 --
@@ -3382,6 +3450,14 @@ ALTER TABLE ONLY public.zdx_questions
 
 ALTER TABLE ONLY public.zdx_questions
     ADD CONSTRAINT zdx_questions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_question_proposals zdx_question_proposals_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_question_proposals
+    ADD CONSTRAINT zdx_question_proposals_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

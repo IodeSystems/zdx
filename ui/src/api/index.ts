@@ -1108,6 +1108,63 @@ export const useAnswerBlockerQuestion = () => {
   })
 }
 
+// ── question proposals ──────────────────────────────────────────────────────
+
+export interface QuestionProposalItem {
+  id: number
+  question_id: number
+  question_type: string
+  title: string
+  context: string
+  status: string
+  denied_reason: string
+  created_issue_id: string
+  created_at: string
+  updated_at: string
+}
+
+export const useQuestionProposals = (slug: string, questionId: number, questionType: string) =>
+  useQuery<{ proposals: QuestionProposalItem[] }>({
+    queryKey: ['question-proposals', slug, questionId, questionType],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, question_id: String(questionId), question_type: questionType })
+      const res = await apiFetch<{ proposals: QuestionProposalItem[] }>(
+        `/api/dx/question-proposals/by-question?${params}`
+      )
+      return { proposals: res.proposals ?? [] }
+    },
+    enabled: !!slug && questionId > 0,
+  })
+
+export const useAcceptQuestionProposal = () => {
+  const qc = useQueryClient()
+  return useMutation<
+    { proposal: QuestionProposalItem; issue: { id: string } },
+    Error,
+    { slug: string; id: number }
+  >({
+    mutationFn: (body) => apiPost<{ proposal: QuestionProposalItem; issue: { id: string } }>('/api/dx/question-proposals/accept', body),
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['question-proposals', v.slug] })
+      qc.invalidateQueries({ queryKey: ['issues', v.slug] })
+    },
+  })
+}
+
+export const useDenyQuestionProposal = () => {
+  const qc = useQueryClient()
+  return useMutation<
+    QuestionProposalItem,
+    Error,
+    { slug: string; id: number; reason: string }
+  >({
+    mutationFn: (body) => apiPost<QuestionProposalItem>('/api/dx/question-proposals/deny', body),
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['question-proposals', v.slug] })
+    },
+  })
+}
+
 // ── Spec tests ───────────────────────────────────────────────────────────
 
 export interface SpecTestItem {

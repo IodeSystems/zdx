@@ -15,6 +15,7 @@ import {
 } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { MarkdownContent } from './MarkdownContent'
+import { QuestionProposalsSection } from './QuestionProposalsSection'
 
 function ChildQuestionCard({ item, slug }: { item: QuestionItem; slug: string }) {
   const { data: childData } = useChildQuestions(slug, item.id)
@@ -155,6 +156,8 @@ export function QuestionDetail({ slug, questionId }: { slug: string; questionId:
         Created: {new Date(question.created_at).toLocaleString()}
         {question.updated_at !== question.created_at && ` · Updated: ${new Date(question.updated_at).toLocaleString()}`}
       </Typography>
+
+      <QuestionProposalsSection slug={slug} questionId={id} questionType="qa" />
 
       <CommentsAndRevisions slug={slug} targetType="question" targetId={questionId} />
     </Box>
