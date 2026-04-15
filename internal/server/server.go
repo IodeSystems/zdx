@@ -17,6 +17,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/llm"
 	"github.com/iodesystems/zdx-go/internal/ws"
+	"github.com/iodesystems/zdx-go/pkg/zdxclient"
 )
 
 type Server struct {
@@ -33,6 +34,7 @@ type Server struct {
 	features       SchemaFeatures
 	sink           timingSink
 	ingestLimiter  *ingestRateLimiter
+	errorClient    *zdxclient.Client
 }
 
 func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Server {
@@ -82,6 +84,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	cfg := huma.DefaultConfig("ZDX API", "1.0.0")
 	cfg.Info.Description = "zdx developer-experience platform API"
 
+	s.mux.Use(s.errorMiddleware)
 	s.mux.Use(s.sourceMiddleware)
 	s.mux.Use(s.apiKeyMiddleware)
 	s.mux.Use(s.adminMiddleware)
@@ -402,6 +405,59 @@ func (s *Server) timingMiddleware(next http.Handler) http.Handler {
 			DurationMs: durationMs,
 			Source:     path,
 		})
+	})
+}
+
+// SetErrorClient wires the zdxclient used for self-reporting errors.
+// Called from main.go after the self-integration client is created.
+func (s *Server) SetErrorClient(c *zdxclient.Client) {
+	s.errorClient = c
+}
+
+// statusCapture wraps http.ResponseWriter to capture the status code.
+type statusCapture struct {
+	http.ResponseWriter
+	code int
+}
+
+func (w *statusCapture) WriteHeader(code int) {
+	w.code = code
+	w.ResponseWriter.WriteHeader(code)
+}
+
+// errorMiddleware catches panics and 5xx responses, reporting them through
+// the self-integration zdxclient so server errors appear on the errors page.
+func (s *Server) errorMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
+			next.ServeHTTP(w, r)
+			return
+		}
+		sc := &statusCapture{ResponseWriter: w, code: 200}
+		defer func() {
+			if rec := recover(); rec != nil {
+				stack := fmt.Sprintf("%v", rec)
+				log.Printf("panic: %s %s: %s", r.Method, r.URL.Path, stack)
+				if s.errorClient != nil {
+					s.errorClient.RecordErrorWithStack(
+						"panic",
+						fmt.Sprintf("%v", rec),
+						stack,
+						r.Method+" "+r.URL.Path,
+						nil,
+					)
+				}
+				http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+			}
+		}()
+		next.ServeHTTP(sc, r)
+		if sc.code >= 500 && s.errorClient != nil {
+			s.errorClient.RecordError(
+				fmt.Sprintf("http:%d", sc.code),
+				fmt.Sprintf("%s %s returned %d", r.Method, r.URL.Path, sc.code),
+				nil,
+			)
+		}
 	})
 }
 

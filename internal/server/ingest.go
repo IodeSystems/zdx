@@ -636,8 +636,16 @@ func buildContextJSON(host string, tags map[string]string) []byte {
 // the caller should skip self-wiring in that case. Any write/DB error is
 // propagated since the client can't be initialized without a token.
 func (s *Server) BootstrapSelfIntegrationToken(ctx context.Context) (string, error) {
-	if s.zdxProjectSlug == "" {
-		return "", nil
+	slug := s.zdxProjectSlug
+	if slug == "" {
+		// Auto-detect: if exactly one project exists, use it.
+		projects, err := s.q.ListProjects(ctx)
+		if err != nil || len(projects) != 1 {
+			return "", nil
+		}
+		slug = projects[0].Slug
+		s.zdxProjectSlug = slug
+		log.Printf("self-integration: auto-detected project %q", slug)
 	}
 	ctx = WithoutTiming(ctx)
 
@@ -660,7 +668,7 @@ func (s *Server) BootstrapSelfIntegrationToken(ctx context.Context) (string, err
 		}
 	}
 
-	p, err := s.q.GetProjectBySlug(ctx, s.zdxProjectSlug)
+	p, err := s.q.GetProjectBySlug(ctx, slug)
 	if err != nil {
 		return "", nil // project not yet provisioned — skip, not fatal
 	}

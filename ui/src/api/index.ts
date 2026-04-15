@@ -296,8 +296,6 @@ export const useFeature = (slug: string, name: string) =>
 // ── errors & slow queries ────────────────────────────────────────────────────
 
 export type ErrorReportItem = components['schemas']['ErrorReportItem']
-export type SlowQueryItem = components['schemas']['SlowQueryItem']
-
 export const useErrors = (slug: string, limit?: number, offset?: number) =>
   useQuery<{ errors: ErrorReportItem[]; total: number }>({
     queryKey: ['errors', slug, limit, offset],
@@ -341,20 +339,6 @@ export const useReportError = (slug: string) => {
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['errors', slug] }) },
   })
 }
-
-export const useSlowQueries = (slug: string, limit?: number, offset?: number) =>
-  useQuery<{ queries: SlowQueryItem[]; total: number }>({
-    queryKey: ['slow-queries', slug, limit, offset],
-    queryFn: async () => {
-      const params: Record<string, string> = { slug }
-      if (limit != null) params.limit = String(limit)
-      if (offset != null) params.offset = String(offset)
-      const { data, error } = await client.GET('/api/dx/slow-queries', { params: { query: params as any } })
-      if (error) throw new Error(JSON.stringify(error))
-      return { queries: data?.queries ?? [], total: (data as any)?.total ?? 0 }
-    },
-    enabled: !!slug,
-  })
 
 export interface WorklogEntry {
   issue_id: string
@@ -657,82 +641,6 @@ export const useCountedTagValues = (slug: string, key: string) =>
       const params = new URLSearchParams({ slug, key })
       const res = await apiFetch<{ values: string[] }>(
         `/api/dx/counted/tags/values?${params}`
-      )
-      return { values: res.values ?? [] }
-    },
-    enabled: !!slug && !!key,
-  })
-
-// ── error events ────────────────────────────────────────────────────────────────
-
-export interface ErrorEventItem {
-  id: number
-  name: string
-  message: string
-  stack_trace: string
-  source: string
-  component: string
-  environment: string
-  context_json: Record<string, string>
-  created_at: string
-}
-
-export interface ErrorEventGroupedItem {
-  group_value: string
-  entry_count: number
-  first_seen: string
-  last_seen: string
-}
-
-export const useErrorEvents = (slug: string, limit?: number, offset?: number, tagFilter?: Record<string, string>) =>
-  useQuery<{ items: ErrorEventItem[]; total: number }>({
-    queryKey: ['error-events', slug, limit, offset, tagFilter],
-    queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
-      const res = await apiFetch<{ items: ErrorEventItem[]; total: number }>(
-        `/api/dx/error-events?${params}`
-      )
-      return { items: res.items ?? [], total: res.total ?? 0 }
-    },
-    enabled: !!slug,
-  })
-
-export const useErrorEventsGrouped = (slug: string, groupBy: string, tagFilter?: Record<string, string>) =>
-  useQuery<{ items: ErrorEventGroupedItem[] }>({
-    queryKey: ['error-events-grouped', slug, groupBy, tagFilter],
-    queryFn: async () => {
-      const params = new URLSearchParams({ slug, group_by: groupBy })
-      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
-      const res = await apiFetch<{ items: ErrorEventGroupedItem[] }>(
-        `/api/dx/error-events/grouped?${params}`
-      )
-      return { items: res.items ?? [] }
-    },
-    enabled: !!slug && !!groupBy,
-  })
-
-export const useErrorEventsTagKeys = (slug: string) =>
-  useQuery<{ keys: string[] }>({
-    queryKey: ['error-events-tag-keys', slug],
-    queryFn: async () => {
-      const res = await apiFetch<{ keys: string[] }>(
-        `/api/dx/error-events/tags/keys?slug=${encodeURIComponent(slug)}`
-      )
-      return { keys: res.keys ?? [] }
-    },
-    enabled: !!slug,
-  })
-
-export const useErrorEventsTagValues = (slug: string, key: string) =>
-  useQuery<{ values: string[] }>({
-    queryKey: ['error-events-tag-values', slug, key],
-    queryFn: async () => {
-      const params = new URLSearchParams({ slug, key })
-      const res = await apiFetch<{ values: string[] }>(
-        `/api/dx/error-events/tags/values?${params}`
       )
       return { values: res.values ?? [] }
     },
