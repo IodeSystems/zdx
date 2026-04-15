@@ -49,36 +49,38 @@ func claimTask(t *testing.T, slug, agentID, taskGroup, issue string) (string, st
 }
 
 func TestAgentRegisterAndClaim(t *testing.T) {
-	ss := newSoloState(t, "agent-claim", "Agent Claim")
-	issueID := ss.addIssue("Agent claim test", "test concurrent agent claims")
-	ss.triageIssue(issueID, 2)
-	taskID := ss.addTask(issueID, "Task for agent claim")
+	d := NewApiDriver(t, "agent-claim", "Agent Claim")
+	sc := Given(d).
+		TriagedIssue("Agent claim test", "test concurrent agent claims", 2).
+		Task(0, "Task for agent claim").
+		Build()
+	issueID := sc.Issues[0]
 
-	agentID := registerAgent(t, ss.slug, "agent-claim-1", "test-session-1", "")
+	agentID := registerAgent(t, d.Slug, "agent-claim-1", "test-session-1", "")
 	if agentID == "" {
 		t.Fatal("agent registration returned empty ID")
 	}
 
-	claimedID, _, status := claimTask(t, ss.slug, agentID, "", fmt.Sprintf("IS-%d", issueID))
+	claimedID, _, status := claimTask(t, d.Slug, agentID, "", fmt.Sprintf("IS-%d", issueID))
 	if status != http.StatusOK {
 		t.Fatalf("claim failed with status %d", status)
 	}
 	if claimedID == "" {
 		t.Fatal("claim returned empty task ID")
 	}
-
-	_ = taskID
 }
 
 func TestTwoAgentsConcurrentClaim(t *testing.T) {
-	ss := newSoloState(t, "agent-concurrent", "Agent Concurrent")
-	issueID := ss.addIssue("Concurrent claim test", "two agents claim different tasks")
-	ss.triageIssue(issueID, 2)
-	ss.addTask(issueID, "Task A for concurrent claim")
-	ss.addTask(issueID, "Task B for concurrent claim")
+	d := NewApiDriver(t, "agent-concurrent", "Agent Concurrent")
+	sc := Given(d).
+		TriagedIssue("Concurrent claim test", "two agents claim different tasks", 2).
+		Task(0, "Task A for concurrent claim").
+		Task(0, "Task B for concurrent claim").
+		Build()
+	issueID := sc.Issues[0]
 
-	agent1ID := registerAgent(t, ss.slug, "concurrent-agent-a", "session-a", "")
-	agent2ID := registerAgent(t, ss.slug, "concurrent-agent-b", "session-b", "")
+	agent1ID := registerAgent(t, d.Slug, "concurrent-agent-a", "session-a", "")
+	agent2ID := registerAgent(t, d.Slug, "concurrent-agent-b", "session-b", "")
 
 	var wg sync.WaitGroup
 	claimed := make([]string, 2)
@@ -86,7 +88,7 @@ func TestTwoAgentsConcurrentClaim(t *testing.T) {
 
 	doClaim := func(idx int, agentID string) {
 		defer wg.Done()
-		id, _, st := claimTask(t, ss.slug, agentID, "", fmt.Sprintf("IS-%d", issueID))
+		id, _, st := claimTask(t, d.Slug, agentID, "", fmt.Sprintf("IS-%d", issueID))
 		claimed[idx] = id
 		statuses[idx] = st
 	}
@@ -111,9 +113,11 @@ func TestTwoAgentsConcurrentClaim(t *testing.T) {
 }
 
 func TestTaskGroupAffinity(t *testing.T) {
-	ss := newSoloState(t, "agent-affinity", "Agent Affinity")
-	issueID := ss.addIssue("Task group affinity test", "agents claim tasks from their group")
-	ss.triageIssue(issueID, 2)
+	d := NewApiDriver(t, "agent-affinity", "Agent Affinity")
+	sc := Given(d).
+		TriagedIssue("Task group affinity test", "agents claim tasks from their group", 2).
+		Build()
+	issueID := sc.Issues[0]
 
 	addGroupTask := func(text, group string) int32 {
 		t.Helper()
@@ -122,16 +126,16 @@ func TestTaskGroupAffinity(t *testing.T) {
 			ID int32 `json:"id"`
 		}
 		mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/tech/add",
-			map[string]any{"slug": ss.slug, "text": text, "issue": issue, "task_group": group, "auto_ready": true}, &task))
+			map[string]any{"slug": d.Slug, "text": text, "issue": issue, "task_group": group, "auto_ready": true}, &task))
 		return task.ID
 	}
 
 	addGroupTask("Frontend task", "frontend")
 	addGroupTask("Backend task", "backend")
 
-	feAgentID := registerAgent(t, ss.slug, "fe-agent", "fe-session", "frontend")
+	feAgentID := registerAgent(t, d.Slug, "fe-agent", "fe-session", "frontend")
 
-	claimedID, claimedGroup, status := claimTask(t, ss.slug, feAgentID, "frontend", fmt.Sprintf("IS-%d", issueID))
+	claimedID, claimedGroup, status := claimTask(t, d.Slug, feAgentID, "frontend", fmt.Sprintf("IS-%d", issueID))
 	if status != http.StatusOK {
 		t.Fatalf("claim failed with status %d", status)
 	}
@@ -142,11 +146,15 @@ func TestTaskGroupAffinity(t *testing.T) {
 }
 
 func TestReviewAfterDone(t *testing.T) {
-	ss := newSoloState(t, "agent-review", "Agent Review")
-	issueID := ss.addIssue("Review workflow test", "test review emission")
-	ss.triageIssue(issueID, 2)
-	taskID := ss.addTask(issueID, "Task to review")
-	ss.markTaskDone(taskID)
+	d := NewApiDriver(t, "agent-review", "Agent Review")
+	sc := Given(d).
+		TriagedIssue("Review workflow test", "test review emission", 2).
+		Task(0, "Task to review").
+		Build()
+	issueID := sc.Issues[0]
+	taskID := sc.Tasks[0]
+
+	d.MarkTaskDone(taskID)
 
 	var unreviewed struct {
 		Tasks []struct {
@@ -155,7 +163,7 @@ func TestReviewAfterDone(t *testing.T) {
 		} `json:"tasks"`
 	}
 	mustOK(t, apiDo(t, http.MethodGet,
-		fmt.Sprintf("/api/dx/todo/dev/unreviewed?slug=%s&issue=IS-%d", ss.slug, issueID),
+		fmt.Sprintf("/api/dx/todo/dev/unreviewed?slug=%s&issue=IS-%d", d.Slug, issueID),
 		nil, &unreviewed))
 	if len(unreviewed.Tasks) != 1 {
 		t.Fatalf("expected 1 unreviewed task, got %d", len(unreviewed.Tasks))
@@ -166,14 +174,14 @@ func TestReviewAfterDone(t *testing.T) {
 
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/dev/review",
 		map[string]any{
-			"slug":    ss.slug,
+			"slug":    d.Slug,
 			"id":      taskID,
 			"verdict": "approve",
 			"comment": "LGTM",
 		}, nil))
 
 	mustOK(t, apiDo(t, http.MethodGet,
-		fmt.Sprintf("/api/dx/todo/dev/unreviewed?slug=%s&issue=IS-%d", ss.slug, issueID),
+		fmt.Sprintf("/api/dx/todo/dev/unreviewed?slug=%s&issue=IS-%d", d.Slug, issueID),
 		nil, &unreviewed))
 	if len(unreviewed.Tasks) != 0 {
 		t.Fatalf("expected 0 unreviewed tasks after review, got %d", len(unreviewed.Tasks))

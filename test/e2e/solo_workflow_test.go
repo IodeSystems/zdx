@@ -2,438 +2,90 @@ package e2e
 
 import (
 	"fmt"
-	"net/http"
 	"testing"
 )
 
-// soloState captures the API responses that solo uses to decide which todo type to emit.
-type soloState struct {
-	slug string
-	t    *testing.T
-}
-
-func newSoloState(t *testing.T, slug, name string) *soloState {
-	t.Helper()
-	apiDo(t, http.MethodPost, "/api/project",
-		map[string]string{"slug": slug, "name": name}, nil)
-	return &soloState{slug: slug, t: t}
-}
-
-// ── helpers to set up state via API ──────────────────────────────────────────
-
-func (s *soloState) addIssue(title, context string) int32 {
-	s.t.Helper()
-	var issue struct {
-		ID int32 `json:"id"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/todo/issue/add",
-		map[string]any{"slug": s.slug, "title": title, "context": context, "auto_ready": true}, &issue))
-	return issue.ID
-}
-
-func (s *soloState) triageIssue(id, priority int32) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/todo/owner/triage",
-		map[string]any{"slug": s.slug, "id": id, "priority": priority}, nil))
-}
-
-func (s *soloState) closeIssue(id int32) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/todo/issue/close",
-		map[string]any{"slug": s.slug, "id": id, "reason": "done"}, nil))
-}
-
-func (s *soloState) addTask(issueID int32, text string) int32 {
-	s.t.Helper()
-	issue := fmt.Sprintf("IS-%d", issueID)
-	var task struct {
-		ID int32 `json:"id"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/todo/tech/add",
-		map[string]any{"slug": s.slug, "text": text, "issue": issue, "auto_ready": true}, &task))
-	return task.ID
-}
-
-func (s *soloState) markTaskDone(taskID int32) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/todo/dev/done",
-		map[string]any{"id": taskID}, nil))
-}
-
-func (s *soloState) addFeature(name, desc string) int32 {
-	s.t.Helper()
-	var feat struct {
-		ID int32 `json:"id"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/feature",
-		map[string]any{"slug": s.slug, "name": name, "description": desc}, &feat))
-	return feat.ID
-}
-
-func (s *soloState) addSpec(feature, kind, desc string) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/specs/update",
-		map[string]any{"slug": s.slug, "feature": feature, "field": kind, "value": desc}, nil))
-}
-
-func (s *soloState) addGoal(title string) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/goal",
-		map[string]any{"slug": s.slug, "title": title, "description": "test goal", "priority": 1, "status": "active"}, nil))
-}
-
-func (s *soloState) addConstraint(title string) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/constraint",
-		map[string]any{"slug": s.slug, "title": title, "description": "test constraint", "priority": 1, "status": "active"}, nil))
-}
-
-func (s *soloState) addComment(targetType, targetID, body string) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/comment/add",
-		map[string]any{"slug": s.slug, "target_type": targetType, "target_id": targetID, "body": body}, nil))
-}
-
-func (s *soloState) markCommentsRead(targetType, targetID, role string) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/comment/mark-read",
-		map[string]any{"slug": s.slug, "target_type": targetType, "target_id": targetID, "role": role}, nil))
-}
-
-func (s *soloState) addBlockerQuestion(targetType, targetID, context string) int32 {
-	s.t.Helper()
-	var q struct {
-		ID int32 `json:"id"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/blocker-questions/add",
-		map[string]any{"slug": s.slug, "target_type": targetType, "target_id": targetID, "context": context}, &q))
-	return q.ID
-}
-
-func (s *soloState) answerBlockerQuestion(id int32, answer string) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/blocker-questions/answer",
-		map[string]any{"slug": s.slug, "id": id, "answer": answer, "answered_by": "test"}, nil))
-}
-
-func (s *soloState) checkinJournal(role, date string) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/journal/checkin",
-		map[string]any{
-			"slug": s.slug, "role": role, "date": date,
-			"tldr": "test", "assessment": "ok", "concerns": "none", "next": "continue",
-		}, nil))
-}
-
-func (s *soloState) registerTest(name string) int32 {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/test-results/submit",
-		map[string]any{
-			"slug": s.slug,
-			"results": []map[string]any{
-				{"driver": "go", "test_name": name, "feature": "test", "status": "pass", "duration_ms": 100},
-			},
-		}, nil))
-	var resp struct {
-		Tests []struct {
-			ID   int32  `json:"id"`
-			Name string `json:"name"`
-		} `json:"tests"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/tests?slug=%s", s.slug), nil, &resp))
-	for _, t := range resp.Tests {
-		if t.Name == name {
-			return t.ID
-		}
-	}
-	s.t.Fatalf("test %q not found after registration", name)
-	return 0
-}
-
-func (s *soloState) deferSpec(specID int32) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/specs/defer",
-		map[string]any{"spec_id": specID}, nil))
-}
-
-func (s *soloState) reviewFeature(name string) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/feature/review",
-		map[string]any{"slug": s.slug, "feature": name}, nil))
-}
-
-// ── API-level checks (same endpoints solo calls) ────────────────────────────
-
-func (s *soloState) hasUnreadComments(targetType, targetID string) bool {
-	s.t.Helper()
-	var resp struct {
-		HasUnread bool `json:"has_unread"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/comment/unread-check?slug=%s&target_type=%s&target_id=%s&role=llm",
-			s.slug, targetType, targetID), nil, &resp))
-	return resp.HasUnread
-}
-
-func (s *soloState) getHealth() (goalCount, constraintCount, closedTaskCount int64, ownerJournalDate, techJournalDate string) {
-	s.t.Helper()
-	var resp struct {
-		GoalCount        int64  `json:"goal_count"`
-		ConstraintCount  int64  `json:"constraint_count"`
-		OwnerJournalDate string `json:"owner_journal_date"`
-		TechJournalDate  string `json:"tech_journal_date"`
-		ClosedTaskCount  int64  `json:"closed_task_count"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/solo/health?slug=%s", s.slug), nil, &resp))
-	return resp.GoalCount, resp.ConstraintCount, resp.ClosedTaskCount, resp.OwnerJournalDate, resp.TechJournalDate
-}
-
-func (s *soloState) listIssues() []struct {
-	ID       int32  `json:"id"`
-	Status   string `json:"status"`
-	Priority string `json:"priority"`
-} {
-	s.t.Helper()
-	var resp struct {
-		Issues []struct {
-			ID       int32  `json:"id"`
-			Status   string `json:"status"`
-			Priority string `json:"priority"`
-		} `json:"issues"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/todo/issue/list?slug=%s", s.slug), nil, &resp))
-	return resp.Issues
-}
-
-func (s *soloState) listTasks(issueID int32) []struct {
-	ID     int32  `json:"id"`
-	Text   string `json:"text"`
-	Status string `json:"status"`
-} {
-	s.t.Helper()
-	var resp struct {
-		Tasks []struct {
-			ID     int32  `json:"id"`
-			Text   string `json:"text"`
-			Status string `json:"status"`
-		} `json:"tasks"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/todo/issue/tasks?slug=%s&issue_id=IS-%d", s.slug, issueID), nil, &resp))
-	return resp.Tasks
-}
-
-func (s *soloState) listFeatures() []struct {
-	Name string `json:"name"`
-} {
-	s.t.Helper()
-	var resp struct {
-		Features []struct {
-			Name string `json:"name"`
-		} `json:"features"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/features?slug=%s", s.slug), nil, &resp))
-	return resp.Features
-}
-
-func (s *soloState) listUncoveredSpecs() []struct {
-	ID          int32  `json:"id"`
-	FeatureName string `json:"feature_name"`
-} {
-	s.t.Helper()
-	var resp struct {
-		Specs []struct {
-			ID          int32  `json:"id"`
-			FeatureName string `json:"feature_name"`
-		} `json:"specs"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/specs/uncovered?slug=%s", s.slug), nil, &resp))
-	return resp.Specs
-}
-
-func (s *soloState) listStaleFeatures() []struct {
-	Name string `json:"name"`
-} {
-	s.t.Helper()
-	var resp struct {
-		Features []struct {
-			Name string `json:"name"`
-		} `json:"features"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/features/stale?slug=%s", s.slug), nil, &resp))
-	return resp.Features
-}
-
-func (s *soloState) listPendingBlockerQuestions() []struct {
-	ID         int32  `json:"id"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	Status     string `json:"status"`
-} {
-	s.t.Helper()
-	var resp struct {
-		Questions []struct {
-			ID         int32  `json:"id"`
-			TargetType string `json:"target_type"`
-			TargetID   string `json:"target_id"`
-			Status     string `json:"status"`
-		} `json:"questions"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/blocker-questions/list?slug=%s&status=pending", s.slug), nil, &resp))
-	return resp.Questions
-}
-
-func (s *soloState) addQuestion(category, question string) int32 {
-	s.t.Helper()
-	var resp struct {
-		ID int32 `json:"id"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/qa/add",
-		map[string]any{"slug": s.slug, "category": category, "question": question}, &resp))
-	return resp.ID
-}
-
-func (s *soloState) answerQuestion(id int32, answer string) {
-	s.t.Helper()
-	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/qa/answer",
-		map[string]any{"slug": s.slug, "id": id, "answer": answer}, nil))
-}
-
-func (s *soloState) listUnansweredQuestions() []struct {
-	ID       int32  `json:"id"`
-	Question string `json:"question"`
-} {
-	s.t.Helper()
-	var resp struct {
-		Questions []struct {
-			ID       int32  `json:"id"`
-			Question string `json:"question"`
-		} `json:"questions"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/qa/unanswered?slug=%s", s.slug), nil, &resp))
-	return resp.Questions
-}
-
-func (s *soloState) listStaleUnreadComments(ageHours int) []struct {
-	ID         int32  `json:"id"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	Author     string `json:"author"`
-} {
-	s.t.Helper()
-	var resp struct {
-		Comments []struct {
-			ID         int32  `json:"id"`
-			TargetType string `json:"target_type"`
-			TargetID   string `json:"target_id"`
-			Author     string `json:"author"`
-		} `json:"comments"`
-	}
-	mustOK(s.t, apiDo(s.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/comment/stale-unread?slug=%s&role=llm&age_hours=%d", s.slug, ageHours), nil, &resp))
-	return resp.Comments
-}
-
-// ── Solo workflow simulation tests ──────────────────────────────────────────
-
 func TestSoloBootstrap(t *testing.T) {
-	ss := newSoloState(t, "solo-bootstrap", "Solo Bootstrap")
+	d := NewApiDriver(t, "solo-bootstrap", "Solo Bootstrap")
 
-	issues := ss.listIssues()
-	features := ss.listFeatures()
+	issues := d.ListIssues()
+	features := d.ListFeatures()
 	if len(issues) != 0 {
 		t.Fatalf("expected 0 issues, got %d", len(issues))
 	}
 	if len(features) != 0 {
 		t.Fatalf("expected 0 features, got %d", len(features))
 	}
-	// Solo would emit [bootstrap] here because no issues and no features exist.
 
-	// Advance: create a feature and an issue.
-	ss.addFeature("test-feature", "A test feature for bootstrap")
-	issueID := ss.addIssue("Bootstrap setup", "Verify solo cycle")
+	d.AddFeature("test-feature", "A test feature for bootstrap")
+	issueID := d.AddIssue("Bootstrap setup", "Verify solo cycle")
 
-	// After bootstrap, solo should no longer emit [bootstrap].
-	issues = ss.listIssues()
+	issues = d.ListIssues()
 	if len(issues) == 0 {
 		t.Fatal("expected at least 1 issue after bootstrap")
 	}
-	// The issue is untriaged → solo would emit [triage].
 	if issues[0].Priority != "" {
 		t.Errorf("new issue should have no priority, got %q", issues[0].Priority)
 	}
 
-	// Clean up: close the issue so it doesn't interfere with other tests.
-	ss.triageIssue(issueID, 3)
-	ss.closeIssue(issueID)
+	d.TriageIssue(issueID, 3)
+	d.CloseIssue(issueID)
 }
 
 func TestSoloReadCommentsIssue(t *testing.T) {
-	ss := newSoloState(t, "solo-comments-i", "Solo Comments Issue")
-	issueID := ss.addIssue("Comment test issue", "test")
-	ss.triageIssue(issueID, 3)
+	d := NewApiDriver(t, "solo-comments-i", "Solo Comments Issue")
+	sc := Given(d).
+		TriagedIssue("Comment test issue", "test", 3).
+		Build()
 
+	issueID := sc.Issues[0]
 	targetID := fmt.Sprintf("IS-%d", issueID)
 
-	// No comments yet → no unread.
-	if ss.hasUnreadComments("issue", targetID) {
+	if d.HasUnreadComments("issue", targetID) {
 		t.Fatal("should not have unread comments initially")
 	}
 
-	// Add a comment → unread for llm role.
-	ss.addComment("issue", targetID, "Please review this approach")
-	if !ss.hasUnreadComments("issue", targetID) {
+	d.AddComment("issue", targetID, "Please review this approach")
+	if !d.HasUnreadComments("issue", targetID) {
 		t.Fatal("should have unread comments after adding one")
 	}
 
-	// Solo would emit [read:comments] IS-N here.
-	// Advance: mark read.
-	ss.markCommentsRead("issue", targetID, "llm")
-	if ss.hasUnreadComments("issue", targetID) {
+	d.MarkCommentsRead("issue", targetID, "llm")
+	if d.HasUnreadComments("issue", targetID) {
 		t.Fatal("should not have unread comments after marking read")
 	}
 
-	ss.closeIssue(issueID)
+	d.CloseIssue(issueID)
 }
 
 func TestSoloReadCommentsFeature(t *testing.T) {
-	ss := newSoloState(t, "solo-comments-f", "Solo Comments Feature")
-	ss.addFeature("commentable", "A feature to comment on")
+	d := NewApiDriver(t, "solo-comments-f", "Solo Comments Feature")
+	Given(d).Feature("commentable", "A feature to comment on").Build()
 
-	if ss.hasUnreadComments("feature", "commentable") {
+	if d.HasUnreadComments("feature", "commentable") {
 		t.Fatal("should not have unread comments initially")
 	}
 
-	ss.addComment("feature", "commentable", "What about this spec?")
-	if !ss.hasUnreadComments("feature", "commentable") {
+	d.AddComment("feature", "commentable", "What about this spec?")
+	if !d.HasUnreadComments("feature", "commentable") {
 		t.Fatal("should have unread comments after adding one")
 	}
 
-	// Solo would emit [read:comments] feature "commentable" here.
-	ss.markCommentsRead("feature", "commentable", "llm")
-	if ss.hasUnreadComments("feature", "commentable") {
+	d.MarkCommentsRead("feature", "commentable", "llm")
+	if d.HasUnreadComments("feature", "commentable") {
 		t.Fatal("should not have unread comments after marking read")
 	}
 }
 
 func TestSoloClarify(t *testing.T) {
-	ss := newSoloState(t, "solo-clarify", "Solo Clarify")
-	issueID := ss.addIssue("Clarify test", "needs decision")
-	ss.triageIssue(issueID, 2)
-
+	d := NewApiDriver(t, "solo-clarify", "Solo Clarify")
+	sc := Given(d).TriagedIssue("Clarify test", "needs decision", 2).Build()
+	issueID := sc.Issues[0]
 	targetID := fmt.Sprintf("IS-%d", issueID)
-	bqID := ss.addBlockerQuestion("issue", targetID, "Which database?")
 
-	// Pending BQ should exist.
-	bqs := ss.listPendingBlockerQuestions()
+	bqID := d.AddBlockerQuestion("issue", targetID, "Which database?")
+
+	bqs := d.ListPendingBlockerQuestions()
 	found := false
 	for _, q := range bqs {
 		if q.ID == bqID && q.Status == "pending" {
@@ -443,96 +95,81 @@ func TestSoloClarify(t *testing.T) {
 	if !found {
 		t.Fatal("expected pending blocker question")
 	}
-	// Solo with --issue would emit [clarify] here.
 
-	// Advance: answer the question.
-	ss.answerBlockerQuestion(bqID, "Use postgres")
+	d.AnswerBlockerQuestion(bqID, "Use postgres")
 
-	// No more pending BQs for this issue.
-	bqs = ss.listPendingBlockerQuestions()
+	bqs = d.ListPendingBlockerQuestions()
 	for _, q := range bqs {
 		if q.TargetID == targetID && q.Status == "pending" {
 			t.Fatal("blocker question should be answered")
 		}
 	}
 
-	ss.closeIssue(issueID)
+	d.CloseIssue(issueID)
 }
 
 func TestSoloOwnerGoals(t *testing.T) {
-	ss := newSoloState(t, "solo-goals", "Solo Goals")
+	d := NewApiDriver(t, "solo-goals", "Solo Goals")
 
-	goalCount, _, _, _, _ := ss.getHealth()
+	goalCount, _, _, _, _ := d.GetHealth()
 	if goalCount != 0 {
 		t.Fatalf("expected 0 goals, got %d", goalCount)
 	}
-	// Solo would emit [owner:goals] here.
 
-	// Advance: add a goal.
-	ss.addGoal("Ship v1.0")
-	goalCount, _, _, _, _ = ss.getHealth()
+	d.AddGoal("Ship v1.0")
+	goalCount, _, _, _, _ = d.GetHealth()
 	if goalCount != 1 {
 		t.Fatalf("expected 1 goal, got %d", goalCount)
 	}
 }
 
 func TestSoloOwnerConstraints(t *testing.T) {
-	ss := newSoloState(t, "solo-constraints", "Solo Constraints")
+	d := NewApiDriver(t, "solo-constraints", "Solo Constraints")
+	d.AddGoal("Ship v1.0")
 
-	// Need goals first (solo checks goals before constraints).
-	ss.addGoal("Ship v1.0")
-
-	_, constraintCount, _, _, _ := ss.getHealth()
+	_, constraintCount, _, _, _ := d.GetHealth()
 	if constraintCount != 0 {
 		t.Fatalf("expected 0 constraints, got %d", constraintCount)
 	}
-	// Solo would emit [owner:constraints] here.
 
-	// Advance: add a constraint.
-	ss.addConstraint("No external dependencies without review")
-	_, constraintCount, _, _, _ = ss.getHealth()
+	d.AddConstraint("No external dependencies without review")
+	_, constraintCount, _, _, _ = d.GetHealth()
 	if constraintCount != 1 {
 		t.Fatalf("expected 1 constraint, got %d", constraintCount)
 	}
 }
 
 func TestSoloJournal(t *testing.T) {
-	ss := newSoloState(t, "solo-journal", "Solo Journal")
+	d := NewApiDriver(t, "solo-journal", "Solo Journal")
+	Given(d).Goal("Test goal").Constraint("Test constraint").Build()
 
-	// Set up prerequisites: goals + constraints so solo reaches journal check.
-	ss.addGoal("Test goal")
-	ss.addConstraint("Test constraint")
-
-	_, _, _, ownerDate, techDate := ss.getHealth()
+	_, _, _, ownerDate, techDate := d.GetHealth()
 	if ownerDate != "" {
 		t.Fatalf("expected empty owner journal date, got %q", ownerDate)
 	}
 	if techDate != "" {
 		t.Fatalf("expected empty tech journal date, got %q", techDate)
 	}
-	// Solo would emit [owner:journal] here (owner checked first).
 
-	// Advance: checkin owner journal with today's date.
-	ss.checkinJournal("owner", "2026-04-14")
-	_, _, _, ownerDate, _ = ss.getHealth()
+	d.CheckinJournal("owner", "2026-04-14")
+	_, _, _, ownerDate, _ = d.GetHealth()
 	if ownerDate != "2026-04-14" {
 		t.Fatalf("expected owner journal date 2026-04-14, got %q", ownerDate)
 	}
-	// Now solo would emit [tech:journal].
 
-	// Advance: checkin tech journal.
-	ss.checkinJournal("tech", "2026-04-14")
-	_, _, _, _, techDate = ss.getHealth()
+	d.CheckinJournal("tech", "2026-04-14")
+	_, _, _, _, techDate = d.GetHealth()
 	if techDate != "2026-04-14" {
 		t.Fatalf("expected tech journal date 2026-04-14, got %q", techDate)
 	}
 }
 
 func TestSoloTriage(t *testing.T) {
-	ss := newSoloState(t, "solo-triage", "Solo Triage")
-	issueID := ss.addIssue("Untriaged issue", "needs triage")
+	d := NewApiDriver(t, "solo-triage", "Solo Triage")
+	sc := Given(d).Issue("Untriaged issue", "needs triage").Build()
+	issueID := sc.Issues[0]
 
-	issues := ss.listIssues()
+	issues := d.ListIssues()
 	var found bool
 	for _, iss := range issues {
 		if iss.ID == issueID && iss.Priority == "" {
@@ -542,11 +179,9 @@ func TestSoloTriage(t *testing.T) {
 	if !found {
 		t.Fatal("expected untriaged issue with no priority")
 	}
-	// Solo would emit [triage] IS-N here.
 
-	// Advance: triage.
-	ss.triageIssue(issueID, 2)
-	issues = ss.listIssues()
+	d.TriageIssue(issueID, 2)
+	issues = d.ListIssues()
 	for _, iss := range issues {
 		if iss.ID == issueID {
 			if iss.Priority == "" {
@@ -555,24 +190,21 @@ func TestSoloTriage(t *testing.T) {
 		}
 	}
 
-	ss.closeIssue(issueID)
+	d.CloseIssue(issueID)
 }
 
 func TestSoloOwnerSpec(t *testing.T) {
-	ss := newSoloState(t, "solo-spec", "Solo Spec")
-	ss.addFeature("specless", "Feature without specs")
+	d := NewApiDriver(t, "solo-spec", "Solo Spec")
+	Given(d).Feature("specless", "Feature without specs").Build()
 
-	feats := ss.listFeatures()
+	feats := d.ListFeatures()
 	if len(feats) == 0 {
 		t.Fatal("expected at least 1 feature")
 	}
-	// Solo checks features with no specs → would emit [owner:spec].
 
-	// Advance: add a spec.
-	ss.addSpec("specless", "unit_test", "Verify core behavior")
+	d.AddSpec("specless", "unit_test", "Verify core behavior")
 
-	// Now the feature has a spec, but it's uncovered (no test_refs).
-	uncovered := ss.listUncoveredSpecs()
+	uncovered := d.ListUncoveredSpecs()
 	foundUncovered := false
 	for _, s := range uncovered {
 		if s.FeatureName == "specless" {
@@ -585,12 +217,13 @@ func TestSoloOwnerSpec(t *testing.T) {
 }
 
 func TestSoloOwnerReview(t *testing.T) {
-	ss := newSoloState(t, "solo-review", "Solo Review")
-	ss.addFeature("stale-feat", "Feature that will get stale")
-	ss.addSpec("stale-feat", "unit_test", "Basic test")
+	d := NewApiDriver(t, "solo-review", "Solo Review")
+	Given(d).
+		Feature("stale-feat", "Feature that will get stale").
+		Spec("stale-feat", "unit_test", "Basic test").
+		Build()
 
-	// Newly created features have NULL last_reviewed_at → they ARE stale.
-	stale := ss.listStaleFeatures()
+	stale := d.ListStaleFeatures()
 	found := false
 	for _, f := range stale {
 		if f.Name == "stale-feat" {
@@ -600,12 +233,10 @@ func TestSoloOwnerReview(t *testing.T) {
 	if !found {
 		t.Fatal("newly created feature should be stale (never reviewed)")
 	}
-	// Solo would emit [owner:review] here.
 
-	// Advance: mark reviewed.
-	ss.reviewFeature("stale-feat")
+	d.ReviewFeature("stale-feat")
 
-	stale = ss.listStaleFeatures()
+	stale = d.ListStaleFeatures()
 	for _, f := range stale {
 		if f.Name == "stale-feat" {
 			t.Fatal("feature should not be stale after review")
@@ -614,12 +245,13 @@ func TestSoloOwnerReview(t *testing.T) {
 }
 
 func TestSoloTechTestRef(t *testing.T) {
-	ss := newSoloState(t, "solo-testref", "Solo TestRef")
-	ss.addFeature("testable", "Feature needing test refs")
-	ss.addSpec("testable", "unit_test", "Core validation")
+	d := NewApiDriver(t, "solo-testref", "Solo TestRef")
+	Given(d).
+		Feature("testable", "Feature needing test refs").
+		Spec("testable", "unit_test", "Core validation").
+		Build()
 
-	// The spec should appear as uncovered.
-	uncovered := ss.listUncoveredSpecs()
+	uncovered := d.ListUncoveredSpecs()
 	var specID int32
 	for _, s := range uncovered {
 		if s.FeatureName == "testable" {
@@ -629,15 +261,11 @@ func TestSoloTechTestRef(t *testing.T) {
 	if specID == 0 {
 		t.Fatal("expected uncovered spec for feature 'testable'")
 	}
-	// Solo would emit [tech:test-ref] here.
 
-	// Advance: register a test, then link it to the spec.
-	testID := ss.registerTest("TestCoreValidation")
-	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/specs/link-test",
-		map[string]any{"spec_id": specID, "test_id": testID}, nil))
+	testID := d.RegisterTest("TestCoreValidation")
+	d.LinkTestToSpec(specID, testID)
 
-	// Spec should no longer be uncovered.
-	uncovered = ss.listUncoveredSpecs()
+	uncovered = d.ListUncoveredSpecs()
 	for _, s := range uncovered {
 		if s.ID == specID {
 			t.Fatal("spec should not be uncovered after linking test ref")
@@ -646,19 +274,17 @@ func TestSoloTechTestRef(t *testing.T) {
 }
 
 func TestSoloAdd(t *testing.T) {
-	ss := newSoloState(t, "solo-add", "Solo Add")
-	issueID := ss.addIssue("Issue needing tasks", "decompose")
-	ss.triageIssue(issueID, 2)
+	d := NewApiDriver(t, "solo-add", "Solo Add")
+	sc := Given(d).TriagedIssue("Issue needing tasks", "decompose", 2).Build()
+	issueID := sc.Issues[0]
 
-	// Issue has no tasks → solo would emit [add].
-	tasks := ss.listTasks(issueID)
+	tasks := d.ListTasks(issueID)
 	if len(tasks) != 0 {
 		t.Fatalf("expected 0 tasks, got %d", len(tasks))
 	}
 
-	// Advance: add a task.
-	taskID := ss.addTask(issueID, "Implement the thing")
-	tasks = ss.listTasks(issueID)
+	taskID := d.AddTask(issueID, "Implement the thing")
+	tasks = d.ListTasks(issueID)
 	if len(tasks) != 1 {
 		t.Fatalf("expected 1 task, got %d", len(tasks))
 	}
@@ -669,18 +295,20 @@ func TestSoloAdd(t *testing.T) {
 		t.Errorf("task status: want pending, got %q", tasks[0].Status)
 	}
 
-	ss.markTaskDone(taskID)
-	ss.closeIssue(issueID)
+	d.MarkTaskDone(taskID)
+	d.CloseIssue(issueID)
 }
 
 func TestSoloDev(t *testing.T) {
-	ss := newSoloState(t, "solo-dev", "Solo Dev")
-	issueID := ss.addIssue("Issue with pending task", "dev work")
-	ss.triageIssue(issueID, 2)
-	taskID := ss.addTask(issueID, "Write the code")
+	d := NewApiDriver(t, "solo-dev", "Solo Dev")
+	sc := Given(d).
+		TriagedIssue("Issue with pending task", "dev work", 2).
+		Task(0, "Write the code").
+		Build()
+	issueID := sc.Issues[0]
+	taskID := sc.Tasks[0]
 
-	// Issue has a pending task → solo would emit [dev] TK-N.
-	tasks := ss.listTasks(issueID)
+	tasks := d.ListTasks(issueID)
 	hasPending := false
 	for _, tk := range tasks {
 		if tk.Status == "pending" {
@@ -691,27 +319,28 @@ func TestSoloDev(t *testing.T) {
 		t.Fatal("expected at least one pending task")
 	}
 
-	// Advance: mark task done.
-	ss.markTaskDone(taskID)
-	tasks = ss.listTasks(issueID)
+	d.MarkTaskDone(taskID)
+	tasks = d.ListTasks(issueID)
 	for _, tk := range tasks {
 		if tk.ID == taskID && tk.Status != "done" {
 			t.Errorf("task should be done, got %q", tk.Status)
 		}
 	}
 
-	ss.closeIssue(issueID)
+	d.CloseIssue(issueID)
 }
 
 func TestSoloClosable(t *testing.T) {
-	ss := newSoloState(t, "solo-closable", "Solo Closable")
-	issueID := ss.addIssue("Issue ready to close", "all tasks done")
-	ss.triageIssue(issueID, 2)
-	taskID := ss.addTask(issueID, "Only task")
-	ss.markTaskDone(taskID)
+	d := NewApiDriver(t, "solo-closable", "Solo Closable")
+	sc := Given(d).
+		TriagedIssue("Issue ready to close", "all tasks done", 2).
+		Task(0, "Only task").
+		Build()
+	issueID := sc.Issues[0]
 
-	// All tasks done, issue open → solo would emit [closable].
-	tasks := ss.listTasks(issueID)
+	d.MarkTaskDone(sc.Tasks[0])
+
+	tasks := d.ListTasks(issueID)
 	allDone := true
 	for _, tk := range tasks {
 		if tk.Status == "pending" || tk.Status == "in_progress" {
@@ -725,11 +354,9 @@ func TestSoloClosable(t *testing.T) {
 		t.Fatal("expected at least one task for closable state")
 	}
 
-	// Advance: close the issue.
-	ss.closeIssue(issueID)
+	d.CloseIssue(issueID)
 
-	// Issue should be closed.
-	issues := ss.listIssues()
+	issues := d.ListIssues()
 	for _, iss := range issues {
 		if iss.ID == issueID && iss.Status != "closed" {
 			t.Errorf("issue should be closed, got %q", iss.Status)
@@ -737,73 +364,68 @@ func TestSoloClosable(t *testing.T) {
 	}
 }
 
-// TestSoloFullLifecycle walks through bootstrap → triage → add → dev → closable → nothing.
 func TestSoloFullLifecycle(t *testing.T) {
-	ss := newSoloState(t, "solo-lifecycle", "Solo Lifecycle")
+	d := NewApiDriver(t, "solo-lifecycle", "Solo Lifecycle")
 
-	// 1. Bootstrap: no issues, no features.
-	issues := ss.listIssues()
-	features := ss.listFeatures()
+	// 1. Bootstrap: empty project.
+	issues := d.ListIssues()
+	features := d.ListFeatures()
 	if len(issues) != 0 || len(features) != 0 {
 		t.Fatal("expected empty project for bootstrap")
 	}
 
-	// 2. Create feature + issue (post-bootstrap).
-	ss.addFeature("lifecycle-feat", "Lifecycle test feature")
-	ss.addSpec("lifecycle-feat", "unit_test", "Basic lifecycle test")
-	issueID := ss.addIssue("Lifecycle test issue", "full workflow")
+	// 2. Post-bootstrap: create fixtures via scenario builder.
+	sc := Given(d).
+		Feature("lifecycle-feat", "Lifecycle test feature").
+		Spec("lifecycle-feat", "unit_test", "Basic lifecycle test").
+		Issue("Lifecycle test issue", "full workflow").
+		HealthPrereqs("2026-04-14").
+		Build()
+	issueID := sc.Issues[0]
 
-	// Set up health prerequisites so solo doesn't gate on goals/constraints/journals.
-	ss.addGoal("Complete lifecycle test")
-	ss.addConstraint("Must pass all checks")
-	ss.checkinJournal("owner", "2026-04-14")
-	ss.checkinJournal("tech", "2026-04-14")
-
-	// Link spec test ref so solo doesn't gate on tech:test-ref.
-	testID := ss.registerTest("TestLifecycle")
-	uncovered := ss.listUncoveredSpecs()
+	// Link spec test ref.
+	testID := d.RegisterTest("TestLifecycle")
+	uncovered := d.ListUncoveredSpecs()
 	for _, spec := range uncovered {
 		if spec.FeatureName == "lifecycle-feat" {
-			mustOK(t, apiDo(t, http.MethodPost, "/api/dx/specs/link-test",
-				map[string]any{"spec_id": spec.ID, "test_id": testID}, nil))
+			d.LinkTestToSpec(spec.ID, testID)
 		}
 	}
 
-	// Review feature so it's not stale.
-	ss.reviewFeature("lifecycle-feat")
+	d.ReviewFeature("lifecycle-feat")
 
-	// 3. Triage: issue has no priority.
-	issues = ss.listIssues()
+	// 3. Triage.
+	issues = d.ListIssues()
 	for _, iss := range issues {
 		if iss.ID == issueID && iss.Priority != "" {
 			t.Fatal("expected untriaged issue")
 		}
 	}
-	ss.triageIssue(issueID, 2)
+	d.TriageIssue(issueID, 2)
 
-	// 4. Add: issue has no tasks.
-	tasks := ss.listTasks(issueID)
+	// 4. Add task.
+	tasks := d.ListTasks(issueID)
 	if len(tasks) != 0 {
 		t.Fatalf("expected 0 tasks, got %d", len(tasks))
 	}
-	taskID := ss.addTask(issueID, "Lifecycle task")
+	taskID := d.AddTask(issueID, "Lifecycle task")
 
-	// 5. Dev: issue has pending task.
-	tasks = ss.listTasks(issueID)
+	// 5. Dev: complete task.
+	tasks = d.ListTasks(issueID)
 	if len(tasks) != 1 || tasks[0].Status != "pending" {
 		t.Fatal("expected 1 pending task")
 	}
-	ss.markTaskDone(taskID)
+	d.MarkTaskDone(taskID)
 
-	// 6. Closable: all tasks done.
-	tasks = ss.listTasks(issueID)
+	// 6. Closable: all done.
+	tasks = d.ListTasks(issueID)
 	if tasks[0].Status != "done" {
 		t.Fatalf("expected task done, got %q", tasks[0].Status)
 	}
-	ss.closeIssue(issueID)
+	d.CloseIssue(issueID)
 
-	// 7. Nothing to do: all issues closed.
-	issues = ss.listIssues()
+	// 7. Nothing to do.
+	issues = d.ListIssues()
 	openCount := 0
 	for _, iss := range issues {
 		if iss.Status == "open" {
@@ -815,52 +437,45 @@ func TestSoloFullLifecycle(t *testing.T) {
 	}
 }
 
-// TestSoloPrecedence verifies that comments block triage, and health checks block triage.
 func TestSoloPrecedence(t *testing.T) {
-	ss := newSoloState(t, "solo-precedence", "Solo Precedence")
-	issueID := ss.addIssue("Precedence test", "checking order")
+	d := NewApiDriver(t, "solo-precedence", "Solo Precedence")
+	sc := Given(d).Issue("Precedence test", "checking order").Build()
+	issueID := sc.Issues[0]
 	targetID := fmt.Sprintf("IS-%d", issueID)
 
-	// Add a comment (should take precedence over triage).
-	ss.addComment("issue", targetID, "Check this first")
-	if !ss.hasUnreadComments("issue", targetID) {
+	d.AddComment("issue", targetID, "Check this first")
+	if !d.HasUnreadComments("issue", targetID) {
 		t.Fatal("expected unread comment")
 	}
 
-	// Issue is untriaged, but comment should come first in solo precedence.
-	issues := ss.listIssues()
+	issues := d.ListIssues()
 	for _, iss := range issues {
 		if iss.ID == issueID && iss.Priority != "" {
 			t.Fatal("issue should still be untriaged")
 		}
 	}
 
-	// The unread comment exists → solo would emit [read:comments] before [triage].
-	// Advance: mark read.
-	ss.markCommentsRead("issue", targetID, "llm")
-	if ss.hasUnreadComments("issue", targetID) {
+	d.MarkCommentsRead("issue", targetID, "llm")
+	if d.HasUnreadComments("issue", targetID) {
 		t.Fatal("comments should be read now")
 	}
 
-	// Now solo would proceed to [triage] (no more comments blocking).
-	ss.triageIssue(issueID, 3)
-	ss.closeIssue(issueID)
+	d.TriageIssue(issueID, 3)
+	d.CloseIssue(issueID)
 }
 
 func TestSoloUnansweredQuestions(t *testing.T) {
-	ss := newSoloState(t, "solo-unans-qa", "Solo Unanswered QA")
+	d := NewApiDriver(t, "solo-unans-qa", "Solo Unanswered QA")
 
-	// No unanswered questions initially.
-	qs := ss.listUnansweredQuestions()
+	qs := d.ListUnansweredQuestions()
 	if len(qs) != 0 {
 		t.Fatalf("expected 0 unanswered questions, got %d", len(qs))
 	}
 
-	// Add two questions — solo should surface the oldest first.
-	q1 := ss.addQuestion("arch", "Which cache layer should we use?")
-	q2 := ss.addQuestion("ops", "What monitoring tool do we prefer?")
+	q1 := d.AddQuestion("arch", "Which cache layer should we use?")
+	q2 := d.AddQuestion("ops", "What monitoring tool do we prefer?")
 
-	qs = ss.listUnansweredQuestions()
+	qs = d.ListUnansweredQuestions()
 	if len(qs) != 2 {
 		t.Fatalf("expected 2 unanswered questions, got %d", len(qs))
 	}
@@ -868,9 +483,8 @@ func TestSoloUnansweredQuestions(t *testing.T) {
 		t.Errorf("expected oldest question first (ID %d), got %d", q1, qs[0].ID)
 	}
 
-	// Answer one — only one should remain.
-	ss.answerQuestion(q1, "Redis")
-	qs = ss.listUnansweredQuestions()
+	d.AnswerQuestion(q1, "Redis")
+	qs = d.ListUnansweredQuestions()
 	if len(qs) != 1 {
 		t.Fatalf("expected 1 unanswered question after answering one, got %d", len(qs))
 	}
@@ -878,33 +492,29 @@ func TestSoloUnansweredQuestions(t *testing.T) {
 		t.Errorf("expected remaining question ID %d, got %d", q2, qs[0].ID)
 	}
 
-	// Answer the other — none remain.
-	ss.answerQuestion(q2, "Grafana")
-	qs = ss.listUnansweredQuestions()
+	d.AnswerQuestion(q2, "Grafana")
+	qs = d.ListUnansweredQuestions()
 	if len(qs) != 0 {
 		t.Fatalf("expected 0 unanswered questions, got %d", len(qs))
 	}
 }
 
 func TestSoloStaleUnreadComments(t *testing.T) {
-	ss := newSoloState(t, "solo-stale-comm", "Solo Stale Comments")
-	issueID := ss.addIssue("Stale comment test", "test")
-	ss.triageIssue(issueID, 3)
+	d := NewApiDriver(t, "solo-stale-comm", "Solo Stale Comments")
+	sc := Given(d).TriagedIssue("Stale comment test", "test", 3).Build()
+	issueID := sc.Issues[0]
 	targetID := fmt.Sprintf("IS-%d", issueID)
 
-	// Add a comment and mark it read — should not appear as stale.
-	ss.addComment("issue", targetID, "Initial comment")
-	ss.markCommentsRead("issue", targetID, "llm")
+	d.AddComment("issue", targetID, "Initial comment")
+	d.MarkCommentsRead("issue", targetID, "llm")
 
-	// With age_hours=0, nothing qualifies as stale (comments just created).
-	stale := ss.listStaleUnreadComments(0)
+	stale := d.ListStaleUnreadComments(0)
 	if len(stale) != 0 {
 		t.Fatalf("expected 0 stale comments (all read), got %d", len(stale))
 	}
 
-	// Add another comment without marking read. With age_hours=0 it should show immediately.
-	ss.addComment("issue", targetID, "Follow-up that nobody read")
-	stale = ss.listStaleUnreadComments(0)
+	d.AddComment("issue", targetID, "Follow-up that nobody read")
+	stale = d.ListStaleUnreadComments(0)
 	if len(stale) != 1 {
 		t.Fatalf("expected 1 stale unread comment, got %d", len(stale))
 	}
@@ -912,12 +522,11 @@ func TestSoloStaleUnreadComments(t *testing.T) {
 		t.Errorf("expected target_id %s, got %s", targetID, stale[0].TargetID)
 	}
 
-	// Mark read → no longer stale.
-	ss.markCommentsRead("issue", targetID, "llm")
-	stale = ss.listStaleUnreadComments(0)
+	d.MarkCommentsRead("issue", targetID, "llm")
+	stale = d.ListStaleUnreadComments(0)
 	if len(stale) != 0 {
 		t.Fatalf("expected 0 stale comments after marking read, got %d", len(stale))
 	}
 
-	ss.closeIssue(issueID)
+	d.CloseIssue(issueID)
 }

@@ -22,6 +22,8 @@ func TestMain(m *testing.M) {
 		os.Exit(m.Run())
 	}
 
+	initDriverMode()
+
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	dbCleanup := func() {}
 
