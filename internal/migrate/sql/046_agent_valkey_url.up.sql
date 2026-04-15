@@ -1,0 +1,1 @@
+ALTER TABLE zdx_agents ADD COLUMN valkey_url TEXT NOT NULL DEFAULT '';

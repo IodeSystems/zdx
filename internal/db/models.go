@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type SchemaMigration struct {
+	Version int64 `db:"version" json:"version"`
+	Dirty   bool  `db:"dirty" json:"dirty"`
+}
+
 type ZdxAgent struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
@@ -22,6 +27,7 @@ type ZdxAgent struct {
 	DatabaseUrl    string             `db:"database_url" json:"database_url"`
 	LastHeartbeat  pgtype.Timestamptz `db:"last_heartbeat" json:"last_heartbeat"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ValkeyUrl      string             `db:"valkey_url" json:"valkey_url"`
 }
 
 type ZdxApiKey struct {

@@ -8,6 +8,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 
@@ -32,6 +33,7 @@ type agentItem struct {
 	ComposeProject string `json:"compose_project"`
 	ServerPort     int32  `json:"server_port"`
 	DatabaseUrl    string `json:"database_url"`
+	ValkeyUrl      string `json:"valkey_url"`
 	LastHeartbeat  string `json:"last_heartbeat"`
 	CreatedAt      string `json:"created_at"`
 }
@@ -88,13 +90,8 @@ func agentStartCmd() *cobra.Command {
 			fmt.Printf("worktree: %s (branch %s)\n", wtPath, branchName)
 
 			composeProject := "zdx-agent-" + id
-			if serverPort == 0 {
-				serverPort = 7600 + int32(os.Getpid()%1000)
-			}
-			dbPort := 5432 + int32(os.Getpid()%1000)
-			dbURL := fmt.Sprintf("postgres://zdx:zdx@127.0.0.1:%d/zdx?sslmode=disable", dbPort)
 
-			composeContent := fmt.Sprintf(`services:
+			composeContent := `services:
   postgres:
     image: postgres:17
     environment:
@@ -102,7 +99,7 @@ func agentStartCmd() *cobra.Command {
       POSTGRES_USER: zdx
       POSTGRES_PASSWORD: zdx
     ports:
-      - "127.0.0.1:%d:5432"
+      - "127.0.0.1::5432"
     tmpfs:
       - /var/lib/postgresql/data:exec
     healthcheck:
@@ -110,7 +107,16 @@ func agentStartCmd() *cobra.Command {
       interval: 1s
       timeout: 3s
       retries: 30
-`, dbPort)
+  valkey:
+    image: valkey/valkey:8
+    ports:
+      - "127.0.0.1::6379"
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+`
 			composeFile := filepath.Join(wtPath, "docker-compose.agent.yaml")
 			if err := os.WriteFile(composeFile, []byte(composeContent), 0o644); err != nil {
 				return fmt.Errorf("write compose: %w", err)
@@ -120,7 +126,20 @@ func agentStartCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("docker compose up: %s: %w", strings.TrimSpace(string(out)), err)
 			}
-			fmt.Printf("compose:  %s (db port %d)\n", composeProject, dbPort)
+
+			dbPort, err := discoverComposePort(composeProject, composeFile, "postgres", 5432)
+			if err != nil {
+				return fmt.Errorf("discover postgres port: %w", err)
+			}
+			dbURL := fmt.Sprintf("postgres://zdx:zdx@127.0.0.1:%d/zdx?sslmode=disable", dbPort)
+
+			valkeyPort, err := discoverComposePort(composeProject, composeFile, "valkey", 6379)
+			if err != nil {
+				return fmt.Errorf("discover valkey port: %w", err)
+			}
+			valkeyURL := fmt.Sprintf("127.0.0.1:%d", valkeyPort)
+
+			fmt.Printf("compose:  %s (db port %d, valkey port %d)\n", composeProject, dbPort, valkeyPort)
 
 			var agent agentItem
 			if err := c.post("/api/agents/register", map[string]any{
@@ -135,6 +154,7 @@ func agentStartCmd() *cobra.Command {
 				"compose_project": composeProject,
 				"server_port":     serverPort,
 				"database_url":    dbURL,
+				"valkey_url":      valkeyURL,
 			}, &agent); err != nil {
 				return fmt.Errorf("register: %w", err)
 			}
@@ -298,11 +318,25 @@ func agentResumeCmd() *cobra.Command {
 			}
 
 			if agent.ComposeProject != "" {
-				out, err := exec.Command("docker", "compose", "-p", agent.ComposeProject, "up", "-d", "--wait").CombinedOutput()
+				composeFile := filepath.Join(agent.WorktreePath, "docker-compose.agent.yaml")
+				out, err := exec.Command("docker", "compose", "-p", agent.ComposeProject, "-f", composeFile, "up", "-d", "--wait").CombinedOutput()
 				if err != nil {
 					return fmt.Errorf("compose up: %s: %w", strings.TrimSpace(string(out)), err)
 				}
 				fmt.Printf("compose restarted: %s\n", agent.ComposeProject)
+
+				dbPort, err := discoverComposePort(agent.ComposeProject, composeFile, "postgres", 5432)
+				if err != nil {
+					return fmt.Errorf("discover postgres port: %w", err)
+				}
+				agent.DatabaseUrl = fmt.Sprintf("postgres://zdx:zdx@127.0.0.1:%d/zdx?sslmode=disable", dbPort)
+
+				valkeyPort, err := discoverComposePort(agent.ComposeProject, composeFile, "valkey", 6379)
+				if err != nil {
+					return fmt.Errorf("discover valkey port: %w", err)
+				}
+				agent.ValkeyUrl = fmt.Sprintf("127.0.0.1:%d", valkeyPort)
+				fmt.Printf("ports:    db=%d valkey=%d\n", dbPort, valkeyPort)
 			}
 
 			var updated agentItem
@@ -318,6 +352,7 @@ func agentResumeCmd() *cobra.Command {
 				"compose_project": agent.ComposeProject,
 				"server_port":     agent.ServerPort,
 				"database_url":    agent.DatabaseUrl,
+				"valkey_url":      agent.ValkeyUrl,
 			}, &updated); err != nil {
 				return fmt.Errorf("re-register: %w", err)
 			}
@@ -379,6 +414,23 @@ func agentReleaseCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func discoverComposePort(project, composeFile, service string, containerPort int) (int, error) {
+	out, err := exec.Command("docker", "compose", "-p", project, "-f", composeFile, "port", service, strconv.Itoa(containerPort)).CombinedOutput()
+	if err != nil {
+		return 0, fmt.Errorf("docker compose port %s %d: %s: %w", service, containerPort, strings.TrimSpace(string(out)), err)
+	}
+	hostPort := strings.TrimSpace(string(out))
+	parts := strings.Split(hostPort, ":")
+	if len(parts) != 2 {
+		return 0, fmt.Errorf("unexpected port output: %q", hostPort)
+	}
+	port, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, fmt.Errorf("parse port %q: %w", parts[1], err)
+	}
+	return port, nil
 }
 
 func gitRepoRoot() (string, error) {

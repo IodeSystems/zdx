@@ -22,6 +22,7 @@ type AgentItem struct {
 	ComposeProject string `json:"compose_project"`
 	ServerPort     int32  `json:"server_port"`
 	DatabaseUrl    string `json:"database_url"`
+	ValkeyUrl      string `json:"valkey_url"`
 	LastHeartbeat  string `json:"last_heartbeat"`
 	CreatedAt      string `json:"created_at"`
 }
@@ -50,6 +51,7 @@ func agentItemFrom(a db.ZdxAgent) AgentItem {
 		ComposeProject: a.ComposeProject,
 		ServerPort:     a.ServerPort,
 		DatabaseUrl:    a.DatabaseUrl,
+		ValkeyUrl:      a.ValkeyUrl,
 		LastHeartbeat:  fmtTS(a.LastHeartbeat),
 		CreatedAt:      fmtTS(a.CreatedAt),
 	}
@@ -71,6 +73,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				ComposeProject string `json:"compose_project"`
 				ServerPort     int32  `json:"server_port"`
 				DatabaseUrl    string `json:"database_url"`
+				ValkeyUrl      string `json:"valkey_url"`
 			}
 		}) (*struct{ Body AgentItem }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -93,6 +96,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				ComposeProject: in.Body.ComposeProject,
 				ServerPort:     in.Body.ServerPort,
 				DatabaseUrl:    in.Body.DatabaseUrl,
+				ValkeyUrl:      in.Body.ValkeyUrl,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())

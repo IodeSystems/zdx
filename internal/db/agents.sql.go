@@ -21,7 +21,7 @@ func (q *Queries) DeleteAgent(ctx context.Context, id string) error {
 }
 
 const getAgent = `-- name: GetAgent :one
-SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at FROM zdx_agents WHERE id = $1
+SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url FROM zdx_agents WHERE id = $1
 `
 
 func (q *Queries) GetAgent(ctx context.Context, id string) (ZdxAgent, error) {
@@ -41,12 +41,13 @@ func (q *Queries) GetAgent(ctx context.Context, id string) (ZdxAgent, error) {
 		&i.DatabaseUrl,
 		&i.LastHeartbeat,
 		&i.CreatedAt,
+		&i.ValkeyUrl,
 	)
 	return i, err
 }
 
 const listAgentsByProject = `-- name: ListAgentsByProject :many
-SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC
+SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC
 `
 
 func (q *Queries) ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error) {
@@ -72,6 +73,7 @@ func (q *Queries) ListAgentsByProject(ctx context.Context, projectID int32) ([]Z
 			&i.DatabaseUrl,
 			&i.LastHeartbeat,
 			&i.CreatedAt,
+			&i.ValkeyUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -86,7 +88,7 @@ func (q *Queries) ListAgentsByProject(ctx context.Context, projectID int32) ([]Z
 const reapStaleAgents = `-- name: ReapStaleAgents :many
 DELETE FROM zdx_agents
 WHERE last_heartbeat < NOW() - $1::interval
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url
 `
 
 func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error) {
@@ -112,6 +114,7 @@ func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Int
 			&i.DatabaseUrl,
 			&i.LastHeartbeat,
 			&i.CreatedAt,
+			&i.ValkeyUrl,
 		); err != nil {
 			return nil, err
 		}
@@ -124,8 +127,8 @@ func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Int
 }
 
 const registerAgent = `-- name: RegisterAgent :one
-INSERT INTO zdx_agents (id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+INSERT INTO zdx_agents (id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, valkey_url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
 ON CONFLICT (id) DO UPDATE SET
     session_id = EXCLUDED.session_id,
     worktree_path = EXCLUDED.worktree_path,
@@ -136,8 +139,9 @@ ON CONFLICT (id) DO UPDATE SET
     compose_project = EXCLUDED.compose_project,
     server_port = EXCLUDED.server_port,
     database_url = EXCLUDED.database_url,
+    valkey_url = EXCLUDED.valkey_url,
     last_heartbeat = NOW()
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url
 `
 
 type RegisterAgentParams struct {
@@ -152,6 +156,7 @@ type RegisterAgentParams struct {
 	ComposeProject string `db:"compose_project" json:"compose_project"`
 	ServerPort     int32  `db:"server_port" json:"server_port"`
 	DatabaseUrl    string `db:"database_url" json:"database_url"`
+	ValkeyUrl      string `db:"valkey_url" json:"valkey_url"`
 }
 
 func (q *Queries) RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error) {
@@ -167,6 +172,7 @@ func (q *Queries) RegisterAgent(ctx context.Context, arg RegisterAgentParams) (Z
 		arg.ComposeProject,
 		arg.ServerPort,
 		arg.DatabaseUrl,
+		arg.ValkeyUrl,
 	)
 	var i ZdxAgent
 	err := row.Scan(
@@ -183,6 +189,7 @@ func (q *Queries) RegisterAgent(ctx context.Context, arg RegisterAgentParams) (Z
 		&i.DatabaseUrl,
 		&i.LastHeartbeat,
 		&i.CreatedAt,
+		&i.ValkeyUrl,
 	)
 	return i, err
 }

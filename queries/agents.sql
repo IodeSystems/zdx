@@ -1,6 +1,6 @@
 -- name: RegisterAgent :one
-INSERT INTO zdx_agents (id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url)
-VALUES (@id, @project_id, @session_id, @worktree_path, @worktree_branch, @pid, @status, @task_group, @compose_project, @server_port, @database_url)
+INSERT INTO zdx_agents (id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, valkey_url)
+VALUES (@id, @project_id, @session_id, @worktree_path, @worktree_branch, @pid, @status, @task_group, @compose_project, @server_port, @database_url, @valkey_url)
 ON CONFLICT (id) DO UPDATE SET
     session_id = EXCLUDED.session_id,
     worktree_path = EXCLUDED.worktree_path,
@@ -11,6 +11,7 @@ ON CONFLICT (id) DO UPDATE SET
     compose_project = EXCLUDED.compose_project,
     server_port = EXCLUDED.server_port,
     database_url = EXCLUDED.database_url,
+    valkey_url = EXCLUDED.valkey_url,
     last_heartbeat = NOW()
 RETURNING *;
 
