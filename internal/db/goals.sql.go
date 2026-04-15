@@ -163,6 +163,81 @@ func (q *Queries) GetProjectGoal(ctx context.Context, id int32) (ZdxProjectGoal,
 	return i, err
 }
 
+const linkGoalIssue = `-- name: LinkGoalIssue :exec
+INSERT INTO zdx_goal_issues (goal_id, issue_id) VALUES ($1, $2)
+ON CONFLICT DO NOTHING
+`
+
+type LinkGoalIssueParams struct {
+	GoalID  int32  `db:"goal_id" json:"goal_id"`
+	IssueID string `db:"issue_id" json:"issue_id"`
+}
+
+func (q *Queries) LinkGoalIssue(ctx context.Context, arg LinkGoalIssueParams) error {
+	_, err := q.db.Exec(ctx, linkGoalIssue, arg.GoalID, arg.IssueID)
+	return err
+}
+
+const listGoalIssues = `-- name: ListGoalIssues :many
+SELECT issue_id FROM zdx_goal_issues WHERE goal_id = $1
+`
+
+func (q *Queries) ListGoalIssues(ctx context.Context, goalID int32) ([]string, error) {
+	rows, err := q.db.Query(ctx, listGoalIssues, goalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var issue_id string
+		if err := rows.Scan(&issue_id); err != nil {
+			return nil, err
+		}
+		items = append(items, issue_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIssueGoals = `-- name: ListIssueGoals :many
+SELECT g.id, g.project_id, g.title, g.description, g.priority, g.status, g.created_at, g.updated_at
+FROM zdx_project_goals g
+JOIN zdx_goal_issues gi ON gi.goal_id = g.id
+WHERE gi.issue_id = $1
+`
+
+func (q *Queries) ListIssueGoals(ctx context.Context, issueID string) ([]ZdxProjectGoal, error) {
+	rows, err := q.db.Query(ctx, listIssueGoals, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxProjectGoal
+	for rows.Next() {
+		var i ZdxProjectGoal
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Description,
+			&i.Priority,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listProjectConstraints = `-- name: ListProjectConstraints :many
 SELECT id, project_id, title, description, priority, status, created_at, updated_at
 FROM zdx_project_constraints WHERE project_id = $1
@@ -231,6 +306,20 @@ func (q *Queries) ListProjectGoals(ctx context.Context, projectID int32) ([]ZdxP
 		return nil, err
 	}
 	return items, nil
+}
+
+const unlinkGoalIssue = `-- name: UnlinkGoalIssue :exec
+DELETE FROM zdx_goal_issues WHERE goal_id = $1 AND issue_id = $2
+`
+
+type UnlinkGoalIssueParams struct {
+	GoalID  int32  `db:"goal_id" json:"goal_id"`
+	IssueID string `db:"issue_id" json:"issue_id"`
+}
+
+func (q *Queries) UnlinkGoalIssue(ctx context.Context, arg UnlinkGoalIssueParams) error {
+	_, err := q.db.Exec(ctx, unlinkGoalIssue, arg.GoalID, arg.IssueID)
+	return err
 }
 
 const updateProjectConstraint = `-- name: UpdateProjectConstraint :exec

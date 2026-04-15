@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -21,6 +21,16 @@ SET row_security = off;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    version bigint NOT NULL,
+    dirty boolean NOT NULL
+);
+
 
 --
 -- Name: zdx_agents; Type: TABLE; Schema: public; Owner: -
@@ -547,6 +557,16 @@ CREATE SEQUENCE public.zdx_files_id_seq
 --
 
 ALTER SEQUENCE public.zdx_files_id_seq OWNED BY public.zdx_files.id;
+
+
+--
+-- Name: zdx_goal_issues; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_goal_issues (
+    goal_id integer NOT NULL,
+    issue_id text NOT NULL
+);
 
 
 --
@@ -2166,6 +2186,14 @@ ALTER TABLE ONLY public.zdx_work_log ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
 -- Name: zdx_agents zdx_agents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2323,6 +2351,14 @@ ALTER TABLE ONLY public.zdx_features
 
 ALTER TABLE ONLY public.zdx_files
     ADD CONSTRAINT zdx_files_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_goal_issues zdx_goal_issues_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_goal_issues
+    ADD CONSTRAINT zdx_goal_issues_pkey PRIMARY KEY (goal_id, issue_id);
 
 
 --
@@ -2879,6 +2915,13 @@ CREATE INDEX idx_error_reports_source ON public.zdx_error_reports USING btree (s
 
 
 --
+-- Name: idx_goal_issues_issue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_goal_issues_issue ON public.zdx_goal_issues USING btree (issue_id);
+
+
+--
 -- Name: idx_issue_code_refs_issue; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3312,6 +3355,22 @@ ALTER TABLE ONLY public.zdx_error_reports
 
 ALTER TABLE ONLY public.zdx_features
     ADD CONSTRAINT zdx_features_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
+
+
+--
+-- Name: zdx_goal_issues zdx_goal_issues_goal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_goal_issues
+    ADD CONSTRAINT zdx_goal_issues_goal_id_fkey FOREIGN KEY (goal_id) REFERENCES public.zdx_project_goals(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_goal_issues zdx_goal_issues_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_goal_issues
+    ADD CONSTRAINT zdx_goal_issues_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
 
 
 --

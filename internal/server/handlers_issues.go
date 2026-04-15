@@ -214,6 +214,8 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Title     *string `json:"title,omitempty"`
 				IssueType *string `json:"issue_type,omitempty"`
 				Context   *string `json:"context,omitempty"`
+				ThemeIDs  []int32 `json:"theme_ids,omitempty"`
+				GoalIDs   []int32 `json:"goal_ids,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -265,6 +267,12 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					}
 					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val, agent)
 				}
+			}
+			for _, tid := range in.Body.ThemeIDs {
+				_ = s.q.AddThemeBlocker(ctx, db.AddThemeBlockerParams{ThemeID: tid, IssueID: issueID})
+			}
+			for _, gid := range in.Body.GoalIDs {
+				_ = s.q.LinkGoalIssue(ctx, db.LinkGoalIssueParams{GoalID: gid, IssueID: issueID})
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})

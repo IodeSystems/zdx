@@ -1095,6 +1095,7 @@ func todoOwnerCmd() *cobra.Command {
 
 func todoOwnerTriageCmd() *cobra.Command {
 	var priority, title, issueType, context, questions string
+	var themes, goals []int
 	var clarify bool
 	cmd := &cobra.Command{
 		Use:   "triage <IS-N>",
@@ -1180,6 +1181,12 @@ func todoOwnerTriageCmd() *cobra.Command {
 			if context != "" {
 				body["context"] = context
 			}
+			if len(themes) > 0 {
+				body["theme_ids"] = themes
+			}
+			if len(goals) > 0 {
+				body["goal_ids"] = goals
+			}
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -1196,6 +1203,8 @@ func todoOwnerTriageCmd() *cobra.Command {
 	cmd.Flags().StringVar(&context, "context", "", "rewrite issue context (answer embedded question, clarify scope)")
 	cmd.Flags().BoolVar(&clarify, "clarify", false, "create clarification questions instead of triaging (requires --questions)")
 	cmd.Flags().StringVar(&questions, "questions", "", "semicolon-separated questions; use | for choices: \"question|a,b,c;question2\"")
+	cmd.Flags().IntSliceVar(&themes, "theme", nil, "theme ID(s) to link (repeatable)")
+	cmd.Flags().IntSliceVar(&goals, "goal", nil, "goal ID(s) to link (repeatable)")
 	return cmd
 }
 

@@ -386,6 +386,8 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		Title     string `json:"title,omitempty" jsonschema:"set issue title"`
 		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, or tracker"`
 		Context   string `json:"context,omitempty" jsonschema:"rewrite issue context"`
+		ThemeIDs  []int  `json:"theme_ids,omitempty" jsonschema:"theme IDs to link"`
+		GoalIDs   []int  `json:"goal_ids,omitempty" jsonschema:"goal IDs to link"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "todo_owner_triage",
@@ -408,6 +410,12 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		}
 		if in.Context != "" {
 			body["context"] = in.Context
+		}
+		if len(in.ThemeIDs) > 0 {
+			body["theme_ids"] = in.ThemeIDs
+		}
+		if len(in.GoalIDs) > 0 {
+			body["goal_ids"] = in.GoalIDs
 		}
 		var ok struct {
 			OK bool `json:"ok"`

@@ -55,3 +55,19 @@ DELETE FROM zdx_project_constraints WHERE id = $1;
 
 -- name: CountProjectConstraints :one
 SELECT count(*) FROM zdx_project_constraints WHERE project_id = $1;
+
+-- name: LinkGoalIssue :exec
+INSERT INTO zdx_goal_issues (goal_id, issue_id) VALUES ($1, $2)
+ON CONFLICT DO NOTHING;
+
+-- name: UnlinkGoalIssue :exec
+DELETE FROM zdx_goal_issues WHERE goal_id = $1 AND issue_id = $2;
+
+-- name: ListGoalIssues :many
+SELECT issue_id FROM zdx_goal_issues WHERE goal_id = $1;
+
+-- name: ListIssueGoals :many
+SELECT g.id, g.project_id, g.title, g.description, g.priority, g.status, g.created_at, g.updated_at
+FROM zdx_project_goals g
+JOIN zdx_goal_issues gi ON gi.goal_id = g.id
+WHERE gi.issue_id = $1;

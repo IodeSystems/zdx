@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type SchemaMigration struct {
+	Version int64 `db:"version" json:"version"`
+	Dirty   bool  `db:"dirty" json:"dirty"`
+}
+
 type ZdxAgent struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
@@ -184,6 +189,11 @@ type ZdxFile struct {
 	MimeType  string             `db:"mime_type" json:"mime_type"`
 	SizeBytes int64              `db:"size_bytes" json:"size_bytes"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ZdxGoalIssue struct {
+	GoalID  int32  `db:"goal_id" json:"goal_id"`
+	IssueID string `db:"issue_id" json:"issue_id"`
 }
 
 type ZdxIDSeq struct {
