@@ -799,8 +799,8 @@ CREATE TABLE public.zdx_journal_entries (
     next text DEFAULT ''::text NOT NULL,
     changelog_json text DEFAULT '{}'::text NOT NULL,
     state_json text DEFAULT '{}'::text NOT NULL,
-    needs_review boolean DEFAULT false NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    needs_review boolean DEFAULT false NOT NULL
 );
 
 
