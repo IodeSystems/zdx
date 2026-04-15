@@ -928,6 +928,36 @@ export const useIssueCodeRefs = (slug: string, issueId: string) =>
     enabled: !!slug && !!issueId,
   })
 
+export interface ResolutionCommitItem {
+  sha: string
+  ord: number
+}
+
+export interface ResolutionItem {
+  id: string
+  issue_id: string
+  branch_of_origin: string
+  resolved_at: string
+  author: string
+  source: string
+  parent_resolution?: string
+  commits: ResolutionCommitItem[]
+  reverted: boolean
+  reverted_by?: string
+}
+
+export const useIssueResolutions = (slug: string, issueId: string, branch?: string) =>
+  useQuery<ResolutionItem[]>({
+    queryKey: ['issue-resolutions', slug, issueId, branch],
+    queryFn: async () => {
+      let url = `/api/dx/todo/issue/resolutions?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(issueId)}`
+      if (branch) url += `&branch=${encodeURIComponent(branch)}`
+      const res = await apiFetch<{ resolutions: ResolutionItem[] }>(url)
+      return res.resolutions ?? []
+    },
+    enabled: !!slug && !!issueId,
+  })
+
 export const useTaskCodeRefs = (slug: string, taskId: string) =>
   useQuery<CodeRefItem[]>({
     queryKey: ['code-refs', 'task', slug, taskId],

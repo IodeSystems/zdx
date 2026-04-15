@@ -14,6 +14,7 @@ type Querier interface {
 	AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error)
 	AddCommentReaction(ctx context.Context, arg AddCommentReactionParams) (ZdxCommentReaction, error)
 	AddIssueBlock(ctx context.Context, arg AddIssueBlockParams) error
+	AddResolutionCommit(ctx context.Context, arg AddResolutionCommitParams) error
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
@@ -37,6 +38,7 @@ type Querier interface {
 	CountCounterEvents(ctx context.Context, arg CountCounterEventsParams) (int64, error)
 	CountErrorEvents(ctx context.Context, arg CountErrorEventsParams) (int64, error)
 	CountErrorReports(ctx context.Context, projectID pgtype.Int4) (int64, error)
+	CountIssueResolutions(ctx context.Context, issueID string) (int64, error)
 	CountIssues(ctx context.Context, projectID int32) (int64, error)
 	CountLogEvents(ctx context.Context, arg CountLogEventsParams) (int64, error)
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
@@ -63,6 +65,7 @@ type Querier interface {
 	CreateIntegrationToken(ctx context.Context, arg CreateIntegrationTokenParams) (CreateIntegrationTokenRow, error)
 	CreateInvite(ctx context.Context, arg CreateInviteParams) (ZdxInvite, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
+	CreateIssueResolution(ctx context.Context, arg CreateIssueResolutionParams) (ZdxIssueResolution, error)
 	CreateProject(ctx context.Context, arg CreateProjectParams) (CreateProjectRow, error)
 	CreateProjectConstraint(ctx context.Context, arg CreateProjectConstraintParams) (ZdxProjectConstraint, error)
 	CreateProjectGoal(ctx context.Context, arg CreateProjectGoalParams) (ZdxProjectGoal, error)
@@ -81,6 +84,7 @@ type Querier interface {
 	DeleteFeature(ctx context.Context, id int32) error
 	DeleteIntegrationToken(ctx context.Context, id int32) error
 	DeleteInvite(ctx context.Context, id int32) error
+	DeleteIssueResolution(ctx context.Context, id string) error
 	DeleteLogEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteProjectConstraint(ctx context.Context, id int32) error
 	DeleteProjectGoal(ctx context.Context, id int32) error
@@ -111,6 +115,7 @@ type Querier interface {
 	GetInviteByToken(ctx context.Context, token string) (ZdxInvite, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
 	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
+	GetIssueResolution(ctx context.Context, id string) (ZdxIssueResolution, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
 	GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (ZdxJournalEntry, error)
@@ -174,6 +179,7 @@ type Querier interface {
 	ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error)
 	ListInvites(ctx context.Context) ([]ZdxInvite, error)
 	ListIssueBlockers(ctx context.Context, issueID string) ([]string, error)
+	ListIssueResolutions(ctx context.Context, issueID string) ([]ZdxIssueResolution, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesBlockedBy(ctx context.Context, blockedByID string) ([]string, error)
 	ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error)
@@ -189,6 +195,8 @@ type Querier interface {
 	ListProjects(ctx context.Context) ([]ZdxProject, error)
 	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	ListQuestionsPaginated(ctx context.Context, arg ListQuestionsPaginatedParams) ([]ZdxQuestion, error)
+	ListResolutionCommits(ctx context.Context, resolutionID string) ([]ZdxIssueResolutionCommit, error)
+	ListResolutionsByProject(ctx context.Context, projectID int32) ([]ZdxIssueResolution, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ZdxRevision, error)
 	ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ZdxRevision, error)
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)

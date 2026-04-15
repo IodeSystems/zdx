@@ -692,6 +692,34 @@ ALTER SEQUENCE public.zdx_issue_files_id_seq OWNED BY public.zdx_issue_files.id;
 
 
 --
+-- Name: zdx_issue_resolution_commits; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_issue_resolution_commits (
+    resolution_id text NOT NULL,
+    sha text NOT NULL,
+    ord integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: zdx_issue_resolutions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_issue_resolutions (
+    id text NOT NULL,
+    issue_id text NOT NULL,
+    branch_of_origin text DEFAULT ''::text NOT NULL,
+    resolved_at timestamp with time zone DEFAULT now() NOT NULL,
+    author text DEFAULT ''::text NOT NULL,
+    source text DEFAULT 'manual'::text NOT NULL,
+    parent_resolution_id text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT zdx_issue_resolutions_source_check CHECK ((source = ANY (ARRAY['manual'::text, 'reconciled'::text, 'merged'::text])))
+);
+
+
+--
 -- Name: zdx_issue_work; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1328,6 +1356,16 @@ CREATE TABLE public.zdx_state (
 
 CREATE TABLE public.zdx_task_code_refs (
     task_id text NOT NULL,
+    code_ref_id integer NOT NULL
+);
+
+
+--
+-- Name: zdx_test_code_refs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_test_code_refs (
+    test_id integer NOT NULL,
     code_ref_id integer NOT NULL
 );
 
@@ -2218,6 +2256,22 @@ ALTER TABLE ONLY public.zdx_issue_files
 
 
 --
+-- Name: zdx_issue_resolution_commits zdx_issue_resolution_commits_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issue_resolution_commits
+    ADD CONSTRAINT zdx_issue_resolution_commits_pkey PRIMARY KEY (resolution_id, sha);
+
+
+--
+-- Name: zdx_issue_resolutions zdx_issue_resolutions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issue_resolutions
+    ADD CONSTRAINT zdx_issue_resolutions_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_issue_work zdx_issue_work_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2466,6 +2520,14 @@ ALTER TABLE ONLY public.zdx_task_code_refs
 
 
 --
+-- Name: zdx_test_code_refs zdx_test_code_refs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_test_code_refs
+    ADD CONSTRAINT zdx_test_code_refs_pkey PRIMARY KEY (test_id, code_ref_id);
+
+
+--
 -- Name: zdx_tasks zdx_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2647,6 +2709,20 @@ CREATE INDEX idx_issue_code_refs_issue ON public.zdx_issue_code_refs USING btree
 --
 
 CREATE INDEX idx_issue_files_issue ON public.zdx_issue_files USING btree (issue_id);
+
+
+--
+-- Name: idx_issue_resolution_commits_sha; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_issue_resolution_commits_sha ON public.zdx_issue_resolution_commits USING btree (sha);
+
+
+--
+-- Name: idx_issue_resolutions_issue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_issue_resolutions_issue ON public.zdx_issue_resolutions USING btree (issue_id);
 
 
 --
@@ -3095,6 +3171,30 @@ ALTER TABLE ONLY public.zdx_issue_files
 
 
 --
+-- Name: zdx_issue_resolution_commits zdx_issue_resolution_commits_resolution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issue_resolution_commits
+    ADD CONSTRAINT zdx_issue_resolution_commits_resolution_id_fkey FOREIGN KEY (resolution_id) REFERENCES public.zdx_issue_resolutions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_issue_resolutions zdx_issue_resolutions_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issue_resolutions
+    ADD CONSTRAINT zdx_issue_resolutions_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_issue_resolutions zdx_issue_resolutions_parent_resolution_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issue_resolutions
+    ADD CONSTRAINT zdx_issue_resolutions_parent_resolution_id_fkey FOREIGN KEY (parent_resolution_id) REFERENCES public.zdx_issue_resolutions(id) ON DELETE SET NULL;
+
+
+--
 -- Name: zdx_issue_work zdx_issue_work_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3276,6 +3376,22 @@ ALTER TABLE ONLY public.zdx_task_code_refs
 
 ALTER TABLE ONLY public.zdx_task_code_refs
     ADD CONSTRAINT zdx_task_code_refs_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_test_code_refs zdx_test_code_refs_code_ref_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_test_code_refs
+    ADD CONSTRAINT zdx_test_code_refs_code_ref_id_fkey FOREIGN KEY (code_ref_id) REFERENCES public.zdx_code_refs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_test_code_refs zdx_test_code_refs_test_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_test_code_refs
+    ADD CONSTRAINT zdx_test_code_refs_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.zdx_tests(id) ON DELETE CASCADE;
 
 
 --

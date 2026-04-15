@@ -247,6 +247,23 @@ type ZdxIssueFile struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxIssueResolution struct {
+	ID                 string             `db:"id" json:"id"`
+	IssueID            string             `db:"issue_id" json:"issue_id"`
+	BranchOfOrigin     string             `db:"branch_of_origin" json:"branch_of_origin"`
+	ResolvedAt         pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	Author             string             `db:"author" json:"author"`
+	Source             string             `db:"source" json:"source"`
+	ParentResolutionID pgtype.Text        `db:"parent_resolution_id" json:"parent_resolution_id"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ZdxIssueResolutionCommit struct {
+	ResolutionID string `db:"resolution_id" json:"resolution_id"`
+	Sha          string `db:"sha" json:"sha"`
+	Ord          int32  `db:"ord" json:"ord"`
+}
+
 type ZdxIssueWork struct {
 	ID        int32              `db:"id" json:"id"`
 	IssueID   string             `db:"issue_id" json:"issue_id"`

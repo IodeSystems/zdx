@@ -19,6 +19,7 @@ import {
   useCloseIssue,
   useSearchIssues,
   useIssueCodeRefs,
+  useIssueResolutions,
   useListThemes,
   useAddThemeBlocker,
   useRemoveThemeBlocker,
@@ -69,6 +70,7 @@ export function IssueDetail({
   const { data, isLoading, refetch } = useIssue(slug, issueId)
   const { data: allTasks, refetch: refetchTasks } = useTasks(slug, { issue: issueId })
   const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
+  const { data: resolutions } = useIssueResolutions(slug, issueId)
   const closeIssue = useCloseIssue()
   const router = useRouter()
   const [closeOpen, setCloseOpen] = useState(false)
@@ -314,6 +316,35 @@ export function IssueDetail({
       <BlockerQuestionsSection slug={slug} targetType="issue" targetId={issueId} />
 
       <CodeRefs refs={codeRefs ?? []} />
+
+      {(resolutions ?? []).length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            Resolutions ({resolutions!.length})
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {resolutions!.map(r => (
+              <Box key={r.id} sx={{ borderLeft: 2, borderColor: r.reverted ? 'error.main' : 'success.main', pl: 1.5 }}>
+                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+                  <Chip label={r.source} size="small" variant="outlined" />
+                  {r.branch_of_origin && <Chip label={r.branch_of_origin} size="small" variant="outlined" color="info" />}
+                  {r.reverted && <Chip label={`reverted by ${r.reverted_by?.slice(0, 10)}`} size="small" color="error" />}
+                  <Typography variant="caption" color="text.secondary">
+                    {new Date(r.resolved_at).toLocaleString()} — {r.author}
+                  </Typography>
+                </Box>
+                <Box sx={{ mt: 0.5 }}>
+                  {r.commits.map(c => (
+                    <Typography key={c.sha} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                      {c.sha.slice(0, 10)}
+                    </Typography>
+                  ))}
+                </Box>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )}
 
       {workEntries.length > 0 && (
         <Box sx={{ mb: 3 }}>

@@ -2,11 +2,17 @@ package server
 
 import (
 	"context"
+	"crypto/rand"
+	"encoding/hex"
+	"fmt"
 	"net/http"
+	"os/exec"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
@@ -362,6 +368,15 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					agent = u.Email
 				}
 			}
+			if reason == "done" || reason == "" {
+				issue, gErr := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+				if gErr == nil && issue.IssueType == "impl" {
+					count, _ := s.q.CountIssueResolutions(ctx, issueID)
+					if count == 0 {
+						return nil, apiErr(400, "impl issues require at least one resolution before closing; use 'dx issue resolve' first")
+					}
+				}
+			}
 			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -685,6 +700,250 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Commits []GitCommit `json:"commits"`
 			}{Commits: commits}}, nil
 		})
+
+	// ── Issue resolutions ─────────────────────────────────────────────────────
+
+	type ResolutionCommitItem struct {
+		SHA string `json:"sha"`
+		Ord int32  `json:"ord"`
+	}
+
+	type ResolutionItem struct {
+		ID               string                 `json:"id"`
+		IssueID          string                 `json:"issue_id"`
+		BranchOfOrigin   string                 `json:"branch_of_origin"`
+		ResolvedAt       string                 `json:"resolved_at"`
+		Author           string                 `json:"author"`
+		Source           string                 `json:"source"`
+		ParentResolution string                 `json:"parent_resolution,omitempty"`
+		Commits          []ResolutionCommitItem `json:"commits"`
+		Reverted         bool                   `json:"reverted"`
+		RevertedBy       string                 `json:"reverted_by,omitempty"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "resolve-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/resolve"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug        string   `json:"slug"`
+				ID          int32    `json:"id"`
+				SHAs        []string `json:"shas"`
+				Branch      string   `json:"branch,omitempty"`
+				Author      string   `json:"author,omitempty"`
+				Source      string   `json:"source,omitempty"`
+				ParentResID string   `json:"parent_resolution_id,omitempty"`
+			}
+		}) (*struct {
+			Body struct {
+				Resolution ResolutionItem `json:"resolution"`
+			}
+		}, error) {
+			if len(in.Body.SHAs) == 0 {
+				return nil, apiErr(400, "at least one SHA is required")
+			}
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(in.Body.ID)
+			if _, err := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
+				return nil, apiErr(http.StatusNotFound, "issue not found")
+			}
+			source := in.Body.Source
+			if source == "" {
+				source = "manual"
+			}
+			branch := in.Body.Branch
+			author := in.Body.Author
+			if author == "" {
+				if uid := ctxUserIDVal(ctx); uid != 0 {
+					if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
+						author = u.Email
+					}
+				}
+			}
+			var rnd [8]byte
+			_, _ = rand.Read(rnd[:])
+			resID := hex.EncodeToString(rnd[:])
+			var parentRes pgtype.Text
+			if in.Body.ParentResID != "" {
+				parentRes = pgtype.Text{String: in.Body.ParentResID, Valid: true}
+			}
+			now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
+			res, err := s.q.CreateIssueResolution(ctx, db.CreateIssueResolutionParams{
+				ID:                 resID,
+				IssueID:            issueID,
+				BranchOfOrigin:     branch,
+				ResolvedAt:         now,
+				Author:             author,
+				Source:             source,
+				ParentResolutionID: parentRes,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			commits := make([]ResolutionCommitItem, len(in.Body.SHAs))
+			for i, sha := range in.Body.SHAs {
+				if err := s.q.AddResolutionCommit(ctx, db.AddResolutionCommitParams{
+					ResolutionID: resID,
+					Sha:          sha,
+					Ord:          int32(i),
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				commits[i] = ResolutionCommitItem{SHA: sha, Ord: int32(i)}
+			}
+			parentStr := ""
+			if res.ParentResolutionID.Valid {
+				parentStr = res.ParentResolutionID.String
+			}
+			item := ResolutionItem{
+				ID:               res.ID,
+				IssueID:          fmt.Sprintf("IS-%d", in.Body.ID),
+				BranchOfOrigin:   res.BranchOfOrigin,
+				ResolvedAt:       fmtTS(res.ResolvedAt),
+				Author:           res.Author,
+				Source:           res.Source,
+				ParentResolution: parentStr,
+				Commits:          commits,
+			}
+			return &struct {
+				Body struct {
+					Resolution ResolutionItem `json:"resolution"`
+				}
+			}{Body: struct {
+				Resolution ResolutionItem `json:"resolution"`
+			}{Resolution: item}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-issue-resolutions", Method: http.MethodGet, Path: "/api/dx/todo/issue/resolutions"},
+		func(ctx context.Context, in *struct {
+			Slug   string `query:"slug" required:"true"`
+			ID     string `query:"id" required:"true"`
+			Branch string `query:"branch"`
+		}) (*struct {
+			Body struct {
+				Resolutions []ResolutionItem `json:"resolutions"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(intFromPrefixed(in.ID, "IS-"))
+			resolutions, err := s.q.ListIssueResolutions(ctx, issueID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+
+			var repoDir, gitBranch string
+			if in.Branch != "" && s.features.HasProjectGitConfig {
+				row, gErr := s.q.GetProjectGitConfig(ctx, in.Slug)
+				if gErr == nil && row.GitUrl != "" {
+					gitURL := row.GitUrl
+					if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
+						gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
+					}
+					repoDir = s.repoDir(in.Slug)
+					gitBranch = row.GitBranch
+					if gitBranch == "" {
+						gitBranch = "main"
+					}
+					_ = ensureRepo(repoDir, gitURL, gitBranch)
+				}
+			}
+
+			items := make([]ResolutionItem, 0, len(resolutions))
+			for _, r := range resolutions {
+				commits, cErr := s.q.ListResolutionCommits(ctx, r.ID)
+				if cErr != nil {
+					continue
+				}
+				cItems := make([]ResolutionCommitItem, len(commits))
+				for i, c := range commits {
+					cItems[i] = ResolutionCommitItem{SHA: c.Sha, Ord: c.Ord}
+				}
+				parentStr := ""
+				if r.ParentResolutionID.Valid {
+					parentStr = r.ParentResolutionID.String
+				}
+				item := ResolutionItem{
+					ID:               r.ID,
+					IssueID:          r.IssueID,
+					BranchOfOrigin:   r.BranchOfOrigin,
+					ResolvedAt:       fmtTS(r.ResolvedAt),
+					Author:           r.Author,
+					Source:           r.Source,
+					ParentResolution: parentStr,
+					Commits:          cItems,
+				}
+				if in.Branch != "" && repoDir != "" {
+					shas := make([]commitSHA, len(cItems))
+					for j, ci := range cItems {
+						shas[j] = commitSHA{SHA: ci.SHA}
+					}
+					reverted, revertSHAStr := checkResolutionReverted(repoDir, in.Branch, shas)
+					item.Reverted = reverted
+					item.RevertedBy = revertSHAStr
+				}
+				items = append(items, item)
+			}
+			_ = p
+			return &struct {
+				Body struct {
+					Resolutions []ResolutionItem `json:"resolutions"`
+				}
+			}{Body: struct {
+				Resolutions []ResolutionItem `json:"resolutions"`
+			}{Resolutions: items}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "delete-issue-resolution", Method: http.MethodPost, Path: "/api/dx/todo/issue/resolution/delete"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug         string `json:"slug"`
+				ResolutionID string `json:"resolution_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			_, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := s.q.DeleteIssueResolution(ctx, in.Body.ResolutionID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "reconcile-branch", Method: http.MethodPost, Path: "/api/dx/todo/issue/reconcile"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug   string `json:"slug"`
+				Branch string `json:"branch"`
+			}
+		}) (*struct {
+			Body struct {
+				Results []ReconcileResult `json:"results"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			results, err := s.reconcileBranch(ctx, p.ID, in.Body.Slug, in.Body.Branch)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if results == nil {
+				results = []ReconcileResult{}
+			}
+			return &struct {
+				Body struct {
+					Results []ReconcileResult `json:"results"`
+				}
+			}{Body: struct {
+				Results []ReconcileResult `json:"results"`
+			}{Results: results}}, nil
+		})
 }
 
 // ── Model → response converter ────────────────────────────────────────────
@@ -712,4 +971,34 @@ func (s *Server) toIssueItemWithBlockers(ctx context.Context, r db.ZdxIssue) Iss
 		item.BlockedBy = blockers
 	}
 	return item
+}
+
+type commitSHA struct {
+	SHA string
+}
+
+func checkResolutionReverted(repoDir, branch string, commits []commitSHA) (reverted bool, revertSHA string) {
+	for _, c := range commits {
+		sha := c.SHA
+		if len(sha) < 7 {
+			continue
+		}
+		cmd := exec.Command("git", "-C", repoDir, "log", "--format=%H", "--all", "--grep=This reverts commit "+sha)
+		cmd.Env = gitEnv()
+		out, err := cmd.Output()
+		if err != nil {
+			continue
+		}
+		revertCommit := strings.TrimSpace(string(out))
+		if revertCommit == "" {
+			continue
+		}
+		firstLine := strings.SplitN(revertCommit, "\n", 2)[0]
+		isAncestor := exec.Command("git", "-C", repoDir, "merge-base", "--is-ancestor", firstLine, "origin/"+branch)
+		isAncestor.Env = gitEnv()
+		if isAncestor.Run() == nil {
+			return true, firstLine
+		}
+	}
+	return false, ""
 }

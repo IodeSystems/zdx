@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"net/url"
+	"os/exec"
 	"strconv"
 	"strings"
 
@@ -12,12 +13,12 @@ import (
 
 func IssueCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "issue", Short: "Issue management"}
-	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueEditCmd(), issueBlockCmd(), issueUnblockCmd(), issueReadyCmd())
+	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueEditCmd(), issueBlockCmd(), issueUnblockCmd(), issueReadyCmd(), issueResolveCmd(), issueResolutionsCmd(), issueReconcileCmd())
 	return cmd
 }
 
 func issueListCmd() *cobra.Command {
-	var status string
+	var status, branch string
 	cmd := &cobra.Command{
 		Use:   "list",
 		Short: "List issues",
@@ -33,6 +34,29 @@ func issueListCmd() *cobra.Command {
 				fmt.Println("no issues")
 				return nil
 			}
+			resolutionCounts := map[int32]int{}
+			if branch != "" {
+				for _, iss := range resp.Issues {
+					var resResp struct {
+						Resolutions []struct {
+							ID       string `json:"id"`
+							Reverted bool   `json:"reverted"`
+						} `json:"resolutions"`
+					}
+					_ = c.get("/api/dx/todo/issue/resolutions", url.Values{
+						"slug":   {c.SlugOrDie()},
+						"id":     {issueIDStr(iss.ID)},
+						"branch": {branch},
+					}, &resResp)
+					active := 0
+					for _, r := range resResp.Resolutions {
+						if !r.Reverted {
+							active++
+						}
+					}
+					resolutionCounts[iss.ID] = active
+				}
+			}
 			for _, iss := range resp.Issues {
 				if status != "" && iss.Status != status {
 					continue
@@ -41,12 +65,20 @@ func issueListCmd() *cobra.Command {
 				if len(iss.BlockedBy) > 0 {
 					s += " [blocked:" + strings.Join(iss.BlockedBy, ",") + "]"
 				}
+				if branch != "" {
+					if resolutionCounts[iss.ID] > 0 {
+						s += " [resolved]"
+					} else {
+						s += " [unresolved]"
+					}
+				}
 				fmt.Printf("%-8s %-30s %s\n", issueIDStr(iss.ID), s, iss.Title)
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&status, "status", "", "filter by status (open, closed)")
+	cmd.Flags().StringVar(&branch, "branch", "", "show resolution state on this branch")
 	return cmd
 }
 
@@ -147,6 +179,54 @@ func issueShowCmd() *cobra.Command {
 				return err
 			}
 			printIssueItem(resp.Issue)
+
+			var resResp struct {
+				Resolutions []struct {
+					ID             string `json:"id"`
+					BranchOfOrigin string `json:"branch_of_origin"`
+					ResolvedAt     string `json:"resolved_at"`
+					Author         string `json:"author"`
+					Source         string `json:"source"`
+					Reverted       bool   `json:"reverted"`
+					RevertedBy     string `json:"reverted_by"`
+					Commits        []struct {
+						SHA string `json:"sha"`
+					} `json:"commits"`
+				} `json:"resolutions"`
+			}
+			if err := c.get("/api/dx/todo/issue/resolutions", url.Values{
+				"slug": {c.SlugOrDie()},
+				"id":   {args[0]},
+			}, &resResp); err == nil && len(resResp.Resolutions) > 0 {
+				fmt.Println("\nResolutions:")
+				for _, r := range resResp.Resolutions {
+					status := r.Source
+					if r.Reverted {
+						revertShort := r.RevertedBy
+						if len(revertShort) > 10 {
+							revertShort = revertShort[:10]
+						}
+						status = "REVERTED (by " + revertShort + ")"
+					}
+					date := r.ResolvedAt
+					if len(date) >= 10 {
+						date = date[:10]
+					}
+					idShort := r.ID
+					if len(idShort) > 8 {
+						idShort = idShort[:8]
+					}
+					fmt.Printf("  %s  %s  %s  [%s]  %s\n", idShort, date, r.BranchOfOrigin, status, r.Author)
+					for _, commit := range r.Commits {
+						sha := commit.SHA
+						if len(sha) > 10 {
+							sha = sha[:10]
+						}
+						fmt.Printf("    %s\n", sha)
+					}
+				}
+			}
+
 			if len(resp.Work) > 0 {
 				fmt.Println("\nWork log:")
 				for _, w := range resp.Work {
@@ -334,6 +414,178 @@ func issueEditCmd() *cobra.Command {
 	cmd.Flags().StringVar(&component, "component", "", "component")
 	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops or impl")
 	return cmd
+}
+
+func issueResolveCmd() *cobra.Command {
+	var branch string
+	cmd := &cobra.Command{
+		Use:   "resolve <IS-N> <sha> [sha...]",
+		Short: "Record a commit-group resolution for an issue",
+		Args:  cobra.MinimumNArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			shas := args[1:]
+			for _, sha := range shas {
+				out, err := exec.Command("git", "cat-file", "-t", sha).Output()
+				if err != nil {
+					return fmt.Errorf("SHA %s not found in local git repo", sha)
+				}
+				if strings.TrimSpace(string(out)) != "commit" {
+					return fmt.Errorf("SHA %s is not a commit", sha)
+				}
+			}
+			if branch == "" {
+				out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+				if err == nil {
+					branch = strings.TrimSpace(string(out))
+				}
+			}
+			fullSHAs := make([]string, len(shas))
+			for i, sha := range shas {
+				out, err := exec.Command("git", "rev-parse", sha).Output()
+				if err != nil {
+					fullSHAs[i] = sha
+				} else {
+					fullSHAs[i] = strings.TrimSpace(string(out))
+				}
+			}
+			c := mustClient()
+			body := map[string]any{
+				"slug": c.SlugOrDie(),
+				"id":   int32(n),
+				"shas": fullSHAs,
+			}
+			if branch != "" {
+				body["branch"] = branch
+			}
+			var resp struct {
+				Resolution struct {
+					ID             string `json:"id"`
+					BranchOfOrigin string `json:"branch_of_origin"`
+					Commits        []struct {
+						SHA string `json:"sha"`
+					} `json:"commits"`
+				} `json:"resolution"`
+			}
+			if err := c.post("/api/dx/todo/issue/resolve", body, &resp); err != nil {
+				return err
+			}
+			fmt.Printf("%s resolved (resolution %s)\n", id, resp.Resolution.ID)
+			for _, commit := range resp.Resolution.Commits {
+				sha := commit.SHA
+				if len(sha) > 10 {
+					sha = sha[:10]
+				}
+				fmt.Printf("  %s\n", sha)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&branch, "branch", "", "branch of origin (default: auto-detect)")
+	return cmd
+}
+
+func issueResolutionsCmd() *cobra.Command {
+	var branch string
+	cmd := &cobra.Command{
+		Use:   "resolutions <IS-N>",
+		Short: "List resolutions for an issue",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := mustClient()
+			params := url.Values{
+				"slug": {c.SlugOrDie()},
+				"id":   {args[0]},
+			}
+			if branch != "" {
+				params.Set("branch", branch)
+			}
+			var resp struct {
+				Resolutions []struct {
+					ID             string `json:"id"`
+					BranchOfOrigin string `json:"branch_of_origin"`
+					ResolvedAt     string `json:"resolved_at"`
+					Author         string `json:"author"`
+					Source         string `json:"source"`
+					Reverted       bool   `json:"reverted"`
+					RevertedBy     string `json:"reverted_by"`
+					Commits        []struct {
+						SHA string `json:"sha"`
+						Ord int    `json:"ord"`
+					} `json:"commits"`
+				} `json:"resolutions"`
+			}
+			if err := c.get("/api/dx/todo/issue/resolutions", params, &resp); err != nil {
+				return err
+			}
+			if len(resp.Resolutions) == 0 {
+				fmt.Println("no resolutions")
+				return nil
+			}
+			for _, r := range resp.Resolutions {
+				status := r.Source
+				if r.Reverted {
+					status = "REVERTED (by " + r.RevertedBy[:10] + ")"
+				}
+				date := r.ResolvedAt
+				if len(date) >= 10 {
+					date = date[:10]
+				}
+				fmt.Printf("  %s  %s  %s  [%s]  %s\n", r.ID[:8], date, r.BranchOfOrigin, status, r.Author)
+				for _, c := range r.Commits {
+					sha := c.SHA
+					if len(sha) > 10 {
+						sha = sha[:10]
+					}
+					fmt.Printf("    %s\n", sha)
+				}
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&branch, "branch", "", "check resolution validity on this branch")
+	return cmd
+}
+
+func issueReconcileCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "reconcile <branch>",
+		Short: "Find equivalent patches on target branch and record reconciled resolutions",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			branch := args[0]
+			c := mustClient()
+			var resp struct {
+				Results []struct {
+					IssueID      string   `json:"issue_id"`
+					ResolutionID string   `json:"resolution_id"`
+					MatchedSHAs  []string `json:"matched_shas"`
+				} `json:"results"`
+			}
+			if err := c.post("/api/dx/todo/issue/reconcile", map[string]any{
+				"slug":   c.SlugOrDie(),
+				"branch": branch,
+			}, &resp); err != nil {
+				return err
+			}
+			if len(resp.Results) == 0 {
+				fmt.Println("no new reconciled resolutions found")
+				return nil
+			}
+			for _, r := range resp.Results {
+				fmt.Printf("  %s → %s", r.IssueID, r.ResolutionID[:8])
+				for _, sha := range r.MatchedSHAs {
+					if len(sha) > 10 {
+						sha = sha[:10]
+					}
+					fmt.Printf(" %s", sha)
+				}
+				fmt.Println()
+			}
+			return nil
+		},
+	}
 }
 
 // RunIssue kept for compatibility.
