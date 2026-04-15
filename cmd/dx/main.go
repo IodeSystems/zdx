@@ -51,6 +51,7 @@ func main() {
 		cli.AgentCmd(),
 		cli.TaskCmd(),
 		cli.PatternCmd(),
+		cli.IntegrateCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
