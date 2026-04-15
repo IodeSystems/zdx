@@ -31,11 +31,15 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 	}
 
 	type ClaudeEventItem struct {
-		ID        int64           `json:"id"`
-		Seq       int32           `json:"seq"`
-		EventType string          `json:"event_type"`
-		EventJSON json.RawMessage `json:"event_json"`
-		CreatedAt string          `json:"created_at"`
+		ID               int64           `json:"id"`
+		Seq              int32           `json:"seq"`
+		EventType        string          `json:"event_type"`
+		EventJSON        json.RawMessage `json:"event_json"`
+		CreatedAt        string          `json:"created_at"`
+		AgentID          string          `json:"agent_id"`
+		AgentType        string          `json:"agent_type"`
+		AgentDescription string          `json:"agent_description"`
+		IsSidechain      bool            `json:"is_sidechain"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-claude-sessions", Method: http.MethodGet, Path: "/api/dx/claude/sessions"},
@@ -147,11 +151,15 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 			out := make([]ClaudeEventItem, len(rows))
 			for i, r := range rows {
 				out[i] = ClaudeEventItem{
-					ID:        r.ID,
-					Seq:       r.Seq,
-					EventType: r.EventType,
-					EventJSON: json.RawMessage(r.EventJson),
-					CreatedAt: fmtTS(r.CreatedAt),
+					ID:               r.ID,
+					Seq:              r.Seq,
+					EventType:        r.EventType,
+					EventJSON:        json.RawMessage(r.EventJson),
+					CreatedAt:        fmtTS(r.CreatedAt),
+					AgentID:          r.AgentID,
+					AgentType:        r.AgentType,
+					AgentDescription: r.AgentDescription,
+					IsSidechain:      r.IsSidechain,
 				}
 			}
 			return &struct {
@@ -554,11 +562,14 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 		})
 
 		s.publishClaudeEvent(slug, sessionID, "claude.event", map[string]any{
-			"session_id": sessionID,
-			"session_pk": sessionPK,
-			"seq":        seq,
-			"event_type": eventType,
-			"event_json": ev,
+			"session_id":        sessionID,
+			"session_pk":        sessionPK,
+			"seq":               seq,
+			"event_type":        eventType,
+			"event_json":        ev,
+			"agent_id":          agentID,
+			"agent_type":        agentType,
+			"agent_description": agentDesc,
 		})
 
 		allLines = append(allLines, line)

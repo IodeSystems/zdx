@@ -141,6 +141,132 @@ function getToolInfo(event: ClaudeEventItem): { toolName?: string; toolUseId?: s
   return {}
 }
 
+type DisplayItem =
+  | { kind: 'event'; event: ClaudeEventItem }
+  | { kind: 'agent-group'; parentEvent: ClaudeEventItem; agentId: string; agentType: string; agentDescription: string; events: ClaudeEventItem[] }
+
+function buildDisplayItems(events: ClaudeEventItem[]): DisplayItem[] {
+  const subagentEvents = new Map<string, ClaudeEventItem[]>()
+  for (const e of events) {
+    if (e.agent_id) {
+      const arr = subagentEvents.get(e.agent_id) ?? []
+      arr.push(e)
+      subagentEvents.set(e.agent_id, arr)
+    }
+  }
+  if (subagentEvents.size === 0) {
+    return events.map((e) => ({ kind: 'event', event: e }))
+  }
+
+  const agentToolUses: { event: ClaudeEventItem; agentId: string }[] = []
+  const orderedAgentIds: string[] = []
+  for (const e of events) {
+    if (e.agent_id && !orderedAgentIds.includes(e.agent_id)) {
+      orderedAgentIds.push(e.agent_id)
+    }
+  }
+
+  let agentIdx = 0
+  for (const e of events) {
+    if (!e.agent_id) {
+      const { toolName } = getToolInfo(e)
+      if (toolName === 'Agent' && agentIdx < orderedAgentIds.length) {
+        agentToolUses.push({ event: e, agentId: orderedAgentIds[agentIdx] })
+        agentIdx++
+      }
+    }
+  }
+
+  const assignedAgentIds = new Set(agentToolUses.map((a) => a.agentId))
+  const items: DisplayItem[] = []
+  for (const e of events) {
+    if (e.agent_id) continue
+    const match = agentToolUses.find((a) => a.event === e)
+    if (match) {
+      const subEvents = subagentEvents.get(match.agentId) ?? []
+      const sample = subEvents[0]
+      items.push({
+        kind: 'agent-group',
+        parentEvent: e,
+        agentId: match.agentId,
+        agentType: sample?.agent_type ?? '',
+        agentDescription: sample?.agent_description ?? '',
+        events: subEvents,
+      })
+    } else {
+      items.push({ kind: 'event', event: e })
+    }
+  }
+
+  for (const [agentId, evts] of subagentEvents) {
+    if (!assignedAgentIds.has(agentId)) {
+      const sample = evts[0]
+      items.push({
+        kind: 'agent-group',
+        parentEvent: evts[0],
+        agentId,
+        agentType: sample?.agent_type ?? '',
+        agentDescription: sample?.agent_description ?? '',
+        events: evts,
+      })
+    }
+  }
+
+  return items
+}
+
+function AgentGroupRow({
+  item,
+  toolDurations,
+  toolResultMap,
+}: {
+  item: Extract<DisplayItem, { kind: 'agent-group' }>
+  toolDurations: ToolDurations
+  toolResultMap: ToolResultMap
+}) {
+  const [expanded, setExpanded] = useState(false)
+  const typeColor = AGENT_TYPE_COLORS[item.agentType] ?? '#888'
+  const label = item.agentDescription || item.agentType || item.agentId.slice(0, 8)
+
+  return (
+    <Box sx={{ mb: 0.5 }}>
+      <Box
+        sx={{
+          py: 0.5,
+          px: 1,
+          borderLeft: 3,
+          borderColor: typeColor,
+          cursor: 'pointer',
+          '&:hover': { bgcolor: 'action.hover' },
+          fontFamily: 'monospace',
+          fontSize: '0.8rem',
+          display: 'flex',
+          gap: 1,
+          alignItems: 'center',
+        }}
+        onClick={() => setExpanded(!expanded)}
+      >
+        {expanded ? <ExpandMoreIcon sx={{ fontSize: 16 }} /> : <ChevronRightIcon sx={{ fontSize: 16 }} />}
+        <Chip label="Agent" size="small" sx={{ bgcolor: '#4caf50', color: '#fff', height: 20, fontSize: '0.7rem' }} />
+        <Chip label={item.agentType || 'subagent'} size="small" sx={{ bgcolor: typeColor, color: '#fff', height: 18, fontSize: '0.65rem' }} />
+        <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, fontSize: '0.8rem' }}>
+          {label}
+        </Typography>
+        <Typography variant="caption" color="text.secondary">
+          {item.events.length} events
+        </Typography>
+      </Box>
+      <Collapse in={expanded}>
+        <Box sx={{ pl: 2, borderLeft: 2, borderColor: typeColor, ml: 1 }}>
+          {item.events.map((e) => (
+            <EventRow key={e.id} event={e} toolDurations={toolDurations} toolResultMap={toolResultMap} />
+          ))}
+        </Box>
+      </Collapse>
+    </Box>
+  )
+}
+
 function getContentBlocks(event: ClaudeEventItem): Record<string, unknown>[] {
   const msg = event.event_json.message as Record<string, unknown> | undefined
   const content = msg?.content
@@ -467,6 +593,10 @@ export function SessionDetail({
       event_type: p.event_type,
       event_json: p.event_json,
       created_at: new Date().toISOString(),
+      agent_id: (p as Record<string, unknown>).agent_id as string ?? '',
+      agent_type: (p as Record<string, unknown>).agent_type as string ?? '',
+      agent_description: (p as Record<string, unknown>).agent_description as string ?? '',
+      is_sidechain: !!(p as Record<string, unknown>).is_sidechain,
     }
     setLiveEvents((prev) => {
       if (prev.some((e) => e.seq === p.seq)) return prev
@@ -499,6 +629,7 @@ export function SessionDetail({
   const toolDurations = useMemo(() => buildToolDurations(allEvents), [allEvents])
   const { resultMap: toolResultMap, toolResultEventIds } = useMemo(() => buildToolResultMap(allEvents), [allEvents])
   const visibleEvents = useMemo(() => allEvents.filter((e) => !toolResultEventIds.has(e.id)), [allEvents, toolResultEventIds])
+  const displayItems = useMemo(() => buildDisplayItems(visibleEvents), [visibleEvents])
 
   useEffect(() => {
     const sentinel = sentinelRef.current
@@ -604,9 +735,13 @@ export function SessionDetail({
           overflow: 'auto',
         }}
       >
-        {visibleEvents.map((e) => (
-          <EventRow key={e.id} event={e} toolDurations={toolDurations} toolResultMap={toolResultMap} />
-        ))}
+        {displayItems.map((item, idx) =>
+          item.kind === 'event' ? (
+            <EventRow key={item.event.id} event={item.event} toolDurations={toolDurations} toolResultMap={toolResultMap} />
+          ) : (
+            <AgentGroupRow key={`agent-${item.agentId}-${idx}`} item={item} toolDurations={toolDurations} toolResultMap={toolResultMap} />
+          )
+        )}
         {hasNextPage && (
           <Box ref={sentinelRef} sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
             <CircularProgress size={20} />

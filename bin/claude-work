@@ -41,7 +41,76 @@ stream_session_start() {
   log "stream: started (pid=$STREAM_CURL_PID)"
 }
 
+SUBAGENT_STREAM_PIDS=()
+SUBAGENT_KNOWN_FILES=()
+SUBAGENT_WATCHER_PID=""
+
+stream_subagents_watch() {
+  local sid="$1" issue_id="$2" base_dir="$3"
+  while true; do
+    sleep 2
+    for subdir in $(find "$base_dir" -type d -name subagents 2>/dev/null); do
+      for agent_jsonl in "$subdir"/agent-*.jsonl; do
+        [[ -f "$agent_jsonl" ]] || continue
+        local already=false
+        for known in "${SUBAGENT_KNOWN_FILES[@]:-}"; do
+          [[ "$known" == "$agent_jsonl" ]] && { already=true; break; }
+        done
+        $already && continue
+        SUBAGENT_KNOWN_FILES+=("$agent_jsonl")
+        local agent_file agent_id agent_meta agent_type="" agent_desc=""
+        agent_file="$(basename "$agent_jsonl")"
+        agent_id="${agent_file%.jsonl}"
+        agent_meta="${agent_jsonl%.jsonl}.meta.json"
+        local attempts=0
+        while [[ ! -f "$agent_meta" && $attempts -lt 5 ]]; do
+          sleep 0.5
+          attempts=$(( attempts + 1 ))
+        done
+        if [[ -f "$agent_meta" ]] && command -v jq &>/dev/null; then
+          agent_type="$(jq -r '.agentType // ""' "$agent_meta" 2>/dev/null)"
+          agent_desc="$(jq -r '.description // ""' "$agent_meta" 2>/dev/null)"
+        fi
+        local url="${ZDX_URL}/api/dx/claude/sessions/ingest/stream?slug=${ZDX_SLUG}&session_id=${sid}&issue_id=${issue_id}&alias=${ALIAS}"
+        url+="&agent_id=$(printf '%s' "$agent_id" | jq -sRr @uri)"
+        url+="&agent_type=$(printf '%s' "$agent_type" | jq -sRr @uri)"
+        url+="&agent_description=$(printf '%s' "$agent_desc" | jq -sRr @uri)"
+        tail -f "$agent_jsonl" 2>/dev/null | curl -s -o /dev/null -w '' \
+          -X POST \
+          -H "X-Api-Key: ${ZDX_KEY}" \
+          -H "Content-Type: application/x-ndjson" \
+          -T - \
+          "$url" &
+        SUBAGENT_STREAM_PIDS+=($!)
+        log "stream: subagent $agent_id started (pid=$!)"
+      done
+    done
+  done
+}
+
+stream_subagents_start() {
+  local sid="$1" issue_id="$2"
+  if [[ -z "$ZDX_URL" || -z "$ZDX_SLUG" || -z "$ZDX_KEY" ]]; then
+    return
+  fi
+  local base_dir="$PROJECT_DIR/$sid"
+  SUBAGENT_KNOWN_FILES=()
+  SUBAGENT_STREAM_PIDS=()
+  stream_subagents_watch "$sid" "$issue_id" "$base_dir" &
+  SUBAGENT_WATCHER_PID=$!
+}
+
 stream_session_stop() {
+  if [[ -n "${SUBAGENT_WATCHER_PID:-}" ]]; then
+    kill "$SUBAGENT_WATCHER_PID" 2>/dev/null
+    wait "$SUBAGENT_WATCHER_PID" 2>/dev/null
+    SUBAGENT_WATCHER_PID=""
+  fi
+  for pid in "${SUBAGENT_STREAM_PIDS[@]:-}"; do
+    [[ -n "$pid" ]] && kill "$pid" 2>/dev/null && wait "$pid" 2>/dev/null
+  done
+  SUBAGENT_STREAM_PIDS=()
+  log "stream: subagent streams stopped"
   if [[ -n "${STREAM_CURL_PID:-}" ]]; then
     kill "$STREAM_CURL_PID" 2>/dev/null
     wait "$STREAM_CURL_PID" 2>/dev/null
@@ -202,6 +271,7 @@ while true; do
   # Start streaming events to server for real-time WebSocket updates.
   touch "$sfile"
   stream_session_start "$sid" "$sfile" "${issue_id:-}"
+  stream_subagents_start "$sid" "${issue_id:-}"
 
   if [[ "$resumed" == true ]]; then
     claude --dangerously-skip-permissions --chrome \

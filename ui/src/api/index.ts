@@ -1288,6 +1288,10 @@ export interface ClaudeEventItem {
   event_type: string
   event_json: Record<string, unknown>
   created_at: string
+  agent_id: string
+  agent_type: string
+  agent_description: string
+  is_sidechain: boolean
 }
 
 export const useClaudeSessions = (slug: string, limit?: number, offset?: number) =>
