@@ -1,26 +1,27 @@
 import { useState, useEffect, useRef } from 'react'
 import { Link, useNavigate } from '@tanstack/react-router'
 import {
-  Autocomplete,
   Box,
   Card,
   CardActionArea,
   CardContent,
   Chip,
+  Dialog,
+  DialogContent,
+  DialogTitle,
+  IconButton,
+  InputAdornment,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
+import { Search as SearchIcon, Close as CloseIcon } from '@mui/icons-material'
 import { useIssues, useSearchIssues, useSimilarIssues, type IssueItem, type SimilarIssueItem } from '../api'
 import { useLoadMore } from '../api/pagination'
 import { LoadMore } from './LoadMore'
 import { useComponentFilter } from './ComponentContext'
 
 type Issue = IssueItem
-
-type SearchOption =
-  | { group: 'Text match'; item: IssueItem }
-  | { group: 'Similar'; item: SimilarIssueItem }
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -52,12 +53,14 @@ const STATUS_RANK: Record<string, number> = { open: 0, triaged: 1, 'in-progress'
 
 function IssueSearch({ slug }: { slug: string }) {
   const navigate = useNavigate()
+  const [open, setOpen] = useState(false)
   const [inputValue, setInputValue] = useState('')
   const [ftsQuery, setFtsQuery] = useState('')
   const [vecQuery, setVecQuery] = useState('')
   const [vecResults, setVecResults] = useState<SimilarIssueItem[]>([])
   const ftsTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const vecTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const searchInputRef = useRef<HTMLInputElement>(null)
   const findSimilar = useSimilarIssues()
 
   useEffect(() => {
@@ -81,7 +84,7 @@ function IssueSearch({ slug }: { slug: string }) {
 
   useEffect(() => {
     if (!vecQuery.trim()) return
-    findSimilar.mutate({ slug, text: vecQuery, n: 5 }, {
+    findSimilar.mutate({ slug, text: vecQuery, n: 10 }, {
       onSuccess: (items) => setVecResults(items),
       onError: () => setVecResults([]),
     })
@@ -89,71 +92,150 @@ function IssueSearch({ slug }: { slug: string }) {
 
   const { data: ftsData } = useSearchIssues(slug, ftsQuery, ftsQuery.length > 1)
 
-  const ftsOptions: SearchOption[] = (ftsData ?? []).map(item => ({ group: 'Text match' as const, item }))
-  const vecOptions: SearchOption[] = vecResults
-    .filter(v => !(ftsData ?? []).some(f => `IS-${f.id}` === v.id))
-    .map(item => ({ group: 'Similar' as const, item }))
+  const ftsItems = ftsData ?? []
+  const vecItems = vecResults.filter(v => !ftsItems.some(f => `IS-${f.id}` === v.id))
 
-  const options: SearchOption[] = [...ftsOptions, ...vecOptions]
+  function handleSelect(id: string) {
+    navigate({ to: '/project/$slug/issues/$id', params: { slug, id } })
+    setOpen(false)
+    setInputValue('')
+  }
+
+  function handleClose() {
+    setOpen(false)
+    setInputValue('')
+    setFtsQuery('')
+    setVecQuery('')
+    setVecResults([])
+  }
 
   return (
-    <Autocomplete<SearchOption, false, false, true>
-      freeSolo
-      inputValue={inputValue}
-      onInputChange={(_, v) => setInputValue(v)}
-      options={options}
-      groupBy={o => (typeof o === 'string' ? '' : o.group)}
-      getOptionLabel={o => {
-        if (typeof o === 'string') return o
-        if (o.group === 'Text match') return issueDisplayTitle(o.item.title, o.item.context)
-        return o.item.title || o.item.id
-      }}
-      filterOptions={x => x}
-      onChange={(_, value) => {
-        if (!value || typeof value === 'string') return
-        const id = value.group === 'Text match' ? `IS-${value.item.id}` : value.item.id
-        navigate({ to: '/project/$slug/issues/$id', params: { slug, id } })
-        setInputValue('')
-      }}
-      renderInput={params => (
-        <TextField
-          {...params}
-          size="small"
-          placeholder="Search issues…"
-          sx={{ minWidth: 240 }}
-        />
-      )}
-      renderOption={(props, option) => {
-        if (typeof option === 'string') return null
-        const { key, ...rest } = props as { key: React.Key } & React.HTMLAttributes<HTMLLIElement>
-        if (option.group === 'Text match') {
-          const pLabel = priorityLabel(option.item.priority)
-          return (
-            <li key={key} {...rest}>
-              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-                <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: 40 }}>IS-{option.item.id}</Typography>
-                <Chip label={pLabel} size="small" color={PRIORITY_COLORS[pLabel] || 'default'} sx={{ minWidth: 60 }} />
-                <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                  {issueDisplayTitle(option.item.title, option.item.context)}
-                </Typography>
-              </Box>
-            </li>
-          )
-        }
-        return (
-          <li key={key} {...rest}>
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, width: '100%' }}>
-              <Typography variant="caption" sx={{ color: 'text.secondary', minWidth: 40 }}>{option.item.id}</Typography>
-              <Typography variant="body2" sx={{ flex: 1, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
-                {option.item.title || option.item.id}
+    <>
+      <TextField
+        size="small"
+        placeholder="Search issues…"
+        onClick={() => setOpen(true)}
+        slotProps={{
+          input: {
+            readOnly: true,
+            startAdornment: (
+              <InputAdornment position="start">
+                <SearchIcon fontSize="small" />
+              </InputAdornment>
+            ),
+          },
+        }}
+        sx={{ minWidth: 200, cursor: 'pointer', '& input': { cursor: 'pointer' } }}
+      />
+      <Dialog
+        open={open}
+        onClose={handleClose}
+        maxWidth="md"
+        fullWidth
+        slotProps={{ paper: { sx: { minHeight: '60vh', maxHeight: '80vh' } } }}
+      >
+        <DialogTitle sx={{ display: 'flex', alignItems: 'center', gap: 1, pb: 1 }}>
+          <TextField
+            inputRef={searchInputRef}
+            autoFocus
+            fullWidth
+            size="small"
+            placeholder="Search issues…"
+            value={inputValue}
+            onChange={e => setInputValue(e.target.value)}
+            slotProps={{
+              input: {
+                startAdornment: (
+                  <InputAdornment position="start">
+                    <SearchIcon fontSize="small" />
+                  </InputAdornment>
+                ),
+              },
+            }}
+          />
+          <IconButton onClick={handleClose} size="small">
+            <CloseIcon />
+          </IconButton>
+        </DialogTitle>
+        <DialogContent sx={{ pt: 0, overflow: 'auto' }}>
+          {!inputValue.trim() && (
+            <Typography color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+              Type to search issues by text or similarity
+            </Typography>
+          )}
+          {ftsItems.length > 0 && (
+            <Box sx={{ mb: 2 }}>
+              <Typography variant="overline" color="text.secondary" sx={{ px: 1 }}>
+                Text match
               </Typography>
-              <Typography variant="caption" sx={{ color: 'text.secondary' }}>{(option.item.score * 100).toFixed(0)}%</Typography>
+              <Stack spacing={1} sx={{ mt: 0.5 }}>
+                {ftsItems.map(item => {
+                  const pLabel = priorityLabel(item.priority)
+                  return (
+                    <Card key={item.id} variant="outlined">
+                      <CardActionArea onClick={() => handleSelect(`IS-${item.id}`)}>
+                        <CardContent sx={{ py: 1.25, '&:last-child': { pb: 1.25 } }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                            <Typography variant="caption" color="text.secondary">IS-{item.id}</Typography>
+                            <Chip label={pLabel} size="small" color={PRIORITY_COLORS[pLabel] || 'default'} />
+                            <Chip label={item.status} size="small" color={STATUS_COLORS[item.status] || 'default'} variant="outlined" />
+                          </Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                            {issueDisplayTitle(item.title, item.context)}
+                          </Typography>
+                          {item.context && item.title && (
+                            <Typography variant="body2" color="text.secondary" sx={{
+                              mt: 0.5,
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                            }}>
+                              {item.context}
+                            </Typography>
+                          )}
+                        </CardContent>
+                      </CardActionArea>
+                    </Card>
+                  )
+                })}
+              </Stack>
             </Box>
-          </li>
-        )
-      }}
-      sx={{ display: 'inline-flex' }}
-    />
+          )}
+          {vecItems.length > 0 && (
+            <Box>
+              <Typography variant="overline" color="text.secondary" sx={{ px: 1 }}>
+                Similar
+              </Typography>
+              <Stack spacing={1} sx={{ mt: 0.5 }}>
+                {vecItems.map(item => (
+                  <Card key={item.id} variant="outlined">
+                    <CardActionArea onClick={() => handleSelect(item.id)}>
+                      <CardContent sx={{ py: 1.25, '&:last-child': { pb: 1.25 } }}>
+                        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                          <Typography variant="caption" color="text.secondary">{item.id}</Typography>
+                          <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                            {(item.score * 100).toFixed(0)}% similar
+                          </Typography>
+                        </Box>
+                        <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                          {item.title || item.id}
+                        </Typography>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                ))}
+              </Stack>
+            </Box>
+          )}
+          {inputValue.trim() && ftsItems.length === 0 && vecItems.length === 0 && (
+            <Typography color="text.secondary" sx={{ mt: 2, textAlign: 'center' }}>
+              No results
+            </Typography>
+          )}
+        </DialogContent>
+      </Dialog>
+    </>
   )
 }
 
