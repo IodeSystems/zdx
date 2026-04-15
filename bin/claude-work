@@ -120,7 +120,7 @@ while true; do
     issue_id="$saved_issue"
     sid="$saved_sid"
     todo="$(./bin/dx todo solo --issue="$issue_id" 2>/dev/null)"
-    if [[ -z "$todo" ]]; then
+    if [[ $? -ne 0 || -z "$todo" ]]; then
       log "resumed issue $issue_id has no remaining work, clearing state"
       clear_state
       continue
@@ -130,7 +130,7 @@ while true; do
     printf '%s\n' "$todo" | tee -a "$LOG"
   else
     todo="$(./bin/dx todo solo 2>/dev/null)"
-    if [[ -n "$todo" ]]; then
+    if [[ $? -eq 0 && -n "$todo" ]]; then
       log "todo solo:"
       printf '%s\n' "$todo" | tee -a "$LOG"
       issue_id="$(printf '%s' "$todo" | grep -oP 'IS-\d+' | head -1)"
@@ -167,8 +167,12 @@ while true; do
     log "forking session: $prev_sid → $sid"
   fi
 
-  tail -F "$sfile" 2>/dev/null | bin/claude-work-render | tee -a "$LOG" &
+  render_fifo="$(mktemp -u)"
+  mkfifo "$render_fifo"
+  tail -F "$sfile" 2>/dev/null > "$render_fifo" &
   tail_pid=$!
+  bin/claude-work-render < "$render_fifo" | tee -a "$LOG" &
+  render_pid=$!
 
   if [[ "$resumed" == true ]]; then
     claude --dangerously-skip-permissions --chrome \
@@ -181,6 +185,8 @@ while true; do
 
   kill "$tail_pid" 2>/dev/null
   wait "$tail_pid" 2>/dev/null
+  wait "$render_pid" 2>/dev/null
+  rm -f "$render_fifo"
 
   # Session summary
   end_time="$(date -Iseconds)"

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 	"time"
@@ -529,7 +530,8 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		}
 	}
 
-	fmt.Println("nothing to do")
+	fmt.Fprintln(os.Stderr, "nothing to do")
+	os.Exit(2)
 	return nil
 }
 
