@@ -22,7 +22,6 @@ import { Route as ProjectSlugTestsRouteImport } from './routes/project/$slug/tes
 import { Route as ProjectSlugTasksRouteImport } from './routes/project/$slug/tasks'
 import { Route as ProjectSlugSettingsRouteImport } from './routes/project/$slug/settings'
 import { Route as ProjectSlugQueueRouteImport } from './routes/project/$slug/queue'
-import { Route as ProjectSlugProposalsRouteImport } from './routes/project/$slug/proposals'
 import { Route as ProjectSlugProfileRouteImport } from './routes/project/$slug/profile'
 import { Route as ProjectSlugLogsRouteImport } from './routes/project/$slug/logs'
 import { Route as ProjectSlugJournalRouteImport } from './routes/project/$slug/journal'
@@ -111,11 +110,6 @@ const ProjectSlugSettingsRoute = ProjectSlugSettingsRouteImport.update({
 const ProjectSlugQueueRoute = ProjectSlugQueueRouteImport.update({
   id: '/queue',
   path: '/queue',
-  getParentRoute: () => ProjectSlugRoute,
-} as any)
-const ProjectSlugProposalsRoute = ProjectSlugProposalsRouteImport.update({
-  id: '/proposals',
-  path: '/proposals',
   getParentRoute: () => ProjectSlugRoute,
 } as any)
 const ProjectSlugProfileRoute = ProjectSlugProfileRouteImport.update({
@@ -261,7 +255,6 @@ export interface FileRoutesByFullPath {
   '/project/$slug/journal': typeof ProjectSlugJournalRoute
   '/project/$slug/logs': typeof ProjectSlugLogsRoute
   '/project/$slug/profile': typeof ProjectSlugProfileRoute
-  '/project/$slug/proposals': typeof ProjectSlugProposalsRoute
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug/tasks': typeof ProjectSlugTasksRouteWithChildren
@@ -296,7 +289,6 @@ export interface FileRoutesByTo {
   '/project/$slug/journal': typeof ProjectSlugJournalRoute
   '/project/$slug/logs': typeof ProjectSlugLogsRoute
   '/project/$slug/profile': typeof ProjectSlugProfileRoute
-  '/project/$slug/proposals': typeof ProjectSlugProposalsRoute
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug/tests': typeof ProjectSlugTestsRoute
@@ -336,7 +328,6 @@ export interface FileRoutesById {
   '/project/$slug/journal': typeof ProjectSlugJournalRoute
   '/project/$slug/logs': typeof ProjectSlugLogsRoute
   '/project/$slug/profile': typeof ProjectSlugProfileRoute
-  '/project/$slug/proposals': typeof ProjectSlugProposalsRoute
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug/tasks': typeof ProjectSlugTasksRouteWithChildren
@@ -378,7 +369,6 @@ export interface FileRouteTypes {
     | '/project/$slug/journal'
     | '/project/$slug/logs'
     | '/project/$slug/profile'
-    | '/project/$slug/proposals'
     | '/project/$slug/queue'
     | '/project/$slug/settings'
     | '/project/$slug/tasks'
@@ -413,7 +403,6 @@ export interface FileRouteTypes {
     | '/project/$slug/journal'
     | '/project/$slug/logs'
     | '/project/$slug/profile'
-    | '/project/$slug/proposals'
     | '/project/$slug/queue'
     | '/project/$slug/settings'
     | '/project/$slug/tests'
@@ -452,7 +441,6 @@ export interface FileRouteTypes {
     | '/project/$slug/journal'
     | '/project/$slug/logs'
     | '/project/$slug/profile'
-    | '/project/$slug/proposals'
     | '/project/$slug/queue'
     | '/project/$slug/settings'
     | '/project/$slug/tasks'
@@ -575,13 +563,6 @@ declare module '@tanstack/react-router' {
       path: '/queue'
       fullPath: '/project/$slug/queue'
       preLoaderRoute: typeof ProjectSlugQueueRouteImport
-      parentRoute: typeof ProjectSlugRoute
-    }
-    '/project/$slug/proposals': {
-      id: '/project/$slug/proposals'
-      path: '/proposals'
-      fullPath: '/project/$slug/proposals'
-      preLoaderRoute: typeof ProjectSlugProposalsRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
     '/project/$slug/profile': {
@@ -830,7 +811,6 @@ interface ProjectSlugRouteChildren {
   ProjectSlugJournalRoute: typeof ProjectSlugJournalRoute
   ProjectSlugLogsRoute: typeof ProjectSlugLogsRoute
   ProjectSlugProfileRoute: typeof ProjectSlugProfileRoute
-  ProjectSlugProposalsRoute: typeof ProjectSlugProposalsRoute
   ProjectSlugQueueRoute: typeof ProjectSlugQueueRoute
   ProjectSlugSettingsRoute: typeof ProjectSlugSettingsRoute
   ProjectSlugTasksRoute: typeof ProjectSlugTasksRouteWithChildren
@@ -856,7 +836,6 @@ const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
   ProjectSlugJournalRoute: ProjectSlugJournalRoute,
   ProjectSlugLogsRoute: ProjectSlugLogsRoute,
   ProjectSlugProfileRoute: ProjectSlugProfileRoute,
-  ProjectSlugProposalsRoute: ProjectSlugProposalsRoute,
   ProjectSlugQueueRoute: ProjectSlugQueueRoute,
   ProjectSlugSettingsRoute: ProjectSlugSettingsRoute,
   ProjectSlugTasksRoute: ProjectSlugTasksRouteWithChildren,
