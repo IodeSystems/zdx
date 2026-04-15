@@ -212,6 +212,15 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 				}
 			}
 		}
+
+		for _, r := range []string{"owner", "tech"} {
+			if _, err := s.q.GetUnreviewedJournalEntry(ctx, db.GetUnreviewedJournalEntryParams{ProjectID: projectID, Role: r}); err == nil {
+				candidates = append(candidates, soloCandidate{
+					Key: fmt.Sprintf("journal-review-%s", r), Text: fmt.Sprintf("Review generated %s check-in", r),
+					Kind: r + ":journal-review", TargetType: "project", Priority: 20, Persona: r,
+				})
+			}
+		}
 	}
 
 	// Untriaged issues (no priority)

@@ -1533,15 +1533,6 @@ export const useJournalEntries = (slug: string, role: string) =>
     enabled: !!slug && !!role,
   })
 
-export const useCreateJournalEntry = () => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: (body: { slug: string; role: string; date: string; tldr: string; assessment: string; concerns: string; next: string }) =>
-      apiPost<OKBody>('/api/dx/journal/checkin', body),
-    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['journal', vars.slug, vars.role] }),
-  })
-}
-
 export const useGenerateJournalEntry = () => {
   const qc = useQueryClient()
   return useMutation({

@@ -572,6 +572,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Next:          next,
 				StateJson:     stateJSON,
 				ChangelogJson: changelogJSON,
+				NeedsReview:   true,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -593,6 +594,33 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}{Body: struct {
 				Entry JournalEntryItem `json:"entry"`
 			}{Entry: entry}}, nil
+		})
+
+	// ── Journal Review ──────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "journal-review", Method: http.MethodPost, Path: "/api/dx/journal/review"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				Role string `json:"role"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			entry, err := s.q.GetUnreviewedJournalEntry(ctx, db.GetUnreviewedJournalEntryParams{
+				ProjectID: p.ID,
+				Role:      in.Body.Role,
+			})
+			if err != nil {
+				return nil, apiErr(404, "no unreviewed entry found for role "+in.Body.Role)
+			}
+			err = s.q.MarkJournalEntryReviewed(ctx, entry.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
 	// ── Solo Health ──────────────────────────────────────────────────────────

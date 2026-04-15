@@ -10,7 +10,7 @@ import (
 )
 
 const getLatestJournalEntry = `-- name: GetLatestJournalEntry :one
-SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, created_at
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 1
 `
 
@@ -34,15 +34,47 @@ func (q *Queries) GetLatestJournalEntry(ctx context.Context, arg GetLatestJourna
 		&i.Next,
 		&i.ChangelogJson,
 		&i.StateJson,
+		&i.NeedsReview,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getUnreviewedJournalEntry = `-- name: GetUnreviewedJournalEntry :one
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 AND needs_review = true ORDER BY date DESC LIMIT 1
+`
+
+type GetUnreviewedJournalEntryParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Role      string `db:"role" json:"role"`
+}
+
+func (q *Queries) GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (ZdxJournalEntry, error) {
+	row := q.db.QueryRow(ctx, getUnreviewedJournalEntry, arg.ProjectID, arg.Role)
+	var i ZdxJournalEntry
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Role,
+		&i.Date,
+		&i.Baseline,
+		&i.Tldr,
+		&i.Assessment,
+		&i.Concerns,
+		&i.Next,
+		&i.ChangelogJson,
+		&i.StateJson,
+		&i.NeedsReview,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const insertJournalEntry = `-- name: InsertJournalEntry :one
-INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next, state_json, changelog_json)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, created_at
+INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next, state_json, changelog_json, needs_review)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
 `
 
 type InsertJournalEntryParams struct {
@@ -55,6 +87,7 @@ type InsertJournalEntryParams struct {
 	Next          string `db:"next" json:"next"`
 	StateJson     string `db:"state_json" json:"state_json"`
 	ChangelogJson string `db:"changelog_json" json:"changelog_json"`
+	NeedsReview   bool   `db:"needs_review" json:"needs_review"`
 }
 
 func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error) {
@@ -68,6 +101,7 @@ func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntry
 		arg.Next,
 		arg.StateJson,
 		arg.ChangelogJson,
+		arg.NeedsReview,
 	)
 	var i ZdxJournalEntry
 	err := row.Scan(
@@ -82,13 +116,14 @@ func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntry
 		&i.Next,
 		&i.ChangelogJson,
 		&i.StateJson,
+		&i.NeedsReview,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listJournalEntries = `-- name: ListJournalEntries :many
-SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, created_at
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 20
 `
 
@@ -118,6 +153,7 @@ func (q *Queries) ListJournalEntries(ctx context.Context, arg ListJournalEntries
 			&i.Next,
 			&i.ChangelogJson,
 			&i.StateJson,
+			&i.NeedsReview,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -128,4 +164,13 @@ func (q *Queries) ListJournalEntries(ctx context.Context, arg ListJournalEntries
 		return nil, err
 	}
 	return items, nil
+}
+
+const markJournalEntryReviewed = `-- name: MarkJournalEntryReviewed :exec
+UPDATE zdx_journal_entries SET needs_review = false WHERE id = $1
+`
+
+func (q *Queries) MarkJournalEntryReviewed(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, markJournalEntryReviewed, id)
+	return err
 }

@@ -143,6 +143,7 @@ type Querier interface {
 	GetThemeByID(ctx context.Context, arg GetThemeByIDParams) (ZdxTheme, error)
 	GetThemeByName(ctx context.Context, arg GetThemeByNameParams) (ZdxTheme, error)
 	GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error)
+	GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (ZdxJournalEntry, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
 	HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadCommentsForTargetParams) (bool, error)
@@ -267,6 +268,7 @@ type Querier interface {
 	ListWorklogForProjectPaginated(ctx context.Context, arg ListWorklogForProjectPaginatedParams) ([]ListWorklogForProjectPaginatedRow, error)
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkInviteUsed(ctx context.Context, id int32) error
+	MarkJournalEntryReviewed(ctx context.Context, id int32) error
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskReviewed(ctx context.Context, id string) error
 	MarkTaskUndone(ctx context.Context, id string) error

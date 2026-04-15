@@ -4,18 +4,13 @@ import {
   Card,
   CardContent,
   Chip,
-  Dialog,
-  DialogActions,
-  DialogContent,
-  DialogTitle,
   Tab,
   Tabs,
-  TextField,
   Typography,
 } from '@mui/material'
-import { Add as AddIcon, AutoAwesome as GenerateIcon, TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
+import { AutoAwesome as GenerateIcon, TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
-import { useJournalEntries, useCreateJournalEntry, useGenerateJournalEntry, useChurnSessions, useExtractPatternFromSession, type JournalEntryItem, type ClaudeSessionItem } from '../api'
+import { useJournalEntries, useGenerateJournalEntry, useChurnSessions, useExtractPatternFromSession, type JournalEntryItem, type ClaudeSessionItem } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 
 interface MetricDelta {
@@ -150,15 +145,6 @@ function EntryCard({ entry, prev, isTech, slug }: { entry: JournalEntryItem; pre
   )
 }
 
-interface CheckinForm {
-  tldr: string
-  assessment: string
-  concerns: string
-  next: string
-}
-
-const emptyForm: CheckinForm = { tldr: '', assessment: '', concerns: '', next: '' }
-
 function ChurnSessionCard({ session, slug }: { session: ClaudeSessionItem; slug: string }) {
   const extract = useExtractPatternFromSession()
   const [patternName, setPatternName] = useState<string | null>(null)
@@ -223,17 +209,7 @@ function ChurnReviewPanel({ slug }: { slug: string }) {
 export function JournalTab({ slug }: { slug: string }) {
   const [role, setRole] = useState<'owner' | 'tech'>('owner')
   const { data: entries, isLoading } = useJournalEntries(slug, role)
-  const create = useCreateJournalEntry()
   const generate = useGenerateJournalEntry()
-  const [dialogOpen, setDialogOpen] = useState(false)
-  const [form, setForm] = useState<CheckinForm>(emptyForm)
-
-  const handleSave = async () => {
-    const today = new Date().toISOString().slice(0, 10)
-    await create.mutateAsync({ slug, role, date: today, ...form })
-    setForm(emptyForm)
-    setDialogOpen(false)
-  }
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
@@ -255,9 +231,6 @@ export function JournalTab({ slug }: { slug: string }) {
         >
           {generate.isPending ? 'Generating...' : 'Generate'}
         </Button>
-        <Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
-          Check-in
-        </Button>
       </Box>
       {role === 'tech' && <ChurnReviewPanel slug={slug} />}
       {sorted.length === 0 && (
@@ -266,50 +239,6 @@ export function JournalTab({ slug }: { slug: string }) {
       {sorted.map((entry, i) => (
         <EntryCard key={entry.date + i} entry={entry} prev={sorted[i + 1]} isTech={role === 'tech'} slug={slug} />
       ))}
-      <Dialog open={dialogOpen} onClose={() => setDialogOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>New Check-in ({role})</DialogTitle>
-        <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '8px !important' }}>
-          <TextField
-            label="TL;DR"
-            value={form.tldr}
-            onChange={e => setForm({ ...form, tldr: e.target.value })}
-            size="small"
-            fullWidth
-            autoFocus
-          />
-          <TextField
-            label="Assessment"
-            value={form.assessment}
-            onChange={e => setForm({ ...form, assessment: e.target.value })}
-            size="small"
-            fullWidth
-            multiline
-            minRows={3}
-          />
-          <TextField
-            label="Concerns"
-            value={form.concerns}
-            onChange={e => setForm({ ...form, concerns: e.target.value })}
-            size="small"
-            fullWidth
-            multiline
-            minRows={2}
-          />
-          <TextField
-            label="Next Steps"
-            value={form.next}
-            onChange={e => setForm({ ...form, next: e.target.value })}
-            size="small"
-            fullWidth
-            multiline
-            minRows={2}
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDialogOpen(false)}>Cancel</Button>
-          <Button onClick={handleSave} variant="contained" disabled={!form.tldr.trim()}>Save</Button>
-        </DialogActions>
-      </Dialog>
     </Box>
   )
 }
