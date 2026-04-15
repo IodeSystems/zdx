@@ -91,6 +91,23 @@ WHERE c.project_id = @project_id
       AND r.last_read_at >= c.created_at
   );
 
+-- name: ListStaleUnreadComments :many
+-- Returns comments that are unread for the given role and older than the given age threshold.
+SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at
+FROM zdx_comments c
+WHERE c.project_id = @project_id
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = @role
+      AND r.last_read_at >= c.created_at
+  )
+  AND c.created_at <= NOW() - make_interval(hours => @age_hours::int)
+ORDER BY c.created_at
+LIMIT 20;
+
 -- name: GetCommentByID :one
 SELECT id, project_id, target_type, target_id, author, body, created_at
 FROM zdx_comments WHERE id = $1;

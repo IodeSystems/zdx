@@ -290,6 +290,47 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	// 0b2. Check for unanswered QA questions (oldest first).
+	{
+		var unansweredResp struct {
+			Questions []questionItem `json:"questions"`
+		}
+		if err := c.get("/api/dx/qa/unanswered", url.Values{"slug": {slug}}, &unansweredResp); err != nil {
+			return err
+		}
+		if len(unansweredResp.Questions) > 0 {
+			q := unansweredResp.Questions[0]
+			fmt.Printf("[answer]  QA-%d  %s\n", q.ID, q.Question)
+			if q.Category != "" {
+				fmt.Printf("  category: %s\n", q.Category)
+			}
+			fmt.Printf("  asked: %s\n", q.CreatedAt)
+			fmt.Printf("  answer: dx qa answer %d --answer=\"...\"\n", q.ID)
+			return nil
+		}
+	}
+
+	// 0b3. Check for stale unread comments (>24h old, unread for LLM role).
+	{
+		var staleResp struct {
+			Comments []commentItem `json:"comments"`
+		}
+		if err := c.get("/api/dx/comment/stale-unread", url.Values{
+			"slug":      {slug},
+			"role":      {"llm"},
+			"age_hours": {"24"},
+		}, &staleResp); err != nil {
+			return err
+		}
+		if len(staleResp.Comments) > 0 {
+			sc := staleResp.Comments[0]
+			fmt.Printf("[respond:stale] %s %s\n", sc.TargetType, sc.TargetID)
+			fmt.Printf("  from: %s  at: %s\n", sc.Author, sc.CreatedAt)
+			fmt.Printf("  %s\n", sc.Body)
+			return nil
+		}
+	}
+
 	// 0c. Check for pending blocker-questions on open issues.
 	bqBlockedIssues := map[string]bool{}
 	{

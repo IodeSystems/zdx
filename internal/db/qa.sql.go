@@ -232,3 +232,39 @@ func (q *Queries) ListQuestionsPaginated(ctx context.Context, arg ListQuestionsP
 	}
 	return items, nil
 }
+
+const listUnansweredQuestions = `-- name: ListUnansweredQuestions :many
+SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
+FROM zdx_questions
+WHERE project_id = $1 AND answer IS NULL
+ORDER BY created_at
+`
+
+func (q *Queries) ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error) {
+	rows, err := q.db.Query(ctx, listUnansweredQuestions, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxQuestion
+	for rows.Next() {
+		var i ZdxQuestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Category,
+			&i.Question,
+			&i.Answer,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentQuestionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

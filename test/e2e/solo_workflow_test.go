@@ -290,6 +290,58 @@ func (s *soloState) listPendingBlockerQuestions() []struct {
 	return resp.Questions
 }
 
+func (s *soloState) addQuestion(category, question string) int32 {
+	s.t.Helper()
+	var resp struct {
+		ID int32 `json:"id"`
+	}
+	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/qa/add",
+		map[string]any{"slug": s.slug, "category": category, "question": question}, &resp))
+	return resp.ID
+}
+
+func (s *soloState) answerQuestion(id int32, answer string) {
+	s.t.Helper()
+	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/qa/answer",
+		map[string]any{"slug": s.slug, "id": id, "answer": answer}, nil))
+}
+
+func (s *soloState) listUnansweredQuestions() []struct {
+	ID       int32  `json:"id"`
+	Question string `json:"question"`
+} {
+	s.t.Helper()
+	var resp struct {
+		Questions []struct {
+			ID       int32  `json:"id"`
+			Question string `json:"question"`
+		} `json:"questions"`
+	}
+	mustOK(s.t, apiDo(s.t, http.MethodGet,
+		fmt.Sprintf("/api/dx/qa/unanswered?slug=%s", s.slug), nil, &resp))
+	return resp.Questions
+}
+
+func (s *soloState) listStaleUnreadComments(ageHours int) []struct {
+	ID         int32  `json:"id"`
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	Author     string `json:"author"`
+} {
+	s.t.Helper()
+	var resp struct {
+		Comments []struct {
+			ID         int32  `json:"id"`
+			TargetType string `json:"target_type"`
+			TargetID   string `json:"target_id"`
+			Author     string `json:"author"`
+		} `json:"comments"`
+	}
+	mustOK(s.t, apiDo(s.t, http.MethodGet,
+		fmt.Sprintf("/api/dx/comment/stale-unread?slug=%s&role=llm&age_hours=%d", s.slug, ageHours), nil, &resp))
+	return resp.Comments
+}
+
 // ── Solo workflow simulation tests ──────────────────────────────────────────
 
 func TestSoloBootstrap(t *testing.T) {
@@ -792,5 +844,80 @@ func TestSoloPrecedence(t *testing.T) {
 
 	// Now solo would proceed to [triage] (no more comments blocking).
 	ss.triageIssue(issueID, 3)
+	ss.closeIssue(issueID)
+}
+
+func TestSoloUnansweredQuestions(t *testing.T) {
+	ss := newSoloState(t, "solo-unans-qa", "Solo Unanswered QA")
+
+	// No unanswered questions initially.
+	qs := ss.listUnansweredQuestions()
+	if len(qs) != 0 {
+		t.Fatalf("expected 0 unanswered questions, got %d", len(qs))
+	}
+
+	// Add two questions — solo should surface the oldest first.
+	q1 := ss.addQuestion("arch", "Which cache layer should we use?")
+	q2 := ss.addQuestion("ops", "What monitoring tool do we prefer?")
+
+	qs = ss.listUnansweredQuestions()
+	if len(qs) != 2 {
+		t.Fatalf("expected 2 unanswered questions, got %d", len(qs))
+	}
+	if qs[0].ID != q1 {
+		t.Errorf("expected oldest question first (ID %d), got %d", q1, qs[0].ID)
+	}
+
+	// Answer one — only one should remain.
+	ss.answerQuestion(q1, "Redis")
+	qs = ss.listUnansweredQuestions()
+	if len(qs) != 1 {
+		t.Fatalf("expected 1 unanswered question after answering one, got %d", len(qs))
+	}
+	if qs[0].ID != q2 {
+		t.Errorf("expected remaining question ID %d, got %d", q2, qs[0].ID)
+	}
+
+	// Answer the other — none remain.
+	ss.answerQuestion(q2, "Grafana")
+	qs = ss.listUnansweredQuestions()
+	if len(qs) != 0 {
+		t.Fatalf("expected 0 unanswered questions, got %d", len(qs))
+	}
+}
+
+func TestSoloStaleUnreadComments(t *testing.T) {
+	ss := newSoloState(t, "solo-stale-comm", "Solo Stale Comments")
+	issueID := ss.addIssue("Stale comment test", "test")
+	ss.triageIssue(issueID, 3)
+	targetID := fmt.Sprintf("IS-%d", issueID)
+
+	// Add a comment and mark it read — should not appear as stale.
+	ss.addComment("issue", targetID, "Initial comment")
+	ss.markCommentsRead("issue", targetID, "llm")
+
+	// With age_hours=0, nothing qualifies as stale (comments just created).
+	stale := ss.listStaleUnreadComments(0)
+	if len(stale) != 0 {
+		t.Fatalf("expected 0 stale comments (all read), got %d", len(stale))
+	}
+
+	// Add another comment without marking read. With age_hours=0 it should show immediately.
+	ss.addComment("issue", targetID, "Follow-up that nobody read")
+	stale = ss.listStaleUnreadComments(0)
+	if len(stale) != 1 {
+		t.Fatalf("expected 1 stale unread comment, got %d", len(stale))
+	}
+	if stale[0].TargetID != targetID {
+		t.Errorf("expected target_id %s, got %s", targetID, stale[0].TargetID)
+	}
+
+	// Mark read → no longer stale.
+	ss.markCommentsRead("issue", targetID, "llm")
+	stale = ss.listStaleUnreadComments(0)
+	if len(stale) != 0 {
+		t.Fatalf("expected 0 stale comments after marking read, got %d", len(stale))
+	}
+
 	ss.closeIssue(issueID)
 }

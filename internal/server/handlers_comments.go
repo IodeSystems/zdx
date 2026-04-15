@@ -226,6 +226,54 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 			}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "comment-stale-unread", Method: http.MethodGet, Path: "/api/dx/comment/stale-unread"},
+		func(ctx context.Context, in *struct {
+			Slug     string `query:"slug" required:"true"`
+			Role     string `query:"role" required:"true"`
+			AgeHours int32  `query:"age_hours"`
+		}) (*struct {
+			Body struct {
+				Comments []StaleCommentItem `json:"comments"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			ageHours := in.AgeHours
+			if ageHours < 0 {
+				ageHours = 24
+			}
+			rows, err := s.q.ListStaleUnreadComments(ctx, db.ListStaleUnreadCommentsParams{
+				ProjectID: p.ID,
+				Role:      in.Role,
+				AgeHours:  ageHours,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]StaleCommentItem, len(rows))
+			for i, r := range rows {
+				out[i] = StaleCommentItem{
+					ID:         r.ID,
+					TargetType: r.TargetType,
+					TargetID:   r.TargetID,
+					Author:     r.Author,
+					Body:       r.Body,
+					CreatedAt:  fmtTS(r.CreatedAt),
+				}
+			}
+			return &struct {
+				Body struct {
+					Comments []StaleCommentItem `json:"comments"`
+				}
+			}{
+				Body: struct {
+					Comments []StaleCommentItem `json:"comments"`
+				}{Comments: out},
+			}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "notifications-unread-count", Method: http.MethodGet, Path: "/api/dx/notifications/unread-count"},
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`

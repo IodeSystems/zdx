@@ -718,6 +718,68 @@ func (q *Queries) ListRevisionsPaginated(ctx context.Context, arg ListRevisionsP
 	return items, nil
 }
 
+const listStaleUnreadComments = `-- name: ListStaleUnreadComments :many
+SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at
+FROM zdx_comments c
+WHERE c.project_id = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = $2
+      AND r.last_read_at >= c.created_at
+  )
+  AND c.created_at <= NOW() - make_interval(hours => $3::int)
+ORDER BY c.created_at
+LIMIT 20
+`
+
+type ListStaleUnreadCommentsParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Role      string `db:"role" json:"role"`
+	AgeHours  int32  `db:"age_hours" json:"age_hours"`
+}
+
+type ListStaleUnreadCommentsRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Author     string             `db:"author" json:"author"`
+	Body       string             `db:"body" json:"body"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+// Returns comments that are unread for the given role and older than the given age threshold.
+func (q *Queries) ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error) {
+	rows, err := q.db.Query(ctx, listStaleUnreadComments, arg.ProjectID, arg.Role, arg.AgeHours)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaleUnreadCommentsRow
+	for rows.Next() {
+		var i ListStaleUnreadCommentsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Author,
+			&i.Body,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const upsertCommentRead = `-- name: UpsertCommentRead :exec
 INSERT INTO zdx_comment_reads (project_id, target_type, target_id, role)
 VALUES ($1, $2, $3, $4)

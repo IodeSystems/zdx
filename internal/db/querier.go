@@ -23,7 +23,6 @@ type Querier interface {
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
 	AttachCodeRefToIssue(ctx context.Context, arg AttachCodeRefToIssueParams) error
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
-	AttachCodeRefToTest(ctx context.Context, arg AttachCodeRefToTestParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
@@ -96,7 +95,6 @@ type Querier interface {
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
 	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
-	DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
@@ -157,7 +155,6 @@ type Querier interface {
 	ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error)
 	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
 	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)
-	ListCodeRefsByTest(ctx context.Context, testID int32) ([]ZdxCodeRef, error)
 	ListCommentReactions(ctx context.Context, commentID int32) ([]ZdxCommentReaction, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
 	ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error)
@@ -207,6 +204,8 @@ type Querier interface {
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error)
 	// Features not reviewed in more than @stale_days days (or never reviewed).
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ZdxFeature, error)
+	// Returns comments that are unread for the given role and older than the given age threshold.
+	ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error)
 	ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error)
 	ListTasksByAgent(ctx context.Context, claimedBy pgtype.Text) ([]ListTasksByAgentRow, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error)
@@ -228,6 +227,7 @@ type Querier interface {
 	ListTimedGrouped(ctx context.Context, arg ListTimedGroupedParams) ([]ListTimedGroupedRow, error)
 	ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ListTimedPaginatedRow, error)
 	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
+	ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	// Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)

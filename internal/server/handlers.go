@@ -215,6 +215,15 @@ type BlockerQuestionItem struct {
 	AnsweredAt string   `json:"answered_at"`
 }
 
+type StaleCommentItem struct {
+	ID         int32  `json:"id"`
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	Author     string `json:"author"`
+	Body       string `json:"body"`
+	CreatedAt  string `json:"created_at"`
+}
+
 type WriteTodoInput struct {
 	Text     string `json:"text"`
 	Key      string `json:"key"`

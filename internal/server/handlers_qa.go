@@ -182,6 +182,37 @@ func (s *Server) registerQARoutes(api huma.API) {
 			}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-unanswered-questions", Method: http.MethodGet, Path: "/api/dx/qa/unanswered"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct {
+			Body struct {
+				Questions []QuestionItem `json:"questions"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListUnansweredQuestions(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]QuestionItem, len(rows))
+			for i, r := range rows {
+				out[i] = toQuestionItem(r)
+			}
+			return &struct {
+				Body struct {
+					Questions []QuestionItem `json:"questions"`
+				}
+			}{
+				Body: struct {
+					Questions []QuestionItem `json:"questions"`
+				}{Questions: out},
+			}, nil
+		})
+
 	// ── Blocker questions ──────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "add-blocker-question", Method: http.MethodPost, Path: "/api/dx/blocker-questions/add"},

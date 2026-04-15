@@ -36,3 +36,9 @@ SELECT id, project_id, category, question, answer, created_at, updated_at, paren
 FROM zdx_questions
 WHERE project_id = $1 AND parent_question_id = $2
 ORDER BY created_at;
+
+-- name: ListUnansweredQuestions :many
+SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
+FROM zdx_questions
+WHERE project_id = $1 AND answer IS NULL
+ORDER BY created_at;
