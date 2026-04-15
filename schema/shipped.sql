@@ -2935,6 +2935,13 @@ CREATE INDEX idx_issue_resolutions_issue ON public.zdx_issue_resolutions USING b
 
 
 --
+-- Name: idx_issues_source_error_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_issues_source_error_id ON public.zdx_issues USING btree (source_error_id) WHERE (source_error_id IS NOT NULL);
+
+
+--
 -- Name: idx_journal_project_role; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3484,13 +3491,6 @@ ALTER TABLE ONLY public.zdx_issues
 
 ALTER TABLE ONLY public.zdx_issues
     ADD CONSTRAINT zdx_issues_source_error_id_fkey FOREIGN KEY (source_error_id) REFERENCES public.zdx_error_reports(id) ON DELETE SET NULL;
-
-
---
--- Name: idx_issues_source_error_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_issues_source_error_id ON public.zdx_issues USING btree (source_error_id) WHERE (source_error_id IS NOT NULL);
 
 
 --
