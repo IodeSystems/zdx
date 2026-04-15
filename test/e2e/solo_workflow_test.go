@@ -27,7 +27,7 @@ func (s *soloState) addIssue(title, context string) int32 {
 		ID int32 `json:"id"`
 	}
 	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/todo/issue/add",
-		map[string]string{"slug": s.slug, "title": title, "context": context}, &issue))
+		map[string]any{"slug": s.slug, "title": title, "context": context, "auto_ready": true}, &issue))
 	return issue.ID
 }
 
@@ -50,7 +50,7 @@ func (s *soloState) addTask(issueID int32, text string) int32 {
 		ID int32 `json:"id"`
 	}
 	mustOK(s.t, apiDo(s.t, http.MethodPost, "/api/dx/todo/tech/add",
-		map[string]any{"slug": s.slug, "text": text, "issue": issue}, &task))
+		map[string]any{"slug": s.slug, "text": text, "issue": issue, "auto_ready": true}, &task))
 	return task.ID
 }
 

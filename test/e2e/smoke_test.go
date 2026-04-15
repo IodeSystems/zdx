@@ -96,7 +96,7 @@ func TestIssueCRUD(t *testing.T) {
 		Title string `json:"title"`
 	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/add",
-		map[string]string{"slug": "e2e-issues", "title": "smoke issue", "context": "created by e2e test"},
+		map[string]any{"slug": "e2e-issues", "title": "smoke issue", "context": "created by e2e test", "auto_ready": true},
 		&issue,
 	))
 	if issue.Title != "smoke issue" {

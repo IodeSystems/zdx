@@ -15,7 +15,7 @@ func TestJournalAddAndList(t *testing.T) {
 		ID int32 `json:"id"`
 	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/add",
-		map[string]string{"slug": slug, "title": "journal test issue", "context": "test"},
+		map[string]any{"slug": slug, "title": "journal test issue", "context": "test", "auto_ready": true},
 		&issue))
 
 	mustOK(t, apiDo(t, http.MethodPost, "/api/issue-work", map[string]any{
