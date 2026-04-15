@@ -383,6 +383,39 @@ func (q *Queries) ListWorklogForProjectPaginated(ctx context.Context, arg ListWo
 	return items, nil
 }
 
+const projectStateSummary = `-- name: ProjectStateSummary :one
+SELECT
+  (SELECT count(*) FROM zdx_issues i WHERE i.project_id = $1 AND i.status = 'open') AS open_issues,
+  (SELECT count(*) FROM zdx_issues i WHERE i.project_id = $1 AND i.status = 'wip') AS wip_issues,
+  (SELECT count(*) FROM zdx_issues i WHERE i.project_id = $1 AND i.status = 'closed' AND i.created_at > NOW() - INTERVAL '30 days') AS recently_closed_issues,
+  (SELECT count(*) FROM zdx_tasks t WHERE t.project_id = $1 AND t.status = 'pending') AS pending_tasks,
+  (SELECT count(*) FROM zdx_tasks t WHERE t.project_id = $1 AND t.status = 'done') AS done_tasks,
+  (SELECT count(*) FROM zdx_blocker_questions q WHERE q.project_id = $1 AND q.status = 'pending') AS pending_blockers
+`
+
+type ProjectStateSummaryRow struct {
+	OpenIssues           int64 `db:"open_issues" json:"open_issues"`
+	WipIssues            int64 `db:"wip_issues" json:"wip_issues"`
+	RecentlyClosedIssues int64 `db:"recently_closed_issues" json:"recently_closed_issues"`
+	PendingTasks         int64 `db:"pending_tasks" json:"pending_tasks"`
+	DoneTasks            int64 `db:"done_tasks" json:"done_tasks"`
+	PendingBlockers      int64 `db:"pending_blockers" json:"pending_blockers"`
+}
+
+func (q *Queries) ProjectStateSummary(ctx context.Context, projectID int32) (ProjectStateSummaryRow, error) {
+	row := q.db.QueryRow(ctx, projectStateSummary, projectID)
+	var i ProjectStateSummaryRow
+	err := row.Scan(
+		&i.OpenIssues,
+		&i.WipIssues,
+		&i.RecentlyClosedIssues,
+		&i.PendingTasks,
+		&i.DoneTasks,
+		&i.PendingBlockers,
+	)
+	return i, err
+}
+
 const readyIssue = `-- name: ReadyIssue :exec
 UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2 AND status = 'wip'
 `
@@ -497,6 +530,40 @@ type SetIssuePriorityParams struct {
 func (q *Queries) SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error {
 	_, err := q.db.Exec(ctx, setIssuePriority, arg.Priority, arg.ProjectID, arg.ID)
 	return err
+}
+
+const topPriorityOpenIssues = `-- name: TopPriorityOpenIssues :many
+SELECT id, title, priority
+FROM zdx_issues
+WHERE project_id = $1 AND status = 'open' AND priority != ''
+ORDER BY priority, created_at
+LIMIT 5
+`
+
+type TopPriorityOpenIssuesRow struct {
+	ID       string `db:"id" json:"id"`
+	Title    string `db:"title" json:"title"`
+	Priority string `db:"priority" json:"priority"`
+}
+
+func (q *Queries) TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error) {
+	rows, err := q.db.Query(ctx, topPriorityOpenIssues, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []TopPriorityOpenIssuesRow
+	for rows.Next() {
+		var i TopPriorityOpenIssuesRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.Priority); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const updateIssue = `-- name: UpdateIssue :exec

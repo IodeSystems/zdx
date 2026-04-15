@@ -2,6 +2,7 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
 	"strings"
 	"time"
@@ -498,14 +499,34 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				}
 			}
 
+			summary, _ := s.q.ProjectStateSummary(ctx, p.ID)
+			topIssues, _ := s.q.TopPriorityOpenIssues(ctx, p.ID)
+
+			tldr := fmt.Sprintf("%s check-in: %d open issues, %d WIP, %d closed (30d), %d pending tasks, %d done tasks",
+				role, summary.OpenIssues, summary.WipIssues, summary.RecentlyClosedIssues, summary.PendingTasks, summary.DoneTasks)
+
+			assessment := fmt.Sprintf("Open issues: %d | WIP: %d | Recently closed (30d): %d\nPending tasks: %d | Completed tasks: %d",
+				summary.OpenIssues, summary.WipIssues, summary.RecentlyClosedIssues, summary.PendingTasks, summary.DoneTasks)
+
+			var concerns string
+			if summary.PendingBlockers > 0 {
+				concerns = fmt.Sprintf("%d pending blocker question(s) require human decisions.", summary.PendingBlockers)
+			}
+
+			var nextItems []string
+			for _, iss := range topIssues {
+				nextItems = append(nextItems, fmt.Sprintf("[P%s] %s (%s)", iss.Priority, iss.Title, iss.ID))
+			}
+			next := strings.Join(nextItems, "\n")
+
 			_, err = s.q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
 				ProjectID:     p.ID,
 				Role:          role,
 				Date:          today,
-				Tldr:          "Auto-generated " + role + " check-in",
-				Assessment:    "",
-				Concerns:      "",
-				Next:          "",
+				Tldr:          tldr,
+				Assessment:    assessment,
+				Concerns:      concerns,
+				Next:          next,
 				StateJson:     stateJSON,
 				ChangelogJson: changelogJSON,
 			})
@@ -515,7 +536,10 @@ func (s *Server) registerDxRoutes(api huma.API) {
 
 			entry := JournalEntryItem{
 				Date:          today,
-				Tldr:          "Auto-generated " + role + " check-in",
+				Tldr:          tldr,
+				Assessment:    assessment,
+				Concerns:      concerns,
+				Next:          next,
 				StateJSON:     stateJSON,
 				ChangelogJSON: changelogJSON,
 			}

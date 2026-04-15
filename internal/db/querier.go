@@ -262,6 +262,7 @@ type Querier interface {
 	MarkTaskReviewed(ctx context.Context, id string) error
 	MarkTaskUndone(ctx context.Context, id string) error
 	NextID(ctx context.Context, kind string) (int32, error)
+	ProjectStateSummary(ctx context.Context, projectID int32) (ProjectStateSummaryRow, error)
 	ReadyIssue(ctx context.Context, arg ReadyIssueParams) error
 	ReadyTask(ctx context.Context, id string) error
 	ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error)
@@ -282,6 +283,7 @@ type Querier interface {
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
 	SetProjectStage(ctx context.Context, arg SetProjectStageParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
+	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
 	UndeferSpec(ctx context.Context, id int32) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
