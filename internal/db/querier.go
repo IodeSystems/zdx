@@ -26,6 +26,7 @@ type Querier interface {
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
 	AttachCodeRefToTest(ctx context.Context, arg AttachCodeRefToTestParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
+	CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error)
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)

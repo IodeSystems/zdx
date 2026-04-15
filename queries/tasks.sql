@@ -149,6 +149,21 @@ WHERE lease_expires_at < NOW()
   AND status != 'done'
 RETURNING *;
 
+-- name: CancelOrphanedTasks :many
+UPDATE zdx_tasks t
+SET status = 'done',
+    reason = 'parent-closed',
+    completed_at = NOW(),
+    claimed_by = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
+    updated_at = NOW()
+FROM zdx_issues i
+WHERE t.issue = i.id
+  AND i.status = 'closed'
+  AND t.status IN ('pending', 'active', 'wip')
+RETURNING t.*;
+
 -- name: MarkTaskReviewed :exec
 UPDATE zdx_tasks SET reviewed_at = NOW(), updated_at = NOW() WHERE id = $1;
 

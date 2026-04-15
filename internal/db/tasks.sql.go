@@ -11,6 +11,61 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const cancelOrphanedTasks = `-- name: CancelOrphanedTasks :many
+UPDATE zdx_tasks t
+SET status = 'done',
+    reason = 'parent-closed',
+    completed_at = NOW(),
+    claimed_by = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
+    updated_at = NOW()
+FROM zdx_issues i
+WHERE t.issue = i.id
+  AND i.status = 'closed'
+  AND t.status IN ('pending', 'active', 'wip')
+RETURNING t.id, t.project_id, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.created_at, t.completed_at, t.updated_at, t.task_group, t.claimed_by, t.claimed_at, t.lease_expires_at, t.reviewed_at
+`
+
+func (q *Queries) CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error) {
+	rows, err := q.db.Query(ctx, cancelOrphanedTasks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTask
+	for rows.Next() {
+		var i ZdxTask
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+			&i.TaskGroup,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
+			&i.ReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const claimTask = `-- name: ClaimTask :one
 UPDATE zdx_tasks
 SET claimed_by = $1,

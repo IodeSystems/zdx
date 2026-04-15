@@ -94,6 +94,7 @@ func main() {
 	}
 
 	srv.StartTimedEventsRetention(context.Background())
+	srv.StartTaskRecovery(context.Background())
 
 	addr := fmt.Sprintf(":%s", port)
 	log.Printf("dx-server listening on %s", addr)
