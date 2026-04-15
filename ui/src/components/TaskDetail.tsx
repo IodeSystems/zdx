@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { Box, Button, Chip, Typography } from '@mui/material'
 import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
-import { useTasks, useUpdateTaskStatus, useTaskCodeRefs } from '../api'
+import { useTask, useTasks, useUpdateTaskStatus, useTaskCodeRefs } from '../api'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
@@ -20,14 +20,14 @@ export function TaskDetail({
   slug: string
   taskId: string
 }) {
-  const { data, isLoading } = useTasks(slug)
+  const { data: taskData, isLoading } = useTask(slug, taskId)
+  const { data: allTasksData } = useTasks(slug)
   const { data: codeRefs } = useTaskCodeRefs(slug, taskId)
   const updateStatus = useUpdateTaskStatus()
   const router = useRouter()
 
-  const tasks = data?.tasks ?? []
+  const task = taskData
   const numericId = parseInt(taskId.replace(/^TK-/i, ''), 10)
-  const task = tasks.find(t => t.id === numericId)
 
   useEffect(() => {
     if (!task) return
@@ -37,7 +37,8 @@ export function TaskDetail({
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
-  const blockedByThis = tasks.filter(t =>
+  const allTasks = allTasksData?.tasks ?? []
+  const blockedByThis = allTasks.filter(t =>
     t.id !== numericId &&
     t.depends
       .split(/[\s,]+/)

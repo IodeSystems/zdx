@@ -40,6 +40,31 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}{Tasks: out, Total: total}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "get-task", Method: http.MethodGet, Path: "/api/task"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   string `query:"id" required:"true"`
+		}) (*struct{ Body TaskItem }, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			id := taskIDFromInt(taskIntID(in.ID))
+			row, err := s.q.GetTask(ctx, id)
+			if err != nil {
+				return nil, apiErr(404, "task not found")
+			}
+			if row.ProjectID != p.ID {
+				return nil, apiErr(404, "task not found")
+			}
+			return &struct{ Body TaskItem }{Body: toTaskItem(db.ZdxTask{
+				ID: row.ID, ProjectID: row.ProjectID, Text: row.Text, Feature: row.Feature,
+				Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends,
+				TestPlan: row.TestPlan, TestRefs: row.TestRefs, TaskGroup: row.TaskGroup,
+				CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt,
+			})}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "list-tasks-by-feature", Method: http.MethodGet, Path: "/api/tasks-by-feature"},
 		func(ctx context.Context, in *struct {
 			Slug    string `query:"slug" required:"true"`

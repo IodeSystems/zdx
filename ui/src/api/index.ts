@@ -244,6 +244,14 @@ export const useTasks = (slug: string, opts?: { feature?: string; issue?: string
     enabled: !!slug,
   })
 
+export const useTask = (slug: string, id: string) =>
+  useQuery<TaskItem>({
+    queryKey: ['task', slug, id],
+    queryFn: async () =>
+      apiFetch<TaskItem>(`/api/task?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`),
+    enabled: !!slug && !!id,
+  })
+
 // Includes slug for cache invalidation only — not sent to server.
 type UpdateTaskStatusInput = components['schemas']['Update-task-statusRequest'] & { slug: string }
 
