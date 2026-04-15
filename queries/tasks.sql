@@ -102,6 +102,7 @@ WHERE id = (
       AND t.status = 'pending'
       AND t.task_group = @task_group
       AND (t.claimed_by IS NULL OR t.lease_expires_at < NOW())
+      AND (@issue::text = '' OR t.issue = @issue)
     ORDER BY t.created_at ASC
     LIMIT 1
     FOR UPDATE SKIP LOCKED

@@ -87,20 +87,36 @@ func TodoCmd() *cobra.Command {
 // ── solo ──────────────────────────────────────────────────────────────────────
 
 func todoSoloCmd() *cobra.Command {
-	var issueFlag string
+	var issueFlag, agentIDFlag string
 	cmd := &cobra.Command{
 		Use:   "solo",
 		Short: "Next actionable item",
 		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
 	}
 	cmd.Flags().StringVar(&issueFlag, "issue", "", "filter to specific issue (IS-N)")
+	cmd.Flags().StringVar(&agentIDFlag, "agent-id", "", "agent ID for atomic task claiming and heartbeat")
 	return cmd
 }
 
 func soloRun(cmd *cobra.Command, _ []string) error {
 	issueFlag, _ := cmd.Flags().GetString("issue")
+	agentID, _ := cmd.Flags().GetString("agent-id")
 	c := mustClient()
 	slug := c.SlugOrDie()
+
+	// When agent-id is set, validate the agent and extract task_group.
+	var agentTaskGroup string
+	var heartbeatStop chan struct{}
+	if agentID != "" {
+		var agent agentItem
+		if err := c.get("/api/agents/"+agentID, nil, &agent); err != nil {
+			return fmt.Errorf("agent %s not found: %w", agentID, err)
+		}
+		agentTaskGroup = agent.TaskGroup
+		heartbeatStop = make(chan struct{})
+		go heartbeatLoop(c, agentID, 60*time.Second, heartbeatStop)
+		defer close(heartbeatStop)
+	}
 
 	// Fetch issues
 	var issueList struct {
@@ -416,24 +432,45 @@ Analyze the project to bootstrap its feature catalog and first issue:
 	}
 
 	// 3. Find a pending task
-	for _, iss := range targetIssues {
-		if iss.Status != "open" {
-			continue
+	if agentID != "" {
+		// Agent mode: atomically claim a task via the ClaimTask API.
+		claimBody := map[string]any{
+			"slug":       slug,
+			"agent_id":   agentID,
+			"task_group": agentTaskGroup,
 		}
-		var taskList struct {
-			Tasks []taskItem `json:"tasks"`
+		if issueFlag != "" {
+			claimBody["issue"] = issueFlag
 		}
-		if err := c.get("/api/dx/todo/issue/tasks", url.Values{
-			"slug":     {slug},
-			"issue_id": {issueIDStr(iss.ID)},
-		}, &taskList); err != nil {
-			return err
+		var claimed agentTaskItem
+		if err := c.post("/api/tasks/claim", claimBody, &claimed); err == nil {
+			fmt.Printf("[dev]     %s  %s\n", claimed.ID, claimed.Text)
+			if claimed.Issue != "" {
+				fmt.Printf("  issue: %s\n", claimed.Issue)
+			}
+			fmt.Printf("  claimed_by: %s\n", agentID)
+			return nil
 		}
-		for _, t := range taskList.Tasks {
-			if t.Status == "pending" {
-				fmt.Printf("[dev]     %s  %s\n", taskIDStr(t.ID), t.Text)
-				fmt.Printf("  issue: %s\n", issueIDStr(iss.ID))
-				return nil
+	} else {
+		for _, iss := range targetIssues {
+			if iss.Status != "open" {
+				continue
+			}
+			var taskList struct {
+				Tasks []taskItem `json:"tasks"`
+			}
+			if err := c.get("/api/dx/todo/issue/tasks", url.Values{
+				"slug":     {slug},
+				"issue_id": {issueIDStr(iss.ID)},
+			}, &taskList); err != nil {
+				return err
+			}
+			for _, t := range taskList.Tasks {
+				if t.Status == "pending" {
+					fmt.Printf("[dev]     %s  %s\n", taskIDStr(t.ID), t.Text)
+					fmt.Printf("  issue: %s\n", issueIDStr(iss.ID))
+					return nil
+				}
 			}
 		}
 	}

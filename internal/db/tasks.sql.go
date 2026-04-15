@@ -24,6 +24,7 @@ WHERE id = (
       AND t.status = 'pending'
       AND t.task_group = $4
       AND (t.claimed_by IS NULL OR t.lease_expires_at < NOW())
+      AND ($5::text = '' OR t.issue = $5)
     ORDER BY t.created_at ASC
     LIMIT 1
     FOR UPDATE SKIP LOCKED
@@ -36,6 +37,7 @@ type ClaimTaskParams struct {
 	LeaseDuration pgtype.Interval `db:"lease_duration" json:"lease_duration"`
 	ProjectID     int32           `db:"project_id" json:"project_id"`
 	TaskGroup     string          `db:"task_group" json:"task_group"`
+	Issue         string          `db:"issue" json:"issue"`
 }
 
 func (q *Queries) ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error) {
@@ -44,6 +46,7 @@ func (q *Queries) ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, 
 		arg.LeaseDuration,
 		arg.ProjectID,
 		arg.TaskGroup,
+		arg.Issue,
 	)
 	var i ZdxTask
 	err := row.Scan(

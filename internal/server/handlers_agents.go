@@ -239,6 +239,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				Slug             string `json:"slug" required:"true"`
 				AgentID          string `json:"agent_id" required:"true"`
 				TaskGroup        string `json:"task_group"`
+				Issue            string `json:"issue"`
 				LeaseDurationMin int32  `json:"lease_duration_min"`
 			}
 		}) (*struct{ Body AgentTaskItem }, error) {
@@ -256,6 +257,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				LeaseDuration: interval,
 				ProjectID:     p.ID,
 				TaskGroup:     in.Body.TaskGroup,
+				Issue:         in.Body.Issue,
 			})
 			if err != nil {
 				return nil, apiErr(404, "no tasks available to claim")
