@@ -1361,16 +1361,6 @@ CREATE TABLE public.zdx_task_code_refs (
 
 
 --
--- Name: zdx_test_code_refs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_test_code_refs (
-    test_id integer NOT NULL,
-    code_ref_id integer NOT NULL
-);
-
-
---
 -- Name: zdx_tasks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2520,14 +2510,6 @@ ALTER TABLE ONLY public.zdx_task_code_refs
 
 
 --
--- Name: zdx_test_code_refs zdx_test_code_refs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_test_code_refs
-    ADD CONSTRAINT zdx_test_code_refs_pkey PRIMARY KEY (test_id, code_ref_id);
-
-
---
 -- Name: zdx_tasks zdx_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3376,22 +3358,6 @@ ALTER TABLE ONLY public.zdx_task_code_refs
 
 ALTER TABLE ONLY public.zdx_task_code_refs
     ADD CONSTRAINT zdx_task_code_refs_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
-
-
---
--- Name: zdx_test_code_refs zdx_test_code_refs_code_ref_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_test_code_refs
-    ADD CONSTRAINT zdx_test_code_refs_code_ref_id_fkey FOREIGN KEY (code_ref_id) REFERENCES public.zdx_code_refs(id) ON DELETE CASCADE;
-
-
---
--- Name: zdx_test_code_refs zdx_test_code_refs_test_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_test_code_refs
-    ADD CONSTRAINT zdx_test_code_refs_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.zdx_tests(id) ON DELETE CASCADE;
 
 
 --
