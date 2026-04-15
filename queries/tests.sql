@@ -1,13 +1,13 @@
 -- name: UpsertTestResult :exec
-INSERT INTO zdx_test_results (project_id, driver, test_name, feature, status, duration_ms)
-VALUES (@project_id, @driver, @test_name, @feature, @status, @duration_ms)
+INSERT INTO zdx_test_results (project_id, driver, test_name, feature, status, duration_ms, branch, git_sha)
+VALUES (@project_id, @driver, @test_name, @feature, @status, @duration_ms, @branch, @git_sha)
 ON CONFLICT (project_id, driver, test_name) DO UPDATE
 SET status = EXCLUDED.status, duration_ms = EXCLUDED.duration_ms, run_at = NOW(),
-    feature = EXCLUDED.feature;
+    feature = EXCLUDED.feature, branch = EXCLUDED.branch, git_sha = EXCLUDED.git_sha;
 
 -- name: InsertTestResultHistory :exec
-INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, status, duration_ms)
-VALUES (@project_id, @driver, @test_name, @feature, @status, @duration_ms);
+INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, status, duration_ms, branch, git_sha)
+VALUES (@project_id, @driver, @test_name, @feature, @status, @duration_ms, @branch, @git_sha);
 
 -- name: UpsertTest :one
 INSERT INTO zdx_tests (project_id, component, name, layer, status, duration_ms, last_run_at)
@@ -50,9 +50,10 @@ JOIN zdx_spec_tests st ON st.test_id = t.id
 WHERE st.spec_id = $1 ORDER BY t.component, t.name;
 
 -- name: ListTestResultHistory :many
-SELECT id, driver, test_name, status, duration_ms, run_at
+SELECT id, driver, test_name, status, duration_ms, run_at, branch, git_sha
 FROM zdx_test_result_history
 WHERE project_id = @project_id AND test_name = @test_name
+  AND (@branch_filter::text = '' OR branch = @branch_filter)
 ORDER BY run_at DESC
 LIMIT @max_results;
 

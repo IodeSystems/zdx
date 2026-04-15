@@ -1407,7 +1407,9 @@ CREATE TABLE public.zdx_test_result_history (
     feature text DEFAULT ''::text NOT NULL,
     status text NOT NULL,
     duration_ms integer DEFAULT 0 NOT NULL,
-    run_at timestamp with time zone DEFAULT now() NOT NULL
+    run_at timestamp with time zone DEFAULT now() NOT NULL,
+    branch text DEFAULT ''::text NOT NULL,
+    git_sha text DEFAULT ''::text NOT NULL
 );
 
 
@@ -1443,7 +1445,9 @@ CREATE TABLE public.zdx_test_results (
     feature text DEFAULT ''::text NOT NULL,
     status text NOT NULL,
     duration_ms integer DEFAULT 0 NOT NULL,
-    run_at timestamp with time zone DEFAULT now() NOT NULL
+    run_at timestamp with time zone DEFAULT now() NOT NULL,
+    branch text DEFAULT ''::text NOT NULL,
+    git_sha text DEFAULT ''::text NOT NULL
 );
 
 

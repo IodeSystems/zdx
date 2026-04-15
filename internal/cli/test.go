@@ -30,6 +30,24 @@ type TestResult struct {
 	DurationMs int64  `json:"duration_ms"`
 	RunAt      string `json:"run_at"`
 	Output     string `json:"output,omitempty"`
+	Branch     string `json:"branch,omitempty"`
+	GitSHA     string `json:"git_sha,omitempty"`
+}
+
+func gitBranch() string {
+	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func gitSHA() string {
+	out, err := exec.Command("git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
 }
 
 func TestCmd() *cobra.Command {
@@ -120,6 +138,11 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 	results, err := h.Run(context.Background(), f)
 	if err != nil {
 		return err
+	}
+	branch, sha := gitBranch(), gitSHA()
+	for i := range results {
+		results[i].Branch = branch
+		results[i].GitSHA = sha
 	}
 	testharness.Summary(results)
 	_ = testharness.WriteResults(filepath.Join(".zdx", "test-results.json"), results)
@@ -268,6 +291,7 @@ func testRunE(cmd *cobra.Command, args []string) error {
 
 	var results []TestResult
 	failed := false
+	legacyBranch, legacySHA := gitBranch(), gitSHA()
 
 	for _, s := range suites {
 		fmt.Printf("\n● %s:%s", s.Component, s.Name)
@@ -284,6 +308,7 @@ func testRunE(cmd *cobra.Command, args []string) error {
 					Component: s.Component, Suite: s.Name, Runner: s.Runner,
 					Status: "fail", RunAt: time.Now().Format(time.RFC3339),
 					Output: fmt.Sprintf("setup failed: %v", err),
+					Branch: legacyBranch, GitSHA: legacySHA,
 				})
 				failed = true
 				continue
@@ -308,7 +333,8 @@ func testRunE(cmd *cobra.Command, args []string) error {
 		results = append(results, TestResult{
 			Component: s.Component, Suite: s.Name, Runner: s.Runner,
 			Status: status, DurationMs: dur,
-			RunAt: time.Now().Format(time.RFC3339),
+			RunAt:  time.Now().Format(time.RFC3339),
+			Branch: legacyBranch, GitSHA: legacySHA,
 		})
 	}
 

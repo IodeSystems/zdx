@@ -113,8 +113,8 @@ func (q *Queries) GetTestByID(ctx context.Context, arg GetTestByIDParams) (GetTe
 }
 
 const insertTestResultHistory = `-- name: InsertTestResultHistory :exec
-INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, status, duration_ms)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, status, duration_ms, branch, git_sha)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 `
 
 type InsertTestResultHistoryParams struct {
@@ -124,6 +124,8 @@ type InsertTestResultHistoryParams struct {
 	Feature    string `db:"feature" json:"feature"`
 	Status     string `db:"status" json:"status"`
 	DurationMs int32  `db:"duration_ms" json:"duration_ms"`
+	Branch     string `db:"branch" json:"branch"`
+	GitSha     string `db:"git_sha" json:"git_sha"`
 }
 
 func (q *Queries) InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error {
@@ -134,6 +136,8 @@ func (q *Queries) InsertTestResultHistory(ctx context.Context, arg InsertTestRes
 		arg.Feature,
 		arg.Status,
 		arg.DurationMs,
+		arg.Branch,
+		arg.GitSha,
 	)
 	return err
 }
@@ -195,17 +199,19 @@ func (q *Queries) ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]L
 }
 
 const listTestResultHistory = `-- name: ListTestResultHistory :many
-SELECT id, driver, test_name, status, duration_ms, run_at
+SELECT id, driver, test_name, status, duration_ms, run_at, branch, git_sha
 FROM zdx_test_result_history
 WHERE project_id = $1 AND test_name = $2
+  AND ($3::text = '' OR branch = $3)
 ORDER BY run_at DESC
-LIMIT $3
+LIMIT $4
 `
 
 type ListTestResultHistoryParams struct {
-	ProjectID  int32  `db:"project_id" json:"project_id"`
-	TestName   string `db:"test_name" json:"test_name"`
-	MaxResults int32  `db:"max_results" json:"max_results"`
+	ProjectID    int32  `db:"project_id" json:"project_id"`
+	TestName     string `db:"test_name" json:"test_name"`
+	BranchFilter string `db:"branch_filter" json:"branch_filter"`
+	MaxResults   int32  `db:"max_results" json:"max_results"`
 }
 
 type ListTestResultHistoryRow struct {
@@ -215,10 +221,17 @@ type ListTestResultHistoryRow struct {
 	Status     string             `db:"status" json:"status"`
 	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
 	RunAt      pgtype.Timestamptz `db:"run_at" json:"run_at"`
+	Branch     string             `db:"branch" json:"branch"`
+	GitSha     string             `db:"git_sha" json:"git_sha"`
 }
 
 func (q *Queries) ListTestResultHistory(ctx context.Context, arg ListTestResultHistoryParams) ([]ListTestResultHistoryRow, error) {
-	rows, err := q.db.Query(ctx, listTestResultHistory, arg.ProjectID, arg.TestName, arg.MaxResults)
+	rows, err := q.db.Query(ctx, listTestResultHistory,
+		arg.ProjectID,
+		arg.TestName,
+		arg.BranchFilter,
+		arg.MaxResults,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -233,6 +246,8 @@ func (q *Queries) ListTestResultHistory(ctx context.Context, arg ListTestResultH
 			&i.Status,
 			&i.DurationMs,
 			&i.RunAt,
+			&i.Branch,
+			&i.GitSha,
 		); err != nil {
 			return nil, err
 		}
@@ -517,11 +532,11 @@ func (q *Queries) UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertT
 }
 
 const upsertTestResult = `-- name: UpsertTestResult :exec
-INSERT INTO zdx_test_results (project_id, driver, test_name, feature, status, duration_ms)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO zdx_test_results (project_id, driver, test_name, feature, status, duration_ms, branch, git_sha)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (project_id, driver, test_name) DO UPDATE
 SET status = EXCLUDED.status, duration_ms = EXCLUDED.duration_ms, run_at = NOW(),
-    feature = EXCLUDED.feature
+    feature = EXCLUDED.feature, branch = EXCLUDED.branch, git_sha = EXCLUDED.git_sha
 `
 
 type UpsertTestResultParams struct {
@@ -531,6 +546,8 @@ type UpsertTestResultParams struct {
 	Feature    string `db:"feature" json:"feature"`
 	Status     string `db:"status" json:"status"`
 	DurationMs int32  `db:"duration_ms" json:"duration_ms"`
+	Branch     string `db:"branch" json:"branch"`
+	GitSha     string `db:"git_sha" json:"git_sha"`
 }
 
 func (q *Queries) UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error {
@@ -541,6 +558,8 @@ func (q *Queries) UpsertTestResult(ctx context.Context, arg UpsertTestResultPara
 		arg.Feature,
 		arg.Status,
 		arg.DurationMs,
+		arg.Branch,
+		arg.GitSha,
 	)
 	return err
 }

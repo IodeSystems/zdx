@@ -155,6 +155,8 @@ func (s *Server) registerDxRoutes(api huma.API) {
 					Feature:    r.Feature,
 					Status:     r.Status,
 					DurationMs: r.DurationMS,
+					Branch:     r.Branch,
+					GitSha:     r.GitSHA,
 				})
 				_ = s.q.InsertTestResultHistory(ctx, db.InsertTestResultHistoryParams{
 					ProjectID:  p.ID,
@@ -163,6 +165,8 @@ func (s *Server) registerDxRoutes(api huma.API) {
 					Feature:    r.Feature,
 					Status:     r.Status,
 					DurationMs: r.DurationMS,
+					Branch:     r.Branch,
+					GitSha:     r.GitSHA,
 				})
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -222,6 +226,8 @@ func (s *Server) registerDxRoutes(api huma.API) {
 		Status     string `json:"status"`
 		DurationMs int32  `json:"duration_ms"`
 		RunAt      string `json:"run_at"`
+		Branch     string `json:"branch"`
+		GitSHA     string `json:"git_sha"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "get-test-history", Method: http.MethodGet, Path: "/api/dx/tests/history"},
@@ -229,6 +235,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			Slug     string `query:"slug"`
 			TestName string `query:"test_name"`
 			Limit    int32  `query:"limit"`
+			Branch   string `query:"branch"`
 		}) (*struct {
 			Body struct {
 				History []TestHistoryItem `json:"history"`
@@ -243,9 +250,10 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				maxResults = in.Limit
 			}
 			rows, err := s.q.ListTestResultHistory(ctx, db.ListTestResultHistoryParams{
-				ProjectID:  p.ID,
-				TestName:   in.TestName,
-				MaxResults: maxResults,
+				ProjectID:    p.ID,
+				TestName:     in.TestName,
+				MaxResults:   maxResults,
+				BranchFilter: in.Branch,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -259,6 +267,8 @@ func (s *Server) registerDxRoutes(api huma.API) {
 					Status:     r.Status,
 					DurationMs: r.DurationMs,
 					RunAt:      r.RunAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+					Branch:     r.Branch,
+					GitSHA:     r.GitSha,
 				}
 			}
 			return &struct {

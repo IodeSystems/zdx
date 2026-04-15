@@ -508,6 +508,8 @@ type ZdxTestResult struct {
 	Status     string             `db:"status" json:"status"`
 	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
 	RunAt      pgtype.Timestamptz `db:"run_at" json:"run_at"`
+	Branch     string             `db:"branch" json:"branch"`
+	GitSha     string             `db:"git_sha" json:"git_sha"`
 }
 
 type ZdxTestResultHistory struct {
@@ -519,6 +521,8 @@ type ZdxTestResultHistory struct {
 	Status     string             `db:"status" json:"status"`
 	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
 	RunAt      pgtype.Timestamptz `db:"run_at" json:"run_at"`
+	Branch     string             `db:"branch" json:"branch"`
+	GitSha     string             `db:"git_sha" json:"git_sha"`
 }
 
 type ZdxTheme struct {

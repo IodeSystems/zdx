@@ -59,6 +59,8 @@ type Result struct {
 	DurationMs int64  `json:"duration_ms"`
 	Output     string `json:"output,omitempty"`
 	RunAt      string `json:"run_at"`
+	Branch     string `json:"branch,omitempty"`
+	GitSHA     string `json:"git_sha,omitempty"`
 }
 
 // Adapter is anything that can enumerate and run a class of tests.
