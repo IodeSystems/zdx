@@ -432,7 +432,7 @@ func (w *statusCapture) WriteHeader(code int) {
 // the self-integration zdxclient so server errors appear on the errors page.
 func (s *Server) errorMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/api/") {
+		if !strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/api/ws/subscribe" {
 			next.ServeHTTP(w, r)
 			return
 		}
