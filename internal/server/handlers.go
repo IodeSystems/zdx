@@ -164,6 +164,7 @@ type SlowQueryItem struct {
 }
 
 type JournalEntryItem struct {
+	ID            int32  `json:"id"`
 	Date          string `json:"date"`
 	Baseline      bool   `json:"baseline"`
 	Tldr          string `json:"tldr"`

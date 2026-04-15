@@ -9,6 +9,7 @@ import {
   Typography,
 } from '@mui/material'
 import { AutoAwesome as GenerateIcon, TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
+import { Link } from '@tanstack/react-router'
 import { useState, useMemo } from 'react'
 import { useJournalEntries, useGenerateJournalEntry, useChurnSessions, useExtractPatternFromSession, type JournalEntryItem, type ClaudeSessionItem } from '../api'
 import { MarkdownContent } from './MarkdownContent'
@@ -107,7 +108,14 @@ function EntryCard({ entry, prev, isTech, slug }: { entry: JournalEntryItem; pre
         onClick={() => setExpanded(e => !e)}
       >
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
-          <Typography variant="body2" sx={{ fontWeight: 600 }}>{entry.date}</Typography>
+          <Link
+            to="/project/$slug/journal/$id"
+            params={{ slug, id: String(entry.id) }}
+            style={{ textDecoration: 'none', color: 'inherit' }}
+            onClick={e => e.stopPropagation()}
+          >
+            <Typography variant="body2" sx={{ fontWeight: 600, '&:hover': { textDecoration: 'underline' } }}>{entry.date}</Typography>
+          </Link>
           {entry.baseline && <Chip label="baseline" size="small" color="info" sx={{ fontSize: '0.7rem' }} />}
           {hasMetrics && <Chip label="metrics" size="small" color="success" sx={{ fontSize: '0.65rem', height: 18 }} />}
           <Typography variant="body2" color="text.secondary" sx={{ flex: 1, ml: 1 }}>

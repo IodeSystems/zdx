@@ -15,5 +15,9 @@ FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC 
 SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 AND needs_review = true ORDER BY date DESC LIMIT 1;
 
+-- name: GetJournalEntryByID :one
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+FROM zdx_journal_entries WHERE id = $1 AND project_id = $2;
+
 -- name: MarkJournalEntryReviewed :exec
 UPDATE zdx_journal_entries SET needs_review = false WHERE id = $1;

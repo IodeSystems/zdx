@@ -11,6 +11,53 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getJournalEntryByID = `-- name: GetJournalEntryByID :one
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+FROM zdx_journal_entries WHERE id = $1 AND project_id = $2
+`
+
+type GetJournalEntryByIDParams struct {
+	ID        int32 `db:"id" json:"id"`
+	ProjectID int32 `db:"project_id" json:"project_id"`
+}
+
+type GetJournalEntryByIDRow struct {
+	ID            int32              `db:"id" json:"id"`
+	ProjectID     int32              `db:"project_id" json:"project_id"`
+	Role          string             `db:"role" json:"role"`
+	Date          string             `db:"date" json:"date"`
+	Baseline      bool               `db:"baseline" json:"baseline"`
+	Tldr          string             `db:"tldr" json:"tldr"`
+	Assessment    string             `db:"assessment" json:"assessment"`
+	Concerns      string             `db:"concerns" json:"concerns"`
+	Next          string             `db:"next" json:"next"`
+	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
+	StateJson     string             `db:"state_json" json:"state_json"`
+	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetJournalEntryByID(ctx context.Context, arg GetJournalEntryByIDParams) (GetJournalEntryByIDRow, error) {
+	row := q.db.QueryRow(ctx, getJournalEntryByID, arg.ID, arg.ProjectID)
+	var i GetJournalEntryByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Role,
+		&i.Date,
+		&i.Baseline,
+		&i.Tldr,
+		&i.Assessment,
+		&i.Concerns,
+		&i.Next,
+		&i.ChangelogJson,
+		&i.StateJson,
+		&i.NeedsReview,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getLatestJournalEntry = `-- name: GetLatestJournalEntry :one
 SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 1

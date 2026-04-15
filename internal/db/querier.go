@@ -128,6 +128,7 @@ type Querier interface {
 	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
 	GetIssueResolution(ctx context.Context, id string) (ZdxIssueResolution, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
+	GetJournalEntryByID(ctx context.Context, arg GetJournalEntryByIDParams) (GetJournalEntryByIDRow, error)
 	GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (GetLatestJournalEntryRow, error)
 	GetPattern(ctx context.Context, arg GetPatternParams) (ZdxPattern, error)

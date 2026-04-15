@@ -1552,6 +1552,7 @@ export const useDeleteConstraint = (slug: string) => {
 // ── Journal ────────────────────────────────────────────────────────────────
 
 export interface JournalEntryItem {
+  id: number
   date: string
   baseline: boolean
   tldr: string
@@ -1572,6 +1573,18 @@ export const useJournalEntries = (slug: string, role: string) =>
       return data.entries ?? []
     },
     enabled: !!slug && !!role,
+  })
+
+export const useJournalEntry = (slug: string, id: string) =>
+  useQuery<JournalEntryItem>({
+    queryKey: ['journal-entry', slug, id],
+    queryFn: async () => {
+      const data = await apiFetch<{ entry: JournalEntryItem }>(
+        `/api/dx/journal/entry?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`,
+      )
+      return data.entry
+    },
+    enabled: !!slug && !!id,
   })
 
 export const useGenerateJournalEntry = () => {

@@ -389,6 +389,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			out := make([]JournalEntryItem, len(rows))
 			for i, r := range rows {
 				out[i] = JournalEntryItem{
+					ID:            r.ID,
 					Date:          r.Date,
 					Baseline:      r.Baseline,
 					Tldr:          r.Tldr,
@@ -406,6 +407,42 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}{Body: struct {
 				Entries []JournalEntryItem `json:"entries"`
 			}{Entries: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "journal-entry", Method: http.MethodGet, Path: "/api/dx/journal/entry"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   int32  `query:"id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Entry JournalEntryItem `json:"entry"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			r, err := s.q.GetJournalEntryByID(ctx, db.GetJournalEntryByIDParams{ID: in.ID, ProjectID: p.ID})
+			if err != nil {
+				return nil, apiErr(404, "journal entry not found")
+			}
+			return &struct {
+				Body struct {
+					Entry JournalEntryItem `json:"entry"`
+				}
+			}{Body: struct {
+				Entry JournalEntryItem `json:"entry"`
+			}{Entry: JournalEntryItem{
+				ID:            r.ID,
+				Date:          r.Date,
+				Baseline:      r.Baseline,
+				Tldr:          r.Tldr,
+				Assessment:    r.Assessment,
+				Concerns:      r.Concerns,
+				Next:          r.Next,
+				ChangelogJSON: r.ChangelogJson,
+				StateJSON:     r.StateJson,
+			}}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "journal-state", Method: http.MethodGet, Path: "/api/dx/journal/state"},
@@ -562,7 +599,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}
 			next := strings.Join(nextItems, "\n")
 
-			_, err = s.q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
+			inserted, err := s.q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
 				ProjectID:     p.ID,
 				Role:          role,
 				Date:          today,
@@ -579,6 +616,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}
 
 			entry := JournalEntryItem{
+				ID:            inserted.ID,
 				Date:          today,
 				Tldr:          tldr,
 				Assessment:    assessment,
