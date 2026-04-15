@@ -14,6 +14,7 @@ import {
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
 import { useFeature, useTasks, useSpecTests, type TaskItem, type SpecItem as BaseSpecItem } from '../api'
+import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { DemosSection } from './DemoPlayer'
 import { MarkdownContent } from './MarkdownContent'
 
@@ -233,6 +234,7 @@ export function FeatureDetail({
           </Box>
         ))
       )}
+      <CommentsAndRevisions slug={slug} targetType="feature" targetId={name} />
     </Box>
   )
 }
