@@ -42,7 +42,7 @@ stream_session_start() {
     return
   fi
   local url="${ZDX_URL}/api/dx/claude/sessions/ingest/stream?slug=${ZDX_SLUG}&session_id=${sid}&issue_id=${issue_id}&alias=${ALIAS}"
-  tail -f "$sfile" 2>/dev/null | curl -s -o /dev/null -w '' \
+  tail -F "$sfile" 2>/dev/null | curl -s -o /dev/null -w '' \
     -X POST \
     -H "X-Api-Key: ${ZDX_KEY}" \
     -H "Content-Type: application/x-ndjson" \
@@ -86,7 +86,7 @@ stream_subagents_watch() {
         url+="&agent_id=$(printf '%s' "$agent_id" | jq -sRr @uri)"
         url+="&agent_type=$(printf '%s' "$agent_type" | jq -sRr @uri)"
         url+="&agent_description=$(printf '%s' "$agent_desc" | jq -sRr @uri)"
-        tail -f "$agent_jsonl" 2>/dev/null | curl -s -o /dev/null -w '' \
+        tail -F "$agent_jsonl" 2>/dev/null | curl -s -o /dev/null -w '' \
           -X POST \
           -H "X-Api-Key: ${ZDX_KEY}" \
           -H "Content-Type: application/x-ndjson" \
@@ -281,7 +281,9 @@ while true; do
   render_pid=$!
 
   # Start streaming events to server for real-time WebSocket updates.
-  touch "$sfile"
+  # Do NOT pre-touch $sfile — claude-cli 2.1.109+ treats an existing session
+  # file as a lock and refuses the session-id. tail -F above waits for the
+  # file to be created by claude.
   stream_session_start "$sid" "$sfile" "${issue_id:-}"
   stream_subagents_start "$sid" "${issue_id:-}"
 
