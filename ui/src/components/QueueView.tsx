@@ -1,5 +1,24 @@
-import { Box, Chip, CircularProgress, Typography } from '@mui/material'
-import { useSolo, type SoloItem } from '../api'
+import { useState } from 'react'
+import { Link } from '@tanstack/react-router'
+import {
+  Alert,
+  Box,
+  Button,
+  Chip,
+  CircularProgress,
+  Paper,
+  Stack,
+  TextField,
+  Typography,
+} from '@mui/material'
+import {
+  useSolo,
+  useBlockerQuestions,
+  useAnswerBlockerQuestion,
+  type SoloItem,
+  type BlockerQuestionItem,
+} from '../api'
+import { MarkdownContent } from './MarkdownContent'
 
 const KIND_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
   triage: 'error',
@@ -7,15 +26,65 @@ const KIND_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
   dev: 'warning',
 }
 
+function AnswerForm({ slug, question }: { slug: string; question: BlockerQuestionItem }) {
+  const answerMutation = useAnswerBlockerQuestion()
+  const [answer, setAnswer] = useState('')
+
+  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
+    e.preventDefault()
+    if (!answer.trim()) return
+    await answerMutation.mutateAsync({ slug, id: question.id, answer: answer.trim() })
+    setAnswer('')
+  }
+
+  return (
+    <Box component="form" onSubmit={submit} sx={{ mt: 1.5 }}>
+      <Stack spacing={1} direction="row" sx={{ alignItems: 'flex-start' }}>
+        <TextField
+          label="Answer"
+          value={answer}
+          onChange={(e) => setAnswer(e.target.value)}
+          multiline
+          minRows={1}
+          size="small"
+          sx={{ flex: 1 }}
+        />
+        <Button
+          type="submit"
+          variant="contained"
+          size="small"
+          disabled={answerMutation.isPending || !answer.trim()}
+        >
+          {answerMutation.isPending ? 'Saving...' : 'Answer'}
+        </Button>
+      </Stack>
+      {answerMutation.isError && (
+        <Alert severity="error" sx={{ mt: 1 }}>
+          {(answerMutation.error as Error).message}
+        </Alert>
+      )}
+    </Box>
+  )
+}
+
+function targetLink(slug: string, targetType: string, targetId: string): { to: string; params: Record<string, string> } | null {
+  if (targetType === 'issue') return { to: '/project/$slug/issues/$id', params: { slug, id: targetId } }
+  if (targetType === 'task') return { to: '/project/$slug/tasks/$id', params: { slug, id: targetId } }
+  if (targetType === 'feature') return { to: '/project/$slug/features/$name', params: { slug, name: targetId } }
+  return null
+}
+
 export function QueueView({ slug }: { slug: string }) {
   const { data, isLoading } = useSolo(slug)
+  const { data: bqData } = useBlockerQuestions(slug, 'pending')
 
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
 
+  const pendingQuestions = bqData?.questions ?? []
   const queue: SoloItem[] = data ?? []
   const [pick, ...rest] = queue
 
-  if (!pick) {
+  if (!pick && pendingQuestions.length === 0) {
     return (
       <Box>
         <Typography variant="h6" sx={{ mb: 1 }}>Queue</Typography>
@@ -28,19 +97,64 @@ export function QueueView({ slug }: { slug: string }) {
     <Box>
       <Typography variant="h6" sx={{ mb: 2 }}>Queue</Typography>
 
-      <Box sx={{ mb: 3, p: 2, border: 1, borderColor: 'primary.main', borderRadius: 1 }}>
-        <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-          <Chip
-            label={pick.kind}
-            size="small"
-            color={KIND_COLORS[pick.kind] || 'default'}
-          />
-          {pick.feature && <Chip label={pick.feature} size="small" variant="outlined" />}
-          {pick.issue && <Chip label={pick.issue} size="small" variant="outlined" color="info" />}
-          {pick.task && <Chip label={pick.task} size="small" variant="outlined" color="warning" />}
+      {pendingQuestions.length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" color="warning.main" sx={{ mb: 1 }}>
+            Questions Blocking Progress ({pendingQuestions.length})
+          </Typography>
+          {pendingQuestions.map(q => (
+            <Paper key={q.id} variant="outlined" sx={{ p: 2, mb: 1.5, borderColor: 'warning.main' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                {(() => {
+                  const link = targetLink(slug, q.target_type, q.target_id)
+                  return link ? (
+                    <Chip
+                      label={`${q.target_type}:${q.target_id}`}
+                      size="small"
+                      color="primary"
+                      variant="outlined"
+                      component={Link as any}
+                      to={link.to}
+                      params={link.params}
+                      clickable
+                    />
+                  ) : (
+                    <Chip label={`${q.target_type}:${q.target_id}`} size="small" color="primary" variant="outlined" />
+                  )
+                })()}
+                <Typography variant="body2" color="text.secondary" sx={{ fontSize: '0.75rem' }}>
+                  BQ-{q.id}
+                </Typography>
+              </Box>
+              <MarkdownContent slug={slug} variant="body1">{q.context}</MarkdownContent>
+              {q.choices.length > 0 && (
+                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
+                  {q.choices.map((c, i) => (
+                    <Chip key={i} label={c} size="small" variant="outlined" />
+                  ))}
+                </Box>
+              )}
+              <AnswerForm slug={slug} question={q} />
+            </Paper>
+          ))}
         </Box>
-        <Typography variant="body1">{pick.summary}</Typography>
-      </Box>
+      )}
+
+      {pick && (
+        <Box sx={{ mb: 3, p: 2, border: 1, borderColor: 'primary.main', borderRadius: 1 }}>
+          <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+            <Chip
+              label={pick.kind}
+              size="small"
+              color={KIND_COLORS[pick.kind] || 'default'}
+            />
+            {pick.feature && <Chip label={pick.feature} size="small" variant="outlined" />}
+            {pick.issue && <Chip label={pick.issue} size="small" variant="outlined" color="info" />}
+            {pick.task && <Chip label={pick.task} size="small" variant="outlined" color="warning" />}
+          </Box>
+          <Typography variant="body1">{pick.summary}</Typography>
+        </Box>
+      )}
 
       {rest.length > 0 && (
         <>
