@@ -17,7 +17,7 @@ import (
 
 func AgentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "agent", Short: "Agent lifecycle management"}
-	cmd.AddCommand(agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentResumeCmd(), agentReleaseCmd())
+	cmd.AddCommand(agentClaudeCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentResumeCmd(), agentReleaseCmd())
 	return cmd
 }
 

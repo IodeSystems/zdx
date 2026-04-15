@@ -267,7 +267,7 @@ func journalListCmd() *cobra.Command {
 			}
 			var resp struct {
 				Entries []worklogEntry `json:"entries"`
-				Total   int64         `json:"total"`
+				Total   int64          `json:"total"`
 			}
 			if err := c.get("/api/dx/worklog", params, &resp); err != nil {
 				return err

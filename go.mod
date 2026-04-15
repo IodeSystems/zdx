@@ -7,6 +7,7 @@ require (
 	github.com/go-chi/chi/v5 v5.2.5
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/golang/snappy v1.0.0
+	github.com/google/uuid v1.6.0
 	github.com/jackc/pgx/v5 v5.6.0
 	github.com/modelcontextprotocol/go-sdk v1.5.0
 	github.com/playwright-community/playwright-go v0.5700.1
