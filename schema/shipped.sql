@@ -1447,16 +1447,6 @@ CREATE TABLE public.zdx_tests (
 
 
 --
--- Name: zdx_test_code_refs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_test_code_refs (
-    test_id integer NOT NULL,
-    code_ref_id integer NOT NULL
-);
-
-
---
 -- Name: zdx_tests_id_seq; Type: SEQUENCE; Schema: public; Owner: -
 --
 
