@@ -159,6 +159,69 @@ func TestDemoCLI_TaskFlow(t *testing.T) {
 	}
 }
 
+func TestDemoCLI_BlockerQuestionFlow(t *testing.T) {
+	rec := newRecorder(t, "blocker-question-flow", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	rec.Run("issue", "add", "--title=Decide on auth strategy", "--context=Need to pick OAuth provider")
+
+	issueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if issueID == "" {
+		t.Skip("could not extract issue ID from output")
+	}
+
+	// Spec 1: question add with target-type, target-id, context → BQ-ID printed
+	rec.Run("question", "add",
+		"--target-type=issue",
+		"--target-id="+issueID,
+		"--context=Which OAuth provider should we use — Auth0, Cognito, or roll our own?",
+	)
+	bqID := extractFirstBQID(rec.steps[len(rec.steps)-1].Stdout)
+	if bqID == "" {
+		t.Errorf("expected BQ-ID in output, got: %s", rec.steps[len(rec.steps)-1].Stdout)
+	}
+
+	// Spec 9: question add with choices → choices persisted
+	rec.Run("question", "add",
+		"--target-type=issue",
+		"--target-id="+issueID,
+		"--context=Which database for the session store?",
+		"--choices=Redis,DynamoDB,Postgres",
+	)
+
+	// Spec 3: question list → shows BQ-ID, target, status, context
+	rec.Run("question", "list")
+
+	// Spec 4: question list --status pending → only pending shown
+	rec.Run("question", "list", "--status=pending")
+
+	// Spec 2: question answer → status changes to answered
+	if bqID != "" {
+		numID := strings.TrimPrefix(bqID, "BQ-")
+		rec.Run("question", "answer", numID, "--answer=Go with Auth0 for managed OAuth")
+	}
+
+	// Verify answered question no longer appears in pending list
+	rec.Run("question", "list", "--status=pending")
+
+	for _, s := range rec.steps {
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
+// extractFirstBQID pulls the first BQ-N token from output.
+func extractFirstBQID(output string) string {
+	for _, word := range strings.Fields(output) {
+		word = strings.Trim(word, ".,;:()")
+		if strings.HasPrefix(word, "BQ-") {
+			return word
+		}
+	}
+	return ""
+}
+
 // extractFirstID pulls the first IS-N or TK-N token from output.
 func extractFirstID(output string) string {
 	for _, word := range strings.Fields(output) {

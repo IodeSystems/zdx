@@ -148,13 +148,16 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 	testharness.Summary(results)
 	_ = testharness.WriteResults(filepath.Join(".zdx", "test-results.json"), results)
 
+	var metas []testharness.DemoMeta
 	if f.Layer == testharness.LayerDemo || f.Layer == "" {
-		metas := testharness.CollectDemoMetadata(filepath.Join(".zdx", "demo"), runStart)
+		metas = testharness.CollectDemoMetadata(filepath.Join(".zdx", "demo"), runStart)
 		if len(metas) > 0 {
 			_ = testharness.WriteDemoMetadata(filepath.Join(".zdx", "demo", "metadata.jsonl"), metas)
 			fmt.Fprintf(os.Stderr, "[demo] %d artifact(s) recorded → .zdx/demo/metadata.jsonl\n", len(metas))
 		}
 	}
+
+	syncTestResults(results, metas)
 
 	if coverage {
 		for _, comp := range []string{"api"} {
@@ -683,6 +686,62 @@ func writeE2EResults(results []TestResult) {
 	if b, err := json.MarshalIndent(results, "", "  "); err == nil {
 		_ = os.WriteFile(".zdx/test-results.json", b, 0644)
 	}
+}
+
+// syncTestResults submits test results (with demo artifacts) to the server.
+func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta) {
+	c, err := DefaultClient()
+	if err != nil {
+		return
+	}
+	slug := c.Slug()
+	if slug == "" {
+		return
+	}
+	if len(results) == 0 {
+		return
+	}
+
+	var apiResults []map[string]any
+	for _, r := range results {
+		comp := r.Component
+		if strings.HasPrefix(r.Test, "TestDemo") {
+			comp = "demo"
+		}
+		item := map[string]any{
+			"driver":      comp,
+			"test_name":   r.Test,
+			"feature":     r.Feature,
+			"status":      r.Status,
+			"duration_ms": r.DurationMs,
+			"branch":      r.Branch,
+			"git_sha":     r.GitSHA,
+		}
+		// Match demo artifacts by checking if the test output references the artifact file.
+		var demos []map[string]string
+		for _, m := range metas {
+			base := filepath.Base(m.ArtifactPath)
+			if strings.Contains(r.Output, base) {
+				demos = append(demos, map[string]string{
+					"demo_type":     m.DemoType,
+					"artifact_path": m.ArtifactPath,
+				})
+			}
+		}
+		if len(demos) > 0 {
+			item["demo_artifacts"] = demos
+		}
+		apiResults = append(apiResults, item)
+	}
+
+	if err := c.post("/api/dx/test-results/submit", map[string]any{
+		"slug":    slug,
+		"results": apiResults,
+	}, nil); err != nil {
+		fmt.Fprintf(os.Stderr, "[sync] submit failed: %v\n", err)
+		return
+	}
+	fmt.Fprintf(os.Stderr, "[sync] %d test result(s) submitted\n", len(apiResults))
 }
 
 func shellQuote(s string) string {
