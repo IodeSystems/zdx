@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"testing"
 )
@@ -37,7 +38,8 @@ func apiDo(t *testing.T, method, path string, body any, out any) *http.Response 
 func mustOK(t *testing.T, resp *http.Response) {
 	t.Helper()
 	if resp.StatusCode != http.StatusOK {
-		t.Fatalf("want 200, got %d", resp.StatusCode)
+		body, _ := io.ReadAll(resp.Body)
+		t.Fatalf("want 200, got %d: %s", resp.StatusCode, string(body))
 	}
 }
 

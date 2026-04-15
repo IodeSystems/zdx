@@ -7,39 +7,63 @@ import (
 	"testing"
 )
 
+func registerAgent(t *testing.T, slug, id, sessionID, taskGroup string) string {
+	t.Helper()
+	var agent struct {
+		ID string `json:"id"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/agents/register",
+		map[string]any{
+			"slug":            slug,
+			"id":              id,
+			"session_id":      sessionID,
+			"worktree_path":   "",
+			"worktree_branch": "",
+			"pid":             0,
+			"status":          "active",
+			"task_group":      taskGroup,
+			"compose_project": "",
+			"server_port":     0,
+			"database_url":    "",
+			"valkey_url":      "",
+		}, &agent))
+	return agent.ID
+}
+
+func claimTask(t *testing.T, slug, agentID, taskGroup, issue string) (string, string, int) {
+	t.Helper()
+	var result struct {
+		ID        string `json:"id"`
+		Text      string `json:"text"`
+		TaskGroup string `json:"task_group"`
+	}
+	resp := apiDo(t, http.MethodPost, "/api/tasks/claim",
+		map[string]any{
+			"slug":               slug,
+			"agent_id":           agentID,
+			"task_group":         taskGroup,
+			"issue":              issue,
+			"lease_duration_min": 30,
+		}, &result)
+	return result.ID, result.TaskGroup, resp.StatusCode
+}
+
 func TestAgentRegisterAndClaim(t *testing.T) {
 	ss := newSoloState(t, "agent-claim", "Agent Claim")
 	issueID := ss.addIssue("Agent claim test", "test concurrent agent claims")
 	ss.triageIssue(issueID, 2)
 	taskID := ss.addTask(issueID, "Task for agent claim")
 
-	var agent struct {
-		ID string `json:"id"`
-	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/agents/register",
-		map[string]any{
-			"slug":       ss.slug,
-			"id":         "agent-claim-1",
-			"session_id": "test-session-1",
-			"task_group": "",
-		}, &agent))
-	if agent.ID == "" {
+	agentID := registerAgent(t, ss.slug, "agent-claim-1", "test-session-1", "")
+	if agentID == "" {
 		t.Fatal("agent registration returned empty ID")
 	}
 
-	var claimed struct {
-		ID   string `json:"id"`
-		Text string `json:"text"`
+	claimedID, _, status := claimTask(t, ss.slug, agentID, "", fmt.Sprintf("IS-%d", issueID))
+	if status != http.StatusOK {
+		t.Fatalf("claim failed with status %d", status)
 	}
-	resp := apiDo(t, http.MethodPost, "/api/tasks/claim",
-		map[string]any{
-			"slug":       ss.slug,
-			"agent_id":   agent.ID,
-			"task_group": "",
-			"issue":      fmt.Sprintf("IS-%d", issueID),
-		}, &claimed)
-	mustOK(t, resp)
-	if claimed.ID == "" {
+	if claimedID == "" {
 		t.Fatal("claim returned empty task ID")
 	}
 
@@ -53,55 +77,28 @@ func TestTwoAgentsConcurrentClaim(t *testing.T) {
 	ss.addTask(issueID, "Task A for concurrent claim")
 	ss.addTask(issueID, "Task B for concurrent claim")
 
-	var agent1, agent2 struct {
-		ID string `json:"id"`
-	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/agents/register",
-		map[string]any{
-			"slug":       ss.slug,
-			"id":         "concurrent-agent-a",
-			"session_id": "session-a",
-			"task_group": "",
-		}, &agent1))
-	mustOK(t, apiDo(t, http.MethodPost, "/api/agents/register",
-		map[string]any{
-			"slug":       ss.slug,
-			"id":         "concurrent-agent-b",
-			"session_id": "session-b",
-			"task_group": "",
-		}, &agent2))
+	agent1ID := registerAgent(t, ss.slug, "concurrent-agent-a", "session-a", "")
+	agent2ID := registerAgent(t, ss.slug, "concurrent-agent-b", "session-b", "")
 
 	var wg sync.WaitGroup
 	claimed := make([]string, 2)
-	errors := make([]error, 2)
+	statuses := make([]int, 2)
 
-	claimTask := func(idx int, agentID string) {
+	doClaim := func(idx int, agentID string) {
 		defer wg.Done()
-		var result struct {
-			ID string `json:"id"`
-		}
-		resp := apiDo(t, http.MethodPost, "/api/tasks/claim",
-			map[string]any{
-				"slug":       ss.slug,
-				"agent_id":   agentID,
-				"task_group": "",
-				"issue":      fmt.Sprintf("IS-%d", issueID),
-			}, &result)
-		if resp.StatusCode != http.StatusOK {
-			errors[idx] = fmt.Errorf("claim failed with status %d", resp.StatusCode)
-			return
-		}
-		claimed[idx] = result.ID
+		id, _, st := claimTask(t, ss.slug, agentID, "", fmt.Sprintf("IS-%d", issueID))
+		claimed[idx] = id
+		statuses[idx] = st
 	}
 
 	wg.Add(2)
-	go claimTask(0, agent1.ID)
-	go claimTask(1, agent2.ID)
+	go doClaim(0, agent1ID)
+	go doClaim(1, agent2ID)
 	wg.Wait()
 
-	for i, err := range errors {
-		if err != nil {
-			t.Fatalf("agent %d: %v", i, err)
+	for i, st := range statuses {
+		if st != http.StatusOK {
+			t.Fatalf("agent %d: claim failed with status %d", i, st)
 		}
 	}
 
@@ -132,32 +129,15 @@ func TestTaskGroupAffinity(t *testing.T) {
 	addGroupTask("Frontend task", "frontend")
 	addGroupTask("Backend task", "backend")
 
-	var feAgent struct {
-		ID string `json:"id"`
-	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/agents/register",
-		map[string]any{
-			"slug":       ss.slug,
-			"id":         "fe-agent",
-			"session_id": "fe-session",
-			"task_group": "frontend",
-		}, &feAgent))
+	feAgentID := registerAgent(t, ss.slug, "fe-agent", "fe-session", "frontend")
 
-	var claimed struct {
-		ID        string `json:"id"`
-		Text      string `json:"text"`
-		TaskGroup string `json:"task_group"`
+	claimedID, claimedGroup, status := claimTask(t, ss.slug, feAgentID, "frontend", fmt.Sprintf("IS-%d", issueID))
+	if status != http.StatusOK {
+		t.Fatalf("claim failed with status %d", status)
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/tasks/claim",
-		map[string]any{
-			"slug":       ss.slug,
-			"agent_id":   feAgent.ID,
-			"task_group": "frontend",
-			"issue":      fmt.Sprintf("IS-%d", issueID),
-		}, &claimed))
 
-	if claimed.TaskGroup != "frontend" {
-		t.Errorf("expected frontend task, got group %q (task: %s)", claimed.TaskGroup, claimed.Text)
+	if claimedGroup != "frontend" {
+		t.Errorf("expected frontend task group, got %q (task: %s)", claimedGroup, claimedID)
 	}
 }
 
