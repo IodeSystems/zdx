@@ -50,6 +50,7 @@ func main() {
 		cli.ClaudeCmd(),
 		cli.AgentCmd(),
 		cli.TaskCmd(),
+		cli.PatternCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

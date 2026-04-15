@@ -42,6 +42,7 @@ type Querier interface {
 	CountIssueResolutions(ctx context.Context, issueID string) (int64, error)
 	CountIssues(ctx context.Context, projectID int32) (int64, error)
 	CountLogEvents(ctx context.Context, arg CountLogEventsParams) (int64, error)
+	CountPatterns(ctx context.Context, projectID int32) (int64, error)
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
 	CountQuestionProposalsByQuestion(ctx context.Context, arg CountQuestionProposalsByQuestionParams) (int64, error)
@@ -88,6 +89,7 @@ type Querier interface {
 	DeleteInvite(ctx context.Context, id int32) error
 	DeleteIssueResolution(ctx context.Context, id string) error
 	DeleteLogEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
+	DeletePattern(ctx context.Context, arg DeletePatternParams) error
 	DeleteProjectConstraint(ctx context.Context, id int32) error
 	DeleteProjectGoal(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
@@ -122,6 +124,7 @@ type Querier interface {
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
 	GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (ZdxJournalEntry, error)
+	GetPattern(ctx context.Context, arg GetPatternParams) (ZdxPattern, error)
 	GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPlan, error)
 	GetProjectByID(ctx context.Context, id int32) (ZdxProject, error)
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
@@ -146,6 +149,7 @@ type Querier interface {
 	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error)
 	InsertLogEvent(ctx context.Context, arg InsertLogEventParams) error
+	InsertPattern(ctx context.Context, arg InsertPatternParams) (ZdxPattern, error)
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertQuestionProposal(ctx context.Context, arg InsertQuestionProposalParams) (ZdxQuestionProposal, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
@@ -196,6 +200,8 @@ type Querier interface {
 	ListLogEventsDistinctTagValues(ctx context.Context, arg ListLogEventsDistinctTagValuesParams) ([]interface{}, error)
 	ListLogEventsGrouped(ctx context.Context, arg ListLogEventsGroupedParams) ([]ListLogEventsGroupedRow, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
+	ListPatterns(ctx context.Context, projectID int32) ([]ZdxPattern, error)
+	ListPatternsPaginated(ctx context.Context, arg ListPatternsPaginatedParams) ([]ZdxPattern, error)
 	ListPendingBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListProjectConstraints(ctx context.Context, projectID int32) ([]ZdxProjectConstraint, error)
 	ListProjectGoals(ctx context.Context, projectID int32) ([]ZdxProjectGoal, error)
@@ -269,6 +275,7 @@ type Querier interface {
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
 	RevokeIntegrationToken(ctx context.Context, id int32) error
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
+	SearchPatterns(ctx context.Context, arg SearchPatternsParams) ([]ZdxPattern, error)
 	SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
@@ -282,6 +289,7 @@ type Querier interface {
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
 	UpdateFeatureField(ctx context.Context, arg UpdateFeatureFieldParams) error
 	UpdateIssue(ctx context.Context, arg UpdateIssueParams) error
+	UpdatePattern(ctx context.Context, arg UpdatePatternParams) (ZdxPattern, error)
 	UpdateProjectConstraint(ctx context.Context, arg UpdateProjectConstraintParams) error
 	UpdateProjectGoal(ctx context.Context, arg UpdateProjectGoalParams) error
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error

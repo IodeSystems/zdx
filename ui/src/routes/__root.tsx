@@ -46,6 +46,7 @@ import {
   WarningAmber as WarningAmberIcon,
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
+  AccountTree as AccountTreeIcon,
 } from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -79,6 +80,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Goals', icon: <FlagIcon fontSize="small" />, path: 'goals' },
       { label: 'Themes', icon: <BookmarkIcon fontSize="small" />, path: 'themes' },
       { label: 'Features', icon: <ExtensionIcon fontSize="small" />, path: 'features' },
+      { label: 'Patterns', icon: <AccountTreeIcon fontSize="small" />, path: 'patterns' },
       { label: 'Standup', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
       { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
       { label: 'Tests', icon: <ScienceIcon fontSize="small" />, path: 'tests' },

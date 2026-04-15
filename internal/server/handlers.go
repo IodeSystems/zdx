@@ -326,5 +326,6 @@ func (s *Server) registerRoutes(api huma.API) {
 	s.registerErrorEventRoutes(api)
 	s.registerLogEventRoutes(api)
 	s.registerAgentRoutes(api)
+	s.registerPatternRoutes(api)
 	s.registerFileRoutes()
 }

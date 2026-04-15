@@ -1598,3 +1598,48 @@ export const useSetThemeStatus = () => {
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['themes', v.slug] }),
   })
 }
+
+// ── patterns ─────────────────────────────────────────────────────────────────
+
+export interface PatternItem {
+  id: number
+  name: string
+  description: string
+  code_refs: { path: string }[]
+  created_at: string
+  updated_at: string
+}
+
+export const useListPatterns = (slug: string, search?: string) =>
+  useQuery<{ patterns: PatternItem[]; total: number }>({
+    queryKey: ['patterns', slug, search],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug })
+      if (search) params.set('search', search)
+      return apiFetch(`/api/dx/patterns?${params}`)
+    },
+    enabled: !!slug,
+  })
+
+export const useGetPattern = (slug: string, id: number) =>
+  useQuery<PatternItem>({
+    queryKey: ['pattern', slug, id],
+    queryFn: async () => apiFetch(`/api/dx/patterns/get?slug=${encodeURIComponent(slug)}&id=${id}`),
+    enabled: !!slug && id > 0,
+  })
+
+export const useAddPattern = () => {
+  const qc = useQueryClient()
+  return useMutation<PatternItem, Error, { slug: string; name: string; description: string; code_refs?: { path: string }[] }>({
+    mutationFn: (body) => apiPost('/api/dx/patterns/add', body),
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['patterns', v.slug] }),
+  })
+}
+
+export const useDeletePattern = () => {
+  const qc = useQueryClient()
+  return useMutation<{ ok: boolean }, Error, { slug: string; id: number }>({
+    mutationFn: (body) => apiPost('/api/dx/patterns/delete', body),
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['patterns', v.slug] }),
+  })
+}

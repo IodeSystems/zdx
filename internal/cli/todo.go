@@ -713,6 +713,7 @@ func todoShowCmd() *cobra.Command {
 					fmt.Println("\nComments:")
 					printComments(commResp.Comments)
 				}
+				printSimilarPatterns(c, slug, resp.Issue.Title+" "+resp.Issue.Context)
 			case len(id) > 3 && id[:3] == "TK-":
 				n, _ := strconv.ParseInt(id[3:], 10, 32)
 				taskID := int32(n)
@@ -754,6 +755,7 @@ func todoShowCmd() *cobra.Command {
 								fmt.Printf("  [%s] %s: %s → %s (%s)\n", date, r.Field, r.OldVal, r.NewVal, r.Agent)
 							}
 						}
+						printSimilarPatterns(c, slug, t.Text)
 						return nil
 					}
 				}
@@ -1209,6 +1211,29 @@ func journalOverdue(ownerDate, techDate string, closedTasks int64) (bool, string
 		return true, "tech"
 	}
 	return false, ""
+}
+
+func printSimilarPatterns(c *Client, slug, text string) {
+	var resp struct {
+		Patterns []struct {
+			Pattern patternItem `json:"pattern"`
+			Score   float64     `json:"score"`
+		} `json:"patterns"`
+	}
+	if err := c.post("/api/dx/patterns/similar", map[string]any{
+		"slug": slug,
+		"text": text,
+		"n":    3,
+	}, &resp); err != nil || len(resp.Patterns) == 0 {
+		return
+	}
+	fmt.Println("\nRelevant patterns:")
+	for _, r := range resp.Patterns {
+		fmt.Printf("  %.3f  PT-%-4d  %s\n", r.Score, r.Pattern.ID, r.Pattern.Name)
+		if r.Pattern.Description != "" {
+			fmt.Printf("         %s\n", truncate(r.Pattern.Description, 80))
+		}
+	}
 }
 
 // RunTodo kept for compatibility.

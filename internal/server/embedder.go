@@ -260,6 +260,57 @@ func (e *embedder) topNTasks(ctx context.Context, projectID int32, queryText str
 	return results, err
 }
 
+func (e *embedder) patternIndexPath(projectID int32) string {
+	return filepath.Join(e.dataDir, fmt.Sprintf("patterns-%d.zvec", projectID))
+}
+
+func (e *embedder) upsertPattern(ctx context.Context, projectID int32, patternID int32, patternText string) {
+	vec, err := e.embed(ctx, patternText)
+	if err != nil {
+		log.Printf("embedder: embed pattern %d: %v", patternID, err)
+		return
+	}
+	if vec == nil {
+		return
+	}
+
+	path := e.patternIndexPath(projectID)
+	start := time.Now()
+	idx, err := e.loadOrCreate(path, len(vec))
+	if err != nil {
+		log.Printf("embedder: open pattern index %s: %v", path, err)
+		return
+	}
+	if err := idx.Upsert(path, uint64(patternID), vec); err != nil { //nolint:gosec
+		log.Printf("embedder: upsert pattern %d: %v", patternID, err)
+	}
+	e.sink.track(ctx, "zvec:upsert-pattern", start)
+}
+
+func (e *embedder) topNPatterns(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+	vec, err := e.embed(ctx, queryText)
+	if err != nil {
+		return nil, fmt.Errorf("embed query: %w", err)
+	}
+	if vec == nil {
+		return nil, nil
+	}
+
+	path := e.patternIndexPath(projectID)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	start := time.Now()
+	idx, err := zvec.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open pattern index: %w", err)
+	}
+	results, err := idx.TopN(vec, n)
+	e.sink.track(ctx, "zvec:search-patterns", start)
+	return results, err
+}
+
 // issueNumericID converts "IS-42" → 42.
 func issueNumericID(id string) uint64 {
 	s := strings.TrimPrefix(id, "IS-")

@@ -328,6 +328,16 @@ type ZdxOauthState struct {
 	ExpiresAt    pgtype.Timestamptz `db:"expires_at" json:"expires_at"`
 }
 
+type ZdxPattern struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Name        string             `db:"name" json:"name"`
+	Description string             `db:"description" json:"description"`
+	CodeRefs    []byte             `db:"code_refs" json:"code_refs"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type ZdxPlan struct {
 	ID             int32              `db:"id" json:"id"`
 	FeatureID      int32              `db:"feature_id" json:"feature_id"`
