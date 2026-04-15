@@ -1,21 +1,21 @@
 -- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at;
 
 -- name: CountIssues :one
 SELECT count(*) FROM zdx_issues WHERE project_id = $1;
 
 -- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
 LIMIT $2 OFFSET $3;
 
 -- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at;
 
 -- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues
 WHERE project_id = @project_id
   AND (title ILIKE '%' || @query::text || '%' OR context ILIKE '%' || @query::text || '%')
@@ -23,20 +23,19 @@ ORDER BY priority NULLS LAST, created_at
 LIMIT 20;
 
 -- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
 -- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, blocked_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of;
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of;
 
 -- name: UpdateIssue :exec
 UPDATE zdx_issues
 SET title      = COALESCE(NULLIF(@title, ''),      title),
     context    = COALESCE(NULLIF(@context, ''),    context),
     priority   = COALESCE(NULLIF(@priority, ''),   priority),
-    blocked_by = COALESCE(NULLIF(@blocked_by, ''), blocked_by),
     issue_type = COALESCE(NULLIF(@issue_type, ''), issue_type)
 WHERE project_id = @project_id AND id = @id;
 
@@ -51,7 +50,6 @@ UPDATE zdx_issues
 SET title      = CASE WHEN @field::text = 'title'      THEN @value::text ELSE title      END,
     context    = CASE WHEN @field::text = 'context'    THEN @value::text ELSE context    END,
     component  = CASE WHEN @field::text = 'component'  THEN @value::text ELSE component  END,
-    blocked_by = CASE WHEN @field::text = 'blocked_by' THEN @value::text ELSE blocked_by END,
     issue_type = CASE WHEN @field::text = 'issue_type' THEN @value::text ELSE issue_type END
 WHERE project_id = @project_id AND id = @id;
 

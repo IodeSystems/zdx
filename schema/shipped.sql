@@ -736,7 +736,6 @@ CREATE TABLE public.zdx_issues (
     priority text DEFAULT ''::text NOT NULL,
     component text DEFAULT ''::text NOT NULL,
     context text DEFAULT ''::text NOT NULL,
-    blocked_by text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     issue_type text DEFAULT 'ops'::text NOT NULL,
     duplicate_of text DEFAULT ''::text NOT NULL

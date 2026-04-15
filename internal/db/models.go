@@ -218,7 +218,6 @@ type ZdxIssue struct {
 	Priority    string             `db:"priority" json:"priority"`
 	Component   string             `db:"component" json:"component"`
 	Context     string             `db:"context" json:"context"`
-	BlockedBy   string             `db:"blocked_by" json:"blocked_by"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	IssueType   string             `db:"issue_type" json:"issue_type"`
 	DuplicateOf string             `db:"duplicate_of" json:"duplicate_of"`

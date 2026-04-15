@@ -64,9 +64,9 @@ func (q *Queries) CountWorklogForProject(ctx context.Context, projectID int32) (
 }
 
 const createIssue = `-- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, blocked_by)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 `
 
 type CreateIssueParams struct {
@@ -77,7 +77,6 @@ type CreateIssueParams struct {
 	Priority  string `db:"priority" json:"priority"`
 	Component string `db:"component" json:"component"`
 	IssueType string `db:"issue_type" json:"issue_type"`
-	BlockedBy string `db:"blocked_by" json:"blocked_by"`
 }
 
 func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error) {
@@ -89,7 +88,6 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		arg.Priority,
 		arg.Component,
 		arg.IssueType,
-		arg.BlockedBy,
 	)
 	var i ZdxIssue
 	err := row.Scan(
@@ -100,7 +98,6 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		&i.Priority,
 		&i.Component,
 		&i.Context,
-		&i.BlockedBy,
 		&i.CreatedAt,
 		&i.IssueType,
 		&i.DuplicateOf,
@@ -109,7 +106,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 AND id = $2
 `
 
@@ -129,7 +126,6 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 		&i.Priority,
 		&i.Component,
 		&i.Context,
-		&i.BlockedBy,
 		&i.CreatedAt,
 		&i.IssueType,
 		&i.DuplicateOf,
@@ -168,7 +164,7 @@ func (q *Queries) GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueW
 }
 
 const listIssues = `-- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
 `
 
@@ -189,7 +185,6 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 			&i.Priority,
 			&i.Component,
 			&i.Context,
-			&i.BlockedBy,
 			&i.CreatedAt,
 			&i.IssueType,
 			&i.DuplicateOf,
@@ -205,7 +200,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 }
 
 const listIssuesPaginated = `-- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
 LIMIT $2 OFFSET $3
 `
@@ -233,7 +228,6 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 			&i.Priority,
 			&i.Component,
 			&i.Context,
-			&i.BlockedBy,
 			&i.CreatedAt,
 			&i.IssueType,
 			&i.DuplicateOf,
@@ -249,7 +243,7 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 }
 
 const listOpenIssues = `-- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at
 `
 
@@ -270,7 +264,6 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 			&i.Priority,
 			&i.Component,
 			&i.Context,
-			&i.BlockedBy,
 			&i.CreatedAt,
 			&i.IssueType,
 			&i.DuplicateOf,
@@ -396,7 +389,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, blocked_by, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -426,7 +419,6 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]Z
 			&i.Priority,
 			&i.Component,
 			&i.Context,
-			&i.BlockedBy,
 			&i.CreatedAt,
 			&i.IssueType,
 			&i.DuplicateOf,
@@ -446,7 +438,6 @@ UPDATE zdx_issues
 SET title      = CASE WHEN $1::text = 'title'      THEN $2::text ELSE title      END,
     context    = CASE WHEN $1::text = 'context'    THEN $2::text ELSE context    END,
     component  = CASE WHEN $1::text = 'component'  THEN $2::text ELSE component  END,
-    blocked_by = CASE WHEN $1::text = 'blocked_by' THEN $2::text ELSE blocked_by END,
     issue_type = CASE WHEN $1::text = 'issue_type' THEN $2::text ELSE issue_type END
 WHERE project_id = $3 AND id = $4
 `
@@ -488,16 +479,14 @@ UPDATE zdx_issues
 SET title      = COALESCE(NULLIF($1, ''),      title),
     context    = COALESCE(NULLIF($2, ''),    context),
     priority   = COALESCE(NULLIF($3, ''),   priority),
-    blocked_by = COALESCE(NULLIF($4, ''), blocked_by),
-    issue_type = COALESCE(NULLIF($5, ''), issue_type)
-WHERE project_id = $6 AND id = $7
+    issue_type = COALESCE(NULLIF($4, ''), issue_type)
+WHERE project_id = $5 AND id = $6
 `
 
 type UpdateIssueParams struct {
 	Title     interface{} `db:"title" json:"title"`
 	Context   interface{} `db:"context" json:"context"`
 	Priority  interface{} `db:"priority" json:"priority"`
-	BlockedBy interface{} `db:"blocked_by" json:"blocked_by"`
 	IssueType interface{} `db:"issue_type" json:"issue_type"`
 	ProjectID int32       `db:"project_id" json:"project_id"`
 	ID        string      `db:"id" json:"id"`
@@ -508,7 +497,6 @@ func (q *Queries) UpdateIssue(ctx context.Context, arg UpdateIssueParams) error 
 		arg.Title,
 		arg.Context,
 		arg.Priority,
-		arg.BlockedBy,
 		arg.IssueType,
 		arg.ProjectID,
 		arg.ID,

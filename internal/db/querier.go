@@ -13,6 +13,7 @@ import (
 type Querier interface {
 	AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error)
 	AddCommentReaction(ctx context.Context, arg AddCommentReactionParams) (ZdxCommentReaction, error)
+	AddIssueBlock(ctx context.Context, arg AddIssueBlockParams) error
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, error)
 	AddThemeBlocker(ctx context.Context, arg AddThemeBlockerParams) error
@@ -170,7 +171,9 @@ type Querier interface {
 	ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error)
 	ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error)
 	ListInvites(ctx context.Context) ([]ZdxInvite, error)
+	ListIssueBlockers(ctx context.Context, issueID string) ([]string, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
+	ListIssuesBlockedBy(ctx context.Context, blockedByID string) ([]string, error)
 	ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ZdxJournalEntry, error)
 	ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([]ZdxLogEvent, error)
@@ -230,6 +233,8 @@ type Querier interface {
 	ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error)
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)
 	ReleaseTask(ctx context.Context, arg ReleaseTaskParams) error
+	RemoveAllIssueBlocks(ctx context.Context, issueID string) error
+	RemoveIssueBlock(ctx context.Context, arg RemoveIssueBlockParams) error
 	RemoveThemeBlocker(ctx context.Context, arg RemoveThemeBlockerParams) error
 	RenewTaskLease(ctx context.Context, arg RenewTaskLeaseParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error

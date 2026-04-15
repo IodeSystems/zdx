@@ -108,20 +108,20 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Issue IssueItem       `json:"issue"`
 				Work  []IssueWorkItem `json:"work"`
 			}
-			return &struct{ Body respBody }{Body: respBody{Issue: toIssueItem(row), Work: workItems}}, nil
+			return &struct{ Body respBody }{Body: respBody{Issue: s.toIssueItemWithBlockers(ctx, row), Work: workItems}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "add-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug          string  `json:"slug"`
-				Title         *string `json:"title,omitempty"`
-				Source        *string `json:"source,omitempty"`
-				Context       *string `json:"context,omitempty"`
-				BlockedBy     *string `json:"blocked_by,omitempty"`
-				Component     *string `json:"component,omitempty"`
-				IssueType     *string `json:"issue_type,omitempty"`
-				ScreenshotIDs []int32 `json:"screenshot_ids,omitempty"`
+				Slug          string   `json:"slug"`
+				Title         *string  `json:"title,omitempty"`
+				Source        *string  `json:"source,omitempty"`
+				Context       *string  `json:"context,omitempty"`
+				BlockedBy     []string `json:"blocked_by,omitempty"`
+				Component     *string  `json:"component,omitempty"`
+				IssueType     *string  `json:"issue_type,omitempty"`
+				ScreenshotIDs []int32  `json:"screenshot_ids,omitempty"`
 			}
 		}) (*struct{ Body IssueItem }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -149,12 +149,12 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if in.Body.IssueType != nil {
 				params.IssueType = *in.Body.IssueType
 			}
-			if in.Body.BlockedBy != nil {
-				params.BlockedBy = *in.Body.BlockedBy
-			}
 			row, err := s.q.CreateIssue(ctx, params)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+			for _, blockerID := range in.Body.BlockedBy {
+				_ = s.q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: row.ID, BlockedByID: blockerID})
 			}
 			for _, fid := range in.Body.ScreenshotIDs {
 				_ = s.q.AttachFileToIssue(ctx, db.AttachFileToIssueParams{
@@ -243,7 +243,6 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Priority  *int32  `json:"priority,omitempty"`
 				IssueType *string `json:"issue_type,omitempty"`
 				Component *string `json:"component,omitempty"`
-				BlockedBy *string `json:"blocked_by,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -278,14 +277,12 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				"issue_type": in.Body.IssueType,
 				"context":    in.Body.Context,
 				"component":  in.Body.Component,
-				"blocked_by": in.Body.BlockedBy,
 			}
 			oldValMap := map[string]string{
 				"title":      oldIssue.Title,
 				"issue_type": oldIssue.IssueType,
 				"context":    oldIssue.Context,
 				"component":  oldIssue.Component,
-				"blocked_by": oldIssue.BlockedBy,
 			}
 			for field, val := range fieldMap {
 				if val == nil {
@@ -401,7 +398,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
-	huma.Register(api, huma.Operation{OperationID: "issue-set-blocked-by", Method: http.MethodPost, Path: "/api/dx/todo/issue/set-blocked-by"},
+	huma.Register(api, huma.Operation{OperationID: "issue-add-block", Method: http.MethodPost, Path: "/api/dx/todo/issue/add-block"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				Slug      string `json:"slug"`
@@ -409,21 +406,64 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				BlockedBy string `json:"blocked_by"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			_, err := getProject(ctx, s.q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
-			err = s.q.SetIssueField(ctx, db.SetIssueFieldParams{
-				Field:     "blocked_by",
-				Value:     in.Body.BlockedBy,
-				ProjectID: p.ID,
-				ID:        issueID,
-			})
-			if err != nil {
+			if err := s.q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: issueID, BlockedByID: in.Body.BlockedBy}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "issue-remove-block", Method: http.MethodPost, Path: "/api/dx/todo/issue/remove-block"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string `json:"slug"`
+				ID        int32  `json:"id"`
+				BlockedBy string `json:"blocked_by,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			_, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(in.Body.ID)
+			if in.Body.BlockedBy == "" {
+				if err := s.q.RemoveAllIssueBlocks(ctx, issueID); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+			} else {
+				if err := s.q.RemoveIssueBlock(ctx, db.RemoveIssueBlockParams{IssueID: issueID, BlockedByID: in.Body.BlockedBy}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "issue-list-blockers", Method: http.MethodGet, Path: "/api/dx/todo/issue/blockers"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   string `query:"id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Blockers []string `json:"blockers"`
+			}
+		}, error) {
+			_, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(intFromPrefixed(in.ID, "IS-"))
+			rows, err := s.q.ListIssueBlockers(ctx, issueID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			type respBody = struct {
+				Blockers []string `json:"blockers"`
+			}
+			return &struct{ Body respBody }{Body: respBody{Blockers: rows}}, nil
 		})
 
 	// set-features is a no-op on the Go side — features are linked via task.issue
@@ -603,10 +643,19 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		Status:      r.Status,
 		Priority:    r.Priority,
 		Component:   r.Component,
-		BlockedBy:   r.BlockedBy,
 		Context:     r.Context,
 		IssueType:   r.IssueType,
 		DuplicateOf: r.DuplicateOf,
 		CreatedAt:   fmtTS(r.CreatedAt),
+		BlockedBy:   []string{},
 	}
+}
+
+func (s *Server) toIssueItemWithBlockers(ctx context.Context, r db.ZdxIssue) IssueItem {
+	item := toIssueItem(r)
+	blockers, err := s.q.ListIssueBlockers(ctx, r.ID)
+	if err == nil && len(blockers) > 0 {
+		item.BlockedBy = blockers
+	}
+	return item
 }

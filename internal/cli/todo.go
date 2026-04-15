@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/url"
 	"strconv"
@@ -9,6 +10,29 @@ import (
 
 	"github.com/spf13/cobra"
 )
+
+type stringOrStrings []string
+
+func (s *stringOrStrings) UnmarshalJSON(data []byte) error {
+	if len(data) > 0 && data[0] == '[' {
+		var arr []string
+		if err := json.Unmarshal(data, &arr); err != nil {
+			return err
+		}
+		*s = arr
+		return nil
+	}
+	var str string
+	if err := json.Unmarshal(data, &str); err != nil {
+		return err
+	}
+	if str == "" {
+		*s = nil
+	} else {
+		*s = []string{str}
+	}
+	return nil
+}
 
 const triageGuidance = `  triage checklist:
     1. verify independently (reproduce or read the code)
@@ -23,14 +47,14 @@ const triageGuidance = `  triage checklist:
 // ── wire types (match server JSON) ────────────────────────────────────────────
 
 type issueItem struct {
-	ID        int32  `json:"id"`
-	Title     string `json:"title"`
-	Status    string `json:"status"`
-	Priority  string `json:"priority"`
-	Component string `json:"component"`
-	BlockedBy string `json:"blocked_by"`
-	Context   string `json:"context"`
-	IssueType string `json:"issue_type"`
+	ID        int32           `json:"id"`
+	Title     string          `json:"title"`
+	Status    string          `json:"status"`
+	Priority  string          `json:"priority"`
+	Component string          `json:"component"`
+	BlockedBy stringOrStrings `json:"blocked_by"`
+	Context   string          `json:"context"`
+	IssueType string          `json:"issue_type"`
 }
 
 type issueWorkItem struct {
@@ -934,8 +958,8 @@ func printIssueItem(iss issueItem) {
 	if iss.Component != "" {
 		fmt.Printf("Component: %s\n", iss.Component)
 	}
-	if iss.BlockedBy != "" {
-		fmt.Printf("Blocked:   %s\n", iss.BlockedBy)
+	if len(iss.BlockedBy) > 0 {
+		fmt.Printf("Blocked:   %s\n", strings.Join(iss.BlockedBy, ", "))
 	}
 	if iss.Context != "" {
 		fmt.Printf("\n%s\n", iss.Context)

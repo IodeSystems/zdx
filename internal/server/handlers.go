@@ -36,18 +36,18 @@ func fmtTS(ts pgtype.Timestamptz) string {
 // ── Response types ─────────────────────────────────────────────────────────
 
 type IssueItem struct {
-	ID          int32  `json:"id" doc:"Server integer ID; CLI formats as IS-N"`
-	Title       string `json:"title"`
-	Status      string `json:"status"`
-	Priority    string `json:"priority"`
-	Component   string `json:"component"`
-	Features    string `json:"features"`
-	BlockedBy   string `json:"blocked_by"`
-	Context     string `json:"context"`
-	Source      string `json:"source"`
-	IssueType   string `json:"issue_type"`
-	DuplicateOf string `json:"duplicate_of,omitempty"`
-	CreatedAt   string `json:"created_at"`
+	ID          int32    `json:"id" doc:"Server integer ID; CLI formats as IS-N"`
+	Title       string   `json:"title"`
+	Status      string   `json:"status"`
+	Priority    string   `json:"priority"`
+	Component   string   `json:"component"`
+	Features    string   `json:"features"`
+	BlockedBy   []string `json:"blocked_by"`
+	Context     string   `json:"context"`
+	Source      string   `json:"source"`
+	IssueType   string   `json:"issue_type"`
+	DuplicateOf string   `json:"duplicate_of,omitempty"`
+	CreatedAt   string   `json:"created_at"`
 }
 
 type TaskItem struct {

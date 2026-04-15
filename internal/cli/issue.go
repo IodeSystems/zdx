@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/url"
 	"strconv"
+	"strings"
 
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/spf13/cobra"
@@ -37,8 +38,8 @@ func issueListCmd() *cobra.Command {
 					continue
 				}
 				s := iss.Status
-				if iss.BlockedBy != "" {
-					s += " [blocked:" + iss.BlockedBy + "]"
+				if len(iss.BlockedBy) > 0 {
+					s += " [blocked:" + strings.Join(iss.BlockedBy, ",") + "]"
 				}
 				fmt.Printf("%-8s %-30s %s\n", issueIDStr(iss.ID), s, iss.Title)
 			}
@@ -56,15 +57,18 @@ func issueAddCmd() *cobra.Command {
 		Short: "Create an issue",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var iss issueItem
-			if err := c.post("/api/dx/todo/issue/add", map[string]any{
+			body := map[string]any{
 				"slug":       c.SlugOrDie(),
 				"title":      title,
 				"context":    ctx,
 				"component":  component,
-				"blocked_by": blockedBy,
 				"issue_type": issueType,
-			}, &iss); err != nil {
+			}
+			if blockedBy != "" {
+				body["blocked_by"] = strings.Split(blockedBy, ",")
+			}
+			var iss issueItem
+			if err := c.post("/api/dx/todo/issue/add", body, &iss); err != nil {
 				return err
 			}
 			fmt.Printf("%s  %s\n", issueIDStr(iss.ID), iss.Title)
@@ -74,7 +78,7 @@ func issueAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&title, "title", "", "issue title")
 	cmd.Flags().StringVar(&ctx, "context", "", "context / description")
 	cmd.Flags().StringVar(&component, "component", "", "component")
-	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issue (IS-N)")
+	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issues (IS-N, comma-separated)")
 	cmd.Flags().StringVar(&issueType, "type", "ops", "issue type: ops or impl")
 	cmd.MarkFlagRequired("title")
 	return cmd
@@ -179,7 +183,7 @@ func issueBlockCmd() *cobra.Command {
 	var by string
 	cmd := &cobra.Command{
 		Use:   "block <IS-N>",
-		Short: "Set a blocker on an issue",
+		Short: "Add a blocker to an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
@@ -188,7 +192,7 @@ func issueBlockCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
+			if err := c.post("/api/dx/todo/issue/add-block", map[string]any{
 				"slug":       c.SlugOrDie(),
 				"id":         int32(n),
 				"blocked_by": by,
@@ -205,9 +209,10 @@ func issueBlockCmd() *cobra.Command {
 }
 
 func issueUnblockCmd() *cobra.Command {
-	return &cobra.Command{
+	var by string
+	cmd := &cobra.Command{
 		Use:   "unblock <IS-N>",
-		Short: "Clear blockers on an issue",
+		Short: "Remove blocker(s) from an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
@@ -216,21 +221,30 @@ func issueUnblockCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
-				"slug":       c.SlugOrDie(),
-				"id":         int32(n),
-				"blocked_by": "",
-			}, &ok); err != nil {
+			body := map[string]any{
+				"slug": c.SlugOrDie(),
+				"id":   int32(n),
+			}
+			if by != "" {
+				body["blocked_by"] = by
+			}
+			if err := c.post("/api/dx/todo/issue/remove-block", body, &ok); err != nil {
 				return err
 			}
-			fmt.Printf("%s unblocked\n", id)
+			if by != "" {
+				fmt.Printf("%s unblocked from %s\n", id, by)
+			} else {
+				fmt.Printf("%s all blockers removed\n", id)
+			}
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&by, "by", "", "specific blocker to remove (IS-N); omit to clear all")
+	return cmd
 }
 
 func issueEditCmd() *cobra.Command {
-	var title, ctx, component, blockedBy, issueType string
+	var title, ctx, component, issueType string
 	var priority int
 	cmd := &cobra.Command{
 		Use:   "edit <IS-N>",
@@ -259,9 +273,6 @@ func issueEditCmd() *cobra.Command {
 			if cmd.Flags().Changed("type") {
 				body["issue_type"] = issueType
 			}
-			if cmd.Flags().Changed("blocked-by") {
-				body["blocked_by"] = blockedBy
-			}
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -277,7 +288,6 @@ func issueEditCmd() *cobra.Command {
 	cmd.Flags().IntVar(&priority, "priority", 0, "priority (1-4)")
 	cmd.Flags().StringVar(&component, "component", "", "component")
 	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops or impl")
-	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issue (IS-N), empty to clear")
 	return cmd
 }
 

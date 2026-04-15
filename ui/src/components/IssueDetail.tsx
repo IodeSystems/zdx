@@ -154,19 +154,20 @@ export function IssueDetail({
         {issue.issue_type && (
           <Chip label={issue.issue_type} size="small" variant="outlined" color={issue.issue_type === 'impl' ? 'secondary' : 'default'} />
         )}
-        {issue.blocked_by && (
+        {(((issue.blocked_by ?? []) as unknown) as string[]).map((bid: string) => (
           <Chip
-            label={`blocked by: ${issue.blocked_by}`}
+            key={bid}
+            label={`blocked by: ${bid}`}
             size="small"
             variant="outlined"
             color="warning"
             component={Link as any}
             to="/project/$slug/issues/$id"
-            params={{ slug, id: issue.blocked_by }}
+            params={{ slug, id: bid }}
             clickable
             sx={{ textDecoration: 'none' }}
           />
-        )}
+        ))}
         {issue.duplicate_of && (
           <Chip
             label={`duplicate of: ${issue.duplicate_of}`}
