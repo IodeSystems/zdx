@@ -225,7 +225,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug     string `query:"slug"`
 			TestName string `query:"test_name"`
-			Limit    *int32 `query:"limit"`
+			Limit    int32  `query:"limit"`
 		}) (*struct {
 			Body struct {
 				History []TestHistoryItem `json:"history"`
@@ -236,8 +236,8 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				return nil, err
 			}
 			maxResults := int32(50)
-			if in.Limit != nil && *in.Limit > 0 && *in.Limit <= 200 {
-				maxResults = *in.Limit
+			if in.Limit > 0 && in.Limit <= 200 {
+				maxResults = in.Limit
 			}
 			rows, err := s.q.ListTestResultHistory(ctx, db.ListTestResultHistoryParams{
 				ProjectID:  p.ID,
