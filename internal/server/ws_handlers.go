@@ -31,6 +31,11 @@ func (s *Server) publishClaudeEvent(slug string, sessionID string, eventType str
 	s.publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
 }
 
+func (s *Server) publishClaudeSessionLifecycle(slug string, sessionID string, eventType string, payload any) {
+	s.publish(fmt.Sprintf("project:%s:claude", slug), eventType, payload)
+	s.publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
+}
+
 func (s *Server) registerWSRoutes(api huma.API) {
 	if !s.IsWSEnabled() {
 		return

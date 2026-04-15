@@ -524,6 +524,12 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 			} else {
 				sessionPK = sess.ID
 				sessionID = sess.SessionID
+				s.publishClaudeSessionLifecycle(slug, sessionID, "claude.session-created", map[string]any{
+					"session_id": sessionID,
+					"session_pk": sessionPK,
+					"title":      title,
+					"alias":      alias,
+				})
 			}
 			sessionCreated = true
 		}
@@ -563,6 +569,12 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 		http.Error(w, `{"title":"Bad Request","status":400,"detail":"empty body"}`, http.StatusBadRequest)
 		return
 	}
+
+	s.publishClaudeSessionLifecycle(slug, sessionID, "claude.session-closed", map[string]any{
+		"session_id":  sessionID,
+		"session_pk":  sessionPK,
+		"event_count": seq,
+	})
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{

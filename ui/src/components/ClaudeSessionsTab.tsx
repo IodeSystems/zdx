@@ -28,6 +28,7 @@ import {
   useInfiniteClaudeSessionEvents,
   useClaudeSessionTokenUsage,
   useClaudeSessionTokenUsageByAgent,
+  type ClaudeSessionItem,
   type ClaudeEventItem,
   type AgentTokenUsage,
 } from '../api'
@@ -621,9 +622,64 @@ export function SessionDetail({
   )
 }
 
+interface SessionCreatedPayload {
+  session_id: string
+  session_pk: number
+  title: string
+  alias: string
+}
+
+interface SessionClosedPayload {
+  session_id: string
+  session_pk: number
+  event_count: number
+}
+
 export function ClaudeSessionsTab({ slug }: { slug: string }) {
   const { data: sessData, isLoading } = useClaudeSessions(slug)
-  const sessions = sessData?.sessions ?? []
+  const fetchedSessions = sessData?.sessions ?? []
+  const [liveSessions, setLiveSessions] = useState<ClaudeSessionItem[]>([])
+  const [closedUpdates, setClosedUpdates] = useState<Map<number, { event_count: number }>>(new Map())
+
+  const onWsMessage = useCallback((msg: { type: string; payload: unknown }) => {
+    if (msg.type === 'claude.session-created') {
+      const p = msg.payload as SessionCreatedPayload
+      setLiveSessions((prev) => {
+        if (prev.some((s) => s.session_id === p.session_id)) return prev
+        return [{
+          id: p.session_pk,
+          session_id: p.session_id,
+          title: p.title,
+          header: '',
+          summary: '',
+          status: '',
+          issue_id: '',
+          event_count: 0,
+          created_at: new Date().toISOString(),
+        }, ...prev]
+      })
+    } else if (msg.type === 'claude.session-closed') {
+      const p = msg.payload as SessionClosedPayload
+      setClosedUpdates((prev) => {
+        const next = new Map(prev)
+        next.set(p.session_pk, { event_count: p.event_count })
+        return next
+      })
+    }
+  }, [])
+
+  useChannel(`project:${slug}:claude`, onWsMessage)
+
+  const sessions = useMemo(() => {
+    const fetchedIds = new Set(fetchedSessions.map((s) => s.session_id))
+    const newLive = liveSessions.filter((s) => !fetchedIds.has(s.session_id))
+    const merged = [...newLive, ...fetchedSessions]
+    return merged.map((s) => {
+      const update = closedUpdates.get(s.id)
+      if (update) return { ...s, event_count: update.event_count }
+      return s
+    })
+  }, [fetchedSessions, liveSessions, closedUpdates])
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
