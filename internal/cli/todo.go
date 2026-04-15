@@ -494,6 +494,24 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			fmt.Printf("[tech:test-ref]  feature %q spec %d (%s) has no test refs — add task or link via dx spec link\n", s.FeatureName, s.ID, s.Description)
 			return nil
 		}
+
+		// 2b. Check for specs linked to tests but missing demo artifacts.
+		var demoGapResp struct {
+			Specs []struct {
+				ID          int32  `json:"id"`
+				FeatureName string `json:"feature_name"`
+				Description string `json:"description"`
+				Kind        string `json:"kind"`
+			} `json:"specs"`
+		}
+		if err := c.get("/api/dx/specs/demo-gap", querySlug(c), &demoGapResp); err != nil {
+			return err
+		}
+		if len(demoGapResp.Specs) > 0 {
+			s := demoGapResp.Specs[0]
+			fmt.Printf("[owner:demo-gap]  feature %q spec %d (%s) has no demo recording — run dx test --layer demo\n", s.FeatureName, s.ID, s.Description)
+			return nil
+		}
 	}
 
 	// 2. Find open issue with no pending tasks

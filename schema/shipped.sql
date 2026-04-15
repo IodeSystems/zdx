@@ -1396,6 +1396,40 @@ CREATE TABLE public.zdx_test_code_refs (
 
 
 --
+-- Name: zdx_test_demos; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_test_demos (
+    id integer NOT NULL,
+    test_id integer NOT NULL,
+    demo_type text NOT NULL,
+    artifact_path text NOT NULL,
+    file_id integer,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_test_demos_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_test_demos_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_test_demos_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_test_demos_id_seq OWNED BY public.zdx_test_demos.id;
+
+
+--
 -- Name: zdx_test_result_history; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1962,6 +1996,13 @@ ALTER TABLE ONLY public.zdx_specs ALTER COLUMN id SET DEFAULT nextval('public.zd
 --
 
 ALTER TABLE ONLY public.zdx_sprints ALTER COLUMN id SET DEFAULT nextval('public.zdx_sprints_id_seq'::regclass);
+
+
+--
+-- Name: zdx_test_demos id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_test_demos ALTER COLUMN id SET DEFAULT nextval('public.zdx_test_demos_id_seq'::regclass);
 
 
 --
@@ -2537,6 +2578,22 @@ ALTER TABLE ONLY public.zdx_tasks
 
 ALTER TABLE ONLY public.zdx_test_code_refs
     ADD CONSTRAINT zdx_test_code_refs_pkey PRIMARY KEY (test_id, code_ref_id);
+
+
+--
+-- Name: zdx_test_demos zdx_test_demos_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_test_demos
+    ADD CONSTRAINT zdx_test_demos_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_test_demos zdx_test_demos_test_id_demo_type_artifact_path_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_test_demos
+    ADD CONSTRAINT zdx_test_demos_test_id_demo_type_artifact_path_key UNIQUE (test_id, demo_type, artifact_path);
 
 
 --
@@ -3419,6 +3476,22 @@ ALTER TABLE ONLY public.zdx_test_code_refs
 
 ALTER TABLE ONLY public.zdx_test_code_refs
     ADD CONSTRAINT zdx_test_code_refs_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.zdx_tests(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_test_demos zdx_test_demos_file_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_test_demos
+    ADD CONSTRAINT zdx_test_demos_file_id_fkey FOREIGN KEY (file_id) REFERENCES public.zdx_files(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zdx_test_demos zdx_test_demos_test_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_test_demos
+    ADD CONSTRAINT zdx_test_demos_test_id_fkey FOREIGN KEY (test_id) REFERENCES public.zdx_tests(id) ON DELETE CASCADE;
 
 
 --

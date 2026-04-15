@@ -14,6 +14,7 @@ import (
 	"time"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
@@ -23,6 +24,7 @@ func (s *Server) registerFileRoutes() {
 	s.mux.Get("/api/files/{id}", s.handleFileServe)
 	s.mux.Get("/api/dx/demos", s.handleListDemos)
 	s.mux.Get("/api/dx/demos/{type}/{name}", s.handleServeDemo)
+	s.mux.Post("/api/dx/demos/upload", s.handleDemoUpload)
 }
 
 // handleUpload accepts multipart/form-data with a single "file" field.
@@ -198,4 +200,116 @@ func (s *Server) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.ServeFile(w, r, absPath)
+}
+
+// handleDemoUpload accepts multipart/form-data with fields: file, slug, test_name, demo_type.
+// Stores the file via zdx_files and links it to the test via zdx_test_demos.
+func (s *Server) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
+	const maxSize = 50 << 20 // 50 MB for video files
+	if err := r.ParseMultipartForm(maxSize); err != nil {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"invalid multipart"}`, http.StatusBadRequest)
+		return
+	}
+
+	slug := r.FormValue("slug")
+	testName := r.FormValue("test_name")
+	demoType := r.FormValue("demo_type")
+	if slug == "" || testName == "" || demoType == "" {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"slug, test_name, and demo_type are required"}`, http.StatusBadRequest)
+		return
+	}
+	if demoType != "cli" && demoType != "video" {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"demo_type must be cli or video"}`, http.StatusBadRequest)
+		return
+	}
+
+	f, fh, err := r.FormFile("file")
+	if err != nil {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"missing file field"}`, http.StatusBadRequest)
+		return
+	}
+	defer f.Close()
+
+	mimeType := fh.Header.Get("Content-Type")
+	allowed := map[string]string{
+		"application/json": ".json",
+		"video/webm":       ".webm",
+		"video/mp4":        ".mp4",
+	}
+	ext, ok := allowed[mimeType]
+	if !ok {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"unsupported file type; expected json, webm, or mp4"}`, http.StatusBadRequest)
+		return
+	}
+
+	now := time.Now().UTC()
+	var rnd [8]byte
+	_, _ = rand.Read(rnd[:])
+	relPath := filepath.Join(
+		"demos",
+		fmt.Sprintf("%d", now.Year()),
+		fmt.Sprintf("%02d", now.Month()),
+		hex.EncodeToString(rnd[:])+ext,
+	)
+	absPath := filepath.Join(s.uploadsDir, relPath)
+	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+	dst, err := os.Create(absPath)
+	if err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+	n, err := io.Copy(dst, f)
+	dst.Close()
+	if err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+
+	ctx := r.Context()
+	p, err := getProject(ctx, s.q, slug)
+	if err != nil {
+		http.Error(w, `{"title":"Not Found","status":404,"detail":"project not found"}`, http.StatusNotFound)
+		return
+	}
+
+	fileRow, err := s.q.CreateFile(ctx, db.CreateFileParams{
+		Provider:  "fs",
+		Path:      relPath,
+		MimeType:  mimeType,
+		SizeBytes: n,
+	})
+	if err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+
+	test, err := s.q.GetTest(ctx, db.GetTestParams{
+		ProjectID: p.ID,
+		Component: "e2e",
+		Name:      testName,
+	})
+	if err != nil {
+		http.Error(w, `{"title":"Not Found","status":404,"detail":"test not found"}`, http.StatusNotFound)
+		return
+	}
+
+	_, err = s.q.UpsertTestDemo(ctx, db.UpsertTestDemoParams{
+		TestID:       test.ID,
+		DemoType:     demoType,
+		ArtifactPath: relPath,
+		FileID:       pgtype.Int4{Int32: fileRow.ID, Valid: true},
+	})
+	if err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"ok":      true,
+		"file_id": fileRow.ID,
+	})
 }

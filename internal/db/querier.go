@@ -205,6 +205,9 @@ type Querier interface {
 	// Used to show what breaks if a test is deleted.
 	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ListSpecsCoveredByTestRow, error)
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error)
+	// Specs linked to tests but where none of those tests have demo artifacts.
+	// Non-deferred specs only.
+	ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error)
 	// Features not reviewed in more than @stale_days days (or never reviewed).
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ZdxFeature, error)
 	// Returns comments that are unread for the given role and older than the given age threshold.
@@ -216,6 +219,7 @@ type Querier interface {
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error)
 	ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ListTasksByIssuePaginatedRow, error)
 	ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ListTasksPaginatedRow, error)
+	ListTestDemos(ctx context.Context, testID int32) ([]ZdxTestDemo, error)
 	ListTestResultHistory(ctx context.Context, arg ListTestResultHistoryParams) ([]ListTestResultHistoryRow, error)
 	ListTests(ctx context.Context, projectID int32) ([]ListTestsRow, error)
 	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ListTestsByLayerRow, error)
@@ -279,6 +283,7 @@ type Querier interface {
 	UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (ZdxLlmConfig, error)
 	UpsertPlan(ctx context.Context, arg UpsertPlanParams) (ZdxPlan, error)
 	UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertTestRow, error)
+	UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (ZdxTestDemo, error)
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error
 	UpsertTimed(ctx context.Context, arg UpsertTimedParams) error
 }

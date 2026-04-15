@@ -76,3 +76,28 @@ DELETE FROM zdx_spec_tests WHERE spec_id = @spec_id AND test_id = @test_id;
 -- Will fail at the DB level (RESTRICT) if spec_tests rows reference this test.
 -- Call ListSpecsCoveredByTest first to surface what breaks.
 DELETE FROM zdx_tests WHERE id = $1;
+
+-- name: UpsertTestDemo :one
+INSERT INTO zdx_test_demos (test_id, demo_type, artifact_path, file_id)
+VALUES (@test_id, @demo_type, @artifact_path, @file_id)
+ON CONFLICT (test_id, demo_type, artifact_path) DO UPDATE
+SET file_id = EXCLUDED.file_id
+RETURNING id, test_id, demo_type, artifact_path, file_id, created_at;
+
+-- name: ListTestDemos :many
+SELECT id, test_id, demo_type, artifact_path, file_id, created_at
+FROM zdx_test_demos WHERE test_id = $1 ORDER BY demo_type, artifact_path;
+
+-- name: ListSpecsWithoutDemos :many
+-- Specs linked to tests but where none of those tests have demo artifacts.
+-- Non-deferred specs only.
+SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+JOIN zdx_spec_tests st ON st.spec_id = s.id
+LEFT JOIN zdx_test_demos td ON td.test_id = st.test_id
+WHERE f.project_id = $1
+  AND s.deferred = false
+  AND td.id IS NULL
+GROUP BY s.id, s.feature_id, s.description, s.kind, f.name
+ORDER BY f.name, s.id;

@@ -156,3 +156,70 @@ func hasLayer(a Adapter, l Layer) bool {
 	}
 	return false
 }
+
+// DemoMeta describes a single demo artifact produced by a test run.
+type DemoMeta struct {
+	Test         string `json:"test"`
+	DemoType     string `json:"demo_type"`
+	ArtifactPath string `json:"artifact_path"`
+	RecordedAt   string `json:"recorded_at"`
+}
+
+// CollectDemoMetadata scans demoDir for CLI and video artifacts produced
+// during the test run (modified after cutoff) and returns metadata entries.
+func CollectDemoMetadata(demoDir string, cutoff time.Time) []DemoMeta {
+	var metas []DemoMeta
+	for _, sub := range []struct {
+		dir      string
+		demoType string
+	}{
+		{"cli", "cli"},
+		{"video", "video"},
+	} {
+		dir := filepath.Join(demoDir, sub.dir)
+		entries, err := os.ReadDir(dir)
+		if err != nil {
+			continue
+		}
+		for _, e := range entries {
+			if e.IsDir() {
+				continue
+			}
+			info, err := e.Info()
+			if err != nil || info.ModTime().Before(cutoff) {
+				continue
+			}
+			name := e.Name()
+			testName := name[:len(name)-len(filepath.Ext(name))]
+			metas = append(metas, DemoMeta{
+				Test:         testName,
+				DemoType:     sub.demoType,
+				ArtifactPath: filepath.Join(demoDir, sub.dir, name),
+				RecordedAt:   info.ModTime().UTC().Format(time.RFC3339),
+			})
+		}
+	}
+	return metas
+}
+
+// WriteDemoMetadata writes one JSON object per line to path.
+func WriteDemoMetadata(path string, metas []DemoMeta) error {
+	if len(metas) == 0 {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	f, err := os.Create(path)
+	if err != nil {
+		return err
+	}
+	defer f.Close()
+	enc := json.NewEncoder(f)
+	for _, m := range metas {
+		if err := enc.Encode(m); err != nil {
+			return err
+		}
+	}
+	return nil
+}

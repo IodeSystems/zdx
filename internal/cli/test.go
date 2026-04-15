@@ -135,6 +135,7 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	runStart := time.Now()
 	results, err := h.Run(context.Background(), f)
 	if err != nil {
 		return err
@@ -146,6 +147,14 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 	}
 	testharness.Summary(results)
 	_ = testharness.WriteResults(filepath.Join(".zdx", "test-results.json"), results)
+
+	if f.Layer == testharness.LayerDemo || f.Layer == "" {
+		metas := testharness.CollectDemoMetadata(filepath.Join(".zdx", "demo"), runStart)
+		if len(metas) > 0 {
+			_ = testharness.WriteDemoMetadata(filepath.Join(".zdx", "demo", "metadata.jsonl"), metas)
+			fmt.Fprintf(os.Stderr, "[demo] %d artifact(s) recorded → .zdx/demo/metadata.jsonl\n", len(metas))
+		}
+	}
 
 	if coverage {
 		for _, comp := range []string{"api"} {

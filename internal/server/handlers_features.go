@@ -298,6 +298,39 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 			}{Specs: out}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-specs-without-demos", Method: http.MethodGet, Path: "/api/dx/specs/demo-gap"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Specs []UncoveredSpecItem `json:"specs"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := s.q.ListSpecsWithoutDemos(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]UncoveredSpecItem, len(rows))
+			for i, r := range rows {
+				out[i] = UncoveredSpecItem{
+					ID:          r.ID,
+					FeatureID:   r.FeatureID,
+					FeatureName: r.FeatureName,
+					Description: r.Description,
+					Kind:        r.Kind,
+				}
+			}
+			return &struct {
+				Body struct {
+					Specs []UncoveredSpecItem `json:"specs"`
+				}
+			}{Body: struct {
+				Specs []UncoveredSpecItem `json:"specs"`
+			}{Specs: out}}, nil
+		})
+
 	// ── Plans ─────────────────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "create-plan", Method: http.MethodPost, Path: "/api/dx/plan/create"},

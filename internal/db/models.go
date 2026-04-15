@@ -499,6 +499,15 @@ type ZdxTestCodeRef struct {
 	CodeRefID int32 `db:"code_ref_id" json:"code_ref_id"`
 }
 
+type ZdxTestDemo struct {
+	ID           int32              `db:"id" json:"id"`
+	TestID       int32              `db:"test_id" json:"test_id"`
+	DemoType     string             `db:"demo_type" json:"demo_type"`
+	ArtifactPath string             `db:"artifact_path" json:"artifact_path"`
+	FileID       pgtype.Int4        `db:"file_id" json:"file_id"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxTestResult struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`

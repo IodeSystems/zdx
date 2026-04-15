@@ -198,6 +198,87 @@ func (q *Queries) ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]L
 	return items, nil
 }
 
+const listSpecsWithoutDemos = `-- name: ListSpecsWithoutDemos :many
+SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+JOIN zdx_spec_tests st ON st.spec_id = s.id
+LEFT JOIN zdx_test_demos td ON td.test_id = st.test_id
+WHERE f.project_id = $1
+  AND s.deferred = false
+  AND td.id IS NULL
+GROUP BY s.id, s.feature_id, s.description, s.kind, f.name
+ORDER BY f.name, s.id
+`
+
+type ListSpecsWithoutDemosRow struct {
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+	FeatureName string `db:"feature_name" json:"feature_name"`
+}
+
+// Specs linked to tests but where none of those tests have demo artifacts.
+// Non-deferred specs only.
+func (q *Queries) ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error) {
+	rows, err := q.db.Query(ctx, listSpecsWithoutDemos, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSpecsWithoutDemosRow
+	for rows.Next() {
+		var i ListSpecsWithoutDemosRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FeatureID,
+			&i.Description,
+			&i.Kind,
+			&i.FeatureName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTestDemos = `-- name: ListTestDemos :many
+SELECT id, test_id, demo_type, artifact_path, file_id, created_at
+FROM zdx_test_demos WHERE test_id = $1 ORDER BY demo_type, artifact_path
+`
+
+func (q *Queries) ListTestDemos(ctx context.Context, testID int32) ([]ZdxTestDemo, error) {
+	rows, err := q.db.Query(ctx, listTestDemos, testID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTestDemo
+	for rows.Next() {
+		var i ZdxTestDemo
+		if err := rows.Scan(
+			&i.ID,
+			&i.TestID,
+			&i.DemoType,
+			&i.ArtifactPath,
+			&i.FileID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTestResultHistory = `-- name: ListTestResultHistory :many
 SELECT id, driver, test_name, status, duration_ms, run_at, branch, git_sha
 FROM zdx_test_result_history
@@ -526,6 +607,40 @@ func (q *Queries) UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertT
 		&i.Status,
 		&i.DurationMs,
 		&i.LastRunAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const upsertTestDemo = `-- name: UpsertTestDemo :one
+INSERT INTO zdx_test_demos (test_id, demo_type, artifact_path, file_id)
+VALUES ($1, $2, $3, $4)
+ON CONFLICT (test_id, demo_type, artifact_path) DO UPDATE
+SET file_id = EXCLUDED.file_id
+RETURNING id, test_id, demo_type, artifact_path, file_id, created_at
+`
+
+type UpsertTestDemoParams struct {
+	TestID       int32       `db:"test_id" json:"test_id"`
+	DemoType     string      `db:"demo_type" json:"demo_type"`
+	ArtifactPath string      `db:"artifact_path" json:"artifact_path"`
+	FileID       pgtype.Int4 `db:"file_id" json:"file_id"`
+}
+
+func (q *Queries) UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (ZdxTestDemo, error) {
+	row := q.db.QueryRow(ctx, upsertTestDemo,
+		arg.TestID,
+		arg.DemoType,
+		arg.ArtifactPath,
+		arg.FileID,
+	)
+	var i ZdxTestDemo
+	err := row.Scan(
+		&i.ID,
+		&i.TestID,
+		&i.DemoType,
+		&i.ArtifactPath,
+		&i.FileID,
 		&i.CreatedAt,
 	)
 	return i, err

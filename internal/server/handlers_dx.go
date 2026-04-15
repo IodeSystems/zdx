@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/techmetrics"
@@ -140,7 +141,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				return nil, err
 			}
 			for _, r := range in.Body.Results {
-				_, _ = s.q.UpsertTest(ctx, db.UpsertTestParams{
+				test, _ := s.q.UpsertTest(ctx, db.UpsertTestParams{
 					ProjectID:  p.ID,
 					Component:  r.Driver,
 					Name:       r.TestName,
@@ -168,6 +169,16 @@ func (s *Server) registerDxRoutes(api huma.API) {
 					Branch:     r.Branch,
 					GitSha:     r.GitSHA,
 				})
+				if test.ID != 0 {
+					for _, d := range r.DemoArtifacts {
+						_, _ = s.q.UpsertTestDemo(ctx, db.UpsertTestDemoParams{
+							TestID:       test.ID,
+							DemoType:     d.DemoType,
+							ArtifactPath: d.ArtifactPath,
+							FileID:       pgtype.Int4{},
+						})
+					}
+				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})

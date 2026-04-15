@@ -232,14 +232,20 @@ type WriteTodoInput struct {
 	Status   string `json:"status"`
 }
 
+type DemoArtifactRef struct {
+	DemoType     string `json:"demo_type"`
+	ArtifactPath string `json:"artifact_path"`
+}
+
 type TestResultInput struct {
-	Driver     string `json:"driver"`
-	TestName   string `json:"test_name"`
-	Feature    string `json:"feature"`
-	Status     string `json:"status"`
-	DurationMS int32  `json:"duration_ms"`
-	Branch     string `json:"branch,omitempty"`
-	GitSHA     string `json:"git_sha,omitempty"`
+	Driver        string            `json:"driver"`
+	TestName      string            `json:"test_name"`
+	Feature       string            `json:"feature"`
+	Status        string            `json:"status"`
+	DurationMS    int32             `json:"duration_ms"`
+	Branch        string            `json:"branch,omitempty"`
+	GitSHA        string            `json:"git_sha,omitempty"`
+	DemoArtifacts []DemoArtifactRef `json:"demo_artifacts,omitempty"`
 }
 
 // ── Shared input types ───────────────────────────────────────────────────
