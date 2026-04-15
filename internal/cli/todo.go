@@ -642,6 +642,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 				if t.Status == "pending" {
 					fmt.Printf("[dev]     %s  %s\n", taskIDStr(t.ID), t.Text)
 					fmt.Printf("  issue: %s\n", issueIDStr(iss.ID))
+					fmt.Fprintln(os.Stderr, "  note: task not claimed. Use --agent-id to claim before starting work.")
 					return nil
 				}
 			}
