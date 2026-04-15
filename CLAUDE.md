@@ -21,7 +21,7 @@ Server requires `DATABASE_URL` env var pointing to PostgreSQL 16+ with pgvector.
 
 ## Database Workflow
 
-1. Add migration in `migrations/` (sequential numbering)
+1. Add migration in `internal/migrate/sql/` (NNN_name.up.sql + NNN_name.down.sql)
 2. Dev: migrations run automatically on server start
 3. Update shipped.sql: `./bin/db gen` (pg_dump of current schema)
 4. Regenerate queries: `~/go/bin/sqlc generate`
@@ -49,7 +49,7 @@ make test                     # Go tests
 - `internal/db/` — sqlc-generated database layer
 - `queries/` — SQL source files (sqlc input)
 - `schema/shipped.sql` — canonical schema snapshot
-- `migrations/` — migration SQL files
+- `internal/migrate/sql/` — migration SQL files (up/down pairs)
 - `ui/src/routes/` — TanStack Router file-based routes
 - `ui/src/api/` — typed API client (openapi-fetch)
 - `.zdx/config.yaml` — project zdx configuration

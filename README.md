@@ -11,7 +11,7 @@ A self-hosted developer-experience platform for human+LLM collaborative software
 | API server | Go, huma/chi, pgx | `cmd/dx-server/`, `internal/server/` |
 | CLI | Go, cobra | `cmd/dx/`, `internal/cli/` |
 | UI | React 19, Vite, MUI, TanStack Router | `ui/` |
-| Database | PostgreSQL, sqlc | `queries/`, `internal/db/`, `migrations/` |
+| Database | PostgreSQL, sqlc | `queries/`, `internal/db/`, `internal/migrate/sql/` |
 | Vector search | pgvector via zvec | `internal/zvec/` |
 | Realtime | WebSockets + Valkey | `internal/ws/` |
 
@@ -73,7 +73,7 @@ internal/
   zvec/            Vector similarity search
 ui/                React frontend (Vite + MUI)
 queries/           SQL query files (sqlc input)
-migrations/        Database migration SQL files
+internal/migrate/sql/  Database migration SQL files (up/down pairs)
 deploy/            Deployment artifacts and provisioning
 infra/             Infrastructure and provisioning clients
 ```
