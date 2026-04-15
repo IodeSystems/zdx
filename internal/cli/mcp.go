@@ -469,6 +469,114 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		return nil, nil, fmt.Errorf("feature %q not found", in.Name)
 	})
 
+	// ── pattern tools ────────────────────────────────────────────────────────
+
+	type patternSearchInput struct {
+		Text string `json:"text" jsonschema:"required,natural-language query to find similar patterns"`
+		N    int    `json:"n,omitempty" jsonschema:"max results (default 5)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "pattern_search",
+		Description: "Semantic similarity search over the project's pattern library. Returns the top-N patterns matching a natural-language query.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in patternSearchInput) (*mcp.CallToolResult, any, error) {
+		n := in.N
+		if n <= 0 {
+			n = 5
+		}
+		var resp struct {
+			Patterns []struct {
+				Pattern patternItem `json:"pattern"`
+				Score   float64     `json:"score"`
+			} `json:"patterns"`
+		}
+		if err := c.post("/api/dx/patterns/similar", map[string]any{
+			"slug": slug,
+			"text": in.Text,
+			"n":    n,
+		}, &resp); err != nil {
+			return nil, nil, err
+		}
+		return nil, resp, nil
+	})
+
+	type patternRefineInput struct {
+		ID          int32           `json:"id" jsonschema:"required,pattern ID to refine"`
+		Name        string          `json:"name,omitempty" jsonschema:"updated name"`
+		Description string          `json:"description,omitempty" jsonschema:"updated description with added detail/clarifications"`
+		CodeRefs    json.RawMessage `json:"code_refs,omitempty" jsonschema:"updated code refs array"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "pattern_refine",
+		Description: "Refine a pattern by updating its name, description, or code refs to be more helpful in future searches",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in patternRefineInput) (*mcp.CallToolResult, any, error) {
+		body := map[string]any{"slug": slug, "id": in.ID}
+		if in.Name != "" {
+			body["name"] = in.Name
+		}
+		if in.Description != "" {
+			body["description"] = in.Description
+		}
+		if len(in.CodeRefs) > 0 {
+			body["code_refs"] = in.CodeRefs
+		}
+		var p patternItem
+		if err := c.post("/api/dx/patterns/update", body, &p); err != nil {
+			return nil, nil, err
+		}
+		return nil, p, nil
+	})
+
+	// ── question tools ───────────────────────────────────────────────────────
+
+	type questionSearchInput struct {
+		Text string `json:"text" jsonschema:"required,natural-language query to find similar questions"`
+		N    int    `json:"n,omitempty" jsonschema:"max results (default 5)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "question_search",
+		Description: "Semantic similarity search over the project's Q&A knowledge base. Returns the top-N questions (with answers) matching a natural-language query.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in questionSearchInput) (*mcp.CallToolResult, any, error) {
+		n := in.N
+		if n <= 0 {
+			n = 5
+		}
+		var resp struct {
+			Questions []struct {
+				ID       int32   `json:"id"`
+				Question string  `json:"question"`
+				Answer   string  `json:"answer"`
+				Score    float32 `json:"score"`
+			} `json:"questions"`
+		}
+		if err := c.post("/api/dx/qa/similar", map[string]any{
+			"slug": slug,
+			"text": in.Text,
+			"n":    n,
+		}, &resp); err != nil {
+			return nil, nil, err
+		}
+		return nil, resp, nil
+	})
+
+	type questionAddInput struct {
+		Category string `json:"category" jsonschema:"required,question category"`
+		Question string `json:"question" jsonschema:"required,the question text"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "question_add",
+		Description: "Add a new question to the project's Q&A knowledge base",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in questionAddInput) (*mcp.CallToolResult, any, error) {
+		var q questionItem
+		if err := c.post("/api/dx/qa/add", map[string]any{
+			"slug":     slug,
+			"category": in.Category,
+			"question": in.Question,
+		}, &q); err != nil {
+			return nil, nil, err
+		}
+		return nil, q, nil
+	})
+
 	// ── comment tools ────────────────────────────────────────────────────────
 
 	type commentListInput struct {
