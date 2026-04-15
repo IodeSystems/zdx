@@ -13,9 +13,9 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { Add as AddIcon, TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
+import { Add as AddIcon, AutoAwesome as GenerateIcon, TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
-import { useJournalEntries, useCreateJournalEntry, type JournalEntryItem } from '../api'
+import { useJournalEntries, useCreateJournalEntry, useGenerateJournalEntry, type JournalEntryItem } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 
 interface MetricDelta {
@@ -163,6 +163,7 @@ export function JournalTab({ slug }: { slug: string }) {
   const [role, setRole] = useState<'owner' | 'tech'>('owner')
   const { data: entries, isLoading } = useJournalEntries(slug, role)
   const create = useCreateJournalEntry()
+  const generate = useGenerateJournalEntry()
   const [dialogOpen, setDialogOpen] = useState(false)
   const [form, setForm] = useState<CheckinForm>(emptyForm)
 
@@ -185,6 +186,14 @@ export function JournalTab({ slug }: { slug: string }) {
           <Tab label="Tech" value="tech" sx={{ minHeight: 36, py: 0 }} />
         </Tabs>
         <Box sx={{ flex: 1 }} />
+        <Button
+          size="small"
+          startIcon={<GenerateIcon />}
+          onClick={() => generate.mutate({ slug, role })}
+          disabled={generate.isPending}
+        >
+          {generate.isPending ? 'Generating...' : 'Generate'}
+        </Button>
         <Button size="small" startIcon={<AddIcon />} onClick={() => setDialogOpen(true)}>
           Check-in
         </Button>

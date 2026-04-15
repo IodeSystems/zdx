@@ -470,10 +470,10 @@ type ZdxTest struct {
 	Component  string             `db:"component" json:"component"`
 	Name       string             `db:"name" json:"name"`
 	Layer      string             `db:"layer" json:"layer"`
-	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
 	Status     string             `db:"status" json:"status"`
 	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
 }
 
 type ZdxTestResult struct {

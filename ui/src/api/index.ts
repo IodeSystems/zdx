@@ -1454,6 +1454,15 @@ export const useCreateJournalEntry = () => {
   })
 }
 
+export const useGenerateJournalEntry = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: (body: { slug: string; role: string }) =>
+      apiPost<{ entry: JournalEntryItem }>('/api/dx/journal/generate', body),
+    onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['journal', vars.slug, vars.role] }),
+  })
+}
+
 // ── themes ───────────────────────────────────────────────────────────────────
 
 export const useListThemes = (slug: string) =>

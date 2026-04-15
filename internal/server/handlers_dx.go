@@ -3,10 +3,13 @@ package server
 import (
 	"context"
 	"net/http"
+	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/techmetrics"
 )
 
 func (s *Server) registerDxRoutes(api huma.API) {
@@ -379,6 +382,103 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}{Body: struct {
 				StateJSON string `json:"state_json"`
 			}{StateJSON: entry.StateJson}}, nil
+		})
+
+	// ── Journal Generate ─────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "journal-generate", Method: http.MethodPost, Path: "/api/dx/journal/generate"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				Role string `json:"role"`
+			}
+		}) (*struct {
+			Body struct {
+				Entry JournalEntryItem `json:"entry"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			role := in.Body.Role
+			if role == "" {
+				role = "tech"
+			}
+
+			today := time.Now().Format("2006-01-02")
+			stateJSON := "{}"
+			changelogJSON := "{}"
+
+			if role == "tech" {
+				row, err := s.q.GetProjectGitConfig(ctx, in.Body.Slug)
+				if err != nil || row.GitUrl == "" {
+					return nil, apiErr(400, "project has no git config — configure repo URL in admin settings")
+				}
+				gitURL := row.GitUrl
+				if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
+					gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
+				}
+				dir := s.repoDir(in.Body.Slug)
+				branch := row.GitBranch
+				if branch == "" {
+					branch = "main"
+				}
+				if err := ensureRepo(dir, gitURL, branch); err != nil {
+					return nil, apiErr(500, "git: "+err.Error())
+				}
+
+				metrics := techmetrics.Collect(dir)
+
+				var prevDate string
+				var prevStateJSON string
+				entries, _ := s.q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: role})
+				if len(entries) > 0 {
+					prevDate = entries[0].Date
+					prevStateJSON = entries[0].StateJson
+				}
+
+				commits, filesChanged := techmetrics.CollectGitChurn(dir, prevDate)
+				metrics.GitCommits = commits
+				metrics.GitFilesChanged = filesChanged
+
+				stateJSON = techmetrics.ToJSON(metrics)
+
+				if prevMetrics, ok := techmetrics.Parse(prevStateJSON); ok {
+					changelogJSON = techmetrics.DeltasToJSON(techmetrics.ComputeDeltas(prevMetrics, metrics))
+				} else {
+					changelogJSON = techmetrics.DeltasToJSON(techmetrics.ComputeDeltas(techmetrics.TechMetrics{}, metrics))
+				}
+			}
+
+			_, err = s.q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
+				ProjectID:     p.ID,
+				Role:          role,
+				Date:          today,
+				Tldr:          "Auto-generated " + role + " check-in",
+				Assessment:    "",
+				Concerns:      "",
+				Next:          "",
+				StateJson:     stateJSON,
+				ChangelogJson: changelogJSON,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+
+			entry := JournalEntryItem{
+				Date:          today,
+				Tldr:          "Auto-generated " + role + " check-in",
+				StateJSON:     stateJSON,
+				ChangelogJSON: changelogJSON,
+			}
+			return &struct {
+				Body struct {
+					Entry JournalEntryItem `json:"entry"`
+				}
+			}{Body: struct {
+				Entry JournalEntryItem `json:"entry"`
+			}{Entry: entry}}, nil
 		})
 
 	// ── Solo Health ──────────────────────────────────────────────────────────
