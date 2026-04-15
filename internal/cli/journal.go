@@ -23,7 +23,7 @@ type journalEntry struct {
 }
 
 func JournalCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "journal", Short: "Owner/tech journal check-ins"}
+	cmd := &cobra.Command{Use: "standup", Aliases: []string{"journal"}, Short: "Owner/tech standup check-ins"}
 	cmd.AddCommand(
 		journalCheckinCmd(),
 		journalShowCmd(),
@@ -36,7 +36,7 @@ func journalCheckinCmd() *cobra.Command {
 	var role, tldr, assessment, concerns, next, date, projectRoot string
 	cmd := &cobra.Command{
 		Use:   "checkin",
-		Short: "Record a journal check-in",
+		Short: "Record a standup check-in",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
 			if date == "" {
@@ -107,7 +107,7 @@ func journalCheckinCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "owner", "journal role (owner/tech)")
+	cmd.Flags().StringVar(&role, "role", "owner", "standup role (owner/tech)")
 	cmd.Flags().StringVar(&tldr, "tldr", "", "one-line summary")
 	cmd.Flags().StringVar(&assessment, "assessment", "", "assessment text")
 	cmd.Flags().StringVar(&concerns, "concerns", "", "concerns text")
@@ -121,7 +121,7 @@ func journalShowCmd() *cobra.Command {
 	var role string
 	cmd := &cobra.Command{
 		Use:   "show",
-		Short: "List journal entries",
+		Short: "List standup entries",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
 			params := url.Values{
@@ -175,7 +175,7 @@ func journalShowCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "owner", "journal role (owner/tech)")
+	cmd.Flags().StringVar(&role, "role", "owner", "standup role (owner/tech)")
 	return cmd
 }
 
@@ -183,7 +183,7 @@ func journalStateCmd() *cobra.Command {
 	var role string
 	cmd := &cobra.Command{
 		Use:   "state",
-		Short: "Show latest journal state snapshot",
+		Short: "Show latest standup state snapshot",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
 			params := url.Values{
@@ -204,6 +204,6 @@ func journalStateCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "owner", "journal role (owner/tech)")
+	cmd.Flags().StringVar(&role, "role", "owner", "standup role (owner/tech)")
 	return cmd
 }

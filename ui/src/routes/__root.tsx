@@ -78,7 +78,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Goals', icon: <FlagIcon fontSize="small" />, path: 'goals' },
       { label: 'Themes', icon: <BookmarkIcon fontSize="small" />, path: 'themes' },
       { label: 'Features', icon: <ExtensionIcon fontSize="small" />, path: 'features' },
-      { label: 'Journal', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
+      { label: 'Standup', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
       { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
       { label: 'Tests', icon: <ScienceIcon fontSize="small" />, path: 'tests' },
     ],

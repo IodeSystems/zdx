@@ -429,7 +429,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 				return nil
 			}
 			if overdue, role := journalOverdue(health.OwnerJournalDate, health.TechJournalDate, health.ClosedTaskCount); overdue {
-				fmt.Printf("[%s:journal]  %s journal check-in overdue — dx journal checkin --%s\n", role, role, role)
+				fmt.Printf("[%s:standup]  %s standup check-in overdue — dx standup checkin --%s\n", role, role, role)
 				return nil
 			}
 		}

@@ -199,7 +199,7 @@ export function JournalTab({ slug }: { slug: string }) {
         </Button>
       </Box>
       {sorted.length === 0 && (
-        <Typography variant="body2" color="text.secondary">No journal entries yet.</Typography>
+        <Typography variant="body2" color="text.secondary">No standup entries yet.</Typography>
       )}
       {sorted.map((entry, i) => (
         <EntryCard key={entry.date + i} entry={entry} prev={sorted[i + 1]} isTech={role === 'tech'} slug={slug} />

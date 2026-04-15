@@ -14,8 +14,8 @@ Solo checks conditions in this exact order. First match wins.
 | 0d | `[bootstrap]` | global only | Zero issues AND zero features in project |
 | 0e | `[owner:goals]` | global only | Project has no goals defined |
 | 0f | `[owner:constraints]` | global only | Project has no constraints defined |
-| 0g | `[owner:journal]` | global only | Owner journal check-in overdue |
-| 0h | `[tech:journal]` | global only | Tech journal check-in overdue |
+| 0g | `[owner:standup]` | global only | Owner standup check-in overdue |
+| 0h | `[tech:standup]` | global only | Tech standup check-in overdue |
 | 1 | `[triage]` | both | Open issue with no priority set |
 | 1b | `[owner:spec]` | global only | Feature with zero specs |
 | 1c | `[owner:review]` | global only | Feature not reviewed in >30 days (or never) |
@@ -58,10 +58,10 @@ Solo checks conditions in this exact order. First match wins.
 - **Agent action**: Define constraints via `dx constraint add <title>`.
 - **Advances when**: At least one constraint exists.
 
-### `[owner:journal]` / `[tech:journal]`
-- **Trigger**: Journal check-in is overdue based on cadence (30 days / max(1, closed_tasks/10), clamped to min 7 days). Owner is checked before tech.
-- **Agent action**: Run `dx journal checkin --owner` or `dx journal checkin --tech`.
-- **Advances when**: Journal entry is recorded with a recent date.
+### `[owner:standup]` / `[tech:standup]`
+- **Trigger**: Standup check-in is overdue based on cadence (30 days / max(1, closed_tasks/10), clamped to min 7 days). Owner is checked before tech.
+- **Agent action**: Run `dx standup checkin --owner` or `dx standup checkin --tech`.
+- **Advances when**: Standup entry is recorded with a recent date.
 
 ### `[triage]`
 - **Trigger**: Open issue with no priority set.
@@ -105,7 +105,7 @@ cadence_days = 30 / max(1, closed_tasks / 10)
 cadence_days = max(7, cadence_days)
 ```
 
-More closed tasks → more frequent journal check-ins. Minimum cadence is 7 days. With no closed tasks, cadence is 30 days.
+More closed tasks → more frequent standup check-ins. Minimum cadence is 7 days. With no closed tasks, cadence is 30 days.
 
 ## Blocker-Question Behavior
 
