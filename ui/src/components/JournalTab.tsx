@@ -15,7 +15,7 @@ import {
 } from '@mui/material'
 import { Add as AddIcon, AutoAwesome as GenerateIcon, TrendingUp, TrendingDown, TrendingFlat } from '@mui/icons-material'
 import { useState, useMemo } from 'react'
-import { useJournalEntries, useCreateJournalEntry, useGenerateJournalEntry, type JournalEntryItem } from '../api'
+import { useJournalEntries, useCreateJournalEntry, useGenerateJournalEntry, useChurnSessions, useExtractPatternFromSession, type JournalEntryItem, type ClaudeSessionItem } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 
 interface MetricDelta {
@@ -159,6 +159,67 @@ interface CheckinForm {
 
 const emptyForm: CheckinForm = { tldr: '', assessment: '', concerns: '', next: '' }
 
+function ChurnSessionCard({ session, slug }: { session: ClaudeSessionItem; slug: string }) {
+  const extract = useExtractPatternFromSession()
+  const [patternName, setPatternName] = useState<string | null>(null)
+
+  const handleExtract = async () => {
+    const pattern = await extract.mutateAsync({ slug, sessionId: session.id })
+    setPatternName(pattern.name)
+  }
+
+  return (
+    <Card variant="outlined" sx={{ mb: 1 }}>
+      <CardContent sx={{ py: 1.25, '&:last-child': { pb: 1.25 } }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Chip label="churn" size="small" color="warning" sx={{ fontSize: '0.65rem', height: 18 }} />
+          <Typography variant="caption" color="text.secondary">{session.created_at?.slice(0, 10)}</Typography>
+          <Typography variant="body2" sx={{ fontWeight: 600, flex: 1 }}>{session.header || session.title}</Typography>
+        </Box>
+        {session.summary && (
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>{session.summary}</Typography>
+        )}
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {patternName ? (
+            <Chip label={`Pattern: ${patternName}`} size="small" color="success" sx={{ fontSize: '0.7rem' }} />
+          ) : (
+            <Button
+              size="small"
+              variant="outlined"
+              onClick={handleExtract}
+              disabled={extract.isPending}
+            >
+              {extract.isPending ? 'Extracting...' : 'Extract Pattern'}
+            </Button>
+          )}
+          {extract.isError && (
+            <Typography variant="caption" color="error">{extract.error.message}</Typography>
+          )}
+        </Box>
+      </CardContent>
+    </Card>
+  )
+}
+
+function ChurnReviewPanel({ slug }: { slug: string }) {
+  const { data, isLoading } = useChurnSessions(slug)
+  const sessions = data?.sessions ?? []
+
+  if (isLoading) return null
+  if (sessions.length === 0) return null
+
+  return (
+    <Box sx={{ mb: 3 }}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+        Churn Sessions ({sessions.length})
+      </Typography>
+      {sessions.map(s => (
+        <ChurnSessionCard key={s.id} session={s} slug={slug} />
+      ))}
+    </Box>
+  )
+}
+
 export function JournalTab({ slug }: { slug: string }) {
   const [role, setRole] = useState<'owner' | 'tech'>('owner')
   const { data: entries, isLoading } = useJournalEntries(slug, role)
@@ -198,6 +259,7 @@ export function JournalTab({ slug }: { slug: string }) {
           Check-in
         </Button>
       </Box>
+      {role === 'tech' && <ChurnReviewPanel slug={slug} />}
       {sorted.length === 0 && (
         <Typography variant="body2" color="text.secondary">No standup entries yet.</Typography>
       )}

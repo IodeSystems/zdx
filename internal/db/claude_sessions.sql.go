@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countChurnSessions = `-- name: CountChurnSessions :one
+SELECT count(*) FROM zdx_claude_sessions
+WHERE project_id = $1 AND status = 'churn'
+  AND created_at >= $2
+`
+
+type CountChurnSessionsParams struct {
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CountChurnSessions(ctx context.Context, arg CountChurnSessionsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countChurnSessions, arg.ProjectID, arg.CreatedAt)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countClaudeEvents = `-- name: CountClaudeEvents :one
 SELECT count(*) FROM zdx_claude_events WHERE session_pk = $1
 `
@@ -290,6 +308,63 @@ func (q *Queries) GetClaudeSessionTokenUsageByAgent(ctx context.Context, session
 			&i.CacheReadInputTokens,
 			&i.CacheCreationInputTokens,
 			&i.EventCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listChurnSessions = `-- name: ListChurnSessions :many
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+FROM zdx_claude_sessions
+WHERE project_id = $1 AND status = 'churn'
+  AND created_at >= $2
+ORDER BY created_at DESC
+`
+
+type ListChurnSessionsParams struct {
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ListChurnSessionsRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
+	Status    string             `db:"status" json:"status"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListChurnSessions(ctx context.Context, arg ListChurnSessionsParams) ([]ListChurnSessionsRow, error) {
+	rows, err := q.db.Query(ctx, listChurnSessions, arg.ProjectID, arg.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListChurnSessionsRow
+	for rows.Next() {
+		var i ListChurnSessionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.IssueID,
+			&i.SessionID,
+			&i.Title,
+			&i.Alias,
+			&i.Header,
+			&i.Summary,
+			&i.Status,
+			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

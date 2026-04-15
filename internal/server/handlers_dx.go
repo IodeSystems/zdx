@@ -508,15 +508,52 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			summary, _ := s.q.ProjectStateSummary(ctx, p.ID)
 			topIssues, _ := s.q.TopPriorityOpenIssues(ctx, p.ID)
 
+			var churnNote string
+			if role == "tech" {
+				since := pgtype.Timestamptz{Time: time.Now().AddDate(0, 0, -7), Valid: true}
+				entries, _ := s.q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: "tech"})
+				if len(entries) > 0 {
+					if t, err := time.Parse("2006-01-02", entries[0].Date); err == nil {
+						since = pgtype.Timestamptz{Time: t, Valid: true}
+					}
+				}
+				churnCount, _ := s.q.CountChurnSessions(ctx, db.CountChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+				if churnCount > 0 {
+					churns, _ := s.q.ListChurnSessions(ctx, db.ListChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+					var themes []string
+					for _, c := range churns {
+						if c.Header != "" {
+							themes = append(themes, c.Header)
+						}
+					}
+					churnNote = fmt.Sprintf("%d churn session(s) since last checkin.", churnCount)
+					if len(themes) > 0 {
+						limit := len(themes)
+						if limit > 3 {
+							limit = 3
+						}
+						churnNote += " Top themes: " + strings.Join(themes[:limit], "; ")
+					}
+				}
+			}
+
 			tldr := fmt.Sprintf("%s check-in: %d open issues, %d WIP, %d closed (30d), %d pending tasks, %d done tasks",
 				role, summary.OpenIssues, summary.WipIssues, summary.RecentlyClosedIssues, summary.PendingTasks, summary.DoneTasks)
 
 			assessment := fmt.Sprintf("Open issues: %d | WIP: %d | Recently closed (30d): %d\nPending tasks: %d | Completed tasks: %d",
 				summary.OpenIssues, summary.WipIssues, summary.RecentlyClosedIssues, summary.PendingTasks, summary.DoneTasks)
+			if churnNote != "" {
+				assessment += "\n\n**Session Health:** " + churnNote
+			}
 
 			var concerns string
 			if summary.PendingBlockers > 0 {
 				concerns = fmt.Sprintf("%d pending blocker question(s) require human decisions.", summary.PendingBlockers)
+			}
+			if churnNote != "" && concerns != "" {
+				concerns += "\n" + churnNote
+			} else if churnNote != "" {
+				concerns = churnNote
 			}
 
 			var nextItems []string

@@ -30,6 +30,7 @@ type Querier interface {
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)
 	CountBlockerQuestions(ctx context.Context, projectID int32) (int64, error)
+	CountChurnSessions(ctx context.Context, arg CountChurnSessionsParams) (int64, error)
 	CountClaudeEvents(ctx context.Context, sessionPk int64) (int64, error)
 	CountClaudeSessions(ctx context.Context, projectID int32) (int64, error)
 	CountClaudeSessionsByIssue(ctx context.Context, arg CountClaudeSessionsByIssueParams) (int64, error)
@@ -165,6 +166,7 @@ type Querier interface {
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsPaginated(ctx context.Context, arg ListBlockerQuestionsPaginatedParams) ([]ZdxBlockerQuestion, error)
 	ListChildQuestions(ctx context.Context, arg ListChildQuestionsParams) ([]ZdxQuestion, error)
+	ListChurnSessions(ctx context.Context, arg ListChurnSessionsParams) ([]ListChurnSessionsRow, error)
 	ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxClaudeEvent, error)
 	ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeEventsPaginatedParams) ([]ZdxClaudeEvent, error)
 	ListClaudeSessions(ctx context.Context, projectID int32) ([]ListClaudeSessionsRow, error)

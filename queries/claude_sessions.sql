@@ -61,6 +61,18 @@ WHERE session_pk = $1
 ORDER BY seq DESC
 LIMIT $2 OFFSET $3;
 
+-- name: ListChurnSessions :many
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+FROM zdx_claude_sessions
+WHERE project_id = $1 AND status = 'churn'
+  AND created_at >= $2
+ORDER BY created_at DESC;
+
+-- name: CountChurnSessions :one
+SELECT count(*) FROM zdx_claude_sessions
+WHERE project_id = $1 AND status = 'churn'
+  AND created_at >= $2;
+
 -- name: GetClaudeSessionTokenUsage :one
 SELECT
   coalesce(sum((event_json->'message'->'usage'->>'input_tokens')::bigint), 0)::bigint AS input_tokens,

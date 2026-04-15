@@ -9,8 +9,10 @@ import (
 	"log"
 	"net/http"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/llm"
@@ -326,6 +328,154 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 			}{Body: struct {
 				OK bool `json:"ok"`
 			}{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-churn-sessions", Method: http.MethodGet, Path: "/api/dx/claude/sessions/churns"},
+		func(ctx context.Context, in *struct {
+			Slug  string `query:"slug" required:"true"`
+			Since string `query:"since"`
+		}) (*struct {
+			Body struct {
+				Sessions []ClaudeSessionItem `json:"sessions"`
+				Total    int64               `json:"total"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			since := pgtype.Timestamptz{}
+			if in.Since != "" {
+				if t, err := time.Parse(time.RFC3339, in.Since); err == nil {
+					since = pgtype.Timestamptz{Time: t, Valid: true}
+				}
+			}
+			if !since.Valid {
+				since = pgtype.Timestamptz{Time: time.Now().AddDate(0, 0, -7), Valid: true}
+			}
+			total, _ := s.q.CountChurnSessions(ctx, db.CountChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+			rows, err := s.q.ListChurnSessions(ctx, db.ListChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ClaudeSessionItem, len(rows))
+			for i, r := range rows {
+				cnt, _ := s.q.CountClaudeEvents(ctx, r.ID)
+				out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt)}
+			}
+			return &struct {
+				Body struct {
+					Sessions []ClaudeSessionItem `json:"sessions"`
+					Total    int64               `json:"total"`
+				}
+			}{Body: struct {
+				Sessions []ClaudeSessionItem `json:"sessions"`
+				Total    int64               `json:"total"`
+			}{Sessions: out, Total: total}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "extract-pattern-from-session", Method: http.MethodPost, Path: "/api/dx/claude/sessions/{sessionId}/extract-pattern"},
+		func(ctx context.Context, in *struct {
+			Slug      string `query:"slug" required:"true"`
+			SessionID int64  `path:"sessionId"`
+		}) (*struct {
+			Body PatternItem
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			if err != nil {
+				return nil, apiErr(404, "session not found")
+			}
+			if sess.Status != "churn" {
+				return nil, apiErr(400, "session is not a churn session")
+			}
+
+			events, err := s.q.ListClaudeEvents(ctx, sess.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+
+			var transcript strings.Builder
+			for _, ev := range events {
+				var parsed map[string]any
+				if json.Unmarshal(ev.EventJson, &parsed) != nil {
+					continue
+				}
+				msg, _ := parsed["message"].(map[string]any)
+				if msg == nil {
+					continue
+				}
+				role, _ := msg["role"].(string)
+				if role != "user" && role != "assistant" {
+					continue
+				}
+				content := extractSessionTextContent(msg["content"])
+				if content == "" {
+					continue
+				}
+				if len(content) > 2000 {
+					content = content[:2000] + "..."
+				}
+				transcript.WriteString(fmt.Sprintf("[%s] %s\n\n", role, content))
+			}
+
+			if transcript.Len() == 0 {
+				return nil, apiErr(400, "session has no analyzable content")
+			}
+
+			prompt := `Analyze this Claude Code session that was classified as "churn" (repeated edits, going in circles, retrying failing approaches).
+
+Extract a reusable pattern that captures:
+1. What went wrong (the root cause of the churn)
+2. How to avoid it in future sessions
+
+Return JSON with exactly two fields:
+- "name": a short, descriptive name for the pattern (e.g. "missing-migration-regen", "circular-type-fix")
+- "description": 2-4 sentences: what the failure pattern is, why it causes churn, and the recommended approach to avoid it
+
+Return ONLY valid JSON, no markdown fences, no explanation.
+
+Session header: ` + sess.Header + `
+Session summary: ` + sess.Summary + `
+
+Transcript:
+` + transcript.String()
+
+			result, err := s.emb.complete(ctx, []llm.ChatMessage{
+				{Role: "user", Content: prompt},
+			})
+			if err != nil {
+				return nil, apiErr(500, "llm extraction failed: "+err.Error())
+			}
+
+			result = strings.TrimSpace(result)
+			result = strings.TrimPrefix(result, "```json")
+			result = strings.TrimPrefix(result, "```")
+			result = strings.TrimSuffix(result, "```")
+			result = strings.TrimSpace(result)
+
+			var extracted struct {
+				Name        string `json:"name"`
+				Description string `json:"description"`
+			}
+			if err := json.Unmarshal([]byte(result), &extracted); err != nil {
+				return nil, apiErr(500, "failed to parse LLM response")
+			}
+
+			row, err := s.q.InsertPattern(ctx, db.InsertPatternParams{
+				ProjectID:   p.ID,
+				Name:        extracted.Name,
+				Description: extracted.Description,
+				CodeRefs:    json.RawMessage("[]"),
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			go s.emb.upsertPattern(context.Background(), p.ID, row.ID, row.Name+" "+row.Description)
+			return &struct{ Body PatternItem }{Body: toPatternItem(row)}, nil
 		})
 
 	// Ingest endpoint: accepts JSONL body, creates session + events in one call.

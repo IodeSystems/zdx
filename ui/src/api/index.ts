@@ -1391,6 +1391,29 @@ export const useClaudeSessionTokenUsageByAgent = (slug: string, sessionId: numbe
     enabled: !!slug && sessionId != null,
   })
 
+export const useChurnSessions = (slug: string, since?: string) =>
+  useQuery<{ sessions: ClaudeSessionItem[]; total: number }>({
+    queryKey: ['churn-sessions', slug, since],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug })
+      if (since) params.set('since', since)
+      const res = await apiFetch<{ sessions: ClaudeSessionItem[]; total: number }>(
+        `/api/dx/claude/sessions/churns?${params}`
+      )
+      return { sessions: res.sessions ?? [], total: res.total ?? 0 }
+    },
+    enabled: !!slug,
+  })
+
+export const useExtractPatternFromSession = () =>
+  useMutation<PatternItem, Error, { slug: string; sessionId: number }>({
+    mutationFn: ({ slug, sessionId }) =>
+      apiPost<PatternItem>(
+        `/api/dx/claude/sessions/${sessionId}/extract-pattern?slug=${encodeURIComponent(slug)}`,
+        {}
+      ),
+  })
+
 // ── Goals & Constraints ──────────────────────────────────────────────────
 
 export interface GoalItem {
