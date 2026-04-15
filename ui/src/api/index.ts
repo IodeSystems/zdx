@@ -1309,6 +1309,19 @@ export const useClaudeSessions = (slug: string, limit?: number, offset?: number)
     enabled: !!slug,
   })
 
+export const useClaudeSessionsByIssue = (slug: string, issueId: string) =>
+  useQuery<{ sessions: ClaudeSessionItem[]; total: number }>({
+    queryKey: ['claude-sessions', slug, 'issue', issueId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, issue_id: issueId })
+      const res = await apiFetch<{ sessions: ClaudeSessionItem[]; total: number }>(
+        `/api/dx/claude/sessions?${params}`
+      )
+      return { sessions: res.sessions ?? [], total: res.total ?? 0 }
+    },
+    enabled: !!slug && !!issueId,
+  })
+
 export const useInfiniteClaudeSessionEvents = (slug: string, sessionId: number | null, pageSize = 200) =>
   useInfiniteQuery<{ events: ClaudeEventItem[]; total: number }>({
     queryKey: ['claude-events-infinite', slug, sessionId, pageSize],

@@ -23,6 +23,7 @@ import {
   useListThemes,
   useAddThemeBlocker,
   useRemoveThemeBlocker,
+  useClaudeSessionsByIssue,
   type IssueItem,
   type IssueWorkItem,
   type TaskItem,
@@ -71,6 +72,7 @@ export function IssueDetail({
   const { data: allTasks, refetch: refetchTasks } = useTasks(slug, { issue: issueId })
   const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
   const { data: resolutions } = useIssueResolutions(slug, issueId)
+  const { data: sessionsData } = useClaudeSessionsByIssue(slug, issueId)
   const closeIssue = useCloseIssue()
   const router = useRouter()
   const [closeOpen, setCloseOpen] = useState(false)
@@ -340,6 +342,38 @@ export function IssueDetail({
                     </Typography>
                   ))}
                 </Box>
+              </Box>
+            ))}
+          </Box>
+        </Box>
+      )}
+
+      {(sessionsData?.sessions ?? []).length > 0 && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+            Claude Sessions ({sessionsData!.sessions.length})
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+            {sessionsData!.sessions.map(s => (
+              <Box
+                key={s.id}
+                component={Link as any}
+                to="/project/$slug/claude/$sessionId"
+                params={{ slug, sessionId: String(s.id) }}
+                sx={{ display: 'flex', gap: 1, alignItems: 'center', textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
+              >
+                <Chip
+                  label={s.status || 'pending'}
+                  size="small"
+                  color={s.status === 'ok' ? 'success' : s.status === 'errored' ? 'error' : s.status === 'churn' ? 'warning' : 'default'}
+                  variant="outlined"
+                />
+                <Typography variant="body2" sx={{ flex: 1 }}>
+                  {s.header || s.title || s.session_id.slice(0, 8)}
+                </Typography>
+                <Typography variant="caption" color="text.secondary">
+                  {new Date(s.created_at).toLocaleString()}
+                </Typography>
               </Box>
             ))}
           </Box>

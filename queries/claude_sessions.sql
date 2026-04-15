@@ -27,6 +27,15 @@ WHERE project_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 
+-- name: ListClaudeSessionsByIssue :many
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+FROM zdx_claude_sessions
+WHERE project_id = $1 AND issue_id = $2
+ORDER BY created_at DESC;
+
+-- name: CountClaudeSessionsByIssue :one
+SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1 AND issue_id = $2;
+
 -- name: UpdateClaudeSessionSummary :exec
 UPDATE zdx_claude_sessions
 SET header = $3, summary = $4, status = $5

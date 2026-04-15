@@ -43,7 +43,12 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-claude-sessions", Method: http.MethodGet, Path: "/api/dx/claude/sessions"},
-		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
+		func(ctx context.Context, in *struct {
+			Slug    string `query:"slug" required:"true"`
+			IssueID string `query:"issue_id"`
+			Limit   int32  `query:"limit"`
+			Offset  int32  `query:"offset"`
+		}) (*struct {
 			Body struct {
 				Sessions []ClaudeSessionItem `json:"sessions"`
 				Total    int64               `json:"total"`
@@ -53,26 +58,32 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountClaudeSessions(ctx, p.ID)
-			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListClaudeSessionsPaginated(ctx, db.ListClaudeSessionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
-			if err != nil {
-				return nil, apiErr(500, err.Error())
-			}
-			out := make([]ClaudeSessionItem, len(rows))
-			for i, r := range rows {
-				cnt, _ := s.q.CountClaudeEvents(ctx, r.ID)
-				out[i] = ClaudeSessionItem{
-					ID:         r.ID,
-					IssueID:    r.IssueID,
-					SessionID:  r.SessionID,
-					Title:      r.Title,
-					Alias:      r.Alias,
-					Header:     r.Header,
-					Summary:    r.Summary,
-					Status:     r.Status,
-					EventCount: cnt,
-					CreatedAt:  fmtTS(r.CreatedAt),
+
+			var total int64
+			var out []ClaudeSessionItem
+
+			if in.IssueID != "" {
+				total, _ = s.q.CountClaudeSessionsByIssue(ctx, db.CountClaudeSessionsByIssueParams{ProjectID: p.ID, IssueID: in.IssueID})
+				rows, err := s.q.ListClaudeSessionsByIssue(ctx, db.ListClaudeSessionsByIssueParams{ProjectID: p.ID, IssueID: in.IssueID})
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				out = make([]ClaudeSessionItem, len(rows))
+				for i, r := range rows {
+					cnt, _ := s.q.CountClaudeEvents(ctx, r.ID)
+					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt)}
+				}
+			} else {
+				total, _ = s.q.CountClaudeSessions(ctx, p.ID)
+				limit, offset := parsePage(in.Limit, in.Offset)
+				rows, err := s.q.ListClaudeSessionsPaginated(ctx, db.ListClaudeSessionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				out = make([]ClaudeSessionItem, len(rows))
+				for i, r := range rows {
+					cnt, _ := s.q.CountClaudeEvents(ctx, r.ID)
+					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt)}
 				}
 			}
 			return &struct {

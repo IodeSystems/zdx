@@ -33,6 +33,22 @@ func (q *Queries) CountClaudeSessions(ctx context.Context, projectID int32) (int
 	return count, err
 }
 
+const countClaudeSessionsByIssue = `-- name: CountClaudeSessionsByIssue :one
+SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1 AND issue_id = $2
+`
+
+type CountClaudeSessionsByIssueParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	IssueID   string `db:"issue_id" json:"issue_id"`
+}
+
+func (q *Queries) CountClaudeSessionsByIssue(ctx context.Context, arg CountClaudeSessionsByIssueParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countClaudeSessionsByIssue, arg.ProjectID, arg.IssueID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createClaudeEvent = `-- name: CreateClaudeEvent :exec
 INSERT INTO zdx_claude_events (session_pk, seq, event_type, event_json, agent_id, is_sidechain, agent_type, agent_description)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
@@ -397,6 +413,62 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 	var items []ListClaudeSessionsRow
 	for rows.Next() {
 		var i ListClaudeSessionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.IssueID,
+			&i.SessionID,
+			&i.Title,
+			&i.Alias,
+			&i.Header,
+			&i.Summary,
+			&i.Status,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listClaudeSessionsByIssue = `-- name: ListClaudeSessionsByIssue :many
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+FROM zdx_claude_sessions
+WHERE project_id = $1 AND issue_id = $2
+ORDER BY created_at DESC
+`
+
+type ListClaudeSessionsByIssueParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	IssueID   string `db:"issue_id" json:"issue_id"`
+}
+
+type ListClaudeSessionsByIssueRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
+	Status    string             `db:"status" json:"status"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error) {
+	rows, err := q.db.Query(ctx, listClaudeSessionsByIssue, arg.ProjectID, arg.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClaudeSessionsByIssueRow
+	for rows.Next() {
+		var i ListClaudeSessionsByIssueRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
