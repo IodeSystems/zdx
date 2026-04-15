@@ -39,11 +39,37 @@ const triageGuidance = `  triage checklist:
     1. verify independently (reproduce or read the code)
     2. dup-check: dx issue list; close duplicates with --reason=duplicate
     3. rewrite prescriptively: title=intended outcome; context=should/did/direction
-    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|tracker> --priority=<1-4>
+    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|tracker> --priority=<1-4> --theme=<ID> --goal=<ID>
+       use the active themes and goals listed above to classify the issue
     if the issue is too vague to triage, create clarification questions instead:
       dx question add --target-type=issue --target-id=IS-N --context="<question>" --choices="opt1,opt2,..."
     solo will block progress on the issue until all questions are answered.
 `
+
+func printTriageContext(c *Client, slug string) {
+	var themeResp struct {
+		Themes []themeItem `json:"themes"`
+	}
+	if err := c.get("/api/dx/themes", url.Values{"slug": {slug}}, &themeResp); err == nil && len(themeResp.Themes) > 0 {
+		fmt.Println("  active themes:")
+		for _, t := range themeResp.Themes {
+			if t.Status == "active" {
+				fmt.Printf("    TH-%-3d  %s\n", t.ID, t.Name)
+			}
+		}
+	}
+	var goalResp struct {
+		Goals []goalItem `json:"goals"`
+	}
+	if err := c.get("/api/goals", url.Values{"slug": {slug}}, &goalResp); err == nil && len(goalResp.Goals) > 0 {
+		fmt.Println("  active goals:")
+		for _, g := range goalResp.Goals {
+			if g.Status == "active" {
+				fmt.Printf("    G-%-3d   %s\n", g.ID, g.Title)
+			}
+		}
+	}
+}
 
 // ── wire types (match server JSON) ────────────────────────────────────────────
 
@@ -467,6 +493,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			if iss.Context != "" {
 				fmt.Printf("\n%s\n", iss.Context)
 			}
+			printTriageContext(c, slug)
 			fmt.Print(triageGuidance)
 			return nil
 		}
