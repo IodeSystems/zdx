@@ -293,3 +293,61 @@ func (d *ApiDriver) LinkTestToSpec(specID, testID int32) {
 	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/specs/link-test",
 		map[string]any{"spec_id": specID, "test_id": testID}, nil))
 }
+
+type SoloQueueItem struct {
+	Key        string `json:"key"`
+	Text       string `json:"text"`
+	Kind       string `json:"kind"`
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	IssueRef   string `json:"issue_ref"`
+	Priority   int32  `json:"priority"`
+	Blocked    bool   `json:"blocked"`
+	Persona    string `json:"persona"`
+	Status     string `json:"status"`
+}
+
+func (d *ApiDriver) EvaluateQueue(issue string) []SoloQueueItem {
+	d.t.Helper()
+	body := map[string]any{"slug": d.Slug, "issue": issue}
+	var resp struct {
+		Added     []SoloQueueItem `json:"added"`
+		Removed   []any           `json:"removed"`
+		Changed   []any           `json:"changed"`
+		Unchanged []SoloQueueItem `json:"unchanged"`
+	}
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/solo/evaluate", body, &resp))
+	var all []SoloQueueItem
+	all = append(all, resp.Added...)
+	all = append(all, resp.Unchanged...)
+	return all
+}
+
+func findKind(items []SoloQueueItem, kind string) *SoloQueueItem {
+	for i := range items {
+		if items[i].Kind == kind {
+			return &items[i]
+		}
+	}
+	return nil
+}
+
+func requireKind(t *testing.T, items []SoloQueueItem, kind string) SoloQueueItem {
+	t.Helper()
+	item := findKind(items, kind)
+	if item == nil {
+		kinds := make([]string, len(items))
+		for i, it := range items {
+			kinds[i] = it.Kind
+		}
+		t.Fatalf("expected Kind %q in queue, got kinds: %v", kind, kinds)
+	}
+	return *item
+}
+
+func requireNoKind(t *testing.T, items []SoloQueueItem, kind string) {
+	t.Helper()
+	if findKind(items, kind) != nil {
+		t.Fatalf("expected Kind %q to NOT be in queue, but it was", kind)
+	}
+}
