@@ -25,6 +25,17 @@ log() {
   printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "$LOG"
 }
 
+SELF_HASH="$(sha1sum "$0" | awk '{print $1}')"
+
+maybe_reexec() {
+  local cur
+  cur="$(sha1sum "$0" | awk '{print $1}')"
+  if [[ "$cur" != "$SELF_HASH" ]]; then
+    log "self-update: ${SELF_HASH:0:8} → ${cur:0:8}, re-execing"
+    exec "$0" "$@"
+  fi
+}
+
 stream_session_start() {
   local sid="$1" sfile="$2" issue_id="$3"
   if [[ -z "$ZDX_URL" || -z "$ZDX_SLUG" || -z "$ZDX_KEY" ]]; then
@@ -209,6 +220,7 @@ load_state() {
 }
 
 while true; do
+  maybe_reexec "$@"
   resumed=false
   if load_state; then
     issue_id="$saved_issue"
