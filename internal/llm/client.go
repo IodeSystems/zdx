@@ -79,3 +79,58 @@ func (c *Client) Embed(ctx context.Context, text string) ([]float32, error) {
 	}
 	return result.Data[0].Embedding, nil
 }
+
+type ChatMessage struct {
+	Role    string `json:"role"`
+	Content string `json:"content"`
+}
+
+func (c *Client) Complete(ctx context.Context, messages []ChatMessage) (string, error) {
+	url := strings.TrimRight(c.cfg.URL, "/") + "/v1/chat/completions"
+
+	body, err := json.Marshal(map[string]any{
+		"model":    c.cfg.Model,
+		"messages": messages,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, url, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	if c.cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("llm: complete request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errBody struct {
+			Error struct{ Message string } `json:"error"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&errBody)
+		return "", fmt.Errorf("llm: complete %s: %s", resp.Status, errBody.Error.Message)
+	}
+
+	var result struct {
+		Choices []struct {
+			Message struct {
+				Content string `json:"content"`
+			} `json:"message"`
+		} `json:"choices"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return "", fmt.Errorf("llm: complete decode: %w", err)
+	}
+	if len(result.Choices) == 0 {
+		return "", fmt.Errorf("llm: complete returned no choices")
+	}
+	return result.Choices[0].Message.Content, nil
+}

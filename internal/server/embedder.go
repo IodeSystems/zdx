@@ -172,6 +172,16 @@ func (e *embedder) upsertQuestion(ctx context.Context, projectID int32, question
 	e.sink.track(ctx, "zvec:upsert-question", start)
 }
 
+func (e *embedder) complete(ctx context.Context, messages []llm.ChatMessage) (string, error) {
+	e.mu.RLock()
+	c := e.client
+	e.mu.RUnlock()
+	if c == nil {
+		return "", fmt.Errorf("no LLM client configured")
+	}
+	return c.Complete(ctx, messages)
+}
+
 // topNQuestions returns up to n questions most similar to queryText.
 func (e *embedder) topNQuestions(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
 	vec, err := e.embed(ctx, queryText)

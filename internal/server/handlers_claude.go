@@ -3,13 +3,16 @@ package server
 import (
 	"context"
 	"encoding/json"
+	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/llm"
 )
 
 func (s *Server) registerClaudeRoutes(api huma.API) {
@@ -424,4 +427,114 @@ func (s *Server) handleClaudeSessionIngest(w http.ResponseWriter, r *http.Reques
 		"session_id": sessionID,
 		"events":     len(lines),
 	})
+
+	if !isSidechain {
+		go s.summarizeSessionAsync(p.ID, sessionPK, lines)
+	}
+}
+
+func (s *Server) summarizeSessionAsync(projectID int32, sessionPK int64, lines []string) {
+	ctx := WithSource(context.Background(), "auto-summarize")
+
+	var transcript strings.Builder
+	for _, line := range lines {
+		var ev map[string]any
+		if json.Unmarshal([]byte(line), &ev) != nil {
+			continue
+		}
+		msg, _ := ev["message"].(map[string]any)
+		if msg == nil {
+			continue
+		}
+		role, _ := msg["role"].(string)
+		if role != "user" && role != "assistant" {
+			continue
+		}
+		content := extractSessionTextContent(msg["content"])
+		if content == "" {
+			continue
+		}
+		if len(content) > 2000 {
+			content = content[:2000] + "..."
+		}
+		transcript.WriteString(fmt.Sprintf("[%s] %s\n\n", role, content))
+	}
+
+	if transcript.Len() == 0 {
+		return
+	}
+
+	prompt := `Analyze this Claude Code session transcript and return JSON with exactly three fields:
+- "header": one sentence describing the session goal (what the user set out to do)
+- "summary": 2-4 sentences describing what happened, what was accomplished, and any notable outcomes
+- "status": one of "ok", "churn", or "errored" based on:
+  - "ok": session completed its goal without significant issues
+  - "churn": session had repeated edits to the same file, went in circles, or retried failing approaches
+  - "errored": session ended with unresolved errors or tool failures
+
+Return ONLY valid JSON, no markdown fences, no explanation.
+
+Transcript:
+` + transcript.String()
+
+	result, err := s.emb.complete(ctx, []llm.ChatMessage{
+		{Role: "user", Content: prompt},
+	})
+	if err != nil {
+		log.Printf("auto-summarize session %d: llm complete: %v", sessionPK, err)
+		return
+	}
+
+	result = strings.TrimSpace(result)
+	result = strings.TrimPrefix(result, "```json")
+	result = strings.TrimPrefix(result, "```")
+	result = strings.TrimSuffix(result, "```")
+	result = strings.TrimSpace(result)
+
+	var summary struct {
+		Header  string `json:"header"`
+		Summary string `json:"summary"`
+		Status  string `json:"status"`
+	}
+	if err := json.Unmarshal([]byte(result), &summary); err != nil {
+		log.Printf("auto-summarize session %d: parse response: %v\nraw: %s", sessionPK, err, result)
+		return
+	}
+
+	if summary.Status != "ok" && summary.Status != "churn" && summary.Status != "errored" {
+		summary.Status = "ok"
+	}
+
+	if err := s.q.UpdateClaudeSessionSummary(ctx, db.UpdateClaudeSessionSummaryParams{
+		ProjectID: projectID,
+		ID:        sessionPK,
+		Header:    summary.Header,
+		Summary:   summary.Summary,
+		Status:    summary.Status,
+	}); err != nil {
+		log.Printf("auto-summarize session %d: update db: %v", sessionPK, err)
+	}
+}
+
+func extractSessionTextContent(content any) string {
+	if s, ok := content.(string); ok {
+		return s
+	}
+	blocks, ok := content.([]any)
+	if !ok {
+		return ""
+	}
+	var parts []string
+	for _, b := range blocks {
+		block, ok := b.(map[string]any)
+		if !ok {
+			continue
+		}
+		if block["type"] == "text" {
+			if t, ok := block["text"].(string); ok {
+				parts = append(parts, t)
+			}
+		}
+	}
+	return strings.Join(parts, "\n")
 }
