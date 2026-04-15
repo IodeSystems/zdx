@@ -219,6 +219,8 @@ func TestDemoCLI_FeatureFlow(t *testing.T) {
 	rec.Run("feature", "add", "data-export", "--desc=Export project data to CSV and JSON")
 	rec.Run("feature", "list")
 	rec.Run("feature", "show", "user-auth")
+	rec.Run("feature", "set", "user-auth", "--category=Security", "--component=api")
+	rec.Run("feature", "review", "user-auth")
 
 	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
