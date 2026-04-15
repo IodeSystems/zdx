@@ -64,21 +64,22 @@ func (q *Queries) CountWorklogForProject(ctx context.Context, projectID int32) (
 }
 
 const createIssue = `-- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 `
 
 type CreateIssueParams struct {
-	ID        string `db:"id" json:"id"`
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Title     string `db:"title" json:"title"`
-	Context   string `db:"context" json:"context"`
-	Priority  string `db:"priority" json:"priority"`
-	Component string `db:"component" json:"component"`
-	IssueType string `db:"issue_type" json:"issue_type"`
-	Status    string `db:"status" json:"status"`
-	Url       string `db:"url" json:"url"`
+	ID            string      `db:"id" json:"id"`
+	ProjectID     int32       `db:"project_id" json:"project_id"`
+	Title         string      `db:"title" json:"title"`
+	Context       string      `db:"context" json:"context"`
+	Priority      string      `db:"priority" json:"priority"`
+	Component     string      `db:"component" json:"component"`
+	IssueType     string      `db:"issue_type" json:"issue_type"`
+	Status        string      `db:"status" json:"status"`
+	Url           string      `db:"url" json:"url"`
+	SourceErrorID pgtype.Int8 `db:"source_error_id" json:"source_error_id"`
 }
 
 func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error) {
@@ -92,6 +93,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		arg.IssueType,
 		arg.Status,
 		arg.Url,
+		arg.SourceErrorID,
 	)
 	var i ZdxIssue
 	err := row.Scan(
@@ -107,12 +109,13 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		&i.DuplicateOf,
 		&i.Url,
 		&i.UpdatedAt,
+		&i.SourceErrorID,
 	)
 	return i, err
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues WHERE project_id = $1 AND id = $2
 `
 
@@ -137,6 +140,57 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 		&i.DuplicateOf,
 		&i.Url,
 		&i.UpdatedAt,
+		&i.SourceErrorID,
+	)
+	return i, err
+}
+
+const getIssueBySourceErrorID = `-- name: GetIssueBySourceErrorID :one
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, source_error_id
+FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
+LIMIT 1
+`
+
+type GetIssueBySourceErrorIDParams struct {
+	ProjectID     int32       `db:"project_id" json:"project_id"`
+	SourceErrorID pgtype.Int8 `db:"source_error_id" json:"source_error_id"`
+}
+
+type GetIssueBySourceErrorIDRow struct {
+	ID              string             `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	Title           string             `db:"title" json:"title"`
+	Status          string             `db:"status" json:"status"`
+	Priority        string             `db:"priority" json:"priority"`
+	Component       string             `db:"component" json:"component"`
+	Context         string             `db:"context" json:"context"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	IssueType       string             `db:"issue_type" json:"issue_type"`
+	DuplicateOf     string             `db:"duplicate_of" json:"duplicate_of"`
+	Url             string             `db:"url" json:"url"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	SourceErrorID   pgtype.Int8        `db:"source_error_id" json:"source_error_id"`
+	SourceErrorID_2 pgtype.Int8        `db:"source_error_id_2" json:"source_error_id_2"`
+}
+
+func (q *Queries) GetIssueBySourceErrorID(ctx context.Context, arg GetIssueBySourceErrorIDParams) (GetIssueBySourceErrorIDRow, error) {
+	row := q.db.QueryRow(ctx, getIssueBySourceErrorID, arg.ProjectID, arg.SourceErrorID)
+	var i GetIssueBySourceErrorIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Status,
+		&i.Priority,
+		&i.Component,
+		&i.Context,
+		&i.CreatedAt,
+		&i.IssueType,
+		&i.DuplicateOf,
+		&i.Url,
+		&i.UpdatedAt,
+		&i.SourceErrorID,
+		&i.SourceErrorID_2,
 	)
 	return i, err
 }
@@ -172,7 +226,7 @@ func (q *Queries) GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueW
 }
 
 const listIssues = `-- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 `
 
@@ -198,6 +252,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 			&i.DuplicateOf,
 			&i.Url,
 			&i.UpdatedAt,
+			&i.SourceErrorID,
 		); err != nil {
 			return nil, err
 		}
@@ -210,7 +265,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 }
 
 const listIssuesPaginated = `-- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 LIMIT $2 OFFSET $3
 `
@@ -243,6 +298,7 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 			&i.DuplicateOf,
 			&i.Url,
 			&i.UpdatedAt,
+			&i.SourceErrorID,
 		); err != nil {
 			return nil, err
 		}
@@ -255,7 +311,7 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 }
 
 const listOpenIssues = `-- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC
 `
 
@@ -281,6 +337,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 			&i.DuplicateOf,
 			&i.Url,
 			&i.UpdatedAt,
+			&i.SourceErrorID,
 		); err != nil {
 			return nil, err
 		}
@@ -450,7 +507,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -485,6 +542,7 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]Z
 			&i.DuplicateOf,
 			&i.Url,
 			&i.UpdatedAt,
+			&i.SourceErrorID,
 		); err != nil {
 			return nil, err
 		}

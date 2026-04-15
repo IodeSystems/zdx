@@ -89,20 +89,32 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "get-error", Method: http.MethodGet, Path: "/api/dx/errors/{id}"},
 		func(ctx context.Context, in *struct {
-			ID int64 `path:"id"`
+			ID   int64  `path:"id"`
+			Slug string `query:"slug,omitempty"`
 		}) (*struct{ Body ErrorReportItem }, error) {
 			row, err := s.q.GetErrorReportByID(ctx, in.ID)
 			if err != nil {
 				return nil, apiErr(404, "error report not found")
 			}
-			return &struct{ Body ErrorReportItem }{Body: ErrorReportItem{
+			item := ErrorReportItem{
 				ID:         row.ID,
 				Source:     row.Source,
 				Endpoint:   row.Endpoint,
 				ErrorName:  row.ErrorName,
 				StackTrace: row.StackTrace,
 				CreatedAt:  fmtTS(row.CreatedAt),
-			}}, nil
+			}
+			if in.Slug != "" {
+				if p, pErr := getProject(ctx, s.q, in.Slug); pErr == nil {
+					if linked, lErr := s.q.GetIssueBySourceErrorID(ctx, db.GetIssueBySourceErrorIDParams{
+						ProjectID:     p.ID,
+						SourceErrorID: pgtype.Int8{Int64: row.ID, Valid: true},
+					}); lErr == nil {
+						item.LinkedIssueID = linked.ID
+					}
+				}
+			}
+			return &struct{ Body ErrorReportItem }{Body: item}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "trigger-error", Method: http.MethodGet, Path: "/api/error"},

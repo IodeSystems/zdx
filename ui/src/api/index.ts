@@ -325,10 +325,10 @@ export const useErrors = (slug: string, limit?: number, offset?: number) =>
     enabled: !!slug,
   })
 
-export const useError = (id: string) =>
+export const useError = (id: string, slug?: string) =>
   useQuery<ErrorReportItem>({
-    queryKey: ['error', id],
-    queryFn: () => apiFetch<ErrorReportItem>(`/api/dx/errors/${encodeURIComponent(id)}`),
+    queryKey: ['error', id, slug],
+    queryFn: () => apiFetch<ErrorReportItem>(`/api/dx/errors/${encodeURIComponent(id)}${slug ? `?slug=${encodeURIComponent(slug)}` : ''}`),
     enabled: !!id,
   })
 

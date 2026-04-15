@@ -780,7 +780,8 @@ CREATE TABLE public.zdx_issues (
     issue_type text DEFAULT 'ops'::text NOT NULL,
     duplicate_of text DEFAULT ''::text NOT NULL,
     url text DEFAULT ''::text NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    source_error_id bigint
 );
 
 
@@ -3475,6 +3476,21 @@ ALTER TABLE ONLY public.zdx_issue_work
 
 ALTER TABLE ONLY public.zdx_issues
     ADD CONSTRAINT zdx_issues_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
+
+
+--
+-- Name: zdx_issues zdx_issues_source_error_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_issues
+    ADD CONSTRAINT zdx_issues_source_error_id_fkey FOREIGN KEY (source_error_id) REFERENCES public.zdx_error_reports(id) ON DELETE SET NULL;
+
+
+--
+-- Name: idx_issues_source_error_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_issues_source_error_id ON public.zdx_issues USING btree (source_error_id) WHERE (source_error_id IS NOT NULL);
 
 
 --

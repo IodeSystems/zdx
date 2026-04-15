@@ -1,21 +1,21 @@
 -- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC;
 
 -- name: CountIssues :one
 SELECT count(*) FROM zdx_issues WHERE project_id = $1;
 
 -- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 LIMIT $2 OFFSET $3;
 
 -- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC;
 
 -- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues
 WHERE project_id = @project_id
   AND (title ILIKE '%' || @query::text || '%' OR context ILIKE '%' || @query::text || '%')
@@ -23,13 +23,18 @@ ORDER BY updated_at DESC
 LIMIT 20;
 
 -- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
 -- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at;
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id;
+
+-- name: GetIssueBySourceErrorID :one
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, source_error_id
+FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
+LIMIT 1;
 
 -- name: ReadyIssue :exec
 UPDATE zdx_issues SET status = 'open', updated_at = NOW() WHERE project_id = $1 AND id = $2 AND status = 'wip';

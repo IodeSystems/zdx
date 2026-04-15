@@ -124,6 +124,7 @@ type Querier interface {
 	GetIntegrationTokenByHash(ctx context.Context, tokenHash string) (GetIntegrationTokenByHashRow, error)
 	GetInviteByToken(ctx context.Context, token string) (ZdxInvite, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
+	GetIssueBySourceErrorID(ctx context.Context, arg GetIssueBySourceErrorIDParams) (GetIssueBySourceErrorIDRow, error)
 	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
 	GetIssueResolution(ctx context.Context, id string) (ZdxIssueResolution, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)

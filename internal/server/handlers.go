@@ -136,12 +136,13 @@ type TodoItem struct {
 }
 
 type ErrorReportItem struct {
-	ID         int64  `json:"id"`
-	Source     string `json:"source"`
-	Endpoint   string `json:"endpoint"`
-	ErrorName  string `json:"error_name"`
-	StackTrace string `json:"stack_trace"`
-	CreatedAt  string `json:"created_at"`
+	ID            int64  `json:"id"`
+	Source        string `json:"source"`
+	Endpoint      string `json:"endpoint"`
+	ErrorName     string `json:"error_name"`
+	StackTrace    string `json:"stack_trace"`
+	CreatedAt     string `json:"created_at"`
+	LinkedIssueID string `json:"linked_issue_id,omitempty"`
 }
 
 type SlowQueryItem struct {

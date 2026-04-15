@@ -2694,6 +2694,7 @@ export interface components {
             screenshot_ids?: number[] | null;
             slug: string;
             source?: string;
+            source_error_id?: number;
             title?: string;
             url?: string;
         };
@@ -3512,6 +3513,7 @@ export interface components {
             error_name: string;
             /** Format: int64 */
             id: number;
+            linked_issue_id?: string;
             source: string;
             stack_trace: string;
         };

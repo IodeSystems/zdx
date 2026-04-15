@@ -130,6 +130,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				ScreenshotIDs []int32  `json:"screenshot_ids,omitempty"`
 				AutoReady     bool     `json:"auto_ready,omitempty"`
 				URL           *string  `json:"url,omitempty"`
+				SourceErrorID *int64   `json:"source_error_id,omitempty"`
 			}
 		}) (*struct {
 			Body struct {
@@ -169,6 +170,9 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			}
 			if in.Body.URL != nil {
 				params.Url = *in.Body.URL
+			}
+			if in.Body.SourceErrorID != nil {
+				params.SourceErrorID = pgtype.Int8{Int64: *in.Body.SourceErrorID, Valid: true}
 			}
 
 			issueText := params.Title + " " + params.Context
