@@ -1,0 +1,1 @@
+-- Data cleanup migration; down is a no-op (deleted rows cannot be restored).
