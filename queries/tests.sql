@@ -23,6 +23,10 @@ RETURNING id, project_id, component, name, layer, status, duration_ms, last_run_
 SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = @project_id AND component = @component AND name = @name;
 
+-- name: GetTestByID :one
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+FROM zdx_tests WHERE project_id = @project_id AND id = @id;
+
 -- name: ListTests :many
 SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 ORDER BY component, name;

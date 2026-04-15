@@ -41,6 +41,22 @@ func (q *Queries) AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTa
 	return err
 }
 
+const attachCodeRefToTest = `-- name: AttachCodeRefToTest :exec
+INSERT INTO zdx_test_code_refs (test_id, code_ref_id)
+VALUES ($1, $2)
+ON CONFLICT (test_id, code_ref_id) DO NOTHING
+`
+
+type AttachCodeRefToTestParams struct {
+	TestID    int32 `db:"test_id" json:"test_id"`
+	CodeRefID int32 `db:"code_ref_id" json:"code_ref_id"`
+}
+
+func (q *Queries) AttachCodeRefToTest(ctx context.Context, arg AttachCodeRefToTestParams) error {
+	_, err := q.db.Exec(ctx, attachCodeRefToTest, arg.TestID, arg.CodeRefID)
+	return err
+}
+
 const createCodeRef = `-- name: CreateCodeRef :one
 INSERT INTO zdx_code_refs (project_id, file_path, git_hash, line_start, line_end, note)
 VALUES ($1, $2, $3, $4, $5, $6)
@@ -121,6 +137,20 @@ func (q *Queries) DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFr
 	return err
 }
 
+const detachCodeRefFromTest = `-- name: DetachCodeRefFromTest :exec
+DELETE FROM zdx_test_code_refs WHERE test_id = $1 AND code_ref_id = $2
+`
+
+type DetachCodeRefFromTestParams struct {
+	TestID    int32 `db:"test_id" json:"test_id"`
+	CodeRefID int32 `db:"code_ref_id" json:"code_ref_id"`
+}
+
+func (q *Queries) DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error {
+	_, err := q.db.Exec(ctx, detachCodeRefFromTest, arg.TestID, arg.CodeRefID)
+	return err
+}
+
 const getCodeRef = `-- name: GetCodeRef :one
 SELECT id, project_id, file_path, git_hash, line_start, line_end, note, created_at
 FROM zdx_code_refs
@@ -195,6 +225,43 @@ ORDER BY r.created_at
 
 func (q *Queries) ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error) {
 	rows, err := q.db.Query(ctx, listCodeRefsByTask, taskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxCodeRef
+	for rows.Next() {
+		var i ZdxCodeRef
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.FilePath,
+			&i.GitHash,
+			&i.LineStart,
+			&i.LineEnd,
+			&i.Note,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listCodeRefsByTest = `-- name: ListCodeRefsByTest :many
+SELECT r.id, r.project_id, r.file_path, r.git_hash, r.line_start, r.line_end, r.note, r.created_at
+FROM zdx_code_refs r
+JOIN zdx_test_code_refs tr ON tr.code_ref_id = r.id
+WHERE tr.test_id = $1
+ORDER BY r.created_at
+`
+
+func (q *Queries) ListCodeRefsByTest(ctx context.Context, testID int32) ([]ZdxCodeRef, error) {
+	rows, err := q.db.Query(ctx, listCodeRefsByTest, testID)
 	if err != nil {
 		return nil, err
 	}

@@ -270,6 +270,32 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}{History: out}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "get-test", Method: http.MethodGet, Path: "/api/dx/tests/detail"},
+		func(ctx context.Context, in *struct {
+			Slug   string `query:"slug" required:"true"`
+			TestID int32  `query:"test_id" required:"true"`
+		}) (*struct {
+			Body TestItem
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			t, err := s.q.GetTestByID(ctx, db.GetTestByIDParams{ProjectID: p.ID, ID: in.TestID})
+			if err != nil {
+				return nil, apiErr(404, "test not found")
+			}
+			var lastRunAt *string
+			if t.LastRunAt.Valid {
+				s := t.LastRunAt.Time.Format("2006-01-02T15:04:05Z07:00")
+				lastRunAt = &s
+			}
+			return &struct{ Body TestItem }{Body: TestItem{
+				ID: t.ID, Component: t.Component, Name: t.Name, Layer: t.Layer,
+				Status: t.Status, DurationMs: t.DurationMs, LastRunAt: lastRunAt,
+			}}, nil
+		})
+
 	// ── Journal ───────────────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "journal-checkin", Method: http.MethodPost, Path: "/api/dx/journal/checkin"},

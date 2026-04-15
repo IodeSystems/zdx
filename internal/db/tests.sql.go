@@ -73,6 +73,45 @@ func (q *Queries) GetTest(ctx context.Context, arg GetTestParams) (GetTestRow, e
 	return i, err
 }
 
+const getTestByID = `-- name: GetTestByID :one
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+FROM zdx_tests WHERE project_id = $1 AND id = $2
+`
+
+type GetTestByIDParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	ID        int32 `db:"id" json:"id"`
+}
+
+type GetTestByIDRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Component  string             `db:"component" json:"component"`
+	Name       string             `db:"name" json:"name"`
+	Layer      string             `db:"layer" json:"layer"`
+	Status     string             `db:"status" json:"status"`
+	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
+	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetTestByID(ctx context.Context, arg GetTestByIDParams) (GetTestByIDRow, error) {
+	row := q.db.QueryRow(ctx, getTestByID, arg.ProjectID, arg.ID)
+	var i GetTestByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Component,
+		&i.Name,
+		&i.Layer,
+		&i.Status,
+		&i.DurationMs,
+		&i.LastRunAt,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertTestResultHistory = `-- name: InsertTestResultHistory :exec
 INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, status, duration_ms)
 VALUES ($1, $2, $3, $4, $5, $6)

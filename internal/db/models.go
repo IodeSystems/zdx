@@ -476,6 +476,11 @@ type ZdxTest struct {
 	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
 }
 
+type ZdxTestCodeRef struct {
+	TestID    int32 `db:"test_id" json:"test_id"`
+	CodeRefID int32 `db:"code_ref_id" json:"code_ref_id"`
+}
+
 type ZdxTestResult struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`

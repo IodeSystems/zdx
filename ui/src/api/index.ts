@@ -1555,6 +1555,28 @@ export const useTests = (slug: string, limit?: number, offset?: number) =>
     enabled: !!slug,
   })
 
+export const useTest = (slug: string, testId: number) =>
+  useQuery<TestItem>({
+    queryKey: ['test', slug, testId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ slug, test_id: String(testId) })
+      return apiFetch<TestItem>(`/api/dx/tests/detail?${params}`)
+    },
+    enabled: !!slug && testId > 0,
+  })
+
+export const useTestCodeRefs = (slug: string, testId: number) =>
+  useQuery<CodeRefItem[]>({
+    queryKey: ['code-refs', 'test', slug, testId],
+    queryFn: async () => {
+      const res = await apiFetch<{ refs: CodeRefItem[] }>(
+        `/api/dx/code-refs/test?slug=${encodeURIComponent(slug)}&test_id=${testId}`
+      )
+      return res.refs ?? []
+    },
+    enabled: !!slug && testId > 0,
+  })
+
 export const useTestHistory = (slug: string, testName: string, enabled: boolean) =>
   useQuery<{ history: TestHistoryItem[] }>({
     queryKey: ['test-history', slug, testName],
