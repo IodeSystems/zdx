@@ -27,6 +27,10 @@ func (s *Server) publishTask(slug string, taskID string, eventType string, paylo
 	s.publish(fmt.Sprintf("task:%s", taskID), eventType, payload)
 }
 
+func (s *Server) publishClaudeEvent(slug string, sessionID string, eventType string, payload any) {
+	s.publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
+}
+
 func (s *Server) registerWSRoutes(api huma.API) {
 	if !s.IsWSEnabled() {
 		return

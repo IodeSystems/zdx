@@ -1,6 +1,7 @@
 package server
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -300,6 +301,10 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 
 	// Ingest endpoint: accepts JSONL body, creates session + events in one call.
 	s.mux.Post("/api/dx/claude/sessions/ingest", s.handleClaudeSessionIngest)
+
+	// Streaming ingest: reads JSONL line-by-line, inserts events incrementally,
+	// and publishes each event to WebSocket for real-time UI updates.
+	s.mux.Post("/api/dx/claude/sessions/ingest/stream", s.handleClaudeSessionIngestStream)
 }
 
 // ── Claude session ingest ─────────────────────────────────────────────────
@@ -430,6 +435,144 @@ func (s *Server) handleClaudeSessionIngest(w http.ResponseWriter, r *http.Reques
 
 	if !isSidechain {
 		go s.summarizeSessionAsync(p.ID, sessionPK, lines)
+	}
+}
+
+// ── Claude session streaming ingest ──────────────────────────────────────
+
+func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	slug := r.URL.Query().Get("slug")
+	sessionUUID := r.URL.Query().Get("session_id")
+	issueID := r.URL.Query().Get("issue_id")
+	alias := r.URL.Query().Get("alias")
+	agentID := r.URL.Query().Get("agent_id")
+	agentType := r.URL.Query().Get("agent_type")
+	agentDesc := r.URL.Query().Get("agent_description")
+	isSidechain := agentID != ""
+
+	if slug == "" || sessionUUID == "" {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"slug and session_id required"}`, http.StatusBadRequest)
+		return
+	}
+
+	p, err := s.q.GetProjectBySlug(ctx, slug)
+	if err != nil {
+		http.Error(w, `{"title":"Not Found","status":404,"detail":"project not found"}`, http.StatusNotFound)
+		return
+	}
+
+	var sessionPK int64
+	var sessionID string
+	sessionCreated := false
+
+	scanner := bufio.NewScanner(r.Body)
+	scanner.Buffer(make([]byte, 1<<20), 1<<20) // 1 MB max line size
+	seq := int32(0)
+	var allLines []string
+
+	for scanner.Scan() {
+		line := scanner.Text()
+		if strings.TrimSpace(line) == "" {
+			continue
+		}
+
+		if !sessionCreated {
+			title := ""
+			var ev map[string]any
+			if json.Unmarshal([]byte(line), &ev) == nil {
+				if ev["type"] == "ai-title" {
+					if msg, ok := ev["message"].(map[string]any); ok {
+						if t, ok := msg["content"].(string); ok {
+							title = t
+						}
+					}
+					if t, ok := ev["title"].(string); ok && title == "" {
+						title = t
+					}
+				}
+			}
+
+			sess, createErr := s.q.CreateClaudeSession(ctx, db.CreateClaudeSessionParams{
+				ProjectID: p.ID,
+				IssueID:   issueID,
+				SessionID: sessionUUID,
+				Title:     title,
+				Alias:     alias,
+			})
+			if createErr != nil {
+				if strings.Contains(createErr.Error(), "duplicate key") {
+					existing, lookupErr := s.q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
+						ProjectID: p.ID,
+						SessionID: sessionUUID,
+					})
+					if lookupErr != nil {
+						http.Error(w, `{"title":"Conflict","status":409,"detail":"session already exists"}`, http.StatusConflict)
+						return
+					}
+					sessionPK = existing.ID
+					sessionID = existing.SessionID
+					cnt, cntErr := s.q.CountClaudeEvents(ctx, sessionPK)
+					if cntErr == nil {
+						seq = int32(cnt)
+					}
+				} else {
+					http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+					return
+				}
+			} else {
+				sessionPK = sess.ID
+				sessionID = sess.SessionID
+			}
+			sessionCreated = true
+		}
+
+		var ev map[string]any
+		eventType := ""
+		if json.Unmarshal([]byte(line), &ev) == nil {
+			if t, ok := ev["type"].(string); ok {
+				eventType = t
+			}
+		}
+
+		_ = s.q.CreateClaudeEvent(ctx, db.CreateClaudeEventParams{
+			SessionPk:        sessionPK,
+			Seq:              seq,
+			EventType:        eventType,
+			EventJson:        []byte(line),
+			AgentID:          agentID,
+			IsSidechain:      isSidechain,
+			AgentType:        agentType,
+			AgentDescription: agentDesc,
+		})
+
+		s.publishClaudeEvent(slug, sessionID, "claude.event", map[string]any{
+			"session_id": sessionID,
+			"session_pk": sessionPK,
+			"seq":        seq,
+			"event_type": eventType,
+			"event_json": ev,
+		})
+
+		allLines = append(allLines, line)
+		seq++
+	}
+
+	if !sessionCreated {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"empty body"}`, http.StatusBadRequest)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(map[string]any{
+		"id":         sessionPK,
+		"session_id": sessionID,
+		"events":     seq,
+	})
+
+	if !isSidechain {
+		go s.summarizeSessionAsync(p.ID, sessionPK, allLines)
 	}
 }
 

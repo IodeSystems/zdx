@@ -25,6 +25,31 @@ log() {
   printf '[%s] %s\n' "$(date -Iseconds)" "$*" | tee -a "$LOG"
 }
 
+stream_session_start() {
+  local sid="$1" sfile="$2" issue_id="$3"
+  if [[ -z "$ZDX_URL" || -z "$ZDX_SLUG" || -z "$ZDX_KEY" ]]; then
+    return
+  fi
+  local url="${ZDX_URL}/api/dx/claude/sessions/ingest/stream?slug=${ZDX_SLUG}&session_id=${sid}&issue_id=${issue_id}&alias=${ALIAS}"
+  tail -f "$sfile" 2>/dev/null | curl -s -o /dev/null -w '' \
+    -X POST \
+    -H "X-Api-Key: ${ZDX_KEY}" \
+    -H "Content-Type: application/x-ndjson" \
+    -T - \
+    "$url" &
+  STREAM_CURL_PID=$!
+  log "stream: started (pid=$STREAM_CURL_PID)"
+}
+
+stream_session_stop() {
+  if [[ -n "${STREAM_CURL_PID:-}" ]]; then
+    kill "$STREAM_CURL_PID" 2>/dev/null
+    wait "$STREAM_CURL_PID" 2>/dev/null
+    log "stream: stopped"
+    STREAM_CURL_PID=""
+  fi
+}
+
 upload_session() {
   local sid="$1" sfile="$2" issue_id="$3"
   if [[ -z "$ZDX_URL" || -z "$ZDX_SLUG" || -z "$ZDX_KEY" ]]; then
@@ -174,6 +199,10 @@ while true; do
   bin/claude-work-render < "$render_fifo" | tee -a "$LOG" &
   render_pid=$!
 
+  # Start streaming events to server for real-time WebSocket updates.
+  touch "$sfile"
+  stream_session_start "$sid" "$sfile" "${issue_id:-}"
+
   if [[ "$resumed" == true ]]; then
     claude --dangerously-skip-permissions --chrome \
       --resume "$prev_sid" --fork-session --session-id "$sid" -p /work
@@ -187,6 +216,9 @@ while true; do
   wait "$tail_pid" 2>/dev/null
   wait "$render_pid" 2>/dev/null
   rm -f "$render_fifo"
+
+  # Stop streaming — batch upload below catches any missed events.
+  stream_session_stop
 
   # Session summary
   end_time="$(date -Iseconds)"

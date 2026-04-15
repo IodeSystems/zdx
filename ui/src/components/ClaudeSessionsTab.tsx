@@ -1,4 +1,4 @@
-import { useState, useRef, useMemo, useEffect } from 'react'
+import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import {
   Box,
   Chip,
@@ -31,6 +31,7 @@ import {
   type ClaudeEventItem,
   type AgentTokenUsage,
 } from '../api'
+import { useChannel } from '../hooks/useChannel'
 import { fmtDate } from '../utils/date'
 
 const EVENT_COLORS: Record<string, string> = {
@@ -446,6 +447,7 @@ export function SessionDetail({
 }) {
   const sentinelRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
+  const [liveEvents, setLiveEvents] = useState<ClaudeEventItem[]>([])
 
   const { data: session } = useClaudeSession(slug, sessionId)
   const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } =
@@ -453,11 +455,46 @@ export function SessionDetail({
   const { data: tokenUsage } = useClaudeSessionTokenUsage(slug, sessionId)
   const { data: agentUsage } = useClaudeSessionTokenUsageByAgent(slug, sessionId)
 
-  const allEvents = useMemo(
-    () => data?.pages.flatMap((p) => p.events) ?? [],
-    [data]
-  )
-  const total = data?.pages[0]?.total ?? 0
+  const wsChannel = session?.session_id ? `project:${slug}:claude:${session.session_id}` : null
+
+  const onWsMessage = useCallback((msg: { type: string; payload: unknown }) => {
+    if (msg.type !== 'claude.event') return
+    const p = msg.payload as { seq: number; event_type: string; event_json: Record<string, unknown>; session_pk: number }
+    const newEvent: ClaudeEventItem = {
+      id: -(p.seq + 1),
+      seq: p.seq,
+      event_type: p.event_type,
+      event_json: p.event_json,
+      created_at: new Date().toISOString(),
+    }
+    setLiveEvents((prev) => {
+      if (prev.some((e) => e.seq === p.seq)) return prev
+      return [...prev, newEvent]
+    })
+  }, [])
+
+  useChannel(wsChannel, onWsMessage)
+
+  useEffect(() => {
+    if (liveEvents.length > 0) {
+      const el = containerRef.current
+      if (el) {
+        const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200
+        if (isNearBottom) {
+          requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }))
+        }
+      }
+    }
+  }, [liveEvents.length])
+
+  const allEvents = useMemo(() => {
+    const fetched = data?.pages.flatMap((p) => p.events) ?? []
+    const fetchedSeqs = new Set(fetched.map((e) => e.seq))
+    const newLive = liveEvents.filter((e) => !fetchedSeqs.has(e.seq))
+    return [...fetched, ...newLive]
+  }, [data, liveEvents])
+  const total = (data?.pages[0]?.total ?? 0) + liveEvents.filter((e) => e.id < 0).length
+  const isLive = liveEvents.length > 0
   const toolDurations = useMemo(() => buildToolDurations(allEvents), [allEvents])
   const { resultMap: toolResultMap, toolResultEventIds } = useMemo(() => buildToolResultMap(allEvents), [allEvents])
   const visibleEvents = useMemo(() => allEvents.filter((e) => !toolResultEventIds.has(e.id)), [allEvents, toolResultEventIds])
@@ -512,6 +549,24 @@ export function SessionDetail({
         <Typography variant="caption" color="text.secondary">
           {allEvents.length} / {total} events
         </Typography>
+        {isLive && (
+          <Chip
+            label="LIVE"
+            size="small"
+            sx={{
+              height: 20,
+              fontSize: '0.65rem',
+              fontWeight: 700,
+              bgcolor: '#f44336',
+              color: '#fff',
+              animation: 'pulse 1.5s ease-in-out infinite',
+              '@keyframes pulse': {
+                '0%, 100%': { opacity: 1 },
+                '50%': { opacity: 0.6 },
+              },
+            }}
+          />
+        )}
       </Box>
       {(session?.header || session?.summary) && (
         <Box sx={{ mb: 1, p: 1.5, bgcolor: 'action.hover', borderRadius: 1, border: 1, borderColor: 'divider' }}>
