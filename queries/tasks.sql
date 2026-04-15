@@ -182,3 +182,12 @@ ORDER BY completed_at ASC;
 -- name: GetTaskWithReview :one
 SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1;
+
+-- name: GetTaskByExactText :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+FROM zdx_tasks
+WHERE project_id = @project_id
+  AND text = @text
+  AND status IN ('pending', 'active', 'wip', 'done')
+  AND (@issue::text = '' OR issue = @issue)
+ORDER BY created_at DESC;

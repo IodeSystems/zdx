@@ -145,17 +145,36 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				Depends   *string `json:"depends,omitempty"`
 				TaskGroup *string `json:"task_group,omitempty"`
 				AutoReady bool    `json:"auto_ready,omitempty"`
+				Force     bool    `json:"force,omitempty"`
 			}
 		}) (*struct {
 			Body struct {
 				TaskItem
-				Similar []SimilarTaskItem `json:"similar,omitempty"`
+				Similar          []SimilarTaskItem `json:"similar,omitempty"`
+				DuplicateBlocked bool              `json:"duplicate_blocked,omitempty"`
 			}
 		}, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
+
+			issueFilter := ""
+			if in.Body.Issue != nil {
+				issueFilter = *in.Body.Issue
+			}
+
+			if !in.Body.Force {
+				exactMatches, err := s.q.GetTaskByExactText(ctx, db.GetTaskByExactTextParams{
+					ProjectID: p.ID,
+					Text:      in.Body.Text,
+					Issue:     issueFilter,
+				})
+				if err == nil && len(exactMatches) > 0 {
+					return nil, apiErr(409, "exact duplicate task already exists: "+exactMatches[0].ID+" ("+exactMatches[0].Status+")")
+				}
+			}
+
 			id, err := s.q.NextTaskID(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -166,8 +185,31 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}
 
 			var similar []SimilarTaskItem
-			if !in.Body.AutoReady {
+			var duplicateBlocked bool
+			if !in.Body.AutoReady && !in.Body.Force {
 				similar, _ = s.findSimilarTasks(ctx, p.ID, in.Body.Text, 5)
+				if issueFilter != "" {
+					for _, s := range similar {
+						if s.Issue == issueFilter && s.Score > 0.85 {
+							duplicateBlocked = true
+							break
+						}
+					}
+				}
+			}
+
+			if duplicateBlocked {
+				return &struct {
+					Body struct {
+						TaskItem
+						Similar          []SimilarTaskItem `json:"similar,omitempty"`
+						DuplicateBlocked bool              `json:"duplicate_blocked,omitempty"`
+					}
+				}{Body: struct {
+					TaskItem
+					Similar          []SimilarTaskItem `json:"similar,omitempty"`
+					DuplicateBlocked bool              `json:"duplicate_blocked,omitempty"`
+				}{Similar: similar, DuplicateBlocked: true}}, nil
 			}
 
 			row, err := s.q.CreateTask(ctx, db.CreateTaskParams{
@@ -187,11 +229,13 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					TaskItem
-					Similar []SimilarTaskItem `json:"similar,omitempty"`
+					Similar          []SimilarTaskItem `json:"similar,omitempty"`
+					DuplicateBlocked bool              `json:"duplicate_blocked,omitempty"`
 				}
 			}{Body: struct {
 				TaskItem
-				Similar []SimilarTaskItem `json:"similar,omitempty"`
+				Similar          []SimilarTaskItem `json:"similar,omitempty"`
+				DuplicateBlocked bool              `json:"duplicate_blocked,omitempty"`
 			}{TaskItem: item, Similar: similar}}, nil
 		})
 

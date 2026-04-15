@@ -326,6 +326,74 @@ func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
 	return i, err
 }
 
+const getTaskByExactText = `-- name: GetTaskByExactText :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+FROM zdx_tasks
+WHERE project_id = $1
+  AND text = $2
+  AND status IN ('pending', 'active', 'wip', 'done')
+  AND ($3::text = '' OR issue = $3)
+ORDER BY created_at DESC
+`
+
+type GetTaskByExactTextParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Text      string `db:"text" json:"text"`
+	Issue     string `db:"issue" json:"issue"`
+}
+
+type GetTaskByExactTextRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) GetTaskByExactText(ctx context.Context, arg GetTaskByExactTextParams) ([]GetTaskByExactTextRow, error) {
+	rows, err := q.db.Query(ctx, getTaskByExactText, arg.ProjectID, arg.Text, arg.Issue)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetTaskByExactTextRow
+	for rows.Next() {
+		var i GetTaskByExactTextRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.TaskGroup,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTaskWithReview = `-- name: GetTaskWithReview :one
 SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1

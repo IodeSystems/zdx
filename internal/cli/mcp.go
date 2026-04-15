@@ -431,22 +431,35 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		Issue     string `json:"issue,omitempty" jsonschema:"link to issue (IS-N)"`
 		Feature   string `json:"feature,omitempty" jsonschema:"link to feature name"`
 		TaskGroup string `json:"task_group,omitempty" jsonschema:"logical task group name for batch branch workflows"`
+		Force     bool   `json:"force,omitempty" jsonschema:"bypass duplicate detection"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "todo_tech_add",
 		Description: "Add a task to an issue or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoTechAddInput) (*mcp.CallToolResult, any, error) {
-		var t taskItem
+		var resp taskAddResponse
 		if err := c.post("/api/dx/todo/tech/add", map[string]any{
 			"slug":       slug,
 			"text":       in.Text,
 			"feature":    in.Feature,
 			"issue":      in.Issue,
 			"task_group": in.TaskGroup,
-		}, &t); err != nil {
+			"force":      in.Force,
+		}, &resp); err != nil {
 			return nil, nil, err
 		}
-		return nil, t, nil
+		if resp.DuplicateBlocked {
+			return nil, map[string]any{
+				"duplicate_blocked": true,
+				"similar":           resp.Similar,
+				"message":           "near-duplicate tasks found (>85% similarity); re-run with force=true to override",
+			}, nil
+		}
+		result := map[string]any{"task": resp.taskItem}
+		if len(resp.Similar) > 0 {
+			result["similar"] = resp.Similar
+		}
+		return nil, result, nil
 	})
 
 	// ── feature tools ────────────────────────────────────────────────────────

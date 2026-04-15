@@ -114,7 +114,8 @@ type issueAddResponse struct {
 
 type taskAddResponse struct {
 	taskItem
-	Similar []similarTaskItem `json:"similar,omitempty"`
+	Similar          []similarTaskItem `json:"similar,omitempty"`
+	DuplicateBlocked bool              `json:"duplicate_blocked,omitempty"`
 }
 
 type taskItem struct {
@@ -1246,7 +1247,7 @@ func todoTechCmd() *cobra.Command {
 
 func todoTechAddCmd() *cobra.Command {
 	var issue, feature, text, taskGroup string
-	var autoReady bool
+	var autoReady, force bool
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a task",
@@ -1260,8 +1261,17 @@ func todoTechAddCmd() *cobra.Command {
 				"issue":      issue,
 				"task_group": taskGroup,
 				"auto_ready": autoReady,
+				"force":      force,
 			}, &resp); err != nil {
 				return err
+			}
+			if resp.DuplicateBlocked {
+				fmt.Println("Blocked: near-duplicate tasks found on the same issue (>85% similarity):")
+				for _, s := range resp.Similar {
+					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.ID, s.Score*100, s.Text, s.Status)
+				}
+				fmt.Println("\nTo create anyway, re-run with --force")
+				return fmt.Errorf("duplicate blocked")
 			}
 			fmt.Printf("%s  %s\n", taskIDStr(resp.ID), resp.Text)
 			if !autoReady && len(resp.Similar) > 0 {
@@ -1289,6 +1299,7 @@ func todoTechAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&text, "text", "", "task description")
 	cmd.Flags().StringVar(&taskGroup, "task-group", "", "logical task group name")
 	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as pending")
+	cmd.Flags().BoolVar(&force, "force", false, "bypass duplicate detection")
 	cmd.MarkFlagRequired("text")
 	return cmd
 }
