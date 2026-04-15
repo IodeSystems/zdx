@@ -80,7 +80,7 @@ type Querier interface {
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
-	DeferSpec(ctx context.Context, id int32) error
+	DeferSpec(ctx context.Context, arg DeferSpecParams) error
 	DeleteAgent(ctx context.Context, id string) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
@@ -139,6 +139,7 @@ type Querier interface {
 	GetProjectGoal(ctx context.Context, id int32) (ZdxProjectGoal, error)
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetQuestionProposal(ctx context.Context, arg GetQuestionProposalParams) (ZdxQuestionProposal, error)
+	GetSpec(ctx context.Context, id int32) (ZdxSpec, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetTask(ctx context.Context, id string) (GetTaskRow, error)
 	GetTaskWithReview(ctx context.Context, id string) (GetTaskWithReviewRow, error)
@@ -165,6 +166,7 @@ type Querier interface {
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
 	LinkGoalIssue(ctx context.Context, arg LinkGoalIssueParams) error
+	LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
 	ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error)
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
@@ -204,6 +206,7 @@ type Querier interface {
 	ListIssueBlockers(ctx context.Context, issueID string) ([]string, error)
 	ListIssueGoals(ctx context.Context, issueID string) ([]ZdxProjectGoal, error)
 	ListIssueResolutions(ctx context.Context, issueID string) ([]ZdxIssueResolution, error)
+	ListIssueSpecs(ctx context.Context, issueID string) ([]ListIssueSpecsRow, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesBlockedBy(ctx context.Context, blockedByID string) ([]string, error)
 	ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error)
@@ -228,6 +231,7 @@ type Querier interface {
 	ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ZdxRevision, error)
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	ListSlowQueriesPaginated(ctx context.Context, arg ListSlowQueriesPaginatedParams) ([]ZdxSlowQuery, error)
+	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
 	ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error)
 	// Used to show what breaks if a test is deleted.
 	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ListSpecsCoveredByTestRow, error)
@@ -304,6 +308,7 @@ type Querier interface {
 	TouchApiKey(ctx context.Context, id int32) error
 	UndeferSpec(ctx context.Context, id int32) error
 	UnlinkGoalIssue(ctx context.Context, arg UnlinkGoalIssueParams) error
+	UnlinkSpecIssue(ctx context.Context, arg UnlinkSpecIssueParams) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
 	UpdateAgentHeartbeat(ctx context.Context, id string) error
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error

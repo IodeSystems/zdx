@@ -5041,10 +5041,18 @@ export interface components {
         };
         SpecItem: {
             deferred: boolean;
+            deferred_reason: string;
             description: string;
             /** Format: int32 */
             id: number;
             kind: string;
+        };
+        SpecIssueItem: {
+            /** Format: int32 */
+            spec_id: number;
+            issue_id: string;
+            title: string;
+            status: string;
         };
         SpecTestItem: {
             component: string;

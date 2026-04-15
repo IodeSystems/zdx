@@ -1237,6 +1237,40 @@ export const useSpecTests = (specId: number, enabled = true) =>
     enabled: enabled && specId > 0,
   })
 
+export interface SpecIssueItem {
+  spec_id: number
+  issue_id: string
+  title: string
+  status: string
+}
+
+export interface SpecDetailResult {
+  spec: SpecItem
+  issues: SpecIssueItem[]
+}
+
+export const useSpecDetail = (specId: number, enabled = true) =>
+  useQuery<SpecDetailResult | null>({
+    queryKey: ['spec-detail', specId],
+    queryFn: async () => {
+      const res = await apiFetch<SpecDetailResult>(
+        `/api/dx/specs/detail?spec_id=${specId}`
+      )
+      return res
+    },
+    enabled: enabled && specId > 0,
+  })
+
+export const linkSpecIssue = (specId: number, issueId: string) =>
+  apiPost('/api/dx/specs/link-issue', { spec_id: specId, issue_id: issueId })
+
+
+export const deferSpec = (specId: number, reason: string) =>
+  apiPost('/api/dx/specs/defer', { spec_id: specId, reason })
+
+export const undeferSpec = (specId: number) =>
+  apiPost('/api/dx/specs/undefer', { spec_id: specId })
+
 // ── Demos ────────────────────────────────────────────────────────────────
 
 export interface DemoListItem {

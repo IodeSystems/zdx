@@ -168,10 +168,11 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "defer-spec", Method: http.MethodPost, Path: "/api/dx/specs/defer"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				SpecID int32 `json:"spec_id"`
+				SpecID int32  `json:"spec_id"`
+				Reason string `json:"reason"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.DeferSpec(ctx, in.Body.SpecID); err != nil {
+			if err := s.q.DeferSpec(ctx, db.DeferSpecParams{ID: in.Body.SpecID, Reason: in.Body.Reason}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -184,6 +185,70 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 			}
 		}) (*struct{ Body OKBody }, error) {
 			if err := s.q.UndeferSpec(ctx, in.Body.SpecID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "get-spec", Method: http.MethodGet, Path: "/api/dx/specs/detail"},
+		func(ctx context.Context, in *struct {
+			SpecID int32 `query:"spec_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Spec   SpecItem        `json:"spec"`
+				Issues []SpecIssueItem `json:"issues"`
+			}
+		}, error) {
+			spec, err := s.q.GetSpec(ctx, in.SpecID)
+			if err != nil {
+				return nil, apiErr(404, "spec not found")
+			}
+			issueRows, _ := s.q.ListSpecIssues(ctx, in.SpecID)
+			issues := make([]SpecIssueItem, len(issueRows))
+			for i, r := range issueRows {
+				issues[i] = SpecIssueItem{SpecID: r.SpecID, IssueID: r.IssueID, Title: r.Title, Status: r.Status}
+			}
+			return &struct {
+				Body struct {
+					Spec   SpecItem        `json:"spec"`
+					Issues []SpecIssueItem `json:"issues"`
+				}
+			}{Body: struct {
+				Spec   SpecItem        `json:"spec"`
+				Issues []SpecIssueItem `json:"issues"`
+			}{
+				Spec: SpecItem{
+					ID:             spec.ID,
+					Description:    spec.Description,
+					Kind:           spec.Kind,
+					Deferred:       spec.Deferred,
+					DeferredReason: spec.DeferredReason,
+				},
+				Issues: issues,
+			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "link-spec-issue", Method: http.MethodPost, Path: "/api/dx/specs/link-issue"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SpecID  int32  `json:"spec_id"`
+				IssueID string `json:"issue_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.LinkSpecIssue(ctx, db.LinkSpecIssueParams{SpecID: in.Body.SpecID, IssueID: in.Body.IssueID}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "unlink-spec-issue", Method: http.MethodPost, Path: "/api/dx/specs/unlink-issue"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SpecID  int32  `json:"spec_id"`
+				IssueID string `json:"issue_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.UnlinkSpecIssue(ctx, db.UnlinkSpecIssueParams{SpecID: in.Body.SpecID, IssueID: in.Body.IssueID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -414,10 +479,11 @@ func toFeatureItem(f db.ZdxFeature, specs []db.ZdxSpec) FeatureItem {
 	}
 	for i, sp := range specs {
 		item.Specs[i] = SpecItem{
-			ID:          sp.ID,
-			Description: sp.Description,
-			Kind:        sp.Kind,
-			Deferred:    sp.Deferred,
+			ID:             sp.ID,
+			Description:    sp.Description,
+			Kind:           sp.Kind,
+			Deferred:       sp.Deferred,
+			DeferredReason: sp.DeferredReason,
 		}
 	}
 	return item

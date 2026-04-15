@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type SchemaMigration struct {
+	Version int64 `db:"version" json:"version"`
+	Dirty   bool  `db:"dirty" json:"dirty"`
+}
+
 type ZdxAgent struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
@@ -462,11 +467,18 @@ type ZdxSlowQuery struct {
 }
 
 type ZdxSpec struct {
-	ID          int32  `db:"id" json:"id"`
-	FeatureID   int32  `db:"feature_id" json:"feature_id"`
-	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	Deferred    bool   `db:"deferred" json:"deferred"`
+	ID             int32  `db:"id" json:"id"`
+	FeatureID      int32  `db:"feature_id" json:"feature_id"`
+	Description    string `db:"description" json:"description"`
+	Kind           string `db:"kind" json:"kind"`
+	Deferred       bool   `db:"deferred" json:"deferred"`
+	DeferredReason string `db:"deferred_reason" json:"deferred_reason"`
+}
+
+type ZdxSpecIssue struct {
+	SpecID    int32              `db:"spec_id" json:"spec_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type ZdxSpecTest struct {

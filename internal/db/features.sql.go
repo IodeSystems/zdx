@@ -40,11 +40,16 @@ func (q *Queries) AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, e
 }
 
 const deferSpec = `-- name: DeferSpec :exec
-UPDATE zdx_specs SET deferred = true WHERE id = $1
+UPDATE zdx_specs SET deferred = true, deferred_reason = $1 WHERE id = $2
 `
 
-func (q *Queries) DeferSpec(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, deferSpec, id)
+type DeferSpecParams struct {
+	Reason string `db:"reason" json:"reason"`
+	ID     int32  `db:"id" json:"id"`
+}
+
+func (q *Queries) DeferSpec(ctx context.Context, arg DeferSpecParams) error {
+	_, err := q.db.Exec(ctx, deferSpec, arg.Reason, arg.ID)
 	return err
 }
 
@@ -105,6 +110,38 @@ func (q *Queries) GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPla
 	return i, err
 }
 
+const getSpec = `-- name: GetSpec :one
+SELECT id, feature_id, description, kind, deferred, deferred_reason FROM zdx_specs WHERE id = $1
+`
+
+func (q *Queries) GetSpec(ctx context.Context, id int32) (ZdxSpec, error) {
+	row := q.db.QueryRow(ctx, getSpec, id)
+	var i ZdxSpec
+	err := row.Scan(
+		&i.ID,
+		&i.FeatureID,
+		&i.Description,
+		&i.Kind,
+		&i.Deferred,
+		&i.DeferredReason,
+	)
+	return i, err
+}
+
+const linkSpecIssue = `-- name: LinkSpecIssue :exec
+INSERT INTO zdx_spec_issues (spec_id, issue_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type LinkSpecIssueParams struct {
+	SpecID  int32  `db:"spec_id" json:"spec_id"`
+	IssueID string `db:"issue_id" json:"issue_id"`
+}
+
+func (q *Queries) LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) error {
+	_, err := q.db.Exec(ctx, linkSpecIssue, arg.SpecID, arg.IssueID)
+	return err
+}
+
 const listFeatures = `-- name: ListFeatures :many
 SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
 FROM zdx_features WHERE project_id = $1 ORDER BY category, name
@@ -141,8 +178,90 @@ func (q *Queries) ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeatu
 	return items, nil
 }
 
+const listIssueSpecs = `-- name: ListIssueSpecs :many
+SELECT si.spec_id, si.issue_id, s.description, s.kind, s.deferred
+FROM zdx_spec_issues si
+JOIN zdx_specs s ON s.id = si.spec_id
+WHERE si.issue_id = $1
+ORDER BY si.spec_id
+`
+
+type ListIssueSpecsRow struct {
+	SpecID      int32  `db:"spec_id" json:"spec_id"`
+	IssueID     string `db:"issue_id" json:"issue_id"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+	Deferred    bool   `db:"deferred" json:"deferred"`
+}
+
+func (q *Queries) ListIssueSpecs(ctx context.Context, issueID string) ([]ListIssueSpecsRow, error) {
+	rows, err := q.db.Query(ctx, listIssueSpecs, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIssueSpecsRow
+	for rows.Next() {
+		var i ListIssueSpecsRow
+		if err := rows.Scan(
+			&i.SpecID,
+			&i.IssueID,
+			&i.Description,
+			&i.Kind,
+			&i.Deferred,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpecIssues = `-- name: ListSpecIssues :many
+SELECT si.spec_id, si.issue_id, i.title, i.status
+FROM zdx_spec_issues si
+JOIN zdx_issues i ON i.id = si.issue_id
+WHERE si.spec_id = $1
+ORDER BY si.created_at
+`
+
+type ListSpecIssuesRow struct {
+	SpecID  int32  `db:"spec_id" json:"spec_id"`
+	IssueID string `db:"issue_id" json:"issue_id"`
+	Title   string `db:"title" json:"title"`
+	Status  string `db:"status" json:"status"`
+}
+
+func (q *Queries) ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error) {
+	rows, err := q.db.Query(ctx, listSpecIssues, specID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSpecIssuesRow
+	for rows.Next() {
+		var i ListSpecIssuesRow
+		if err := rows.Scan(
+			&i.SpecID,
+			&i.IssueID,
+			&i.Title,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSpecs = `-- name: ListSpecs :many
-SELECT id, feature_id, description, kind, deferred FROM zdx_specs WHERE feature_id = $1 ORDER BY id
+SELECT id, feature_id, description, kind, deferred, deferred_reason FROM zdx_specs WHERE feature_id = $1 ORDER BY id
 `
 
 func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error) {
@@ -160,6 +279,7 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, er
 			&i.Description,
 			&i.Kind,
 			&i.Deferred,
+			&i.DeferredReason,
 		); err != nil {
 			return nil, err
 		}
@@ -172,7 +292,7 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, er
 }
 
 const listSpecsForProject = `-- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.deferred
+SELECT s.id, s.feature_id, s.description, s.kind, s.deferred, s.deferred_reason
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
@@ -194,6 +314,7 @@ func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]Z
 			&i.Description,
 			&i.Kind,
 			&i.Deferred,
+			&i.DeferredReason,
 		); err != nil {
 			return nil, err
 		}
@@ -312,11 +433,25 @@ func (q *Queries) MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReview
 }
 
 const undeferSpec = `-- name: UndeferSpec :exec
-UPDATE zdx_specs SET deferred = false WHERE id = $1
+UPDATE zdx_specs SET deferred = false, deferred_reason = '' WHERE id = $1
 `
 
 func (q *Queries) UndeferSpec(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, undeferSpec, id)
+	return err
+}
+
+const unlinkSpecIssue = `-- name: UnlinkSpecIssue :exec
+DELETE FROM zdx_spec_issues WHERE spec_id = $1 AND issue_id = $2
+`
+
+type UnlinkSpecIssueParams struct {
+	SpecID  int32  `db:"spec_id" json:"spec_id"`
+	IssueID string `db:"issue_id" json:"issue_id"`
+}
+
+func (q *Queries) UnlinkSpecIssue(ctx context.Context, arg UnlinkSpecIssueParams) error {
+	_, err := q.db.Exec(ctx, unlinkSpecIssue, arg.SpecID, arg.IssueID)
 	return err
 }
 

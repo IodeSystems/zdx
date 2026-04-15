@@ -48,8 +48,18 @@ function SpecRow({ spec, slug }: { spec: Spec; slug: string }) {
       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flex: 1 }}>
           <Chip label={spec.kind} size="small" variant="outlined" color="info" />
-          {spec.deferred && <Chip label="deferred" size="small" color="default" />}
-          <Typography variant="body2" sx={{ flex: 1 }}>{spec.description}</Typography>
+          {spec.deferred && <Chip label="deferred" size="small" color="warning" />}
+          {spec.deferred && spec.deferred_reason && (
+            <Chip label={spec.deferred_reason} size="small" variant="outlined" color="warning" sx={{ maxWidth: 200, overflow: 'hidden', textOverflow: 'ellipsis' }} />
+          )}
+          <Link
+            to="/project/$slug/specs/$specId"
+            params={{ slug, specId: String(spec.id) }}
+            style={{ textDecoration: 'none', color: 'inherit', flex: 1 }}
+            onClick={e => e.stopPropagation()}
+          >
+            <Typography variant="body2" sx={{ '&:hover': { textDecoration: 'underline' } }}>{spec.description}</Typography>
+          </Link>
         </Box>
       </AccordionSummary>
       <AccordionDetails sx={{ pt: 0 }}>

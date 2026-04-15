@@ -23,6 +23,16 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    version bigint NOT NULL,
+    dirty boolean NOT NULL
+);
+
+
+--
 -- Name: zdx_agents; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1350,6 +1360,17 @@ ALTER SEQUENCE public.zdx_slow_queries_id_seq OWNED BY public.zdx_slow_queries.i
 
 
 --
+-- Name: zdx_spec_issues; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_spec_issues (
+    spec_id integer NOT NULL,
+    issue_id text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: zdx_spec_tests; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1369,7 +1390,8 @@ CREATE TABLE public.zdx_specs (
     feature_id integer NOT NULL,
     description text NOT NULL,
     kind text DEFAULT 'must'::text NOT NULL,
-    deferred boolean DEFAULT false NOT NULL
+    deferred boolean DEFAULT false NOT NULL,
+    deferred_reason text DEFAULT ''::text NOT NULL
 );
 
 
@@ -2179,6 +2201,14 @@ ALTER TABLE ONLY public.zdx_work_log ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
 -- Name: zdx_agents zdx_agents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2651,6 +2681,14 @@ ALTER TABLE ONLY public.zdx_slow_queries
 
 
 --
+-- Name: zdx_spec_issues zdx_spec_issues_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_issues
+    ADD CONSTRAINT zdx_spec_issues_pkey PRIMARY KEY (spec_id, issue_id);
+
+
+--
 -- Name: zdx_spec_tests zdx_spec_tests_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3030,6 +3068,13 @@ CREATE INDEX idx_slow_queries_endpoint ON public.zdx_slow_queries USING btree (e
 --
 
 CREATE INDEX idx_slow_queries_sql_hash ON public.zdx_slow_queries USING btree (sql_hash);
+
+
+--
+-- Name: idx_spec_issues_issue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_spec_issues_issue ON public.zdx_spec_issues USING btree (issue_id);
 
 
 --
@@ -3619,6 +3664,22 @@ ALTER TABLE ONLY public.zdx_sessions
 
 ALTER TABLE ONLY public.zdx_slow_queries
     ADD CONSTRAINT zdx_slow_queries_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_spec_issues zdx_spec_issues_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_issues
+    ADD CONSTRAINT zdx_spec_issues_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_spec_issues zdx_spec_issues_spec_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_issues
+    ADD CONSTRAINT zdx_spec_issues_spec_id_fkey FOREIGN KEY (spec_id) REFERENCES public.zdx_specs(id) ON DELETE CASCADE;
 
 
 --

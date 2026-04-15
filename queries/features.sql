@@ -26,14 +26,17 @@ WHERE project_id = @project_id AND name = @name;
 DELETE FROM zdx_features WHERE id = $1;
 
 -- name: ListSpecs :many
-SELECT id, feature_id, description, kind, deferred FROM zdx_specs WHERE feature_id = $1 ORDER BY id;
+SELECT id, feature_id, description, kind, deferred, deferred_reason FROM zdx_specs WHERE feature_id = $1 ORDER BY id;
 
 -- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.deferred
+SELECT s.id, s.feature_id, s.description, s.kind, s.deferred, s.deferred_reason
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
 ORDER BY s.feature_id, s.id;
+
+-- name: GetSpec :one
+SELECT id, feature_id, description, kind, deferred, deferred_reason FROM zdx_specs WHERE id = $1;
 
 -- name: ListUncoveredSpecs :many
 -- Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
@@ -47,10 +50,30 @@ WHERE f.project_id = $1
 ORDER BY f.name, s.id;
 
 -- name: DeferSpec :exec
-UPDATE zdx_specs SET deferred = true WHERE id = $1;
+UPDATE zdx_specs SET deferred = true, deferred_reason = @reason WHERE id = @id;
 
 -- name: UndeferSpec :exec
-UPDATE zdx_specs SET deferred = false WHERE id = $1;
+UPDATE zdx_specs SET deferred = false, deferred_reason = '' WHERE id = $1;
+
+-- name: LinkSpecIssue :exec
+INSERT INTO zdx_spec_issues (spec_id, issue_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
+
+-- name: UnlinkSpecIssue :exec
+DELETE FROM zdx_spec_issues WHERE spec_id = $1 AND issue_id = $2;
+
+-- name: ListSpecIssues :many
+SELECT si.spec_id, si.issue_id, i.title, i.status
+FROM zdx_spec_issues si
+JOIN zdx_issues i ON i.id = si.issue_id
+WHERE si.spec_id = $1
+ORDER BY si.created_at;
+
+-- name: ListIssueSpecs :many
+SELECT si.spec_id, si.issue_id, s.description, s.kind, s.deferred
+FROM zdx_spec_issues si
+JOIN zdx_specs s ON s.id = si.spec_id
+WHERE si.issue_id = $1
+ORDER BY si.spec_id;
 
 -- name: MarkFeatureReviewed :exec
 UPDATE zdx_features SET last_reviewed_at = NOW()

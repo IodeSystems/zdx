@@ -85,10 +85,18 @@ type FeatureItem struct {
 }
 
 type SpecItem struct {
-	ID          int32  `json:"id"`
-	Description string `json:"description"`
-	Kind        string `json:"kind"`
-	Deferred    bool   `json:"deferred"`
+	ID             int32  `json:"id"`
+	Description    string `json:"description"`
+	Kind           string `json:"kind"`
+	Deferred       bool   `json:"deferred"`
+	DeferredReason string `json:"deferred_reason"`
+}
+
+type SpecIssueItem struct {
+	SpecID  int32  `json:"spec_id"`
+	IssueID string `json:"issue_id"`
+	Title   string `json:"title"`
+	Status  string `json:"status"`
 }
 
 type SpecTestItem struct {
