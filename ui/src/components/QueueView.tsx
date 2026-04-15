@@ -17,7 +17,7 @@ import {
   Switch,
   Typography,
 } from '@mui/material'
-import RefreshIcon from '@mui/icons-material/Refresh'
+import { Refresh as RefreshIcon } from '@mui/icons-material'
 import {
   useSolo,
   useBlockerQuestions,
