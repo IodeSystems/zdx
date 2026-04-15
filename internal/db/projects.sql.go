@@ -40,6 +40,26 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 	return i, err
 }
 
+const getProjectByID = `-- name: GetProjectByID :one
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE id = $1
+`
+
+func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, error) {
+	row := q.db.QueryRow(ctx, getProjectByID, id)
+	var i ZdxProject
+	err := row.Scan(
+		&i.ID,
+		&i.Slug,
+		&i.Name,
+		&i.CreatedAt,
+		&i.GitUrl,
+		&i.GitBranch,
+		&i.GitToken,
+		&i.Stage,
+	)
+	return i, err
+}
+
 const getProjectBySlug = `-- name: GetProjectBySlug :one
 SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE slug = $1
 `

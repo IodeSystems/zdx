@@ -53,6 +53,7 @@ import { useProjects, useMe, useLogout, useUnreadCount, useZdxConfig } from '../
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
 import { IssueReportFab } from '../components/IssueReportFab'
+import { ActivityFeed, ACTIVITY_PANEL_WIDTH } from '../components/ActivityFeed'
 import { useComponentFilter } from '../components/ComponentContext'
 import { useState, useCallback, type FormEvent } from 'react'
 
@@ -377,6 +378,10 @@ function AppShell() {
   const muiTheme = useTheme()
   const isMobile = useMediaQuery(muiTheme.breakpoints.down('md'))
   const [drawerOpen, setDrawerOpen] = useState(false)
+  const [activityOpen, setActivityOpen] = useState(false)
+  const matches = useMatches()
+  const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
+  const currentSlug = (projectMatch?.params as { slug?: string })?.slug
 
   const handleNavigate = isMobile ? () => setDrawerOpen(false) : undefined
   const drawerContent = (
@@ -445,12 +450,29 @@ function AppShell() {
         </Drawer>
       )}
 
-      <Box component="main" sx={{ flexGrow: 1, minWidth: 0, p: 3, overflowX: 'hidden' }}>
+      <Box
+        component="main"
+        sx={{
+          flexGrow: 1,
+          minWidth: 0,
+          p: 3,
+          overflowX: 'hidden',
+          transition: 'margin 225ms cubic-bezier(0, 0, 0.2, 1)',
+          ...(activityOpen && !isMobile ? { mr: `${ACTIVITY_PANEL_WIDTH}px` } : {}),
+        }}
+      >
         <Toolbar variant="dense" />
         <ErrorBoundary>
           <Outlet />
         </ErrorBoundary>
       </Box>
+      {currentSlug && (
+        <ActivityFeed
+          slug={currentSlug}
+          open={activityOpen}
+          onToggle={() => setActivityOpen(o => !o)}
+        />
+      )}
       <ReportFab />
     </Box>
   )

@@ -4,6 +4,9 @@ SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zd
 -- name: GetProjectBySlug :one
 SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE slug = $1;
 
+-- name: GetProjectByID :one
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE id = $1;
+
 -- name: CreateProject :one
 INSERT INTO zdx_projects (slug, name) VALUES ($1, $2)
 RETURNING id, slug, name, created_at;

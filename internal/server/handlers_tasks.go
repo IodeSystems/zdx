@@ -10,6 +10,18 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
+func (s *Server) publishTaskByID(ctx context.Context, id, eventType string, payload any) {
+	task, err := s.q.GetTask(ctx, id)
+	if err != nil {
+		return
+	}
+	p, err := s.q.GetProjectByID(ctx, task.ProjectID)
+	if err != nil {
+		return
+	}
+	s.publishTask(p.Slug, id, eventType, payload)
+}
+
 func (s *Server) registerTaskRoutes(api huma.API) {
 	type TasksSlugOutput = struct {
 		Body struct {
@@ -199,7 +211,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.publish(fmt.Sprintf("task:%s", id), "task.done", map[string]any{"id": id})
+			s.publishTaskByID(ctx, id, "task.done", map[string]any{"id": id})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -436,7 +448,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 					Author:     "reviewer",
 				})
 			}
-			s.publish(fmt.Sprintf("task:%s", id), "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict})
+			s.publishTask(p.Slug, id, "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 

@@ -120,6 +120,7 @@ type Querier interface {
 	GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (ZdxJournalEntry, error)
 	GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPlan, error)
+	GetProjectByID(ctx context.Context, id int32) (ZdxProject, error)
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
 	GetProjectConstraint(ctx context.Context, id int32) (ZdxProjectConstraint, error)
 	GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error)

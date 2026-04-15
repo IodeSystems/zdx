@@ -1,14 +1,17 @@
-import { useEffect, useRef, useCallback } from 'react'
+import { useEffect, useRef, useCallback, useLayoutEffect } from 'react'
 import { getToken } from '../api/client'
 
 type MessageHandler = (msg: { channel: string; type: string; payload: unknown }) => void
 
 const RECONNECT_DELAY = 2000
 
-let sharedSocket: WebSocket | null = null
-let subscriberCount = 0
-let reconnectTimer: ReturnType<typeof setTimeout> | null = null
-const handlers = new Map<string, Set<MessageHandler>>()
+type ChannelSocket = {
+  socket: WebSocket | null
+  handlers: Set<MessageHandler>
+  reconnectTimer: ReturnType<typeof setTimeout> | null
+}
+
+const channels = new Map<string, ChannelSocket>()
 
 function getWsUrl(token: string): string {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
@@ -28,41 +31,49 @@ async function signChannel(channel: string): Promise<string> {
   return data.token
 }
 
-function ensureConnection(token: string) {
-  if (sharedSocket && (sharedSocket.readyState === WebSocket.OPEN || sharedSocket.readyState === WebSocket.CONNECTING)) {
-    return
-  }
+function connectChannel(channel: string) {
+  const entry = channels.get(channel)
+  if (!entry || entry.handlers.size === 0) return
+  if (entry.socket && (entry.socket.readyState === WebSocket.OPEN || entry.socket.readyState === WebSocket.CONNECTING)) return
 
-  sharedSocket = new WebSocket(getWsUrl(token))
+  signChannel(channel).then(token => {
+    const currentEntry = channels.get(channel)
+    if (!currentEntry || currentEntry.handlers.size === 0) return
 
-  sharedSocket.onmessage = (ev) => {
-    try {
-      const msg = JSON.parse(ev.data)
-      const channelHandlers = handlers.get(msg.channel)
-      if (channelHandlers) {
-        channelHandlers.forEach((h) => h(msg))
-      }
-    } catch {
-      // ignore malformed messages
+    const ws = new WebSocket(getWsUrl(token))
+    currentEntry.socket = ws
+
+    ws.onmessage = (ev) => {
+      try {
+        const msg = JSON.parse(ev.data)
+        const e = channels.get(channel)
+        if (e) e.handlers.forEach(h => h(msg))
+      } catch { /* ignore malformed */ }
     }
-  }
 
-  sharedSocket.onclose = () => {
-    sharedSocket = null
-    if (subscriberCount > 0 && !reconnectTimer) {
-      reconnectTimer = setTimeout(() => {
-        reconnectTimer = null
-        if (subscriberCount > 0) {
-          signChannel([...handlers.keys()][0] || '').then(ensureConnection).catch(() => {})
+    ws.onclose = () => {
+      const e = channels.get(channel)
+      if (e) {
+        e.socket = null
+        if (e.handlers.size > 0 && !e.reconnectTimer) {
+          e.reconnectTimer = setTimeout(() => {
+            const e2 = channels.get(channel)
+            if (e2) {
+              e2.reconnectTimer = null
+              if (e2.handlers.size > 0) connectChannel(channel)
+            }
+          }, RECONNECT_DELAY)
         }
-      }, RECONNECT_DELAY)
+      }
     }
-  }
+  }).catch(() => {})
 }
 
 export function useChannel(channel: string | null, onMessage: MessageHandler) {
   const handlerRef = useRef(onMessage)
-  handlerRef.current = onMessage
+  useLayoutEffect(() => {
+    handlerRef.current = onMessage
+  })
 
   const stableHandler = useCallback((msg: { channel: string; type: string; payload: unknown }) => {
     handlerRef.current(msg)
@@ -71,30 +82,26 @@ export function useChannel(channel: string | null, onMessage: MessageHandler) {
   useEffect(() => {
     if (!channel) return
 
-    subscriberCount++
-    if (!handlers.has(channel)) {
-      handlers.set(channel, new Set())
+    if (!channels.has(channel)) {
+      channels.set(channel, { socket: null, handlers: new Set(), reconnectTimer: null })
     }
-    handlers.get(channel)!.add(stableHandler)
-
-    signChannel(channel)
-      .then(ensureConnection)
-      .catch(() => {})
+    const entry = channels.get(channel)!
+    entry.handlers.add(stableHandler)
+    connectChannel(channel)
 
     return () => {
-      const set = handlers.get(channel)
-      if (set) {
-        set.delete(stableHandler)
-        if (set.size === 0) handlers.delete(channel)
-      }
-      subscriberCount--
-      if (subscriberCount === 0) {
-        if (reconnectTimer) {
-          clearTimeout(reconnectTimer)
-          reconnectTimer = null
+      const e = channels.get(channel)
+      if (e) {
+        e.handlers.delete(stableHandler)
+        if (e.handlers.size === 0) {
+          if (e.reconnectTimer) {
+            clearTimeout(e.reconnectTimer)
+            e.reconnectTimer = null
+          }
+          e.socket?.close()
+          e.socket = null
+          channels.delete(channel)
         }
-        sharedSocket?.close()
-        sharedSocket = null
       }
     }
   }, [channel, stableHandler])
