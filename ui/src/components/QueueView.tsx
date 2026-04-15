@@ -1,70 +1,23 @@
-import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
-  Alert,
   Box,
-  Button,
   Chip,
   CircularProgress,
   Paper,
-  Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import {
   useSolo,
   useBlockerQuestions,
-  useAnswerBlockerQuestion,
   type SoloItem,
-  type BlockerQuestionItem,
 } from '../api'
 import { MarkdownContent } from './MarkdownContent'
+import { ChoiceAnswerForm } from './ChoiceAnswerForm'
 
 const KIND_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
   triage: 'error',
   plan: 'info',
   dev: 'warning',
-}
-
-function AnswerForm({ slug, question }: { slug: string; question: BlockerQuestionItem }) {
-  const answerMutation = useAnswerBlockerQuestion()
-  const [answer, setAnswer] = useState('')
-
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!answer.trim()) return
-    await answerMutation.mutateAsync({ slug, id: question.id, answer: answer.trim() })
-    setAnswer('')
-  }
-
-  return (
-    <Box component="form" onSubmit={submit} sx={{ mt: 1.5 }}>
-      <Stack spacing={1} direction="row" sx={{ alignItems: 'flex-start' }}>
-        <TextField
-          label="Answer"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          multiline
-          minRows={1}
-          size="small"
-          sx={{ flex: 1 }}
-        />
-        <Button
-          type="submit"
-          variant="contained"
-          size="small"
-          disabled={answerMutation.isPending || !answer.trim()}
-        >
-          {answerMutation.isPending ? 'Saving...' : 'Answer'}
-        </Button>
-      </Stack>
-      {answerMutation.isError && (
-        <Alert severity="error" sx={{ mt: 1 }}>
-          {(answerMutation.error as Error).message}
-        </Alert>
-      )}
-    </Box>
-  )
 }
 
 function targetLink(slug: string, targetType: string, targetId: string): { to: string; params: Record<string, string> } | null {
@@ -127,14 +80,7 @@ export function QueueView({ slug }: { slug: string }) {
                 </Typography>
               </Box>
               <MarkdownContent slug={slug} variant="body1">{q.context}</MarkdownContent>
-              {q.choices.length > 0 && (
-                <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
-                  {q.choices.map((c, i) => (
-                    <Chip key={i} label={c} size="small" variant="outlined" />
-                  ))}
-                </Box>
-              )}
-              <AnswerForm slug={slug} question={q} />
+              <ChoiceAnswerForm slug={slug} question={q} />
             </Paper>
           ))}
         </Box>

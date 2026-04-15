@@ -1,60 +1,13 @@
-import { useState } from 'react'
 import {
-  Alert,
   Box,
-  Button,
   Chip,
-  Stack,
-  TextField,
   Typography,
 } from '@mui/material'
 import {
   useBlockerQuestionsByTarget,
-  useAnswerBlockerQuestion,
-  type BlockerQuestionItem,
 } from '../api'
 import { MarkdownContent } from './MarkdownContent'
-
-function InlineAnswerForm({ slug, question }: { slug: string; question: BlockerQuestionItem }) {
-  const answerMutation = useAnswerBlockerQuestion()
-  const [answer, setAnswer] = useState('')
-
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!answer.trim()) return
-    await answerMutation.mutateAsync({ slug, id: question.id, answer: answer.trim() })
-    setAnswer('')
-  }
-
-  return (
-    <Box component="form" onSubmit={submit} sx={{ mt: 1 }}>
-      <Stack spacing={1} direction="row" sx={{ alignItems: 'flex-start' }}>
-        <TextField
-          label="Answer"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          multiline
-          minRows={1}
-          size="small"
-          sx={{ flex: 1 }}
-        />
-        <Button
-          type="submit"
-          variant="contained"
-          size="small"
-          disabled={answerMutation.isPending || !answer.trim()}
-        >
-          {answerMutation.isPending ? 'Saving...' : 'Answer'}
-        </Button>
-      </Stack>
-      {answerMutation.isError && (
-        <Alert severity="error" sx={{ mt: 1 }}>
-          {(answerMutation.error as Error).message}
-        </Alert>
-      )}
-    </Box>
-  )
-}
+import { ChoiceAnswerForm } from './ChoiceAnswerForm'
 
 export function BlockerQuestionsSection({
   slug,
@@ -86,13 +39,6 @@ export function BlockerQuestionsSection({
             />
           </Box>
           <MarkdownContent slug={slug}>{q.context}</MarkdownContent>
-          {q.choices.length > 0 && (
-            <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 0.5 }}>
-              {q.choices.map((c, i) => (
-                <Chip key={i} label={c} size="small" variant="outlined" />
-              ))}
-            </Box>
-          )}
           {q.answer ? (
             <Box sx={{ mt: 1, p: 1, bgcolor: 'action.hover', borderRadius: 1 }}>
               <MarkdownContent slug={slug}>{q.answer}</MarkdownContent>
@@ -103,7 +49,7 @@ export function BlockerQuestionsSection({
               )}
             </Box>
           ) : (
-            <InlineAnswerForm slug={slug} question={q} />
+            <ChoiceAnswerForm slug={slug} question={q} />
           )}
         </Box>
       ))}

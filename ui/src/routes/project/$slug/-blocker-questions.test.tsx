@@ -22,6 +22,7 @@ vi.mock('@tanstack/react-router', () => ({
     }
     return fn
   },
+  Link: (props: any) => <a href={props.to}>{props.children}</a>,
 }))
 
 import { useBlockerQuestions, useAnswerBlockerQuestion } from '../../../api'
@@ -88,7 +89,7 @@ describe('Blocker Questions UI', () => {
     expect(screen.getByText('Should we migrate?')).toBeInTheDocument()
     const input = screen.getByLabelText('Answer')
     fireEvent.change(input, { target: { value: 'Yes, migrate now' } })
-    fireEvent.click(screen.getByRole('button', { name: 'Answer' }))
+    fireEvent.click(screen.getByRole('button', { name: 'Submit Answer' }))
 
     await waitFor(() => {
       expect(mutateAsyncMock).toHaveBeenCalledWith({
@@ -122,7 +123,7 @@ describe('Blocker Questions UI', () => {
     })
   })
 
-  test('spec 7: choices appear as chips', async () => {
+  test('spec 7: choices appear as selectable panels', async () => {
     mockedUseBlockerQuestions.mockReturnValue({
       data: { questions: [makeBQ({ choices: ['postgres', 'sqlite', 'mysql'] })], total: 1 },
       isLoading: false,

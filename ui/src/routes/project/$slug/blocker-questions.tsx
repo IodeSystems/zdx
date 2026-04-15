@@ -1,65 +1,19 @@
 import { useState } from 'react'
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
-  Alert,
   Box,
-  Button,
   Chip,
   CircularProgress,
   Paper,
-  Stack,
-  TextField,
   ToggleButton,
   ToggleButtonGroup,
   Typography,
 } from '@mui/material'
 import {
   useBlockerQuestions,
-  useAnswerBlockerQuestion,
-  type BlockerQuestionItem,
 } from '../../../api'
 import { MarkdownContent } from '../../../components/MarkdownContent'
-
-function AnswerForm({ slug, question }: { slug: string; question: BlockerQuestionItem }) {
-  const answerMutation = useAnswerBlockerQuestion()
-  const [answer, setAnswer] = useState('')
-
-  const submit = async (e: React.FormEvent<HTMLFormElement>) => {
-    e.preventDefault()
-    if (!answer.trim()) return
-    await answerMutation.mutateAsync({ slug, id: question.id, answer: answer.trim() })
-    setAnswer('')
-  }
-
-  return (
-    <Box component="form" onSubmit={submit} sx={{ mt: 1.5 }}>
-      <Stack spacing={1} direction="row" sx={{ alignItems: 'flex-start' }}>
-        <TextField
-          label="Answer"
-          value={answer}
-          onChange={(e) => setAnswer(e.target.value)}
-          multiline
-          minRows={1}
-          size="small"
-          sx={{ flex: 1 }}
-        />
-        <Button
-          type="submit"
-          variant="contained"
-          size="small"
-          disabled={answerMutation.isPending || !answer.trim()}
-        >
-          {answerMutation.isPending ? 'Saving...' : 'Answer'}
-        </Button>
-      </Stack>
-      {answerMutation.isError && (
-        <Alert severity="error" sx={{ mt: 1 }}>
-          {(answerMutation.error as Error).message}
-        </Alert>
-      )}
-    </Box>
-  )
-}
+import { ChoiceAnswerForm } from '../../../components/ChoiceAnswerForm'
 
 function targetLink(slug: string, targetType: string, targetId: string): { to: string; params: Record<string, string> } | null {
   if (targetType === 'issue') return { to: '/project/$slug/issues/$id', params: { slug, id: targetId } }
@@ -129,13 +83,6 @@ function BlockerQuestionsPage() {
               </Typography>
             </Box>
             <MarkdownContent slug={slug} variant="body1">{item.context}</MarkdownContent>
-            {item.choices.length > 0 && (
-              <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', mt: 1 }}>
-                {item.choices.map((c, i) => (
-                  <Chip key={i} label={c} size="small" variant="outlined" />
-                ))}
-              </Box>
-            )}
             {item.answer ? (
               <Box sx={{ mt: 1.5, p: 1.5, bgcolor: 'action.hover', borderRadius: 1 }}>
                 <MarkdownContent slug={slug}>{item.answer}</MarkdownContent>
@@ -146,7 +93,7 @@ function BlockerQuestionsPage() {
                 )}
               </Box>
             ) : (
-              <AnswerForm slug={slug} question={item} />
+              <ChoiceAnswerForm slug={slug} question={item} />
             )}
           </Paper>
         ))
