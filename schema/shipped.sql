@@ -779,7 +779,8 @@ CREATE TABLE public.zdx_issues (
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     issue_type text DEFAULT 'ops'::text NOT NULL,
     duplicate_of text DEFAULT ''::text NOT NULL,
-    url text DEFAULT ''::text NOT NULL
+    url text DEFAULT ''::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 

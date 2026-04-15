@@ -1,52 +1,53 @@
 -- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
-FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at;
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC;
 
 -- name: CountIssues :one
 SELECT count(*) FROM zdx_issues WHERE project_id = $1;
 
 -- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
-FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 LIMIT $2 OFFSET $3;
 
 -- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
-FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at;
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC;
 
 -- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
 FROM zdx_issues
 WHERE project_id = @project_id
   AND (title ILIKE '%' || @query::text || '%' OR context ILIKE '%' || @query::text || '%')
-ORDER BY priority NULLS LAST, created_at
+ORDER BY updated_at DESC
 LIMIT 20;
 
 -- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
 -- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url;
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at;
 
 -- name: ReadyIssue :exec
-UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2 AND status = 'wip';
+UPDATE zdx_issues SET status = 'open', updated_at = NOW() WHERE project_id = $1 AND id = $2 AND status = 'wip';
 
 -- name: UpdateIssue :exec
 UPDATE zdx_issues
 SET title      = COALESCE(NULLIF(@title, ''),      title),
     context    = COALESCE(NULLIF(@context, ''),    context),
     priority   = COALESCE(NULLIF(@priority, ''),   priority),
-    issue_type = COALESCE(NULLIF(@issue_type, ''), issue_type)
+    issue_type = COALESCE(NULLIF(@issue_type, ''), issue_type),
+    updated_at = NOW()
 WHERE project_id = @project_id AND id = @id;
 
 -- name: CloseIssue :exec
-UPDATE zdx_issues SET status = 'closed', duplicate_of = @duplicate_of WHERE project_id = @project_id AND id = @id;
+UPDATE zdx_issues SET status = 'closed', duplicate_of = @duplicate_of, updated_at = NOW() WHERE project_id = @project_id AND id = @id;
 
 -- name: ReopenIssue :exec
-UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2;
+UPDATE zdx_issues SET status = 'open', updated_at = NOW() WHERE project_id = $1 AND id = $2;
 
 -- name: SetIssueField :exec
 UPDATE zdx_issues
@@ -54,11 +55,12 @@ SET title      = CASE WHEN @field::text = 'title'      THEN @value::text ELSE ti
     context    = CASE WHEN @field::text = 'context'    THEN @value::text ELSE context    END,
     component  = CASE WHEN @field::text = 'component'  THEN @value::text ELSE component  END,
     issue_type = CASE WHEN @field::text = 'issue_type' THEN @value::text ELSE issue_type END,
-    url        = CASE WHEN @field::text = 'url'        THEN @value::text ELSE url        END
+    url        = CASE WHEN @field::text = 'url'        THEN @value::text ELSE url        END,
+    updated_at = NOW()
 WHERE project_id = @project_id AND id = @id;
 
 -- name: SetIssuePriority :exec
-UPDATE zdx_issues SET priority = @priority WHERE project_id = @project_id AND id = @id;
+UPDATE zdx_issues SET priority = @priority, updated_at = NOW() WHERE project_id = @project_id AND id = @id;
 
 -- name: AppendIssueWork :exec
 INSERT INTO zdx_issue_work (issue_id, agent, note) VALUES ($1, $2, $3);

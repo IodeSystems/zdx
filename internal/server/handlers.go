@@ -49,6 +49,7 @@ type IssueItem struct {
 	DuplicateOf string   `json:"duplicate_of,omitempty"`
 	URL         string   `json:"url"`
 	CreatedAt   string   `json:"created_at"`
+	UpdatedAt   string   `json:"updated_at"`
 }
 
 type TaskItem struct {

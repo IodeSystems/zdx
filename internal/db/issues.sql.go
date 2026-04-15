@@ -27,7 +27,7 @@ func (q *Queries) AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams
 }
 
 const closeIssue = `-- name: CloseIssue :exec
-UPDATE zdx_issues SET status = 'closed', duplicate_of = $1 WHERE project_id = $2 AND id = $3
+UPDATE zdx_issues SET status = 'closed', duplicate_of = $1, updated_at = NOW() WHERE project_id = $2 AND id = $3
 `
 
 type CloseIssueParams struct {
@@ -66,7 +66,7 @@ func (q *Queries) CountWorklogForProject(ctx context.Context, projectID int32) (
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
 `
 
 type CreateIssueParams struct {
@@ -106,12 +106,13 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		&i.IssueType,
 		&i.DuplicateOf,
 		&i.Url,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
 FROM zdx_issues WHERE project_id = $1 AND id = $2
 `
 
@@ -135,6 +136,7 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 		&i.IssueType,
 		&i.DuplicateOf,
 		&i.Url,
+		&i.UpdatedAt,
 	)
 	return i, err
 }
@@ -170,8 +172,8 @@ func (q *Queries) GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueW
 }
 
 const listIssues = `-- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
-FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 `
 
 func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error) {
@@ -195,6 +197,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 			&i.IssueType,
 			&i.DuplicateOf,
 			&i.Url,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -207,8 +210,8 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 }
 
 const listIssuesPaginated = `-- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
-FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 LIMIT $2 OFFSET $3
 `
 
@@ -239,6 +242,7 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 			&i.IssueType,
 			&i.DuplicateOf,
 			&i.Url,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -251,8 +255,8 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 }
 
 const listOpenIssues = `-- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
-FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
+FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC
 `
 
 func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error) {
@@ -276,6 +280,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 			&i.IssueType,
 			&i.DuplicateOf,
 			&i.Url,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -417,7 +422,7 @@ func (q *Queries) ProjectStateSummary(ctx context.Context, projectID int32) (Pro
 }
 
 const readyIssue = `-- name: ReadyIssue :exec
-UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2 AND status = 'wip'
+UPDATE zdx_issues SET status = 'open', updated_at = NOW() WHERE project_id = $1 AND id = $2 AND status = 'wip'
 `
 
 type ReadyIssueParams struct {
@@ -431,7 +436,7 @@ func (q *Queries) ReadyIssue(ctx context.Context, arg ReadyIssueParams) error {
 }
 
 const reopenIssue = `-- name: ReopenIssue :exec
-UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2
+UPDATE zdx_issues SET status = 'open', updated_at = NOW() WHERE project_id = $1 AND id = $2
 `
 
 type ReopenIssueParams struct {
@@ -445,11 +450,11 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
-ORDER BY priority NULLS LAST, created_at
+ORDER BY updated_at DESC
 LIMIT 20
 `
 
@@ -479,6 +484,7 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]Z
 			&i.IssueType,
 			&i.DuplicateOf,
 			&i.Url,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -496,7 +502,8 @@ SET title      = CASE WHEN $1::text = 'title'      THEN $2::text ELSE title     
     context    = CASE WHEN $1::text = 'context'    THEN $2::text ELSE context    END,
     component  = CASE WHEN $1::text = 'component'  THEN $2::text ELSE component  END,
     issue_type = CASE WHEN $1::text = 'issue_type' THEN $2::text ELSE issue_type END,
-    url        = CASE WHEN $1::text = 'url'        THEN $2::text ELSE url        END
+    url        = CASE WHEN $1::text = 'url'        THEN $2::text ELSE url        END,
+    updated_at = NOW()
 WHERE project_id = $3 AND id = $4
 `
 
@@ -518,7 +525,7 @@ func (q *Queries) SetIssueField(ctx context.Context, arg SetIssueFieldParams) er
 }
 
 const setIssuePriority = `-- name: SetIssuePriority :exec
-UPDATE zdx_issues SET priority = $1 WHERE project_id = $2 AND id = $3
+UPDATE zdx_issues SET priority = $1, updated_at = NOW() WHERE project_id = $2 AND id = $3
 `
 
 type SetIssuePriorityParams struct {
@@ -571,7 +578,8 @@ UPDATE zdx_issues
 SET title      = COALESCE(NULLIF($1, ''),      title),
     context    = COALESCE(NULLIF($2, ''),    context),
     priority   = COALESCE(NULLIF($3, ''),   priority),
-    issue_type = COALESCE(NULLIF($4, ''), issue_type)
+    issue_type = COALESCE(NULLIF($4, ''), issue_type),
+    updated_at = NOW()
 WHERE project_id = $5 AND id = $6
 `
 

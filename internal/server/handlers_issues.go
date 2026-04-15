@@ -972,6 +972,7 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		DuplicateOf: r.DuplicateOf,
 		URL:         r.Url,
 		CreatedAt:   fmtTS(r.CreatedAt),
+		UpdatedAt:   fmtTS(r.UpdatedAt),
 		BlockedBy:   []string{},
 	}
 }
