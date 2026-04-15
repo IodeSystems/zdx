@@ -39,7 +39,7 @@ const triageGuidance = `  triage checklist:
     1. verify independently (reproduce or read the code)
     2. dup-check: dx issue list; close duplicates with --reason=duplicate
     3. rewrite prescriptively: title=intended outcome; context=should/did/direction
-    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl> --priority=<1-4>
+    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|tracker> --priority=<1-4>
     if the issue is too vague to triage, create clarification questions instead:
       dx question add --target-type=issue --target-id=IS-N --context="<question>" --choices="opt1,opt2,..."
     solo will block progress on the issue until all questions are answered.
@@ -203,6 +203,17 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		}
 	} else {
 		targetIssues = issueList.Issues
+	}
+
+	// Exclude tracker issues — they are closed by their children, never actionable directly.
+	{
+		var filtered []issueItem
+		for _, iss := range targetIssues {
+			if iss.IssueType != "tracker" {
+				filtered = append(filtered, iss)
+			}
+		}
+		targetIssues = filtered
 	}
 
 	// 0. Check for unread LLM comments on any open issue.
@@ -1181,7 +1192,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&priority, "priority", "", "priority 1-4 (1=highest)")
 	cmd.Flags().StringVar(&title, "title", "", "set issue title")
-	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops or impl")
+	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops, impl, or tracker")
 	cmd.Flags().StringVar(&context, "context", "", "rewrite issue context (answer embedded question, clarify scope)")
 	cmd.Flags().BoolVar(&clarify, "clarify", false, "create clarification questions instead of triaging (requires --questions)")
 	cmd.Flags().StringVar(&questions, "questions", "", "semicolon-separated questions; use | for choices: \"question|a,b,c;question2\"")

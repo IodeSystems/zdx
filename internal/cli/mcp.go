@@ -68,7 +68,8 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		Context   string `json:"context,omitempty" jsonschema:"context / description"`
 		Component string `json:"component,omitempty" jsonschema:"component"`
 		BlockedBy string `json:"blocked_by,omitempty" jsonschema:"blocking issue (IS-N)"`
-		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops or impl"`
+		Parent    string `json:"parent,omitempty" jsonschema:"parent issue (IS-N): new issue blocks the parent"`
+		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, or tracker"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "issue_add",
@@ -88,6 +89,14 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 			"issue_type": issType,
 		}, &iss); err != nil {
 			return nil, nil, err
+		}
+		if in.Parent != "" {
+			parentNum, _ := strconv.ParseInt(in.Parent[3:], 10, 32)
+			_ = c.post("/api/dx/todo/issue/add-block", map[string]any{
+				"slug":       slug,
+				"id":         int32(parentNum),
+				"blocked_by": issueIDStr(int32(iss.ID)),
+			}, nil)
 		}
 		return nil, iss, nil
 	})
@@ -140,7 +149,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		Context   string `json:"context,omitempty" jsonschema:"context / description"`
 		Priority  *int   `json:"priority,omitempty" jsonschema:"priority (1-4)"`
 		Component string `json:"component,omitempty" jsonschema:"component"`
-		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops or impl"`
+		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, or tracker"`
 		BlockedBy string `json:"blocked_by,omitempty" jsonschema:"blocking issue (IS-N) or empty to clear"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
@@ -375,7 +384,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		ID        string `json:"id" jsonschema:"required,issue ID (IS-N)"`
 		Priority  int    `json:"priority" jsonschema:"required,priority 1-4 (1=highest)"`
 		Title     string `json:"title,omitempty" jsonschema:"set issue title"`
-		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops or impl"`
+		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, or tracker"`
 		Context   string `json:"context,omitempty" jsonschema:"rewrite issue context"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{

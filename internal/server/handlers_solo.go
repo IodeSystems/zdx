@@ -44,6 +44,17 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 		issues = filtered
 	}
 
+	// Exclude tracker issues — they are closed by their children, never actionable directly
+	{
+		var filtered []db.ZdxIssue
+		for _, iss := range issues {
+			if iss.IssueType != "tracker" {
+				filtered = append(filtered, iss)
+			}
+		}
+		issues = filtered
+	}
+
 	// Build blocked-by-BQ set
 	bqBlocked := map[string]bool{}
 	pendingBQs, _ := s.q.ListPendingBlockerQuestions(ctx, projectID)

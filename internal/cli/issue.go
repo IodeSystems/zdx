@@ -83,7 +83,7 @@ func issueListCmd() *cobra.Command {
 }
 
 func issueAddCmd() *cobra.Command {
-	var title, ctx, component, blockedBy, issueType, issueURL string
+	var title, ctx, component, blockedBy, issueType, issueURL, parent string
 	var autoReady bool
 	cmd := &cobra.Command{
 		Use:   "add",
@@ -109,6 +109,17 @@ func issueAddCmd() *cobra.Command {
 				return err
 			}
 			fmt.Printf("%s  %s\n", issueIDStr(resp.ID), resp.Title)
+			if parent != "" {
+				parentNum, _ := strconv.ParseInt(parent[3:], 10, 32)
+				if err := c.post("/api/dx/todo/issue/add-block", map[string]any{
+					"slug":       c.SlugOrDie(),
+					"id":         int32(parentNum),
+					"blocked_by": issueIDStr(resp.ID),
+				}, nil); err != nil {
+					return fmt.Errorf("created issue but failed to add block on parent: %w", err)
+				}
+				fmt.Printf("  → blocks %s\n", parent)
+			}
 			if !autoReady && len(resp.Similar) > 0 {
 				fmt.Println("\nSimilar issues:")
 				for _, s := range resp.Similar {
@@ -134,8 +145,9 @@ func issueAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&ctx, "context", "", "context / description")
 	cmd.Flags().StringVar(&component, "component", "", "component")
 	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issues (IS-N, comma-separated)")
-	cmd.Flags().StringVar(&issueType, "type", "ops", "issue type: ops or impl")
+	cmd.Flags().StringVar(&issueType, "type", "ops", "issue type: ops, impl, or tracker")
 	cmd.Flags().StringVar(&issueURL, "url", "", "URL related to the issue")
+	cmd.Flags().StringVar(&parent, "parent", "", "parent issue (IS-N): new issue blocks the parent")
 	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as open")
 	cmd.MarkFlagRequired("title")
 	return cmd
@@ -412,7 +424,7 @@ func issueEditCmd() *cobra.Command {
 	cmd.Flags().StringVar(&ctx, "context", "", "context / description")
 	cmd.Flags().IntVar(&priority, "priority", 0, "priority (1-4)")
 	cmd.Flags().StringVar(&component, "component", "", "component")
-	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops or impl")
+	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops, impl, or tracker")
 	return cmd
 }
 

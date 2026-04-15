@@ -211,6 +211,9 @@ func (s *Server) findSimilarIssues(ctx context.Context, projectID int32, queryTe
 		if err != nil {
 			continue // stale index entry — skip
 		}
+		if iss.IssueType == "tracker" {
+			continue
+		}
 		out = append(out, SimilarIssueItem{ID: id, Title: iss.Title, Context: iss.Context, Status: iss.Status, Score: r.Score})
 	}
 	return out, nil
