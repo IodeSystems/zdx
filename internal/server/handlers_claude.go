@@ -298,6 +298,16 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			if s.IsWSEnabled() {
+				sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+				if err == nil {
+					s.publishClaudeEvent(in.Slug, sess.SessionID, "claude.session-updated", map[string]string{
+						"header":  in.Body.Header,
+						"summary": in.Body.Summary,
+						"status":  in.Body.Status,
+					})
+				}
+			}
 			return &struct {
 				Body struct {
 					OK bool `json:"ok"`
@@ -679,6 +689,21 @@ Transcript:
 		Status:    summary.Status,
 	}); err != nil {
 		log.Printf("auto-summarize session %d: update db: %v", sessionPK, err)
+		return
+	}
+
+	if s.IsWSEnabled() {
+		sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: projectID, ID: sessionPK})
+		if err == nil {
+			p, pErr := s.q.GetProjectByID(ctx, projectID)
+			if pErr == nil {
+				s.publishClaudeEvent(p.Slug, sess.SessionID, "claude.session-updated", map[string]string{
+					"header":  summary.Header,
+					"summary": summary.Summary,
+					"status":  summary.Status,
+				})
+			}
+		}
 	}
 }
 

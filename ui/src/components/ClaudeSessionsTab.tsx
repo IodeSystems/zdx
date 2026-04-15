@@ -1,4 +1,5 @@
 import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
+import { useQueryClient } from '@tanstack/react-query'
 import {
   Box,
   Chip,
@@ -572,6 +573,7 @@ export function SessionDetail({
   sessionId: number
   onBack?: () => void
 }) {
+  const queryClient = useQueryClient()
   const sentinelRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [liveEvents, setLiveEvents] = useState<ClaudeEventItem[]>([])
@@ -585,6 +587,13 @@ export function SessionDetail({
   const wsChannel = session?.session_id ? `project:${slug}:claude:${session.session_id}` : null
 
   const onWsMessage = useCallback((msg: { type: string; payload: unknown }) => {
+    if (msg.type === 'claude.session-updated') {
+      const p = msg.payload as { header: string; summary: string; status: string }
+      queryClient.setQueryData<ClaudeSessionItem>(['claude-session', slug, sessionId], (old) =>
+        old ? { ...old, header: p.header, summary: p.summary, status: p.status } : old
+      )
+      return
+    }
     if (msg.type !== 'claude.event') return
     const p = msg.payload as { seq: number; event_type: string; event_json: Record<string, unknown>; session_pk: number }
     const newEvent: ClaudeEventItem = {
@@ -602,7 +611,7 @@ export function SessionDetail({
       if (prev.some((e) => e.seq === p.seq)) return prev
       return [...prev, newEvent]
     })
-  }, [])
+  }, [queryClient, slug, sessionId])
 
   useChannel(wsChannel, onWsMessage)
 
