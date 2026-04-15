@@ -238,8 +238,8 @@ type TestResultInput struct {
 	Feature    string `json:"feature"`
 	Status     string `json:"status"`
 	DurationMS int32  `json:"duration_ms"`
-	Branch     string `json:"branch"`
-	GitSHA     string `json:"git_sha"`
+	Branch     string `json:"branch,omitempty"`
+	GitSHA     string `json:"git_sha,omitempty"`
 }
 
 // ── Shared input types ───────────────────────────────────────────────────
