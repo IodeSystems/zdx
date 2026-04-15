@@ -123,6 +123,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				IssueType     *string  `json:"issue_type,omitempty"`
 				ScreenshotIDs []int32  `json:"screenshot_ids,omitempty"`
 				AutoReady     bool     `json:"auto_ready,omitempty"`
+				URL           *string  `json:"url,omitempty"`
 			}
 		}) (*struct {
 			Body struct {
@@ -159,6 +160,9 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			}
 			if in.Body.IssueType != nil {
 				params.IssueType = *in.Body.IssueType
+			}
+			if in.Body.URL != nil {
+				params.Url = *in.Body.URL
 			}
 
 			issueText := params.Title + " " + params.Context
@@ -269,6 +273,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Priority  *int32  `json:"priority,omitempty"`
 				IssueType *string `json:"issue_type,omitempty"`
 				Component *string `json:"component,omitempty"`
+				URL       *string `json:"url,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -303,12 +308,14 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				"issue_type": in.Body.IssueType,
 				"context":    in.Body.Context,
 				"component":  in.Body.Component,
+				"url":        in.Body.URL,
 			}
 			oldValMap := map[string]string{
 				"title":      oldIssue.Title,
 				"issue_type": oldIssue.IssueType,
 				"context":    oldIssue.Context,
 				"component":  oldIssue.Component,
+				"url":        oldIssue.Url,
 			}
 			for field, val := range fieldMap {
 				if val == nil {
@@ -692,6 +699,7 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		Context:     r.Context,
 		IssueType:   r.IssueType,
 		DuplicateOf: r.DuplicateOf,
+		URL:         r.Url,
 		CreatedAt:   fmtTS(r.CreatedAt),
 		BlockedBy:   []string{},
 	}

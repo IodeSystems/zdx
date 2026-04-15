@@ -47,6 +47,7 @@ type IssueItem struct {
 	Source      string   `json:"source"`
 	IssueType   string   `json:"issue_type"`
 	DuplicateOf string   `json:"duplicate_of,omitempty"`
+	URL         string   `json:"url"`
 	CreatedAt   string   `json:"created_at"`
 }
 

@@ -1,0 +1,1 @@
+ALTER TABLE zdx_issues ADD COLUMN url text NOT NULL DEFAULT '';

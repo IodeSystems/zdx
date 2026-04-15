@@ -660,6 +660,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/code-refs/test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-code-refs-for-test"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/code-refs/test/attach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["attach-code-ref-to-test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/code-refs/test/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["detach-code-ref-from-test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/comment/add": {
         parameters: {
             query?: never;
@@ -1548,6 +1596,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list-tests"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/tests/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-test"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2448,7 +2512,7 @@ export interface paths {
             path?: never;
             cookie?: never;
         };
-        get?: never;
+        get: operations["get-task"];
         put?: never;
         post?: never;
         delete: operations["delete-task"];
@@ -2631,6 +2695,7 @@ export interface components {
             slug: string;
             source?: string;
             title?: string;
+            url?: string;
         };
         "Add-issueResponse": {
             /**
@@ -2656,6 +2721,7 @@ export interface components {
             source: string;
             status: string;
             title: string;
+            url: string;
         };
         "Add-questionRequest": {
             /**
@@ -2901,6 +2967,24 @@ export interface components {
             note?: string;
             slug: string;
             task_id: string;
+        };
+        "Attach-code-ref-to-testRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Attach-code-ref-to-testRequest.json
+             */
+            readonly $schema?: string;
+            file_path: string;
+            git_hash?: string;
+            /** Format: int32 */
+            line_end?: number;
+            /** Format: int32 */
+            line_start?: number;
+            note?: string;
+            slug: string;
+            /** Format: int32 */
+            test_id: number;
         };
         "Auth-loginRequest": {
             /**
@@ -3319,6 +3403,19 @@ export interface components {
             slug: string;
             task_id: string;
         };
+        "Detach-code-ref-from-testRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Detach-code-ref-from-testRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            code_ref_id: number;
+            slug: string;
+            /** Format: int32 */
+            test_id: number;
+        };
         "Edit-issueRequest": {
             /**
              * Format: uri
@@ -3335,6 +3432,7 @@ export interface components {
             priority?: number;
             slug: string;
             title?: string;
+            url?: string;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -3778,6 +3876,7 @@ export interface components {
             source: string;
             status: string;
             title: string;
+            url: string;
         };
         IssueWorkItem: {
             agent: string;
@@ -3960,6 +4059,15 @@ export interface components {
              * Format: uri
              * @description A URL to the JSON Schema for this object.
              * @example https://example.com/schemas/List-code-refs-for-taskResponse.json
+             */
+            readonly $schema?: string;
+            refs: components["schemas"]["CodeRefItem"][] | null;
+        };
+        "List-code-refs-for-testResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-code-refs-for-testResponse.json
              */
             readonly $schema?: string;
             refs: components["schemas"]["CodeRefItem"][] | null;
@@ -4955,6 +5063,12 @@ export interface components {
             slug: string;
         };
         TaskItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/TaskItem.json
+             */
+            readonly $schema?: string;
             completed_at: string;
             created_at: string;
             depends: string;
@@ -5020,6 +5134,12 @@ export interface components {
             test_name: string;
         };
         TestItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/TestItem.json
+             */
+            readonly $schema?: string;
             component: string;
             /** Format: int32 */
             duration_ms: number;
@@ -6845,6 +6965,104 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Detach-code-ref-from-taskRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-code-refs-for-test": {
+        parameters: {
+            query: {
+                slug: string;
+                test_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-code-refs-for-testResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "attach-code-ref-to-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Attach-code-ref-to-testRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeRefItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "detach-code-ref-from-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Detach-code-ref-from-testRequest"];
             };
         };
         responses: {
@@ -8783,6 +9001,38 @@ export interface operations {
             };
         };
     };
+    "get-test": {
+        parameters: {
+            query: {
+                slug: string;
+                test_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TestItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "get-test-history": {
         parameters: {
             query?: {
@@ -10705,6 +10955,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Setup-bootstrapResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-task": {
+        parameters: {
+            query: {
+                slug: string;
+                id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskItem"];
                 };
             };
             /** @description Error */

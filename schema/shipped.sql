@@ -738,7 +738,8 @@ CREATE TABLE public.zdx_issues (
     context text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     issue_type text DEFAULT 'ops'::text NOT NULL,
-    duplicate_of text DEFAULT ''::text NOT NULL
+    duplicate_of text DEFAULT ''::text NOT NULL,
+    url text DEFAULT ''::text NOT NULL
 );
 
 
@@ -1442,6 +1443,16 @@ CREATE TABLE public.zdx_tests (
     last_run_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     duration_ms integer DEFAULT 0 NOT NULL
+);
+
+
+--
+-- Name: zdx_test_code_refs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_test_code_refs (
+    test_id integer NOT NULL,
+    code_ref_id integer NOT NULL
 );
 
 

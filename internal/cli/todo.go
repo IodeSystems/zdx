@@ -55,6 +55,7 @@ type issueItem struct {
 	BlockedBy stringOrStrings `json:"blocked_by"`
 	Context   string          `json:"context"`
 	IssueType string          `json:"issue_type"`
+	URL       string          `json:"url"`
 }
 
 type issueWorkItem struct {
@@ -1006,6 +1007,9 @@ func printIssueItem(iss issueItem) {
 	fmt.Printf("Type:      %s\n", issType)
 	if iss.Component != "" {
 		fmt.Printf("Component: %s\n", iss.Component)
+	}
+	if iss.URL != "" {
+		fmt.Printf("URL:       %s\n", iss.URL)
 	}
 	if len(iss.BlockedBy) > 0 {
 		fmt.Printf("Blocked:   %s\n", strings.Join(iss.BlockedBy, ", "))

@@ -64,9 +64,9 @@ func (q *Queries) CountWorklogForProject(ctx context.Context, projectID int32) (
 }
 
 const createIssue = `-- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
 `
 
 type CreateIssueParams struct {
@@ -78,6 +78,7 @@ type CreateIssueParams struct {
 	Component string `db:"component" json:"component"`
 	IssueType string `db:"issue_type" json:"issue_type"`
 	Status    string `db:"status" json:"status"`
+	Url       string `db:"url" json:"url"`
 }
 
 func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error) {
@@ -90,6 +91,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		arg.Component,
 		arg.IssueType,
 		arg.Status,
+		arg.Url,
 	)
 	var i ZdxIssue
 	err := row.Scan(
@@ -103,12 +105,13 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		&i.CreatedAt,
 		&i.IssueType,
 		&i.DuplicateOf,
+		&i.Url,
 	)
 	return i, err
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
 FROM zdx_issues WHERE project_id = $1 AND id = $2
 `
 
@@ -131,6 +134,7 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 		&i.CreatedAt,
 		&i.IssueType,
 		&i.DuplicateOf,
+		&i.Url,
 	)
 	return i, err
 }
@@ -166,7 +170,7 @@ func (q *Queries) GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueW
 }
 
 const listIssues = `-- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
 `
 
@@ -190,6 +194,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 			&i.CreatedAt,
 			&i.IssueType,
 			&i.DuplicateOf,
+			&i.Url,
 		); err != nil {
 			return nil, err
 		}
@@ -202,7 +207,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 }
 
 const listIssuesPaginated = `-- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
 FROM zdx_issues WHERE project_id = $1 ORDER BY priority NULLS LAST, created_at
 LIMIT $2 OFFSET $3
 `
@@ -233,6 +238,7 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 			&i.CreatedAt,
 			&i.IssueType,
 			&i.DuplicateOf,
+			&i.Url,
 		); err != nil {
 			return nil, err
 		}
@@ -245,7 +251,7 @@ func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginat
 }
 
 const listOpenIssues = `-- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY priority NULLS LAST, created_at
 `
 
@@ -269,6 +275,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 			&i.CreatedAt,
 			&i.IssueType,
 			&i.DuplicateOf,
+			&i.Url,
 		); err != nil {
 			return nil, err
 		}
@@ -405,7 +412,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -438,6 +445,7 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]Z
 			&i.CreatedAt,
 			&i.IssueType,
 			&i.DuplicateOf,
+			&i.Url,
 		); err != nil {
 			return nil, err
 		}
@@ -454,7 +462,8 @@ UPDATE zdx_issues
 SET title      = CASE WHEN $1::text = 'title'      THEN $2::text ELSE title      END,
     context    = CASE WHEN $1::text = 'context'    THEN $2::text ELSE context    END,
     component  = CASE WHEN $1::text = 'component'  THEN $2::text ELSE component  END,
-    issue_type = CASE WHEN $1::text = 'issue_type' THEN $2::text ELSE issue_type END
+    issue_type = CASE WHEN $1::text = 'issue_type' THEN $2::text ELSE issue_type END,
+    url        = CASE WHEN $1::text = 'url'        THEN $2::text ELSE url        END
 WHERE project_id = $3 AND id = $4
 `
 

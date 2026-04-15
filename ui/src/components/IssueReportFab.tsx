@@ -133,6 +133,7 @@ export function IssueReportFab({ slug }: { slug: string }) {
         component: undefined,
         screenshot_ids: screenshotIds,
         auto_ready: true,
+        url: window.location.href,
       },
       {
         onSuccess: (issue) => {

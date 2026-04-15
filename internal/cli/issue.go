@@ -51,7 +51,7 @@ func issueListCmd() *cobra.Command {
 }
 
 func issueAddCmd() *cobra.Command {
-	var title, ctx, component, blockedBy, issueType string
+	var title, ctx, component, blockedBy, issueType, issueURL string
 	var autoReady bool
 	cmd := &cobra.Command{
 		Use:   "add",
@@ -65,6 +65,9 @@ func issueAddCmd() *cobra.Command {
 				"component":  component,
 				"issue_type": issueType,
 				"auto_ready": autoReady,
+			}
+			if issueURL != "" {
+				body["url"] = issueURL
 			}
 			if blockedBy != "" {
 				body["blocked_by"] = strings.Split(blockedBy, ",")
@@ -100,6 +103,7 @@ func issueAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&component, "component", "", "component")
 	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issues (IS-N, comma-separated)")
 	cmd.Flags().StringVar(&issueType, "type", "ops", "issue type: ops or impl")
+	cmd.Flags().StringVar(&issueURL, "url", "", "URL related to the issue")
 	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as open")
 	cmd.MarkFlagRequired("title")
 	return cmd

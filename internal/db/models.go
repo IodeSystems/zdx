@@ -221,6 +221,7 @@ type ZdxIssue struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	IssueType   string             `db:"issue_type" json:"issue_type"`
 	DuplicateOf string             `db:"duplicate_of" json:"duplicate_of"`
+	Url         string             `db:"url" json:"url"`
 }
 
 type ZdxIssueBlock struct {
