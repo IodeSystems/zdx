@@ -1511,6 +1511,17 @@ export interface TestItem {
   name: string
   layer: string
   status: string
+  duration_ms: number
+  last_run_at?: string
+}
+
+export interface TestHistoryItem {
+  id: number
+  driver: string
+  test_name: string
+  status: string
+  duration_ms: number
+  run_at: string
 }
 
 export const useTests = (slug: string, limit?: number, offset?: number) =>
@@ -1525,6 +1536,19 @@ export const useTests = (slug: string, limit?: number, offset?: number) =>
       return { tests: (data as any)?.tests ?? [], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
+  })
+
+export const useTestHistory = (slug: string, testName: string, enabled: boolean) =>
+  useQuery<{ history: TestHistoryItem[] }>({
+    queryKey: ['test-history', slug, testName],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/tests/history' as any, {
+        params: { query: { slug, test_name: testName, limit: '50' } as any },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { history: (data as any)?.history ?? [] }
+    },
+    enabled: !!slug && !!testName && enabled,
   })
 
 export const useSetThemeStatus = () => {

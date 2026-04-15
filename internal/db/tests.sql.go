@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countTests = `-- name: CountTests :one
@@ -32,7 +34,7 @@ func (q *Queries) DeleteTest(ctx context.Context, id int32) error {
 }
 
 const getTest = `-- name: GetTest :one
-SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 AND component = $2 AND name = $3
 `
 
@@ -42,9 +44,21 @@ type GetTestParams struct {
 	Name      string `db:"name" json:"name"`
 }
 
-func (q *Queries) GetTest(ctx context.Context, arg GetTestParams) (ZdxTest, error) {
+type GetTestRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Component  string             `db:"component" json:"component"`
+	Name       string             `db:"name" json:"name"`
+	Layer      string             `db:"layer" json:"layer"`
+	Status     string             `db:"status" json:"status"`
+	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
+	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetTest(ctx context.Context, arg GetTestParams) (GetTestRow, error) {
 	row := q.db.QueryRow(ctx, getTest, arg.ProjectID, arg.Component, arg.Name)
-	var i ZdxTest
+	var i GetTestRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -52,6 +66,7 @@ func (q *Queries) GetTest(ctx context.Context, arg GetTestParams) (ZdxTest, erro
 		&i.Name,
 		&i.Layer,
 		&i.Status,
+		&i.DurationMs,
 		&i.LastRunAt,
 		&i.CreatedAt,
 	)
@@ -140,20 +155,82 @@ func (q *Queries) ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]L
 	return items, nil
 }
 
+const listTestResultHistory = `-- name: ListTestResultHistory :many
+SELECT id, driver, test_name, status, duration_ms, run_at
+FROM zdx_test_result_history
+WHERE project_id = $1 AND test_name = $2
+ORDER BY run_at DESC
+LIMIT $3
+`
+
+type ListTestResultHistoryParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TestName   string `db:"test_name" json:"test_name"`
+	MaxResults int32  `db:"max_results" json:"max_results"`
+}
+
+type ListTestResultHistoryRow struct {
+	ID         int32              `db:"id" json:"id"`
+	Driver     string             `db:"driver" json:"driver"`
+	TestName   string             `db:"test_name" json:"test_name"`
+	Status     string             `db:"status" json:"status"`
+	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
+	RunAt      pgtype.Timestamptz `db:"run_at" json:"run_at"`
+}
+
+func (q *Queries) ListTestResultHistory(ctx context.Context, arg ListTestResultHistoryParams) ([]ListTestResultHistoryRow, error) {
+	rows, err := q.db.Query(ctx, listTestResultHistory, arg.ProjectID, arg.TestName, arg.MaxResults)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTestResultHistoryRow
+	for rows.Next() {
+		var i ListTestResultHistoryRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Driver,
+			&i.TestName,
+			&i.Status,
+			&i.DurationMs,
+			&i.RunAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTests = `-- name: ListTests :many
-SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 ORDER BY component, name
 `
 
-func (q *Queries) ListTests(ctx context.Context, projectID int32) ([]ZdxTest, error) {
+type ListTestsRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Component  string             `db:"component" json:"component"`
+	Name       string             `db:"name" json:"name"`
+	Layer      string             `db:"layer" json:"layer"`
+	Status     string             `db:"status" json:"status"`
+	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
+	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListTests(ctx context.Context, projectID int32) ([]ListTestsRow, error) {
 	rows, err := q.db.Query(ctx, listTests, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTest
+	var items []ListTestsRow
 	for rows.Next() {
-		var i ZdxTest
+		var i ListTestsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -161,6 +238,7 @@ func (q *Queries) ListTests(ctx context.Context, projectID int32) ([]ZdxTest, er
 			&i.Name,
 			&i.Layer,
 			&i.Status,
+			&i.DurationMs,
 			&i.LastRunAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -175,7 +253,7 @@ func (q *Queries) ListTests(ctx context.Context, projectID int32) ([]ZdxTest, er
 }
 
 const listTestsByLayer = `-- name: ListTestsByLayer :many
-SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 AND layer = $2 ORDER BY component, name
 `
 
@@ -184,15 +262,27 @@ type ListTestsByLayerParams struct {
 	Layer     string `db:"layer" json:"layer"`
 }
 
-func (q *Queries) ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ZdxTest, error) {
+type ListTestsByLayerRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Component  string             `db:"component" json:"component"`
+	Name       string             `db:"name" json:"name"`
+	Layer      string             `db:"layer" json:"layer"`
+	Status     string             `db:"status" json:"status"`
+	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
+	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ListTestsByLayerRow, error) {
 	rows, err := q.db.Query(ctx, listTestsByLayer, arg.ProjectID, arg.Layer)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTest
+	var items []ListTestsByLayerRow
 	for rows.Next() {
-		var i ZdxTest
+		var i ListTestsByLayerRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -200,6 +290,7 @@ func (q *Queries) ListTestsByLayer(ctx context.Context, arg ListTestsByLayerPara
 			&i.Name,
 			&i.Layer,
 			&i.Status,
+			&i.DurationMs,
 			&i.LastRunAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -214,21 +305,33 @@ func (q *Queries) ListTestsByLayer(ctx context.Context, arg ListTestsByLayerPara
 }
 
 const listTestsForSpec = `-- name: ListTestsForSpec :many
-SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.last_run_at, t.created_at
+SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.duration_ms, t.last_run_at, t.created_at
 FROM zdx_tests t
 JOIN zdx_spec_tests st ON st.test_id = t.id
 WHERE st.spec_id = $1 ORDER BY t.component, t.name
 `
 
-func (q *Queries) ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest, error) {
+type ListTestsForSpecRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Component  string             `db:"component" json:"component"`
+	Name       string             `db:"name" json:"name"`
+	Layer      string             `db:"layer" json:"layer"`
+	Status     string             `db:"status" json:"status"`
+	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
+	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListTestsForSpec(ctx context.Context, specID int32) ([]ListTestsForSpecRow, error) {
 	rows, err := q.db.Query(ctx, listTestsForSpec, specID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTest
+	var items []ListTestsForSpecRow
 	for rows.Next() {
-		var i ZdxTest
+		var i ListTestsForSpecRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -236,6 +339,7 @@ func (q *Queries) ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest
 			&i.Name,
 			&i.Layer,
 			&i.Status,
+			&i.DurationMs,
 			&i.LastRunAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -250,7 +354,7 @@ func (q *Queries) ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest
 }
 
 const listTestsPaginated = `-- name: ListTestsPaginated :many
-SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 ORDER BY component, name
 LIMIT $2 OFFSET $3
 `
@@ -261,15 +365,27 @@ type ListTestsPaginatedParams struct {
 	Offset    int32 `db:"offset" json:"offset"`
 }
 
-func (q *Queries) ListTestsPaginated(ctx context.Context, arg ListTestsPaginatedParams) ([]ZdxTest, error) {
+type ListTestsPaginatedRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Component  string             `db:"component" json:"component"`
+	Name       string             `db:"name" json:"name"`
+	Layer      string             `db:"layer" json:"layer"`
+	Status     string             `db:"status" json:"status"`
+	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
+	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListTestsPaginated(ctx context.Context, arg ListTestsPaginatedParams) ([]ListTestsPaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listTestsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTest
+	var items []ListTestsPaginatedRow
 	for rows.Next() {
-		var i ZdxTest
+		var i ListTestsPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -277,6 +393,7 @@ func (q *Queries) ListTestsPaginated(ctx context.Context, arg ListTestsPaginated
 			&i.Name,
 			&i.Layer,
 			&i.Status,
+			&i.DurationMs,
 			&i.LastRunAt,
 			&i.CreatedAt,
 		); err != nil {
@@ -305,32 +422,47 @@ func (q *Queries) UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) 
 }
 
 const upsertTest = `-- name: UpsertTest :one
-INSERT INTO zdx_tests (project_id, component, name, layer, status, last_run_at)
-VALUES ($1, $2, $3, $4, $5, NOW())
+INSERT INTO zdx_tests (project_id, component, name, layer, status, duration_ms, last_run_at)
+VALUES ($1, $2, $3, $4, $5, $6, NOW())
 ON CONFLICT (project_id, component, name) DO UPDATE
 SET layer       = EXCLUDED.layer,
     status      = EXCLUDED.status,
+    duration_ms = EXCLUDED.duration_ms,
     last_run_at = NOW()
-RETURNING id, project_id, component, name, layer, status, last_run_at, created_at
+RETURNING id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 `
 
 type UpsertTestParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Component string `db:"component" json:"component"`
-	Name      string `db:"name" json:"name"`
-	Layer     string `db:"layer" json:"layer"`
-	Status    string `db:"status" json:"status"`
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	Component  string `db:"component" json:"component"`
+	Name       string `db:"name" json:"name"`
+	Layer      string `db:"layer" json:"layer"`
+	Status     string `db:"status" json:"status"`
+	DurationMs int32  `db:"duration_ms" json:"duration_ms"`
 }
 
-func (q *Queries) UpsertTest(ctx context.Context, arg UpsertTestParams) (ZdxTest, error) {
+type UpsertTestRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Component  string             `db:"component" json:"component"`
+	Name       string             `db:"name" json:"name"`
+	Layer      string             `db:"layer" json:"layer"`
+	Status     string             `db:"status" json:"status"`
+	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
+	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertTestRow, error) {
 	row := q.db.QueryRow(ctx, upsertTest,
 		arg.ProjectID,
 		arg.Component,
 		arg.Name,
 		arg.Layer,
 		arg.Status,
+		arg.DurationMs,
 	)
-	var i ZdxTest
+	var i UpsertTestRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -338,6 +470,7 @@ func (q *Queries) UpsertTest(ctx context.Context, arg UpsertTestParams) (ZdxTest
 		&i.Name,
 		&i.Layer,
 		&i.Status,
+		&i.DurationMs,
 		&i.LastRunAt,
 		&i.CreatedAt,
 	)

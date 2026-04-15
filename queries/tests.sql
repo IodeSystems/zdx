@@ -10,39 +10,47 @@ INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, sta
 VALUES (@project_id, @driver, @test_name, @feature, @status, @duration_ms);
 
 -- name: UpsertTest :one
-INSERT INTO zdx_tests (project_id, component, name, layer, status, last_run_at)
-VALUES (@project_id, @component, @name, @layer, @status, NOW())
+INSERT INTO zdx_tests (project_id, component, name, layer, status, duration_ms, last_run_at)
+VALUES (@project_id, @component, @name, @layer, @status, @duration_ms, NOW())
 ON CONFLICT (project_id, component, name) DO UPDATE
 SET layer       = EXCLUDED.layer,
     status      = EXCLUDED.status,
+    duration_ms = EXCLUDED.duration_ms,
     last_run_at = NOW()
-RETURNING id, project_id, component, name, layer, status, last_run_at, created_at;
+RETURNING id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at;
 
 -- name: GetTest :one
-SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = @project_id AND component = @component AND name = @name;
 
 -- name: ListTests :many
-SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 ORDER BY component, name;
 
 -- name: CountTests :one
 SELECT count(*) FROM zdx_tests WHERE project_id = $1;
 
 -- name: ListTestsPaginated :many
-SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 ORDER BY component, name
 LIMIT $2 OFFSET $3;
 
 -- name: ListTestsByLayer :many
-SELECT id, project_id, component, name, layer, status, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 AND layer = $2 ORDER BY component, name;
 
 -- name: ListTestsForSpec :many
-SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.last_run_at, t.created_at
+SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.duration_ms, t.last_run_at, t.created_at
 FROM zdx_tests t
 JOIN zdx_spec_tests st ON st.test_id = t.id
 WHERE st.spec_id = $1 ORDER BY t.component, t.name;
+
+-- name: ListTestResultHistory :many
+SELECT id, driver, test_name, status, duration_ms, run_at
+FROM zdx_test_result_history
+WHERE project_id = @project_id AND test_name = @test_name
+ORDER BY run_at DESC
+LIMIT @max_results;
 
 -- name: ListSpecsCoveredByTest :many
 -- Used to show what breaks if a test is deleted.

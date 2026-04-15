@@ -119,7 +119,7 @@ type Querier interface {
 	GetProjectGoal(ctx context.Context, id int32) (ZdxProjectGoal, error)
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
-	GetTest(ctx context.Context, arg GetTestParams) (ZdxTest, error)
+	GetTest(ctx context.Context, arg GetTestParams) (GetTestRow, error)
 	GetThemeByID(ctx context.Context, arg GetThemeByIDParams) (ZdxTheme, error)
 	GetThemeByName(ctx context.Context, arg GetThemeByNameParams) (ZdxTheme, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
@@ -201,10 +201,11 @@ type Querier interface {
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error)
 	ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ListTasksByIssuePaginatedRow, error)
 	ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ListTasksPaginatedRow, error)
-	ListTests(ctx context.Context, projectID int32) ([]ZdxTest, error)
-	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ZdxTest, error)
-	ListTestsForSpec(ctx context.Context, specID int32) ([]ZdxTest, error)
-	ListTestsPaginated(ctx context.Context, arg ListTestsPaginatedParams) ([]ZdxTest, error)
+	ListTestResultHistory(ctx context.Context, arg ListTestResultHistoryParams) ([]ListTestResultHistoryRow, error)
+	ListTests(ctx context.Context, projectID int32) ([]ListTestsRow, error)
+	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ListTestsByLayerRow, error)
+	ListTestsForSpec(ctx context.Context, specID int32) ([]ListTestsForSpecRow, error)
+	ListTestsPaginated(ctx context.Context, arg ListTestsPaginatedParams) ([]ListTestsPaginatedRow, error)
 	ListThemes(ctx context.Context, projectID int32) ([]ListThemesRow, error)
 	ListTimed(ctx context.Context, projectID pgtype.Int4) ([]ListTimedRow, error)
 	ListTimedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
@@ -259,7 +260,7 @@ type Querier interface {
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (ZdxFeature, error)
 	UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (ZdxLlmConfig, error)
 	UpsertPlan(ctx context.Context, arg UpsertPlanParams) (ZdxPlan, error)
-	UpsertTest(ctx context.Context, arg UpsertTestParams) (ZdxTest, error)
+	UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertTestRow, error)
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error
 	UpsertTimed(ctx context.Context, arg UpsertTimedParams) error
 }

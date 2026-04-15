@@ -4,7 +4,9 @@ import {
   Box,
   Chip,
   CircularProgress,
+  Collapse,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
@@ -17,12 +19,100 @@ import {
   TableRow,
   Typography,
 } from '@mui/material'
-import { useTests } from '../../../api'
+import { KeyboardArrowDown, KeyboardArrowUp } from '@mui/icons-material'
+import { useTests, useTestHistory } from '../../../api'
+import type { TestItem } from '../../../api'
 
 const STATUS_COLOR: Record<string, 'success' | 'error' | 'default' | 'warning'> = {
   pass: 'success',
   fail: 'error',
   skip: 'warning',
+}
+
+function formatDuration(ms: number): string {
+  if (ms === 0) return '—'
+  if (ms < 1000) return `${ms}ms`
+  return `${(ms / 1000).toFixed(1)}s`
+}
+
+function formatRelativeTime(iso: string): string {
+  const d = new Date(iso)
+  const now = new Date()
+  const diffMs = now.getTime() - d.getTime()
+  const mins = Math.floor(diffMs / 60000)
+  if (mins < 1) return 'just now'
+  if (mins < 60) return `${mins}m ago`
+  const hrs = Math.floor(mins / 60)
+  if (hrs < 24) return `${hrs}h ago`
+  const days = Math.floor(hrs / 24)
+  return `${days}d ago`
+}
+
+function TestHistoryRow({ slug, test }: { slug: string; test: TestItem }) {
+  const [open, setOpen] = useState(false)
+  const { data, isLoading } = useTestHistory(slug, test.name, open)
+  const history = data?.history ?? []
+
+  return (
+    <>
+      <TableRow hover>
+        <TableCell sx={{ width: 32, p: 0, pl: 1 }}>
+          <IconButton size="small" onClick={() => setOpen(!open)}>
+            {open ? <KeyboardArrowUp fontSize="small" /> : <KeyboardArrowDown fontSize="small" />}
+          </IconButton>
+        </TableCell>
+        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{test.name}</TableCell>
+        <TableCell>
+          <Chip label={test.layer} size="small" variant="outlined" sx={{ fontSize: '0.75rem', height: 20 }} />
+        </TableCell>
+        <TableCell>
+          <Chip label={test.status} size="small" color={STATUS_COLOR[test.status] ?? 'default'} />
+        </TableCell>
+        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{formatDuration(test.duration_ms)}</TableCell>
+        <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
+          {test.last_run_at ? formatRelativeTime(test.last_run_at) : '—'}
+        </TableCell>
+      </TableRow>
+      <TableRow>
+        <TableCell colSpan={6} sx={{ py: 0, borderBottom: open ? undefined : 'none' }}>
+          <Collapse in={open} timeout="auto" unmountOnExit>
+            <Box sx={{ py: 1, pl: 4 }}>
+              {isLoading ? (
+                <CircularProgress size={16} />
+              ) : history.length === 0 ? (
+                <Typography variant="body2" color="text.secondary">No history recorded.</Typography>
+              ) : (
+                <Table size="small">
+                  <TableHead>
+                    <TableRow>
+                      <TableCell>Status</TableCell>
+                      <TableCell>Duration</TableCell>
+                      <TableCell>Run At</TableCell>
+                    </TableRow>
+                  </TableHead>
+                  <TableBody>
+                    {history.map((h) => (
+                      <TableRow key={h.id}>
+                        <TableCell>
+                          <Chip label={h.status} size="small" color={STATUS_COLOR[h.status] ?? 'default'} />
+                        </TableCell>
+                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
+                          {formatDuration(h.duration_ms)}
+                        </TableCell>
+                        <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
+                          {formatRelativeTime(h.run_at)}
+                        </TableCell>
+                      </TableRow>
+                    ))}
+                  </TableBody>
+                </Table>
+              )}
+            </Box>
+          </Collapse>
+        </TableCell>
+      </TableRow>
+    </>
+  )
 }
 
 function TestsPage() {
@@ -116,22 +206,17 @@ function TestsPage() {
                 <Table size="small">
                   <TableHead>
                     <TableRow>
+                      <TableCell sx={{ width: 32 }} />
                       <TableCell>Name</TableCell>
                       <TableCell>Layer</TableCell>
                       <TableCell>Status</TableCell>
+                      <TableCell>Duration</TableCell>
+                      <TableCell>Last Run</TableCell>
                     </TableRow>
                   </TableHead>
                   <TableBody>
                     {items.map(t => (
-                      <TableRow key={t.id} hover>
-                        <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>{t.name}</TableCell>
-                        <TableCell>
-                          <Chip label={t.layer} size="small" variant="outlined" sx={{ fontSize: '0.75rem', height: 20 }} />
-                        </TableCell>
-                        <TableCell>
-                          <Chip label={t.status} size="small" color={STATUS_COLOR[t.status] ?? 'default'} />
-                        </TableCell>
-                      </TableRow>
+                      <TestHistoryRow key={t.id} slug={slug} test={t} />
                     ))}
                   </TableBody>
                 </Table>

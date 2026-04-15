@@ -1438,6 +1438,7 @@ CREATE TABLE public.zdx_tests (
     component text NOT NULL,
     name text NOT NULL,
     layer text DEFAULT 'integration'::text NOT NULL,
+    duration_ms integer DEFAULT 0 NOT NULL,
     status text DEFAULT 'unknown'::text NOT NULL,
     last_run_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL

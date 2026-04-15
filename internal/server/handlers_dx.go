@@ -138,11 +138,12 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}
 			for _, r := range in.Body.Results {
 				_, _ = s.q.UpsertTest(ctx, db.UpsertTestParams{
-					ProjectID: p.ID,
-					Component: r.Driver,
-					Name:      r.TestName,
-					Layer:     "integration",
-					Status:    r.Status,
+					ProjectID:  p.ID,
+					Component:  r.Driver,
+					Name:       r.TestName,
+					Layer:      "integration",
+					Status:     r.Status,
+					DurationMs: r.DurationMS,
 				})
 				_ = s.q.UpsertTestResult(ctx, db.UpsertTestResultParams{
 					ProjectID:  p.ID,
@@ -165,11 +166,13 @@ func (s *Server) registerDxRoutes(api huma.API) {
 		})
 
 	type TestItem struct {
-		ID        int32  `json:"id"`
-		Component string `json:"component"`
-		Name      string `json:"name"`
-		Layer     string `json:"layer"`
-		Status    string `json:"status"`
+		ID         int32   `json:"id"`
+		Component  string  `json:"component"`
+		Name       string  `json:"name"`
+		Layer      string  `json:"layer"`
+		Status     string  `json:"status"`
+		DurationMs int32   `json:"duration_ms"`
+		LastRunAt  *string `json:"last_run_at,omitempty"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-tests", Method: http.MethodGet, Path: "/api/dx/tests"},
@@ -191,7 +194,12 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}
 			out := make([]TestItem, len(rows))
 			for i, r := range rows {
-				out[i] = TestItem{ID: r.ID, Component: r.Component, Name: r.Name, Layer: r.Layer, Status: r.Status}
+				var lastRunAt *string
+				if r.LastRunAt.Valid {
+					s := r.LastRunAt.Time.Format("2006-01-02T15:04:05Z07:00")
+					lastRunAt = &s
+				}
+				out[i] = TestItem{ID: r.ID, Component: r.Component, Name: r.Name, Layer: r.Layer, Status: r.Status, DurationMs: r.DurationMs, LastRunAt: lastRunAt}
 			}
 			return &struct {
 				Body struct {
@@ -202,6 +210,61 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Tests []TestItem `json:"tests"`
 				Total int64      `json:"total"`
 			}{Tests: out, Total: total}}, nil
+		})
+
+	type TestHistoryItem struct {
+		ID         int32  `json:"id"`
+		Driver     string `json:"driver"`
+		TestName   string `json:"test_name"`
+		Status     string `json:"status"`
+		DurationMs int32  `json:"duration_ms"`
+		RunAt      string `json:"run_at"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "get-test-history", Method: http.MethodGet, Path: "/api/dx/tests/history"},
+		func(ctx context.Context, in *struct {
+			Slug     string `query:"slug"`
+			TestName string `query:"test_name"`
+			Limit    *int32 `query:"limit"`
+		}) (*struct {
+			Body struct {
+				History []TestHistoryItem `json:"history"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			maxResults := int32(50)
+			if in.Limit != nil && *in.Limit > 0 && *in.Limit <= 200 {
+				maxResults = *in.Limit
+			}
+			rows, err := s.q.ListTestResultHistory(ctx, db.ListTestResultHistoryParams{
+				ProjectID:  p.ID,
+				TestName:   in.TestName,
+				MaxResults: maxResults,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TestHistoryItem, len(rows))
+			for i, r := range rows {
+				out[i] = TestHistoryItem{
+					ID:         r.ID,
+					Driver:     r.Driver,
+					TestName:   r.TestName,
+					Status:     r.Status,
+					DurationMs: r.DurationMs,
+					RunAt:      r.RunAt.Time.Format("2006-01-02T15:04:05Z07:00"),
+				}
+			}
+			return &struct {
+				Body struct {
+					History []TestHistoryItem `json:"history"`
+				}
+			}{Body: struct {
+				History []TestHistoryItem `json:"history"`
+			}{History: out}}, nil
 		})
 
 	// ── Journal ───────────────────────────────────────────────────────────────
