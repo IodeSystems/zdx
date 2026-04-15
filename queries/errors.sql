@@ -20,6 +20,11 @@ WHERE project_id = $1
 ORDER BY created_at DESC
 LIMIT $2 OFFSET $3;
 
+-- name: GetErrorReportByID :one
+SELECT id, project_id, source, endpoint, error_name, stack_trace, created_at
+FROM zdx_error_reports
+WHERE id = $1;
+
 -- name: DeleteErrorReports :exec
 DELETE FROM zdx_error_reports WHERE project_id = $1;
 

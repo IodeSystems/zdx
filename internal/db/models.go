@@ -291,8 +291,8 @@ type ZdxJournalEntry struct {
 	Next          string             `db:"next" json:"next"`
 	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
 	StateJson     string             `db:"state_json" json:"state_json"`
-	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
 }
 
 type ZdxLlmConfig struct {

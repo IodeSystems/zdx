@@ -325,6 +325,13 @@ export const useErrors = (slug: string, limit?: number, offset?: number) =>
     enabled: !!slug,
   })
 
+export const useError = (id: string) =>
+  useQuery<ErrorReportItem>({
+    queryKey: ['error', id],
+    queryFn: () => apiFetch<ErrorReportItem>(`/api/dx/errors/${encodeURIComponent(id)}`),
+    enabled: !!id,
+  })
+
 export const useClearErrors = (slug: string) => {
   const qc = useQueryClient()
   return useMutation<void, Error, void>({

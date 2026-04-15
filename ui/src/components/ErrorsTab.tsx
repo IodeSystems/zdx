@@ -1,22 +1,23 @@
-import { useState } from 'react'
 import {
   Box,
   Button,
   Card,
   CardContent,
   Chip,
-  Collapse,
-  IconButton,
   Typography,
 } from '@mui/material'
-import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
+import { useNavigate } from '@tanstack/react-router'
 import { useErrors, useClearErrors, useReportError, type ErrorReportItem } from '../api'
 import { fmtDate } from '../utils/date'
 
-function ErrorRow({ e }: { e: ErrorReportItem }) {
-  const [open, setOpen] = useState(false)
+function ErrorRow({ e, slug }: { e: ErrorReportItem; slug: string }) {
+  const navigate = useNavigate()
   return (
-    <Card variant="outlined" sx={{ mb: 0.5 }}>
+    <Card
+      variant="outlined"
+      sx={{ mb: 0.5, cursor: 'pointer', '&:hover': { bgcolor: 'action.hover' } }}
+      onClick={() => navigate({ to: '/project/$slug/errors/$id', params: { slug, id: String(e.id) } })}
+    >
       <CardContent sx={{ py: 1, '&:last-child': { pb: 1 } }}>
         <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
           <Typography variant="caption" color="text.secondary" sx={{ minWidth: 72 }}>
@@ -31,35 +32,7 @@ function ErrorRow({ e }: { e: ErrorReportItem }) {
           {e.endpoint && (
             <Chip label={e.endpoint} size="small" variant="outlined" sx={{ maxWidth: 180 }} />
           )}
-          {e.stack_trace && (
-            <IconButton
-              size="small"
-              onClick={() => setOpen(o => !o)}
-              sx={{ transform: open ? 'rotate(180deg)' : 'none', transition: 'transform 0.2s' }}
-            >
-              <ExpandMoreIcon fontSize="small" />
-            </IconButton>
-          )}
         </Box>
-        {e.stack_trace && (
-          <Collapse in={open}>
-            <Box
-              component="pre"
-              sx={{
-                mt: 1,
-                p: 1,
-                bgcolor: 'action.hover',
-                borderRadius: 1,
-                fontSize: '0.72rem',
-                overflowX: 'auto',
-                whiteSpace: 'pre-wrap',
-                wordBreak: 'break-all',
-              }}
-            >
-              {e.stack_trace}
-            </Box>
-          </Collapse>
-        )}
       </CardContent>
     </Card>
   )
@@ -95,7 +68,7 @@ export function ErrorsTab({ slug }: { slug: string }) {
       {!errLoading && errors.length === 0 && (
         <Typography color="text.secondary">No error reports.</Typography>
       )}
-      {errors.map(e => <ErrorRow key={e.id} e={e} />)}
+      {errors.map(e => <ErrorRow key={e.id} e={e} slug={slug} />)}
     </Box>
   )
 }

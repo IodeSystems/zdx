@@ -48,6 +48,11 @@ WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND context_json->>@tag_key::text IS NOT NULL
 ORDER BY tag_value;
 
+-- name: GetErrorEventByID :one
+SELECT id, project_id, component, environment, name, message, stack_trace, source, context_json, created_at
+FROM zdx_error_events
+WHERE id = $1;
+
 -- name: DeleteErrorEventsOlderThan :execrows
 DELETE FROM zdx_error_events
 WHERE created_at < @cutoff::timestamptz;

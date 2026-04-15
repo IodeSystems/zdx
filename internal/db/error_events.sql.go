@@ -51,6 +51,30 @@ func (q *Queries) DeleteErrorEventsOlderThan(ctx context.Context, cutoff pgtype.
 	return result.RowsAffected(), nil
 }
 
+const getErrorEventByID = `-- name: GetErrorEventByID :one
+SELECT id, project_id, component, environment, name, message, stack_trace, source, context_json, created_at
+FROM zdx_error_events
+WHERE id = $1
+`
+
+func (q *Queries) GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error) {
+	row := q.db.QueryRow(ctx, getErrorEventByID, id)
+	var i ZdxErrorEvent
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Component,
+		&i.Environment,
+		&i.Name,
+		&i.Message,
+		&i.StackTrace,
+		&i.Source,
+		&i.ContextJson,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertErrorEvent = `-- name: InsertErrorEvent :exec
 INSERT INTO zdx_error_events (project_id, component, environment, name, message, stack_trace, source, context_json)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)

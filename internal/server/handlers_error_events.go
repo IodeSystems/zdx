@@ -25,6 +25,21 @@ func (s *Server) registerErrorEventRoutes(api huma.API) {
 		CreatedAt   string          `json:"created_at"`
 	}
 
+	huma.Register(api, huma.Operation{OperationID: "get-error-event", Method: http.MethodGet, Path: "/api/dx/error-events/{id}"},
+		func(ctx context.Context, in *struct {
+			ID int64 `path:"id"`
+		}) (*struct{ Body ErrorEventItem }, error) {
+			row, err := s.q.GetErrorEventByID(ctx, in.ID)
+			if err != nil {
+				return nil, apiErr(404, "error event not found")
+			}
+			return &struct{ Body ErrorEventItem }{Body: ErrorEventItem{
+				ID: row.ID, Name: row.Name, Message: row.Message, StackTrace: row.StackTrace,
+				Source: row.Source, Component: row.Component, Environment: row.Environment,
+				ContextJson: json.RawMessage(row.ContextJson), CreatedAt: fmtTS(row.CreatedAt),
+			}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "list-error-events", Method: http.MethodGet, Path: "/api/dx/error-events"},
 		func(ctx context.Context, in *struct {
 			Slug      string `query:"slug,omitempty"`

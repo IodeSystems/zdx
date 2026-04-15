@@ -29,7 +29,6 @@ import { Route as ProjectSlugJournalRouteImport } from './routes/project/$slug/j
 import { Route as ProjectSlugIssuesRouteImport } from './routes/project/$slug/issues'
 import { Route as ProjectSlugGoalsRouteImport } from './routes/project/$slug/goals'
 import { Route as ProjectSlugFeaturesRouteImport } from './routes/project/$slug/features'
-import { Route as ProjectSlugErrorsRouteImport } from './routes/project/$slug/errors'
 import { Route as ProjectSlugDemosRouteImport } from './routes/project/$slug/demos'
 import { Route as ProjectSlugCountersRouteImport } from './routes/project/$slug/counters'
 import { Route as ProjectSlugClaudeRouteImport } from './routes/project/$slug/claude'
@@ -42,6 +41,7 @@ import { Route as ProjectSlugPatternsIndexRouteImport } from './routes/project/$
 import { Route as ProjectSlugIssuesIndexRouteImport } from './routes/project/$slug/issues/index'
 import { Route as ProjectSlugGoalsIndexRouteImport } from './routes/project/$slug/goals/index'
 import { Route as ProjectSlugFeaturesIndexRouteImport } from './routes/project/$slug/features/index'
+import { Route as ProjectSlugErrorsIndexRouteImport } from './routes/project/$slug/errors/index'
 import { Route as ProjectSlugClaudeIndexRouteImport } from './routes/project/$slug/claude/index'
 import { Route as ProjectSlugThemesNameRouteImport } from './routes/project/$slug/themes/$name'
 import { Route as ProjectSlugTestsIdRouteImport } from './routes/project/$slug/tests/$id'
@@ -50,6 +50,7 @@ import { Route as ProjectSlugQuestionsIdRouteImport } from './routes/project/$sl
 import { Route as ProjectSlugPatternsIdRouteImport } from './routes/project/$slug/patterns/$id'
 import { Route as ProjectSlugIssuesIdRouteImport } from './routes/project/$slug/issues/$id'
 import { Route as ProjectSlugFeaturesNameRouteImport } from './routes/project/$slug/features/$name'
+import { Route as ProjectSlugErrorsIdRouteImport } from './routes/project/$slug/errors/$id'
 import { Route as ProjectSlugClaudeSessionIdRouteImport } from './routes/project/$slug/claude/$sessionId'
 
 const IndexRoute = IndexRouteImport.update({
@@ -152,11 +153,6 @@ const ProjectSlugFeaturesRoute = ProjectSlugFeaturesRouteImport.update({
   path: '/features',
   getParentRoute: () => ProjectSlugRoute,
 } as any)
-const ProjectSlugErrorsRoute = ProjectSlugErrorsRouteImport.update({
-  id: '/errors',
-  path: '/errors',
-  getParentRoute: () => ProjectSlugRoute,
-} as any)
 const ProjectSlugDemosRoute = ProjectSlugDemosRouteImport.update({
   id: '/demos',
   path: '/demos',
@@ -221,6 +217,11 @@ const ProjectSlugFeaturesIndexRoute =
     path: '/',
     getParentRoute: () => ProjectSlugFeaturesRoute,
   } as any)
+const ProjectSlugErrorsIndexRoute = ProjectSlugErrorsIndexRouteImport.update({
+  id: '/errors/',
+  path: '/errors/',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
 const ProjectSlugClaudeIndexRoute = ProjectSlugClaudeIndexRouteImport.update({
   id: '/',
   path: '/',
@@ -261,6 +262,11 @@ const ProjectSlugFeaturesNameRoute = ProjectSlugFeaturesNameRouteImport.update({
   path: '/$name',
   getParentRoute: () => ProjectSlugFeaturesRoute,
 } as any)
+const ProjectSlugErrorsIdRoute = ProjectSlugErrorsIdRouteImport.update({
+  id: '/errors/$id',
+  path: '/errors/$id',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
 const ProjectSlugClaudeSessionIdRoute =
   ProjectSlugClaudeSessionIdRouteImport.update({
     id: '/$sessionId',
@@ -279,7 +285,6 @@ export interface FileRoutesByFullPath {
   '/project/$slug/claude': typeof ProjectSlugClaudeRouteWithChildren
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
   '/project/$slug/demos': typeof ProjectSlugDemosRoute
-  '/project/$slug/errors': typeof ProjectSlugErrorsRoute
   '/project/$slug/features': typeof ProjectSlugFeaturesRouteWithChildren
   '/project/$slug/goals': typeof ProjectSlugGoalsRouteWithChildren
   '/project/$slug/issues': typeof ProjectSlugIssuesRouteWithChildren
@@ -295,6 +300,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/worklog': typeof ProjectSlugWorklogRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
   '/project/$slug/claude/$sessionId': typeof ProjectSlugClaudeSessionIdRoute
+  '/project/$slug/errors/$id': typeof ProjectSlugErrorsIdRoute
   '/project/$slug/features/$name': typeof ProjectSlugFeaturesNameRoute
   '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
   '/project/$slug/patterns/$id': typeof ProjectSlugPatternsIdRoute
@@ -303,6 +309,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/tests/$id': typeof ProjectSlugTestsIdRoute
   '/project/$slug/themes/$name': typeof ProjectSlugThemesNameRoute
   '/project/$slug/claude/': typeof ProjectSlugClaudeIndexRoute
+  '/project/$slug/errors/': typeof ProjectSlugErrorsIndexRoute
   '/project/$slug/features/': typeof ProjectSlugFeaturesIndexRoute
   '/project/$slug/goals/': typeof ProjectSlugGoalsIndexRoute
   '/project/$slug/issues/': typeof ProjectSlugIssuesIndexRoute
@@ -321,7 +328,6 @@ export interface FileRoutesByTo {
   '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
   '/project/$slug/demos': typeof ProjectSlugDemosRoute
-  '/project/$slug/errors': typeof ProjectSlugErrorsRoute
   '/project/$slug/journal': typeof ProjectSlugJournalRoute
   '/project/$slug/logs': typeof ProjectSlugLogsRoute
   '/project/$slug/profile': typeof ProjectSlugProfileRoute
@@ -331,6 +337,7 @@ export interface FileRoutesByTo {
   '/project/$slug/worklog': typeof ProjectSlugWorklogRoute
   '/project/$slug': typeof ProjectSlugIndexRoute
   '/project/$slug/claude/$sessionId': typeof ProjectSlugClaudeSessionIdRoute
+  '/project/$slug/errors/$id': typeof ProjectSlugErrorsIdRoute
   '/project/$slug/features/$name': typeof ProjectSlugFeaturesNameRoute
   '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
   '/project/$slug/patterns/$id': typeof ProjectSlugPatternsIdRoute
@@ -339,6 +346,7 @@ export interface FileRoutesByTo {
   '/project/$slug/tests/$id': typeof ProjectSlugTestsIdRoute
   '/project/$slug/themes/$name': typeof ProjectSlugThemesNameRoute
   '/project/$slug/claude': typeof ProjectSlugClaudeIndexRoute
+  '/project/$slug/errors': typeof ProjectSlugErrorsIndexRoute
   '/project/$slug/features': typeof ProjectSlugFeaturesIndexRoute
   '/project/$slug/goals': typeof ProjectSlugGoalsIndexRoute
   '/project/$slug/issues': typeof ProjectSlugIssuesIndexRoute
@@ -360,7 +368,6 @@ export interface FileRoutesById {
   '/project/$slug/claude': typeof ProjectSlugClaudeRouteWithChildren
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
   '/project/$slug/demos': typeof ProjectSlugDemosRoute
-  '/project/$slug/errors': typeof ProjectSlugErrorsRoute
   '/project/$slug/features': typeof ProjectSlugFeaturesRouteWithChildren
   '/project/$slug/goals': typeof ProjectSlugGoalsRouteWithChildren
   '/project/$slug/issues': typeof ProjectSlugIssuesRouteWithChildren
@@ -376,6 +383,7 @@ export interface FileRoutesById {
   '/project/$slug/worklog': typeof ProjectSlugWorklogRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
   '/project/$slug/claude/$sessionId': typeof ProjectSlugClaudeSessionIdRoute
+  '/project/$slug/errors/$id': typeof ProjectSlugErrorsIdRoute
   '/project/$slug/features/$name': typeof ProjectSlugFeaturesNameRoute
   '/project/$slug/issues/$id': typeof ProjectSlugIssuesIdRoute
   '/project/$slug/patterns/$id': typeof ProjectSlugPatternsIdRoute
@@ -384,6 +392,7 @@ export interface FileRoutesById {
   '/project/$slug/tests/$id': typeof ProjectSlugTestsIdRoute
   '/project/$slug/themes/$name': typeof ProjectSlugThemesNameRoute
   '/project/$slug/claude/': typeof ProjectSlugClaudeIndexRoute
+  '/project/$slug/errors/': typeof ProjectSlugErrorsIndexRoute
   '/project/$slug/features/': typeof ProjectSlugFeaturesIndexRoute
   '/project/$slug/goals/': typeof ProjectSlugGoalsIndexRoute
   '/project/$slug/issues/': typeof ProjectSlugIssuesIndexRoute
@@ -406,7 +415,6 @@ export interface FileRouteTypes {
     | '/project/$slug/claude'
     | '/project/$slug/counters'
     | '/project/$slug/demos'
-    | '/project/$slug/errors'
     | '/project/$slug/features'
     | '/project/$slug/goals'
     | '/project/$slug/issues'
@@ -422,6 +430,7 @@ export interface FileRouteTypes {
     | '/project/$slug/worklog'
     | '/project/$slug/'
     | '/project/$slug/claude/$sessionId'
+    | '/project/$slug/errors/$id'
     | '/project/$slug/features/$name'
     | '/project/$slug/issues/$id'
     | '/project/$slug/patterns/$id'
@@ -430,6 +439,7 @@ export interface FileRouteTypes {
     | '/project/$slug/tests/$id'
     | '/project/$slug/themes/$name'
     | '/project/$slug/claude/'
+    | '/project/$slug/errors/'
     | '/project/$slug/features/'
     | '/project/$slug/goals/'
     | '/project/$slug/issues/'
@@ -448,7 +458,6 @@ export interface FileRouteTypes {
     | '/project/$slug/blocker-questions'
     | '/project/$slug/counters'
     | '/project/$slug/demos'
-    | '/project/$slug/errors'
     | '/project/$slug/journal'
     | '/project/$slug/logs'
     | '/project/$slug/profile'
@@ -458,6 +467,7 @@ export interface FileRouteTypes {
     | '/project/$slug/worklog'
     | '/project/$slug'
     | '/project/$slug/claude/$sessionId'
+    | '/project/$slug/errors/$id'
     | '/project/$slug/features/$name'
     | '/project/$slug/issues/$id'
     | '/project/$slug/patterns/$id'
@@ -466,6 +476,7 @@ export interface FileRouteTypes {
     | '/project/$slug/tests/$id'
     | '/project/$slug/themes/$name'
     | '/project/$slug/claude'
+    | '/project/$slug/errors'
     | '/project/$slug/features'
     | '/project/$slug/goals'
     | '/project/$slug/issues'
@@ -486,7 +497,6 @@ export interface FileRouteTypes {
     | '/project/$slug/claude'
     | '/project/$slug/counters'
     | '/project/$slug/demos'
-    | '/project/$slug/errors'
     | '/project/$slug/features'
     | '/project/$slug/goals'
     | '/project/$slug/issues'
@@ -502,6 +512,7 @@ export interface FileRouteTypes {
     | '/project/$slug/worklog'
     | '/project/$slug/'
     | '/project/$slug/claude/$sessionId'
+    | '/project/$slug/errors/$id'
     | '/project/$slug/features/$name'
     | '/project/$slug/issues/$id'
     | '/project/$slug/patterns/$id'
@@ -510,6 +521,7 @@ export interface FileRouteTypes {
     | '/project/$slug/tests/$id'
     | '/project/$slug/themes/$name'
     | '/project/$slug/claude/'
+    | '/project/$slug/errors/'
     | '/project/$slug/features/'
     | '/project/$slug/goals/'
     | '/project/$slug/issues/'
@@ -671,13 +683,6 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugFeaturesRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
-    '/project/$slug/errors': {
-      id: '/project/$slug/errors'
-      path: '/errors'
-      fullPath: '/project/$slug/errors'
-      preLoaderRoute: typeof ProjectSlugErrorsRouteImport
-      parentRoute: typeof ProjectSlugRoute
-    }
     '/project/$slug/demos': {
       id: '/project/$slug/demos'
       path: '/demos'
@@ -762,6 +767,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugFeaturesIndexRouteImport
       parentRoute: typeof ProjectSlugFeaturesRoute
     }
+    '/project/$slug/errors/': {
+      id: '/project/$slug/errors/'
+      path: '/errors'
+      fullPath: '/project/$slug/errors/'
+      preLoaderRoute: typeof ProjectSlugErrorsIndexRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
     '/project/$slug/claude/': {
       id: '/project/$slug/claude/'
       path: '/'
@@ -817,6 +829,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/project/$slug/features/$name'
       preLoaderRoute: typeof ProjectSlugFeaturesNameRouteImport
       parentRoute: typeof ProjectSlugFeaturesRoute
+    }
+    '/project/$slug/errors/$id': {
+      id: '/project/$slug/errors/$id'
+      path: '/errors/$id'
+      fullPath: '/project/$slug/errors/$id'
+      preLoaderRoute: typeof ProjectSlugErrorsIdRouteImport
+      parentRoute: typeof ProjectSlugRoute
     }
     '/project/$slug/claude/$sessionId': {
       id: '/project/$slug/claude/$sessionId'
@@ -922,7 +941,6 @@ interface ProjectSlugRouteChildren {
   ProjectSlugClaudeRoute: typeof ProjectSlugClaudeRouteWithChildren
   ProjectSlugCountersRoute: typeof ProjectSlugCountersRoute
   ProjectSlugDemosRoute: typeof ProjectSlugDemosRoute
-  ProjectSlugErrorsRoute: typeof ProjectSlugErrorsRoute
   ProjectSlugFeaturesRoute: typeof ProjectSlugFeaturesRouteWithChildren
   ProjectSlugGoalsRoute: typeof ProjectSlugGoalsRouteWithChildren
   ProjectSlugIssuesRoute: typeof ProjectSlugIssuesRouteWithChildren
@@ -937,8 +955,10 @@ interface ProjectSlugRouteChildren {
   ProjectSlugTimingsRoute: typeof ProjectSlugTimingsRoute
   ProjectSlugWorklogRoute: typeof ProjectSlugWorklogRoute
   ProjectSlugIndexRoute: typeof ProjectSlugIndexRoute
+  ProjectSlugErrorsIdRoute: typeof ProjectSlugErrorsIdRoute
   ProjectSlugQuestionsIdRoute: typeof ProjectSlugQuestionsIdRoute
   ProjectSlugThemesNameRoute: typeof ProjectSlugThemesNameRoute
+  ProjectSlugErrorsIndexRoute: typeof ProjectSlugErrorsIndexRoute
   ProjectSlugQuestionsIndexRoute: typeof ProjectSlugQuestionsIndexRoute
   ProjectSlugThemesIndexRoute: typeof ProjectSlugThemesIndexRoute
 }
@@ -948,7 +968,6 @@ const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
   ProjectSlugClaudeRoute: ProjectSlugClaudeRouteWithChildren,
   ProjectSlugCountersRoute: ProjectSlugCountersRoute,
   ProjectSlugDemosRoute: ProjectSlugDemosRoute,
-  ProjectSlugErrorsRoute: ProjectSlugErrorsRoute,
   ProjectSlugFeaturesRoute: ProjectSlugFeaturesRouteWithChildren,
   ProjectSlugGoalsRoute: ProjectSlugGoalsRouteWithChildren,
   ProjectSlugIssuesRoute: ProjectSlugIssuesRouteWithChildren,
@@ -963,8 +982,10 @@ const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
   ProjectSlugTimingsRoute: ProjectSlugTimingsRoute,
   ProjectSlugWorklogRoute: ProjectSlugWorklogRoute,
   ProjectSlugIndexRoute: ProjectSlugIndexRoute,
+  ProjectSlugErrorsIdRoute: ProjectSlugErrorsIdRoute,
   ProjectSlugQuestionsIdRoute: ProjectSlugQuestionsIdRoute,
   ProjectSlugThemesNameRoute: ProjectSlugThemesNameRoute,
+  ProjectSlugErrorsIndexRoute: ProjectSlugErrorsIndexRoute,
   ProjectSlugQuestionsIndexRoute: ProjectSlugQuestionsIndexRoute,
   ProjectSlugThemesIndexRoute: ProjectSlugThemesIndexRoute,
 }

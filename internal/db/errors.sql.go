@@ -42,6 +42,27 @@ func (q *Queries) DeleteErrorReports(ctx context.Context, projectID pgtype.Int4)
 	return err
 }
 
+const getErrorReportByID = `-- name: GetErrorReportByID :one
+SELECT id, project_id, source, endpoint, error_name, stack_trace, created_at
+FROM zdx_error_reports
+WHERE id = $1
+`
+
+func (q *Queries) GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error) {
+	row := q.db.QueryRow(ctx, getErrorReportByID, id)
+	var i ZdxErrorReport
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Source,
+		&i.Endpoint,
+		&i.ErrorName,
+		&i.StackTrace,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const insertErrorReport = `-- name: InsertErrorReport :one
 INSERT INTO zdx_error_reports (project_id, source, endpoint, error_name, stack_trace)
 VALUES ($1, $2, $3, $4, $5)

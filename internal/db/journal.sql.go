@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getLatestJournalEntry = `-- name: GetLatestJournalEntry :one
@@ -19,9 +21,25 @@ type GetLatestJournalEntryParams struct {
 	Role      string `db:"role" json:"role"`
 }
 
-func (q *Queries) GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (ZdxJournalEntry, error) {
+type GetLatestJournalEntryRow struct {
+	ID            int32              `db:"id" json:"id"`
+	ProjectID     int32              `db:"project_id" json:"project_id"`
+	Role          string             `db:"role" json:"role"`
+	Date          string             `db:"date" json:"date"`
+	Baseline      bool               `db:"baseline" json:"baseline"`
+	Tldr          string             `db:"tldr" json:"tldr"`
+	Assessment    string             `db:"assessment" json:"assessment"`
+	Concerns      string             `db:"concerns" json:"concerns"`
+	Next          string             `db:"next" json:"next"`
+	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
+	StateJson     string             `db:"state_json" json:"state_json"`
+	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (GetLatestJournalEntryRow, error) {
 	row := q.db.QueryRow(ctx, getLatestJournalEntry, arg.ProjectID, arg.Role)
-	var i ZdxJournalEntry
+	var i GetLatestJournalEntryRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -50,9 +68,25 @@ type GetUnreviewedJournalEntryParams struct {
 	Role      string `db:"role" json:"role"`
 }
 
-func (q *Queries) GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (ZdxJournalEntry, error) {
+type GetUnreviewedJournalEntryRow struct {
+	ID            int32              `db:"id" json:"id"`
+	ProjectID     int32              `db:"project_id" json:"project_id"`
+	Role          string             `db:"role" json:"role"`
+	Date          string             `db:"date" json:"date"`
+	Baseline      bool               `db:"baseline" json:"baseline"`
+	Tldr          string             `db:"tldr" json:"tldr"`
+	Assessment    string             `db:"assessment" json:"assessment"`
+	Concerns      string             `db:"concerns" json:"concerns"`
+	Next          string             `db:"next" json:"next"`
+	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
+	StateJson     string             `db:"state_json" json:"state_json"`
+	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (GetUnreviewedJournalEntryRow, error) {
 	row := q.db.QueryRow(ctx, getUnreviewedJournalEntry, arg.ProjectID, arg.Role)
-	var i ZdxJournalEntry
+	var i GetUnreviewedJournalEntryRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -90,7 +124,23 @@ type InsertJournalEntryParams struct {
 	NeedsReview   bool   `db:"needs_review" json:"needs_review"`
 }
 
-func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (ZdxJournalEntry, error) {
+type InsertJournalEntryRow struct {
+	ID            int32              `db:"id" json:"id"`
+	ProjectID     int32              `db:"project_id" json:"project_id"`
+	Role          string             `db:"role" json:"role"`
+	Date          string             `db:"date" json:"date"`
+	Baseline      bool               `db:"baseline" json:"baseline"`
+	Tldr          string             `db:"tldr" json:"tldr"`
+	Assessment    string             `db:"assessment" json:"assessment"`
+	Concerns      string             `db:"concerns" json:"concerns"`
+	Next          string             `db:"next" json:"next"`
+	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
+	StateJson     string             `db:"state_json" json:"state_json"`
+	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (InsertJournalEntryRow, error) {
 	row := q.db.QueryRow(ctx, insertJournalEntry,
 		arg.ProjectID,
 		arg.Role,
@@ -103,7 +153,7 @@ func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntry
 		arg.ChangelogJson,
 		arg.NeedsReview,
 	)
-	var i ZdxJournalEntry
+	var i InsertJournalEntryRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -132,15 +182,31 @@ type ListJournalEntriesParams struct {
 	Role      string `db:"role" json:"role"`
 }
 
-func (q *Queries) ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ZdxJournalEntry, error) {
+type ListJournalEntriesRow struct {
+	ID            int32              `db:"id" json:"id"`
+	ProjectID     int32              `db:"project_id" json:"project_id"`
+	Role          string             `db:"role" json:"role"`
+	Date          string             `db:"date" json:"date"`
+	Baseline      bool               `db:"baseline" json:"baseline"`
+	Tldr          string             `db:"tldr" json:"tldr"`
+	Assessment    string             `db:"assessment" json:"assessment"`
+	Concerns      string             `db:"concerns" json:"concerns"`
+	Next          string             `db:"next" json:"next"`
+	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
+	StateJson     string             `db:"state_json" json:"state_json"`
+	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
+	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ListJournalEntriesRow, error) {
 	rows, err := q.db.Query(ctx, listJournalEntries, arg.ProjectID, arg.Role)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxJournalEntry
+	var items []ListJournalEntriesRow
 	for rows.Next() {
-		var i ZdxJournalEntry
+		var i ListJournalEntriesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
