@@ -211,6 +211,22 @@ func TestDemoCLI_BlockerQuestionFlow(t *testing.T) {
 	}
 }
 
+func TestDemoCLI_FeatureFlow(t *testing.T) {
+	rec := newRecorder(t, "feature-flow", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	rec.Run("feature", "add", "user-auth", "--desc=User authentication and session management")
+	rec.Run("feature", "add", "data-export", "--desc=Export project data to CSV and JSON")
+	rec.Run("feature", "list")
+	rec.Run("feature", "show", "user-auth")
+
+	for _, s := range rec.steps {
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
 // extractFirstBQID pulls the first BQ-N token from output.
 func extractFirstBQID(output string) string {
 	for _, word := range strings.Fields(output) {
