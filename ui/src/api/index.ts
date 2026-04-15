@@ -383,8 +383,10 @@ export interface CommentItem {
   target_type: string
   target_id: string
   author: string
+  author_alias?: string
   body: string
   created_at: string
+  parent_id?: number | null
   unread?: boolean
 }
 

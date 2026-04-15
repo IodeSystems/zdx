@@ -6,19 +6,22 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
 func (s *Server) registerCommentRoutes(api huma.API) {
 	type CommentItem struct {
-		ID         int32  `json:"id"`
-		TargetType string `json:"target_type"`
-		TargetID   string `json:"target_id"`
-		Author     string `json:"author"`
-		Body       string `json:"body"`
-		CreatedAt  string `json:"created_at"`
-		Unread     *bool  `json:"unread,omitempty"`
+		ID          int32  `json:"id"`
+		TargetType  string `json:"target_type"`
+		TargetID    string `json:"target_id"`
+		Author      string `json:"author"`
+		AuthorAlias string `json:"author_alias,omitempty"`
+		Body        string `json:"body"`
+		CreatedAt   string `json:"created_at"`
+		ParentID    *int32 `json:"parent_id,omitempty"`
+		Unread      *bool  `json:"unread,omitempty"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-my-comments", Method: http.MethodGet, Path: "/api/dx/comment/mine"},
@@ -50,10 +53,14 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 			}
 			out := make([]CommentItem, len(rows))
 			for i, r := range rows {
-				out[i] = CommentItem{
+				ci := CommentItem{
 					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
-					Author: r.Author, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
+					Author: r.Author, AuthorAlias: r.AuthorAlias, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
 				}
+				if r.ParentID.Valid {
+					ci.ParentID = &r.ParentID.Int32
+				}
+				out[i] = ci
 			}
 			return &struct {
 				Body struct {
@@ -71,10 +78,12 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "add-comment", Method: http.MethodPost, Path: "/api/dx/comment/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug       string `json:"slug"`
-				TargetType string `json:"target_type"`
-				TargetID   string `json:"target_id"`
-				Body       string `json:"body"`
+				Slug        string `json:"slug"`
+				TargetType  string `json:"target_type"`
+				TargetID    string `json:"target_id"`
+				Body        string `json:"body"`
+				ParentID    *int32 `json:"parent_id,omitempty"`
+				AuthorAlias string `json:"author_alias,omitempty"`
 			}
 		}) (*struct{ Body CommentItem }, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
@@ -87,19 +96,27 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 					author = u.Email
 				}
 			}
-			c, err := s.q.AddComment(ctx, db.AddCommentParams{
-				ProjectID:  p.ID,
-				TargetType: in.Body.TargetType,
-				TargetID:   in.Body.TargetID,
-				Author:     author,
-				Body:       in.Body.Body,
-			})
+			params := db.AddCommentParams{
+				ProjectID:   p.ID,
+				TargetType:  in.Body.TargetType,
+				TargetID:    in.Body.TargetID,
+				Author:      author,
+				Body:        in.Body.Body,
+				AuthorAlias: in.Body.AuthorAlias,
+			}
+			if in.Body.ParentID != nil {
+				params.ParentID = pgtype.Int4{Int32: *in.Body.ParentID, Valid: true}
+			}
+			c, err := s.q.AddComment(ctx, params)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			item := CommentItem{
 				ID: c.ID, TargetType: c.TargetType, TargetID: c.TargetID,
-				Author: c.Author, Body: c.Body, CreatedAt: fmtTS(c.CreatedAt),
+				Author: c.Author, AuthorAlias: c.AuthorAlias, Body: c.Body, CreatedAt: fmtTS(c.CreatedAt),
+			}
+			if c.ParentID.Valid {
+				item.ParentID = &c.ParentID.Int32
 			}
 			s.publish(fmt.Sprintf("project:%s:comments", in.Body.Slug), "comment.added", item)
 			s.publish(fmt.Sprintf("%s:%s", in.Body.TargetType, in.Body.TargetID), "comment.added", item)
@@ -149,7 +166,10 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 			for i, r := range rows {
 				ci := CommentItem{
 					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
-					Author: r.Author, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
+					Author: r.Author, AuthorAlias: r.AuthorAlias, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
+				}
+				if r.ParentID.Valid {
+					ci.ParentID = &r.ParentID.Int32
 				}
 				if in.Role != "" {
 					unread := !lastReadValid || r.CreatedAt.Time.UnixNano() > lastReadTime
@@ -254,14 +274,19 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 			}
 			out := make([]StaleCommentItem, len(rows))
 			for i, r := range rows {
-				out[i] = StaleCommentItem{
-					ID:         r.ID,
-					TargetType: r.TargetType,
-					TargetID:   r.TargetID,
-					Author:     r.Author,
-					Body:       r.Body,
-					CreatedAt:  fmtTS(r.CreatedAt),
+				sci := StaleCommentItem{
+					ID:          r.ID,
+					TargetType:  r.TargetType,
+					TargetID:    r.TargetID,
+					Author:      r.Author,
+					AuthorAlias: r.AuthorAlias,
+					Body:        r.Body,
+					CreatedAt:   fmtTS(r.CreatedAt),
 				}
+				if r.ParentID.Valid {
+					sci.ParentID = &r.ParentID.Int32
+				}
+				out[i] = sci
 			}
 			return &struct {
 				Body struct {
@@ -320,10 +345,14 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "comment not found")
 			}
-			return &struct{ Body CommentItem }{Body: CommentItem{
+			ci := CommentItem{
 				ID: row.ID, TargetType: row.TargetType, TargetID: row.TargetID,
-				Author: row.Author, Body: row.Body, CreatedAt: fmtTS(row.CreatedAt),
-			}}, nil
+				Author: row.Author, AuthorAlias: row.AuthorAlias, Body: row.Body, CreatedAt: fmtTS(row.CreatedAt),
+			}
+			if row.ParentID.Valid {
+				ci.ParentID = &row.ParentID.Int32
+			}
+			return &struct{ Body CommentItem }{Body: ci}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "react-to-comment", Method: http.MethodPost, Path: "/api/dx/comment/react"},

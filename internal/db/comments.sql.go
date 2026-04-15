@@ -12,27 +12,31 @@ import (
 )
 
 const addComment = `-- name: AddComment :one
-INSERT INTO zdx_comments (project_id, target_type, target_id, author, body)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, target_type, target_id, author, body, created_at
+INSERT INTO zdx_comments (project_id, target_type, target_id, author, body, parent_id, author_alias)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 `
 
 type AddCommentParams struct {
-	ProjectID  int32  `db:"project_id" json:"project_id"`
-	TargetType string `db:"target_type" json:"target_type"`
-	TargetID   string `db:"target_id" json:"target_id"`
-	Author     string `db:"author" json:"author"`
-	Body       string `db:"body" json:"body"`
+	ProjectID   int32       `db:"project_id" json:"project_id"`
+	TargetType  string      `db:"target_type" json:"target_type"`
+	TargetID    string      `db:"target_id" json:"target_id"`
+	Author      string      `db:"author" json:"author"`
+	Body        string      `db:"body" json:"body"`
+	ParentID    pgtype.Int4 `db:"parent_id" json:"parent_id"`
+	AuthorAlias string      `db:"author_alias" json:"author_alias"`
 }
 
 type AddCommentRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Author     string             `db:"author" json:"author"`
-	Body       string             `db:"body" json:"body"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	Author      string             `db:"author" json:"author"`
+	Body        string             `db:"body" json:"body"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
 func (q *Queries) AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error) {
@@ -42,6 +46,8 @@ func (q *Queries) AddComment(ctx context.Context, arg AddCommentParams) (AddComm
 		arg.TargetID,
 		arg.Author,
 		arg.Body,
+		arg.ParentID,
+		arg.AuthorAlias,
 	)
 	var i AddCommentRow
 	err := row.Scan(
@@ -52,6 +58,8 @@ func (q *Queries) AddComment(ctx context.Context, arg AddCommentParams) (AddComm
 		&i.Author,
 		&i.Body,
 		&i.CreatedAt,
+		&i.ParentID,
+		&i.AuthorAlias,
 	)
 	return i, err
 }
@@ -245,18 +253,20 @@ func (q *Queries) DeleteCommentReaction(ctx context.Context, arg DeleteCommentRe
 }
 
 const getCommentByID = `-- name: GetCommentByID :one
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE id = $1
 `
 
 type GetCommentByIDRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Author     string             `db:"author" json:"author"`
-	Body       string             `db:"body" json:"body"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	Author      string             `db:"author" json:"author"`
+	Body        string             `db:"body" json:"body"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
 func (q *Queries) GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error) {
@@ -270,6 +280,8 @@ func (q *Queries) GetCommentByID(ctx context.Context, id int32) (GetCommentByIDR
 		&i.Author,
 		&i.Body,
 		&i.CreatedAt,
+		&i.ParentID,
+		&i.AuthorAlias,
 	)
 	return i, err
 }
@@ -299,18 +311,20 @@ func (q *Queries) GetCommentRead(ctx context.Context, arg GetCommentReadParams) 
 }
 
 const getCommentsByIDs = `-- name: GetCommentsByIDs :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE id = ANY($1::int[])
 `
 
 type GetCommentsByIDsRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Author     string             `db:"author" json:"author"`
-	Body       string             `db:"body" json:"body"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	Author      string             `db:"author" json:"author"`
+	Body        string             `db:"body" json:"body"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
 func (q *Queries) GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error) {
@@ -330,6 +344,8 @@ func (q *Queries) GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]Get
 			&i.Author,
 			&i.Body,
 			&i.CreatedAt,
+			&i.ParentID,
+			&i.AuthorAlias,
 		); err != nil {
 			return nil, err
 		}
@@ -411,7 +427,7 @@ func (q *Queries) ListCommentReactions(ctx context.Context, commentID int32) ([]
 }
 
 const listComments = `-- name: ListComments :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at
 `
@@ -423,13 +439,15 @@ type ListCommentsParams struct {
 }
 
 type ListCommentsRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Author     string             `db:"author" json:"author"`
-	Body       string             `db:"body" json:"body"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	Author      string             `db:"author" json:"author"`
+	Body        string             `db:"body" json:"body"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
 func (q *Queries) ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error) {
@@ -449,6 +467,8 @@ func (q *Queries) ListComments(ctx context.Context, arg ListCommentsParams) ([]L
 			&i.Author,
 			&i.Body,
 			&i.CreatedAt,
+			&i.ParentID,
+			&i.AuthorAlias,
 		); err != nil {
 			return nil, err
 		}
@@ -461,7 +481,7 @@ func (q *Queries) ListComments(ctx context.Context, arg ListCommentsParams) ([]L
 }
 
 const listCommentsByAuthor = `-- name: ListCommentsByAuthor :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE project_id = $1 AND author = $2
 ORDER BY created_at DESC
 `
@@ -472,13 +492,15 @@ type ListCommentsByAuthorParams struct {
 }
 
 type ListCommentsByAuthorRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Author     string             `db:"author" json:"author"`
-	Body       string             `db:"body" json:"body"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	Author      string             `db:"author" json:"author"`
+	Body        string             `db:"body" json:"body"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
 func (q *Queries) ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error) {
@@ -498,6 +520,8 @@ func (q *Queries) ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAu
 			&i.Author,
 			&i.Body,
 			&i.CreatedAt,
+			&i.ParentID,
+			&i.AuthorAlias,
 		); err != nil {
 			return nil, err
 		}
@@ -510,7 +534,7 @@ func (q *Queries) ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAu
 }
 
 const listCommentsByAuthorPaginated = `-- name: ListCommentsByAuthorPaginated :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE project_id = $1 AND author = $2
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $4
@@ -524,13 +548,15 @@ type ListCommentsByAuthorPaginatedParams struct {
 }
 
 type ListCommentsByAuthorPaginatedRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Author     string             `db:"author" json:"author"`
-	Body       string             `db:"body" json:"body"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	Author      string             `db:"author" json:"author"`
+	Body        string             `db:"body" json:"body"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
 func (q *Queries) ListCommentsByAuthorPaginated(ctx context.Context, arg ListCommentsByAuthorPaginatedParams) ([]ListCommentsByAuthorPaginatedRow, error) {
@@ -555,6 +581,8 @@ func (q *Queries) ListCommentsByAuthorPaginated(ctx context.Context, arg ListCom
 			&i.Author,
 			&i.Body,
 			&i.CreatedAt,
+			&i.ParentID,
+			&i.AuthorAlias,
 		); err != nil {
 			return nil, err
 		}
@@ -567,7 +595,7 @@ func (q *Queries) ListCommentsByAuthorPaginated(ctx context.Context, arg ListCom
 }
 
 const listCommentsPaginated = `-- name: ListCommentsPaginated :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at
 LIMIT $4 OFFSET $5
@@ -582,13 +610,15 @@ type ListCommentsPaginatedParams struct {
 }
 
 type ListCommentsPaginatedRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Author     string             `db:"author" json:"author"`
-	Body       string             `db:"body" json:"body"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	Author      string             `db:"author" json:"author"`
+	Body        string             `db:"body" json:"body"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
 func (q *Queries) ListCommentsPaginated(ctx context.Context, arg ListCommentsPaginatedParams) ([]ListCommentsPaginatedRow, error) {
@@ -614,6 +644,8 @@ func (q *Queries) ListCommentsPaginated(ctx context.Context, arg ListCommentsPag
 			&i.Author,
 			&i.Body,
 			&i.CreatedAt,
+			&i.ParentID,
+			&i.AuthorAlias,
 		); err != nil {
 			return nil, err
 		}
@@ -719,7 +751,7 @@ func (q *Queries) ListRevisionsPaginated(ctx context.Context, arg ListRevisionsP
 }
 
 const listStaleUnreadComments = `-- name: ListStaleUnreadComments :many
-SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at
+SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at, c.parent_id, c.author_alias
 FROM zdx_comments c
 WHERE c.project_id = $1
   AND NOT EXISTS (
@@ -742,13 +774,15 @@ type ListStaleUnreadCommentsParams struct {
 }
 
 type ListStaleUnreadCommentsRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Author     string             `db:"author" json:"author"`
-	Body       string             `db:"body" json:"body"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	Author      string             `db:"author" json:"author"`
+	Body        string             `db:"body" json:"body"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
 // Returns comments that are unread for the given role and older than the given age threshold.
@@ -769,6 +803,8 @@ func (q *Queries) ListStaleUnreadComments(ctx context.Context, arg ListStaleUnre
 			&i.Author,
 			&i.Body,
 			&i.CreatedAt,
+			&i.ParentID,
+			&i.AuthorAlias,
 		); err != nil {
 			return nil, err
 		}

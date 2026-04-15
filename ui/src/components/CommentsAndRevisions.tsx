@@ -119,16 +119,37 @@ export function CommentsAndRevisions({
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
         Comments ({comments.length})
       </Typography>
-      {comments.map(c => (
-        <Box key={c.id} sx={{ mb: 1.5, borderLeft: 2, borderColor: c.unread ? 'info.main' : 'success.light', pl: 1.5 }}>
-          <Typography variant="caption" sx={{ color: c.unread ? '#1976d2' : '#2e7d32' }}>
-            {new Date(c.created_at).toLocaleDateString()} — {c.author || 'anonymous'}
-          </Typography>
-          <Box sx={{ mt: 0.25 }}>
-            <MarkdownContent slug={slug}>{c.body}</MarkdownContent>
-          </Box>
-        </Box>
-      ))}
+      {(() => {
+        const topLevel = comments.filter(c => !c.parent_id)
+        const byParent = new Map<number, typeof comments>()
+        for (const c of comments) {
+          if (c.parent_id) {
+            const arr = byParent.get(c.parent_id) ?? []
+            arr.push(c)
+            byParent.set(c.parent_id, arr)
+          }
+        }
+        const renderComment = (c: typeof comments[0], depth: number) => {
+          const displayAuthor = c.author_alias
+            ? `${c.author_alias} (${c.author || 'anonymous'})`
+            : (c.author || 'anonymous')
+          const replies = byParent.get(c.id) ?? []
+          return (
+            <Box key={c.id} sx={{ ml: depth * 3 }}>
+              <Box sx={{ mb: 1.5, borderLeft: 2, borderColor: c.unread ? 'info.main' : 'success.light', pl: 1.5 }}>
+                <Typography variant="caption" sx={{ color: c.unread ? '#1976d2' : '#2e7d32' }}>
+                  {new Date(c.created_at).toLocaleDateString()} — {displayAuthor}
+                </Typography>
+                <Box sx={{ mt: 0.25 }}>
+                  <MarkdownContent slug={slug}>{c.body}</MarkdownContent>
+                </Box>
+              </Box>
+              {replies.map(r => renderComment(r, depth + 1))}
+            </Box>
+          )
+        }
+        return topLevel.map(c => renderComment(c, 0))
+      })()}
 
       <Box sx={{ mt: 2 }}>
         <TextField

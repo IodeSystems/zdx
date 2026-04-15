@@ -306,7 +306,9 @@ CREATE TABLE public.zdx_comments (
     target_id text NOT NULL,
     body text NOT NULL,
     author text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    parent_id integer,
+    author_alias text DEFAULT ''::text NOT NULL
 );
 
 
@@ -2746,6 +2748,13 @@ CREATE INDEX idx_comments_target ON public.zdx_comments USING btree (project_id,
 
 
 --
+-- Name: idx_comments_parent; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_comments_parent ON public.zdx_comments USING btree (parent_id) WHERE (parent_id IS NOT NULL);
+
+
+--
 -- Name: idx_error_reports_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3117,6 +3126,14 @@ ALTER TABLE ONLY public.zdx_comment_reads
 
 ALTER TABLE ONLY public.zdx_comments
     ADD CONSTRAINT zdx_comments_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_comments zdx_comments_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_comments
+    ADD CONSTRAINT zdx_comments_parent_id_fkey FOREIGN KEY (parent_id) REFERENCES public.zdx_comments(id) ON DELETE CASCADE;
 
 
 --

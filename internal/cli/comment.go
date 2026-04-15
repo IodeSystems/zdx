@@ -10,13 +10,15 @@ import (
 )
 
 type commentItem struct {
-	ID         int32  `json:"id"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	Author     string `json:"author"`
-	Body       string `json:"body"`
-	CreatedAt  string `json:"created_at"`
-	Unread     *bool  `json:"unread,omitempty"`
+	ID          int32  `json:"id"`
+	TargetType  string `json:"target_type"`
+	TargetID    string `json:"target_id"`
+	Author      string `json:"author"`
+	AuthorAlias string `json:"author_alias,omitempty"`
+	Body        string `json:"body"`
+	CreatedAt   string `json:"created_at"`
+	ParentID    *int32 `json:"parent_id,omitempty"`
+	Unread      *bool  `json:"unread,omitempty"`
 }
 
 func CommentCmd() *cobra.Command {
@@ -73,25 +75,37 @@ func printComments(comments []commentItem) {
 				dot = "● "
 			}
 		}
-		fmt.Printf("%sC-%d [%s] %s: %s\n", dot, cm.ID, date, cm.Author, cm.Body)
+		indent := ""
+		if cm.ParentID != nil {
+			indent = "  ↳ "
+		}
+		author := cm.Author
+		if cm.AuthorAlias != "" {
+			author = cm.AuthorAlias + " (" + cm.Author + ")"
+		}
+		fmt.Printf("%s%sC-%d [%s] %s: %s\n", indent, dot, cm.ID, date, author, cm.Body)
 	}
 }
 
 func commentAddCmd() *cobra.Command {
-	var body string
+	var body, authorAlias string
 	cmd := &cobra.Command{
 		Use:   "add <target-type> <target-id>",
 		Short: "Add a comment (e.g. comment add issue IS-5 --body '...')",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var cm commentItem
-			if err := c.post("/api/dx/comment/add", map[string]any{
+			payload := map[string]any{
 				"slug":        c.SlugOrDie(),
 				"target_type": args[0],
 				"target_id":   args[1],
 				"body":        body,
-			}, &cm); err != nil {
+			}
+			if authorAlias != "" {
+				payload["author_alias"] = authorAlias
+			}
+			var cm commentItem
+			if err := c.post("/api/dx/comment/add", payload, &cm); err != nil {
 				return err
 			}
 			fmt.Printf("C-%d added\n", cm.ID)
@@ -99,6 +113,7 @@ func commentAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&body, "body", "", "comment body")
+	cmd.Flags().StringVar(&authorAlias, "as", "", "author alias (e.g. claude)")
 	cmd.MarkFlagRequired("body")
 	return cmd
 }
@@ -169,7 +184,7 @@ func commentMarkReadCmd() *cobra.Command {
 }
 
 func commentReplyCmd() *cobra.Command {
-	var body, react string
+	var body, react, authorAlias string
 	cmd := &cobra.Command{
 		Use:   "reply <C-N>",
 		Short: "Reply to a comment by ID (e.g. comment reply C-123 --body '...')",
@@ -181,20 +196,24 @@ func commentReplyCmd() *cobra.Command {
 				return err
 			}
 
-			// Look up original comment to find its target
 			var orig commentItem
 			if err := c.get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &orig); err != nil {
 				return fmt.Errorf("could not find C-%d: %w", cid, err)
 			}
 
 			if body != "" {
-				var cm commentItem
-				if err := c.post("/api/dx/comment/add", map[string]any{
+				payload := map[string]any{
 					"slug":        c.SlugOrDie(),
 					"target_type": orig.TargetType,
 					"target_id":   orig.TargetID,
 					"body":        body,
-				}, &cm); err != nil {
+					"parent_id":   cid,
+				}
+				if authorAlias != "" {
+					payload["author_alias"] = authorAlias
+				}
+				var cm commentItem
+				if err := c.post("/api/dx/comment/add", payload, &cm); err != nil {
 					return err
 				}
 				fmt.Printf("C-%d added (reply to C-%d)\n", cm.ID, cid)
@@ -222,6 +241,7 @@ func commentReplyCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&body, "body", "", "reply body")
 	cmd.Flags().StringVar(&react, "react", "", "reaction emoji (e.g. thumbs-up, +1)")
+	cmd.Flags().StringVar(&authorAlias, "as", "", "author alias (e.g. claude)")
 	return cmd
 }
 

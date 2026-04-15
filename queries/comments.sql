@@ -1,10 +1,10 @@
 -- name: AddComment :one
-INSERT INTO zdx_comments (project_id, target_type, target_id, author, body)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, target_type, target_id, author, body, created_at;
+INSERT INTO zdx_comments (project_id, target_type, target_id, author, body, parent_id, author_alias)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias;
 
 -- name: ListComments :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at;
 
@@ -12,13 +12,13 @@ ORDER BY created_at;
 SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3;
 
 -- name: ListCommentsPaginated :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at
 LIMIT $4 OFFSET $5;
 
 -- name: ListCommentsByAuthor :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE project_id = $1 AND author = $2
 ORDER BY created_at DESC;
 
@@ -26,7 +26,7 @@ ORDER BY created_at DESC;
 SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND author = $2;
 
 -- name: ListCommentsByAuthorPaginated :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE project_id = $1 AND author = $2
 ORDER BY created_at DESC
 LIMIT $3 OFFSET $4;
@@ -93,7 +93,7 @@ WHERE c.project_id = @project_id
 
 -- name: ListStaleUnreadComments :many
 -- Returns comments that are unread for the given role and older than the given age threshold.
-SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at
+SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at, c.parent_id, c.author_alias
 FROM zdx_comments c
 WHERE c.project_id = @project_id
   AND NOT EXISTS (
@@ -109,11 +109,11 @@ ORDER BY c.created_at
 LIMIT 20;
 
 -- name: GetCommentByID :one
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE id = $1;
 
 -- name: GetCommentsByIDs :many
-SELECT id, project_id, target_type, target_id, author, body, created_at
+SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE id = ANY($1::int[]);
 
 -- name: AddCommentReaction :one

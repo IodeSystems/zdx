@@ -86,13 +86,15 @@ type ZdxCodeRef struct {
 }
 
 type ZdxComment struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Body       string             `db:"body" json:"body"`
-	Author     string             `db:"author" json:"author"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	Body        string             `db:"body" json:"body"`
+	Author      string             `db:"author" json:"author"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
+	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
 type ZdxCommentReaction struct {
