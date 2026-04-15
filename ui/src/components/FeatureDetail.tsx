@@ -32,7 +32,7 @@ function TestStatusIcon({ status }: { status: string }) {
   return <Typography component="span" sx={{ color, fontWeight: 600, mr: 0.5, fontSize: '0.85rem' }}>{icon}</Typography>
 }
 
-function SpecRow({ spec }: { spec: Spec }) {
+function SpecRow({ spec, slug }: { spec: Spec; slug: string }) {
   const [expanded, setExpanded] = useState(false)
   const { data: tests, isLoading } = useSpecTests(spec.id, expanded)
 
@@ -65,9 +65,15 @@ function SpecRow({ spec }: { spec: Spec }) {
               <Box key={t.id} sx={{ display: 'flex', alignItems: 'center', gap: 0.5, py: 0.25 }}>
                 <TestStatusIcon status={t.status} />
                 <Chip label={t.layer} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.7rem' }} />
-                <Typography variant="body2" sx={{ fontSize: '0.85rem' }}>
-                  {t.component}/{t.name}
-                </Typography>
+                <Link
+                  to="/project/$slug/tests"
+                  params={{ slug }}
+                  style={{ textDecoration: 'none', color: 'inherit' }}
+                >
+                  <Typography variant="body2" sx={{ fontSize: '0.85rem', '&:hover': { textDecoration: 'underline' } }}>
+                    {t.component}/{t.name}
+                  </Typography>
+                </Link>
               </Box>
             ))}
           </Box>
@@ -189,7 +195,7 @@ export function FeatureDetail({
             Specs ({specList.length})
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {specList.map((s: Spec) => <SpecRow key={s.id} spec={s} />)}
+            {specList.map((s: Spec) => <SpecRow key={s.id} spec={s} slug={slug} />)}
           </Box>
         </Box>
       )}
