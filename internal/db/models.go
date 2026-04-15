@@ -8,11 +8,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-type SchemaMigration struct {
-	Version int64 `db:"version" json:"version"`
-	Dirty   bool  `db:"dirty" json:"dirty"`
-}
-
 type ZdxAgent struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
