@@ -229,6 +229,34 @@ func TestDemoCLI_FeatureFlow(t *testing.T) {
 	}
 }
 
+func TestDemoCLI_JournalFlow(t *testing.T) {
+	rec := newRecorder(t, "journal-flow", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	rec.Run("issue", "add", "--title=Implement journal feature", "--context=Work-log tracking via CLI")
+
+	issueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if issueID == "" {
+		t.Skip("could not extract issue ID from output")
+	}
+
+	// Spec 15: journal add with issue ID and note → work-log entry appended
+	rec.Run("journal", "add", "--issue="+issueID, "--note=Started implementation of journal commands")
+	rec.Run("journal", "add", "--issue="+issueID, "--note=Added add and list subcommands", "--role=dev")
+
+	// Spec 16: journal list with issue ID → entries listed with timestamps and attribution
+	rec.Run("journal", "list", "--issue="+issueID)
+
+	// Also show unfiltered list
+	rec.Run("journal", "list")
+
+	for _, s := range rec.steps {
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
 // extractFirstBQID pulls the first BQ-N token from output.
 func extractFirstBQID(output string) string {
 	for _, word := range strings.Fields(output) {

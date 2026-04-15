@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -28,6 +29,8 @@ func JournalCmd() *cobra.Command {
 		journalCheckinCmd(),
 		journalShowCmd(),
 		journalStateCmd(),
+		journalAddCmd(),
+		journalListCmd(),
 	)
 	return cmd
 }
@@ -205,5 +208,98 @@ func journalStateCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&role, "role", "owner", "standup role (owner/tech)")
+	return cmd
+}
+
+func journalAddCmd() *cobra.Command {
+	var issue, note, role string
+	cmd := &cobra.Command{
+		Use:   "add",
+		Short: "Append a work-log entry to an issue",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if issue == "" {
+				return fmt.Errorf("--issue is required")
+			}
+			if note == "" {
+				return fmt.Errorf("--note is required")
+			}
+			id, err := strconv.Atoi(strings.TrimPrefix(issue, "IS-"))
+			if err != nil {
+				return fmt.Errorf("invalid issue ID %q (expected IS-N)", issue)
+			}
+			c := mustClient()
+			body := map[string]any{
+				"issue_id": int32(id),
+				"by_role":  role,
+				"note":     note,
+			}
+			var resp struct{ OK bool }
+			if err := c.post("/api/issue-work", body, &resp); err != nil {
+				return err
+			}
+			fmt.Printf("ok — work-log entry added to %s\n", issue)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&issue, "issue", "", "issue ID (IS-N)")
+	cmd.Flags().StringVar(&note, "note", "", "work-log note")
+	cmd.Flags().StringVar(&role, "role", "llm", "attribution role")
+	return cmd
+}
+
+type worklogEntry struct {
+	IssueID    string `json:"issue_id"`
+	IssueTitle string `json:"issue_title"`
+	Agent      string `json:"agent"`
+	Note       string `json:"note"`
+	CreatedAt  string `json:"created_at"`
+}
+
+func journalListCmd() *cobra.Command {
+	var issue string
+	cmd := &cobra.Command{
+		Use:   "list",
+		Short: "List work-log entries",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := mustClient()
+			params := url.Values{
+				"slug": {c.SlugOrDie()},
+			}
+			var resp struct {
+				Entries []worklogEntry `json:"entries"`
+				Total   int64         `json:"total"`
+			}
+			if err := c.get("/api/dx/worklog", params, &resp); err != nil {
+				return err
+			}
+			entries := resp.Entries
+			if issue != "" {
+				var filtered []worklogEntry
+				for _, e := range entries {
+					if e.IssueID == issue {
+						filtered = append(filtered, e)
+					}
+				}
+				entries = filtered
+			}
+			if len(entries) == 0 {
+				fmt.Println("no work-log entries")
+				return nil
+			}
+			for _, e := range entries {
+				date := e.CreatedAt
+				if len(date) >= 16 {
+					date = date[:16]
+				}
+				title := e.IssueTitle
+				if title == "" {
+					title = e.IssueID
+				}
+				fmt.Printf("%s  %-8s  %-8s  %s — %s\n", date, e.IssueID, e.Agent, title, e.Note)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&issue, "issue", "", "filter by issue ID (IS-N)")
 	return cmd
 }

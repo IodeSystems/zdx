@@ -537,20 +537,24 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "append-issue-work", Method: http.MethodPost, Path: "/api/issue-work"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				IssueID   int32  `json:"issue_id"`
-				EntryType string `json:"entry_type"`
-				ByRole    string `json:"by_role"`
-				Note      string `json:"note"`
+				IssueID   int32   `json:"issue_id"`
+				EntryType *string `json:"entry_type,omitempty"`
+				ByRole    *string `json:"by_role,omitempty"`
+				Note      string  `json:"note"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			issueID := issueIDFromInt(in.Body.IssueID)
 			note := in.Body.Note
-			if in.Body.EntryType != "" {
-				note = "[" + in.Body.EntryType + "] " + note
+			if in.Body.EntryType != nil && *in.Body.EntryType != "" {
+				note = "[" + *in.Body.EntryType + "] " + note
+			}
+			agent := ""
+			if in.Body.ByRole != nil {
+				agent = *in.Body.ByRole
 			}
 			if err := s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{
 				IssueID: issueID,
-				Agent:   in.Body.ByRole,
+				Agent:   agent,
 				Note:    note,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
