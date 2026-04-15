@@ -23,6 +23,7 @@ type Querier interface {
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
 	AttachCodeRefToIssue(ctx context.Context, arg AttachCodeRefToIssueParams) error
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
+	AttachCodeRefToTest(ctx context.Context, arg AttachCodeRefToTestParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
@@ -95,6 +96,7 @@ type Querier interface {
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
 	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
+	DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
@@ -155,6 +157,7 @@ type Querier interface {
 	ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error)
 	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
 	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)
+	ListCodeRefsByTest(ctx context.Context, testID int32) ([]ZdxCodeRef, error)
 	ListCommentReactions(ctx context.Context, commentID int32) ([]ZdxCommentReaction, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
 	ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error)
