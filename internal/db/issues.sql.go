@@ -64,8 +64,8 @@ func (q *Queries) CountWorklogForProject(ctx context.Context, projectID int32) (
 }
 
 const createIssue = `-- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of
 `
 
@@ -77,6 +77,7 @@ type CreateIssueParams struct {
 	Priority  string `db:"priority" json:"priority"`
 	Component string `db:"component" json:"component"`
 	IssueType string `db:"issue_type" json:"issue_type"`
+	Status    string `db:"status" json:"status"`
 }
 
 func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error) {
@@ -88,6 +89,7 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		arg.Priority,
 		arg.Component,
 		arg.IssueType,
+		arg.Status,
 	)
 	var i ZdxIssue
 	err := row.Scan(
@@ -372,6 +374,20 @@ func (q *Queries) ListWorklogForProjectPaginated(ctx context.Context, arg ListWo
 		return nil, err
 	}
 	return items, nil
+}
+
+const readyIssue = `-- name: ReadyIssue :exec
+UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2 AND status = 'wip'
+`
+
+type ReadyIssueParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	ID        string `db:"id" json:"id"`
+}
+
+func (q *Queries) ReadyIssue(ctx context.Context, arg ReadyIssueParams) error {
+	_, err := q.db.Exec(ctx, readyIssue, arg.ProjectID, arg.ID)
+	return err
 }
 
 const reopenIssue = `-- name: ReopenIssue :exec

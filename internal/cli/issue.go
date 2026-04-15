@@ -12,7 +12,7 @@ import (
 
 func IssueCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "issue", Short: "Issue management"}
-	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueEditCmd(), issueBlockCmd(), issueUnblockCmd())
+	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueEditCmd(), issueBlockCmd(), issueUnblockCmd(), issueReadyCmd())
 	return cmd
 }
 
@@ -52,6 +52,7 @@ func issueListCmd() *cobra.Command {
 
 func issueAddCmd() *cobra.Command {
 	var title, ctx, component, blockedBy, issueType string
+	var autoReady bool
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Create an issue",
@@ -63,15 +64,34 @@ func issueAddCmd() *cobra.Command {
 				"context":    ctx,
 				"component":  component,
 				"issue_type": issueType,
+				"auto_ready": autoReady,
 			}
 			if blockedBy != "" {
 				body["blocked_by"] = strings.Split(blockedBy, ",")
 			}
-			var iss issueItem
-			if err := c.post("/api/dx/todo/issue/add", body, &iss); err != nil {
+			var resp issueAddResponse
+			if err := c.post("/api/dx/todo/issue/add", body, &resp); err != nil {
 				return err
 			}
-			fmt.Printf("%s  %s\n", issueIDStr(iss.ID), iss.Title)
+			fmt.Printf("%s  %s\n", issueIDStr(resp.ID), resp.Title)
+			if !autoReady && len(resp.Similar) > 0 {
+				fmt.Println("\nSimilar issues:")
+				for _, s := range resp.Similar {
+					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.ID, s.Score*100, s.Title, s.Status)
+				}
+				fmt.Printf("\nIssue created as draft (wip). To promote:\n")
+				fmt.Printf("  dx issue ready %s\n", issueIDStr(resp.ID))
+				fmt.Printf("To close as duplicate:\n")
+				fmt.Printf("  dx issue close %s --reason=duplicate --duplicate-of=<IS-N>\n", issueIDStr(resp.ID))
+			} else if !autoReady {
+				if err := c.post("/api/dx/todo/issue/ready", map[string]any{
+					"slug": c.SlugOrDie(),
+					"id":   resp.ID,
+				}, nil); err != nil {
+					return err
+				}
+				fmt.Println("(auto-promoted to open — no similar issues found)")
+			}
 			return nil
 		},
 	}
@@ -80,8 +100,29 @@ func issueAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&component, "component", "", "component")
 	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issues (IS-N, comma-separated)")
 	cmd.Flags().StringVar(&issueType, "type", "ops", "issue type: ops or impl")
+	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as open")
 	cmd.MarkFlagRequired("title")
 	return cmd
+}
+
+func issueReadyCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "ready <IS-N>",
+		Short: "Promote a draft issue from wip to open",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := mustClient()
+			n, _ := strconv.ParseInt(args[0][3:], 10, 32)
+			if err := c.post("/api/dx/todo/issue/ready", map[string]any{
+				"slug": c.SlugOrDie(),
+				"id":   int32(n),
+			}, nil); err != nil {
+				return err
+			}
+			fmt.Printf("%s promoted to open\n", args[0])
+			return nil
+		},
+	}
 }
 
 func issueShowCmd() *cobra.Command {

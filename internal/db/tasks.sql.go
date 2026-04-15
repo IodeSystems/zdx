@@ -155,8 +155,8 @@ func (q *Queries) CountTasksByIssue(ctx context.Context, arg CountTasksByIssuePa
 }
 
 const createTask = `-- name: CreateTask :one
-INSERT INTO zdx_tasks (id, project_id, text, feature, issue, task_group)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO zdx_tasks (id, project_id, text, feature, issue, task_group, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 `
 
@@ -167,6 +167,7 @@ type CreateTaskParams struct {
 	Feature   string `db:"feature" json:"feature"`
 	Issue     string `db:"issue" json:"issue"`
 	TaskGroup string `db:"task_group" json:"task_group"`
+	Status    string `db:"status" json:"status"`
 }
 
 type CreateTaskRow struct {
@@ -194,6 +195,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (CreateT
 		arg.Feature,
 		arg.Issue,
 		arg.TaskGroup,
+		arg.Status,
 	)
 	var i CreateTaskRow
 	err := row.Scan(
@@ -222,6 +224,50 @@ DELETE FROM zdx_tasks WHERE id = $1
 func (q *Queries) DeleteTask(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, deleteTask, id)
 	return err
+}
+
+const getTask = `-- name: GetTask :one
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE id = $1
+`
+
+type GetTaskRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
+	row := q.db.QueryRow(ctx, getTask, id)
+	var i GetTaskRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Feature,
+		&i.Status,
+		&i.Reason,
+		&i.Issue,
+		&i.Depends,
+		&i.TestPlan,
+		&i.TestRefs,
+		&i.TaskGroup,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.UpdatedAt,
+	)
+	return i, err
 }
 
 const listTasks = `-- name: ListTasks :many
@@ -725,6 +771,15 @@ UPDATE zdx_tasks SET status = 'pending', completed_at = NULL, updated_at = NOW()
 
 func (q *Queries) MarkTaskUndone(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, markTaskUndone, id)
+	return err
+}
+
+const readyTask = `-- name: ReadyTask :exec
+UPDATE zdx_tasks SET status = 'pending', updated_at = NOW() WHERE id = $1 AND status = 'wip'
+`
+
+func (q *Queries) ReadyTask(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, readyTask, id)
 	return err
 }
 

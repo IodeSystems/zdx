@@ -132,6 +132,7 @@ export function IssueReportFab({ slug }: { slug: string }) {
         context: context.trim() || undefined,
         component: undefined,
         screenshot_ids: screenshotIds,
+        auto_ready: true,
       },
       {
         onSuccess: (issue) => {

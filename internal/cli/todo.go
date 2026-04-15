@@ -63,6 +63,32 @@ type issueWorkItem struct {
 	CreatedAt string `json:"created_at"`
 }
 
+type similarIssueItem struct {
+	ID      string  `json:"id"`
+	Title   string  `json:"title"`
+	Context string  `json:"context"`
+	Status  string  `json:"status"`
+	Score   float32 `json:"score"`
+}
+
+type similarTaskItem struct {
+	ID     string  `json:"id"`
+	Text   string  `json:"text"`
+	Status string  `json:"status"`
+	Issue  string  `json:"issue"`
+	Score  float32 `json:"score"`
+}
+
+type issueAddResponse struct {
+	issueItem
+	Similar []similarIssueItem `json:"similar,omitempty"`
+}
+
+type taskAddResponse struct {
+	taskItem
+	Similar []similarTaskItem `json:"similar,omitempty"`
+}
+
 type taskItem struct {
 	ID        int32  `json:"id"`
 	Text      string `json:"text"`
@@ -155,6 +181,9 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	if issueFlag != "" {
 		for _, iss := range issueList.Issues {
 			if issueIDStr(iss.ID) == issueFlag {
+				if iss.Status == "wip" {
+					return fmt.Errorf("issue %s is still in draft (wip) — run `dx issue ready %s` to promote it", issueFlag, issueFlag)
+				}
 				targetIssues = append(targetIssues, iss)
 				break
 			}
@@ -916,22 +945,41 @@ func todoTechCmd() *cobra.Command {
 
 func todoTechAddCmd() *cobra.Command {
 	var issue, feature, text, taskGroup string
+	var autoReady bool
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a task",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
-			var t taskItem
+			var resp taskAddResponse
 			if err := c.post("/api/dx/todo/tech/add", map[string]any{
 				"slug":       c.SlugOrDie(),
 				"text":       text,
 				"feature":    feature,
 				"issue":      issue,
 				"task_group": taskGroup,
-			}, &t); err != nil {
+				"auto_ready": autoReady,
+			}, &resp); err != nil {
 				return err
 			}
-			fmt.Printf("%s  %s\n", taskIDStr(t.ID), t.Text)
+			fmt.Printf("%s  %s\n", taskIDStr(resp.ID), resp.Text)
+			if !autoReady && len(resp.Similar) > 0 {
+				fmt.Println("\nSimilar tasks:")
+				for _, s := range resp.Similar {
+					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.ID, s.Score*100, s.Text, s.Status)
+				}
+				fmt.Printf("\nTask created as draft (wip). To promote:\n")
+				fmt.Printf("  dx task ready %s\n", taskIDStr(resp.ID))
+				fmt.Printf("To delete:\n")
+				fmt.Printf("  dx task delete %s\n", taskIDStr(resp.ID))
+			} else if !autoReady {
+				if err := c.post("/api/dx/todo/task/ready", map[string]any{
+					"id": resp.ID,
+				}, nil); err != nil {
+					return err
+				}
+				fmt.Println("(auto-promoted to pending — no similar tasks found)")
+			}
 			return nil
 		},
 	}
@@ -939,6 +987,7 @@ func todoTechAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&feature, "feature", "", "link to feature name")
 	cmd.Flags().StringVar(&text, "text", "", "task description")
 	cmd.Flags().StringVar(&taskGroup, "task-group", "", "logical task group name")
+	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as pending")
 	cmd.MarkFlagRequired("text")
 	return cmd
 }

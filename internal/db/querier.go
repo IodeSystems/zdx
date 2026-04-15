@@ -119,6 +119,7 @@ type Querier interface {
 	GetProjectGoal(ctx context.Context, id int32) (ZdxProjectGoal, error)
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
+	GetTask(ctx context.Context, id string) (GetTaskRow, error)
 	GetTest(ctx context.Context, arg GetTestParams) (GetTestRow, error)
 	GetThemeByID(ctx context.Context, arg GetThemeByIDParams) (ZdxTheme, error)
 	GetThemeByName(ctx context.Context, arg GetThemeByNameParams) (ZdxTheme, error)
@@ -225,6 +226,8 @@ type Querier interface {
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskUndone(ctx context.Context, id string) error
 	NextID(ctx context.Context, kind string) (int32, error)
+	ReadyIssue(ctx context.Context, arg ReadyIssueParams) error
+	ReadyTask(ctx context.Context, id string) error
 	ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error)
 	ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error)
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)

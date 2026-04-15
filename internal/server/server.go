@@ -244,6 +244,26 @@ func (s *Server) findSimilarQuestions(ctx context.Context, projectID int32, quer
 	return out, nil
 }
 
+func (s *Server) findSimilarTasks(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarTaskItem, error) {
+	results, err := s.emb.topNTasks(ctx, projectID, queryText, n)
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return []SimilarTaskItem{}, nil
+	}
+	out := make([]SimilarTaskItem, 0, len(results))
+	for _, r := range results {
+		id := taskIDFromInt(int32(r.ID)) //nolint:gosec
+		task, err := s.q.GetTask(ctx, id)
+		if err != nil {
+			continue
+		}
+		out = append(out, SimilarTaskItem{ID: id, Text: task.Text, Status: task.Status, Issue: task.Issue, Score: r.Score})
+	}
+	return out, nil
+}
+
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	if isMaintenance() && r.URL.Path != "/health" {
 		w.Header().Set("Content-Type", "text/html; charset=utf-8")

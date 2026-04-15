@@ -183,6 +183,14 @@ type SimilarIssueItem struct {
 	Score   float32 `json:"score"`
 }
 
+type SimilarTaskItem struct {
+	ID     string  `json:"id"`
+	Text   string  `json:"text"`
+	Status string  `json:"status"`
+	Issue  string  `json:"issue"`
+	Score  float32 `json:"score"`
+}
+
 type QuestionItem struct {
 	ID               int32  `json:"id"`
 	Category         string `json:"category"`

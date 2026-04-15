@@ -58,10 +58,17 @@ WHERE project_id = @project_id AND issue = @issue
 ORDER BY updated_at DESC
 LIMIT @page_limit OFFSET @page_offset;
 
+-- name: GetTask :one
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+FROM zdx_tasks WHERE id = $1;
+
 -- name: CreateTask :one
-INSERT INTO zdx_tasks (id, project_id, text, feature, issue, task_group)
-VALUES ($1, $2, $3, $4, $5, $6)
+INSERT INTO zdx_tasks (id, project_id, text, feature, issue, task_group, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at;
+
+-- name: ReadyTask :exec
+UPDATE zdx_tasks SET status = 'pending', updated_at = NOW() WHERE id = $1 AND status = 'wip';
 
 -- name: UpdateTaskStatus :exec
 UPDATE zdx_tasks SET status = $2, reason = $3, updated_at = NOW() WHERE id = $1;

@@ -107,8 +107,14 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				Issue     *string `json:"issue,omitempty"`
 				Depends   *string `json:"depends,omitempty"`
 				TaskGroup *string `json:"task_group,omitempty"`
+				AutoReady bool    `json:"auto_ready,omitempty"`
 			}
-		}) (*struct{ Body TaskItem }, error) {
+		}) (*struct {
+			Body struct {
+				TaskItem
+				Similar []SimilarTaskItem `json:"similar,omitempty"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
 			if err != nil {
 				return nil, err
@@ -117,6 +123,16 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			status := "wip"
+			if in.Body.AutoReady {
+				status = "pending"
+			}
+
+			var similar []SimilarTaskItem
+			if !in.Body.AutoReady {
+				similar, _ = s.findSimilarTasks(ctx, p.ID, in.Body.Text, 5)
+			}
+
 			row, err := s.q.CreateTask(ctx, db.CreateTaskParams{
 				ID:        id,
 				ProjectID: p.ID,
@@ -124,11 +140,22 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				Feature:   ptrStr(in.Body.Feature),
 				Issue:     ptrStr(in.Body.Issue),
 				TaskGroup: ptrStr(in.Body.TaskGroup),
+				Status:    status,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body TaskItem }{Body: toTaskItem(db.ZdxTask{ID: row.ID, ProjectID: row.ProjectID, Text: row.Text, Feature: row.Feature, Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends, TestPlan: row.TestPlan, TestRefs: row.TestRefs, CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt, TaskGroup: row.TaskGroup})}, nil
+			go s.emb.upsertTask(context.Background(), p.ID, row.ID, row.Text)
+			item := toTaskItem(db.ZdxTask{ID: row.ID, ProjectID: row.ProjectID, Text: row.Text, Feature: row.Feature, Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends, TestPlan: row.TestPlan, TestRefs: row.TestRefs, CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt, TaskGroup: row.TaskGroup})
+			return &struct {
+				Body struct {
+					TaskItem
+					Similar []SimilarTaskItem `json:"similar,omitempty"`
+				}
+			}{Body: struct {
+				TaskItem
+				Similar []SimilarTaskItem `json:"similar,omitempty"`
+			}{TaskItem: item, Similar: similar}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "mark-task-done", Method: http.MethodPost, Path: "/api/dx/todo/dev/done"},
@@ -236,6 +263,55 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}
 		}) (*struct{ Body OKBody }, error) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Task ready (wip → pending) ───────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "ready-task", Method: http.MethodPost, Path: "/api/dx/todo/task/ready"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID int32 `json:"id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := s.q.ReadyTask(ctx, taskIDFromInt(in.Body.ID)); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// ── Task similarity ──────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "similar-tasks", Method: http.MethodPost, Path: "/api/dx/tasks/similar"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				Text string `json:"text"`
+				N    int    `json:"n,omitempty"`
+			}
+		}) (*struct {
+			Body struct {
+				Tasks []SimilarTaskItem `json:"tasks"`
+			}
+		}, error) {
+			n := in.Body.N
+			if n <= 0 {
+				n = 5
+			}
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			results, err := s.findSimilarTasks(ctx, p.ID, in.Body.Text, n)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Tasks []SimilarTaskItem `json:"tasks"`
+				}
+			}{Body: struct {
+				Tasks []SimilarTaskItem `json:"tasks"`
+			}{Tasks: results}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "get-task-commit-refs", Method: http.MethodGet, Path: "/api/dx/todo/dev/commit-refs"},

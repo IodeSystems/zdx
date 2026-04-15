@@ -48,6 +48,7 @@ func main() {
 		cli.TimeCmd(),
 		cli.ClaudeCmd(),
 		cli.AgentCmd(),
+		cli.TaskCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

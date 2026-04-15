@@ -27,9 +27,12 @@ SELECT id, project_id, title, status, priority, component, context, created_at, 
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
 -- name: CreateIssue :one
-INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
 RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of;
+
+-- name: ReadyIssue :exec
+UPDATE zdx_issues SET status = 'open' WHERE project_id = $1 AND id = $2 AND status = 'wip';
 
 -- name: UpdateIssue :exec
 UPDATE zdx_issues

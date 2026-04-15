@@ -197,9 +197,68 @@ func (e *embedder) topNQuestions(ctx context.Context, projectID int32, queryText
 	return results, err
 }
 
+func (e *embedder) taskIndexPath(projectID int32) string {
+	return filepath.Join(e.dataDir, fmt.Sprintf("tasks-%d.zvec", projectID))
+}
+
+func (e *embedder) upsertTask(ctx context.Context, projectID int32, taskID string, taskText string) {
+	vec, err := e.embed(ctx, taskText)
+	if err != nil {
+		log.Printf("embedder: embed task %s: %v", taskID, err)
+		return
+	}
+	if vec == nil {
+		return
+	}
+
+	id := taskNumericID(taskID)
+	path := e.taskIndexPath(projectID)
+
+	start := time.Now()
+	idx, err := e.loadOrCreate(path, len(vec))
+	if err != nil {
+		log.Printf("embedder: open task index %s: %v", path, err)
+		return
+	}
+	if err := idx.Upsert(path, id, vec); err != nil {
+		log.Printf("embedder: upsert task %s: %v", taskID, err)
+	}
+	e.sink.track(ctx, "zvec:upsert-task", start)
+}
+
+func (e *embedder) topNTasks(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+	vec, err := e.embed(ctx, queryText)
+	if err != nil {
+		return nil, fmt.Errorf("embed query: %w", err)
+	}
+	if vec == nil {
+		return nil, nil
+	}
+
+	path := e.taskIndexPath(projectID)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, nil
+	}
+
+	start := time.Now()
+	idx, err := zvec.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open task index: %w", err)
+	}
+	results, err := idx.TopN(vec, n)
+	e.sink.track(ctx, "zvec:search-tasks", start)
+	return results, err
+}
+
 // issueNumericID converts "IS-42" → 42.
 func issueNumericID(id string) uint64 {
 	s := strings.TrimPrefix(id, "IS-")
+	n, _ := strconv.ParseUint(s, 10, 64)
+	return n
+}
+
+func taskNumericID(id string) uint64 {
+	s := strings.TrimPrefix(id, "TK-")
 	n, _ := strconv.ParseUint(s, 10, 64)
 	return n
 }

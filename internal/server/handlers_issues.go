@@ -122,8 +122,14 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Component     *string  `json:"component,omitempty"`
 				IssueType     *string  `json:"issue_type,omitempty"`
 				ScreenshotIDs []int32  `json:"screenshot_ids,omitempty"`
+				AutoReady     bool     `json:"auto_ready,omitempty"`
 			}
-		}) (*struct{ Body IssueItem }, error) {
+		}) (*struct {
+			Body struct {
+				IssueItem
+				Similar []SimilarIssueItem `json:"similar,omitempty"`
+			}
+		}, error) {
 			p, err := getProject(ctx, s.q, in.Body.Slug)
 			if err != nil {
 				return nil, err
@@ -132,10 +138,15 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			status := "wip"
+			if in.Body.AutoReady {
+				status = "open"
+			}
 			params := db.CreateIssueParams{
 				ID:        id,
 				ProjectID: p.ID,
 				IssueType: "ops",
+				Status:    status,
 			}
 			if in.Body.Title != nil {
 				params.Title = *in.Body.Title
@@ -149,6 +160,13 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if in.Body.IssueType != nil {
 				params.IssueType = *in.Body.IssueType
 			}
+
+			issueText := params.Title + " " + params.Context
+			var similar []SimilarIssueItem
+			if !in.Body.AutoReady {
+				similar, _ = s.findSimilarIssues(ctx, p.ID, issueText, 5)
+			}
+
 			row, err := s.q.CreateIssue(ctx, params)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -163,10 +181,18 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					Kind:    "screenshot",
 				})
 			}
-			go s.emb.upsertIssue(context.Background(), p.ID, row.ID, row.Title+" "+row.Context)
+			go s.emb.upsertIssue(context.Background(), p.ID, row.ID, issueText)
 			item := toIssueItem(row)
 			s.publishIssue(in.Body.Slug, row.ID, "issue.created", item)
-			return &struct{ Body IssueItem }{Body: item}, nil
+			return &struct {
+				Body struct {
+					IssueItem
+					Similar []SimilarIssueItem `json:"similar,omitempty"`
+				}
+			}{Body: struct {
+				IssueItem
+				Similar []SimilarIssueItem `json:"similar,omitempty"`
+			}{IssueItem: item, Similar: similar}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "triage-issue", Method: http.MethodPost, Path: "/api/dx/todo/owner/triage"},
@@ -576,6 +602,26 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			}{Body: struct {
 				Issues []SimilarIssueItem `json:"issues"`
 			}{Issues: results}}, nil
+		})
+
+	// ── Issue ready (wip → open) ─────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "ready-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/ready"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				ID   int32  `json:"id"`
+			}
+		}) (*struct{ Body struct{ OK bool } }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			issueID := issueIDFromInt(in.Body.ID)
+			if err := s.q.ReadyIssue(ctx, db.ReadyIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body struct{ OK bool } }{Body: struct{ OK bool }{OK: true}}, nil
 		})
 
 	// ── Git commits ───────────────────────────────────────────────────────────
