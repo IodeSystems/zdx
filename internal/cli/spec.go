@@ -112,7 +112,8 @@ func specLinkCmd() *cobra.Command {
 }
 
 func specDeferCmd() *cobra.Command {
-	return &cobra.Command{
+	var reason string
+	cmd := &cobra.Command{
 		Use:   "defer <spec-id>",
 		Short: "Mark a spec as deferred (skipped by solo tech:test-ref)",
 		Args:  cobra.ExactArgs(1),
@@ -125,6 +126,7 @@ func specDeferCmd() *cobra.Command {
 			var ok struct{ OK bool }
 			if err := c.post("/api/dx/specs/defer", map[string]any{
 				"spec_id": specID,
+				"reason":  reason,
 			}, &ok); err != nil {
 				return err
 			}
@@ -132,6 +134,8 @@ func specDeferCmd() *cobra.Command {
 			return nil
 		},
 	}
+	cmd.Flags().StringVar(&reason, "reason", "", "reason for deferring")
+	return cmd
 }
 
 func specUndeferCmd() *cobra.Command {
