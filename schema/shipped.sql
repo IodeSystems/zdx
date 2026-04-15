@@ -1381,7 +1381,8 @@ CREATE TABLE public.zdx_tasks (
     task_group text DEFAULT ''::text NOT NULL,
     claimed_by text,
     claimed_at timestamp with time zone,
-    lease_expires_at timestamp with time zone
+    lease_expires_at timestamp with time zone,
+    reviewed_at timestamp with time zone
 );
 
 

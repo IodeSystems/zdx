@@ -537,6 +537,19 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		}
 		if !hasPending {
 			if len(taskList.Tasks) > 0 {
+				var unreviewedResp struct {
+					Tasks []taskItem `json:"tasks"`
+				}
+				issueID := issueIDStr(iss.ID)
+				if err := c.get("/api/dx/todo/dev/unreviewed", url.Values{
+					"slug":  {slug},
+					"issue": {issueID},
+				}, &unreviewedResp); err == nil && len(unreviewedResp.Tasks) > 0 {
+					t := unreviewedResp.Tasks[0]
+					fmt.Printf("[review]  %s  %s\n", taskIDStr(t.ID), t.Text)
+					fmt.Printf("  issue: %s\n", issueID)
+					return nil
+				}
 				fmt.Printf("[closable] %s  %s\n", issueIDStr(iss.ID), iss.Title)
 			} else {
 				fmt.Printf("[add]     %s  %s\n", issueIDStr(iss.ID), iss.Title)
@@ -798,7 +811,7 @@ func todoShowCmd() *cobra.Command {
 
 func todoDevCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "dev", Short: "Task development actions"}
-	cmd.AddCommand(todoDevDoneCmd(), todoDevUndoneCmd(), todoDevStartCmd())
+	cmd.AddCommand(todoDevDoneCmd(), todoDevUndoneCmd(), todoDevStartCmd(), todoDevReviewCmd())
 	return cmd
 }
 
@@ -880,6 +893,76 @@ func todoDevStartCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&reason, "reason", "", "notes")
+	return cmd
+}
+
+func todoDevReviewCmd() *cobra.Command {
+	var verdict, body string
+	cmd := &cobra.Command{
+		Use:   "review <TK-N>",
+		Short: "Review a completed task or submit review verdict",
+		Long:  "Without --verdict: prints task details and review material.\nWith --verdict: marks the task as reviewed and posts a review comment.",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			c := mustClient()
+			slug := c.SlugOrDie()
+
+			if verdict != "" {
+				var ok struct {
+					OK bool `json:"ok"`
+				}
+				if err := c.post("/api/dx/todo/dev/review", map[string]any{
+					"slug":    slug,
+					"id":      int32(n),
+					"verdict": verdict,
+					"comment": body,
+				}, &ok); err != nil {
+					return err
+				}
+				fmt.Printf("%s reviewed [%s]\n", id, verdict)
+				return nil
+			}
+
+			var resp struct {
+				Task      taskItem `json:"task"`
+				IssueType string   `json:"issue_type"`
+				TestPlan  string   `json:"test_plan"`
+				TestRefs  string   `json:"test_refs"`
+			}
+			if err := c.get("/api/dx/todo/dev/review-data", url.Values{
+				"slug": {slug},
+				"id":   {strconv.Itoa(int(n))},
+			}, &resp); err != nil {
+				return err
+			}
+
+			fmt.Printf("Task:       %s\n", id)
+			fmt.Printf("Text:       %s\n", resp.Task.Text)
+			fmt.Printf("Status:     %s\n", resp.Task.Status)
+			fmt.Printf("Issue type: %s\n", resp.IssueType)
+			if resp.TestPlan != "" {
+				fmt.Printf("Test plan:  %s\n", resp.TestPlan)
+			}
+			if resp.TestRefs != "" {
+				fmt.Printf("Test refs:  %s\n", resp.TestRefs)
+			}
+			if resp.IssueType == "ops" {
+				fmt.Println("\nReview checklist (ops):")
+				fmt.Println("  - Demo recording artifacts reviewed (playwright code, stdout/stderr, browser logs)")
+				fmt.Println("  - Test plan coverage verified")
+			} else {
+				fmt.Println("\nReview checklist (impl):")
+				fmt.Println("  - Fix SHAs and diffs reviewed")
+				fmt.Println("  - Test plan and code blocks verified")
+			}
+			fmt.Printf("\nSubmit review: dx todo dev review %s --verdict=<approve|reject> --body=\"...\"\n", id)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&verdict, "verdict", "", "review verdict: approve or reject")
+	cmd.Flags().StringVar(&body, "body", "", "review comment body")
 	return cmd
 }
 

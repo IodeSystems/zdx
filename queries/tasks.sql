@@ -148,3 +148,22 @@ WHERE lease_expires_at < NOW()
   AND claimed_by IS NOT NULL
   AND status != 'done'
 RETURNING *;
+
+-- name: MarkTaskReviewed :exec
+UPDATE zdx_tasks SET reviewed_at = NOW(), updated_at = NOW() WHERE id = $1;
+
+-- name: ListUnreviewedDoneTasks :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+FROM zdx_tasks
+WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
+ORDER BY completed_at ASC;
+
+-- name: ListUnreviewedDoneTasksByIssue :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+FROM zdx_tasks
+WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
+ORDER BY completed_at ASC;
+
+-- name: GetTaskWithReview :one
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+FROM zdx_tasks WHERE id = $1;

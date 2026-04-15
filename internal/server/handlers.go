@@ -65,6 +65,7 @@ type TaskItem struct {
 	CreatedAt   string `json:"created_at"`
 	CompletedAt string `json:"completed_at"`
 	UpdatedAt   string `json:"updated_at"`
+	ReviewedAt  string `json:"reviewed_at,omitempty"`
 }
 
 type FeatureItem struct {

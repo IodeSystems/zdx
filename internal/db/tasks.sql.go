@@ -29,7 +29,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at
 `
 
 type ClaimTaskParams struct {
@@ -67,6 +67,7 @@ func (q *Queries) ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, 
 		&i.ClaimedBy,
 		&i.ClaimedAt,
 		&i.LeaseExpiresAt,
+		&i.ReviewedAt,
 	)
 	return i, err
 }
@@ -266,6 +267,52 @@ func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
+	)
+	return i, err
+}
+
+const getTaskWithReview = `-- name: GetTaskWithReview :one
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+FROM zdx_tasks WHERE id = $1
+`
+
+type GetTaskWithReviewRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ReviewedAt  pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+}
+
+func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWithReviewRow, error) {
+	row := q.db.QueryRow(ctx, getTaskWithReview, id)
+	var i GetTaskWithReviewRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Feature,
+		&i.Status,
+		&i.Reason,
+		&i.Issue,
+		&i.Depends,
+		&i.TestPlan,
+		&i.TestRefs,
+		&i.TaskGroup,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.UpdatedAt,
+		&i.ReviewedAt,
 	)
 	return i, err
 }
@@ -748,6 +795,133 @@ func (q *Queries) ListTasksPaginated(ctx context.Context, arg ListTasksPaginated
 	return items, nil
 }
 
+const listUnreviewedDoneTasks = `-- name: ListUnreviewedDoneTasks :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+FROM zdx_tasks
+WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
+ORDER BY completed_at ASC
+`
+
+type ListUnreviewedDoneTasksRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ReviewedAt  pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+}
+
+func (q *Queries) ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error) {
+	rows, err := q.db.Query(ctx, listUnreviewedDoneTasks, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnreviewedDoneTasksRow
+	for rows.Next() {
+		var i ListUnreviewedDoneTasksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.TaskGroup,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+			&i.ReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnreviewedDoneTasksByIssue = `-- name: ListUnreviewedDoneTasksByIssue :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+FROM zdx_tasks
+WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
+ORDER BY completed_at ASC
+`
+
+type ListUnreviewedDoneTasksByIssueParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Issue     string `db:"issue" json:"issue"`
+}
+
+type ListUnreviewedDoneTasksByIssueRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ReviewedAt  pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+}
+
+func (q *Queries) ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error) {
+	rows, err := q.db.Query(ctx, listUnreviewedDoneTasksByIssue, arg.ProjectID, arg.Issue)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnreviewedDoneTasksByIssueRow
+	for rows.Next() {
+		var i ListUnreviewedDoneTasksByIssueRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.TaskGroup,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+			&i.ReviewedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const markTaskDone = `-- name: MarkTaskDone :exec
 UPDATE zdx_tasks
 SET status = 'done', test_plan = $2, test_refs = $3, completed_at = NOW(), updated_at = NOW()
@@ -762,6 +936,15 @@ type MarkTaskDoneParams struct {
 
 func (q *Queries) MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error {
 	_, err := q.db.Exec(ctx, markTaskDone, arg.ID, arg.TestPlan, arg.TestRefs)
+	return err
+}
+
+const markTaskReviewed = `-- name: MarkTaskReviewed :exec
+UPDATE zdx_tasks SET reviewed_at = NOW(), updated_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) MarkTaskReviewed(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, markTaskReviewed, id)
 	return err
 }
 
@@ -793,7 +976,7 @@ SET claimed_by = NULL,
 WHERE lease_expires_at < NOW()
   AND claimed_by IS NOT NULL
   AND status != 'done'
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at
 `
 
 func (q *Queries) ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error) {
@@ -823,6 +1006,7 @@ func (q *Queries) ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error) {
 			&i.ClaimedBy,
 			&i.ClaimedAt,
 			&i.LeaseExpiresAt,
+			&i.ReviewedAt,
 		); err != nil {
 			return nil, err
 		}

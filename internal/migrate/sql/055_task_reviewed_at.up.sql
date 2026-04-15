@@ -1,0 +1,1 @@
+ALTER TABLE zdx_tasks ADD COLUMN reviewed_at TIMESTAMPTZ;

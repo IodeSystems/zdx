@@ -475,6 +475,7 @@ type ZdxTask struct {
 	ClaimedBy      pgtype.Text        `db:"claimed_by" json:"claimed_by"`
 	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
 	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	ReviewedAt     pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 }
 
 type ZdxTaskCodeRef struct {

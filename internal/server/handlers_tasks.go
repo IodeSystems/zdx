@@ -353,6 +353,133 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				}
 			}{}, nil
 		})
+
+	// ── Review endpoints ────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "get-review-data", Method: http.MethodGet, Path: "/api/dx/todo/dev/review-data"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   int32  `query:"id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Task      TaskItem `json:"task"`
+				IssueType string   `json:"issue_type"`
+				TestPlan  string   `json:"test_plan"`
+				TestRefs  string   `json:"test_refs"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			id := taskIDFromInt(in.ID)
+			row, err := s.q.GetTaskWithReview(ctx, id)
+			if err != nil {
+				return nil, apiErr(404, "task not found")
+			}
+			if row.ProjectID != p.ID {
+				return nil, apiErr(404, "task not found")
+			}
+			issueType := ""
+			if row.Issue != "" {
+				issueRow, err := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: row.Issue})
+				if err == nil {
+					issueType = issueRow.IssueType
+				}
+			}
+			task := toTaskItem(db.ZdxTask{
+				ID: row.ID, ProjectID: row.ProjectID, Text: row.Text, Feature: row.Feature,
+				Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends,
+				TestPlan: row.TestPlan, TestRefs: row.TestRefs, TaskGroup: row.TaskGroup,
+				CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt,
+			})
+			task.ReviewedAt = fmtTS(row.ReviewedAt)
+			return &struct {
+				Body struct {
+					Task      TaskItem `json:"task"`
+					IssueType string   `json:"issue_type"`
+					TestPlan  string   `json:"test_plan"`
+					TestRefs  string   `json:"test_refs"`
+				}
+			}{Body: struct {
+				Task      TaskItem `json:"task"`
+				IssueType string   `json:"issue_type"`
+				TestPlan  string   `json:"test_plan"`
+				TestRefs  string   `json:"test_refs"`
+			}{Task: task, IssueType: issueType, TestPlan: row.TestPlan, TestRefs: row.TestRefs}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "mark-task-reviewed", Method: http.MethodPost, Path: "/api/dx/todo/dev/review"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				ID      int32  `json:"id"`
+				Verdict string `json:"verdict"`
+				Comment string `json:"comment"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, s.q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			id := taskIDFromInt(in.Body.ID)
+			if err := s.q.MarkTaskReviewed(ctx, id); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if in.Body.Comment != "" {
+				body := fmt.Sprintf("## Review [%s]\n\n%s", in.Body.Verdict, in.Body.Comment)
+				s.q.AddComment(ctx, db.AddCommentParams{
+					ProjectID:  p.ID,
+					TargetType: "task",
+					TargetID:   fmt.Sprintf("TK-%d", in.Body.ID),
+					Body:       body,
+					Author:     "reviewer",
+				})
+			}
+			s.publish(fmt.Sprintf("task:%s", id), "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict})
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-unreviewed-tasks", Method: http.MethodGet, Path: "/api/dx/todo/dev/unreviewed"},
+		func(ctx context.Context, in *struct {
+			Slug  string `query:"slug" required:"true"`
+			Issue string `query:"issue"`
+		}) (*TasksSlugOutput, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if in.Issue != "" {
+				rows, err := s.q.ListUnreviewedDoneTasksByIssue(ctx, db.ListUnreviewedDoneTasksByIssueParams{ProjectID: p.ID, Issue: in.Issue})
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				out := make([]TaskItem, len(rows))
+				for i, r := range rows {
+					t := toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
+					t.ReviewedAt = fmtTS(r.ReviewedAt)
+					out[i] = t
+				}
+				return &TasksSlugOutput{Body: struct {
+					Tasks []TaskItem `json:"tasks"`
+					Total int64      `json:"total"`
+				}{Tasks: out, Total: int64(len(out))}}, nil
+			}
+			rows, err := s.q.ListUnreviewedDoneTasks(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TaskItem, len(rows))
+			for i, r := range rows {
+				t := toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
+				t.ReviewedAt = fmtTS(r.ReviewedAt)
+				out[i] = t
+			}
+			return &TasksSlugOutput{Body: struct {
+				Tasks []TaskItem `json:"tasks"`
+				Total int64      `json:"total"`
+			}{Tasks: out, Total: int64(len(out))}}, nil
+		})
 }
 
 // ── Model → response converter ────────────────────────────────────────────

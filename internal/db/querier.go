@@ -127,6 +127,7 @@ type Querier interface {
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetTask(ctx context.Context, id string) (GetTaskRow, error)
+	GetTaskWithReview(ctx context.Context, id string) (GetTaskWithReviewRow, error)
 	GetTest(ctx context.Context, arg GetTestParams) (GetTestRow, error)
 	GetTestByID(ctx context.Context, arg GetTestByIDParams) (GetTestByIDRow, error)
 	GetThemeByID(ctx context.Context, arg GetThemeByIDParams) (ZdxTheme, error)
@@ -237,12 +238,15 @@ type Querier interface {
 	ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	// Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
+	ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error)
+	ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error)
 	ListWorklogForProjectPaginated(ctx context.Context, arg ListWorklogForProjectPaginatedParams) ([]ListWorklogForProjectPaginatedRow, error)
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkInviteUsed(ctx context.Context, id int32) error
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
+	MarkTaskReviewed(ctx context.Context, id string) error
 	MarkTaskUndone(ctx context.Context, id string) error
 	NextID(ctx context.Context, kind string) (int32, error)
 	ReadyIssue(ctx context.Context, arg ReadyIssueParams) error
