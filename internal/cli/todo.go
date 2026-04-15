@@ -140,13 +140,21 @@ func TodoCmd() *cobra.Command {
 
 func todoSoloCmd() *cobra.Command {
 	var issueFlag, agentIDFlag string
+	var evaluateFlag, applyFlag bool
 	cmd := &cobra.Command{
 		Use:   "solo",
 		Short: "Next actionable item",
-		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if evaluateFlag || applyFlag {
+				return soloEvaluateRun(cmd, evaluateFlag, applyFlag)
+			}
+			return soloRun(cmd, args)
+		},
 	}
 	cmd.Flags().StringVar(&issueFlag, "issue", "", "filter to specific issue (IS-N)")
 	cmd.Flags().StringVar(&agentIDFlag, "agent-id", "", "agent ID for atomic task claiming and heartbeat")
+	cmd.Flags().BoolVar(&evaluateFlag, "evaluate", false, "regenerate full queue and show diff")
+	cmd.Flags().BoolVar(&applyFlag, "apply", false, "regenerate and apply (implies --evaluate)")
 	return cmd
 }
 
@@ -604,6 +612,104 @@ Analyze the project to bootstrap its feature catalog and first issue:
 
 	fmt.Fprintln(os.Stderr, "nothing to do")
 	os.Exit(2)
+	return nil
+}
+
+// ── evaluate ─────────────────────────────────────────────────────────────────
+
+type soloQueueItem struct {
+	Key        string `json:"key"`
+	Text       string `json:"text"`
+	Kind       string `json:"kind"`
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	IssueRef   string `json:"issue_ref"`
+	Priority   int32  `json:"priority"`
+	Blocked    bool   `json:"blocked"`
+	Persona    string `json:"persona"`
+	Status     string `json:"status"`
+}
+
+type evaluateDiffResp struct {
+	Added   []soloQueueItem `json:"added"`
+	Removed []struct {
+		Key  string `json:"key"`
+		Text string `json:"text"`
+		Kind string `json:"kind"`
+	} `json:"removed"`
+	Changed []struct {
+		Before struct {
+			Key      string `json:"key"`
+			Text     string `json:"text"`
+			Priority int32  `json:"priority"`
+		} `json:"before"`
+		After soloQueueItem `json:"after"`
+	} `json:"changed"`
+	Unchanged []soloQueueItem `json:"unchanged"`
+}
+
+func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
+	issueFlag, _ := cmd.Flags().GetString("issue")
+	c := mustClient()
+	slug := c.SlugOrDie()
+
+	var diff evaluateDiffResp
+	if err := c.post("/api/dx/solo/evaluate", map[string]any{
+		"slug":  slug,
+		"issue": issueFlag,
+	}, &diff); err != nil {
+		return err
+	}
+
+	if len(diff.Added) == 0 && len(diff.Removed) == 0 && len(diff.Changed) == 0 {
+		fmt.Printf("queue up to date (%d items)\n", len(diff.Unchanged))
+		if !apply {
+			return nil
+		}
+	}
+
+	if len(diff.Added) > 0 {
+		fmt.Printf("+ %d new:\n", len(diff.Added))
+		for _, a := range diff.Added {
+			fmt.Printf("  + [%s] %s  %s\n", a.Kind, a.TargetID, a.Text)
+		}
+	}
+	if len(diff.Removed) > 0 {
+		fmt.Printf("- %d removed:\n", len(diff.Removed))
+		for _, r := range diff.Removed {
+			fmt.Printf("  - [%s] %s\n", r.Kind, r.Text)
+		}
+	}
+	if len(diff.Changed) > 0 {
+		fmt.Printf("~ %d changed:\n", len(diff.Changed))
+		for _, ch := range diff.Changed {
+			fmt.Printf("  ~ [%s] %s\n", ch.After.Kind, ch.After.Text)
+		}
+	}
+
+	if !apply {
+		fmt.Println("\nrun with --apply to commit changes")
+		return nil
+	}
+
+	// Collect all items (added + changed + unchanged) and apply
+	var items []soloQueueItem
+	items = append(items, diff.Added...)
+	for _, ch := range diff.Changed {
+		items = append(items, ch.After)
+	}
+	items = append(items, diff.Unchanged...)
+
+	var ok struct {
+		OK bool `json:"ok"`
+	}
+	if err := c.post("/api/dx/solo/apply", map[string]any{
+		"slug":  slug,
+		"items": items,
+	}, &ok); err != nil {
+		return err
+	}
+	fmt.Printf("applied: %d items in queue\n", len(items))
 	return nil
 }
 

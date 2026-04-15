@@ -83,7 +83,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}
 			out := make([]TodoItem, len(rows))
 			for i, r := range rows {
-				out[i] = toTodoItem(r)
+				out[i] = toTodoItemFromRow(r)
 			}
 			return &struct {
 				Body struct {
@@ -114,12 +114,18 @@ func (s *Server) registerDxRoutes(api huma.API) {
 					status = "open"
 				}
 				_, err := s.q.CreateTodo(ctx, db.CreateTodoParams{
-					ProjectID: p.ID,
-					Text:      t.Text,
-					Key:       t.Key,
-					Persona:   t.Persona,
-					Priority:  t.Priority,
-					Status:    status,
+					ProjectID:  p.ID,
+					Text:       t.Text,
+					Key:        t.Key,
+					Persona:    t.Persona,
+					Priority:   t.Priority,
+					Status:     status,
+					TargetType: t.TargetType,
+					TargetID:   t.TargetID,
+					Kind:       t.Kind,
+					IssueRef:   t.IssueRef,
+					Blocked:    t.Blocked,
+					ClaimedBy:  t.ClaimedBy,
 				})
 				if err != nil {
 					return nil, apiErr(500, err.Error())
@@ -608,7 +614,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 
 // ── Model → response converter ────────────────────────────────────────────
 
-func toTodoItem(r db.ZdxTodo) TodoItem {
+func toTodoItemFromRow(r db.ListTodosRow) TodoItem {
 	return TodoItem{
 		ID:         r.ID,
 		Text:       r.Text,
@@ -616,6 +622,13 @@ func toTodoItem(r db.ZdxTodo) TodoItem {
 		Persona:    r.Persona,
 		Priority:   r.Priority,
 		Status:     r.Status,
+		TargetType: r.TargetType,
+		TargetID:   r.TargetID,
+		Kind:       r.Kind,
+		IssueRef:   r.IssueRef,
+		Blocked:    r.Blocked,
+		ClaimedBy:  r.ClaimedBy,
+		ClaimedAt:  fmtTS(r.ClaimedAt),
 		CreatedAt:  fmtTS(r.CreatedAt),
 		ResolvedAt: fmtTS(r.ResolvedAt),
 	}

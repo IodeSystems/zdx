@@ -7,24 +7,58 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const createTodo = `-- name: CreateTodo :one
-INSERT INTO zdx_todos (project_id, text, key, persona, priority, status)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, project_id, feature_id, text, key, persona, priority, status, created_at, resolved_at
+INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
+                       target_type, target_id, kind, issue_ref, blocked,
+                       claimed_by, claimed_at)
+VALUES ($1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10, $11,
+        $12, $13)
+RETURNING id, project_id, text, key, persona, priority, status,
+          target_type, target_id, kind, issue_ref, blocked,
+          claimed_by, claimed_at, created_at, resolved_at
 `
 
 type CreateTodoParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Text      string `db:"text" json:"text"`
-	Key       string `db:"key" json:"key"`
-	Persona   string `db:"persona" json:"persona"`
-	Priority  int32  `db:"priority" json:"priority"`
-	Status    string `db:"status" json:"status"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Text       string             `db:"text" json:"text"`
+	Key        string             `db:"key" json:"key"`
+	Persona    string             `db:"persona" json:"persona"`
+	Priority   int32              `db:"priority" json:"priority"`
+	Status     string             `db:"status" json:"status"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Kind       string             `db:"kind" json:"kind"`
+	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
+	Blocked    bool               `db:"blocked" json:"blocked"`
+	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
 }
 
-func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error) {
+type CreateTodoRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Text       string             `db:"text" json:"text"`
+	Key        string             `db:"key" json:"key"`
+	Persona    string             `db:"persona" json:"persona"`
+	Priority   int32              `db:"priority" json:"priority"`
+	Status     string             `db:"status" json:"status"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Kind       string             `db:"kind" json:"kind"`
+	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
+	Blocked    bool               `db:"blocked" json:"blocked"`
+	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+}
+
+func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error) {
 	row := q.db.QueryRow(ctx, createTodo,
 		arg.ProjectID,
 		arg.Text,
@@ -32,17 +66,30 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo
 		arg.Persona,
 		arg.Priority,
 		arg.Status,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Kind,
+		arg.IssueRef,
+		arg.Blocked,
+		arg.ClaimedBy,
+		arg.ClaimedAt,
 	)
-	var i ZdxTodo
+	var i CreateTodoRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
-		&i.FeatureID,
 		&i.Text,
 		&i.Key,
 		&i.Persona,
 		&i.Priority,
 		&i.Status,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Kind,
+		&i.IssueRef,
+		&i.Blocked,
+		&i.ClaimedBy,
+		&i.ClaimedAt,
 		&i.CreatedAt,
 		&i.ResolvedAt,
 	)
@@ -74,29 +121,111 @@ func (q *Queries) GetState(ctx context.Context, arg GetStateParams) (string, err
 	return value, err
 }
 
+const getTodoByKey = `-- name: GetTodoByKey :one
+SELECT id, project_id, text, key, persona, priority, status,
+       target_type, target_id, kind, issue_ref, blocked,
+       claimed_by, claimed_at, created_at, resolved_at
+FROM zdx_todos WHERE project_id = $1 AND key = $2
+`
+
+type GetTodoByKeyParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Key       string `db:"key" json:"key"`
+}
+
+type GetTodoByKeyRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Text       string             `db:"text" json:"text"`
+	Key        string             `db:"key" json:"key"`
+	Persona    string             `db:"persona" json:"persona"`
+	Priority   int32              `db:"priority" json:"priority"`
+	Status     string             `db:"status" json:"status"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Kind       string             `db:"kind" json:"kind"`
+	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
+	Blocked    bool               `db:"blocked" json:"blocked"`
+	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+}
+
+func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error) {
+	row := q.db.QueryRow(ctx, getTodoByKey, arg.ProjectID, arg.Key)
+	var i GetTodoByKeyRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Key,
+		&i.Persona,
+		&i.Priority,
+		&i.Status,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Kind,
+		&i.IssueRef,
+		&i.Blocked,
+		&i.ClaimedBy,
+		&i.ClaimedAt,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+	)
+	return i, err
+}
+
 const listTodos = `-- name: ListTodos :many
-SELECT id, project_id, feature_id, text, key, persona, priority, status, created_at, resolved_at
+SELECT id, project_id, text, key, persona, priority, status,
+       target_type, target_id, kind, issue_ref, blocked,
+       claimed_by, claimed_at, created_at, resolved_at
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at
 `
 
-func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error) {
+type ListTodosRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Text       string             `db:"text" json:"text"`
+	Key        string             `db:"key" json:"key"`
+	Persona    string             `db:"persona" json:"persona"`
+	Priority   int32              `db:"priority" json:"priority"`
+	Status     string             `db:"status" json:"status"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Kind       string             `db:"kind" json:"kind"`
+	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
+	Blocked    bool               `db:"blocked" json:"blocked"`
+	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+}
+
+func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error) {
 	rows, err := q.db.Query(ctx, listTodos, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTodo
+	var items []ListTodosRow
 	for rows.Next() {
-		var i ZdxTodo
+		var i ListTodosRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
-			&i.FeatureID,
 			&i.Text,
 			&i.Key,
 			&i.Persona,
 			&i.Priority,
 			&i.Status,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Kind,
+			&i.IssueRef,
+			&i.Blocked,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
 			&i.CreatedAt,
 			&i.ResolvedAt,
 		); err != nil {
@@ -108,6 +237,119 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, er
 		return nil, err
 	}
 	return items, nil
+}
+
+const listTodosFiltered = `-- name: ListTodosFiltered :many
+SELECT id, project_id, text, key, persona, priority, status,
+       target_type, target_id, kind, issue_ref, blocked,
+       claimed_by, claimed_at, created_at, resolved_at
+FROM zdx_todos
+WHERE project_id = $1
+  AND ($2::boolean IS NULL OR blocked = $2::boolean)
+  AND ($3::text IS NULL OR target_type = $3::text)
+  AND ($4::text IS NULL OR issue_ref = $4::text)
+  AND ($5::text IS NULL OR status = $5::text)
+ORDER BY priority, created_at
+`
+
+type ListTodosFilteredParams struct {
+	ProjectID  int32       `db:"project_id" json:"project_id"`
+	Blocked    pgtype.Bool `db:"blocked" json:"blocked"`
+	TargetType pgtype.Text `db:"target_type" json:"target_type"`
+	IssueRef   pgtype.Text `db:"issue_ref" json:"issue_ref"`
+	Status     pgtype.Text `db:"status" json:"status"`
+}
+
+type ListTodosFilteredRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Text       string             `db:"text" json:"text"`
+	Key        string             `db:"key" json:"key"`
+	Persona    string             `db:"persona" json:"persona"`
+	Priority   int32              `db:"priority" json:"priority"`
+	Status     string             `db:"status" json:"status"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Kind       string             `db:"kind" json:"kind"`
+	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
+	Blocked    bool               `db:"blocked" json:"blocked"`
+	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+}
+
+func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error) {
+	rows, err := q.db.Query(ctx, listTodosFiltered,
+		arg.ProjectID,
+		arg.Blocked,
+		arg.TargetType,
+		arg.IssueRef,
+		arg.Status,
+	)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTodosFilteredRow
+	for rows.Next() {
+		var i ListTodosFilteredRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Key,
+			&i.Persona,
+			&i.Priority,
+			&i.Status,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Kind,
+			&i.IssueRef,
+			&i.Blocked,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.CreatedAt,
+			&i.ResolvedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const resolveTodo = `-- name: ResolveTodo :exec
+UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW()
+WHERE project_id = $1 AND key = $2
+`
+
+type ResolveTodoParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Key       string `db:"key" json:"key"`
+}
+
+func (q *Queries) ResolveTodo(ctx context.Context, arg ResolveTodoParams) error {
+	_, err := q.db.Exec(ctx, resolveTodo, arg.ProjectID, arg.Key)
+	return err
+}
+
+const resolveTodosNotInKeys = `-- name: ResolveTodosNotInKeys :exec
+UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW()
+WHERE project_id = $1 AND status = 'open' AND key != ALL($2::text[])
+`
+
+type ResolveTodosNotInKeysParams struct {
+	ProjectID int32    `db:"project_id" json:"project_id"`
+	Keys      []string `db:"keys" json:"keys"`
+}
+
+func (q *Queries) ResolveTodosNotInKeys(ctx context.Context, arg ResolveTodosNotInKeysParams) error {
+	_, err := q.db.Exec(ctx, resolveTodosNotInKeys, arg.ProjectID, arg.Keys)
+	return err
 }
 
 const setState = `-- name: SetState :exec
@@ -125,4 +367,101 @@ type SetStateParams struct {
 func (q *Queries) SetState(ctx context.Context, arg SetStateParams) error {
 	_, err := q.db.Exec(ctx, setState, arg.ProjectID, arg.Key, arg.Value)
 	return err
+}
+
+const upsertTodo = `-- name: UpsertTodo :one
+INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
+                       target_type, target_id, kind, issue_ref, blocked,
+                       claimed_by, claimed_at)
+VALUES ($1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10, $11,
+        $12, $13)
+ON CONFLICT (project_id, key) DO UPDATE SET
+  text = EXCLUDED.text,
+  persona = EXCLUDED.persona,
+  priority = EXCLUDED.priority,
+  status = EXCLUDED.status,
+  target_type = EXCLUDED.target_type,
+  target_id = EXCLUDED.target_id,
+  kind = EXCLUDED.kind,
+  issue_ref = EXCLUDED.issue_ref,
+  blocked = EXCLUDED.blocked,
+  claimed_by = EXCLUDED.claimed_by,
+  claimed_at = EXCLUDED.claimed_at
+RETURNING id, project_id, text, key, persona, priority, status,
+          target_type, target_id, kind, issue_ref, blocked,
+          claimed_by, claimed_at, created_at, resolved_at
+`
+
+type UpsertTodoParams struct {
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Text       string             `db:"text" json:"text"`
+	Key        string             `db:"key" json:"key"`
+	Persona    string             `db:"persona" json:"persona"`
+	Priority   int32              `db:"priority" json:"priority"`
+	Status     string             `db:"status" json:"status"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Kind       string             `db:"kind" json:"kind"`
+	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
+	Blocked    bool               `db:"blocked" json:"blocked"`
+	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+}
+
+type UpsertTodoRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	Text       string             `db:"text" json:"text"`
+	Key        string             `db:"key" json:"key"`
+	Persona    string             `db:"persona" json:"persona"`
+	Priority   int32              `db:"priority" json:"priority"`
+	Status     string             `db:"status" json:"status"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Kind       string             `db:"kind" json:"kind"`
+	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
+	Blocked    bool               `db:"blocked" json:"blocked"`
+	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+}
+
+func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertTodoRow, error) {
+	row := q.db.QueryRow(ctx, upsertTodo,
+		arg.ProjectID,
+		arg.Text,
+		arg.Key,
+		arg.Persona,
+		arg.Priority,
+		arg.Status,
+		arg.TargetType,
+		arg.TargetID,
+		arg.Kind,
+		arg.IssueRef,
+		arg.Blocked,
+		arg.ClaimedBy,
+		arg.ClaimedAt,
+	)
+	var i UpsertTodoRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Key,
+		&i.Persona,
+		&i.Priority,
+		&i.Status,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Kind,
+		&i.IssueRef,
+		&i.Blocked,
+		&i.ClaimedBy,
+		&i.ClaimedAt,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+	)
+	return i, err
 }

@@ -74,7 +74,7 @@ type Querier interface {
 	CreateProjectGoal(ctx context.Context, arg CreateProjectGoalParams) (ZdxProjectGoal, error)
 	CreateTask(ctx context.Context, arg CreateTaskParams) (CreateTaskRow, error)
 	CreateTheme(ctx context.Context, arg CreateThemeParams) (ZdxTheme, error)
-	CreateTodo(ctx context.Context, arg CreateTodoParams) (ZdxTodo, error)
+	CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	DeferSpec(ctx context.Context, id int32) error
@@ -140,6 +140,7 @@ type Querier interface {
 	GetTestByID(ctx context.Context, arg GetTestByIDParams) (GetTestByIDRow, error)
 	GetThemeByID(ctx context.Context, arg GetThemeByIDParams) (ZdxTheme, error)
 	GetThemeByName(ctx context.Context, arg GetThemeByNameParams) (ZdxTheme, error)
+	GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
 	HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadCommentsForTargetParams) (bool, error)
@@ -247,7 +248,8 @@ type Querier interface {
 	ListTimedEventsGrouped(ctx context.Context, arg ListTimedEventsGroupedParams) ([]ListTimedEventsGroupedRow, error)
 	ListTimedGrouped(ctx context.Context, arg ListTimedGroupedParams) ([]ListTimedGroupedRow, error)
 	ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ListTimedPaginatedRow, error)
-	ListTodos(ctx context.Context, projectID int32) ([]ZdxTodo, error)
+	ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error)
+	ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error)
 	ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	// Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
@@ -274,6 +276,8 @@ type Querier interface {
 	RemoveThemeBlocker(ctx context.Context, arg RemoveThemeBlockerParams) error
 	RenewTaskLease(ctx context.Context, arg RenewTaskLeaseParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
+	ResolveTodo(ctx context.Context, arg ResolveTodoParams) error
+	ResolveTodosNotInKeys(ctx context.Context, arg ResolveTodosNotInKeysParams) error
 	RevokeIntegrationToken(ctx context.Context, id int32) error
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
 	SearchPatterns(ctx context.Context, arg SearchPatternsParams) ([]ZdxPattern, error)
@@ -307,6 +311,7 @@ type Querier interface {
 	UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (ZdxTestDemo, error)
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error
 	UpsertTimed(ctx context.Context, arg UpsertTimedParams) error
+	UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertTodoRow, error)
 }
 
 var _ Querier = (*Queries)(nil)

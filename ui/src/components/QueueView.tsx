@@ -1,15 +1,30 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   Box,
+  Button,
   Chip,
   CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  FormControlLabel,
+  List,
+  ListItem,
+  ListItemText,
   Paper,
+  Switch,
   Typography,
 } from '@mui/material'
+import RefreshIcon from '@mui/icons-material/Refresh'
 import {
   useSolo,
   useBlockerQuestions,
+  useEvaluateSolo,
+  useApplySolo,
   type SoloItem,
+  type EvaluateDiff,
 } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 import { ChoiceAnswerForm } from './ChoiceAnswerForm'
@@ -18,6 +33,10 @@ const KIND_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
   triage: 'error',
   plan: 'info',
   dev: 'warning',
+  closable: 'info',
+  'read:comments': 'default',
+  clarify: 'error',
+  add: 'warning',
 }
 
 function targetLink(slug: string, targetType: string, targetId: string): { to: string; params: Record<string, string> } | null {
@@ -27,28 +46,186 @@ function targetLink(slug: string, targetType: string, targetId: string): { to: s
   return null
 }
 
+function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
+  const link = targetLink(slug, item.target_type, item.target_id)
+  return (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', py: 0.75, borderBottom: 1, borderColor: 'divider' }}>
+      <Chip
+        label={item.kind}
+        size="small"
+        color={KIND_COLORS[item.kind] || 'default'}
+        variant="outlined"
+      />
+      {link ? (
+        <Chip
+          label={item.target_id}
+          size="small"
+          variant="outlined"
+          color="primary"
+          component={Link as any}
+          to={link.to}
+          params={link.params}
+          clickable
+        />
+      ) : item.target_id ? (
+        <Chip label={item.target_id} size="small" variant="outlined" />
+      ) : null}
+      <Typography variant="body2" sx={{ flex: 1 }}>{item.text}</Typography>
+      {item.issue_ref && item.issue_ref !== item.target_id && (
+        <Chip
+          label={item.issue_ref}
+          size="small"
+          variant="outlined"
+          color="info"
+          component={Link as any}
+          to="/project/$slug/issues/$id"
+          params={{ slug, id: item.issue_ref }}
+          clickable
+        />
+      )}
+      {item.blocked && <Chip label="blocked" size="small" color="error" variant="outlined" />}
+      {item.persona && <Chip label={item.persona} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />}
+    </Box>
+  )
+}
+
+function EvaluateDialog({ open, diff, onClose, onApply, applying }: {
+  open: boolean
+  diff: EvaluateDiff | null
+  onClose: () => void
+  onApply: () => void
+  applying: boolean
+}) {
+  if (!diff) return null
+  const hasChanges = diff.added.length > 0 || diff.removed.length > 0 || diff.changed.length > 0
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
+      <DialogTitle>Queue Re-evaluation</DialogTitle>
+      <DialogContent>
+        {!hasChanges ? (
+          <Typography color="text.secondary">No changes — queue is up to date ({diff.unchanged.length} items).</Typography>
+        ) : (
+          <Box>
+            {diff.added.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="success.main" sx={{ mb: 0.5 }}>
+                  + {diff.added.length} new
+                </Typography>
+                <List dense disablePadding>
+                  {diff.added.map(a => (
+                    <ListItem key={a.key} disablePadding sx={{ py: 0.25 }}>
+                      <Chip label={a.kind} size="small" sx={{ mr: 1 }} color={KIND_COLORS[a.kind] || 'default'} />
+                      <ListItemText primary={a.text} secondary={a.target_id} />
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+            {diff.removed.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="error.main" sx={{ mb: 0.5 }}>
+                  - {diff.removed.length} removed
+                </Typography>
+                <List dense disablePadding>
+                  {diff.removed.map(r => (
+                    <ListItem key={r.key} disablePadding sx={{ py: 0.25 }}>
+                      <Chip label={r.kind} size="small" sx={{ mr: 1 }} variant="outlined" />
+                      <ListItemText primary={r.text} secondary={r.target_id} />
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+            {diff.changed.length > 0 && (
+              <Box sx={{ mb: 2 }}>
+                <Typography variant="subtitle2" color="warning.main" sx={{ mb: 0.5 }}>
+                  ~ {diff.changed.length} changed
+                </Typography>
+                <List dense disablePadding>
+                  {diff.changed.map(ch => (
+                    <ListItem key={ch.after.key} disablePadding sx={{ py: 0.25 }}>
+                      <Chip label={ch.after.kind} size="small" sx={{ mr: 1 }} color="warning" />
+                      <ListItemText primary={ch.after.text} secondary={`priority: ${ch.before.priority} → ${ch.after.priority}`} />
+                    </ListItem>
+                  ))}
+                </List>
+              </Box>
+            )}
+            <Typography variant="body2" color="text.secondary">
+              {diff.unchanged.length} unchanged items
+            </Typography>
+          </Box>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose}>Cancel</Button>
+        {hasChanges && (
+          <Button onClick={onApply} variant="contained" disabled={applying}>
+            {applying ? 'Applying...' : 'Apply Changes'}
+          </Button>
+        )}
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 export function QueueView({ slug }: { slug: string }) {
   const { data, isLoading } = useSolo(slug)
   const { data: bqData } = useBlockerQuestions(slug, 'pending')
+  const evaluate = useEvaluateSolo()
+  const apply = useApplySolo()
+  const [showBlocked, setShowBlocked] = useState(false)
+  const [diffOpen, setDiffOpen] = useState(false)
+  const [diff, setDiff] = useState<EvaluateDiff | null>(null)
+
+  const handleEvaluate = async () => {
+    const result = await evaluate.mutateAsync({ slug })
+    setDiff(result)
+    setDiffOpen(true)
+  }
+
+  const handleApply = async () => {
+    if (!diff) return
+    const items = [
+      ...diff.added,
+      ...diff.changed.map(ch => ch.after),
+      ...diff.unchanged,
+    ]
+    await apply.mutateAsync({ slug, items })
+    setDiffOpen(false)
+    setDiff(null)
+  }
 
   if (isLoading) return <Box sx={{ display: 'flex', justifyContent: 'center', mt: 8 }}><CircularProgress /></Box>
 
   const pendingQuestions = bqData?.questions ?? []
-  const queue: SoloItem[] = data ?? []
-  const [pick, ...rest] = queue
-
-  if (!pick && pendingQuestions.length === 0) {
-    return (
-      <Box>
-        <Typography variant="h6" sx={{ mb: 1 }}>Queue</Typography>
-        <Typography color="text.secondary">Nothing to do — all clear.</Typography>
-      </Box>
-    )
-  }
+  const allItems: SoloItem[] = data ?? []
+  const visibleItems = showBlocked ? allItems : allItems.filter(i => !i.blocked)
+  const blockedCount = allItems.filter(i => i.blocked).length
+  const [pick, ...rest] = visibleItems
 
   return (
     <Box>
-      <Typography variant="h6" sx={{ mb: 2 }}>Queue</Typography>
+      <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, mb: 2 }}>
+        <Typography variant="h6">Queue</Typography>
+        <Button
+          size="small"
+          startIcon={<RefreshIcon />}
+          onClick={handleEvaluate}
+          disabled={evaluate.isPending}
+        >
+          {evaluate.isPending ? 'Evaluating...' : 'Re-evaluate'}
+        </Button>
+        {blockedCount > 0 && (
+          <FormControlLabel
+            control={<Switch size="small" checked={showBlocked} onChange={(_, v) => setShowBlocked(v)} />}
+            label={<Typography variant="body2">Show blocked ({blockedCount})</Typography>}
+          />
+        )}
+        <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
+          {allItems.length} items
+        </Typography>
+      </Box>
 
       {pendingQuestions.length > 0 && (
         <Box sx={{ mb: 3 }}>
@@ -86,19 +263,13 @@ export function QueueView({ slug }: { slug: string }) {
         </Box>
       )}
 
+      {!pick && pendingQuestions.length === 0 && (
+        <Typography color="text.secondary">Nothing to do — all clear. Try re-evaluating to refresh.</Typography>
+      )}
+
       {pick && (
         <Box sx={{ mb: 3, p: 2, border: 1, borderColor: 'primary.main', borderRadius: 1 }}>
-          <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-            <Chip
-              label={pick.kind}
-              size="small"
-              color={KIND_COLORS[pick.kind] || 'default'}
-            />
-            {pick.feature && <Chip label={pick.feature} size="small" variant="outlined" />}
-            {pick.issue && <Chip label={pick.issue} size="small" variant="outlined" color="info" />}
-            {pick.task && <Chip label={pick.task} size="small" variant="outlined" color="warning" />}
-          </Box>
-          <Typography variant="body1">{pick.summary}</Typography>
+          <TodoRow slug={slug} item={pick} />
         </Box>
       )}
 
@@ -107,22 +278,21 @@ export function QueueView({ slug }: { slug: string }) {
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
             Upcoming ({rest.length})
           </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+          <Box sx={{ display: 'flex', flexDirection: 'column' }}>
             {rest.map((item) => (
-              <Box key={item.id} sx={{ display: 'flex', gap: 1, alignItems: 'center', py: 0.5, borderBottom: 1, borderColor: 'divider' }}>
-                <Chip
-                  label={item.kind}
-                  size="small"
-                  color={KIND_COLORS[item.kind] || 'default'}
-                  variant="outlined"
-                />
-                <Typography variant="body2" sx={{ flex: 1 }}>{item.summary}</Typography>
-                {item.feature && <Chip label={item.feature} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />}
-              </Box>
+              <TodoRow key={item.key} slug={slug} item={item} />
             ))}
           </Box>
         </>
       )}
+
+      <EvaluateDialog
+        open={diffOpen}
+        diff={diff}
+        onClose={() => setDiffOpen(false)}
+        onApply={handleApply}
+        applying={apply.isPending}
+      />
     </Box>
   )
 }

@@ -18,14 +18,29 @@ export type MeItem = components['schemas']['MeItem']
 export type OKBody = components['schemas']['OKBody']
 export type ThemeItem = components['schemas']['ThemeItem']
 
-// SoloItem is not in the OpenAPI spec (undocumented endpoint).
 export interface SoloItem {
-  id: string
+  id: number
+  text: string
+  key: string
   kind: string
-  summary: string
-  issue?: string
-  task?: string
-  feature?: string
+  target_type: string
+  target_id: string
+  issue_ref: string
+  priority: number
+  blocked: boolean
+  persona: string
+  claimed_by?: string
+  claimed_at?: string
+  created_at: string
+  resolved_at?: string
+  status: string
+}
+
+export interface EvaluateDiff {
+  added: SoloItem[]
+  removed: SoloItem[]
+  changed: { before: SoloItem; after: SoloItem }[]
+  unchanged: SoloItem[]
 }
 
 // ── fetch utility (used for undocumented endpoints) ────────────────────────────
@@ -363,7 +378,7 @@ export const useWorklog = (slug: string, limit?: number, offset?: number) =>
     enabled: !!slug,
   })
 
-// ── solo (undocumented endpoint) ──────────────────────────────────────────────
+// ── solo queue ────────────────────────────────────────────────────────────────
 
 export const useSolo = (slug: string, issueFilter?: string) =>
   useQuery<SoloItem[]>({
@@ -375,6 +390,34 @@ export const useSolo = (slug: string, issueFilter?: string) =>
     },
     enabled: !!slug,
   })
+
+export const useEvaluateSolo = () => {
+  return useMutation<EvaluateDiff, Error, { slug: string; issue?: string }>({
+    mutationFn: async ({ slug, issue }) => {
+      return apiFetch('/api/dx/solo/evaluate', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, issue: issue ?? '' }),
+      })
+    },
+  })
+}
+
+export const useApplySolo = () => {
+  const qc = useQueryClient()
+  return useMutation<{ ok: boolean }, Error, { slug: string; items: SoloItem[] }>({
+    mutationFn: async ({ slug, items }) => {
+      return apiFetch('/api/dx/solo/apply', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ slug, items }),
+      })
+    },
+    onSuccess: (_, { slug }) => {
+      qc.invalidateQueries({ queryKey: ['solo', slug] })
+    },
+  })
+}
 
 // ── comments ──────────────────────────────────────────────────────────────────
 

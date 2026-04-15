@@ -1745,14 +1745,20 @@ ALTER SEQUENCE public.zdx_timed_id_seq OWNED BY public.zdx_timed.id;
 CREATE TABLE public.zdx_todos (
     id integer NOT NULL,
     project_id integer NOT NULL,
-    feature_id integer,
     text text NOT NULL,
     key text NOT NULL,
     persona text DEFAULT ''::text NOT NULL,
     priority integer DEFAULT 50 NOT NULL,
     status text DEFAULT 'open'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    resolved_at timestamp with time zone
+    resolved_at timestamp with time zone,
+    target_type text DEFAULT ''::text NOT NULL,
+    target_id text DEFAULT ''::text NOT NULL,
+    kind text DEFAULT ''::text NOT NULL,
+    issue_ref text DEFAULT ''::text NOT NULL,
+    blocked boolean DEFAULT false NOT NULL,
+    claimed_by text DEFAULT ''::text NOT NULL,
+    claimed_at timestamp with time zone
 );
 
 
@@ -3722,14 +3728,6 @@ ALTER TABLE ONLY public.zdx_timed_events
 
 ALTER TABLE ONLY public.zdx_timed
     ADD CONSTRAINT zdx_timed_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
-
-
---
--- Name: zdx_todos zdx_todos_feature_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_todos
-    ADD CONSTRAINT zdx_todos_feature_id_fkey FOREIGN KEY (feature_id) REFERENCES public.zdx_features(id) ON DELETE SET NULL;
 
 
 --

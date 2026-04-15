@@ -123,8 +123,15 @@ type TodoItem struct {
 	Persona    string `json:"persona"`
 	Priority   int32  `json:"priority"`
 	Status     string `json:"status"`
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	Kind       string `json:"kind"`
+	IssueRef   string `json:"issue_ref"`
+	Blocked    bool   `json:"blocked"`
+	ClaimedBy  string `json:"claimed_by,omitempty"`
+	ClaimedAt  string `json:"claimed_at,omitempty"`
 	CreatedAt  string `json:"created_at"`
-	ResolvedAt string `json:"resolved_at"`
+	ResolvedAt string `json:"resolved_at,omitempty"`
 }
 
 type ErrorReportItem struct {
@@ -241,11 +248,17 @@ type StaleCommentItem struct {
 }
 
 type WriteTodoInput struct {
-	Text     string `json:"text"`
-	Key      string `json:"key"`
-	Persona  string `json:"persona"`
-	Priority int32  `json:"priority"`
-	Status   string `json:"status"`
+	Text       string `json:"text"`
+	Key        string `json:"key"`
+	Persona    string `json:"persona"`
+	Priority   int32  `json:"priority"`
+	Status     string `json:"status"`
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	Kind       string `json:"kind"`
+	IssueRef   string `json:"issue_ref"`
+	Blocked    bool   `json:"blocked"`
+	ClaimedBy  string `json:"claimed_by,omitempty"`
 }
 
 type DemoArtifactRef struct {
@@ -327,5 +340,6 @@ func (s *Server) registerRoutes(api huma.API) {
 	s.registerLogEventRoutes(api)
 	s.registerAgentRoutes(api)
 	s.registerPatternRoutes(api)
+	s.registerSoloRoutes(api)
 	s.registerFileRoutes()
 }
