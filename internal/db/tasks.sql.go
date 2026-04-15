@@ -11,6 +11,63 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const claimTask = `-- name: ClaimTask :one
+UPDATE zdx_tasks
+SET claimed_by = $1,
+    claimed_at = NOW(),
+    lease_expires_at = NOW() + $2::interval,
+    status = 'active',
+    updated_at = NOW()
+WHERE id = (
+    SELECT t.id FROM zdx_tasks t
+    WHERE t.project_id = $3
+      AND t.status = 'pending'
+      AND t.task_group = $4
+      AND (t.claimed_by IS NULL OR t.lease_expires_at < NOW())
+    ORDER BY t.created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at
+`
+
+type ClaimTaskParams struct {
+	AgentID       pgtype.Text     `db:"agent_id" json:"agent_id"`
+	LeaseDuration pgtype.Interval `db:"lease_duration" json:"lease_duration"`
+	ProjectID     int32           `db:"project_id" json:"project_id"`
+	TaskGroup     string          `db:"task_group" json:"task_group"`
+}
+
+func (q *Queries) ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error) {
+	row := q.db.QueryRow(ctx, claimTask,
+		arg.AgentID,
+		arg.LeaseDuration,
+		arg.ProjectID,
+		arg.TaskGroup,
+	)
+	var i ZdxTask
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Feature,
+		&i.Status,
+		&i.Reason,
+		&i.Issue,
+		&i.Depends,
+		&i.TestPlan,
+		&i.TestRefs,
+		&i.CreatedAt,
+		&i.CompletedAt,
+		&i.UpdatedAt,
+		&i.TaskGroup,
+		&i.ClaimedBy,
+		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
+	)
+	return i, err
+}
+
 const countClosedTasks = `-- name: CountClosedTasks :one
 SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND status = 'done'
 `
@@ -207,6 +264,71 @@ func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ListTasksRo
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listTasksByAgent = `-- name: ListTasksByAgent :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+FROM zdx_tasks
+WHERE claimed_by = $1
+ORDER BY claimed_at DESC
+`
+
+type ListTasksByAgentRow struct {
+	ID             string             `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Feature        string             `db:"feature" json:"feature"`
+	Status         string             `db:"status" json:"status"`
+	Reason         string             `db:"reason" json:"reason"`
+	Issue          string             `db:"issue" json:"issue"`
+	Depends        string             `db:"depends" json:"depends"`
+	TestPlan       string             `db:"test_plan" json:"test_plan"`
+	TestRefs       string             `db:"test_refs" json:"test_refs"`
+	TaskGroup      string             `db:"task_group" json:"task_group"`
+	ClaimedBy      pgtype.Text        `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListTasksByAgent(ctx context.Context, claimedBy pgtype.Text) ([]ListTasksByAgentRow, error) {
+	rows, err := q.db.Query(ctx, listTasksByAgent, claimedBy)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTasksByAgentRow
+	for rows.Next() {
+		var i ListTasksByAgentRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.TaskGroup,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -600,6 +722,95 @@ UPDATE zdx_tasks SET status = 'pending', completed_at = NULL, updated_at = NOW()
 
 func (q *Queries) MarkTaskUndone(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, markTaskUndone, id)
+	return err
+}
+
+const reclaimExpiredTasks = `-- name: ReclaimExpiredTasks :many
+UPDATE zdx_tasks
+SET claimed_by = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
+    status = 'pending',
+    updated_at = NOW()
+WHERE lease_expires_at < NOW()
+  AND claimed_by IS NOT NULL
+  AND status != 'done'
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at
+`
+
+func (q *Queries) ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error) {
+	rows, err := q.db.Query(ctx, reclaimExpiredTasks)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxTask
+	for rows.Next() {
+		var i ZdxTask
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+			&i.TaskGroup,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const releaseTask = `-- name: ReleaseTask :exec
+UPDATE zdx_tasks
+SET claimed_by = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
+    status = 'pending',
+    updated_at = NOW()
+WHERE id = $1 AND claimed_by = $2
+`
+
+type ReleaseTaskParams struct {
+	ID        string      `db:"id" json:"id"`
+	ClaimedBy pgtype.Text `db:"claimed_by" json:"claimed_by"`
+}
+
+func (q *Queries) ReleaseTask(ctx context.Context, arg ReleaseTaskParams) error {
+	_, err := q.db.Exec(ctx, releaseTask, arg.ID, arg.ClaimedBy)
+	return err
+}
+
+const renewTaskLease = `-- name: RenewTaskLease :exec
+UPDATE zdx_tasks
+SET lease_expires_at = NOW() + $1::interval,
+    updated_at = NOW()
+WHERE id = $2 AND claimed_by = $3
+`
+
+type RenewTaskLeaseParams struct {
+	LeaseDuration pgtype.Interval `db:"lease_duration" json:"lease_duration"`
+	ID            string          `db:"id" json:"id"`
+	AgentID       pgtype.Text     `db:"agent_id" json:"agent_id"`
+}
+
+func (q *Queries) RenewTaskLease(ctx context.Context, arg RenewTaskLeaseParams) error {
+	_, err := q.db.Exec(ctx, renewTaskLease, arg.LeaseDuration, arg.ID, arg.AgentID)
 	return err
 }
 

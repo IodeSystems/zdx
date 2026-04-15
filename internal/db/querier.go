@@ -22,6 +22,7 @@ type Querier interface {
 	AttachCodeRefToIssue(ctx context.Context, arg AttachCodeRefToIssueParams) error
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
+	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)
 	CountBlockerQuestions(ctx context.Context, projectID int32) (int64, error)
@@ -70,6 +71,7 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	DeferSpec(ctx context.Context, id int32) error
+	DeleteAgent(ctx context.Context, id string) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
 	DeleteCounterEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
@@ -90,6 +92,7 @@ type Querier interface {
 	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	FileProposal(ctx context.Context, arg FileProposalParams) error
+	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
 	GetBlockerQuestion(ctx context.Context, arg GetBlockerQuestionParams) (ZdxBlockerQuestion, error)
@@ -136,6 +139,7 @@ type Querier interface {
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
+	ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error)
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsPaginated(ctx context.Context, arg ListBlockerQuestionsPaginatedParams) ([]ZdxBlockerQuestion, error)
@@ -193,6 +197,7 @@ type Querier interface {
 	// Features not reviewed in more than @stale_days days (or never reviewed).
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ZdxFeature, error)
 	ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error)
+	ListTasksByAgent(ctx context.Context, claimedBy pgtype.Text) ([]ListTasksByAgentRow, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error)
 	ListTasksByFeaturePaginated(ctx context.Context, arg ListTasksByFeaturePaginatedParams) ([]ListTasksByFeaturePaginatedRow, error)
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error)
@@ -221,7 +226,12 @@ type Querier interface {
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskUndone(ctx context.Context, id string) error
 	NextID(ctx context.Context, kind string) (int32, error)
+	ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error)
+	ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error)
+	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)
+	ReleaseTask(ctx context.Context, arg ReleaseTaskParams) error
 	RemoveThemeBlocker(ctx context.Context, arg RemoveThemeBlockerParams) error
+	RenewTaskLease(ctx context.Context, arg RenewTaskLeaseParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
 	RevokeIntegrationToken(ctx context.Context, id int32) error
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
@@ -234,6 +244,7 @@ type Querier interface {
 	TouchApiKey(ctx context.Context, id int32) error
 	UndeferSpec(ctx context.Context, id int32) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
+	UpdateAgentHeartbeat(ctx context.Context, id string) error
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
 	UpdateFeatureField(ctx context.Context, arg UpdateFeatureFieldParams) error
 	UpdateIssue(ctx context.Context, arg UpdateIssueParams) error

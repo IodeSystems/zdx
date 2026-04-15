@@ -88,3 +88,55 @@ SET text       = CASE WHEN @field::text = 'text'       THEN @value::text ELSE te
     task_group = CASE WHEN @field::text = 'task_group' THEN @value::text ELSE task_group END,
     updated_at = NOW()
 WHERE id = @id;
+
+-- name: ClaimTask :one
+UPDATE zdx_tasks
+SET claimed_by = @agent_id,
+    claimed_at = NOW(),
+    lease_expires_at = NOW() + @lease_duration::interval,
+    status = 'active',
+    updated_at = NOW()
+WHERE id = (
+    SELECT t.id FROM zdx_tasks t
+    WHERE t.project_id = @project_id
+      AND t.status = 'pending'
+      AND t.task_group = @task_group
+      AND (t.claimed_by IS NULL OR t.lease_expires_at < NOW())
+    ORDER BY t.created_at ASC
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+)
+RETURNING *;
+
+-- name: ReleaseTask :exec
+UPDATE zdx_tasks
+SET claimed_by = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
+    status = 'pending',
+    updated_at = NOW()
+WHERE id = $1 AND claimed_by = $2;
+
+-- name: RenewTaskLease :exec
+UPDATE zdx_tasks
+SET lease_expires_at = NOW() + @lease_duration::interval,
+    updated_at = NOW()
+WHERE id = @id AND claimed_by = @agent_id;
+
+-- name: ListTasksByAgent :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+FROM zdx_tasks
+WHERE claimed_by = $1
+ORDER BY claimed_at DESC;
+
+-- name: ReclaimExpiredTasks :many
+UPDATE zdx_tasks
+SET claimed_by = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
+    status = 'pending',
+    updated_at = NOW()
+WHERE lease_expires_at < NOW()
+  AND claimed_by IS NOT NULL
+  AND status != 'done'
+RETURNING *;
