@@ -459,7 +459,7 @@ func testE2ERunE(cmd *cobra.Command, _ []string) error {
 // e2eRunArgs builds the argument list for the e2e binary, handling sharding
 // (enumerating tests and splitting them) and filter.
 func e2eRunArgs(shard, filter string, n, m int) ([]string, error) {
-	args := []string{"-test.v", "-test.json"}
+	args := []string{"-test.v"}
 
 	pattern := filter
 	if shard != "" {
@@ -534,9 +534,10 @@ func parseShard(s string) (n, m int) {
 }
 
 // e2eRunLocal runs the e2e binary locally, streams output, and writes results.
+// Output is piped through "go tool test2json" so parseTestJSON gets proper JSON events.
 func e2eRunLocal(args []string, dbURL string) error {
-	cmdArgs := append([]string{testBin}, args...)
-	c := exec.Command(cmdArgs[0], cmdArgs[1:]...)
+	t2jArgs := append([]string{"tool", "test2json", testBin}, args...)
+	c := exec.Command("go", t2jArgs...)
 	if dbURL != "" {
 		c.Env = append(os.Environ(), "TEST_DATABASE_URL="+dbURL)
 	} else {
@@ -579,13 +580,31 @@ func e2eRunRemote(host string, args []string, dbURL string) ([]TestResult, error
 	// Clean up after.
 	remoteCmd = "chmod +x " + remote + " && " + remoteCmd + "; rm -f " + remote
 
+	// Pipe remote output through local test2json for JSON event parsing.
 	ssh := exec.Command("ssh", host, remoteCmd)
-	var out bytes.Buffer
-	ssh.Stdout = io.MultiWriter(os.Stdout, &out)
-	ssh.Stderr = os.Stderr
-	if err := ssh.Run(); err != nil {
-		fmt.Fprintf(os.Stderr, "[e2e] ssh %s exited: %v\n", host, err)
+	t2j := exec.Command("go", "tool", "test2json")
+
+	sshOut, err := ssh.StdoutPipe()
+	if err != nil {
+		return nil, fmt.Errorf("ssh stdout pipe: %w", err)
 	}
+	ssh.Stderr = os.Stderr
+	t2j.Stdin = sshOut
+
+	var out bytes.Buffer
+	t2j.Stdout = io.MultiWriter(os.Stdout, &out)
+	t2j.Stderr = os.Stderr
+
+	if err := ssh.Start(); err != nil {
+		return nil, fmt.Errorf("ssh start: %w", err)
+	}
+	if err := t2j.Start(); err != nil {
+		_ = ssh.Process.Kill()
+		return nil, fmt.Errorf("test2json start: %w", err)
+	}
+
+	_ = ssh.Wait()
+	_ = t2j.Wait()
 
 	return parseTestJSON(out.Bytes()), nil
 }
