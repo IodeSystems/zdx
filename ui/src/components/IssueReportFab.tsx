@@ -40,7 +40,6 @@ async function capturePageScreenshot(): Promise<File | null> {
 
 export function IssueReportFab({ slug }: { slug: string }) {
   const [open, setOpen] = useState(false)
-  const [title, setTitle] = useState('')
   const [context, setContext] = useState('')
   const [screenshot, setScreenshot] = useState<File | null>(null)
   const [capturing, setCapturing] = useState(false)
@@ -75,7 +74,6 @@ export function IssueReportFab({ slug }: { slug: string }) {
 
   const handleClose = () => {
     setOpen(false)
-    setTitle('')
     setContext('')
     setScreenshot(null)
     setSimilarIssues(null)
@@ -91,8 +89,8 @@ export function IssueReportFab({ slug }: { slug: string }) {
 
   // Step 1: run preflight similarity check
   const handlePreflight = async () => {
-    const text = [title, context].filter(Boolean).join(' ')
-    if (!text.trim()) {
+    const text = context.trim()
+    if (!text) {
       // No text — skip preflight, submit directly
       await doSubmit()
       return
@@ -128,7 +126,7 @@ export function IssueReportFab({ slug }: { slug: string }) {
     createIssue.mutate(
       {
         slug,
-        title: title.trim() || undefined,
+        title: undefined,
         context: context.trim() || undefined,
         component: undefined,
         screenshot_ids: screenshotIds,
@@ -172,7 +170,7 @@ export function IssueReportFab({ slug }: { slug: string }) {
                 Your issue has been created.
               </Alert>
               <Link
-                href={`/project/${routeSlug}/issues/${createdIssue.id}`}
+                href={`/project/${routeSlug}/issues/IS-${createdIssue.id}`}
                 variant="body1"
               >
                 IS-{createdIssue.id}: {createdIssue.title || '(untitled)'}
@@ -189,17 +187,10 @@ export function IssueReportFab({ slug }: { slug: string }) {
               <TextField
                 autoFocus
                 fullWidth
-                label="Title (optional — filled by owner)"
-                value={title}
-                onChange={e => setTitle(e.target.value)}
-                sx={{ mt: 1, mb: 2 }}
-                disabled={showSimilar}
-              />
-              <TextField
-                fullWidth
                 label="Context"
                 multiline
                 rows={4}
+                sx={{ mt: 1 }}
                 value={context}
                 onChange={e => setContext(e.target.value)}
                 placeholder="Steps to reproduce, observed vs expected, links…"
