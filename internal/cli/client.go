@@ -59,12 +59,25 @@ func (c *Client) get(path string, params url.Values, out any) error {
 	if c.token != "" {
 		req.Header.Set("X-Api-Key", c.token)
 	}
+	attachAttributionHeaders(req)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return err
 	}
 	defer resp.Body.Close()
 	return checkResp(resp, out)
+}
+
+// attachAttributionHeaders copies agent/session identifiers from the environment
+// onto outbound requests so server-side writes can attribute status changes to
+// the invoking agent session. Unset env vars produce no header.
+func attachAttributionHeaders(req *http.Request) {
+	if v := os.Getenv("ZDX_AGENT_ID"); v != "" {
+		req.Header.Set("X-ZDX-Agent-Id", v)
+	}
+	if v := os.Getenv("ZDX_SESSION_ID"); v != "" {
+		req.Header.Set("X-ZDX-Session-Id", v)
+	}
 }
 
 func (c *Client) post(path string, body any, out any) error {
@@ -89,6 +102,7 @@ func (c *Client) doJSON(method, path string, body any, out any) error {
 	if c.token != "" {
 		req.Header.Set("X-Api-Key", c.token)
 	}
+	attachAttributionHeaders(req)
 	resp, err := c.http.Do(req)
 	if err != nil {
 		return err

@@ -17,8 +17,52 @@ import (
 
 func AgentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "agent", Short: "Agent lifecycle management"}
-	cmd.AddCommand(agentClaudeCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentResumeCmd(), agentReleaseCmd())
+	cmd.AddCommand(agentClaudeCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentResumeCmd(), agentReleaseCmd(), agentSessionCmd())
 	return cmd
+}
+
+// agentSessionCmd groups session-scoped helpers used by shell wrappers to tag
+// downstream dx calls with agent/session identifiers for server-side attribution.
+func agentSessionCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "session", Short: "Agent session attribution helpers"}
+	cmd.AddCommand(agentSessionBeginCmd())
+	return cmd
+}
+
+func agentSessionBeginCmd() *cobra.Command {
+	var agentID string
+	cmd := &cobra.Command{
+		Use:   "begin",
+		Short: "Print export lines for ZDX_AGENT_ID and ZDX_SESSION_ID (use: eval $(dx agent session begin))",
+		Long: `Emit shell export statements for ZDX_AGENT_ID and ZDX_SESSION_ID.
+
+The CLI attaches these as X-ZDX-Agent-Id and X-ZDX-Session-Id headers on every
+request, allowing the server to record which agent session made each status
+change. Run this once at the start of an agent session:
+
+  eval $(dx agent session begin --agent-id=abc123)
+  dx todo solo --issue=IS-42   # all writes now carry session attribution
+
+If --agent-id is omitted a random 8-char id is generated.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if agentID == "" {
+				agentID = shortID()
+			}
+			sessionID := longSessionID()
+			fmt.Printf("export ZDX_AGENT_ID=%s\n", agentID)
+			fmt.Printf("export ZDX_SESSION_ID=%s\n", sessionID)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&agentID, "agent-id", "", "agent id (generated if empty)")
+	return cmd
+}
+
+// longSessionID returns a 16-byte hex string suitable as a session identifier.
+func longSessionID() string {
+	b := make([]byte, 16)
+	_, _ = rand.Read(b)
+	return hex.EncodeToString(b)
 }
 
 type agentItem struct {

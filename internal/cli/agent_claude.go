@@ -312,6 +312,10 @@ func runSession(rc remoteConfig, sid, issueID, alias string, chrome bool, prevSI
 	proc.Stdin = os.Stdin
 	proc.Stdout = os.Stdout
 	proc.Stderr = os.Stderr
+	proc.Env = append(os.Environ(),
+		"ZDX_SESSION_ID="+sid,
+		"ZDX_AGENT_ID="+alias,
+	)
 
 	err = proc.Run()
 

@@ -145,6 +145,32 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 	return i, err
 }
 
+const getIssueByAnyProject = `-- name: GetIssueByAnyProject :one
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
+FROM zdx_issues WHERE id = $1
+`
+
+func (q *Queries) GetIssueByAnyProject(ctx context.Context, id string) (ZdxIssue, error) {
+	row := q.db.QueryRow(ctx, getIssueByAnyProject, id)
+	var i ZdxIssue
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Title,
+		&i.Status,
+		&i.Priority,
+		&i.Component,
+		&i.Context,
+		&i.CreatedAt,
+		&i.IssueType,
+		&i.DuplicateOf,
+		&i.Url,
+		&i.UpdatedAt,
+		&i.SourceErrorID,
+	)
+	return i, err
+}
+
 const getIssueBySourceErrorID = `-- name: GetIssueBySourceErrorID :one
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, source_error_id
 FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2

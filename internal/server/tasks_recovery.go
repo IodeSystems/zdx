@@ -15,6 +15,13 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 			log.Printf("task-recovery: reclaim expired: %v", err)
 		} else if len(reclaimed) > 0 {
 			log.Printf("task-recovery: reclaimed %d expired-lease tasks", len(reclaimed))
+			for _, r := range reclaimed {
+				prevAgent := ""
+				if r.ClaimedBy.Valid {
+					prevAgent = r.ClaimedBy.String
+				}
+				s.recordStatusEvent(ctx, r.ProjectID, "task", r.ID, "active", "pending", prevAgent)
+			}
 		}
 
 		orphaned, err := s.q.CancelOrphanedTasks(ctx)
@@ -22,6 +29,9 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 			log.Printf("task-recovery: cancel orphaned: %v", err)
 		} else if len(orphaned) > 0 {
 			log.Printf("task-recovery: cancelled %d orphaned tasks (parent issue closed)", len(orphaned))
+			for _, r := range orphaned {
+				s.recordStatusEvent(ctx, r.ProjectID, "task", r.ID, "", "done", "")
+			}
 		}
 
 		flagged, err := s.q.FlagStaleTasks(ctx, db.FlagStaleTasksParams{StaleDays: 3, ProjectID: 0})

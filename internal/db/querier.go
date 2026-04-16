@@ -126,6 +126,7 @@ type Querier interface {
 	GetIntegrationTokenByHash(ctx context.Context, tokenHash string) (GetIntegrationTokenByHashRow, error)
 	GetInviteByToken(ctx context.Context, token string) (ZdxInvite, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
+	GetIssueByAnyProject(ctx context.Context, id string) (ZdxIssue, error)
 	GetIssueBySourceErrorID(ctx context.Context, arg GetIssueBySourceErrorIDParams) (GetIssueBySourceErrorIDRow, error)
 	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
 	GetIssueResolution(ctx context.Context, id string) (ZdxIssueResolution, error)
@@ -166,6 +167,7 @@ type Querier interface {
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertQuestionProposal(ctx context.Context, arg InsertQuestionProposalParams) (ZdxQuestionProposal, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
+	InsertStatusEvent(ctx context.Context, arg InsertStatusEventParams) error
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
@@ -251,6 +253,7 @@ type Querier interface {
 	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
 	// Returns comments that are unread for the given role and older than the given age threshold.
 	ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error)
+	ListStatusEventsByTarget(ctx context.Context, arg ListStatusEventsByTargetParams) ([]ZdxStatusEvent, error)
 	ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error)
 	ListTasksByAgent(ctx context.Context, claimedBy pgtype.Text) ([]ListTasksByAgentRow, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error)

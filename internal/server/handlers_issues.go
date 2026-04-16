@@ -389,10 +389,15 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					}
 				}
 			}
+			prevStatus := "open"
+			if issue, gErr := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); gErr == nil {
+				prevStatus = issue.Status
+			}
 			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordRevision(ctx, p.ID, "issue", issueID, "status", "open", "closed", agent)
+			s.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed", agent)
+			s.recordStatusEvent(ctx, p.ID, "issue", issueID, prevStatus, "closed", "")
 			notes := ptrStr(in.Body.Notes)
 			note := "[closed"
 			if reason != "" {
@@ -415,7 +420,16 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			Body IssueIntIDInput
 		}) (*struct{ Body OKBody }, error) {
 			issueID := issueIDFromInt(in.Body.ID)
+			prevStatus := ""
+			var projectID int32
+			if issue, gErr := s.q.GetIssueByAnyProject(ctx, issueID); gErr == nil {
+				prevStatus = issue.Status
+				projectID = issue.ProjectID
+			}
 			_ = s.q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: 0})
+			if projectID != 0 {
+				s.recordStatusEvent(ctx, projectID, "issue", issueID, prevStatus, "open", "")
+			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -659,6 +673,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if err := s.q.ReadyIssue(ctx, db.ReadyIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.recordStatusEvent(ctx, p.ID, "issue", issueID, "wip", "open", "")
 			return &struct{ Body struct{ OK bool } }{Body: struct{ OK bool }{OK: true}}, nil
 		})
 

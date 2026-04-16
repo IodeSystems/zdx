@@ -7,6 +7,7 @@ import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
 import { MarkdownContent } from './MarkdownContent'
+import { StatusTimeline } from './StatusTimeline'
 
 const STATUS_COLORS: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
   done: 'success',
@@ -258,6 +259,8 @@ export function TaskDetail({
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
         Created: {new Date(task.created_at).toLocaleString()}
       </Typography>
+
+      <StatusTimeline slug={slug} targetType="task" targetId={taskId} />
 
       <CommentsAndRevisions slug={slug} targetType="task" targetId={taskId} />
     </Box>

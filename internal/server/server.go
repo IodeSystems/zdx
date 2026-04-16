@@ -324,6 +324,8 @@ const (
 	ctxSource     contextKey = 4
 	ctxUserRole   contextKey = 5
 	ctxSkipTiming contextKey = 6
+	ctxAgentID    contextKey = 7
+	ctxSessionID  contextKey = 8
 )
 
 // apiKeyMiddleware validates X-Api-Key on /api/* requests, except health, openapi, and setup/bootstrap.
@@ -353,6 +355,12 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 		ctx = context.WithValue(ctx, ctxUserID, key.UserID)
 		if u, uErr := s.q.GetUserByID(r.Context(), key.UserID); uErr == nil {
 			ctx = context.WithValue(ctx, ctxUserRole, u.Role)
+		}
+		if v := r.Header.Get("X-ZDX-Agent-Id"); v != "" {
+			ctx = context.WithValue(ctx, ctxAgentID, v)
+		}
+		if v := r.Header.Get("X-ZDX-Session-Id"); v != "" {
+			ctx = context.WithValue(ctx, ctxSessionID, v)
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -477,6 +485,16 @@ func ctxUserIDVal(ctx context.Context) int32 {
 
 func ctxUserRoleVal(ctx context.Context) string {
 	v, _ := ctx.Value(ctxUserRole).(string)
+	return v
+}
+
+func ctxAgentIDVal(ctx context.Context) string {
+	v, _ := ctx.Value(ctxAgentID).(string)
+	return v
+}
+
+func ctxSessionIDVal(ctx context.Context) string {
+	v, _ := ctx.Value(ctxSessionID).(string)
 	return v
 }
 

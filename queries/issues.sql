@@ -26,6 +26,10 @@ LIMIT 20;
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
+-- name: GetIssueByAnyProject :one
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id
+FROM zdx_issues WHERE id = $1;
+
 -- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

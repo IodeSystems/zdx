@@ -249,6 +249,10 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
+			prev := ""
+			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+				prev = t.Status
+			}
 			if err := s.q.MarkTaskDone(ctx, db.MarkTaskDoneParams{
 				ID:       id,
 				TestPlan: ptrStr(in.Body.TestPlan),
@@ -256,6 +260,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.recordTaskStatusChange(ctx, id, prev, "done", "")
 			s.publishTaskByID(ctx, id, "task.done", map[string]any{"id": id})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -266,9 +271,15 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				ID int32 `json:"id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.MarkTaskUndone(ctx, taskIDFromInt(in.Body.ID)); err != nil {
+			id := taskIDFromInt(in.Body.ID)
+			prev := ""
+			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+				prev = t.Status
+			}
+			if err := s.q.MarkTaskUndone(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.recordTaskStatusChange(ctx, id, prev, "pending", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -279,13 +290,19 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				Reason *string `json:"reason,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
+			id := taskIDFromInt(in.Body.ID)
+			prev := ""
+			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+				prev = t.Status
+			}
 			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
-				ID:     taskIDFromInt(in.Body.ID),
+				ID:     id,
 				Status: "blocked",
 				Reason: ptrStr(in.Body.Reason),
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.recordTaskStatusChange(ctx, id, prev, "blocked", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -295,12 +312,18 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				ID int32 `json:"id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
+			id := taskIDFromInt(in.Body.ID)
+			prev := ""
+			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+				prev = t.Status
+			}
 			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
-				ID:     taskIDFromInt(in.Body.ID),
+				ID:     id,
 				Status: "pending",
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.recordTaskStatusChange(ctx, id, prev, "pending", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -313,13 +336,19 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				Reason *string `json:"reason,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
+			id := taskIDFromInt(in.Body.ID)
+			prev := ""
+			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+				prev = t.Status
+			}
 			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
-				ID:     taskIDFromInt(in.Body.ID),
+				ID:     id,
 				Status: in.Body.Status,
 				Reason: ptrStr(in.Body.Reason),
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.recordTaskStatusChange(ctx, id, prev, in.Body.Status, "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -432,9 +461,15 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				ID int32 `json:"id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.ReadyTask(ctx, taskIDFromInt(in.Body.ID)); err != nil {
+			id := taskIDFromInt(in.Body.ID)
+			prev := ""
+			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+				prev = t.Status
+			}
+			if err := s.q.ReadyTask(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.recordTaskStatusChange(ctx, id, prev, "pending", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 

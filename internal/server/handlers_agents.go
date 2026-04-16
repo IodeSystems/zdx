@@ -268,6 +268,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "no tasks available to claim")
 			}
+			s.recordStatusEvent(ctx, p.ID, "task", t.ID, "pending", "active", in.Body.AgentID)
 			item := AgentTaskItem{
 				ID:             t.ID,
 				Text:           t.Text,
@@ -293,10 +294,15 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			}
 		}) (*struct{}, error) {
 			taskID := in.ID
+			prev := ""
+			if t, gErr := s.q.GetTask(ctx, taskID); gErr == nil {
+				prev = t.Status
+			}
 			if in.Body.AgentID == "" {
 				if err := s.q.ReleaseTaskAdmin(ctx, taskID); err != nil {
 					return nil, apiErr(500, err.Error())
 				}
+				s.recordTaskStatusChange(ctx, taskID, prev, "pending", "")
 				return &struct{}{}, nil
 			}
 			if err := s.q.ReleaseTask(ctx, db.ReleaseTaskParams{
@@ -305,6 +311,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			s.recordTaskStatusChange(ctx, taskID, prev, "pending", in.Body.AgentID)
 			return &struct{}{}, nil
 		})
 
@@ -342,6 +349,13 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			rows, err := s.q.ReclaimExpiredTasks(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+			for _, r := range rows {
+				prevAgent := ""
+				if r.ClaimedBy.Valid {
+					prevAgent = r.ClaimedBy.String
+				}
+				s.recordStatusEvent(ctx, r.ProjectID, "task", r.ID, "active", "pending", prevAgent)
 			}
 			return &struct {
 				Body struct {

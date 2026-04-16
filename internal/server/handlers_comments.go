@@ -471,3 +471,43 @@ func (s *Server) recordRevision(ctx context.Context, projectID int32, targetType
 		Agent:      agent,
 	})
 }
+
+// recordStatusEvent writes a row to zdx_status_events capturing a status
+// transition along with the acting agent/session/user pulled from request
+// context. agentIDOverride is used when the mutation itself identifies the
+// acting agent (e.g. task claim), otherwise it falls back to the context value.
+func (s *Server) recordStatusEvent(ctx context.Context, projectID int32, targetType, targetID, fromStatus, toStatus, agentIDOverride string) {
+	agentID := agentIDOverride
+	if agentID == "" {
+		agentID = ctxAgentIDVal(ctx)
+	}
+	userID := ""
+	if uid := ctxUserIDVal(ctx); uid != 0 {
+		userID = fmt.Sprintf("%d", uid)
+	}
+	_ = s.q.InsertStatusEvent(ctx, db.InsertStatusEventParams{
+		ProjectID:  projectID,
+		TargetType: targetType,
+		TargetID:   targetID,
+		FromStatus: fromStatus,
+		ToStatus:   toStatus,
+		AgentID:    agentID,
+		SessionID:  ctxSessionIDVal(ctx),
+		UserID:     userID,
+	})
+}
+
+// recordTaskStatusChange looks up the task's project and previous status,
+// then records a status event if toStatus differs from fromStatus. Call this
+// after the mutation has been applied. If the task can't be found, recording
+// is silently skipped — the primary mutation has already succeeded.
+func (s *Server) recordTaskStatusChange(ctx context.Context, taskID, prevStatus, toStatus, agentIDOverride string) {
+	if prevStatus == toStatus {
+		return
+	}
+	t, err := s.q.GetTask(ctx, taskID)
+	if err != nil {
+		return
+	}
+	s.recordStatusEvent(ctx, t.ProjectID, "task", taskID, prevStatus, toStatus, agentIDOverride)
+}

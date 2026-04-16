@@ -562,6 +562,31 @@ export const useRevisions = (slug: string, targetType: string, targetId: string,
     enabled: !!slug && !!targetType && !!targetId,
   })
 
+// ── status events ────────────────────────────────────────────────────────────
+
+export interface StatusEventItem {
+  id: number
+  target_type: string
+  target_id: string
+  from_status: string
+  to_status: string
+  agent_id: string
+  session_id: string
+  user_id: string
+  created_at: string
+}
+
+export const useStatusEvents = (targetType: string, targetId: string) =>
+  useQuery<{ events: StatusEventItem[] }>({
+    queryKey: ['status-events', targetType, targetId],
+    queryFn: async () => {
+      const params = new URLSearchParams({ target_type: targetType, target_id: targetId })
+      const res = await apiFetch<{ events: StatusEventItem[] }>(`/api/dx/status-events?${params}`)
+      return { events: res.events ?? [] }
+    },
+    enabled: !!targetType && !!targetId,
+  })
+
 // ── timed ─────────────────────────────────────────────────────────────────────
 
 export interface TimedItem {
