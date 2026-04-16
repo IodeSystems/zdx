@@ -29,6 +29,8 @@ const triageGuidance = `  triage checklist:
          tracker = umbrella issue (closed by its children; solo skips it)
     if the issue is too vague to triage, create clarification questions instead:
       dx question add --target-type=issue --target-id=IS-N --context="<question>" --choices="opt1,opt2,..."
+      - prefer --choices when the question has enumerable options; do not embed numbered/lettered lists in freeform --context
+      - for multi-stage questions (answer to Q1 changes Q2+), ask only the first stage now; file follow-ups after the answer arrives
     solo will block progress on the issue until all questions are answered.
 `
 
