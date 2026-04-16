@@ -37,10 +37,10 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 			IssueID          string `json:"issue_id"`
 			Alias            string `json:"alias"`
 			Trigger          string `json:"trigger"`
-			Title            string `json:"title"`
-			AgentID          string `json:"agent_id"`
-			AgentType        string `json:"agent_type"`
-			AgentDescription string `json:"agent_description"`
+			Title            string `json:"title" required:"false"`
+			AgentID          string `json:"agent_id" required:"false"`
+			AgentType        string `json:"agent_type" required:"false"`
+			AgentDescription string `json:"agent_description" required:"false"`
 		}
 	}) (*struct {
 		Body struct {
@@ -93,10 +93,10 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 			DurationMs int64 `json:"duration_ms"`
 			EventCount int32 `json:"event_count"`
 			Tokens     struct {
-				Input      int64 `json:"input"`
-				Output     int64 `json:"output"`
-				CacheRead  int64 `json:"cache_read"`
-				CacheWrite int64 `json:"cache_write"`
+				Input      int64 `json:"input" required:"false"`
+				Output     int64 `json:"output" required:"false"`
+				CacheRead  int64 `json:"cache_read" required:"false"`
+				CacheWrite int64 `json:"cache_write" required:"false"`
 			} `json:"tokens"`
 		}
 	}) (*struct {
