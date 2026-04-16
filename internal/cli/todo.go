@@ -1171,7 +1171,7 @@ func todoOwnerCmd() *cobra.Command {
 
 func todoOwnerTriageCmd() *cobra.Command {
 	var priority, title, issueType, context, questions string
-	var themes, goals []int
+	var themeArgs, goalArgs []string
 	var clarify bool
 	cmd := &cobra.Command{
 		Use:   "triage <IS-N>",
@@ -1257,6 +1257,14 @@ func todoOwnerTriageCmd() *cobra.Command {
 			if context != "" {
 				body["context"] = context
 			}
+			themes, err := parseTodoIDs(themeArgs, "TH-")
+			if err != nil {
+				return fmt.Errorf("--theme: %w", err)
+			}
+			goals, err := parseTodoIDs(goalArgs, "G-")
+			if err != nil {
+				return fmt.Errorf("--goal: %w", err)
+			}
 			if len(themes) > 0 {
 				body["theme_ids"] = themes
 			}
@@ -1279,9 +1287,33 @@ func todoOwnerTriageCmd() *cobra.Command {
 	cmd.Flags().StringVar(&context, "context", "", "rewrite issue context (answer embedded question, clarify scope)")
 	cmd.Flags().BoolVar(&clarify, "clarify", false, "create clarification questions instead of triaging (requires --questions)")
 	cmd.Flags().StringVar(&questions, "questions", "", "semicolon-separated questions; use | for choices: \"question|a,b,c;question2\"")
-	cmd.Flags().IntSliceVar(&themes, "theme", nil, "theme ID(s) to link (repeatable)")
-	cmd.Flags().IntSliceVar(&goals, "goal", nil, "goal ID(s) to link (repeatable)")
+	cmd.Flags().StringSliceVar(&themeArgs, "theme", nil, "theme ID(s) to link — TH-N or N (repeatable)")
+	cmd.Flags().StringSliceVar(&goalArgs, "goal", nil, "goal ID(s) to link — G-N or N (repeatable)")
 	return cmd
+}
+
+// parseTodoIDs converts loose ID forms (e.g. "TH-6" or "6") to int IDs.
+// Prefix match is case-insensitive.
+func parseTodoIDs(args []string, prefix string) ([]int, error) {
+	if len(args) == 0 {
+		return nil, nil
+	}
+	out := make([]int, 0, len(args))
+	for _, a := range args {
+		s := strings.TrimSpace(a)
+		if s == "" {
+			continue
+		}
+		if len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix) {
+			s = s[len(prefix):]
+		}
+		n, err := strconv.Atoi(s)
+		if err != nil {
+			return nil, fmt.Errorf("invalid ID %q (expected %sN or N)", a, prefix)
+		}
+		out = append(out, n)
+	}
+	return out, nil
 }
 
 // ── tech ──────────────────────────────────────────────────────────────────────
