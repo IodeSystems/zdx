@@ -43,7 +43,7 @@ function ProfilePage() {
               <Chip label={c.target_type} size="small" variant="outlined" />
               <Typography
                 component="a"
-                href={`/project/${slug}/${c.target_type}s/${c.target_id}`}
+                href={`/project/${slug}/${c.target_type}s/${c.target_id}#C-${c.id}`}
                 variant="body2"
                 color="primary"
                 sx={{ fontWeight: 500, textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}

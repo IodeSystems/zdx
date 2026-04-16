@@ -58,6 +58,7 @@ export function CommentsAndRevisions({
   const [body, setBody] = useState('')
   const [diffRevision, setDiffRevision] = useState<RevisionItem | null>(null)
   const hasMarkedRead = useRef(false)
+  const hasScrolledToHash = useRef(false)
 
   const hasUnread = comments.some(c => c.unread)
   useEffect(() => {
@@ -66,6 +67,19 @@ export function CommentsAndRevisions({
       markRead.mutate({ slug, target_type: targetType, target_id: targetId })
     }
   }, [hasUnread, slug, targetType, targetId])
+
+  useEffect(() => {
+    if (hasScrolledToHash.current || comments.length === 0) return
+    const m = window.location.hash.match(/^#C-(\d+)$/)
+    if (!m) return
+    const el = document.getElementById(`C-${m[1]}`)
+    if (!el) return
+    hasScrolledToHash.current = true
+    el.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    el.classList.add('comment-hash-highlight')
+    const t = setTimeout(() => el.classList.remove('comment-hash-highlight'), 2000)
+    return () => clearTimeout(t)
+  }, [comments.length])
 
   const handleAddComment = () => {
     if (!body.trim()) return
@@ -135,7 +149,7 @@ export function CommentsAndRevisions({
             : (c.author || 'anonymous')
           const replies = byParent.get(c.id) ?? []
           return (
-            <Box key={c.id} sx={{ ml: depth * 3 }}>
+            <Box key={c.id} id={`C-${c.id}`} sx={{ ml: depth * 3, borderRadius: 1, transition: 'background-color 0.5s', '&.comment-hash-highlight': { backgroundColor: 'warning.light' } }}>
               <Box sx={{ mb: 1.5, borderLeft: 2, borderColor: c.unread ? 'info.main' : 'success.light', pl: 1.5 }}>
                 <Typography variant="caption" sx={{ color: c.unread ? '#1976d2' : '#2e7d32' }}>
                   {new Date(c.created_at).toLocaleDateString()} — {displayAuthor}
