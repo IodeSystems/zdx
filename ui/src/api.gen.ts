@@ -3830,6 +3830,7 @@ export interface components {
              */
             readonly $schema?: string;
             alias: string;
+            closed_at?: string;
             created_at: string;
             /** Format: int64 */
             event_count: number;
@@ -3837,10 +3838,12 @@ export interface components {
             /** Format: int64 */
             id: number;
             issue_id: string;
+            lifecycle: string;
             session_id: string;
             status: string;
             summary: string;
             title: string;
+            updated_at: string;
         };
         ClientItem: {
             channel: string;
@@ -5639,7 +5642,6 @@ export interface components {
              * @example https://example.com/schemas/Mark-task-reviewedRequest.json
              */
             readonly $schema?: string;
-            comment: string;
             /** Format: int32 */
             id: number;
             slug: string;

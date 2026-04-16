@@ -7,6 +7,9 @@ const config: KnipConfig = {
   ignoreDependencies: [
     // Used at build time by the vite tanstackRouter plugin, not a direct import.
     '@tanstack/router-cli',
+    // Invoked by the Go dx-server in dev mode (internal/server/devmode.go) to
+    // regenerate src/api.gen.ts when the OpenAPI spec changes. No TS import.
+    'openapi-typescript',
   ],
   ignoreExportsUsedInFile: true,
   // apiFetch/apiPost/token helpers are intentionally internal to api/index.ts.

@@ -16,7 +16,7 @@ Server requires `DATABASE_URL` env var pointing to PostgreSQL 16+ with pgvector.
 ## Generated Code — Do Not Edit
 
 - `internal/db/*.sql.go` — sqlc from `queries/*.sql` + `schema/shipped.sql`. Regenerate: `~/go/bin/sqlc generate`
-- `ui/src/api.gen.ts` — openapi-typescript from server's `/openapi.json`. Auto-regenerated on dx-server startup.
+- `ui/src/api.gen.ts` — openapi-typescript from server's `/openapi.json`. Dev dx-server hashes the spec on startup and regenerates when it changes (no tsc; run `bin/lint` to type-check). Prod builds skip the regen.
 
 ## Database Workflow
 

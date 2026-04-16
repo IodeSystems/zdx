@@ -59,6 +59,12 @@ func main() {
 	staticDir := os.Getenv("STATIC_DIR")
 	srv := server.New(pool, sink, staticDir, buildSHA)
 
+	if buildSHA == "" {
+		// Dev only: regenerate ui/src/api.gen.ts when the OpenAPI spec hash
+		// changes. Skipped in prod because the built binary has no ui/ tree.
+		srv.DevCheckClient(".")
+	}
+
 	// Self-integration: zdx-server pushes its own timings through its own
 	// ingest endpoint. If the zdx project doesn't exist yet or no slug is
 	// configured, bootstrap returns "" and we skip self-wiring — timings
