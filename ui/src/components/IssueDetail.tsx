@@ -34,7 +34,7 @@ import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
 import { MarkdownContent } from './MarkdownContent'
-import { StatusTimeline } from './StatusTimeline'
+import { EditHistory } from './EditHistory'
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -405,7 +405,7 @@ export function IssueDetail({
         Created: {new Date(issue.created_at).toLocaleString()}
       </Typography>
 
-      <StatusTimeline slug={slug} targetType="issue" targetId={issueId} />
+      <EditHistory slug={slug} targetType="issue" targetId={issueId} />
 
       <CommentsAndRevisions slug={slug} targetType="issue" targetId={issueId} />
     </Box>

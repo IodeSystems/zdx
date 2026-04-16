@@ -250,17 +250,29 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
 			prev := ""
+			var oldTask db.GetTaskRow
+			var haveOld bool
 			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
+				oldTask = t
+				haveOld = true
 			}
+			newTestPlan := ptrStr(in.Body.TestPlan)
+			newTestRefs := ptrStr(in.Body.TestRefs)
 			if err := s.q.MarkTaskDone(ctx, db.MarkTaskDoneParams{
 				ID:       id,
-				TestPlan: ptrStr(in.Body.TestPlan),
-				TestRefs: ptrStr(in.Body.TestRefs),
+				TestPlan: newTestPlan,
+				TestRefs: newTestRefs,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			s.recordTaskStatusChange(ctx, id, prev, "done", "")
+			if haveOld {
+				s.recordTaskFieldRevisions(ctx, oldTask, map[string]string{
+					"test_plan": newTestPlan,
+					"test_refs": newTestRefs,
+				})
+			}
 			s.publishTaskByID(ctx, id, "task.done", map[string]any{"id": id})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -292,17 +304,25 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
 			prev := ""
+			var oldTask db.GetTaskRow
+			var haveOld bool
 			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
+				oldTask = t
+				haveOld = true
 			}
+			newReason := ptrStr(in.Body.Reason)
 			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     id,
 				Status: "blocked",
-				Reason: ptrStr(in.Body.Reason),
+				Reason: newReason,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			s.recordTaskStatusChange(ctx, id, prev, "blocked", "")
+			if haveOld {
+				s.recordTaskFieldRevisions(ctx, oldTask, map[string]string{"reason": newReason})
+			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -338,17 +358,25 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
 			prev := ""
+			var oldTask db.GetTaskRow
+			var haveOld bool
 			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
+				oldTask = t
+				haveOld = true
 			}
+			newReason := ptrStr(in.Body.Reason)
 			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     id,
 				Status: in.Body.Status,
-				Reason: ptrStr(in.Body.Reason),
+				Reason: newReason,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			s.recordTaskStatusChange(ctx, id, prev, in.Body.Status, "")
+			if haveOld {
+				s.recordTaskFieldRevisions(ctx, oldTask, map[string]string{"reason": newReason})
+			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 

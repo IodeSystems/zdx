@@ -227,12 +227,6 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
-			agent := ""
-			if uid := ctxUserIDVal(ctx); uid != 0 {
-				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
-					agent = u.Email
-				}
-			}
 			// Capture old values for revision log
 			oldIssue, _ := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
 			newPriority := strconv.Itoa(int(in.Body.Priority))
@@ -244,7 +238,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			if oldIssue.Priority != newPriority {
-				s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority, agent)
+				s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority)
 			}
 			for field, val := range map[string]*string{
 				"title":      in.Body.Title,
@@ -269,7 +263,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					case "context":
 						oldVal = oldIssue.Context
 					}
-					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val, agent)
+					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val)
 				}
 			}
 			for _, tid := range in.Body.ThemeIDs {
@@ -299,12 +293,6 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
-			agent := ""
-			if uid := ctxUserIDVal(ctx); uid != 0 {
-				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
-					agent = u.Email
-				}
-			}
 			oldIssue, _ := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
 
 			if in.Body.Priority != nil {
@@ -317,7 +305,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					return nil, apiErr(500, err.Error())
 				}
 				if oldIssue.Priority != newPriority {
-					s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority, agent)
+					s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority)
 				}
 			}
 
@@ -348,7 +336,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					return nil, apiErr(500, err.Error())
 				}
 				if oldValMap[field] != *val {
-					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldValMap[field], *val, agent)
+					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldValMap[field], *val)
 				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -396,7 +384,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed", agent)
+			s.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed")
 			s.recordStatusEvent(ctx, p.ID, "issue", issueID, prevStatus, "closed", "")
 			notes := ptrStr(in.Body.Notes)
 			note := "[closed"

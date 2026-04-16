@@ -462,6 +462,8 @@ type ZdxRevision struct {
 	NewVal     string             `db:"new_val" json:"new_val"`
 	Agent      string             `db:"agent" json:"agent"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	SessionID  string             `db:"session_id" json:"session_id"`
+	UserID     string             `db:"user_id" json:"user_id"`
 }
 
 type ZdxSession struct {

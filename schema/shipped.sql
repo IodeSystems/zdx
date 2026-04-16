@@ -1329,7 +1329,9 @@ CREATE TABLE public.zdx_revisions (
     old_val text DEFAULT ''::text NOT NULL,
     new_val text DEFAULT ''::text NOT NULL,
     agent text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    session_id text DEFAULT ''::text NOT NULL,
+    user_id text DEFAULT ''::text NOT NULL
 );
 
 

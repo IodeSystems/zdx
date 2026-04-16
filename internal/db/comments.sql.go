@@ -98,8 +98,8 @@ func (q *Queries) AddCommentReaction(ctx context.Context, arg AddCommentReaction
 }
 
 const addRevision = `-- name: AddRevision :exec
-INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
+INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
 `
 
 type AddRevisionParams struct {
@@ -110,6 +110,8 @@ type AddRevisionParams struct {
 	OldVal     string `db:"old_val" json:"old_val"`
 	NewVal     string `db:"new_val" json:"new_val"`
 	Agent      string `db:"agent" json:"agent"`
+	SessionID  string `db:"session_id" json:"session_id"`
+	UserID     string `db:"user_id" json:"user_id"`
 }
 
 func (q *Queries) AddRevision(ctx context.Context, arg AddRevisionParams) error {
@@ -121,6 +123,8 @@ func (q *Queries) AddRevision(ctx context.Context, arg AddRevisionParams) error 
 		arg.OldVal,
 		arg.NewVal,
 		arg.Agent,
+		arg.SessionID,
+		arg.UserID,
 	)
 	return err
 }
@@ -706,7 +710,7 @@ func (q *Queries) ListIssuesWithUnreadComments(ctx context.Context, arg ListIssu
 }
 
 const listRevisions = `-- name: ListRevisions :many
-SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
+SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at
 `
@@ -717,15 +721,29 @@ type ListRevisionsParams struct {
 	TargetID   string `db:"target_id" json:"target_id"`
 }
 
-func (q *Queries) ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ZdxRevision, error) {
+type ListRevisionsRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Field      string             `db:"field" json:"field"`
+	OldVal     string             `db:"old_val" json:"old_val"`
+	NewVal     string             `db:"new_val" json:"new_val"`
+	Agent      string             `db:"agent" json:"agent"`
+	SessionID  string             `db:"session_id" json:"session_id"`
+	UserID     string             `db:"user_id" json:"user_id"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error) {
 	rows, err := q.db.Query(ctx, listRevisions, arg.ProjectID, arg.TargetType, arg.TargetID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxRevision
+	var items []ListRevisionsRow
 	for rows.Next() {
-		var i ZdxRevision
+		var i ListRevisionsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -735,6 +753,65 @@ func (q *Queries) ListRevisions(ctx context.Context, arg ListRevisionsParams) ([
 			&i.OldVal,
 			&i.NewVal,
 			&i.Agent,
+			&i.SessionID,
+			&i.UserID,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listRevisionsByTarget = `-- name: ListRevisionsByTarget :many
+SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
+FROM zdx_revisions WHERE target_type = $1 AND target_id = $2
+ORDER BY created_at DESC
+`
+
+type ListRevisionsByTargetParams struct {
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+}
+
+type ListRevisionsByTargetRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Field      string             `db:"field" json:"field"`
+	OldVal     string             `db:"old_val" json:"old_val"`
+	NewVal     string             `db:"new_val" json:"new_val"`
+	Agent      string             `db:"agent" json:"agent"`
+	SessionID  string             `db:"session_id" json:"session_id"`
+	UserID     string             `db:"user_id" json:"user_id"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListRevisionsByTarget(ctx context.Context, arg ListRevisionsByTargetParams) ([]ListRevisionsByTargetRow, error) {
+	rows, err := q.db.Query(ctx, listRevisionsByTarget, arg.TargetType, arg.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListRevisionsByTargetRow
+	for rows.Next() {
+		var i ListRevisionsByTargetRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Field,
+			&i.OldVal,
+			&i.NewVal,
+			&i.Agent,
+			&i.SessionID,
+			&i.UserID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -748,7 +825,7 @@ func (q *Queries) ListRevisions(ctx context.Context, arg ListRevisionsParams) ([
 }
 
 const listRevisionsPaginated = `-- name: ListRevisionsPaginated :many
-SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
+SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at
 LIMIT $4 OFFSET $5
@@ -762,7 +839,21 @@ type ListRevisionsPaginatedParams struct {
 	Offset     int32  `db:"offset" json:"offset"`
 }
 
-func (q *Queries) ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ZdxRevision, error) {
+type ListRevisionsPaginatedRow struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	TargetType string             `db:"target_type" json:"target_type"`
+	TargetID   string             `db:"target_id" json:"target_id"`
+	Field      string             `db:"field" json:"field"`
+	OldVal     string             `db:"old_val" json:"old_val"`
+	NewVal     string             `db:"new_val" json:"new_val"`
+	Agent      string             `db:"agent" json:"agent"`
+	SessionID  string             `db:"session_id" json:"session_id"`
+	UserID     string             `db:"user_id" json:"user_id"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ListRevisionsPaginatedRow, error) {
 	rows, err := q.db.Query(ctx, listRevisionsPaginated,
 		arg.ProjectID,
 		arg.TargetType,
@@ -774,9 +865,9 @@ func (q *Queries) ListRevisionsPaginated(ctx context.Context, arg ListRevisionsP
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxRevision
+	var items []ListRevisionsPaginatedRow
 	for rows.Next() {
-		var i ZdxRevision
+		var i ListRevisionsPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -786,6 +877,8 @@ func (q *Queries) ListRevisionsPaginated(ctx context.Context, arg ListRevisionsP
 			&i.OldVal,
 			&i.NewVal,
 			&i.Agent,
+			&i.SessionID,
+			&i.UserID,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err

@@ -562,26 +562,28 @@ export const useRevisions = (slug: string, targetType: string, targetId: string,
     enabled: !!slug && !!targetType && !!targetId,
   })
 
-// ── status events ────────────────────────────────────────────────────────────
+// ── unified history (status + field revisions) ──────────────────────────────
 
-export interface StatusEventItem {
+export interface HistoryEvent {
+  kind: 'status' | 'field'
   id: number
-  target_type: string
-  target_id: string
-  from_status: string
-  to_status: string
+  created_at: string
+  from_status?: string
+  to_status?: string
+  field?: string
+  old_val?: string
+  new_val?: string
   agent_id: string
   session_id: string
   user_id: string
-  created_at: string
 }
 
-export const useStatusEvents = (targetType: string, targetId: string) =>
-  useQuery<{ events: StatusEventItem[] }>({
-    queryKey: ['status-events', targetType, targetId],
+export const useHistory = (targetType: string, targetId: string) =>
+  useQuery<{ events: HistoryEvent[] }>({
+    queryKey: ['history', targetType, targetId],
     queryFn: async () => {
       const params = new URLSearchParams({ target_type: targetType, target_id: targetId })
-      const res = await apiFetch<{ events: StatusEventItem[] }>(`/api/dx/status-events?${params}`)
+      const res = await apiFetch<{ events: HistoryEvent[] }>(`/api/dx/history?${params}`)
       return { events: res.events ?? [] }
     },
     enabled: !!targetType && !!targetId,

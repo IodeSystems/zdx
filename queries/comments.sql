@@ -148,11 +148,11 @@ DELETE FROM zdx_comment_reactions
 WHERE comment_id = $1 AND emoji = $2 AND reactor = $3;
 
 -- name: AddRevision :exec
-INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent)
-VALUES ($1, $2, $3, $4, $5, $6, $7);
+INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
 
 -- name: ListRevisions :many
-SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
+SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at;
 
@@ -160,7 +160,12 @@ ORDER BY created_at;
 SELECT count(*) FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3;
 
 -- name: ListRevisionsPaginated :many
-SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
+SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at
 LIMIT $4 OFFSET $5;
+
+-- name: ListRevisionsByTarget :many
+SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
+FROM zdx_revisions WHERE target_type = @target_type AND target_id = @target_id
+ORDER BY created_at DESC;

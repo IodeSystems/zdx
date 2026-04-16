@@ -408,6 +408,8 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 		OldVal     string `json:"old_val"`
 		NewVal     string `json:"new_val"`
 		Agent      string `json:"agent"`
+		SessionID  string `json:"session_id"`
+		UserID     string `json:"user_id"`
 		CreatedAt  string `json:"created_at"`
 	}
 
@@ -441,7 +443,8 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 				out[i] = RevisionItem{
 					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
 					Field: r.Field, OldVal: r.OldVal, NewVal: r.NewVal,
-					Agent: r.Agent, CreatedAt: fmtTS(r.CreatedAt),
+					Agent: r.Agent, SessionID: r.SessionID, UserID: r.UserID,
+					CreatedAt: fmtTS(r.CreatedAt),
 				}
 			}
 			return &struct {
@@ -460,7 +463,11 @@ func (s *Server) registerCommentRoutes(api huma.API) {
 
 // ── Revision recording ────────────────────────────────────────────────────
 
-func (s *Server) recordRevision(ctx context.Context, projectID int32, targetType, targetID, field, oldVal, newVal, agent string) {
+func (s *Server) recordRevision(ctx context.Context, projectID int32, targetType, targetID, field, oldVal, newVal string) {
+	userID := ""
+	if uid := ctxUserIDVal(ctx); uid != 0 {
+		userID = fmt.Sprintf("%d", uid)
+	}
 	_ = s.q.AddRevision(ctx, db.AddRevisionParams{
 		ProjectID:  projectID,
 		TargetType: targetType,
@@ -468,7 +475,9 @@ func (s *Server) recordRevision(ctx context.Context, projectID int32, targetType
 		Field:      field,
 		OldVal:     oldVal,
 		NewVal:     newVal,
-		Agent:      agent,
+		Agent:      ctxAgentIDVal(ctx),
+		SessionID:  ctxSessionIDVal(ctx),
+		UserID:     userID,
 	})
 }
 
@@ -510,4 +519,28 @@ func (s *Server) recordTaskStatusChange(ctx context.Context, taskID, prevStatus,
 		return
 	}
 	s.recordStatusEvent(ctx, t.ProjectID, "task", taskID, prevStatus, toStatus, agentIDOverride)
+}
+
+// recordTaskFieldRevisions writes zdx_revisions rows for each user-editable
+// field in newVals whose value differs from old. Intended for handlers that
+// mutate task fields alongside (or independent of) a status change — status
+// itself is recorded via recordTaskStatusChange and must not appear in newVals.
+func (s *Server) recordTaskFieldRevisions(ctx context.Context, old db.GetTaskRow, newVals map[string]string) {
+	oldVals := map[string]string{
+		"text":       old.Text,
+		"feature":    old.Feature,
+		"reason":     old.Reason,
+		"issue":      old.Issue,
+		"depends":    old.Depends,
+		"test_plan":  old.TestPlan,
+		"test_refs":  old.TestRefs,
+		"task_group": old.TaskGroup,
+	}
+	for field, newVal := range newVals {
+		oldVal, ok := oldVals[field]
+		if !ok || oldVal == newVal {
+			continue
+		}
+		s.recordRevision(ctx, old.ProjectID, "task", old.ID, field, oldVal, newVal)
+	}
 }
