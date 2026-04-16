@@ -155,7 +155,7 @@ func commentMarkReadCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&role, "role", "", "reader role (e.g. dev, owner)")
+	cmd.Flags().StringVar(&role, "role", "", "reader role: dev, owner, or llm (llm is what solo tracks for [respond:stale])")
 	cmd.MarkFlagRequired("role")
 	return cmd
 }

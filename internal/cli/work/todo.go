@@ -280,6 +280,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			fmt.Printf("[respond:stale] %s %s\n", sc.TargetType, sc.TargetID)
 			fmt.Printf("  from: %s  at: %s\n", sc.Author, sc.CreatedAt)
 			fmt.Printf("  %s\n", sc.Body)
+			fmt.Printf("  clear: dx comment mark-read %s %s --role=llm\n", sc.TargetType, sc.TargetID)
 			return nil
 		}
 	}
