@@ -14,6 +14,7 @@ import (
 	"path/filepath"
 	"strings"
 	"sync"
+	"sync/atomic"
 	"time"
 )
 
@@ -96,19 +97,24 @@ type agentEventsBatch struct {
 
 // RunLifecycle drives one full agent session from start to close. It:
 //  1. POSTs /api/dx/agent/sessions/{sid}/create (idempotent server-side).
+//     On success, prints the live UI session URL to stdout so the operator
+//     can open the server-side event stream page.
 //  2. Spawns goroutines to tail the main transcript and each new
 //     agent-*.jsonl in adapter.SubagentDir(sid). Each line is parsed,
-//     rendered to stdout + .zdx/logs/agent.log, and queued to the
-//     event-flusher goroutine.
+//     emitted to stdout as a single heartbeat-dot, appended (fully
+//     rendered) to .zdx/logs/agent.log, and queued to the event-flusher
+//     goroutine. Full event detail is viewable in the UI session page.
 //  3. The flusher batches queued events and POSTs them to
 //     /api/dx/agent/sessions/{sid}/events as ndjson; the server dedupes
 //     by seq so retries are safe.
-//  4. On adapter.Wait() returning, drains the queue, then POSTs /close
-//     with exit_code, duration_ms, event_count, and tokens (zeros for
-//     now — the server derives real token counts from events).
+//  4. On adapter.Wait() returning, drains the queue, prints a trailing
+//     newline to terminate the dots line, then POSTs /close with
+//     exit_code, duration_ms, event_count, and tokens (zeros for now —
+//     the server derives real token counts from events).
 //
 // The remote may be invalid (e.g. dev with no server configured); in that
-// case rendering still runs but no HTTP traffic is sent.
+// case rendering still runs but no HTTP traffic is sent and no URL is
+// printed.
 func RunLifecycle(
 	ctx context.Context,
 	adapter AgentAdapter,
@@ -149,6 +155,9 @@ func RunLifecycle(
 	if rc.valid() {
 		if cErr := postAgentSessionCreate(rc, sid, issueID, alias, provider, trigger); cErr != nil {
 			fmt.Fprintf(os.Stderr, "[lifecycle] create: %v\n", cErr)
+		} else {
+			sessionURL := strings.TrimRight(rc.url, "/") + "/project/" + rc.slug + "/agents/" + sid
+			fmt.Printf("%s %s\n", colorize(ansiBold, "Session:"), colorize(ansiBold+ansiCyan, sessionURL))
 		}
 	}
 
@@ -170,6 +179,12 @@ func RunLifecycle(
 	mainCancel()
 	subCancel()
 	flusher.stopAndDrain()
+
+	// Terminate the heartbeat-dots line before the token/close summaries
+	// print on their own lines.
+	if flusher.sawEvent.Load() {
+		fmt.Println()
+	}
 
 	durationMs := time.Since(startedAt).Milliseconds()
 	emitted := state.GlobalSeq - eventCountAtStart
@@ -347,7 +362,12 @@ func handleTranscriptLine(
 		ev.AgentDescription = agentDesc
 	}
 	if rendered := adapter.RenderEvent(ev.EventJSON); rendered != "" {
-		fmt.Println(rendered)
+		// stdout gets a compact heartbeat-dot per event; the full rendered
+		// text is preserved in .zdx/logs/agent.log. The clickable session
+		// URL (printed by RunLifecycle on session create) is the path to
+		// the live-streamed UI session page for full detail.
+		_, _ = os.Stdout.Write([]byte("."))
+		flusher.sawEvent.Store(true)
 		if logF != nil {
 			fmt.Fprintln(logF, rendered)
 		}
@@ -429,6 +449,11 @@ type agentEventFlusher struct {
 	flushTick *time.Ticker
 	doneCh    chan struct{}
 	flushedCh chan struct{}
+
+	// sawEvent is set true the first time a rendered event is written as a
+	// stdout heartbeat-dot; RunLifecycle reads it post-Wait to decide
+	// whether to emit a trailing newline that terminates the dots line.
+	sawEvent atomic.Bool
 }
 
 type flushOffsetUpdate struct {
