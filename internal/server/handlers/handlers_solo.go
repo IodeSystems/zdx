@@ -605,6 +605,129 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
+
+	// POST /api/dx/solo/claim — generate queue, merge, claim next unclaimed todo
+	huma.Register(api, huma.Operation{OperationID: "solo-claim", Method: http.MethodPost, Path: "/api/dx/solo/claim"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug         string `json:"slug"`
+				AgentID      string `json:"agent_id"`
+				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
+			}
+		}) (*struct{ Body TodoItem }, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+
+			// Reclaim expired leases first.
+			_ = h.Q.ReclaimExpiredTodos(ctx, p.ID)
+
+			// Generate fresh queue and merge into persisted todos (preserving claims).
+			proposed, err := h.generateSoloQueue(ctx, p.ID, "")
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			keys := make([]string, 0, len(proposed))
+			for _, c := range proposed {
+				keys = append(keys, c.Key)
+				_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
+					ProjectID:  p.ID,
+					Text:       c.Text,
+					Key:        c.Key,
+					Persona:    c.Persona,
+					Priority:   c.Priority,
+					Status:     "open",
+					TargetType: c.TargetType,
+					TargetID:   c.TargetID,
+					Kind:       c.Kind,
+					IssueRef:   c.IssueRef,
+					Blocked:    c.Blocked,
+				})
+			}
+			if len(keys) > 0 {
+				_ = h.Q.ResolveTodosNotInKeys(ctx, db.ResolveTodosNotInKeysParams{
+					ProjectID: p.ID, Keys: keys,
+				})
+			}
+
+			// Claim the next available item.
+			leaseMin := in.Body.LeaseMinutes
+			if leaseMin == 0 {
+				leaseMin = 10
+			}
+			row, err := h.Q.ClaimNextTodo(ctx, db.ClaimNextTodoParams{
+				ProjectID:    p.ID,
+				AgentID:      in.Body.AgentID,
+				LeaseMinutes: leaseMin,
+			})
+			if err != nil {
+				return nil, apiErr(404, "no claimable todo items")
+			}
+			item := toTodoItemFromClaim(row)
+			return &struct{ Body TodoItem }{Body: item}, nil
+		})
+
+	// POST /api/dx/solo/release — release a claimed todo
+	huma.Register(api, huma.Operation{OperationID: "solo-release", Method: http.MethodPost, Path: "/api/dx/solo/release"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID      int32  `json:"id"`
+				AgentID string `json:"agent_id"`
+				Resolve bool   `json:"resolve" required:"false"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if in.Body.Resolve {
+				_ = h.Q.ResolveTodoByID(ctx, in.Body.ID)
+			} else {
+				_ = h.Q.ReleaseTodo(ctx, db.ReleaseTodoParams{
+					ID:        in.Body.ID,
+					ClaimedBy: in.Body.AgentID,
+				})
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	// POST /api/dx/solo/renew — extend lease on a claimed todo
+	huma.Register(api, huma.Operation{OperationID: "solo-renew", Method: http.MethodPost, Path: "/api/dx/solo/renew"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID           int32  `json:"id"`
+				AgentID      string `json:"agent_id"`
+				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			leaseMin := in.Body.LeaseMinutes
+			if leaseMin == 0 {
+				leaseMin = 10
+			}
+			_ = h.Q.RenewTodoLease(ctx, db.RenewTodoLeaseParams{
+				ID:           in.Body.ID,
+				AgentID:      in.Body.AgentID,
+				LeaseMinutes: leaseMin,
+			})
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+}
+
+func toTodoItemFromClaim(r db.ClaimNextTodoRow) TodoItem {
+	return TodoItem{
+		ID:         r.ID,
+		Text:       r.Text,
+		Key:        r.Key,
+		Persona:    r.Persona,
+		Priority:   r.Priority,
+		Status:     r.Status,
+		TargetType: r.TargetType,
+		TargetID:   r.TargetID,
+		Kind:       r.Kind,
+		IssueRef:   r.IssueRef,
+		Blocked:    r.Blocked,
+		ClaimedBy:  r.ClaimedBy,
+		ClaimedAt:  fmtTS(r.ClaimedAt),
+		CreatedAt:  fmtTS(r.CreatedAt),
+		ResolvedAt: fmtTS(r.ResolvedAt),
+	}
 }
 
 func toTodoItemFromFiltered(r db.ListTodosFilteredRow) TodoItem {

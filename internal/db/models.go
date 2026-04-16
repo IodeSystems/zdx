@@ -697,22 +697,23 @@ type ZdxTimedEvent struct {
 }
 
 type ZdxTodo struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Text       string             `db:"text" json:"text"`
-	Key        string             `db:"key" json:"key"`
-	Persona    string             `db:"persona" json:"persona"`
-	Priority   int32              `db:"priority" json:"priority"`
-	Status     string             `db:"status" json:"status"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Kind       string             `db:"kind" json:"kind"`
-	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool               `db:"blocked" json:"blocked"`
-	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
 }
 
 type ZdxUser struct {

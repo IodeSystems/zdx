@@ -11,51 +11,121 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const createTodo = `-- name: CreateTodo :one
-INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked,
-                       claimed_by, claimed_at)
-VALUES ($1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10, $11,
-        $12, $13)
+const claimNextTodo = `-- name: ClaimNextTodo :one
+UPDATE zdx_todos SET
+  claimed_by = $1,
+  claimed_at = NOW(),
+  lease_expires_at = NOW() + ($2::int || ' minutes')::interval
+WHERE id = (
+  SELECT t.id FROM zdx_todos t
+  WHERE t.project_id = $3
+    AND t.status = 'open'
+    AND t.blocked = false
+    AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
+  ORDER BY t.priority, t.created_at
+  LIMIT 1
+  FOR UPDATE SKIP LOCKED
+)
 RETURNING id, project_id, text, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
-          claimed_by, claimed_at, created_at, resolved_at
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+`
+
+type ClaimNextTodoParams struct {
+	AgentID      string `db:"agent_id" json:"agent_id"`
+	LeaseMinutes int32  `db:"lease_minutes" json:"lease_minutes"`
+	ProjectID    int32  `db:"project_id" json:"project_id"`
+}
+
+type ClaimNextTodoRow struct {
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+}
+
+// Atomically claim the highest-priority unclaimed open todo for an agent.
+// Skips locked rows (concurrent agents get different items).
+func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error) {
+	row := q.db.QueryRow(ctx, claimNextTodo, arg.AgentID, arg.LeaseMinutes, arg.ProjectID)
+	var i ClaimNextTodoRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Key,
+		&i.Persona,
+		&i.Priority,
+		&i.Status,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Kind,
+		&i.IssueRef,
+		&i.Blocked,
+		&i.ClaimedBy,
+		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+	)
+	return i, err
+}
+
+const createTodo = `-- name: CreateTodo :one
+INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
+                       target_type, target_id, kind, issue_ref, blocked)
+VALUES ($1, $2, $3, $4, $5, $6,
+        $7, $8, $9, $10, $11)
+RETURNING id, project_id, text, key, persona, priority, status,
+          target_type, target_id, kind, issue_ref, blocked,
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
 `
 
 type CreateTodoParams struct {
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Text       string             `db:"text" json:"text"`
-	Key        string             `db:"key" json:"key"`
-	Persona    string             `db:"persona" json:"persona"`
-	Priority   int32              `db:"priority" json:"priority"`
-	Status     string             `db:"status" json:"status"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Kind       string             `db:"kind" json:"kind"`
-	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool               `db:"blocked" json:"blocked"`
-	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	Text       string `db:"text" json:"text"`
+	Key        string `db:"key" json:"key"`
+	Persona    string `db:"persona" json:"persona"`
+	Priority   int32  `db:"priority" json:"priority"`
+	Status     string `db:"status" json:"status"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	Kind       string `db:"kind" json:"kind"`
+	IssueRef   string `db:"issue_ref" json:"issue_ref"`
+	Blocked    bool   `db:"blocked" json:"blocked"`
 }
 
 type CreateTodoRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Text       string             `db:"text" json:"text"`
-	Key        string             `db:"key" json:"key"`
-	Persona    string             `db:"persona" json:"persona"`
-	Priority   int32              `db:"priority" json:"priority"`
-	Status     string             `db:"status" json:"status"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Kind       string             `db:"kind" json:"kind"`
-	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool               `db:"blocked" json:"blocked"`
-	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 }
 
 func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error) {
@@ -71,8 +141,6 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateT
 		arg.Kind,
 		arg.IssueRef,
 		arg.Blocked,
-		arg.ClaimedBy,
-		arg.ClaimedAt,
 	)
 	var i CreateTodoRow
 	err := row.Scan(
@@ -90,6 +158,7 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateT
 		&i.Blocked,
 		&i.ClaimedBy,
 		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
 		&i.CreatedAt,
 		&i.ResolvedAt,
 	)
@@ -124,7 +193,7 @@ func (q *Queries) GetState(ctx context.Context, arg GetStateParams) (string, err
 const getTodoByKey = `-- name: GetTodoByKey :one
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
-       claimed_by, claimed_at, created_at, resolved_at
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
 FROM zdx_todos WHERE project_id = $1 AND key = $2
 `
 
@@ -134,22 +203,23 @@ type GetTodoByKeyParams struct {
 }
 
 type GetTodoByKeyRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Text       string             `db:"text" json:"text"`
-	Key        string             `db:"key" json:"key"`
-	Persona    string             `db:"persona" json:"persona"`
-	Priority   int32              `db:"priority" json:"priority"`
-	Status     string             `db:"status" json:"status"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Kind       string             `db:"kind" json:"kind"`
-	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool               `db:"blocked" json:"blocked"`
-	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 }
 
 func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error) {
@@ -170,6 +240,7 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 		&i.Blocked,
 		&i.ClaimedBy,
 		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
 		&i.CreatedAt,
 		&i.ResolvedAt,
 	)
@@ -179,27 +250,28 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 const listTodos = `-- name: ListTodos :many
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
-       claimed_by, claimed_at, created_at, resolved_at
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at
 `
 
 type ListTodosRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Text       string             `db:"text" json:"text"`
-	Key        string             `db:"key" json:"key"`
-	Persona    string             `db:"persona" json:"persona"`
-	Priority   int32              `db:"priority" json:"priority"`
-	Status     string             `db:"status" json:"status"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Kind       string             `db:"kind" json:"kind"`
-	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool               `db:"blocked" json:"blocked"`
-	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 }
 
 func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error) {
@@ -226,6 +298,7 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRo
 			&i.Blocked,
 			&i.ClaimedBy,
 			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
 			&i.CreatedAt,
 			&i.ResolvedAt,
 		); err != nil {
@@ -242,7 +315,7 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRo
 const listTodosFiltered = `-- name: ListTodosFiltered :many
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
-       claimed_by, claimed_at, created_at, resolved_at
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
 FROM zdx_todos
 WHERE project_id = $1
   AND ($2::boolean IS NULL OR blocked = $2::boolean)
@@ -261,22 +334,23 @@ type ListTodosFilteredParams struct {
 }
 
 type ListTodosFilteredRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Text       string             `db:"text" json:"text"`
-	Key        string             `db:"key" json:"key"`
-	Persona    string             `db:"persona" json:"persona"`
-	Priority   int32              `db:"priority" json:"priority"`
-	Status     string             `db:"status" json:"status"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Kind       string             `db:"kind" json:"kind"`
-	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool               `db:"blocked" json:"blocked"`
-	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 }
 
 func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error) {
@@ -309,6 +383,7 @@ func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredPa
 			&i.Blocked,
 			&i.ClaimedBy,
 			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
 			&i.CreatedAt,
 			&i.ResolvedAt,
 		); err != nil {
@@ -320,6 +395,59 @@ func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredPa
 		return nil, err
 	}
 	return items, nil
+}
+
+const reclaimExpiredTodos = `-- name: ReclaimExpiredTodos :exec
+UPDATE zdx_todos SET
+  claimed_by = '',
+  claimed_at = NULL,
+  lease_expires_at = NULL
+WHERE project_id = $1
+  AND claimed_by != ''
+  AND lease_expires_at < NOW()
+`
+
+// Clear claims on todos whose leases have expired.
+func (q *Queries) ReclaimExpiredTodos(ctx context.Context, projectID int32) error {
+	_, err := q.db.Exec(ctx, reclaimExpiredTodos, projectID)
+	return err
+}
+
+const releaseTodo = `-- name: ReleaseTodo :exec
+UPDATE zdx_todos SET
+  claimed_by = '',
+  claimed_at = NULL,
+  lease_expires_at = NULL
+WHERE id = $1 AND claimed_by = $2
+`
+
+type ReleaseTodoParams struct {
+	ID        int32  `db:"id" json:"id"`
+	ClaimedBy string `db:"claimed_by" json:"claimed_by"`
+}
+
+// Release a claimed todo (agent finished or abandoned).
+func (q *Queries) ReleaseTodo(ctx context.Context, arg ReleaseTodoParams) error {
+	_, err := q.db.Exec(ctx, releaseTodo, arg.ID, arg.ClaimedBy)
+	return err
+}
+
+const renewTodoLease = `-- name: RenewTodoLease :exec
+UPDATE zdx_todos SET
+  lease_expires_at = NOW() + ($1::int || ' minutes')::interval
+WHERE id = $2 AND claimed_by = $3
+`
+
+type RenewTodoLeaseParams struct {
+	LeaseMinutes int32  `db:"lease_minutes" json:"lease_minutes"`
+	ID           int32  `db:"id" json:"id"`
+	AgentID      string `db:"agent_id" json:"agent_id"`
+}
+
+// Extend the lease on a claimed todo (heartbeat).
+func (q *Queries) RenewTodoLease(ctx context.Context, arg RenewTodoLeaseParams) error {
+	_, err := q.db.Exec(ctx, renewTodoLease, arg.LeaseMinutes, arg.ID, arg.AgentID)
+	return err
 }
 
 const resolveTodo = `-- name: ResolveTodo :exec
@@ -334,6 +462,17 @@ type ResolveTodoParams struct {
 
 func (q *Queries) ResolveTodo(ctx context.Context, arg ResolveTodoParams) error {
 	_, err := q.db.Exec(ctx, resolveTodo, arg.ProjectID, arg.Key)
+	return err
+}
+
+const resolveTodoByID = `-- name: ResolveTodoByID :exec
+UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW(),
+  claimed_by = '', claimed_at = NULL, lease_expires_at = NULL
+WHERE id = $1
+`
+
+func (q *Queries) ResolveTodoByID(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, resolveTodoByID, id)
 	return err
 }
 
@@ -371,63 +510,60 @@ func (q *Queries) SetState(ctx context.Context, arg SetStateParams) error {
 
 const upsertTodo = `-- name: UpsertTodo :one
 INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked,
-                       claimed_by, claimed_at)
+                       target_type, target_id, kind, issue_ref, blocked)
 VALUES ($1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10, $11,
-        $12, $13)
+        $7, $8, $9, $10, $11)
 ON CONFLICT (project_id, key) DO UPDATE SET
   text = EXCLUDED.text,
   persona = EXCLUDED.persona,
   priority = EXCLUDED.priority,
-  status = EXCLUDED.status,
+  status = CASE WHEN zdx_todos.status = 'resolved' THEN 'open' ELSE zdx_todos.status END,
   target_type = EXCLUDED.target_type,
   target_id = EXCLUDED.target_id,
   kind = EXCLUDED.kind,
   issue_ref = EXCLUDED.issue_ref,
-  blocked = EXCLUDED.blocked,
-  claimed_by = EXCLUDED.claimed_by,
-  claimed_at = EXCLUDED.claimed_at
+  blocked = EXCLUDED.blocked
+  -- claimed_by, claimed_at, lease_expires_at intentionally NOT updated
 RETURNING id, project_id, text, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
-          claimed_by, claimed_at, created_at, resolved_at
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
 `
 
 type UpsertTodoParams struct {
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Text       string             `db:"text" json:"text"`
-	Key        string             `db:"key" json:"key"`
-	Persona    string             `db:"persona" json:"persona"`
-	Priority   int32              `db:"priority" json:"priority"`
-	Status     string             `db:"status" json:"status"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Kind       string             `db:"kind" json:"kind"`
-	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool               `db:"blocked" json:"blocked"`
-	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	Text       string `db:"text" json:"text"`
+	Key        string `db:"key" json:"key"`
+	Persona    string `db:"persona" json:"persona"`
+	Priority   int32  `db:"priority" json:"priority"`
+	Status     string `db:"status" json:"status"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	Kind       string `db:"kind" json:"kind"`
+	IssueRef   string `db:"issue_ref" json:"issue_ref"`
+	Blocked    bool   `db:"blocked" json:"blocked"`
 }
 
 type UpsertTodoRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Text       string             `db:"text" json:"text"`
-	Key        string             `db:"key" json:"key"`
-	Persona    string             `db:"persona" json:"persona"`
-	Priority   int32              `db:"priority" json:"priority"`
-	Status     string             `db:"status" json:"status"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Kind       string             `db:"kind" json:"kind"`
-	IssueRef   string             `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool               `db:"blocked" json:"blocked"`
-	ClaimedBy  string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt  pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 }
 
+// Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).
 func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertTodoRow, error) {
 	row := q.db.QueryRow(ctx, upsertTodo,
 		arg.ProjectID,
@@ -441,8 +577,6 @@ func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertT
 		arg.Kind,
 		arg.IssueRef,
 		arg.Blocked,
-		arg.ClaimedBy,
-		arg.ClaimedAt,
 	)
 	var i UpsertTodoRow
 	err := row.Scan(
@@ -460,6 +594,7 @@ func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertT
 		&i.Blocked,
 		&i.ClaimedBy,
 		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
 		&i.CreatedAt,
 		&i.ResolvedAt,
 	)

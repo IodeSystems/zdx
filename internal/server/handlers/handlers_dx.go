@@ -125,7 +125,6 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					Kind:       t.Kind,
 					IssueRef:   t.IssueRef,
 					Blocked:    t.Blocked,
-					ClaimedBy:  t.ClaimedBy,
 				})
 				if err != nil {
 					return nil, apiErr(500, err.Error())

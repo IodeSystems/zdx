@@ -29,6 +29,9 @@ type Querier interface {
 	AttachCodeRefToTest(ctx context.Context, arg AttachCodeRefToTestParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
 	CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error)
+	// Atomically claim the highest-priority unclaimed open todo for an agent.
+	// Skips locked rows (concurrent agents get different items).
+	ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error)
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
 	ClearStaleFlag(ctx context.Context, id string) error
 	CloseClaudeSession(ctx context.Context, id int64) error
@@ -332,17 +335,24 @@ type Querier interface {
 	ReadyTask(ctx context.Context, id string) error
 	ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error)
 	ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error)
+	// Clear claims on todos whose leases have expired.
+	ReclaimExpiredTodos(ctx context.Context, projectID int32) error
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)
 	ReleaseTask(ctx context.Context, arg ReleaseTaskParams) error
 	ReleaseTaskAdmin(ctx context.Context, id string) error
+	// Release a claimed todo (agent finished or abandoned).
+	ReleaseTodo(ctx context.Context, arg ReleaseTodoParams) error
 	RemoveAllIssueBlocks(ctx context.Context, issueID string) error
 	RemoveFeatureMultiplier(ctx context.Context, arg RemoveFeatureMultiplierParams) error
 	RemoveFocusBlocker(ctx context.Context, arg RemoveFocusBlockerParams) error
 	RemoveFocusFeature(ctx context.Context, arg RemoveFocusFeatureParams) error
 	RemoveIssueBlock(ctx context.Context, arg RemoveIssueBlockParams) error
 	RenewTaskLease(ctx context.Context, arg RenewTaskLeaseParams) error
+	// Extend the lease on a claimed todo (heartbeat).
+	RenewTodoLease(ctx context.Context, arg RenewTodoLeaseParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error
 	ResolveTodo(ctx context.Context, arg ResolveTodoParams) error
+	ResolveTodoByID(ctx context.Context, id int32) error
 	ResolveTodosNotInKeys(ctx context.Context, arg ResolveTodosNotInKeysParams) error
 	RevokeIntegrationToken(ctx context.Context, id int32) error
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
@@ -386,6 +396,7 @@ type Querier interface {
 	UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (ZdxTestDemo, error)
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error
 	UpsertTimed(ctx context.Context, arg UpsertTimedParams) error
+	// Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).
 	UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertTodoRow, error)
 }
 
