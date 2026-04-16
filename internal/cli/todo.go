@@ -431,6 +431,29 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		targetIssues = filtered
 	}
 
+	// 0c1. Check for stale tasks (flagged by recovery sweep, never claimed).
+	{
+		staleParams := url.Values{"slug": {slug}}
+		if issueFlag != "" {
+			staleParams.Set("issue", issueFlag)
+		}
+		var staleResp struct {
+			Tasks []taskItem `json:"tasks"`
+		}
+		if err := c.get("/api/dx/tasks/stale", staleParams, &staleResp); err == nil && len(staleResp.Tasks) > 0 {
+			t := staleResp.Tasks[0]
+			fmt.Printf("[review:stale] %s  %s\n", taskIDStr(t.ID), t.Text)
+			if t.IssueID != nil {
+				fmt.Printf("  issue: %s\n", issueIDStr(*t.IssueID))
+			}
+			fmt.Println("  ⚠ This task was flagged stale — it was created but never claimed.")
+			fmt.Println("  Before editing, verify the work is still needed by reading the current code.")
+			fmt.Println("  If already implemented: dx todo dev done " + taskIDStr(t.ID))
+			fmt.Println("  If superseded: dx todo dev done " + taskIDStr(t.ID))
+			return nil
+		}
+	}
+
 	// 0d. Bootstrap: if no issues exist at all, guide agent to analyze the project.
 	if issueFlag == "" && len(issueList.Issues) == 0 && len(featList.Features) == 0 {
 		fmt.Printf("[bootstrap] %s\n", slug)
@@ -559,29 +582,6 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		if len(demoGapResp.Specs) > 0 {
 			s := demoGapResp.Specs[0]
 			fmt.Printf("[owner:demo-gap]  feature %q spec %d (%s) has no demo recording — run dx test --layer demo\n", s.FeatureName, s.ID, s.Description)
-			return nil
-		}
-	}
-
-	// 1f. Check for stale tasks (flagged by recovery sweep, never claimed).
-	{
-		staleParams := url.Values{"slug": {slug}}
-		if issueFlag != "" {
-			staleParams.Set("issue", issueFlag)
-		}
-		var staleResp struct {
-			Tasks []taskItem `json:"tasks"`
-		}
-		if err := c.get("/api/dx/tasks/stale", staleParams, &staleResp); err == nil && len(staleResp.Tasks) > 0 {
-			t := staleResp.Tasks[0]
-			fmt.Printf("[review:stale] %s  %s\n", taskIDStr(t.ID), t.Text)
-			if t.IssueID != nil {
-				fmt.Printf("  issue: %s\n", issueIDStr(*t.IssueID))
-			}
-			fmt.Println("  ⚠ This task was flagged stale — it was created but never claimed.")
-			fmt.Println("  Before editing, verify the work is still needed by reading the current code.")
-			fmt.Println("  If already implemented: dx todo dev done " + taskIDStr(t.ID))
-			fmt.Println("  If superseded: dx todo dev done " + taskIDStr(t.ID))
 			return nil
 		}
 	}
