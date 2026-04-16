@@ -1,4 +1,7 @@
 {
+  "env": {
+    "DX_AUTHOR_ALIAS": "claude"
+  },
   "hooks": {
     "PreToolUse": [
       {

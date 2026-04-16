@@ -62,6 +62,7 @@ Solo surfaces unread comments that need a response. After reading the comments:
 2. **Reply.** Post a response: `./bin/dx comment add <target-type> <target-id> --body="<your reply>"`.
    - target-type is `issue`, `task`, or `feature` depending on what solo showed.
    - Answer questions, acknowledge feedback, or explain decisions.
+   - Author alias: the dx CLI auto-tags comments with `$DX_AUTHOR_ALIAS` (pre-set by the agent harness, typically `claude`). Pass `--as <alias>` only to override.
 3. **Mark read.** Solo marks comments read automatically after showing them, but if you need to manually:
    `./bin/dx comment mark-read <target-type> <target-id> --role=llm`
 4. Continue the vertical loop — comments are handled inline, not as separate work items.
