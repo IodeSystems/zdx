@@ -24,6 +24,7 @@ test/e2e/.zdx/
 .vite/
 .zdx/cache/
 .zdx/demo/
+.zdx/state/
 .zdx/test-results*.json
 bin/zdx-test
 bin/zdx-test-demo
