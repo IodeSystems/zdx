@@ -86,6 +86,7 @@ type Querier interface {
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
 	DeleteCounterEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
+	DeleteDraftTask(ctx context.Context, id string) (int64, error)
 	DeleteErrorEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error

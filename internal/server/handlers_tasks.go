@@ -501,6 +501,32 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	// ── Task delete (wip drafts only) ────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "delete-draft-task", Method: http.MethodPost, Path: "/api/dx/todo/task/delete"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID int32 `json:"id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			id := taskIDFromInt(in.Body.ID)
+			t, gErr := s.q.GetTask(ctx, id)
+			if gErr != nil {
+				return nil, apiErr(404, "task not found: "+id)
+			}
+			if t.Status != "wip" {
+				return nil, apiErr(409, "cannot delete "+id+": status is "+t.Status+" (delete is restricted to wip drafts; use 'dx todo dev done' or close the parent issue instead)")
+			}
+			n, err := s.q.DeleteDraftTask(ctx, id)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if n == 0 {
+				return nil, apiErr(409, "cannot delete "+id+": no wip task deleted (possible race)")
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
 	// ── Task similarity ──────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "similar-tasks", Method: http.MethodPost, Path: "/api/dx/tasks/similar"},

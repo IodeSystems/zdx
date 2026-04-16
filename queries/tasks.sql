@@ -84,6 +84,9 @@ UPDATE zdx_tasks SET status = 'pending', completed_at = NULL, updated_at = NOW()
 -- name: DeleteTask :exec
 DELETE FROM zdx_tasks WHERE id = $1;
 
+-- name: DeleteDraftTask :execrows
+DELETE FROM zdx_tasks WHERE id = $1 AND status = 'wip';
+
 -- name: UpdateTaskFields :exec
 UPDATE zdx_tasks
 SET text       = CASE WHEN @field::text = 'text'       THEN @value::text ELSE text       END,

@@ -284,6 +284,18 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (CreateT
 	return i, err
 }
 
+const deleteDraftTask = `-- name: DeleteDraftTask :execrows
+DELETE FROM zdx_tasks WHERE id = $1 AND status = 'wip'
+`
+
+func (q *Queries) DeleteDraftTask(ctx context.Context, id string) (int64, error) {
+	result, err := q.db.Exec(ctx, deleteDraftTask, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
 const deleteTask = `-- name: DeleteTask :exec
 DELETE FROM zdx_tasks WHERE id = $1
 `
