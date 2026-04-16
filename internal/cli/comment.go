@@ -3,11 +3,22 @@ package cli
 import (
 	"fmt"
 	"net/url"
+	"os"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 )
+
+// resolveAuthorAlias returns the explicit --as flag value if set, otherwise
+// falls back to DX_AUTHOR_ALIAS so agents running under /work auto-tag their
+// comments without needing to remember --as on every call.
+func resolveAuthorAlias(flag string) string {
+	if flag != "" {
+		return flag
+	}
+	return os.Getenv("DX_AUTHOR_ALIAS")
+}
 
 type commentItem struct {
 	ID          int32  `json:"id"`
@@ -101,8 +112,8 @@ func commentAddCmd() *cobra.Command {
 				"target_id":   args[1],
 				"body":        body,
 			}
-			if authorAlias != "" {
-				payload["author_alias"] = authorAlias
+			if alias := resolveAuthorAlias(authorAlias); alias != "" {
+				payload["author_alias"] = alias
 			}
 			var cm commentItem
 			if err := c.post("/api/dx/comment/add", payload, &cm); err != nil {
@@ -113,7 +124,7 @@ func commentAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&body, "body", "", "comment body")
-	cmd.Flags().StringVar(&authorAlias, "as", "", "author alias (e.g. claude)")
+	cmd.Flags().StringVar(&authorAlias, "as", "", "author alias (e.g. claude); falls back to $DX_AUTHOR_ALIAS")
 	cmd.MarkFlagRequired("body")
 	return cmd
 }
@@ -209,8 +220,8 @@ func commentReplyCmd() *cobra.Command {
 					"body":        body,
 					"parent_id":   cid,
 				}
-				if authorAlias != "" {
-					payload["author_alias"] = authorAlias
+				if alias := resolveAuthorAlias(authorAlias); alias != "" {
+					payload["author_alias"] = alias
 				}
 				var cm commentItem
 				if err := c.post("/api/dx/comment/add", payload, &cm); err != nil {
@@ -241,7 +252,7 @@ func commentReplyCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&body, "body", "", "reply body")
 	cmd.Flags().StringVar(&react, "react", "", "reaction emoji (e.g. thumbs-up, +1)")
-	cmd.Flags().StringVar(&authorAlias, "as", "", "author alias (e.g. claude)")
+	cmd.Flags().StringVar(&authorAlias, "as", "", "author alias (e.g. claude); falls back to $DX_AUTHOR_ALIAS")
 	return cmd
 }
 
