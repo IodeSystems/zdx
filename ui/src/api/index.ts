@@ -231,6 +231,21 @@ export const useCloseIssue = () => {
   })
 }
 
+export const useReadyIssue = () => {
+  const qc = useQueryClient()
+  return useMutation<components['schemas']['Ready-issueResponse'], Error, components['schemas']['Ready-issueRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/todo/issue/ready', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['issues', v.slug] })
+      qc.invalidateQueries({ queryKey: ['issue'] })
+    },
+  })
+}
+
 // ── tasks ─────────────────────────────────────────────────────────────────────
 
 export const useTasks = (slug: string, opts?: { feature?: string; issue?: string; status?: string; search?: string }, limit?: number, offset?: number) =>
@@ -280,6 +295,21 @@ export const useUpdateTaskStatus = () => {
       return data!
     },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['tasks', v.slug] }),
+  })
+}
+
+export const useReadyTask = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, { slug: string; id: number }>({
+    mutationFn: async ({ id }) => {
+      const { data, error } = await client.POST('/api/dx/todo/task/ready', { body: { id } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['tasks', v.slug] })
+      qc.invalidateQueries({ queryKey: ['task', v.slug] })
+    },
   })
 }
 

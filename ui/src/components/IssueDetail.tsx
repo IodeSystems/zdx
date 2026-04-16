@@ -17,6 +17,7 @@ import {
   useIssue,
   useTasks,
   useCloseIssue,
+  useReadyIssue,
   useSearchIssues,
   useIssueCodeRefs,
   useIssueResolutions,
@@ -75,6 +76,7 @@ export function IssueDetail({
   const { data: resolutions } = useIssueResolutions(slug, issueId)
   const { data: sessionsData } = useClaudeSessionsByIssue(slug, issueId)
   const closeIssue = useCloseIssue()
+  const readyIssue = useReadyIssue()
   const router = useRouter()
   const [closeOpen, setCloseOpen] = useState(false)
   const [closeReason, setCloseReason] = useState('')
@@ -201,6 +203,17 @@ export function IssueDetail({
             onDelete={() => removeThemeBlocker.mutate({ slug, theme: `TH-${t.id}`, issue: issueId })}
           />
         ))}
+        {issue.status === 'wip' && (
+          <Button
+            size="small"
+            variant="contained"
+            color="primary"
+            disabled={readyIssue.isPending}
+            onClick={() => readyIssue.mutate({ slug, id: issue.id })}
+          >
+            Make ready
+          </Button>
+        )}
         {(issue.status === 'open' || issue.status === 'triaged' || issue.status === 'in-progress') && (
           <Button size="small" variant="outlined" color="warning" onClick={() => { setCloseReason(''); setDuplicateOf(null); setDupSearch(''); setCloseOpen(true) }}>
             Close

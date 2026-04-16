@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { Box, Button, Chip, Tooltip, Typography } from '@mui/material'
-import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, LockOpen as LockOpenIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
-import { useTask, useTasks, useUpdateTaskStatus, useReleaseTask, useTaskCodeRefs } from '../api'
+import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, LockOpen as LockOpenIcon, PlayArrow as PlayArrowIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
+import { useTask, useTasks, useUpdateTaskStatus, useReleaseTask, useReadyTask, useTaskCodeRefs } from '../api'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
@@ -26,6 +26,7 @@ export function TaskDetail({
   const { data: codeRefs } = useTaskCodeRefs(slug, taskId)
   const updateStatus = useUpdateTaskStatus()
   const releaseTask = useReleaseTask()
+  const readyTask = useReadyTask()
   const router = useRouter()
 
   const task = taskData
@@ -117,6 +118,18 @@ export function TaskDetail({
             color="default"
           />
         )}
+        {task.status === 'wip' && (
+          <Button
+            size="small"
+            variant="contained"
+            color="primary"
+            startIcon={<PlayArrowIcon />}
+            onClick={() => readyTask.mutate({ slug, id: task.id })}
+            disabled={readyTask.isPending}
+          >
+            Make ready
+          </Button>
+        )}
         {task.status === 'done' ? (
           <Button
             size="small"
@@ -126,7 +139,7 @@ export function TaskDetail({
           >
             Mark undone
           </Button>
-        ) : (
+        ) : task.status !== 'wip' ? (
           <Button
             size="small"
             variant="contained"
@@ -136,7 +149,7 @@ export function TaskDetail({
           >
             Mark done
           </Button>
-        )}
+        ) : null}
         {task.claimed_by && task.status !== 'done' && (
           <Tooltip title={`Claimed by ${task.claimed_by}. Release returns the task to ready.`}>
             <Button
