@@ -28,6 +28,7 @@ type Querier interface {
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
 	CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error)
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
+	ClearStaleFlag(ctx context.Context, id string) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)
 	CountBlockerQuestions(ctx context.Context, projectID int32) (int64, error)
@@ -105,6 +106,7 @@ type Querier interface {
 	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error
+	FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) ([]FlagStaleTasksRow, error)
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
@@ -243,6 +245,8 @@ type Querier interface {
 	ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error)
 	// Features not reviewed in more than @stale_days days (or never reviewed).
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ZdxFeature, error)
+	ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error)
+	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
 	// Returns comments that are unread for the given role and older than the given age threshold.
 	ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error)
 	ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error)

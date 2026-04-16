@@ -294,6 +294,35 @@ func (d *ApiDriver) LinkTestToSpec(specID, testID int32) {
 		map[string]any{"spec_id": specID, "test_id": testID}, nil))
 }
 
+type StaleTaskInfo struct {
+	ID         int32  `json:"id"`
+	Text       string `json:"text"`
+	StaleSince string `json:"stale_since"`
+}
+
+func (d *ApiDriver) ListStaleTasks(issue string) []StaleTaskInfo {
+	d.t.Helper()
+	url := fmt.Sprintf("/api/dx/tasks/stale?slug=%s", d.Slug)
+	if issue != "" {
+		url += "&issue=" + issue
+	}
+	var resp struct {
+		Tasks []StaleTaskInfo `json:"tasks"`
+	}
+	mustOK(d.t, apiDo(d.t, http.MethodGet, url, nil, &resp))
+	return resp.Tasks
+}
+
+func (d *ApiDriver) SweepStaleTasks(staleDays int32) int {
+	d.t.Helper()
+	var resp struct {
+		Flagged int `json:"flagged"`
+	}
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/tasks/sweep-stale",
+		map[string]any{"slug": d.Slug, "stale_days": staleDays}, &resp))
+	return resp.Flagged
+}
+
 type SoloQueueItem struct {
 	Key        string `json:"key"`
 	Text       string `json:"text"`

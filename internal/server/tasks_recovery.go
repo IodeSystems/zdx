@@ -4,6 +4,8 @@ import (
 	"context"
 	"log"
 	"time"
+
+	"github.com/iodesystems/zdx-go/internal/db"
 )
 
 func (s *Server) StartTaskRecovery(ctx context.Context) {
@@ -20,6 +22,13 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 			log.Printf("task-recovery: cancel orphaned: %v", err)
 		} else if len(orphaned) > 0 {
 			log.Printf("task-recovery: cancelled %d orphaned tasks (parent issue closed)", len(orphaned))
+		}
+
+		flagged, err := s.q.FlagStaleTasks(ctx, db.FlagStaleTasksParams{StaleDays: 3, ProjectID: 0})
+		if err != nil {
+			log.Printf("task-recovery: flag stale: %v", err)
+		} else if len(flagged) > 0 {
+			log.Printf("task-recovery: flagged %d stale unclaimed tasks", len(flagged))
 		}
 	}
 

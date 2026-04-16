@@ -191,3 +191,34 @@ WHERE project_id = @project_id
   AND status IN ('pending', 'active', 'wip', 'done')
   AND (@issue::text = '' OR issue = @issue)
 ORDER BY created_at DESC;
+
+-- name: FlagStaleTasks :many
+UPDATE zdx_tasks
+SET stale_since = NOW(),
+    updated_at = NOW()
+WHERE status = 'pending'
+  AND claimed_by IS NULL
+  AND stale_since IS NULL
+  AND created_at <= NOW() - make_interval(days => @stale_days::int)
+  AND (@project_id::int = 0 OR project_id = @project_id)
+RETURNING id, text, issue;
+
+-- name: ListStaleTasks :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+FROM zdx_tasks
+WHERE project_id = $1
+  AND stale_since IS NOT NULL
+  AND status = 'pending'
+ORDER BY stale_since ASC;
+
+-- name: ListStaleTasksByIssue :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+FROM zdx_tasks
+WHERE project_id = $1
+  AND issue = $2
+  AND stale_since IS NOT NULL
+  AND status = 'pending'
+ORDER BY stale_since ASC;
+
+-- name: ClearStaleFlag :exec
+UPDATE zdx_tasks SET stale_since = NULL, updated_at = NOW() WHERE id = $1;

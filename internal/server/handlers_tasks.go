@@ -334,6 +334,83 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-stale-tasks", Method: http.MethodGet, Path: "/api/dx/tasks/stale"},
+		func(ctx context.Context, in *struct {
+			Slug  string `query:"slug" required:"true"`
+			Issue string `query:"issue"`
+		}) (*struct {
+			Body struct {
+				Tasks []TaskItem `json:"tasks"`
+			}
+		}, error) {
+			p, err := getProject(ctx, s.q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			var rows []db.ListStaleTasksByIssueRow
+			if in.Issue != "" {
+				rows, err = s.q.ListStaleTasksByIssue(ctx, db.ListStaleTasksByIssueParams{ProjectID: p.ID, Issue: in.Issue})
+			} else {
+				staleRows, err2 := s.q.ListStaleTasks(ctx, p.ID)
+				if err2 != nil {
+					return nil, apiErr(500, err2.Error())
+				}
+				for _, r := range staleRows {
+					rows = append(rows, db.ListStaleTasksByIssueRow(r))
+				}
+			}
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TaskItem, len(rows))
+			for i, r := range rows {
+				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup, StaleSince: r.StaleSince})
+			}
+			return &struct {
+				Body struct {
+					Tasks []TaskItem `json:"tasks"`
+				}
+			}{Body: struct {
+				Tasks []TaskItem `json:"tasks"`
+			}{Tasks: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "sweep-stale-tasks", Method: http.MethodPost, Path: "/api/dx/tasks/sweep-stale"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug      string `json:"slug"`
+				StaleDays int32  `json:"stale_days"`
+			}
+		}) (*struct {
+			Body struct {
+				Flagged int `json:"flagged"`
+			}
+		}, error) {
+			days := in.Body.StaleDays
+			if days < 0 {
+				days = 3
+			}
+			var projectID int32
+			if in.Body.Slug != "" {
+				p, err := getProject(ctx, s.q, in.Body.Slug)
+				if err != nil {
+					return nil, err
+				}
+				projectID = p.ID
+			}
+			flagged, err := s.q.FlagStaleTasks(ctx, db.FlagStaleTasksParams{StaleDays: days, ProjectID: projectID})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Flagged int `json:"flagged"`
+				}
+			}{Body: struct {
+				Flagged int `json:"flagged"`
+			}{Flagged: len(flagged)}}, nil
+		})
+
 	// Commit record (stub — not stored, just acknowledged)
 	huma.Register(api, huma.Operation{OperationID: "add-task-commit", Method: http.MethodPost, Path: "/api/dx/todo/dev/commit"},
 		func(ctx context.Context, in *struct {
@@ -560,6 +637,13 @@ func toTaskItem(r db.ZdxTask) TaskItem {
 		if n > 0 {
 			t.IssueID = &n
 		}
+	}
+	if r.ReviewedAt.Valid {
+		s := fmtTS(r.ReviewedAt)
+		t.ReviewedAt = s
+	}
+	if r.StaleSince.Valid {
+		t.StaleSince = fmtTS(r.StaleSince)
 	}
 	return t
 }

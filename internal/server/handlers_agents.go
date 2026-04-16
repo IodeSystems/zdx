@@ -34,6 +34,7 @@ type AgentTaskItem struct {
 	Status         string `json:"status"`
 	Issue          string `json:"issue"`
 	TaskGroup      string `json:"task_group"`
+	CreatedAt      string `json:"created_at"`
 	ClaimedAt      string `json:"claimed_at"`
 	LeaseExpiresAt string `json:"lease_expires_at"`
 }
@@ -223,6 +224,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 					Status:         r.Status,
 					Issue:          r.Issue,
 					TaskGroup:      r.TaskGroup,
+					CreatedAt:      fmtTS(r.CreatedAt),
 					ClaimedAt:      fmtTS(r.ClaimedAt),
 					LeaseExpiresAt: fmtTS(r.LeaseExpiresAt),
 				}
@@ -273,6 +275,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				Status:         t.Status,
 				Issue:          t.Issue,
 				TaskGroup:      t.TaskGroup,
+				CreatedAt:      fmtTS(t.CreatedAt),
 				ClaimedAt:      fmtTS(t.ClaimedAt),
 				LeaseExpiresAt: fmtTS(t.LeaseExpiresAt),
 			}

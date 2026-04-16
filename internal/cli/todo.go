@@ -119,13 +119,15 @@ type taskAddResponse struct {
 }
 
 type taskItem struct {
-	ID        int32  `json:"id"`
-	Text      string `json:"text"`
-	Feature   string `json:"feature"`
-	Status    string `json:"status"`
-	Reason    string `json:"reason"`
-	IssueID   *int32 `json:"issue_id,omitempty"`
-	TaskGroup string `json:"task_group"`
+	ID         int32  `json:"id"`
+	Text       string `json:"text"`
+	Feature    string `json:"feature"`
+	Status     string `json:"status"`
+	Reason     string `json:"reason"`
+	IssueID    *int32 `json:"issue_id,omitempty"`
+	TaskGroup  string `json:"task_group"`
+	CreatedAt  string `json:"created_at"`
+	StaleSince string `json:"stale_since,omitempty"`
 }
 
 type featureItem struct {
@@ -561,6 +563,29 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		}
 	}
 
+	// 1f. Check for stale tasks (flagged by recovery sweep, never claimed).
+	{
+		staleParams := url.Values{"slug": {slug}}
+		if issueFlag != "" {
+			staleParams.Set("issue", issueFlag)
+		}
+		var staleResp struct {
+			Tasks []taskItem `json:"tasks"`
+		}
+		if err := c.get("/api/dx/tasks/stale", staleParams, &staleResp); err == nil && len(staleResp.Tasks) > 0 {
+			t := staleResp.Tasks[0]
+			fmt.Printf("[review:stale] %s  %s\n", taskIDStr(t.ID), t.Text)
+			if t.IssueID != nil {
+				fmt.Printf("  issue: %s\n", issueIDStr(*t.IssueID))
+			}
+			fmt.Println("  ⚠ This task was flagged stale — it was created but never claimed.")
+			fmt.Println("  Before editing, verify the work is still needed by reading the current code.")
+			fmt.Println("  If already implemented: dx todo dev done " + taskIDStr(t.ID))
+			fmt.Println("  If superseded: dx todo dev done " + taskIDStr(t.ID))
+			return nil
+		}
+	}
+
 	// 2. Find open issue with no pending tasks
 	for _, iss := range targetIssues {
 		if iss.Status != "open" {
@@ -618,6 +643,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		}
 		var claimed agentTaskItem
 		if err := c.post("/api/tasks/claim", claimBody, &claimed); err == nil {
+			printStaleWarning(claimed.CreatedAt, claimed.ID)
 			fmt.Printf("[dev]     %s  %s\n", claimed.ID, claimed.Text)
 			if claimed.Issue != "" {
 				fmt.Printf("  issue: %s\n", claimed.Issue)
@@ -641,6 +667,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			}
 			for _, t := range taskList.Tasks {
 				if t.Status == "pending" {
+					printStaleWarning(t.CreatedAt, taskIDStr(t.ID))
 					fmt.Printf("[dev]     %s  %s\n", taskIDStr(t.ID), t.Text)
 					fmt.Printf("  issue: %s\n", issueIDStr(iss.ID))
 					fmt.Fprintln(os.Stderr, "  note: task not claimed. Use --agent-id to claim before starting work.")
@@ -653,6 +680,29 @@ Analyze the project to bootstrap its feature catalog and first issue:
 	fmt.Fprintln(os.Stderr, "nothing to do")
 	os.Exit(2)
 	return nil
+}
+
+const staleTaskDays = 2
+
+func printStaleWarning(createdAt string, taskID string) {
+	if createdAt == "" {
+		return
+	}
+	t, err := time.Parse(time.RFC3339Nano, createdAt)
+	if err != nil {
+		t, err = time.Parse(time.RFC3339, createdAt)
+		if err != nil {
+			return
+		}
+	}
+	age := time.Since(t)
+	if age < time.Duration(staleTaskDays)*24*time.Hour {
+		return
+	}
+	days := int(age.Hours() / 24)
+	fmt.Printf("  ⚠ state unknown: this task was created %d days ago and has never been worked.\n", days)
+	fmt.Println("    Before editing, verify the work is still needed by reading the current code.")
+	fmt.Printf("    If already implemented, run: ./bin/dx todo dev done %s\n", taskID)
 }
 
 // ── evaluate ─────────────────────────────────────────────────────────────────

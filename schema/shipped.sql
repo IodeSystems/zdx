@@ -1483,7 +1483,8 @@ CREATE TABLE public.zdx_tasks (
     claimed_by text,
     claimed_at timestamp with time zone,
     lease_expires_at timestamp with time zone,
-    reviewed_at timestamp with time zone
+    reviewed_at timestamp with time zone,
+    stale_since timestamp with time zone
 );
 
 

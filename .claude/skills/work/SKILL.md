@@ -65,6 +65,15 @@ Solo surfaces unread comments that need a response. After reading the comments:
 3. **Mark read.** Solo marks comments read automatically after showing them, but if you need to manually:
    `./bin/dx comment mark-read <target-type> <target-id> --role=llm`
 4. Continue the vertical loop — comments are handled inline, not as separate work items.
+**Stale tasks** (when solo emits `[review:stale] TK-N` or `[dev]` with a `⚠ state unknown` warning):
+
+The task was created but never claimed, and enough time has passed that the codebase may have changed.
+
+1. **Read the referenced files first.** Check if the work described in the task is already done, superseded, or still needed.
+2. If already implemented: `./bin/dx todo dev done TK-N`
+3. If still needed: proceed with the implementation as normal.
+4. Do not start editing code until you have verified the task is still relevant.
+
 **Blocked issues:** if the vertical is empty because IS-N is blocked by other issues:
 
 1. Run `./bin/dx todo show IS-N` to read the `Blocked:` list.

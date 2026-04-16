@@ -530,3 +530,81 @@ func TestSoloStaleUnreadComments(t *testing.T) {
 
 	d.CloseIssue(issueID)
 }
+
+func TestTaskCreatedAtField(t *testing.T) {
+	d := NewApiDriver(t, "solo-task-ts", "Task Timestamps")
+	sc := Given(d).
+		TriagedIssue("Task timestamp test", "test context", 3).
+		Build()
+
+	issueID := sc.Issues[0]
+	taskID := d.AddTask(issueID, "Task with timestamps")
+
+	tasks := d.ListTasks(issueID)
+	found := false
+	for _, tk := range tasks {
+		if tk.ID == taskID {
+			found = true
+			if tk.CreatedAt == "" {
+				t.Error("created_at should be set on task response")
+			}
+			break
+		}
+	}
+	if !found {
+		t.Fatal("task not found in list")
+	}
+
+	d.MarkTaskDone(taskID)
+	d.CloseIssue(issueID)
+}
+
+func TestSoloStaleTaskSweep(t *testing.T) {
+	d := NewApiDriver(t, "solo-stale-task", "Solo Stale Tasks")
+	sc := Given(d).
+		TriagedIssue("Stale task test", "test context", 3).
+		Build()
+
+	issueID := sc.Issues[0]
+	taskID := d.AddTask(issueID, "A task that will become stale")
+
+	// Fresh task should not appear as stale
+	staleTasks := d.ListStaleTasks("")
+	if len(staleTasks) != 0 {
+		t.Fatalf("expected 0 stale tasks for fresh task, got %d", len(staleTasks))
+	}
+
+	// Sweep with stale_days=0 flags everything created before NOW()
+	flagged := d.SweepStaleTasks(0)
+	if flagged != 1 {
+		t.Fatalf("expected 1 task flagged stale, got %d", flagged)
+	}
+
+	// Now it should appear as stale
+	staleTasks = d.ListStaleTasks("")
+	if len(staleTasks) != 1 {
+		t.Fatalf("expected 1 stale task, got %d", len(staleTasks))
+	}
+	if staleTasks[0].ID != taskID {
+		t.Errorf("expected stale task ID %d, got %d", taskID, staleTasks[0].ID)
+	}
+	if staleTasks[0].StaleSince == "" {
+		t.Error("stale_since should be set")
+	}
+
+	// Also test issue-scoped listing
+	issueRef := fmt.Sprintf("IS-%d", issueID)
+	staleByIssue := d.ListStaleTasks(issueRef)
+	if len(staleByIssue) != 1 {
+		t.Fatalf("expected 1 stale task by issue, got %d", len(staleByIssue))
+	}
+
+	// Mark done clears the stale task from the list
+	d.MarkTaskDone(taskID)
+	staleTasks = d.ListStaleTasks("")
+	if len(staleTasks) != 0 {
+		t.Fatalf("expected 0 stale tasks after done, got %d", len(staleTasks))
+	}
+
+	d.CloseIssue(issueID)
+}

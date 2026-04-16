@@ -45,6 +45,7 @@ type agentTaskItem struct {
 	Status         string `json:"status"`
 	Issue          string `json:"issue"`
 	TaskGroup      string `json:"task_group"`
+	CreatedAt      string `json:"created_at"`
 	ClaimedAt      string `json:"claimed_at"`
 	LeaseExpiresAt string `json:"lease_expires_at"`
 }

@@ -24,7 +24,7 @@ FROM zdx_issues i
 WHERE t.issue = i.id
   AND i.status = 'closed'
   AND t.status IN ('pending', 'active', 'wip')
-RETURNING t.id, t.project_id, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.created_at, t.completed_at, t.updated_at, t.task_group, t.claimed_by, t.claimed_at, t.lease_expires_at, t.reviewed_at
+RETURNING t.id, t.project_id, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.created_at, t.completed_at, t.updated_at, t.task_group, t.claimed_by, t.claimed_at, t.lease_expires_at, t.reviewed_at, t.stale_since
 `
 
 func (q *Queries) CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error) {
@@ -55,6 +55,7 @@ func (q *Queries) CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error) {
 			&i.ClaimedAt,
 			&i.LeaseExpiresAt,
 			&i.ReviewedAt,
+			&i.StaleSince,
 		); err != nil {
 			return nil, err
 		}
@@ -84,7 +85,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at, stale_since
 `
 
 type ClaimTaskParams struct {
@@ -123,8 +124,18 @@ func (q *Queries) ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, 
 		&i.ClaimedAt,
 		&i.LeaseExpiresAt,
 		&i.ReviewedAt,
+		&i.StaleSince,
 	)
 	return i, err
+}
+
+const clearStaleFlag = `-- name: ClearStaleFlag :exec
+UPDATE zdx_tasks SET stale_since = NULL, updated_at = NOW() WHERE id = $1
+`
+
+func (q *Queries) ClearStaleFlag(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, clearStaleFlag, id)
+	return err
 }
 
 const countClosedTasks = `-- name: CountClosedTasks :one
@@ -280,6 +291,49 @@ DELETE FROM zdx_tasks WHERE id = $1
 func (q *Queries) DeleteTask(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, deleteTask, id)
 	return err
+}
+
+const flagStaleTasks = `-- name: FlagStaleTasks :many
+UPDATE zdx_tasks
+SET stale_since = NOW(),
+    updated_at = NOW()
+WHERE status = 'pending'
+  AND claimed_by IS NULL
+  AND stale_since IS NULL
+  AND created_at <= NOW() - make_interval(days => $1::int)
+  AND ($2::int = 0 OR project_id = $2)
+RETURNING id, text, issue
+`
+
+type FlagStaleTasksParams struct {
+	StaleDays int32 `db:"stale_days" json:"stale_days"`
+	ProjectID int32 `db:"project_id" json:"project_id"`
+}
+
+type FlagStaleTasksRow struct {
+	ID    string `db:"id" json:"id"`
+	Text  string `db:"text" json:"text"`
+	Issue string `db:"issue" json:"issue"`
+}
+
+func (q *Queries) FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) ([]FlagStaleTasksRow, error) {
+	rows, err := q.db.Query(ctx, flagStaleTasks, arg.StaleDays, arg.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []FlagStaleTasksRow
+	for rows.Next() {
+		var i FlagStaleTasksRow
+		if err := rows.Scan(&i.ID, &i.Text, &i.Issue); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const getTask = `-- name: GetTask :one
@@ -438,6 +492,138 @@ func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWith
 		&i.ReviewedAt,
 	)
 	return i, err
+}
+
+const listStaleTasks = `-- name: ListStaleTasks :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+FROM zdx_tasks
+WHERE project_id = $1
+  AND stale_since IS NOT NULL
+  AND status = 'pending'
+ORDER BY stale_since ASC
+`
+
+type ListStaleTasksRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	StaleSince  pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
+}
+
+func (q *Queries) ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error) {
+	rows, err := q.db.Query(ctx, listStaleTasks, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaleTasksRow
+	for rows.Next() {
+		var i ListStaleTasksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.TaskGroup,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+			&i.StaleSince,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaleTasksByIssue = `-- name: ListStaleTasksByIssue :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+FROM zdx_tasks
+WHERE project_id = $1
+  AND issue = $2
+  AND stale_since IS NOT NULL
+  AND status = 'pending'
+ORDER BY stale_since ASC
+`
+
+type ListStaleTasksByIssueParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Issue     string `db:"issue" json:"issue"`
+}
+
+type ListStaleTasksByIssueRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	StaleSince  pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
+}
+
+func (q *Queries) ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error) {
+	rows, err := q.db.Query(ctx, listStaleTasksByIssue, arg.ProjectID, arg.Issue)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaleTasksByIssueRow
+	for rows.Next() {
+		var i ListStaleTasksByIssueRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.TaskGroup,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+			&i.StaleSince,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listTasks = `-- name: ListTasks :many
@@ -1099,7 +1285,7 @@ SET claimed_by = NULL,
 WHERE lease_expires_at < NOW()
   AND claimed_by IS NOT NULL
   AND status != 'done'
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at, stale_since
 `
 
 func (q *Queries) ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error) {
@@ -1130,6 +1316,7 @@ func (q *Queries) ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error) {
 			&i.ClaimedAt,
 			&i.LeaseExpiresAt,
 			&i.ReviewedAt,
+			&i.StaleSince,
 		); err != nil {
 			return nil, err
 		}
