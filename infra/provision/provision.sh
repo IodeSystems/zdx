@@ -50,7 +50,13 @@ sudo -u "$APP_USER" mkdir -p \
   "$APP_HOME/home/data/valkey" \
   "$APP_HOME/home/log" \
   "$APP_HOME/home/var" \
-  "$APP_HOME/home/files"
+  "$APP_HOME/home/files" \
+  "$APP_HOME/home/provision"
+
+# Repair ownership unconditionally: prior bin/ship runs may have left
+# /home/zdx/home/provision/ owned by root, which blocks the sudo-as-zdx
+# rsync in bin/ship's initial-provision step.
+chown -R "$APP_USER:$APP_USER" "$APP_HOME/home/provision"
 
 echo "  Home directories OK."
 

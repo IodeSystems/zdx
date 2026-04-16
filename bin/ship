@@ -142,6 +142,9 @@ if ! $SKIP_BUILD; then
 
   mkdir -p "$DEPLOY_DIR/dist/public"
   [ -d ui/dist ] && cp -r ui/dist/* "$DEPLOY_DIR/dist/public/"
+  # Idempotent: if $DEPLOY_DIR/provision already exists, cp -r would create a
+  # nested provision/ subdirectory instead of refreshing the files.
+  rm -rf "$DEPLOY_DIR/provision"
   cp -r infra/provision "$DEPLOY_DIR/provision"
   # Package migration fix scripts so ops can read/run them on the host.
   MIG_FIXES_SRC="$MIGRATION_DIR/migration-fixes"
@@ -434,6 +437,9 @@ wait_health() {
 echo "[ship] Initial provision..."
 rsync -az "$DEPLOY_DIR/provision/" "$HOST:/tmp/zdx-provision/"
 ssh "$HOST" "sudo SKIP_SERVICE_START=true bash /tmp/zdx-provision/provision.sh"
+# Pre-create (and, if root-owned from a prior run, repair) the rsync target
+# so sudo-as-zdx rsync can write into it.
+ssh "$HOST" "sudo install -d -o $SERVICE -g $SERVICE $REMOTE_HOME/home/provision"
 rsync -az --rsync-path="$RSYNC_PATH" \
   "$DEPLOY_DIR/provision/" "$HOST:$REMOTE_HOME/home/provision/"
 
