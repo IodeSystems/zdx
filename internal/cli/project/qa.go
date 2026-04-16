@@ -1,4 +1,4 @@
-package cli
+package project
 
 import (
 	"fmt"
@@ -6,16 +6,11 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
-)
 
-type QuestionItem struct {
-	ID        int32  `json:"id"`
-	Category  string `json:"category"`
-	Question  string `json:"question"`
-	Answer    string `json:"answer"`
-	CreatedAt string `json:"created_at"`
-	UpdatedAt string `json:"updated_at"`
-}
+	"github.com/iodesystems/zdx-go/internal/cli"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+)
 
 func QaCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "qa", Short: "Q&A support portal"}
@@ -29,8 +24,8 @@ func qaAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Add a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
-			var q QuestionItem
+			c := cli.MustClient()
+			var q clitypes.QuestionItem
 			if err := c.Post("/api/dx/qa/add", map[string]any{
 				"slug":     c.SlugOrDie(),
 				"category": category,
@@ -55,12 +50,12 @@ func qaAnswerCmd() *cobra.Command {
 		Short: "Answer a question",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
-			var q QuestionItem
+			var q clitypes.QuestionItem
 			if err := c.Post("/api/dx/qa/answer", map[string]any{
 				"slug":   c.SlugOrDie(),
 				"id":     int32(id),
@@ -82,9 +77,9 @@ func qaListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List questions",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Questions []QuestionItem `json:"questions"`
+				Questions []clitypes.QuestionItem `json:"questions"`
 			}
 			if err := c.Get("/api/dx/qa/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err

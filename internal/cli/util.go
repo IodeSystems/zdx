@@ -2,10 +2,16 @@ package cli
 
 import (
 	"fmt"
+	"net/url"
 	"os"
 	"os/exec"
 	"strings"
 )
+
+// QuerySlug builds url.Values with the client's project slug.
+func QuerySlug(c *Client) url.Values {
+	return url.Values{"slug": {c.SlugOrDie()}}
+}
 
 func MustClient() *Client {
 	c, err := DefaultClient()

@@ -1,7 +1,6 @@
-package cli
+package work
 
 import (
-	"encoding/json"
 	"fmt"
 	"net/url"
 	"os"
@@ -11,30 +10,11 @@ import (
 	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 )
-
-type stringOrStrings []string
-
-func (s *stringOrStrings) UnmarshalJSON(data []byte) error {
-	if len(data) > 0 && data[0] == '[' {
-		var arr []string
-		if err := json.Unmarshal(data, &arr); err != nil {
-			return err
-		}
-		*s = arr
-		return nil
-	}
-	var str string
-	if err := json.Unmarshal(data, &str); err != nil {
-		return err
-	}
-	if str == "" {
-		*s = nil
-	} else {
-		*s = []string{str}
-	}
-	return nil
-}
 
 const triageGuidance = `  triage checklist:
     1. verify independently (reproduce or read the code)
@@ -47,9 +27,9 @@ const triageGuidance = `  triage checklist:
     solo will block progress on the issue until all questions are answered.
 `
 
-func printTriageContext(c *Client, slug string) {
+func printTriageContext(c *cli.Client, slug string) {
 	var themeResp struct {
-		Themes []themeItem `json:"themes"`
+		Themes []clitypes.ThemeItem `json:"themes"`
 	}
 	if err := c.Get("/api/dx/themes", url.Values{"slug": {slug}}, &themeResp); err == nil && len(themeResp.Themes) > 0 {
 		fmt.Println("  active themes:")
@@ -60,7 +40,7 @@ func printTriageContext(c *Client, slug string) {
 		}
 	}
 	var goalResp struct {
-		Goals []goalItem `json:"goals"`
+		Goals []clitypes.GoalItem `json:"goals"`
 	}
 	if err := c.Get("/api/goals", url.Values{"slug": {slug}}, &goalResp); err == nil && len(goalResp.Goals) > 0 {
 		fmt.Println("  active goals:")
@@ -71,88 +51,6 @@ func printTriageContext(c *Client, slug string) {
 		}
 	}
 }
-
-// ── wire types (match server JSON) ────────────────────────────────────────────
-
-type IssueItem struct {
-	ID        int32           `json:"id"`
-	Title     string          `json:"title"`
-	Status    string          `json:"status"`
-	Priority  string          `json:"priority"`
-	Component string          `json:"component"`
-	BlockedBy stringOrStrings `json:"blocked_by"`
-	Context   string          `json:"context"`
-	IssueType string          `json:"issue_type"`
-	URL       string          `json:"url"`
-}
-
-type IssueWorkItem struct {
-	Agent     string `json:"agent"`
-	Note      string `json:"note"`
-	CreatedAt string `json:"created_at"`
-}
-
-type similarIssueItem struct {
-	ID      string  `json:"id"`
-	Title   string  `json:"title"`
-	Context string  `json:"context"`
-	Status  string  `json:"status"`
-	Score   float32 `json:"score"`
-}
-
-type similarTaskItem struct {
-	ID     string  `json:"id"`
-	Text   string  `json:"text"`
-	Status string  `json:"status"`
-	Issue  string  `json:"issue"`
-	Score  float32 `json:"score"`
-}
-
-type IssueAddResponse struct {
-	IssueItem
-	Similar []similarIssueItem `json:"similar,omitempty"`
-}
-
-type TaskAddResponse struct {
-	TaskItem
-	Similar          []similarTaskItem `json:"similar,omitempty"`
-	DuplicateBlocked bool              `json:"duplicate_blocked,omitempty"`
-}
-
-type TaskItem struct {
-	ID         int32  `json:"id"`
-	Text       string `json:"text"`
-	Feature    string `json:"feature"`
-	Status     string `json:"status"`
-	Reason     string `json:"reason"`
-	IssueID    *int32 `json:"issue_id,omitempty"`
-	TaskGroup  string `json:"task_group"`
-	CreatedAt  string `json:"created_at"`
-	StaleSince string `json:"stale_since,omitempty"`
-}
-
-type FeatureItem struct {
-	ID          int32      `json:"id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	What        string     `json:"what"`
-	Why         string     `json:"why"`
-	DoneWhen    string     `json:"done_when"`
-	Component   string     `json:"component"`
-	Category    string     `json:"category"`
-	PlanType    string     `json:"plan_type"`
-	Specs       []specItem `json:"specs"`
-}
-
-type specItem struct {
-	ID          int32  `json:"id"`
-	Description string `json:"description"`
-	Kind        string `json:"kind"`
-	Deferred    bool   `json:"deferred"`
-}
-
-func IssueIDStr(n int32) string { return fmt.Sprintf("IS-%d", n) }
-func TaskIDStr(n int32) string  { return fmt.Sprintf("TK-%d", n) }
 
 // ── TodoCmd ───────────────────────────────────────────────────────────────────
 
@@ -191,36 +89,36 @@ func todoSoloCmd() *cobra.Command {
 func soloRun(cmd *cobra.Command, _ []string) error {
 	issueFlag, _ := cmd.Flags().GetString("issue")
 	agentID, _ := cmd.Flags().GetString("agent-id")
-	c := MustClient()
+	c := cli.MustClient()
 	slug := c.SlugOrDie()
 
 	// When agent-id is set, validate the agent and extract task_group.
 	var agentTaskGroup string
 	var heartbeatStop chan struct{}
 	if agentID != "" {
-		var agent AgentItem
+		var agent clitypes.AgentItem
 		if err := c.Get("/api/agents/"+agentID, nil, &agent); err != nil {
 			return fmt.Errorf("agent %s not found: %w", agentID, err)
 		}
 		agentTaskGroup = agent.TaskGroup
 		heartbeatStop = make(chan struct{})
-		go HeartbeatLoop(c, agentID, 60*time.Second, heartbeatStop)
+		go cli.HeartbeatLoop(c, agentID, 60*time.Second, heartbeatStop)
 		defer close(heartbeatStop)
 	}
 
 	// Fetch issues
 	var issueList struct {
-		Issues []IssueItem `json:"issues"`
+		Issues []clitypes.IssueItem `json:"issues"`
 	}
 	if err := c.Get("/api/dx/todo/issue/list", url.Values{"slug": {slug}}, &issueList); err != nil {
 		return err
 	}
 
 	// If --issue given, restrict to that one
-	var targetIssues []IssueItem
+	var targetIssues []clitypes.IssueItem
 	if issueFlag != "" {
 		for _, iss := range issueList.Issues {
-			if IssueIDStr(iss.ID) == issueFlag {
+			if clitypes.IssueIDStr(iss.ID) == issueFlag {
 				if iss.Status == "wip" {
 					return fmt.Errorf("issue %s is still in draft (wip) — run `dx issue ready %s` to promote it", issueFlag, issueFlag)
 				}
@@ -237,7 +135,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 
 	// Exclude tracker issues — they are closed by their children, never actionable directly.
 	{
-		var filtered []IssueItem
+		var filtered []clitypes.IssueItem
 		for _, iss := range targetIssues {
 			if iss.IssueType != "tracker" {
 				filtered = append(filtered, iss)
@@ -254,27 +152,27 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		if err := c.Get("/api/dx/comment/unread-check", url.Values{
 			"slug":        {slug},
 			"target_type": {"issue"},
-			"target_id":   {IssueIDStr(iss.ID)},
+			"target_id":   {clitypes.IssueIDStr(iss.ID)},
 			"role":        {"llm"},
 		}, &unreadResp); err != nil {
 			return err
 		}
 		if unreadResp.HasUnread {
-			fmt.Printf("[read:comments] %s  %s\n", IssueIDStr(iss.ID), iss.Title)
+			fmt.Printf("[read:comments] %s  %s\n", clitypes.IssueIDStr(iss.ID), iss.Title)
 			// Show comments inline with unread indicators.
 			var commResp struct {
-				Comments []CommentItem `json:"comments"`
+				Comments []clitypes.CommentItem `json:"comments"`
 			}
 			if err := c.Get("/api/dx/comment/list", url.Values{
 				"slug":        {slug},
 				"target_type": {"issue"},
-				"target_id":   {IssueIDStr(iss.ID)},
+				"target_id":   {clitypes.IssueIDStr(iss.ID)},
 				"role":        {"llm"},
 			}, &commResp); err != nil {
 				return err
 			}
 			fmt.Println()
-			printComments(commResp.Comments)
+			cli.PrintComments(commResp.Comments)
 			// Mark read so next solo run advances.
 			var ok struct {
 				OK bool `json:"ok"`
@@ -282,7 +180,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			_ = c.Post("/api/dx/comment/mark-read", map[string]any{
 				"slug":        slug,
 				"target_type": "issue",
-				"target_id":   IssueIDStr(iss.ID),
+				"target_id":   clitypes.IssueIDStr(iss.ID),
 				"role":        "llm",
 			}, &ok)
 			return nil
@@ -291,9 +189,9 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 
 	// 0b. Check for unread LLM comments on any feature.
 	var featList struct {
-		Features []FeatureItem `json:"features"`
+		Features []clitypes.FeatureItem `json:"features"`
 	}
-	if err := c.Get("/api/features", QuerySlug(c), &featList); err != nil {
+	if err := c.Get("/api/features", cli.QuerySlug(c), &featList); err != nil {
 		return err
 	}
 	for _, f := range featList.Features {
@@ -311,7 +209,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		if unreadResp.HasUnread {
 			fmt.Printf("[read:comments] feature %q\n", f.Name)
 			var commResp struct {
-				Comments []CommentItem `json:"comments"`
+				Comments []clitypes.CommentItem `json:"comments"`
 			}
 			if err := c.Get("/api/dx/comment/list", url.Values{
 				"slug":        {slug},
@@ -322,7 +220,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 				return err
 			}
 			fmt.Println()
-			printComments(commResp.Comments)
+			cli.PrintComments(commResp.Comments)
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -339,7 +237,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	// 0b2. Check for unanswered QA questions (oldest first).
 	{
 		var unansweredResp struct {
-			Questions []QuestionItem `json:"questions"`
+			Questions []clitypes.QuestionItem `json:"questions"`
 		}
 		if err := c.Get("/api/dx/qa/unanswered", url.Values{"slug": {slug}}, &unansweredResp); err != nil {
 			return err
@@ -359,7 +257,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	// 0b3. Check for stale unread comments (>24h old, unread for LLM role).
 	{
 		var staleResp struct {
-			Comments []CommentItem `json:"comments"`
+			Comments []clitypes.CommentItem `json:"comments"`
 		}
 		if err := c.Get("/api/dx/comment/stale-unread", url.Values{
 			"slug":      {slug},
@@ -381,8 +279,8 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	bqBlockedIssues := map[string]bool{}
 	{
 		var bqResp struct {
-			Questions []blockerQuestionItem `json:"questions"`
-			Total     int                   `json:"total"`
+			Questions []clitypes.BlockerQuestionItem `json:"questions"`
+			Total     int                            `json:"total"`
 		}
 		bqParams := url.Values{"slug": {slug}, "status": {"pending"}}
 		if err := c.Get("/api/dx/blocker-questions/list", bqParams, &bqResp); err != nil {
@@ -394,7 +292,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			}
 			matched := false
 			for _, iss := range targetIssues {
-				if IssueIDStr(iss.ID) == q.TargetID && iss.Status == "open" {
+				if clitypes.IssueIDStr(iss.ID) == q.TargetID && iss.Status == "open" {
 					matched = true
 					break
 				}
@@ -422,7 +320,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	if issueFlag == "" && len(bqBlockedIssues) > 0 {
 		filtered := targetIssues[:0]
 		for _, iss := range targetIssues {
-			if !bqBlockedIssues[IssueIDStr(iss.ID)] {
+			if !bqBlockedIssues[clitypes.IssueIDStr(iss.ID)] {
 				filtered = append(filtered, iss)
 			}
 		}
@@ -436,18 +334,18 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			staleParams.Set("issue", issueFlag)
 		}
 		var staleResp struct {
-			Tasks []TaskItem `json:"tasks"`
+			Tasks []clitypes.TaskItem `json:"tasks"`
 		}
 		if err := c.Get("/api/dx/tasks/stale", staleParams, &staleResp); err == nil && len(staleResp.Tasks) > 0 {
 			t := staleResp.Tasks[0]
-			fmt.Printf("[review:stale] %s  %s\n", TaskIDStr(t.ID), t.Text)
+			fmt.Printf("[review:stale] %s  %s\n", clitypes.TaskIDStr(t.ID), t.Text)
 			if t.IssueID != nil {
-				fmt.Printf("  issue: %s\n", IssueIDStr(*t.IssueID))
+				fmt.Printf("  issue: %s\n", clitypes.IssueIDStr(*t.IssueID))
 			}
 			fmt.Println("  ⚠ This task was flagged stale — it was created but never claimed.")
 			fmt.Println("  Before editing, verify the work is still needed by reading the current code.")
-			fmt.Println("  If already implemented: dx todo dev done " + TaskIDStr(t.ID))
-			fmt.Println("  If superseded: dx todo dev done " + TaskIDStr(t.ID))
+			fmt.Println("  If already implemented: dx todo dev done " + clitypes.TaskIDStr(t.ID))
+			fmt.Println("  If superseded: dx todo dev done " + clitypes.TaskIDStr(t.ID))
 			return nil
 		}
 	}
@@ -507,7 +405,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 	// 1. Find untriaged open issue (no priority)
 	for _, iss := range targetIssues {
 		if iss.Status == "open" && iss.Priority == "" {
-			fmt.Printf("[triage] %s  %s\n", IssueIDStr(iss.ID), iss.Title)
+			fmt.Printf("[triage] %s  %s\n", clitypes.IssueIDStr(iss.ID), iss.Title)
 			if iss.IssueType != "" {
 				fmt.Printf("  type:      %s\n", iss.IssueType)
 			}
@@ -536,9 +434,9 @@ Analyze the project to bootstrap its feature catalog and first issue:
 
 		// 1c. Check for features due for periodic owner re-review (>30 days stale).
 		var staleResp struct {
-			Features []FeatureItem `json:"features"`
+			Features []clitypes.FeatureItem `json:"features"`
 		}
-		if err := c.Get("/api/dx/features/stale", QuerySlug(c), &staleResp); err != nil {
+		if err := c.Get("/api/dx/features/stale", cli.QuerySlug(c), &staleResp); err != nil {
 			return err
 		}
 		if len(staleResp.Features) > 0 {
@@ -556,7 +454,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 				Kind        string `json:"kind"`
 			} `json:"specs"`
 		}
-		if err := c.Get("/api/dx/specs/uncovered", QuerySlug(c), &uncoveredResp); err != nil {
+		if err := c.Get("/api/dx/specs/uncovered", cli.QuerySlug(c), &uncoveredResp); err != nil {
 			return err
 		}
 		if len(uncoveredResp.Specs) > 0 {
@@ -574,7 +472,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 				Kind        string `json:"kind"`
 			} `json:"specs"`
 		}
-		if err := c.Get("/api/dx/specs/demo-gap", QuerySlug(c), &demoGapResp); err != nil {
+		if err := c.Get("/api/dx/specs/demo-gap", cli.QuerySlug(c), &demoGapResp); err != nil {
 			return err
 		}
 		if len(demoGapResp.Specs) > 0 {
@@ -590,11 +488,11 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			continue
 		}
 		var taskList struct {
-			Tasks []TaskItem `json:"tasks"`
+			Tasks []clitypes.TaskItem `json:"tasks"`
 		}
 		if err := c.Get("/api/dx/todo/issue/tasks", url.Values{
 			"slug":     {slug},
-			"issue_id": {IssueIDStr(iss.ID)},
+			"issue_id": {clitypes.IssueIDStr(iss.ID)},
 		}, &taskList); err != nil {
 			return err
 		}
@@ -608,21 +506,21 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		if !hasPending {
 			if len(taskList.Tasks) > 0 {
 				var unreviewedResp struct {
-					Tasks []TaskItem `json:"tasks"`
+					Tasks []clitypes.TaskItem `json:"tasks"`
 				}
-				issueID := IssueIDStr(iss.ID)
+				issueID := clitypes.IssueIDStr(iss.ID)
 				if err := c.Get("/api/dx/todo/dev/unreviewed", url.Values{
 					"slug":  {slug},
 					"issue": {issueID},
 				}, &unreviewedResp); err == nil && len(unreviewedResp.Tasks) > 0 {
 					t := unreviewedResp.Tasks[0]
-					fmt.Printf("[review]  %s  %s\n", TaskIDStr(t.ID), t.Text)
+					fmt.Printf("[review]  %s  %s\n", clitypes.TaskIDStr(t.ID), t.Text)
 					fmt.Printf("  issue: %s\n", issueID)
 					return nil
 				}
-				fmt.Printf("[closable] %s  %s\n", IssueIDStr(iss.ID), iss.Title)
+				fmt.Printf("[closable] %s  %s\n", clitypes.IssueIDStr(iss.ID), iss.Title)
 			} else {
-				fmt.Printf("[add]     %s  %s\n", IssueIDStr(iss.ID), iss.Title)
+				fmt.Printf("[add]     %s  %s\n", clitypes.IssueIDStr(iss.ID), iss.Title)
 			}
 			return nil
 		}
@@ -639,7 +537,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		if issueFlag != "" {
 			claimBody["issue"] = issueFlag
 		}
-		var claimed AgentTaskItem
+		var claimed clitypes.AgentTaskItem
 		if err := c.Post("/api/tasks/claim", claimBody, &claimed); err == nil {
 			printStaleWarning(claimed.CreatedAt, claimed.ID)
 			fmt.Printf("[dev]     %s  %s\n", claimed.ID, claimed.Text)
@@ -651,8 +549,8 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		}
 	} else {
 		type issueTasks struct {
-			issue IssueItem
-			tasks []TaskItem
+			issue clitypes.IssueItem
+			tasks []clitypes.TaskItem
 		}
 		fetched := make([]issueTasks, 0, len(targetIssues))
 		for _, iss := range targetIssues {
@@ -660,11 +558,11 @@ Analyze the project to bootstrap its feature catalog and first issue:
 				continue
 			}
 			var taskList struct {
-				Tasks []TaskItem `json:"tasks"`
+				Tasks []clitypes.TaskItem `json:"tasks"`
 			}
 			if err := c.Get("/api/dx/todo/issue/tasks", url.Values{
 				"slug":     {slug},
-				"issue_id": {IssueIDStr(iss.ID)},
+				"issue_id": {clitypes.IssueIDStr(iss.ID)},
 			}, &taskList); err != nil {
 				return err
 			}
@@ -674,8 +572,8 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		for _, ft := range fetched {
 			for _, t := range ft.tasks {
 				if t.Status == "active" {
-					fmt.Printf("[dev]     %s  %s\n", TaskIDStr(t.ID), t.Text)
-					fmt.Printf("  issue: %s\n", IssueIDStr(ft.issue.ID))
+					fmt.Printf("[dev]     %s  %s\n", clitypes.TaskIDStr(t.ID), t.Text)
+					fmt.Printf("  issue: %s\n", clitypes.IssueIDStr(ft.issue.ID))
 					fmt.Fprintln(os.Stderr, "  note: resuming active task. Use --agent-id to claim before starting work.")
 					return nil
 				}
@@ -684,7 +582,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		// Within an issue, pick the lowest-ID ready task — task creation order usually
 		// matches execution order, and the API returns tasks sorted by updated_at DESC.
 		for _, ft := range fetched {
-			pending := make([]TaskItem, 0, len(ft.tasks))
+			pending := make([]clitypes.TaskItem, 0, len(ft.tasks))
 			for _, t := range ft.tasks {
 				if t.Status == "ready" {
 					pending = append(pending, t)
@@ -695,9 +593,9 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			}
 			sort.Slice(pending, func(i, j int) bool { return pending[i].ID < pending[j].ID })
 			t := pending[0]
-			printStaleWarning(t.CreatedAt, TaskIDStr(t.ID))
-			fmt.Printf("[dev]     %s  %s\n", TaskIDStr(t.ID), t.Text)
-			fmt.Printf("  issue: %s\n", IssueIDStr(ft.issue.ID))
+			printStaleWarning(t.CreatedAt, clitypes.TaskIDStr(t.ID))
+			fmt.Printf("[dev]     %s  %s\n", clitypes.TaskIDStr(t.ID), t.Text)
+			fmt.Printf("  issue: %s\n", clitypes.IssueIDStr(ft.issue.ID))
 			fmt.Fprintln(os.Stderr, "  note: task not claimed. Use --agent-id to claim before starting work.")
 			return nil
 		}
@@ -766,7 +664,7 @@ type evaluateDiffResp struct {
 
 func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
 	issueFlag, _ := cmd.Flags().GetString("issue")
-	c := MustClient()
+	c := cli.MustClient()
 	slug := c.SlugOrDie()
 
 	var diff evaluateDiffResp
@@ -837,12 +735,12 @@ func todoListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List tasks",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			slug := c.SlugOrDie()
 
 			if issue != "" {
 				var taskList struct {
-					Tasks []TaskItem `json:"tasks"`
+					Tasks []clitypes.TaskItem `json:"tasks"`
 				}
 				if err := c.Get("/api/dx/todo/issue/tasks", url.Values{
 					"slug":     {slug},
@@ -855,7 +753,7 @@ func todoListCmd() *cobra.Command {
 			}
 			if feature != "" {
 				var taskList struct {
-					Tasks []TaskItem `json:"tasks"`
+					Tasks []clitypes.TaskItem `json:"tasks"`
 				}
 				if err := c.Get("/api/tasks-by-feature", url.Values{
 					"slug":    {slug},
@@ -867,7 +765,7 @@ func todoListCmd() *cobra.Command {
 				return nil
 			}
 			var taskList struct {
-				Tasks []TaskItem `json:"tasks"`
+				Tasks []clitypes.TaskItem `json:"tasks"`
 			}
 			if err := c.Get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
 				return err
@@ -881,13 +779,13 @@ func todoListCmd() *cobra.Command {
 	return cmd
 }
 
-func printTasks(tasks []TaskItem) {
+func printTasks(tasks []clitypes.TaskItem) {
 	if len(tasks) == 0 {
 		fmt.Println("no tasks")
 		return
 	}
 	for _, t := range tasks {
-		fmt.Printf("%-8s %-12s %s\n", TaskIDStr(t.ID), t.Status, t.Text)
+		fmt.Printf("%-8s %-12s %s\n", clitypes.TaskIDStr(t.ID), t.Status, t.Text)
 	}
 }
 
@@ -900,19 +798,19 @@ func todoShowCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			c := MustClient()
+			c := cli.MustClient()
 			slug := c.SlugOrDie()
 
 			switch {
 			case len(id) > 3 && id[:3] == "IS-":
 				var resp struct {
-					Issue IssueItem       `json:"issue"`
-					Work  []IssueWorkItem `json:"work"`
+					Issue clitypes.IssueItem       `json:"issue"`
+					Work  []clitypes.IssueWorkItem `json:"work"`
 				}
 				if err := c.Get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {id}}, &resp); err != nil {
 					return err
 				}
-				printIssueItem(resp.Issue)
+				cli.PrintIssueItem(resp.Issue)
 				if len(resp.Work) > 0 {
 					fmt.Println("\nWork log:")
 					for _, w := range resp.Work {
@@ -924,7 +822,7 @@ func todoShowCmd() *cobra.Command {
 					}
 				}
 				var commResp struct {
-					Comments []CommentItem `json:"comments"`
+					Comments []clitypes.CommentItem `json:"comments"`
 				}
 				if err := c.Get("/api/dx/comment/list", url.Values{
 					"slug":        {slug},
@@ -933,14 +831,14 @@ func todoShowCmd() *cobra.Command {
 					"role":        {"llm"},
 				}, &commResp); err == nil && len(commResp.Comments) > 0 {
 					fmt.Println("\nComments:")
-					printComments(commResp.Comments)
+					cli.PrintComments(commResp.Comments)
 				}
 				printSimilarPatterns(c, slug, resp.Issue.Title+" "+resp.Issue.Context)
 			case len(id) > 3 && id[:3] == "TK-":
 				n, _ := strconv.ParseInt(id[3:], 10, 32)
 				taskID := int32(n)
 				var taskList struct {
-					Tasks []TaskItem `json:"tasks"`
+					Tasks []clitypes.TaskItem `json:"tasks"`
 				}
 				if err := c.Get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
 					return err
@@ -949,7 +847,7 @@ func todoShowCmd() *cobra.Command {
 					if t.ID == taskID {
 						printTaskItem(t)
 						var commResp struct {
-							Comments []CommentItem `json:"comments"`
+							Comments []clitypes.CommentItem `json:"comments"`
 						}
 						if err := c.Get("/api/dx/comment/list", url.Values{
 							"slug":        {slug},
@@ -958,10 +856,10 @@ func todoShowCmd() *cobra.Command {
 							"role":        {"llm"},
 						}, &commResp); err == nil && len(commResp.Comments) > 0 {
 							fmt.Println("\nComments:")
-							printComments(commResp.Comments)
+							cli.PrintComments(commResp.Comments)
 						}
 						var revResp struct {
-							Revisions []revisionItem `json:"revisions"`
+							Revisions []clitypes.RevisionItem `json:"revisions"`
 						}
 						if err := c.Get("/api/dx/revisions", url.Values{
 							"slug":        {slug},
@@ -984,16 +882,16 @@ func todoShowCmd() *cobra.Command {
 				return fmt.Errorf("task %s not found", id)
 			default:
 				var featList struct {
-					Features []FeatureItem `json:"features"`
+					Features []clitypes.FeatureItem `json:"features"`
 				}
 				if err := c.Get("/api/features", url.Values{"slug": {slug}}, &featList); err != nil {
 					return err
 				}
 				for _, f := range featList.Features {
 					if f.Name == id {
-						printFeatureItem(f)
+						cli.PrintFeatureItem(f)
 						var commResp struct {
-							Comments []CommentItem `json:"comments"`
+							Comments []clitypes.CommentItem `json:"comments"`
 						}
 						if err := c.Get("/api/dx/comment/list", url.Values{
 							"slug":        {slug},
@@ -1002,10 +900,10 @@ func todoShowCmd() *cobra.Command {
 							"role":        {"llm"},
 						}, &commResp); err == nil && len(commResp.Comments) > 0 {
 							fmt.Println("\nComments:")
-							printComments(commResp.Comments)
+							cli.PrintComments(commResp.Comments)
 						}
 						var revResp struct {
-							Revisions []revisionItem `json:"revisions"`
+							Revisions []clitypes.RevisionItem `json:"revisions"`
 						}
 						if err := c.Get("/api/dx/revisions", url.Values{
 							"slug":        {slug},
@@ -1046,12 +944,12 @@ func todoDevDoneCmd() *cobra.Command {
 		Short: "Mark task done",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if err := runCloseHooks(); err != nil {
+			if err := cli.RunCloseHooks(); err != nil {
 				return err
 			}
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := MustClient()
+			c := cli.MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -1079,7 +977,7 @@ func todoDevUndoneCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := MustClient()
+			c := cli.MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -1101,7 +999,7 @@ func todoDevStartCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := MustClient()
+			c := cli.MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -1130,7 +1028,7 @@ func todoDevReviewCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := MustClient()
+			c := cli.MustClient()
 			slug := c.SlugOrDie()
 
 			if verdict != "" {
@@ -1150,10 +1048,10 @@ func todoDevReviewCmd() *cobra.Command {
 			}
 
 			var resp struct {
-				Task      TaskItem `json:"task"`
-				IssueType string   `json:"issue_type"`
-				TestPlan  string   `json:"test_plan"`
-				TestRefs  string   `json:"test_refs"`
+				Task      clitypes.TaskItem `json:"task"`
+				IssueType string            `json:"issue_type"`
+				TestPlan  string            `json:"test_plan"`
+				TestRefs  string            `json:"test_refs"`
 			}
 			if err := c.Get("/api/dx/todo/dev/review-data", url.Values{
 				"slug": {slug},
@@ -1209,7 +1107,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := MustClient()
+			c := cli.MustClient()
 			slug := c.SlugOrDie()
 
 			if clarify {
@@ -1235,7 +1133,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 							}
 						}
 					}
-					var q blockerQuestionItem
+					var q clitypes.BlockerQuestionItem
 					if err := c.Post("/api/dx/blocker-questions/add", map[string]any{
 						"slug":        slug,
 						"target_type": "issue",
@@ -1366,8 +1264,8 @@ func todoTechAddCmd() *cobra.Command {
 			return nil
 		},
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
-			var resp TaskAddResponse
+			c := cli.MustClient()
+			var resp clitypes.TaskAddResponse
 			body := map[string]any{
 				"slug": c.SlugOrDie(),
 				"text": text,
@@ -1398,16 +1296,16 @@ func todoTechAddCmd() *cobra.Command {
 				fmt.Println("\nTo create anyway, re-run with --force")
 				return fmt.Errorf("duplicate blocked")
 			}
-			fmt.Printf("%s  %s\n", TaskIDStr(resp.ID), resp.Text)
+			fmt.Printf("%s  %s\n", clitypes.TaskIDStr(resp.ID), resp.Text)
 			if !autoReady && len(resp.Similar) > 0 {
 				fmt.Println("\nSimilar tasks:")
 				for _, s := range resp.Similar {
 					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.ID, s.Score*100, s.Text, s.Status)
 				}
 				fmt.Printf("\nTask created as draft (wip). To promote:\n")
-				fmt.Printf("  dx task ready %s\n", TaskIDStr(resp.ID))
+				fmt.Printf("  dx task ready %s\n", clitypes.TaskIDStr(resp.ID))
 				fmt.Printf("To delete:\n")
-				fmt.Printf("  dx task delete %s\n", TaskIDStr(resp.ID))
+				fmt.Printf("  dx task delete %s\n", clitypes.TaskIDStr(resp.ID))
 			} else if !autoReady {
 				if err := c.Post("/api/dx/todo/task/ready", map[string]any{
 					"id": resp.ID,
@@ -1431,36 +1329,12 @@ func todoTechAddCmd() *cobra.Command {
 
 // ── printers ──────────────────────────────────────────────────────────────────
 
-func printIssueItem(iss IssueItem) {
-	fmt.Printf("ID:        %s\n", IssueIDStr(iss.ID))
-	fmt.Printf("Title:     %s\n", iss.Title)
-	fmt.Printf("Status:    %s\n", iss.Status)
-	fmt.Printf("Priority:  %s\n", iss.Priority)
-	issType := iss.IssueType
-	if issType == "" {
-		issType = "ops"
-	}
-	fmt.Printf("Type:      %s\n", issType)
-	if iss.Component != "" {
-		fmt.Printf("Component: %s\n", iss.Component)
-	}
-	if iss.URL != "" {
-		fmt.Printf("URL:       %s\n", iss.URL)
-	}
-	if len(iss.BlockedBy) > 0 {
-		fmt.Printf("Blocked:   %s\n", strings.Join(iss.BlockedBy, ", "))
-	}
-	if iss.Context != "" {
-		fmt.Printf("\n%s\n", iss.Context)
-	}
-}
-
-func printTaskItem(t TaskItem) {
-	fmt.Printf("ID:      %s\n", TaskIDStr(t.ID))
+func printTaskItem(t clitypes.TaskItem) {
+	fmt.Printf("ID:      %s\n", clitypes.TaskIDStr(t.ID))
 	fmt.Printf("Text:    %s\n", t.Text)
 	fmt.Printf("Status:  %s\n", t.Status)
 	if t.IssueID != nil {
-		fmt.Printf("Issue:   %s\n", IssueIDStr(*t.IssueID))
+		fmt.Printf("Issue:   %s\n", clitypes.IssueIDStr(*t.IssueID))
 	}
 	if t.Feature != "" {
 		fmt.Printf("Feature: %s\n", t.Feature)
@@ -1503,11 +1377,11 @@ func journalOverdue(ownerDate, techDate string, closedTasks int64) (bool, string
 	return false, ""
 }
 
-func printSimilarPatterns(c *Client, slug, text string) {
+func printSimilarPatterns(c *cli.Client, slug, text string) {
 	var resp struct {
 		Patterns []struct {
-			Pattern PatternItem `json:"pattern"`
-			Score   float64     `json:"score"`
+			Pattern clitypes.PatternItem `json:"pattern"`
+			Score   float64              `json:"score"`
 		} `json:"patterns"`
 	}
 	if err := c.Post("/api/dx/patterns/similar", map[string]any{
@@ -1521,7 +1395,7 @@ func printSimilarPatterns(c *Client, slug, text string) {
 	for _, r := range resp.Patterns {
 		fmt.Printf("  %.3f  PT-%-4d  %s\n", r.Score, r.Pattern.ID, r.Pattern.Name)
 		if r.Pattern.Description != "" {
-			fmt.Printf("         %s\n", Truncate(r.Pattern.Description, 80))
+			fmt.Printf("         %s\n", cli.Truncate(r.Pattern.Description, 80))
 		}
 	}
 }

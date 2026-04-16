@@ -1,9 +1,11 @@
-package cli
+package work
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
 )
 
 type constraintItem struct {
@@ -30,11 +32,11 @@ func constraintListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List project constraints",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
 				Constraints []constraintItem `json:"constraints"`
 			}
-			if err := c.Get("/api/constraints", QuerySlug(c), &resp); err != nil {
+			if err := c.Get("/api/constraints", cli.QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Constraints) == 0 {
@@ -58,7 +60,7 @@ func constraintAddCmd() *cobra.Command {
 		Short: "Add a project constraint",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var g constraintItem
 			if err := c.Post("/api/constraint", map[string]any{
 				"slug":        c.SlugOrDie(),

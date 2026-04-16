@@ -1,4 +1,4 @@
-package cli
+package project
 
 import (
 	"fmt"
@@ -7,20 +7,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-)
 
-type blockerQuestionItem struct {
-	ID         int32    `json:"id"`
-	TargetType string   `json:"target_type"`
-	TargetID   string   `json:"target_id"`
-	Context    string   `json:"context"`
-	Choices    []string `json:"choices"`
-	Answer     string   `json:"answer"`
-	AnsweredBy string   `json:"answered_by"`
-	Status     string   `json:"status"`
-	CreatedAt  string   `json:"created_at"`
-	AnsweredAt string   `json:"answered_at"`
-}
+	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+)
 
 func QuestionCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "question", Short: "Blocker questions requiring human decisions"}
@@ -34,7 +24,7 @@ func questionAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Create a blocker question",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var choiceList []string
 			if choices != "" {
 				for _, ch := range strings.Split(choices, ",") {
@@ -44,7 +34,7 @@ func questionAddCmd() *cobra.Command {
 					}
 				}
 			}
-			var q blockerQuestionItem
+			var q clitypes.BlockerQuestionItem
 			if err := c.Post("/api/dx/blocker-questions/add", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"target_type": targetType,
@@ -75,12 +65,12 @@ func questionAnswerCmd() *cobra.Command {
 		Short: "Answer a blocker question",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
-			var q blockerQuestionItem
+			var q clitypes.BlockerQuestionItem
 			if err := c.Post("/api/dx/blocker-questions/answer", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"id":          int32(id),
@@ -105,9 +95,9 @@ func questionListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List blocker questions",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Questions []blockerQuestionItem `json:"questions"`
+				Questions []clitypes.BlockerQuestionItem `json:"questions"`
 			}
 			params := url.Values{"slug": {c.SlugOrDie()}}
 			if status != "" {

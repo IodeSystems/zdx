@@ -1,4 +1,4 @@
-package cli
+package project
 
 import (
 	"encoding/json"
@@ -12,6 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/techmetrics"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
 )
 
 type (
@@ -58,7 +60,7 @@ func journalCheckinCmd() *cobra.Command {
 		Use:   "checkin",
 		Short: "Record a standup check-in",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			if date == "" {
 				date = time.Now().Format("2006-01-02")
 			}
@@ -143,7 +145,7 @@ func journalShowCmd() *cobra.Command {
 		Use:   "show",
 		Short: "List standup entries",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			params := url.Values{
 				"slug": {c.SlugOrDie()},
 				"role": {role},
@@ -205,7 +207,7 @@ func journalStateCmd() *cobra.Command {
 		Use:   "state",
 		Short: "Show latest standup state snapshot",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			params := url.Values{
 				"slug": {c.SlugOrDie()},
 				"role": {role},
@@ -244,7 +246,7 @@ func journalAddCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid issue ID %q (expected IS-N)", issue)
 			}
-			c := MustClient()
+			c := cli.MustClient()
 			body := map[string]any{
 				"issue_id": int32(id),
 				"by_role":  role,
@@ -278,7 +280,7 @@ func journalListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List work-log entries",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			params := url.Values{
 				"slug": {c.SlugOrDie()},
 			}

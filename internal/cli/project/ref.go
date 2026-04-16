@@ -1,4 +1,4 @@
-package cli
+package project
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
 )
 
 type codeRefItem struct {
@@ -64,7 +66,7 @@ func refIssueAttachCmd() *cobra.Command {
 		Short: "Attach a code reference to an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			body := map[string]any{
 				"slug":      c.SlugOrDie(),
 				"issue_id":  args[0],
@@ -105,7 +107,7 @@ func refIssueListCmd() *cobra.Command {
 		Short: "List code references attached to an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
 				Refs []codeRefItem `json:"refs"`
 			}
@@ -133,7 +135,7 @@ func refIssueDetachCmd() *cobra.Command {
 		Short: "Detach a code reference from an issue",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id, err := strconv.ParseInt(args[1], 10, 32)
 			if err != nil {
 				return fmt.Errorf("invalid ref id: %s", args[1])
@@ -162,7 +164,7 @@ func refTaskAttachCmd() *cobra.Command {
 		Short: "Attach a code reference to a task",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			body := map[string]any{
 				"slug":      c.SlugOrDie(),
 				"task_id":   args[0],
@@ -203,7 +205,7 @@ func refTaskListCmd() *cobra.Command {
 		Short: "List code references attached to a task",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
 				Refs []codeRefItem `json:"refs"`
 			}
@@ -231,7 +233,7 @@ func refTaskDetachCmd() *cobra.Command {
 		Short: "Detach a code reference from a task",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id, err := strconv.ParseInt(args[1], 10, 32)
 			if err != nil {
 				return fmt.Errorf("invalid ref id: %s", args[1])

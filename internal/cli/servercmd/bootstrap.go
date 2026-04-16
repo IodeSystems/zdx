@@ -5,6 +5,8 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/url"
 	"os"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 )
 
 // bootstrapOnboardingIssue creates the initial project onboarding issue with
@@ -48,7 +50,7 @@ func bootstrapOnboardingIssue(c *cli.Client) error {
 		return fmt.Errorf("create onboarding issue: %w", err)
 	}
 
-	issueID := cli.IssueIDStr(resp.ID)
+	issueID := clitypes.IssueIDStr(resp.ID)
 	fmt.Printf("created %s  %s\n", issueID, resp.Title)
 
 	questions := []string{

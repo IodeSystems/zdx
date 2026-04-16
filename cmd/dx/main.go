@@ -10,7 +10,9 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli/agent"
 	"github.com/iodesystems/zdx-go/internal/cli/devtools"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
+	"github.com/iodesystems/zdx-go/internal/cli/project"
 	"github.com/iodesystems/zdx-go/internal/cli/servercmd"
+	"github.com/iodesystems/zdx-go/internal/cli/work"
 )
 
 func main() {
@@ -22,14 +24,14 @@ func main() {
 	}
 
 	root.AddCommand(
-		cli.TodoCmd(),
-		cli.IssueCmd(),
-		cli.FeatureCmd(),
-		cli.GoalCmd(),
-		cli.ConstraintCmd(),
-		cli.JournalCmd(),
-		cli.ThemeCmd(),
-		cli.SpecCmd(),
+		work.TodoCmd(),
+		project.IssueCmd(),
+		project.FeatureCmd(),
+		project.GoalCmd(),
+		work.ConstraintCmd(),
+		project.JournalCmd(),
+		project.ThemeCmd(),
+		project.SpecCmd(),
 		devtools.BuildCmd(),
 		devtools.TestCmd(),
 		devtools.LintCmd(),
@@ -43,18 +45,18 @@ func main() {
 		servercmd.ServeCmd(),
 		servercmd.MigrateCmd(),
 		devtools.ErrorsCmd(),
-		cli.CommentCmd(),
-		cli.RevisionCmd(),
-		cli.RefCmd(),
-		cli.QaCmd(),
-		cli.QuestionCmd(),
-		cli.QuestionProposalCmd(),
+		project.CommentCmd(),
+		project.RevisionCmd(),
+		project.RefCmd(),
+		project.QaCmd(),
+		project.QuestionCmd(),
+		project.QuestionProposalCmd(),
 		mcpcmd.McpCmd(),
 		devtools.TimeCmd(),
 		devtools.ClaudeCmd(),
 		agent.AgentCmd(),
-		cli.TaskCmd(),
-		cli.PatternCmd(),
+		project.TaskCmd(),
+		project.PatternCmd(),
 		servercmd.IntegrateCmd(),
 		servercmd.LoginCmd(),
 	)

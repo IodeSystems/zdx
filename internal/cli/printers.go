@@ -1,0 +1,86 @@
+package cli
+
+import (
+	"fmt"
+	"strings"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+)
+
+func PrintIssueItem(iss clitypes.IssueItem) {
+	fmt.Printf("ID:        %s\n", clitypes.IssueIDStr(iss.ID))
+	fmt.Printf("Title:     %s\n", iss.Title)
+	fmt.Printf("Status:    %s\n", iss.Status)
+	fmt.Printf("Priority:  %s\n", iss.Priority)
+	issType := iss.IssueType
+	if issType == "" {
+		issType = "ops"
+	}
+	fmt.Printf("Type:      %s\n", issType)
+	if iss.Component != "" {
+		fmt.Printf("Component: %s\n", iss.Component)
+	}
+	if iss.URL != "" {
+		fmt.Printf("URL:       %s\n", iss.URL)
+	}
+	if len(iss.BlockedBy) > 0 {
+		fmt.Printf("Blocked:   %s\n", strings.Join(iss.BlockedBy, ", "))
+	}
+	if iss.Context != "" {
+		fmt.Printf("\n%s\n", iss.Context)
+	}
+}
+
+func PrintComments(comments []clitypes.CommentItem) {
+	for _, cm := range comments {
+		date := cm.CreatedAt
+		if len(date) >= 10 {
+			date = date[:10]
+		}
+		dot := ""
+		if cm.Unread != nil {
+			if *cm.Unread {
+				dot = "○ "
+			} else {
+				dot = "● "
+			}
+		}
+		indent := ""
+		if cm.ParentID != nil {
+			indent = "  ↳ "
+		}
+		author := cm.Author
+		if cm.AuthorAlias != "" {
+			author = cm.AuthorAlias + " (" + cm.Author + ")"
+		}
+		fmt.Printf("%s%sC-%d [%s] %s: %s\n", indent, dot, cm.ID, date, author, cm.Body)
+	}
+}
+
+func PrintFeatureItem(f clitypes.FeatureItem) {
+	fmt.Printf("Name:      %s\n", f.Name)
+	if f.Category != "" {
+		fmt.Printf("Category:  %s\n", f.Category)
+	}
+	if f.Component != "" {
+		fmt.Printf("Component: %s\n", f.Component)
+	}
+	if f.Description != "" {
+		fmt.Printf("Desc:      %s\n", f.Description)
+	}
+	if f.What != "" {
+		fmt.Printf("What:      %s\n", f.What)
+	}
+	if f.Why != "" {
+		fmt.Printf("Why:       %s\n", f.Why)
+	}
+	if f.DoneWhen != "" {
+		fmt.Printf("Done when: %s\n", f.DoneWhen)
+	}
+	if len(f.Specs) > 0 {
+		fmt.Printf("\nSpecs (%d):\n", len(f.Specs))
+		for _, s := range f.Specs {
+			fmt.Printf("  %-4d [%-12s]  %s\n", s.ID, s.Kind, s.Description)
+		}
+	}
+}

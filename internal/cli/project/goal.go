@@ -1,20 +1,14 @@
-package cli
+package project
 
 import (
 	"fmt"
 
 	"github.com/spf13/cobra"
-)
 
-type goalItem struct {
-	ID          int32  `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Priority    int32  `json:"priority"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-}
+	"github.com/iodesystems/zdx-go/internal/cli"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+)
 
 func GoalCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "goal", Short: "Project goal management"}
@@ -30,11 +24,11 @@ func goalListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List project goals",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Goals []goalItem `json:"goals"`
+				Goals []clitypes.GoalItem `json:"goals"`
 			}
-			if err := c.Get("/api/goals", QuerySlug(c), &resp); err != nil {
+			if err := c.Get("/api/goals", cli.QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Goals) == 0 {
@@ -58,8 +52,8 @@ func goalAddCmd() *cobra.Command {
 		Short: "Add a project goal",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
-			var g goalItem
+			c := cli.MustClient()
+			var g clitypes.GoalItem
 			if err := c.Post("/api/goal", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"title":       args[0],

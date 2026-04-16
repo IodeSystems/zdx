@@ -1,21 +1,14 @@
-package cli
+package project
 
 import (
 	"fmt"
-	"net/url"
 
 	"github.com/spf13/cobra"
-)
 
-type themeItem struct {
-	ID          int32  `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Priority    int32  `json:"priority"`
-	Status      string `json:"status"`
-	Blockers    string `json:"blockers"`
-	CreatedAt   string `json:"created_at"`
-}
+	"github.com/iodesystems/zdx-go/internal/cli"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+)
 
 func ThemeCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "theme", Short: "Theme / roadmap management"}
@@ -28,11 +21,11 @@ func themeListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List themes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Themes []themeItem `json:"themes"`
+				Themes []clitypes.ThemeItem `json:"themes"`
 			}
-			if err := c.Get("/api/dx/themes", QuerySlug(c), &resp); err != nil {
+			if err := c.Get("/api/dx/themes", cli.QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Themes) == 0 {
@@ -60,8 +53,8 @@ func themeAddCmd() *cobra.Command {
 		Short: "Add a theme",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
-			var t themeItem
+			c := cli.MustClient()
+			var t clitypes.ThemeItem
 			if err := c.Post("/api/dx/themes/add", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"name":        args[0],
@@ -87,7 +80,7 @@ func themeStatusCmd() *cobra.Command {
 		Short: "Set theme status (active|done|dropped)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -102,11 +95,6 @@ func themeStatusCmd() *cobra.Command {
 			return nil
 		},
 	}
-}
-
-// QuerySlug builds url.Values with the client's project slug.
-func QuerySlug(c *Client) url.Values {
-	return url.Values{"slug": {c.SlugOrDie()}}
 }
 
 // themeIDStr formats a theme ID.

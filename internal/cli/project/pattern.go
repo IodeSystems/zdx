@@ -1,4 +1,4 @@
-package cli
+package project
 
 import (
 	"encoding/json"
@@ -6,16 +6,11 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
-)
 
-type PatternItem struct {
-	ID          int32           `json:"id"`
-	Name        string          `json:"name"`
-	Description string          `json:"description"`
-	CodeRefs    json.RawMessage `json:"code_refs"`
-	CreatedAt   string          `json:"created_at"`
-	UpdatedAt   string          `json:"updated_at"`
-}
+	"github.com/iodesystems/zdx-go/internal/cli"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+)
 
 func PatternCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "pattern", Short: "Pattern library management"}
@@ -28,12 +23,12 @@ func patternListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List patterns",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Patterns []PatternItem `json:"patterns"`
-				Total    int64         `json:"total"`
+				Patterns []clitypes.PatternItem `json:"patterns"`
+				Total    int64                  `json:"total"`
 			}
-			if err := c.Get("/api/dx/patterns", QuerySlug(c), &resp); err != nil {
+			if err := c.Get("/api/dx/patterns", cli.QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Patterns) == 0 {
@@ -42,7 +37,7 @@ func patternListCmd() *cobra.Command {
 			}
 			for _, p := range resp.Patterns {
 				refs := countCodeRefs(p.CodeRefs)
-				fmt.Printf("PT-%-4d  %-30s  %d refs  %s\n", p.ID, p.Name, refs, Truncate(p.Description, 60))
+				fmt.Printf("PT-%-4d  %-30s  %d refs  %s\n", p.ID, p.Name, refs, cli.Truncate(p.Description, 60))
 			}
 			return nil
 		},
@@ -56,7 +51,7 @@ func patternAddCmd() *cobra.Command {
 		Short: "Add a pattern",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			body := map[string]any{
 				"slug":        c.SlugOrDie(),
 				"name":        args[0],
@@ -66,7 +61,7 @@ func patternAddCmd() *cobra.Command {
 				refs := parseCodeRefs(codeRefsStr)
 				body["code_refs"] = refs
 			}
-			var p PatternItem
+			var p clitypes.PatternItem
 			if err := c.Post("/api/dx/patterns/add", body, &p); err != nil {
 				return err
 			}
@@ -85,10 +80,10 @@ func patternShowCmd() *cobra.Command {
 		Short: "Show pattern details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id := parsePatternID(args[0])
-			var p PatternItem
-			q := QuerySlug(c)
+			var p clitypes.PatternItem
+			q := cli.QuerySlug(c)
 			q.Set("id", fmt.Sprintf("%d", id))
 			if err := c.Get("/api/dx/patterns/get", q, &p); err != nil {
 				return err
@@ -115,7 +110,7 @@ func patternDeleteCmd() *cobra.Command {
 		Short: "Delete a pattern",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id := parsePatternID(args[0])
 			var ok struct {
 				OK bool `json:"ok"`
@@ -139,11 +134,11 @@ func patternSearchCmd() *cobra.Command {
 		Short: "Search patterns by similarity",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
 				Patterns []struct {
-					Pattern PatternItem `json:"pattern"`
-					Score   float64     `json:"score"`
+					Pattern clitypes.PatternItem `json:"pattern"`
+					Score   float64              `json:"score"`
 				} `json:"patterns"`
 			}
 			if err := c.Post("/api/dx/patterns/similar", map[string]any{

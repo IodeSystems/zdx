@@ -1,4 +1,4 @@
-package cli
+package project
 
 import (
 	"fmt"
@@ -8,6 +8,10 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 )
 
 // resolveAuthorAlias returns the explicit --as flag value if set, otherwise
@@ -18,18 +22,6 @@ func resolveAuthorAlias(flag string) string {
 		return flag
 	}
 	return os.Getenv("DX_AUTHOR_ALIAS")
-}
-
-type CommentItem struct {
-	ID          int32  `json:"id"`
-	TargetType  string `json:"target_type"`
-	TargetID    string `json:"target_id"`
-	Author      string `json:"author"`
-	AuthorAlias string `json:"author_alias,omitempty"`
-	Body        string `json:"body"`
-	CreatedAt   string `json:"created_at"`
-	ParentID    *int32 `json:"parent_id,omitempty"`
-	Unread      *bool  `json:"unread,omitempty"`
 }
 
 func CommentCmd() *cobra.Command {
@@ -45,7 +37,7 @@ func commentListCmd() *cobra.Command {
 		Short: "List comments on a target (e.g. comment list issue IS-5)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			q := url.Values{
 				"slug":        {c.SlugOrDie()},
 				"target_type": {args[0]},
@@ -55,7 +47,7 @@ func commentListCmd() *cobra.Command {
 				q.Set("role", role)
 			}
 			var resp struct {
-				Comments []CommentItem `json:"comments"`
+				Comments []clitypes.CommentItem `json:"comments"`
 			}
 			if err := c.Get("/api/dx/comment/list", q, &resp); err != nil {
 				return err
@@ -64,38 +56,12 @@ func commentListCmd() *cobra.Command {
 				fmt.Println("no comments")
 				return nil
 			}
-			printComments(resp.Comments)
+			cli.PrintComments(resp.Comments)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&role, "role", "", "show read/unread indicator for this role (e.g. llm, dev)")
 	return cmd
-}
-
-func printComments(comments []CommentItem) {
-	for _, cm := range comments {
-		date := cm.CreatedAt
-		if len(date) >= 10 {
-			date = date[:10]
-		}
-		dot := ""
-		if cm.Unread != nil {
-			if *cm.Unread {
-				dot = "○ "
-			} else {
-				dot = "● "
-			}
-		}
-		indent := ""
-		if cm.ParentID != nil {
-			indent = "  ↳ "
-		}
-		author := cm.Author
-		if cm.AuthorAlias != "" {
-			author = cm.AuthorAlias + " (" + cm.Author + ")"
-		}
-		fmt.Printf("%s%sC-%d [%s] %s: %s\n", indent, dot, cm.ID, date, author, cm.Body)
-	}
 }
 
 func commentAddCmd() *cobra.Command {
@@ -105,7 +71,7 @@ func commentAddCmd() *cobra.Command {
 		Short: "Add a comment (e.g. comment add issue IS-5 --body '...')",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			payload := map[string]any{
 				"slug":        c.SlugOrDie(),
 				"target_type": args[0],
@@ -115,7 +81,7 @@ func commentAddCmd() *cobra.Command {
 			if alias := resolveAuthorAlias(authorAlias); alias != "" {
 				payload["author_alias"] = alias
 			}
-			var cm CommentItem
+			var cm clitypes.CommentItem
 			if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
 				return err
 			}
@@ -136,7 +102,7 @@ func commentMarkReadCmd() *cobra.Command {
 		Short: "Mark comments as read — by target or by comment IDs",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 
 			// Check if first arg looks like C-N (batch by comment IDs)
 			if strings.HasPrefix(args[0], "C-") {
@@ -149,7 +115,7 @@ func commentMarkReadCmd() *cobra.Command {
 							return err
 						}
 						// Resolve comment to its target
-						var cm CommentItem
+						var cm clitypes.CommentItem
 						if err := c.Get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &cm); err != nil {
 							return fmt.Errorf("C-%d: %w", cid, err)
 						}
@@ -201,13 +167,13 @@ func commentReplyCmd() *cobra.Command {
 		Short: "Reply to a comment by ID (e.g. comment reply C-123 --body '...')",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			cid, err := parseCommentID(args[0])
 			if err != nil {
 				return err
 			}
 
-			var orig CommentItem
+			var orig clitypes.CommentItem
 			if err := c.Get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &orig); err != nil {
 				return fmt.Errorf("could not find C-%d: %w", cid, err)
 			}
@@ -223,7 +189,7 @@ func commentReplyCmd() *cobra.Command {
 				if alias := resolveAuthorAlias(authorAlias); alias != "" {
 					payload["author_alias"] = alias
 				}
-				var cm CommentItem
+				var cm clitypes.CommentItem
 				if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
 					return err
 				}
@@ -262,7 +228,7 @@ func commentReactCmd() *cobra.Command {
 		Short: "React to a comment (e.g. comment react C-123 thumbs-up)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			cid, err := parseCommentID(args[0])
 			if err != nil {
 				return err
@@ -293,19 +259,6 @@ func parseCommentID(s string) (int32, error) {
 	return int32(n), nil
 }
 
-// ── revision type for CLI use ─────────────────────────────────────────────
-
-type revisionItem struct {
-	ID         int32  `json:"id"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	Field      string `json:"field"`
-	OldVal     string `json:"old_val"`
-	NewVal     string `json:"new_val"`
-	Agent      string `json:"agent"`
-	CreatedAt  string `json:"created_at"`
-}
-
 func RevisionCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "revision", Short: "View revision history"}
 	cmd.AddCommand(revisionListCmd())
@@ -318,9 +271,9 @@ func revisionListCmd() *cobra.Command {
 		Short: "List revisions for a target",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Revisions []revisionItem `json:"revisions"`
+				Revisions []clitypes.RevisionItem `json:"revisions"`
 			}
 			if err := c.Get("/api/dx/revisions", url.Values{
 				"slug":        {c.SlugOrDie()},

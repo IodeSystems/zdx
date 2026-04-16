@@ -13,6 +13,8 @@ import (
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 )
 
 func McpCmd() *cobra.Command {
@@ -67,13 +69,13 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Description: "List issues, optionally filtered by status",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueListInput) (*mcp.CallToolResult, any, error) {
 		var resp struct {
-			Issues []cli.IssueItem `json:"issues"`
+			Issues []clitypes.IssueItem `json:"issues"`
 		}
 		if err := c.Get("/api/dx/todo/issue/list", url.Values{"slug": {slug}}, &resp); err != nil {
 			return nil, nil, err
 		}
 		if in.Status != "" {
-			var filtered []cli.IssueItem
+			var filtered []clitypes.IssueItem
 			for _, iss := range resp.Issues {
 				if iss.Status == in.Status {
 					filtered = append(filtered, iss)
@@ -100,7 +102,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if issType == "" {
 			issType = "ops"
 		}
-		var iss cli.IssueItem
+		var iss clitypes.IssueItem
 		if err := c.Post("/api/dx/todo/issue/add", map[string]any{
 			"slug":       slug,
 			"title":      in.Title,
@@ -116,7 +118,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 			_ = c.Post("/api/dx/todo/issue/add-block", map[string]any{
 				"slug":       slug,
 				"id":         int32(parentNum),
-				"blocked_by": cli.IssueIDStr(int32(iss.ID)),
+				"blocked_by": clitypes.IssueIDStr(int32(iss.ID)),
 			}, nil)
 		}
 		return nil, iss, nil
@@ -130,8 +132,8 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Description: "Show issue detail with work log",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueShowInput) (*mcp.CallToolResult, any, error) {
 		var resp struct {
-			Issue cli.IssueItem       `json:"issue"`
-			Work  []cli.IssueWorkItem `json:"work"`
+			Issue clitypes.IssueItem       `json:"issue"`
+			Work  []clitypes.IssueWorkItem `json:"work"`
 		}
 		if err := c.Get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {in.ID}}, &resp); err != nil {
 			return nil, nil, err
@@ -280,8 +282,8 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		switch {
 		case len(id) > 3 && id[:3] == "IS-":
 			var resp struct {
-				Issue cli.IssueItem       `json:"issue"`
-				Work  []cli.IssueWorkItem `json:"work"`
+				Issue clitypes.IssueItem       `json:"issue"`
+				Work  []clitypes.IssueWorkItem `json:"work"`
 			}
 			if err := c.Get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {id}}, &resp); err != nil {
 				return nil, nil, err
@@ -290,7 +292,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		case len(id) > 3 && id[:3] == "TK-":
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			var taskList struct {
-				Tasks []cli.TaskItem `json:"tasks"`
+				Tasks []clitypes.TaskItem `json:"tasks"`
 			}
 			if err := c.Get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
 				return nil, nil, err
@@ -303,7 +305,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 			return nil, nil, fmt.Errorf("task %s not found", id)
 		default:
 			var featList struct {
-				Features []cli.FeatureItem `json:"features"`
+				Features []clitypes.FeatureItem `json:"features"`
 			}
 			if err := c.Get("/api/features", url.Values{"slug": {slug}}, &featList); err != nil {
 				return nil, nil, err
@@ -326,7 +328,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Description: "List tasks, optionally filtered by issue or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoListInput) (*mcp.CallToolResult, any, error) {
 		var taskList struct {
-			Tasks []cli.TaskItem `json:"tasks"`
+			Tasks []clitypes.TaskItem `json:"tasks"`
 		}
 		if in.Issue != "" {
 			if err := c.Get("/api/dx/todo/issue/tasks", url.Values{
@@ -458,7 +460,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "todo_tech_add",
 		Description: "Add a task to an issue or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoTechAddInput) (*mcp.CallToolResult, any, error) {
-		var resp cli.TaskAddResponse
+		var resp clitypes.TaskAddResponse
 		if err := c.Post("/api/dx/todo/tech/add", map[string]any{
 			"slug":       slug,
 			"text":       in.Text,
@@ -491,7 +493,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Description: "List all features",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in featureListInput) (*mcp.CallToolResult, any, error) {
 		var resp struct {
-			Features []cli.FeatureItem `json:"features"`
+			Features []clitypes.FeatureItem `json:"features"`
 		}
 		if err := c.Get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
 			return nil, nil, err
@@ -507,7 +509,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Description: "Show feature detail with specs",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in featureShowInput) (*mcp.CallToolResult, any, error) {
 		var resp struct {
-			Features []cli.FeatureItem `json:"features"`
+			Features []clitypes.FeatureItem `json:"features"`
 		}
 		if err := c.Get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
 			return nil, nil, err
@@ -536,8 +538,8 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		}
 		var resp struct {
 			Patterns []struct {
-				Pattern cli.PatternItem `json:"pattern"`
-				Score   float64         `json:"score"`
+				Pattern clitypes.PatternItem `json:"pattern"`
+				Score   float64              `json:"score"`
 			} `json:"patterns"`
 		}
 		if err := c.Post("/api/dx/patterns/similar", map[string]any{
@@ -570,7 +572,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if len(in.CodeRefs) > 0 {
 			body["code_refs"] = in.CodeRefs
 		}
-		var p cli.PatternItem
+		var p clitypes.PatternItem
 		if err := c.Post("/api/dx/patterns/update", body, &p); err != nil {
 			return nil, nil, err
 		}
@@ -617,7 +619,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "question_add",
 		Description: "Add a new question to the project's Q&A knowledge base",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in questionAddInput) (*mcp.CallToolResult, any, error) {
-		var q cli.QuestionItem
+		var q clitypes.QuestionItem
 		if err := c.Post("/api/dx/qa/add", map[string]any{
 			"slug":     slug,
 			"category": in.Category,
@@ -648,7 +650,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 			q.Set("role", in.Role)
 		}
 		var resp struct {
-			Comments []cli.CommentItem `json:"comments"`
+			Comments []clitypes.CommentItem `json:"comments"`
 		}
 		if err := c.Get("/api/dx/comment/list", q, &resp); err != nil {
 			return nil, nil, err
@@ -665,7 +667,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "comment_add",
 		Description: "Add a comment to an issue, task, or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in commentAddInput) (*mcp.CallToolResult, any, error) {
-		var cm cli.CommentItem
+		var cm clitypes.CommentItem
 		if err := c.Post("/api/dx/comment/add", map[string]any{
 			"slug":        slug,
 			"target_type": in.TargetType,

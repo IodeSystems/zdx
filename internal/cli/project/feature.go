@@ -1,10 +1,14 @@
-package cli
+package project
 
 import (
 	"fmt"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 )
 
 func FeatureCmd() *cobra.Command {
@@ -24,11 +28,11 @@ func featureListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List features",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Features []FeatureItem `json:"features"`
+				Features []clitypes.FeatureItem `json:"features"`
 			}
-			if err := c.Get("/api/features", QuerySlug(c), &resp); err != nil {
+			if err := c.Get("/api/features", cli.QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Features) == 0 {
@@ -58,8 +62,8 @@ func featureAddCmd() *cobra.Command {
 		Short: "Create or update a feature",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
-			var f FeatureItem
+			c := cli.MustClient()
+			var f clitypes.FeatureItem
 			if err := c.Post("/api/feature", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"name":        args[0],
@@ -81,15 +85,15 @@ func featureShowCmd() *cobra.Command {
 		Short: "Show feature detail with specs",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			// Fetch the full list and find by name (no single-feature GET endpoint yet).
 			var resp struct {
-				Features []FeatureItem `json:"features"`
+				Features []clitypes.FeatureItem `json:"features"`
 			}
-			if err := c.Get("/api/features", QuerySlug(c), &resp); err != nil {
+			if err := c.Get("/api/features", cli.QuerySlug(c), &resp); err != nil {
 				return err
 			}
-			var f *FeatureItem
+			var f *clitypes.FeatureItem
 			for i := range resp.Features {
 				if strings.EqualFold(resp.Features[i].Name, args[0]) {
 					f = &resp.Features[i]
@@ -99,7 +103,7 @@ func featureShowCmd() *cobra.Command {
 			if f == nil {
 				return fmt.Errorf("feature not found: %s", args[0])
 			}
-			printFeatureItem(*f)
+			cli.PrintFeatureItem(*f)
 			return nil
 		},
 	}
@@ -112,7 +116,7 @@ func featureSetCmd() *cobra.Command {
 		Short: "Set fields on a feature",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			slug := c.SlugOrDie()
 			name := args[0]
 
@@ -161,7 +165,7 @@ func featureReviewCmd() *cobra.Command {
 		Short: "Mark feature as owner-reviewed (resets cool-down timer)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -174,34 +178,6 @@ func featureReviewCmd() *cobra.Command {
 			fmt.Printf("%s reviewed\n", args[0])
 			return nil
 		},
-	}
-}
-
-func printFeatureItem(f FeatureItem) {
-	fmt.Printf("Name:      %s\n", f.Name)
-	if f.Category != "" {
-		fmt.Printf("Category:  %s\n", f.Category)
-	}
-	if f.Component != "" {
-		fmt.Printf("Component: %s\n", f.Component)
-	}
-	if f.Description != "" {
-		fmt.Printf("Desc:      %s\n", f.Description)
-	}
-	if f.What != "" {
-		fmt.Printf("What:      %s\n", f.What)
-	}
-	if f.Why != "" {
-		fmt.Printf("Why:       %s\n", f.Why)
-	}
-	if f.DoneWhen != "" {
-		fmt.Printf("Done when: %s\n", f.DoneWhen)
-	}
-	if len(f.Specs) > 0 {
-		fmt.Printf("\nSpecs (%d):\n", len(f.Specs))
-		for _, s := range f.Specs {
-			fmt.Printf("  %-4d [%-12s]  %s\n", s.ID, s.Kind, s.Description)
-		}
 	}
 }
 

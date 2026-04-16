@@ -1,4 +1,4 @@
-package cli
+package project
 
 import (
 	"fmt"
@@ -6,6 +6,8 @@ import (
 	"strconv"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
 )
 
 type questionProposalItem struct {
@@ -34,7 +36,7 @@ func questionProposalAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Create an issue proposal on a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var p questionProposalItem
 			if err := c.Post("/api/dx/question-proposals/add", map[string]any{
 				"slug":          c.SlugOrDie(),
@@ -65,7 +67,7 @@ func questionProposalListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List proposals for a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
 				Proposals []questionProposalItem `json:"proposals"`
 			}
@@ -103,7 +105,7 @@ func questionProposalAcceptCmd() *cobra.Command {
 		Short: "Accept a proposal (creates an issue)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
@@ -134,7 +136,7 @@ func questionProposalDenyCmd() *cobra.Command {
 		Short: "Deny a proposal",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])

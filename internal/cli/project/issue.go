@@ -1,4 +1,4 @@
-package cli
+package project
 
 import (
 	"fmt"
@@ -7,8 +7,11 @@ import (
 	"strconv"
 	"strings"
 
-	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 )
 
 func IssueCmd() *cobra.Command {
@@ -23,9 +26,9 @@ func issueListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List issues",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Issues []IssueItem `json:"issues"`
+				Issues []clitypes.IssueItem `json:"issues"`
 			}
 			if err := c.Get("/api/dx/todo/issue/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err
@@ -45,7 +48,7 @@ func issueListCmd() *cobra.Command {
 					}
 					_ = c.Get("/api/dx/todo/issue/resolutions", url.Values{
 						"slug":   {c.SlugOrDie()},
-						"id":     {IssueIDStr(iss.ID)},
+						"id":     {clitypes.IssueIDStr(iss.ID)},
 						"branch": {branch},
 					}, &resResp)
 					active := 0
@@ -72,7 +75,7 @@ func issueListCmd() *cobra.Command {
 						s += " [unresolved]"
 					}
 				}
-				fmt.Printf("%-8s %-30s %s\n", IssueIDStr(iss.ID), s, iss.Title)
+				fmt.Printf("%-8s %-30s %s\n", clitypes.IssueIDStr(iss.ID), s, iss.Title)
 			}
 			return nil
 		},
@@ -89,7 +92,7 @@ func issueAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Create an issue",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			body := map[string]any{
 				"slug":       c.SlugOrDie(),
 				"title":      title,
@@ -104,17 +107,17 @@ func issueAddCmd() *cobra.Command {
 			if blockedBy != "" {
 				body["blocked_by"] = strings.Split(blockedBy, ",")
 			}
-			var resp IssueAddResponse
+			var resp clitypes.IssueAddResponse
 			if err := c.Post("/api/dx/todo/issue/add", body, &resp); err != nil {
 				return err
 			}
-			fmt.Printf("%s  %s\n", IssueIDStr(resp.ID), resp.Title)
+			fmt.Printf("%s  %s\n", clitypes.IssueIDStr(resp.ID), resp.Title)
 			if parent != "" {
 				parentNum, _ := strconv.ParseInt(parent[3:], 10, 32)
 				if err := c.Post("/api/dx/todo/issue/add-block", map[string]any{
 					"slug":       c.SlugOrDie(),
 					"id":         int32(parentNum),
-					"blocked_by": IssueIDStr(resp.ID),
+					"blocked_by": clitypes.IssueIDStr(resp.ID),
 				}, nil); err != nil {
 					return fmt.Errorf("created issue but failed to add block on parent: %w", err)
 				}
@@ -126,9 +129,9 @@ func issueAddCmd() *cobra.Command {
 					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.ID, s.Score*100, s.Title, s.Status)
 				}
 				fmt.Printf("\nIssue created as draft (wip). To promote:\n")
-				fmt.Printf("  dx issue ready %s\n", IssueIDStr(resp.ID))
+				fmt.Printf("  dx issue ready %s\n", clitypes.IssueIDStr(resp.ID))
 				fmt.Printf("To close as duplicate:\n")
-				fmt.Printf("  dx issue close %s --reason=duplicate --duplicate-of=<IS-N>\n", IssueIDStr(resp.ID))
+				fmt.Printf("  dx issue close %s --reason=duplicate --duplicate-of=<IS-N>\n", clitypes.IssueIDStr(resp.ID))
 			} else if !autoReady {
 				if err := c.Post("/api/dx/todo/issue/ready", map[string]any{
 					"slug": c.SlugOrDie(),
@@ -159,7 +162,7 @@ func issueReadyCmd() *cobra.Command {
 		Short: "Promote a draft issue from wip to open",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			n, _ := strconv.ParseInt(args[0][3:], 10, 32)
 			if err := c.Post("/api/dx/todo/issue/ready", map[string]any{
 				"slug": c.SlugOrDie(),
@@ -179,10 +182,10 @@ func issueShowCmd() *cobra.Command {
 		Short: "Show issue detail with work log",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Issue IssueItem       `json:"issue"`
-				Work  []IssueWorkItem `json:"work"`
+				Issue clitypes.IssueItem       `json:"issue"`
+				Work  []clitypes.IssueWorkItem `json:"work"`
 			}
 			if err := c.Get("/api/dx/todo/issue/show", url.Values{
 				"slug": {c.SlugOrDie()},
@@ -190,7 +193,7 @@ func issueShowCmd() *cobra.Command {
 			}, &resp); err != nil {
 				return err
 			}
-			printIssueItem(resp.Issue)
+			cli.PrintIssueItem(resp.Issue)
 
 			var resResp struct {
 				Resolutions []struct {
@@ -265,12 +268,12 @@ func issueCloseCmd() *cobra.Command {
 			if reason == "duplicate" && duplicateOf == "" {
 				return fmt.Errorf("--duplicate-of is required when --reason=duplicate")
 			}
-			if err := runCloseHooks(); err != nil {
+			if err := cli.RunCloseHooks(); err != nil {
 				return err
 			}
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := MustClient()
+			c := cli.MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -294,28 +297,6 @@ func issueCloseCmd() *cobra.Command {
 	return cmd
 }
 
-func runCloseHooks() error {
-	cfg := config.Load()
-	if cfg == nil {
-		return nil
-	}
-	steps := cfg.AllCloseSteps("")
-	if len(steps) == 0 {
-		return nil
-	}
-	for _, ns := range steps {
-		label := ns.Name
-		if label == "" {
-			label = ns.Run
-		}
-		fmt.Printf("[close] %s: %s\n", ns.Component, label)
-		if err := RunShell(ns.Run, ns.CWD); err != nil {
-			return fmt.Errorf("close hook %q failed: %w", label, err)
-		}
-	}
-	return nil
-}
-
 func issueBlockCmd() *cobra.Command {
 	var by string
 	cmd := &cobra.Command{
@@ -325,7 +306,7 @@ func issueBlockCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := MustClient()
+			c := cli.MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -354,7 +335,7 @@ func issueUnblockCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := MustClient()
+			c := cli.MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -390,7 +371,7 @@ func issueEditCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := MustClient()
+			c := cli.MustClient()
 			body := map[string]any{
 				"slug": c.SlugOrDie(),
 				"id":   int32(n),
@@ -462,7 +443,7 @@ func issueResolveCmd() *cobra.Command {
 					fullSHAs[i] = strings.TrimSpace(string(out))
 				}
 			}
-			c := MustClient()
+			c := cli.MustClient()
 			body := map[string]any{
 				"slug": c.SlugOrDie(),
 				"id":   int32(n),
@@ -505,7 +486,7 @@ func issueResolutionsCmd() *cobra.Command {
 		Short: "List resolutions for an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			params := url.Values{
 				"slug": {c.SlugOrDie()},
 				"id":   {args[0]},
@@ -567,7 +548,7 @@ func issueReconcileCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := args[0]
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
 				Results []struct {
 					IssueID      string   `json:"issue_id"`

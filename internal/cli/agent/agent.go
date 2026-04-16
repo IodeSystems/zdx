@@ -14,6 +14,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 )
 
 func AgentCmd() *cobra.Command {
@@ -158,7 +160,7 @@ func agentStartCmd() *cobra.Command {
 
 			fmt.Printf("compose:  %s (db port %d, valkey port %d)\n", composeProject, dbPort, valkeyPort)
 
-			var agent cli.AgentItem
+			var agent clitypes.AgentItem
 			if err := c.Post("/api/agents/register", map[string]any{
 				"slug":            slug,
 				"id":              id,
@@ -194,7 +196,7 @@ func agentListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var resp struct {
-				Agents []cli.AgentItem `json:"agents"`
+				Agents []clitypes.AgentItem `json:"agents"`
 			}
 			if err := c.Get("/api/agents/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err
@@ -208,7 +210,7 @@ func agentListCmd() *cobra.Command {
 					a.ID, a.Status, a.Pid, a.ServerPort, a.WorktreeBranch, a.LastHeartbeat)
 				if showTasks {
 					var taskResp struct {
-						Tasks []cli.AgentTaskItem `json:"tasks"`
+						Tasks []clitypes.AgentTaskItem `json:"tasks"`
 					}
 					if err := c.Get("/api/agents/"+a.ID+"/tasks", nil, &taskResp); err != nil {
 						fmt.Printf("  (tasks error: %v)\n", err)
@@ -235,13 +237,13 @@ func agentStopCmd() *cobra.Command {
 			c := cli.MustClient()
 			id := args[0]
 
-			var agent cli.AgentItem
+			var agent clitypes.AgentItem
 			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
 				return fmt.Errorf("get agent: %w", err)
 			}
 
 			var taskResp struct {
-				Tasks []cli.AgentTaskItem `json:"tasks"`
+				Tasks []clitypes.AgentTaskItem `json:"tasks"`
 			}
 			if err := c.Get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
 				return fmt.Errorf("list tasks: %w", err)
@@ -294,7 +296,7 @@ func agentReapCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var resp struct {
-				Reaped []cli.AgentItem `json:"reaped"`
+				Reaped []clitypes.AgentItem `json:"reaped"`
 			}
 			if err := c.Post("/api/agents/reap", map[string]any{"threshold_minutes": thresholdMin}, &resp); err != nil {
 				return err
@@ -323,7 +325,7 @@ func agentResumeCmd() *cobra.Command {
 			id := args[0]
 			slug := c.SlugOrDie()
 
-			var agent cli.AgentItem
+			var agent clitypes.AgentItem
 			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
 				return fmt.Errorf("agent %s not found (may have been reaped): %w", id, err)
 			}
@@ -356,7 +358,7 @@ func agentResumeCmd() *cobra.Command {
 				fmt.Printf("ports:    db=%d valkey=%d\n", dbPort, valkeyPort)
 			}
 
-			var updated cli.AgentItem
+			var updated clitypes.AgentItem
 			if err := c.Post("/api/agents/register", map[string]any{
 				"slug":            slug,
 				"id":              id,
@@ -388,13 +390,13 @@ func agentReleaseCmd() *cobra.Command {
 			c := cli.MustClient()
 			id := args[0]
 
-			var agent cli.AgentItem
+			var agent clitypes.AgentItem
 			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
 				return fmt.Errorf("get agent: %w", err)
 			}
 
 			var taskResp struct {
-				Tasks []cli.AgentTaskItem `json:"tasks"`
+				Tasks []clitypes.AgentTaskItem `json:"tasks"`
 			}
 			if err := c.Get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
 				return fmt.Errorf("list tasks: %w", err)
