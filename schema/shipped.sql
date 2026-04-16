@@ -1452,16 +1452,6 @@ CREATE TABLE public.zdx_state (
 
 
 --
--- Name: zdx_task_code_refs; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_task_code_refs (
-    task_id text NOT NULL,
-    code_ref_id integer NOT NULL
-);
-
-
---
 -- Name: zdx_status_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1497,6 +1487,16 @@ CREATE SEQUENCE public.zdx_status_events_id_seq
 --
 
 ALTER SEQUENCE public.zdx_status_events_id_seq OWNED BY public.zdx_status_events.id;
+
+
+--
+-- Name: zdx_task_code_refs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_task_code_refs (
+    task_id text NOT NULL,
+    code_ref_id integer NOT NULL
+);
 
 
 --
