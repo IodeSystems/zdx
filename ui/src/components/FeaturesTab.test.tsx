@@ -1,5 +1,5 @@
 import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { theme } from '../theme'
@@ -88,5 +88,40 @@ describe('FeaturesTab', () => {
     expect(serverChips.length).toBe(1)
     const uiChips = screen.getAllByText('ui')
     expect(uiChips.length).toBe(2)
+  })
+
+  test('spec 41: features are filtered by name or description when searching', () => {
+    const features: FeatureItem[] = [
+      makeFeature({ id: 1, name: 'login', category: 'Auth', description: 'Handles sign-in flow' }),
+      makeFeature({ id: 2, name: 'signup', category: 'Auth', description: 'Account creation page' }),
+      makeFeature({ id: 3, name: 'dashboard', category: 'Portal', description: 'Overview of sign-in history' }),
+    ]
+    mockedUseFeatures.mockReturnValue({ data: features, isLoading: false } as any)
+
+    renderTab()
+
+    for (const f of features) {
+      expect(screen.getByText(f.name)).toBeInTheDocument()
+    }
+
+    const input = screen.getByPlaceholderText('Search features…')
+
+    fireEvent.change(input, { target: { value: 'login' } })
+    expect(screen.getByText('login')).toBeInTheDocument()
+    expect(screen.queryByText('signup')).not.toBeInTheDocument()
+    expect(screen.queryByText('dashboard')).not.toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: 'sign-in' } })
+    expect(screen.getByText('login')).toBeInTheDocument()
+    expect(screen.queryByText('signup')).not.toBeInTheDocument()
+    expect(screen.getByText('dashboard')).toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: 'creation' } })
+    expect(screen.queryByText('login')).not.toBeInTheDocument()
+    expect(screen.getByText('signup')).toBeInTheDocument()
+    expect(screen.queryByText('dashboard')).not.toBeInTheDocument()
+
+    fireEvent.change(input, { target: { value: 'nope-zzz' } })
+    expect(screen.getByText('No features.')).toBeInTheDocument()
   })
 })

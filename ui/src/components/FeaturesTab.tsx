@@ -34,7 +34,7 @@ export function FeaturesTab({
   const features = search
     ? componentFiltered.filter(f =>
         f.name.toLowerCase().includes(search.toLowerCase()) ||
-        f.category.toLowerCase().includes(search.toLowerCase())
+        f.description.toLowerCase().includes(search.toLowerCase())
       )
     : componentFiltered
 
@@ -54,7 +54,7 @@ export function FeaturesTab({
     <Box>
       <TextField
         size="small"
-        placeholder="Search features or categories…"
+        placeholder="Search features…"
         value={search}
         onChange={e => setSearch(e.target.value)}
         sx={{ mb: 2, width: '100%', maxWidth: 320 }}
