@@ -202,9 +202,12 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 	selfHash := fileHash(selfPath)
 
 	for {
-		// Self-update detection
-		if h := fileHash(selfPath); h != selfHash {
-			log("self-update: %s → %s, re-execing", selfHash[:8], h[:8])
+		// Self-update detection. Skip when either hash is empty: a transient
+		// read error during a deploy (binary briefly unlinked/replaced) is
+		// indistinguishable from a real change, and slicing an empty hash
+		// panics. Retry on the next tick when both reads succeed.
+		if h := fileHash(selfPath); h != "" && selfHash != "" && h != selfHash {
+			log("self-update: %s → %s, re-execing", shortHash(selfHash), shortHash(h))
 			if err := selfReexec(selfPath, os.Args); err != nil {
 				log("re-exec failed: %v", err)
 			}
@@ -924,6 +927,13 @@ func fileHash(path string) string {
 	}
 	h := sha256.Sum256(data)
 	return fmt.Sprintf("%x", h)
+}
+
+func shortHash(s string) string {
+	if len(s) < 8 {
+		return s
+	}
+	return s[:8]
 }
 
 // selfReexec replaces the current process image with a fresh exec of the
