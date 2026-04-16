@@ -262,7 +262,9 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	}
 
 	// 0b3. Check for stale unread comments (>24h old, unread for LLM role).
-	{
+	// Skip in scoped mode — matches server-side gating in handlers_solo.go where
+	// cross-cutting checks only run when issueFilter is empty.
+	if issueFlag == "" {
 		var staleResp struct {
 			Comments []clitypes.CommentItem `json:"comments"`
 		}
