@@ -1,16 +1,32 @@
 -- name: ListFeatures :many
-SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
+SELECT id, project_id, name, description, what, why, done_when, component, category,
+       kind, goal_id, parent_feature_id,
+       metric_name, metric_unit, baseline_value, target_value, graph_url,
+       last_reviewed_at
 FROM zdx_features WHERE project_id = $1 ORDER BY category, name;
 
 -- name: GetFeature :one
-SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
+SELECT id, project_id, name, description, what, why, done_when, component, category,
+       kind, goal_id, parent_feature_id,
+       metric_name, metric_unit, baseline_value, target_value, graph_url,
+       last_reviewed_at
 FROM zdx_features WHERE project_id = $1 AND name = $2;
+
+-- name: GetFeatureByID :one
+SELECT id, project_id, name, description, what, why, done_when, component, category,
+       kind, goal_id, parent_feature_id,
+       metric_name, metric_unit, baseline_value, target_value, graph_url,
+       last_reviewed_at
+FROM zdx_features WHERE id = $1;
 
 -- name: UpsertFeature :one
 INSERT INTO zdx_features (project_id, name, description)
 VALUES ($1, $2, $3)
 ON CONFLICT (project_id, name) DO UPDATE SET description = EXCLUDED.description
-RETURNING id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at;
+RETURNING id, project_id, name, description, what, why, done_when, component, category,
+          kind, goal_id, parent_feature_id,
+          metric_name, metric_unit, baseline_value, target_value, graph_url,
+          last_reviewed_at;
 
 -- name: UpdateFeatureField :exec
 UPDATE zdx_features
@@ -19,28 +35,86 @@ SET description = CASE WHEN @field::text = 'description' THEN @value::text ELSE 
     why         = CASE WHEN @field::text = 'why'         THEN @value::text ELSE why         END,
     done_when   = CASE WHEN @field::text = 'done_when'   THEN @value::text ELSE done_when   END,
     component   = CASE WHEN @field::text = 'component'   THEN @value::text ELSE component   END,
-    category    = CASE WHEN @field::text = 'category'    THEN @value::text ELSE category    END
+    category    = CASE WHEN @field::text = 'category'    THEN @value::text ELSE category    END,
+    kind        = CASE WHEN @field::text = 'kind'        THEN @value::text ELSE kind        END,
+    metric_name = CASE WHEN @field::text = 'metric_name' THEN @value::text ELSE metric_name END,
+    metric_unit = CASE WHEN @field::text = 'metric_unit' THEN @value::text ELSE metric_unit END,
+    baseline_value = CASE WHEN @field::text = 'baseline_value' THEN @value::text ELSE baseline_value END,
+    target_value   = CASE WHEN @field::text = 'target_value'   THEN @value::text ELSE target_value   END,
+    graph_url      = CASE WHEN @field::text = 'graph_url'      THEN @value::text ELSE graph_url      END
 WHERE project_id = @project_id AND name = @name;
+
+-- name: UpdateFeatureGoal :exec
+UPDATE zdx_features SET goal_id = @goal_id WHERE id = @id;
+
+-- name: UpdateFeatureParent :exec
+UPDATE zdx_features SET parent_feature_id = @parent_feature_id WHERE id = @id;
 
 -- name: DeleteFeature :exec
 DELETE FROM zdx_features WHERE id = $1;
 
+-- name: ListChildFeatures :many
+SELECT id, project_id, name, description, kind, goal_id, component
+FROM zdx_features WHERE parent_feature_id = $1
+ORDER BY name;
+
+-- name: ListUnattributedFeatures :many
+-- Features with no goal and no parent (orphans needing attribution).
+SELECT id, project_id, name, description, kind, component
+FROM zdx_features
+WHERE project_id = $1
+  AND goal_id IS NULL
+  AND parent_feature_id IS NULL
+ORDER BY name;
+
+-- name: ListFeaturesNeedingInstrumentation :many
+-- Multiplier features missing baseline/target/graph.
+SELECT id, project_id, name, description, component,
+       metric_name, metric_unit, baseline_value, target_value, graph_url
+FROM zdx_features
+WHERE project_id = $1
+  AND kind = 'multiplier'
+  AND (baseline_value = '' OR target_value = '' OR graph_url = '')
+ORDER BY name;
+
+-- name: AddFeatureMultiplier :exec
+INSERT INTO zdx_feature_multipliers (feature_id, multiplies_feature_id)
+VALUES ($1, $2) ON CONFLICT DO NOTHING;
+
+-- name: RemoveFeatureMultiplier :exec
+DELETE FROM zdx_feature_multipliers WHERE feature_id = $1 AND multiplies_feature_id = $2;
+
+-- name: ListFeatureMultipliers :many
+SELECT fm.multiplies_feature_id, f.name, f.description, f.kind
+FROM zdx_feature_multipliers fm
+JOIN zdx_features f ON f.id = fm.multiplies_feature_id
+WHERE fm.feature_id = $1
+ORDER BY f.name;
+
+-- name: ListFeaturesByGoal :many
+SELECT id, project_id, name, description, kind, component, parent_feature_id
+FROM zdx_features WHERE goal_id = $1
+ORDER BY name;
+
+-- ── Specs ────────────────────────────────────────────────────────────────────
+
 -- name: ListSpecs :many
-SELECT id, feature_id, description, kind, deferred, deferred_reason FROM zdx_specs WHERE feature_id = $1 ORDER BY id;
+SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+FROM zdx_specs WHERE feature_id = $1 ORDER BY id;
 
 -- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.deferred, s.deferred_reason
+SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, s.deferred, s.deferred_reason
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
 ORDER BY s.feature_id, s.id;
 
 -- name: GetSpec :one
-SELECT id, feature_id, description, kind, deferred, deferred_reason FROM zdx_specs WHERE id = $1;
+SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+FROM zdx_specs WHERE id = $1;
 
 -- name: ListUncoveredSpecs :many
--- Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
-SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
+SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
@@ -54,6 +128,9 @@ UPDATE zdx_specs SET deferred = true, deferred_reason = @reason WHERE id = @id;
 
 -- name: UndeferSpec :exec
 UPDATE zdx_specs SET deferred = false, deferred_reason = '' WHERE id = $1;
+
+-- name: UpdateSpecConcernType :exec
+UPDATE zdx_specs SET concern_type = @concern_type WHERE id = @id;
 
 -- name: LinkSpecIssue :exec
 INSERT INTO zdx_spec_issues (spec_id, issue_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
@@ -69,7 +146,7 @@ WHERE si.spec_id = $1
 ORDER BY si.created_at;
 
 -- name: ListIssueSpecs :many
-SELECT si.spec_id, si.issue_id, s.description, s.kind, s.deferred
+SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type, s.deferred
 FROM zdx_spec_issues si
 JOIN zdx_specs s ON s.id = si.spec_id
 WHERE si.issue_id = $1
@@ -80,27 +157,23 @@ UPDATE zdx_features SET last_reviewed_at = NOW()
 WHERE project_id = $1 AND name = $2;
 
 -- name: ListStaleFeatures :many
--- Features not reviewed in more than @stale_days days (or never reviewed).
-SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
+SELECT id, project_id, name, description, what, why, done_when, component, category,
+       kind, goal_id, parent_feature_id, last_reviewed_at
 FROM zdx_features
 WHERE project_id = @project_id
   AND (last_reviewed_at IS NULL OR last_reviewed_at < NOW() - (@stale_days::int || ' days')::interval)
 ORDER BY last_reviewed_at NULLS FIRST, name;
 
 -- name: AddSpec :one
-INSERT INTO zdx_specs (feature_id, description, kind) VALUES ($1, $2, $3)
-RETURNING id, feature_id, description, kind;
+INSERT INTO zdx_specs (feature_id, description, kind, concern_type) VALUES ($1, $2, $3, $4)
+RETURNING id, feature_id, description, kind, concern_type;
 
--- name: UpsertPlan :one
-INSERT INTO zdx_plans (feature_id, plan_type, complexity, approach, status)
-VALUES (@feature_id, @plan_type, @complexity, @approach, 'pending')
-ON CONFLICT (feature_id) DO UPDATE
-SET plan_type = EXCLUDED.plan_type,
-    complexity = EXCLUDED.complexity,
-    approach = EXCLUDED.approach,
-    last_reviewed_at = NOW()
-RETURNING id, feature_id, plan_type, status, complexity, approach, last_reviewed_at;
-
--- name: GetPlanByFeature :one
-SELECT id, feature_id, plan_type, status, complexity, approach, last_reviewed_at
-FROM zdx_plans WHERE feature_id = $1;
+-- name: ListOverspeccedFeatures :many
+-- Features with more than @threshold non-deferred specs (decomposition signal).
+SELECT f.id, f.project_id, f.name, f.description, f.component, count(s.id)::int AS spec_count
+FROM zdx_features f
+JOIN zdx_specs s ON s.feature_id = f.id AND s.deferred = false
+WHERE f.project_id = @project_id
+GROUP BY f.id
+HAVING count(s.id) > @threshold
+ORDER BY count(s.id) DESC;

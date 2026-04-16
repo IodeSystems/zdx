@@ -111,6 +111,7 @@ func featureShowCmd() *cobra.Command {
 
 func featureSetCmd() *cobra.Command {
 	var what, why, doneWhen, component, description, category string
+	var kind, metricName, metricUnit, baselineValue, targetValue, graphURL string
 	cmd := &cobra.Command{
 		Use:   "set <name>",
 		Short: "Set fields on a feature",
@@ -121,12 +122,18 @@ func featureSetCmd() *cobra.Command {
 			name := args[0]
 
 			fields := map[string]string{
-				"what":        what,
-				"why":         why,
-				"done_when":   doneWhen,
-				"component":   component,
-				"description": description,
-				"category":    category,
+				"what":           what,
+				"why":            why,
+				"done_when":      doneWhen,
+				"component":      component,
+				"description":    description,
+				"category":       category,
+				"kind":           kind,
+				"metric_name":    metricName,
+				"metric_unit":    metricUnit,
+				"baseline_value": baselineValue,
+				"target_value":   targetValue,
+				"graph_url":      graphURL,
 			}
 			changed := false
 			for field, value := range fields {
@@ -144,7 +151,7 @@ func featureSetCmd() *cobra.Command {
 				changed = true
 			}
 			if !changed {
-				return fmt.Errorf("no fields specified — use --what, --why, --done-when, --component, --category, or --desc")
+				return fmt.Errorf("no fields specified — use --what, --why, --done-when, --component, --category, --desc, --kind, --metric-name, etc.")
 			}
 			fmt.Printf("%s updated\n", name)
 			return nil
@@ -156,6 +163,12 @@ func featureSetCmd() *cobra.Command {
 	cmd.Flags().StringVar(&component, "component", "", "component (e.g. ui, api, cli)")
 	cmd.Flags().StringVar(&description, "desc", "", "short description")
 	cmd.Flags().StringVar(&category, "category", "", "category (e.g. Testing, Dx, UI)")
+	cmd.Flags().StringVar(&kind, "kind", "", "feature kind: direct or multiplier")
+	cmd.Flags().StringVar(&metricName, "metric-name", "", "measured metric name")
+	cmd.Flags().StringVar(&metricUnit, "metric-unit", "", "metric unit")
+	cmd.Flags().StringVar(&baselineValue, "baseline-value", "", "baseline measurement")
+	cmd.Flags().StringVar(&targetValue, "target-value", "", "target measurement")
+	cmd.Flags().StringVar(&graphURL, "graph-url", "", "URL to instrumentation graph/dashboard")
 	return cmd
 }
 
@@ -188,6 +201,16 @@ func fieldFlag(field string) string {
 		return "done-when"
 	case "description":
 		return "desc"
+	case "metric_name":
+		return "metric-name"
+	case "metric_unit":
+		return "metric-unit"
+	case "baseline_value":
+		return "baseline-value"
+	case "target_value":
+		return "target-value"
+	case "graph_url":
+		return "graph-url"
 	default:
 		return field
 	}

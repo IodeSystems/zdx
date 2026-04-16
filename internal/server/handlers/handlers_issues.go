@@ -267,7 +267,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				}
 			}
 			for _, tid := range in.Body.ThemeIDs {
-				_ = h.Q.AddThemeBlocker(ctx, db.AddThemeBlockerParams{ThemeID: tid, IssueID: issueID})
+				_ = h.Q.AddFocusBlocker(ctx, db.AddFocusBlockerParams{FocusID: tid, IssueID: issueID})
 			}
 			for _, gid := range in.Body.GoalIDs {
 				_ = h.Q.LinkGoalIssue(ctx, db.LinkGoalIssueParams{GoalID: gid, IssueID: issueID})

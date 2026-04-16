@@ -18,6 +18,8 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 		Description string `json:"description"`
 		Priority    int32  `json:"priority"`
 		Status      string `json:"status"`
+		MetricName  string `json:"metric_name"`
+		MetricUnit  string `json:"metric_unit"`
 		CreatedAt   string `json:"created_at"`
 		UpdatedAt   string `json:"updated_at"`
 	}
@@ -48,7 +50,7 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 			}
 			out := make([]GoalItem, len(rows))
 			for i, r := range rows {
-				out[i] = GoalItem{ID: r.ID, Title: r.Title, Description: r.Description, Priority: r.Priority, Status: r.Status, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt)}
+				out[i] = GoalItem{ID: r.ID, Title: r.Title, Description: r.Description, Priority: r.Priority, Status: r.Status, MetricName: r.MetricName, MetricUnit: r.MetricUnit, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt)}
 			}
 			return &struct {
 				Body struct {
@@ -67,6 +69,8 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 				Description string `json:"description"`
 				Priority    int32  `json:"priority"`
 				Status      string `json:"status"`
+				MetricName  string `json:"metric_name" required:"false"`
+				MetricUnit  string `json:"metric_unit" required:"false"`
 			}
 		}) (*struct{ Body GoalItem }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -83,11 +87,13 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 				Description: in.Body.Description,
 				Priority:    in.Body.Priority,
 				Status:      status,
+				MetricName:  in.Body.MetricName,
+				MetricUnit:  in.Body.MetricUnit,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body GoalItem }{Body: GoalItem{ID: row.ID, Title: row.Title, Description: row.Description, Priority: row.Priority, Status: row.Status, CreatedAt: fmtTS(row.CreatedAt), UpdatedAt: fmtTS(row.UpdatedAt)}}, nil
+			return &struct{ Body GoalItem }{Body: GoalItem{ID: row.ID, Title: row.Title, Description: row.Description, Priority: row.Priority, Status: row.Status, MetricName: row.MetricName, MetricUnit: row.MetricUnit, CreatedAt: fmtTS(row.CreatedAt), UpdatedAt: fmtTS(row.UpdatedAt)}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "update-goal", Method: http.MethodPut, Path: "/api/goal"},
@@ -98,6 +104,8 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 				Description string `json:"description"`
 				Priority    int32  `json:"priority"`
 				Status      string `json:"status"`
+				MetricName  string `json:"metric_name" required:"false"`
+				MetricUnit  string `json:"metric_unit" required:"false"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			if err := h.Q.UpdateProjectGoal(ctx, db.UpdateProjectGoalParams{
@@ -106,6 +114,8 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 				Description: in.Body.Description,
 				Priority:    in.Body.Priority,
 				Status:      in.Body.Status,
+				MetricName:  in.Body.MetricName,
+				MetricUnit:  in.Body.MetricUnit,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}

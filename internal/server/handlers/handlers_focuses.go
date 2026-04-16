@@ -10,44 +10,46 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (h *Handler) registerThemeRoutes(api huma.API) {
-	huma.Register(api, huma.Operation{OperationID: "list-themes", Method: http.MethodGet, Path: "/api/dx/themes"},
+func (h *Handler) registerFocusRoutes(api huma.API) {
+	huma.Register(api, huma.Operation{OperationID: "list-focuses", Method: http.MethodGet, Path: "/api/dx/focuses"},
 		func(ctx context.Context, in *IssueSlugInput) (*struct {
 			Body struct {
-				Themes []ThemeItem `json:"themes"`
+				Focuses []FocusItem `json:"focuses"`
 			}
 		}, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := h.Q.ListThemes(ctx, p.ID)
+			rows, err := h.Q.ListFocuses(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]ThemeItem, len(rows))
+			out := make([]FocusItem, len(rows))
 			for i, r := range rows {
 				blockers, _ := r.Blockers.(string)
-				out[i] = ThemeItem{
+				out[i] = FocusItem{
 					ID:          r.ID,
 					Name:        r.Name,
 					Description: r.Description,
 					Priority:    r.Priority,
 					Status:      r.Status,
 					Blockers:    blockers,
+					StartedAt:   fmtTS(r.StartedAt),
+					EndedAt:     fmtTS(r.EndedAt),
 					CreatedAt:   fmtTS(r.CreatedAt),
 				}
 			}
 			return &struct {
 				Body struct {
-					Themes []ThemeItem `json:"themes"`
+					Focuses []FocusItem `json:"focuses"`
 				}
 			}{Body: struct {
-				Themes []ThemeItem `json:"themes"`
-			}{Themes: out}}, nil
+				Focuses []FocusItem `json:"focuses"`
+			}{Focuses: out}}, nil
 		})
 
-	huma.Register(api, huma.Operation{OperationID: "add-theme", Method: http.MethodPost, Path: "/api/dx/themes/add"},
+	huma.Register(api, huma.Operation{OperationID: "add-focus", Method: http.MethodPost, Path: "/api/dx/focuses/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				Slug        string `json:"slug"`
@@ -56,12 +58,12 @@ func (h *Handler) registerThemeRoutes(api huma.API) {
 				Priority    int32  `json:"priority"`
 				Blockers    string `json:"blockers"`
 			}
-		}) (*struct{ Body ThemeItem }, error) {
+		}) (*struct{ Body FocusItem }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := h.Q.CreateTheme(ctx, db.CreateThemeParams{
+			row, err := h.Q.CreateFocus(ctx, db.CreateFocusParams{
 				ProjectID:   p.ID,
 				Name:        in.Body.Name,
 				Description: in.Body.Description,
@@ -70,7 +72,7 @@ func (h *Handler) registerThemeRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body ThemeItem }{Body: ThemeItem{
+			return &struct{ Body FocusItem }{Body: FocusItem{
 				ID:          row.ID,
 				Name:        row.Name,
 				Description: row.Description,
@@ -80,11 +82,11 @@ func (h *Handler) registerThemeRoutes(api huma.API) {
 			}}, nil
 		})
 
-	huma.Register(api, huma.Operation{OperationID: "set-theme-status", Method: http.MethodPost, Path: "/api/dx/themes/status"},
+	huma.Register(api, huma.Operation{OperationID: "set-focus-status", Method: http.MethodPost, Path: "/api/dx/focuses/status"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				Slug   string `json:"slug"`
-				Theme  string `json:"theme"` // "TH-N" or name
+				Focus  string `json:"focus"` // "FO-N" or name
 				Status string `json:"status"`
 			}
 		}) (*struct{ Body OKBody }, error) {
@@ -92,13 +94,13 @@ func (h *Handler) registerThemeRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			theme, err := h.resolveTheme(ctx, p.ID, in.Body.Theme)
+			focus, err := h.resolveFocus(ctx, p.ID, in.Body.Focus)
 			if err != nil {
 				return nil, err
 			}
-			if err := h.Q.UpdateThemeStatus(ctx, db.UpdateThemeStatusParams{
+			if err := h.Q.UpdateFocusStatus(ctx, db.UpdateFocusStatusParams{
 				ProjectID: p.ID,
-				ID:        theme.ID,
+				ID:        focus.ID,
 				Status:    in.Body.Status,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
@@ -106,36 +108,11 @@ func (h *Handler) registerThemeRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
-	huma.Register(api, huma.Operation{OperationID: "add-theme-blocker", Method: http.MethodPost, Path: "/api/dx/themes/block"},
+	huma.Register(api, huma.Operation{OperationID: "add-focus-blocker", Method: http.MethodPost, Path: "/api/dx/focuses/block"},
 		func(ctx context.Context, in *struct {
 			Body struct {
 				Slug  string `json:"slug"`
-				Theme string `json:"theme"`
-				Issue string `json:"issue"` // "IS-N"
-			}
-		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, h.Q, in.Body.Slug)
-			if err != nil {
-				return nil, err
-			}
-			theme, err := h.resolveTheme(ctx, p.ID, in.Body.Theme)
-			if err != nil {
-				return nil, err
-			}
-			if err := h.Q.AddThemeBlocker(ctx, db.AddThemeBlockerParams{
-				ThemeID: theme.ID,
-				IssueID: in.Body.Issue,
-			}); err != nil {
-				return nil, apiErr(500, err.Error())
-			}
-			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
-		})
-
-	huma.Register(api, huma.Operation{OperationID: "remove-theme-blocker", Method: http.MethodPost, Path: "/api/dx/themes/unblock"},
-		func(ctx context.Context, in *struct {
-			Body struct {
-				Slug  string `json:"slug"`
-				Theme string `json:"theme"`
+				Focus string `json:"focus"`
 				Issue string `json:"issue"`
 			}
 		}) (*struct{ Body OKBody }, error) {
@@ -143,12 +120,37 @@ func (h *Handler) registerThemeRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			theme, err := h.resolveTheme(ctx, p.ID, in.Body.Theme)
+			focus, err := h.resolveFocus(ctx, p.ID, in.Body.Focus)
 			if err != nil {
 				return nil, err
 			}
-			if err := h.Q.RemoveThemeBlocker(ctx, db.RemoveThemeBlockerParams{
-				ThemeID: theme.ID,
+			if err := h.Q.AddFocusBlocker(ctx, db.AddFocusBlockerParams{
+				FocusID: focus.ID,
+				IssueID: in.Body.Issue,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "remove-focus-blocker", Method: http.MethodPost, Path: "/api/dx/focuses/unblock"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string `json:"slug"`
+				Focus string `json:"focus"`
+				Issue string `json:"issue"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			focus, err := h.resolveFocus(ctx, p.ID, in.Body.Focus)
+			if err != nil {
+				return nil, err
+			}
+			if err := h.Q.RemoveFocusBlocker(ctx, db.RemoveFocusBlockerParams{
+				FocusID: focus.ID,
 				IssueID: in.Body.Issue,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
@@ -159,19 +161,21 @@ func (h *Handler) registerThemeRoutes(api huma.API) {
 
 // ── Internal helper ───────────────────────────────────────────────────────
 
-func (h *Handler) resolveTheme(ctx context.Context, projectID int32, ref string) (db.ZdxTheme, error) {
-	// "TH-N" → integer lookup
-	if strings.HasPrefix(ref, "TH-") {
-		id := intFromPrefixed(ref, "TH-")
-		t, err := h.Q.GetThemeByID(ctx, db.GetThemeByIDParams{ProjectID: projectID, ID: id})
-		if err != nil {
-			return db.ZdxTheme{}, apiErr(http.StatusNotFound, "theme not found: "+ref)
+func (h *Handler) resolveFocus(ctx context.Context, projectID int32, ref string) (db.ZdxFocuse, error) {
+	// "FO-N" or legacy "TH-N" → integer lookup
+	for _, prefix := range []string{"FO-", "TH-"} {
+		if strings.HasPrefix(ref, prefix) {
+			id := intFromPrefixed(ref, prefix)
+			t, err := h.Q.GetFocusByID(ctx, db.GetFocusByIDParams{ProjectID: projectID, ID: id})
+			if err != nil {
+				return db.ZdxFocuse{}, apiErr(http.StatusNotFound, "focus not found: "+ref)
+			}
+			return t, nil
 		}
-		return t, nil
 	}
-	t, err := h.Q.GetThemeByName(ctx, db.GetThemeByNameParams{ProjectID: projectID, Name: ref})
+	t, err := h.Q.GetFocusByName(ctx, db.GetFocusByNameParams{ProjectID: projectID, Name: ref})
 	if err != nil {
-		return db.ZdxTheme{}, apiErr(http.StatusNotFound, "theme not found: "+ref)
+		return db.ZdxFocuse{}, apiErr(http.StatusNotFound, "focus not found: "+ref)
 	}
 	return t, nil
 }

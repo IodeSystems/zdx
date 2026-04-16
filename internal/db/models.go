@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type SchemaMigration struct {
+	Version int64 `db:"version" json:"version"`
+	Dirty   bool  `db:"dirty" json:"dirty"`
+}
+
 type ZdxAgent struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
@@ -189,16 +194,29 @@ type ZdxErrorReport struct {
 }
 
 type ZdxFeature struct {
-	ID             int32              `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
-	Name           string             `db:"name" json:"name"`
-	Description    string             `db:"description" json:"description"`
-	What           string             `db:"what" json:"what"`
-	Why            string             `db:"why" json:"why"`
-	DoneWhen       string             `db:"done_when" json:"done_when"`
-	Component      string             `db:"component" json:"component"`
-	Category       string             `db:"category" json:"category"`
-	LastReviewedAt pgtype.Timestamptz `db:"last_reviewed_at" json:"last_reviewed_at"`
+	ID              int32              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	Name            string             `db:"name" json:"name"`
+	Description     string             `db:"description" json:"description"`
+	What            string             `db:"what" json:"what"`
+	Why             string             `db:"why" json:"why"`
+	DoneWhen        string             `db:"done_when" json:"done_when"`
+	Component       string             `db:"component" json:"component"`
+	Category        string             `db:"category" json:"category"`
+	LastReviewedAt  pgtype.Timestamptz `db:"last_reviewed_at" json:"last_reviewed_at"`
+	ParentFeatureID pgtype.Int4        `db:"parent_feature_id" json:"parent_feature_id"`
+	Kind            string             `db:"kind" json:"kind"`
+	GoalID          pgtype.Int4        `db:"goal_id" json:"goal_id"`
+	MetricName      string             `db:"metric_name" json:"metric_name"`
+	MetricUnit      string             `db:"metric_unit" json:"metric_unit"`
+	BaselineValue   string             `db:"baseline_value" json:"baseline_value"`
+	TargetValue     string             `db:"target_value" json:"target_value"`
+	GraphUrl        string             `db:"graph_url" json:"graph_url"`
+}
+
+type ZdxFeatureMultiplier struct {
+	FeatureID           int32 `db:"feature_id" json:"feature_id"`
+	MultipliesFeatureID int32 `db:"multiplies_feature_id" json:"multiplies_feature_id"`
 }
 
 type ZdxFile struct {
@@ -208,6 +226,28 @@ type ZdxFile struct {
 	MimeType  string             `db:"mime_type" json:"mime_type"`
 	SizeBytes int64              `db:"size_bytes" json:"size_bytes"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ZdxFocusBlocker struct {
+	FocusID int32  `db:"focus_id" json:"focus_id"`
+	IssueID string `db:"issue_id" json:"issue_id"`
+}
+
+type ZdxFocusFeature struct {
+	FocusID   int32 `db:"focus_id" json:"focus_id"`
+	FeatureID int32 `db:"feature_id" json:"feature_id"`
+}
+
+type ZdxFocuse struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Name        string             `db:"name" json:"name"`
+	Description string             `db:"description" json:"description"`
+	Priority    int32              `db:"priority" json:"priority"`
+	Status      string             `db:"status" json:"status"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	StartedAt   pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	EndedAt     pgtype.Timestamptz `db:"ended_at" json:"ended_at"`
 }
 
 type ZdxGoalIssue struct {
@@ -372,12 +412,36 @@ type ZdxPattern struct {
 
 type ZdxPlan struct {
 	ID             int32              `db:"id" json:"id"`
-	FeatureID      int32              `db:"feature_id" json:"feature_id"`
+	FeatureID      pgtype.Int4        `db:"feature_id" json:"feature_id"`
 	PlanType       string             `db:"plan_type" json:"plan_type"`
 	Status         string             `db:"status" json:"status"`
 	Complexity     string             `db:"complexity" json:"complexity"`
 	Approach       string             `db:"approach" json:"approach"`
 	LastReviewedAt pgtype.Timestamptz `db:"last_reviewed_at" json:"last_reviewed_at"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Title          string             `db:"title" json:"title"`
+	Body           string             `db:"body" json:"body"`
+	FocusID        pgtype.Int4        `db:"focus_id" json:"focus_id"`
+	IssueID        pgtype.Text        `db:"issue_id" json:"issue_id"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type ZdxPlanStep struct {
+	ID        int32              `db:"id" json:"id"`
+	PlanID    int32              `db:"plan_id" json:"plan_id"`
+	Seq       int32              `db:"seq" json:"seq"`
+	Text      string             `db:"text" json:"text"`
+	Status    string             `db:"status" json:"status"`
+	DependsOn pgtype.Int4        `db:"depends_on" json:"depends_on"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type ZdxPlanStepRef struct {
+	StepID     int32  `db:"step_id" json:"step_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
 }
 
 type ZdxProject struct {
@@ -419,6 +483,8 @@ type ZdxProjectGoal struct {
 	Status      string             `db:"status" json:"status"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	MetricName  string             `db:"metric_name" json:"metric_name"`
+	MetricUnit  string             `db:"metric_unit" json:"metric_unit"`
 }
 
 type ZdxProjectPermission struct {
@@ -494,6 +560,7 @@ type ZdxSpec struct {
 	Kind           string `db:"kind" json:"kind"`
 	Deferred       bool   `db:"deferred" json:"deferred"`
 	DeferredReason string `db:"deferred_reason" json:"deferred_reason"`
+	ConcernType    string `db:"concern_type" json:"concern_type"`
 }
 
 type ZdxSpecIssue struct {
@@ -601,21 +668,6 @@ type ZdxTestResultHistory struct {
 	RunAt      pgtype.Timestamptz `db:"run_at" json:"run_at"`
 	Branch     string             `db:"branch" json:"branch"`
 	GitSha     string             `db:"git_sha" json:"git_sha"`
-}
-
-type ZdxTheme struct {
-	ID          int32              `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Name        string             `db:"name" json:"name"`
-	Description string             `db:"description" json:"description"`
-	Priority    int32              `db:"priority" json:"priority"`
-	Status      string             `db:"status" json:"status"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-type ZdxThemeBlocker struct {
-	ThemeID int32  `db:"theme_id" json:"theme_id"`
-	IssueID string `db:"issue_id" json:"issue_id"`
 }
 
 type ZdxTimed struct {

@@ -92,22 +92,31 @@ type TaskItem struct {
 }
 
 type FeatureItem struct {
-	ID          int32      `json:"id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	What        string     `json:"what"`
-	Why         string     `json:"why"`
-	DoneWhen    string     `json:"done_when"`
-	Component   string     `json:"component"`
-	Category    string     `json:"category"`
-	PlanType    string     `json:"plan_type"`
-	Specs       []SpecItem `json:"specs"`
+	ID              int32      `json:"id"`
+	Name            string     `json:"name"`
+	Description     string     `json:"description"`
+	What            string     `json:"what"`
+	Why             string     `json:"why"`
+	DoneWhen        string     `json:"done_when"`
+	Component       string     `json:"component"`
+	Category        string     `json:"category"`
+	Kind            string     `json:"kind"`
+	GoalID          int32      `json:"goal_id"`
+	ParentFeatureID int32      `json:"parent_feature_id"`
+	MetricName      string     `json:"metric_name"`
+	MetricUnit      string     `json:"metric_unit"`
+	BaselineValue   string     `json:"baseline_value"`
+	TargetValue     string     `json:"target_value"`
+	GraphURL        string     `json:"graph_url"`
+	PlanType        string     `json:"plan_type"`
+	Specs           []SpecItem `json:"specs"`
 }
 
 type SpecItem struct {
 	ID          int32  `json:"id"`
 	Description string `json:"description"`
 	Kind        string `json:"kind"`
+	ConcernType string `json:"concern_type"`
 	Deferred    bool   `json:"deferred"`
 }
 
@@ -141,13 +150,17 @@ type PatternItem struct {
 	UpdatedAt   string          `json:"updated_at"`
 }
 
-type ThemeItem struct {
+type ThemeItem = FocusItem
+
+type FocusItem struct {
 	ID          int32  `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Priority    int32  `json:"priority"`
 	Status      string `json:"status"`
 	Blockers    string `json:"blockers"`
+	StartedAt   string `json:"started_at"`
+	EndedAt     string `json:"ended_at"`
 	CreatedAt   string `json:"created_at"`
 }
 
@@ -157,6 +170,8 @@ type GoalItem struct {
 	Description string `json:"description"`
 	Priority    int32  `json:"priority"`
 	Status      string `json:"status"`
+	MetricName  string `json:"metric_name"`
+	MetricUnit  string `json:"metric_unit"`
 	CreatedAt   string `json:"created_at"`
 	UpdatedAt   string `json:"updated_at"`
 }

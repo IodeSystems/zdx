@@ -17,7 +17,7 @@ import {
   Typography,
 } from '@mui/material'
 import { useState } from 'react'
-import { useListThemes, useAddTheme } from '../api'
+import { useListFocuses, useAddFocus } from '../api'
 
 const PRIORITY_LABELS: Record<number, string> = { 1: 'urgent', 2: 'high', 3: 'medium', 4: 'low' }
 const PRIORITY_COLORS: Record<string, 'error' | 'warning' | 'info' | 'default'> = {
@@ -32,9 +32,9 @@ const STATUS_COLORS: Record<string, 'success' | 'info' | 'default'> = {
   archived: 'default',
 }
 
-export function ThemesTab({ slug }: { slug: string }) {
-  const { data: themes, isLoading } = useListThemes(slug)
-  const addTheme = useAddTheme()
+export function FocusesTab({ slug }: { slug: string }) {
+  const { data: focuses, isLoading } = useListFocuses(slug)
+  const addFocus = useAddFocus()
   const [open, setOpen] = useState(false)
   const [name, setName] = useState('')
   const [description, setDescription] = useState('')
@@ -42,10 +42,10 @@ export function ThemesTab({ slug }: { slug: string }) {
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
-  const items = themes ?? []
+  const items = focuses ?? []
 
   const handleCreate = () => {
-    addTheme.mutate(
+    addFocus.mutate(
       { slug, name, description, priority, blockers: '' },
       { onSuccess: () => { setOpen(false); setName(''); setDescription(''); setPriority(2) } },
     )
@@ -55,10 +55,10 @@ export function ThemesTab({ slug }: { slug: string }) {
     <Box>
       <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
         <Typography variant="subtitle2" color="text.secondary">
-          {items.length} theme{items.length !== 1 ? 's' : ''}
+          {items.length} focus{items.length !== 1 ? 'es' : ''}
         </Typography>
         <Button size="small" variant="contained" onClick={() => setOpen(true)}>
-          New Theme
+          New Focus
         </Button>
       </Box>
 
@@ -80,7 +80,7 @@ export function ThemesTab({ slug }: { slug: string }) {
                 <TableRow
                   key={t.id}
                   component={Link as any}
-                  to="/project/$slug/themes/$name"
+                  to="/project/$slug/focuses/$name"
                   params={{ slug, name: t.name }}
                   sx={{ textDecoration: 'none', color: 'inherit', '&:hover': { bgcolor: 'action.hover' } }}
                 >
@@ -100,7 +100,7 @@ export function ThemesTab({ slug }: { slug: string }) {
       </TableContainer>
 
       <Dialog open={open} onClose={() => setOpen(false)} maxWidth="xs" fullWidth>
-        <DialogTitle>New Theme</DialogTitle>
+        <DialogTitle>New Focus</DialogTitle>
         <DialogContent>
           <TextField
             fullWidth
@@ -138,7 +138,7 @@ export function ThemesTab({ slug }: { slug: string }) {
           <Button onClick={() => setOpen(false)}>Cancel</Button>
           <Button
             variant="contained"
-            disabled={addTheme.isPending || !name.trim()}
+            disabled={addFocus.isPending || !name.trim()}
             onClick={handleCreate}
           >
             Create

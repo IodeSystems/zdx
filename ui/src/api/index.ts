@@ -17,6 +17,7 @@ export type ProjectItem = components['schemas']['ProjectItem']
 export type MeItem = components['schemas']['MeItem']
 export type OKBody = components['schemas']['OKBody']
 export type ThemeItem = components['schemas']['ThemeItem']
+export type FocusItem = ThemeItem
 
 export interface SoloItem {
   id: number
@@ -1691,54 +1692,75 @@ export const useGenerateJournalEntry = () => {
   })
 }
 
-// ── themes ───────────────────────────────────────────────────────────────────
+// ── focuses ──────────────────────────────────────────────────────────────────
 
-export const useListThemes = (slug: string) =>
-  useQuery<ThemeItem[]>({
-    queryKey: ['themes', slug],
+export const useListFocuses = (slug: string) =>
+  useQuery<FocusItem[]>({
+    queryKey: ['focuses', slug],
     queryFn: async () => {
-      const { data, error } = await client.GET('/api/dx/themes', { params: { query: { slug } } })
-      if (error) throw new Error(JSON.stringify(error))
-      return data?.themes ?? []
+      const res = await apiFetch<{ focuses: FocusItem[] }>(`/api/dx/focuses?slug=${encodeURIComponent(slug)}`)
+      return res.focuses ?? []
     },
     enabled: !!slug,
   })
 
+// Keep old name as alias for consumers that haven't migrated yet
+export const useListThemes = useListFocuses
+
+export const useAddFocusBlocker = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, { slug: string; focus: string; issue: string }>({
+    mutationFn: async (body) => {
+      return apiPost<OKBody>('/api/dx/focuses/block', body)
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
+  })
+}
+
+// Keep old name as alias
 export const useAddThemeBlocker = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, { slug: string; theme: string; issue: string }>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/dx/themes/block', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
+    mutationFn: async ({ slug, theme, issue }) => {
+      return apiPost<OKBody>('/api/dx/focuses/block', { slug, focus: theme, issue })
     },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['themes', v.slug] }),
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
 }
 
+export const useRemoveFocusBlocker = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, { slug: string; focus: string; issue: string }>({
+    mutationFn: async (body) => {
+      return apiPost<OKBody>('/api/dx/focuses/unblock', body)
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
+  })
+}
+
+// Keep old name as alias
 export const useRemoveThemeBlocker = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, { slug: string; theme: string; issue: string }>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/dx/themes/unblock', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
+    mutationFn: async ({ slug, theme, issue }) => {
+      return apiPost<OKBody>('/api/dx/focuses/unblock', { slug, focus: theme, issue })
     },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['themes', v.slug] }),
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
 }
 
-export const useAddTheme = () => {
+export const useAddFocus = () => {
   const qc = useQueryClient()
-  return useMutation<ThemeItem, Error, components['schemas']['Add-themeRequest']>({
+  return useMutation<FocusItem, Error, { slug: string; name: string; description: string; priority: number; blockers: string }>({
     mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/dx/themes/add', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
+      return apiPost<FocusItem>('/api/dx/focuses/add', body)
     },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['themes', v.slug] }),
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
 }
+
+// Keep old name as alias
+export const useAddTheme = useAddFocus
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
@@ -1810,15 +1832,24 @@ export const useTestHistory = (slug: string, testName: string, enabled: boolean)
     enabled: !!slug && !!testName && enabled,
   })
 
+export const useSetFocusStatus = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, { slug: string; focus: string; status: string }>({
+    mutationFn: async (body) => {
+      return apiPost<OKBody>('/api/dx/focuses/status', body)
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
+  })
+}
+
+// Keep old name as alias
 export const useSetThemeStatus = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, { slug: string; theme: string; status: string }>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/dx/themes/status', { body })
-      if (error) throw new Error(JSON.stringify(error))
-      return data!
+    mutationFn: async ({ slug, theme, status }) => {
+      return apiPost<OKBody>('/api/dx/focuses/status', { slug, focus: theme, status })
     },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['themes', v.slug] }),
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
 }
 

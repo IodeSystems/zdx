@@ -9,6 +9,8 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -45,7 +47,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				return nil, apiErr(http.StatusNotFound, "feature not found: "+in.Name)
 			}
 			specs, _ := h.Q.ListSpecs(ctx, feat.ID)
-			return &struct{ Body FeatureItem }{Body: toFeatureItem(feat, specs)}, nil
+			return &struct{ Body FeatureItem }{Body: toFeatureItemFromGet(feat, specs)}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "upsert-feature", Method: http.MethodPost, Path: "/api/feature"},
@@ -68,7 +70,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body FeatureItem }{Body: toFeatureItem(row, nil)}, nil
+			return &struct{ Body FeatureItem }{Body: toFeatureItemFromUpsert(row)}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "delete-feature", Method: http.MethodDelete, Path: "/api/feature"},
@@ -129,6 +131,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				FeatureID:   f.ID,
 				Description: in.Body.Value,
 				Kind:        in.Body.Field,
+				ConcernType: "functional",
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -342,7 +345,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			}
 			out := make([]FeatureItem, len(rows))
 			for i, r := range rows {
-				out[i] = toFeatureItem(r, nil)
+				out[i] = toFeatureItemFromStale(r)
 			}
 			return &struct {
 				Body struct {
@@ -456,8 +459,9 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "feature not found")
 			}
-			_, err = h.Q.UpsertPlan(ctx, db.UpsertPlanParams{
-				FeatureID:  f.ID,
+			_, err = h.Q.CreatePlan(ctx, db.CreatePlanParams{
+				ProjectID:  p.ID,
+				FeatureID:  pgtype.Int4{Int32: f.ID, Valid: true},
 				PlanType:   in.Body.PlanType,
 				Complexity: in.Body.Complexity,
 				Approach:   in.Body.Approach,
@@ -486,13 +490,16 @@ func (h *Handler) featuresWithSpecs(ctx context.Context, slug string) (*struct {
 	}
 	// Fetch all specs in one query and group by feature_id.
 	allSpecs, _ := h.Q.ListSpecsForProject(ctx, p.ID)
-	specsByFeature := make(map[int32][]db.ZdxSpec, len(allSpecs))
+	specsByFeature := make(map[int32][]SpecItem, len(allSpecs))
 	for _, sp := range allSpecs {
-		specsByFeature[sp.FeatureID] = append(specsByFeature[sp.FeatureID], sp)
+		specsByFeature[sp.FeatureID] = append(specsByFeature[sp.FeatureID], SpecItem{
+			ID: sp.ID, Description: sp.Description, Kind: sp.Kind,
+			ConcernType: sp.ConcernType, Deferred: sp.Deferred, DeferredReason: sp.DeferredReason,
+		})
 	}
 	out := make([]FeatureItem, len(rows))
 	for i, f := range rows {
-		out[i] = toFeatureItem(f, specsByFeature[f.ID])
+		out[i] = toFeatureItemFromList(f, specsByFeature[f.ID])
 	}
 	return &struct {
 		Body struct {
@@ -503,28 +510,59 @@ func (h *Handler) featuresWithSpecs(ctx context.Context, slug string) (*struct {
 	}{Features: out}}, nil
 }
 
-// ── Model → response converter ────────────────────────────────────────────
+// ── Model → response converters ───────────────────────────────────────────
 
-func toFeatureItem(f db.ZdxFeature, specs []db.ZdxSpec) FeatureItem {
+func int4Val(v pgtype.Int4) int32 {
+	if v.Valid {
+		return v.Int32
+	}
+	return 0
+}
+
+func toFeatureItemFromGet(f db.GetFeatureRow, specs []db.ListSpecsRow) FeatureItem {
 	item := FeatureItem{
-		ID:          f.ID,
-		Name:        f.Name,
-		Description: f.Description,
-		What:        f.What,
-		Why:         f.Why,
-		DoneWhen:    f.DoneWhen,
-		Component:   f.Component,
-		Category:    f.Category,
-		Specs:       make([]SpecItem, len(specs)),
+		ID: f.ID, Name: f.Name, Description: f.Description,
+		What: f.What, Why: f.Why, DoneWhen: f.DoneWhen,
+		Component: f.Component, Category: f.Category,
+		Kind: f.Kind, GoalID: int4Val(f.GoalID), ParentFeatureID: int4Val(f.ParentFeatureID),
+		MetricName: f.MetricName, MetricUnit: f.MetricUnit,
+		BaselineValue: f.BaselineValue, TargetValue: f.TargetValue, GraphURL: f.GraphUrl,
+		Specs: make([]SpecItem, len(specs)),
 	}
 	for i, sp := range specs {
-		item.Specs[i] = SpecItem{
-			ID:             sp.ID,
-			Description:    sp.Description,
-			Kind:           sp.Kind,
-			Deferred:       sp.Deferred,
-			DeferredReason: sp.DeferredReason,
-		}
+		item.Specs[i] = SpecItem{ID: sp.ID, Description: sp.Description, Kind: sp.Kind, ConcernType: sp.ConcernType, Deferred: sp.Deferred, DeferredReason: sp.DeferredReason}
 	}
 	return item
+}
+
+func toFeatureItemFromList(f db.ListFeaturesRow, specs []SpecItem) FeatureItem {
+	return FeatureItem{
+		ID: f.ID, Name: f.Name, Description: f.Description,
+		What: f.What, Why: f.Why, DoneWhen: f.DoneWhen,
+		Component: f.Component, Category: f.Category,
+		Kind: f.Kind, GoalID: int4Val(f.GoalID), ParentFeatureID: int4Val(f.ParentFeatureID),
+		MetricName: f.MetricName, MetricUnit: f.MetricUnit,
+		BaselineValue: f.BaselineValue, TargetValue: f.TargetValue, GraphURL: f.GraphUrl,
+		Specs: specs,
+	}
+}
+
+func toFeatureItemFromUpsert(f db.UpsertFeatureRow) FeatureItem {
+	return FeatureItem{
+		ID: f.ID, Name: f.Name, Description: f.Description,
+		What: f.What, Why: f.Why, DoneWhen: f.DoneWhen,
+		Component: f.Component, Category: f.Category,
+		Kind: f.Kind, GoalID: int4Val(f.GoalID), ParentFeatureID: int4Val(f.ParentFeatureID),
+		MetricName: f.MetricName, MetricUnit: f.MetricUnit,
+		BaselineValue: f.BaselineValue, TargetValue: f.TargetValue, GraphURL: f.GraphUrl,
+	}
+}
+
+func toFeatureItemFromStale(f db.ListStaleFeaturesRow) FeatureItem {
+	return FeatureItem{
+		ID: f.ID, Name: f.Name, Description: f.Description,
+		What: f.What, Why: f.Why, DoneWhen: f.DoneWhen,
+		Component: f.Component, Category: f.Category,
+		Kind: f.Kind, GoalID: int4Val(f.GoalID), ParentFeatureID: int4Val(f.ParentFeatureID),
+	}
 }

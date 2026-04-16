@@ -1,16 +1,16 @@
 -- name: ListProjectGoals :many
-SELECT id, project_id, title, description, priority, status, created_at, updated_at
+SELECT id, project_id, title, description, priority, status, metric_name, metric_unit, created_at, updated_at
 FROM zdx_project_goals WHERE project_id = $1
 ORDER BY priority, title;
 
 -- name: GetProjectGoal :one
-SELECT id, project_id, title, description, priority, status, created_at, updated_at
+SELECT id, project_id, title, description, priority, status, metric_name, metric_unit, created_at, updated_at
 FROM zdx_project_goals WHERE id = $1;
 
 -- name: CreateProjectGoal :one
-INSERT INTO zdx_project_goals (project_id, title, description, priority, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, title, description, priority, status, created_at, updated_at;
+INSERT INTO zdx_project_goals (project_id, title, description, priority, status, metric_name, metric_unit)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, title, description, priority, status, metric_name, metric_unit, created_at, updated_at;
 
 -- name: UpdateProjectGoal :exec
 UPDATE zdx_project_goals
@@ -18,6 +18,8 @@ SET title       = $2,
     description = $3,
     priority    = $4,
     status      = $5,
+    metric_name = $6,
+    metric_unit = $7,
     updated_at  = NOW()
 WHERE id = $1;
 
@@ -67,7 +69,7 @@ DELETE FROM zdx_goal_issues WHERE goal_id = $1 AND issue_id = $2;
 SELECT issue_id FROM zdx_goal_issues WHERE goal_id = $1;
 
 -- name: ListIssueGoals :many
-SELECT g.id, g.project_id, g.title, g.description, g.priority, g.status, g.created_at, g.updated_at
+SELECT g.id, g.project_id, g.title, g.description, g.priority, g.status, g.metric_name, g.metric_unit, g.created_at, g.updated_at
 FROM zdx_project_goals g
 JOIN zdx_goal_issues gi ON gi.goal_id = g.id
 WHERE gi.issue_id = $1;

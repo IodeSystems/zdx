@@ -59,11 +59,20 @@ func PrintComments(comments []clitypes.CommentItem) {
 
 func PrintFeatureItem(f clitypes.FeatureItem) {
 	fmt.Printf("Name:      %s\n", f.Name)
+	if f.Kind != "" && f.Kind != "direct" {
+		fmt.Printf("Kind:      %s\n", f.Kind)
+	}
 	if f.Category != "" {
 		fmt.Printf("Category:  %s\n", f.Category)
 	}
 	if f.Component != "" {
 		fmt.Printf("Component: %s\n", f.Component)
+	}
+	if f.GoalID > 0 {
+		fmt.Printf("Goal:      G-%d\n", f.GoalID)
+	}
+	if f.ParentFeatureID > 0 {
+		fmt.Printf("Parent:    F-%d\n", f.ParentFeatureID)
 	}
 	if f.Description != "" {
 		fmt.Printf("Desc:      %s\n", f.Description)
@@ -77,10 +86,26 @@ func PrintFeatureItem(f clitypes.FeatureItem) {
 	if f.DoneWhen != "" {
 		fmt.Printf("Done when: %s\n", f.DoneWhen)
 	}
+	if f.MetricName != "" {
+		fmt.Printf("Metric:    %s (%s)\n", f.MetricName, f.MetricUnit)
+		if f.BaselineValue != "" {
+			fmt.Printf("Baseline:  %s\n", f.BaselineValue)
+		}
+		if f.TargetValue != "" {
+			fmt.Printf("Target:    %s\n", f.TargetValue)
+		}
+		if f.GraphURL != "" {
+			fmt.Printf("Graph:     %s\n", f.GraphURL)
+		}
+	}
 	if len(f.Specs) > 0 {
 		fmt.Printf("\nSpecs (%d):\n", len(f.Specs))
 		for _, s := range f.Specs {
-			fmt.Printf("  %-4d [%-12s]  %s\n", s.ID, s.Kind, s.Description)
+			ct := ""
+			if s.ConcernType != "" && s.ConcernType != "functional" {
+				ct = " " + s.ConcernType
+			}
+			fmt.Printf("  %-4d [%-12s%s]  %s\n", s.ID, s.Kind, ct, s.Description)
 		}
 	}
 }

@@ -7,7 +7,6 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
-	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func GoalCmd() *cobra.Command {
@@ -36,7 +35,11 @@ func goalListCmd() *cobra.Command {
 				return nil
 			}
 			for _, g := range resp.Goals {
-				fmt.Printf("%-4d [P%d] %-8s  %s\n", g.ID, g.Priority, g.Status, g.Title)
+				metric := ""
+				if g.MetricName != "" {
+					metric = fmt.Sprintf("  metric:%s(%s)", g.MetricName, g.MetricUnit)
+				}
+				fmt.Printf("%-4d [P%d] %-8s  %s%s\n", g.ID, g.Priority, g.Status, g.Title, metric)
 			}
 			return nil
 		},
@@ -46,7 +49,7 @@ func goalListCmd() *cobra.Command {
 func goalAddCmd() *cobra.Command {
 	var desc string
 	var priority int32
-	var status string
+	var status, metricName, metricUnit string
 	cmd := &cobra.Command{
 		Use:   "add <title>",
 		Short: "Add a project goal",
@@ -54,12 +57,14 @@ func goalAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var g clitypes.GoalItem
-			if err := c.Post("/api/goal", dxclient.CreateGoalRequest{
-				Slug:        c.SlugOrDie(),
-				Title:       args[0],
-				Description: desc,
-				Priority:    priority,
-				Status:      status,
+			if err := c.Post("/api/goal", map[string]any{
+				"slug":        c.SlugOrDie(),
+				"title":       args[0],
+				"description": desc,
+				"priority":    priority,
+				"status":      status,
+				"metric_name": metricName,
+				"metric_unit": metricUnit,
 			}, &g); err != nil {
 				return err
 			}
@@ -70,5 +75,7 @@ func goalAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&desc, "desc", "", "goal description")
 	cmd.Flags().Int32Var(&priority, "priority", 1, "priority (1-4)")
 	cmd.Flags().StringVar(&status, "status", "active", "status (active/paused/archived)")
+	cmd.Flags().StringVar(&metricName, "metric-name", "", "measured metric name")
+	cmd.Flags().StringVar(&metricUnit, "metric-unit", "", "metric unit (e.g., seconds, percent)")
 	return cmd
 }

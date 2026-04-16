@@ -30,8 +30,10 @@ func main() {
 		project.GoalCmd(),
 		work.ConstraintCmd(),
 		project.JournalCmd(),
-		project.ThemeCmd(),
+		project.FocusCmd(),
+		project.ThemeCmd(), // legacy alias
 		project.SpecCmd(),
+		project.PlanCmd(),
 		devtools.BuildCmd(),
 		devtools.TestCmd(),
 		devtools.LintCmd(),

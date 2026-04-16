@@ -41,24 +41,33 @@ type TaskItem struct {
 }
 
 type FeatureItem struct {
-	ID          int32      `json:"id"`
-	Name        string     `json:"name"`
-	Description string     `json:"description"`
-	What        string     `json:"what"`
-	Why         string     `json:"why"`
-	DoneWhen    string     `json:"done_when"`
-	Component   string     `json:"component"`
-	Category    string     `json:"category"`
-	PlanType    string     `json:"plan_type"`
-	PlanStatus  string     `json:"plan_status"`
-	HasTestRefs bool       `json:"has_test_refs"`
-	Specs       []SpecItem `json:"specs"`
+	ID              int32      `json:"id"`
+	Name            string     `json:"name"`
+	Description     string     `json:"description"`
+	What            string     `json:"what"`
+	Why             string     `json:"why"`
+	DoneWhen        string     `json:"done_when"`
+	Component       string     `json:"component"`
+	Category        string     `json:"category"`
+	Kind            string     `json:"kind"`
+	GoalID          int32      `json:"goal_id"`
+	ParentFeatureID int32      `json:"parent_feature_id"`
+	MetricName      string     `json:"metric_name"`
+	MetricUnit      string     `json:"metric_unit"`
+	BaselineValue   string     `json:"baseline_value"`
+	TargetValue     string     `json:"target_value"`
+	GraphURL        string     `json:"graph_url"`
+	PlanType        string     `json:"plan_type"`
+	PlanStatus      string     `json:"plan_status"`
+	HasTestRefs     bool       `json:"has_test_refs"`
+	Specs           []SpecItem `json:"specs"`
 }
 
 type SpecItem struct {
 	ID             int32  `json:"id"`
 	Description    string `json:"description"`
 	Kind           string `json:"kind"`
+	ConcernType    string `json:"concern_type"`
 	Deferred       bool   `json:"deferred"`
 	DeferredReason string `json:"deferred_reason"`
 }
@@ -95,13 +104,15 @@ type UncoveredSpecItem struct {
 	Kind        string `json:"kind"`
 }
 
-type ThemeItem struct {
+type FocusItem struct {
 	ID          int32  `json:"id"`
 	Name        string `json:"name"`
 	Description string `json:"description"`
 	Priority    int32  `json:"priority"`
 	Status      string `json:"status"`
 	Blockers    string `json:"blockers"`
+	StartedAt   string `json:"started_at"`
+	EndedAt     string `json:"ended_at"`
 	CreatedAt   string `json:"created_at"`
 }
 
@@ -159,6 +170,41 @@ type IssueWorkItem struct {
 	Agent     string `json:"agent"`
 	Note      string `json:"note"`
 	CreatedAt string `json:"created_at"`
+}
+
+type PlanItem struct {
+	ID         int32          `json:"id"`
+	ProjectID  int32          `json:"project_id"`
+	Title      string         `json:"title"`
+	Body       string         `json:"body"`
+	PlanType   string         `json:"plan_type"`
+	Status     string         `json:"status"`
+	Complexity string         `json:"complexity"`
+	Approach   string         `json:"approach"`
+	FeatureID  int32          `json:"feature_id"`
+	FocusID    int32          `json:"focus_id"`
+	IssueID    string         `json:"issue_id"`
+	CreatedAt  string         `json:"created_at"`
+	UpdatedAt  string         `json:"updated_at"`
+	Steps      []PlanStepItem `json:"steps,omitempty"`
+}
+
+type PlanStepItem struct {
+	ID        int32             `json:"id"`
+	PlanID    int32             `json:"plan_id"`
+	Seq       int32             `json:"seq"`
+	Text      string            `json:"text"`
+	Status    string            `json:"status"`
+	DependsOn int32             `json:"depends_on"`
+	CreatedAt string            `json:"created_at"`
+	UpdatedAt string            `json:"updated_at"`
+	Refs      []PlanStepRefItem `json:"refs,omitempty"`
+}
+
+type PlanStepRefItem struct {
+	StepID     int32  `json:"step_id"`
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
 }
 
 type OKBody struct {

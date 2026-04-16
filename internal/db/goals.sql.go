@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const countProjectConstraints = `-- name: CountProjectConstraints :one
@@ -68,9 +70,9 @@ func (q *Queries) CreateProjectConstraint(ctx context.Context, arg CreateProject
 }
 
 const createProjectGoal = `-- name: CreateProjectGoal :one
-INSERT INTO zdx_project_goals (project_id, title, description, priority, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, title, description, priority, status, created_at, updated_at
+INSERT INTO zdx_project_goals (project_id, title, description, priority, status, metric_name, metric_unit)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, title, description, priority, status, metric_name, metric_unit, created_at, updated_at
 `
 
 type CreateProjectGoalParams struct {
@@ -79,17 +81,34 @@ type CreateProjectGoalParams struct {
 	Description string `db:"description" json:"description"`
 	Priority    int32  `db:"priority" json:"priority"`
 	Status      string `db:"status" json:"status"`
+	MetricName  string `db:"metric_name" json:"metric_name"`
+	MetricUnit  string `db:"metric_unit" json:"metric_unit"`
 }
 
-func (q *Queries) CreateProjectGoal(ctx context.Context, arg CreateProjectGoalParams) (ZdxProjectGoal, error) {
+type CreateProjectGoalRow struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
+	Description string             `db:"description" json:"description"`
+	Priority    int32              `db:"priority" json:"priority"`
+	Status      string             `db:"status" json:"status"`
+	MetricName  string             `db:"metric_name" json:"metric_name"`
+	MetricUnit  string             `db:"metric_unit" json:"metric_unit"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) CreateProjectGoal(ctx context.Context, arg CreateProjectGoalParams) (CreateProjectGoalRow, error) {
 	row := q.db.QueryRow(ctx, createProjectGoal,
 		arg.ProjectID,
 		arg.Title,
 		arg.Description,
 		arg.Priority,
 		arg.Status,
+		arg.MetricName,
+		arg.MetricUnit,
 	)
-	var i ZdxProjectGoal
+	var i CreateProjectGoalRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -97,6 +116,8 @@ func (q *Queries) CreateProjectGoal(ctx context.Context, arg CreateProjectGoalPa
 		&i.Description,
 		&i.Priority,
 		&i.Status,
+		&i.MetricName,
+		&i.MetricUnit,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -143,13 +164,26 @@ func (q *Queries) GetProjectConstraint(ctx context.Context, id int32) (ZdxProjec
 }
 
 const getProjectGoal = `-- name: GetProjectGoal :one
-SELECT id, project_id, title, description, priority, status, created_at, updated_at
+SELECT id, project_id, title, description, priority, status, metric_name, metric_unit, created_at, updated_at
 FROM zdx_project_goals WHERE id = $1
 `
 
-func (q *Queries) GetProjectGoal(ctx context.Context, id int32) (ZdxProjectGoal, error) {
+type GetProjectGoalRow struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
+	Description string             `db:"description" json:"description"`
+	Priority    int32              `db:"priority" json:"priority"`
+	Status      string             `db:"status" json:"status"`
+	MetricName  string             `db:"metric_name" json:"metric_name"`
+	MetricUnit  string             `db:"metric_unit" json:"metric_unit"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) GetProjectGoal(ctx context.Context, id int32) (GetProjectGoalRow, error) {
 	row := q.db.QueryRow(ctx, getProjectGoal, id)
-	var i ZdxProjectGoal
+	var i GetProjectGoalRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -157,6 +191,8 @@ func (q *Queries) GetProjectGoal(ctx context.Context, id int32) (ZdxProjectGoal,
 		&i.Description,
 		&i.Priority,
 		&i.Status,
+		&i.MetricName,
+		&i.MetricUnit,
 		&i.CreatedAt,
 		&i.UpdatedAt,
 	)
@@ -203,21 +239,34 @@ func (q *Queries) ListGoalIssues(ctx context.Context, goalID int32) ([]string, e
 }
 
 const listIssueGoals = `-- name: ListIssueGoals :many
-SELECT g.id, g.project_id, g.title, g.description, g.priority, g.status, g.created_at, g.updated_at
+SELECT g.id, g.project_id, g.title, g.description, g.priority, g.status, g.metric_name, g.metric_unit, g.created_at, g.updated_at
 FROM zdx_project_goals g
 JOIN zdx_goal_issues gi ON gi.goal_id = g.id
 WHERE gi.issue_id = $1
 `
 
-func (q *Queries) ListIssueGoals(ctx context.Context, issueID string) ([]ZdxProjectGoal, error) {
+type ListIssueGoalsRow struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
+	Description string             `db:"description" json:"description"`
+	Priority    int32              `db:"priority" json:"priority"`
+	Status      string             `db:"status" json:"status"`
+	MetricName  string             `db:"metric_name" json:"metric_name"`
+	MetricUnit  string             `db:"metric_unit" json:"metric_unit"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListIssueGoals(ctx context.Context, issueID string) ([]ListIssueGoalsRow, error) {
 	rows, err := q.db.Query(ctx, listIssueGoals, issueID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxProjectGoal
+	var items []ListIssueGoalsRow
 	for rows.Next() {
-		var i ZdxProjectGoal
+		var i ListIssueGoalsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -225,6 +274,8 @@ func (q *Queries) ListIssueGoals(ctx context.Context, issueID string) ([]ZdxProj
 			&i.Description,
 			&i.Priority,
 			&i.Status,
+			&i.MetricName,
+			&i.MetricUnit,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -274,20 +325,33 @@ func (q *Queries) ListProjectConstraints(ctx context.Context, projectID int32) (
 }
 
 const listProjectGoals = `-- name: ListProjectGoals :many
-SELECT id, project_id, title, description, priority, status, created_at, updated_at
+SELECT id, project_id, title, description, priority, status, metric_name, metric_unit, created_at, updated_at
 FROM zdx_project_goals WHERE project_id = $1
 ORDER BY priority, title
 `
 
-func (q *Queries) ListProjectGoals(ctx context.Context, projectID int32) ([]ZdxProjectGoal, error) {
+type ListProjectGoalsRow struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
+	Description string             `db:"description" json:"description"`
+	Priority    int32              `db:"priority" json:"priority"`
+	Status      string             `db:"status" json:"status"`
+	MetricName  string             `db:"metric_name" json:"metric_name"`
+	MetricUnit  string             `db:"metric_unit" json:"metric_unit"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListProjectGoals(ctx context.Context, projectID int32) ([]ListProjectGoalsRow, error) {
 	rows, err := q.db.Query(ctx, listProjectGoals, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxProjectGoal
+	var items []ListProjectGoalsRow
 	for rows.Next() {
-		var i ZdxProjectGoal
+		var i ListProjectGoalsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -295,6 +359,8 @@ func (q *Queries) ListProjectGoals(ctx context.Context, projectID int32) ([]ZdxP
 			&i.Description,
 			&i.Priority,
 			&i.Status,
+			&i.MetricName,
+			&i.MetricUnit,
 			&i.CreatedAt,
 			&i.UpdatedAt,
 		); err != nil {
@@ -357,6 +423,8 @@ SET title       = $2,
     description = $3,
     priority    = $4,
     status      = $5,
+    metric_name = $6,
+    metric_unit = $7,
     updated_at  = NOW()
 WHERE id = $1
 `
@@ -367,6 +435,8 @@ type UpdateProjectGoalParams struct {
 	Description string `db:"description" json:"description"`
 	Priority    int32  `db:"priority" json:"priority"`
 	Status      string `db:"status" json:"status"`
+	MetricName  string `db:"metric_name" json:"metric_name"`
+	MetricUnit  string `db:"metric_unit" json:"metric_unit"`
 }
 
 func (q *Queries) UpdateProjectGoal(ctx context.Context, arg UpdateProjectGoalParams) error {
@@ -376,6 +446,8 @@ func (q *Queries) UpdateProjectGoal(ctx context.Context, arg UpdateProjectGoalPa
 		arg.Description,
 		arg.Priority,
 		arg.Status,
+		arg.MetricName,
+		arg.MetricUnit,
 	)
 	return err
 }

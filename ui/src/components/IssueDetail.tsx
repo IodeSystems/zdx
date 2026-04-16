@@ -21,14 +21,14 @@ import {
   useSearchIssues,
   useIssueCodeRefs,
   useIssueResolutions,
-  useListThemes,
-  useAddThemeBlocker,
-  useRemoveThemeBlocker,
+  useListFocuses,
+  useAddFocusBlocker,
+  useRemoveFocusBlocker,
   useClaudeSessionsByIssue,
   type IssueItem,
   type IssueWorkItem,
   type TaskItem,
-  type ThemeItem,
+  type FocusItem,
 } from '../api'
 import { useChannel } from '../hooks/useChannel'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
@@ -83,10 +83,10 @@ export function IssueDetail({
   const [duplicateOf, setDuplicateOf] = useState<IssueItem | null>(null)
   const [dupSearch, setDupSearch] = useState('')
   const { data: dupResults } = useSearchIssues(slug, dupSearch, closeReason === 'duplicate' && dupSearch.length > 1)
-  const { data: allThemes } = useListThemes(slug)
-  const addThemeBlocker = useAddThemeBlocker()
-  const removeThemeBlocker = useRemoveThemeBlocker()
-  const [themeInput, setThemeInput] = useState('')
+  const { data: allFocuses } = useListFocuses(slug)
+  const addFocusBlocker = useAddFocusBlocker()
+  const removeFocusBlocker = useRemoveFocusBlocker()
+  const [focusInput, setFocusInput] = useState('')
 
   const onWsMessage = useCallback(() => {
     refetch()
@@ -106,9 +106,9 @@ export function IssueDetail({
 
   const linkedTasks: TaskItem[] = allTasks?.tasks ?? []
   const workEntries: IssueWorkItem[] = data?.work ?? []
-  const blockingThemes = (allThemes ?? []).filter(t => t.blockers.split(',').includes(issueId))
-  const blockingThemeIds = new Set(blockingThemes.map(t => t.id))
-  const availableThemes = (allThemes ?? []).filter(t => t.status !== 'archived' && !blockingThemeIds.has(t.id))
+  const blockingFocuses = (allFocuses ?? []).filter(t => t.blockers.split(',').includes(issueId))
+  const blockingFocusIds = new Set(blockingFocuses.map(t => t.id))
+  const availableFocuses = (allFocuses ?? []).filter(t => t.status !== 'archived' && !blockingFocusIds.has(t.id))
 
   if (!issue) {
     return (
@@ -197,7 +197,7 @@ export function IssueDetail({
             sx={{ textDecoration: 'none' }}
           />
         )}
-        {blockingThemes.map(t => (
+        {blockingFocuses.map(t => (
           <Chip
             key={t.id}
             label={t.name}
@@ -205,11 +205,11 @@ export function IssueDetail({
             variant="outlined"
             color="secondary"
             component={Link as any}
-            to="/project/$slug/themes/$name"
+            to="/project/$slug/focuses/$name"
             params={{ slug, name: t.name }}
             clickable
             sx={{ textDecoration: 'none' }}
-            onDelete={() => removeThemeBlocker.mutate({ slug, theme: `TH-${t.id}`, issue: issueId })}
+            onDelete={() => removeFocusBlocker.mutate({ slug, focus: `FO-${t.id}`, issue: issueId })}
           />
         ))}
         {issue.status === 'wip' && (
@@ -230,24 +230,24 @@ export function IssueDetail({
         )}
       </Box>
 
-      {availableThemes.length > 0 && (
+      {availableFocuses.length > 0 && (
         <Box sx={{ mb: 2 }}>
-          <Autocomplete<ThemeItem>
+          <Autocomplete<FocusItem>
             size="small"
-            options={availableThemes}
+            options={availableFocuses}
             getOptionLabel={(o) => o.name}
-            inputValue={themeInput}
-            onInputChange={(_, v) => setThemeInput(v)}
+            inputValue={focusInput}
+            onInputChange={(_, v) => setFocusInput(v)}
             onChange={(_, v) => {
               if (v) {
-                addThemeBlocker.mutate({ slug, theme: `TH-${v.id}`, issue: issueId })
-                setThemeInput('')
+                addFocusBlocker.mutate({ slug, focus: `FO-${v.id}`, issue: issueId })
+                setFocusInput('')
               }
             }}
             value={null}
-            renderInput={(params) => <TextField {...params} label="Add theme" placeholder="Search themes..." />}
+            renderInput={(params) => <TextField {...params} label="Add focus" placeholder="Search focuses..." />}
             sx={{ maxWidth: 300 }}
-            noOptionsText="No themes"
+            noOptionsText="No focuses"
             isOptionEqualToValue={(o, v) => o.id === v.id}
           />
         </Box>

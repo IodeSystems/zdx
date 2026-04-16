@@ -7,17 +7,35 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const addFeatureMultiplier = `-- name: AddFeatureMultiplier :exec
+INSERT INTO zdx_feature_multipliers (feature_id, multiplies_feature_id)
+VALUES ($1, $2) ON CONFLICT DO NOTHING
+`
+
+type AddFeatureMultiplierParams struct {
+	FeatureID           int32 `db:"feature_id" json:"feature_id"`
+	MultipliesFeatureID int32 `db:"multiplies_feature_id" json:"multiplies_feature_id"`
+}
+
+func (q *Queries) AddFeatureMultiplier(ctx context.Context, arg AddFeatureMultiplierParams) error {
+	_, err := q.db.Exec(ctx, addFeatureMultiplier, arg.FeatureID, arg.MultipliesFeatureID)
+	return err
+}
+
 const addSpec = `-- name: AddSpec :one
-INSERT INTO zdx_specs (feature_id, description, kind) VALUES ($1, $2, $3)
-RETURNING id, feature_id, description, kind
+INSERT INTO zdx_specs (feature_id, description, kind, concern_type) VALUES ($1, $2, $3, $4)
+RETURNING id, feature_id, description, kind, concern_type
 `
 
 type AddSpecParams struct {
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	Description string `db:"description" json:"description"`
 	Kind        string `db:"kind" json:"kind"`
+	ConcernType string `db:"concern_type" json:"concern_type"`
 }
 
 type AddSpecRow struct {
@@ -25,16 +43,23 @@ type AddSpecRow struct {
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	Description string `db:"description" json:"description"`
 	Kind        string `db:"kind" json:"kind"`
+	ConcernType string `db:"concern_type" json:"concern_type"`
 }
 
 func (q *Queries) AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, error) {
-	row := q.db.QueryRow(ctx, addSpec, arg.FeatureID, arg.Description, arg.Kind)
+	row := q.db.QueryRow(ctx, addSpec,
+		arg.FeatureID,
+		arg.Description,
+		arg.Kind,
+		arg.ConcernType,
+	)
 	var i AddSpecRow
 	err := row.Scan(
 		&i.ID,
 		&i.FeatureID,
 		&i.Description,
 		&i.Kind,
+		&i.ConcernType,
 	)
 	return i, err
 }
@@ -63,7 +88,10 @@ func (q *Queries) DeleteFeature(ctx context.Context, id int32) error {
 }
 
 const getFeature = `-- name: GetFeature :one
-SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
+SELECT id, project_id, name, description, what, why, done_when, component, category,
+       kind, goal_id, parent_feature_id,
+       metric_name, metric_unit, baseline_value, target_value, graph_url,
+       last_reviewed_at
 FROM zdx_features WHERE project_id = $1 AND name = $2
 `
 
@@ -72,9 +100,30 @@ type GetFeatureParams struct {
 	Name      string `db:"name" json:"name"`
 }
 
-func (q *Queries) GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeature, error) {
+type GetFeatureRow struct {
+	ID              int32              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	Name            string             `db:"name" json:"name"`
+	Description     string             `db:"description" json:"description"`
+	What            string             `db:"what" json:"what"`
+	Why             string             `db:"why" json:"why"`
+	DoneWhen        string             `db:"done_when" json:"done_when"`
+	Component       string             `db:"component" json:"component"`
+	Category        string             `db:"category" json:"category"`
+	Kind            string             `db:"kind" json:"kind"`
+	GoalID          pgtype.Int4        `db:"goal_id" json:"goal_id"`
+	ParentFeatureID pgtype.Int4        `db:"parent_feature_id" json:"parent_feature_id"`
+	MetricName      string             `db:"metric_name" json:"metric_name"`
+	MetricUnit      string             `db:"metric_unit" json:"metric_unit"`
+	BaselineValue   string             `db:"baseline_value" json:"baseline_value"`
+	TargetValue     string             `db:"target_value" json:"target_value"`
+	GraphUrl        string             `db:"graph_url" json:"graph_url"`
+	LastReviewedAt  pgtype.Timestamptz `db:"last_reviewed_at" json:"last_reviewed_at"`
+}
+
+func (q *Queries) GetFeature(ctx context.Context, arg GetFeatureParams) (GetFeatureRow, error) {
 	row := q.db.QueryRow(ctx, getFeature, arg.ProjectID, arg.Name)
-	var i ZdxFeature
+	var i GetFeatureRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -85,43 +134,98 @@ func (q *Queries) GetFeature(ctx context.Context, arg GetFeatureParams) (ZdxFeat
 		&i.DoneWhen,
 		&i.Component,
 		&i.Category,
+		&i.Kind,
+		&i.GoalID,
+		&i.ParentFeatureID,
+		&i.MetricName,
+		&i.MetricUnit,
+		&i.BaselineValue,
+		&i.TargetValue,
+		&i.GraphUrl,
 		&i.LastReviewedAt,
 	)
 	return i, err
 }
 
-const getPlanByFeature = `-- name: GetPlanByFeature :one
-SELECT id, feature_id, plan_type, status, complexity, approach, last_reviewed_at
-FROM zdx_plans WHERE feature_id = $1
+const getFeatureByID = `-- name: GetFeatureByID :one
+SELECT id, project_id, name, description, what, why, done_when, component, category,
+       kind, goal_id, parent_feature_id,
+       metric_name, metric_unit, baseline_value, target_value, graph_url,
+       last_reviewed_at
+FROM zdx_features WHERE id = $1
 `
 
-func (q *Queries) GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPlan, error) {
-	row := q.db.QueryRow(ctx, getPlanByFeature, featureID)
-	var i ZdxPlan
+type GetFeatureByIDRow struct {
+	ID              int32              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	Name            string             `db:"name" json:"name"`
+	Description     string             `db:"description" json:"description"`
+	What            string             `db:"what" json:"what"`
+	Why             string             `db:"why" json:"why"`
+	DoneWhen        string             `db:"done_when" json:"done_when"`
+	Component       string             `db:"component" json:"component"`
+	Category        string             `db:"category" json:"category"`
+	Kind            string             `db:"kind" json:"kind"`
+	GoalID          pgtype.Int4        `db:"goal_id" json:"goal_id"`
+	ParentFeatureID pgtype.Int4        `db:"parent_feature_id" json:"parent_feature_id"`
+	MetricName      string             `db:"metric_name" json:"metric_name"`
+	MetricUnit      string             `db:"metric_unit" json:"metric_unit"`
+	BaselineValue   string             `db:"baseline_value" json:"baseline_value"`
+	TargetValue     string             `db:"target_value" json:"target_value"`
+	GraphUrl        string             `db:"graph_url" json:"graph_url"`
+	LastReviewedAt  pgtype.Timestamptz `db:"last_reviewed_at" json:"last_reviewed_at"`
+}
+
+func (q *Queries) GetFeatureByID(ctx context.Context, id int32) (GetFeatureByIDRow, error) {
+	row := q.db.QueryRow(ctx, getFeatureByID, id)
+	var i GetFeatureByIDRow
 	err := row.Scan(
 		&i.ID,
-		&i.FeatureID,
-		&i.PlanType,
-		&i.Status,
-		&i.Complexity,
-		&i.Approach,
+		&i.ProjectID,
+		&i.Name,
+		&i.Description,
+		&i.What,
+		&i.Why,
+		&i.DoneWhen,
+		&i.Component,
+		&i.Category,
+		&i.Kind,
+		&i.GoalID,
+		&i.ParentFeatureID,
+		&i.MetricName,
+		&i.MetricUnit,
+		&i.BaselineValue,
+		&i.TargetValue,
+		&i.GraphUrl,
 		&i.LastReviewedAt,
 	)
 	return i, err
 }
 
 const getSpec = `-- name: GetSpec :one
-SELECT id, feature_id, description, kind, deferred, deferred_reason FROM zdx_specs WHERE id = $1
+SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+FROM zdx_specs WHERE id = $1
 `
 
-func (q *Queries) GetSpec(ctx context.Context, id int32) (ZdxSpec, error) {
+type GetSpecRow struct {
+	ID             int32  `db:"id" json:"id"`
+	FeatureID      int32  `db:"feature_id" json:"feature_id"`
+	Description    string `db:"description" json:"description"`
+	Kind           string `db:"kind" json:"kind"`
+	ConcernType    string `db:"concern_type" json:"concern_type"`
+	Deferred       bool   `db:"deferred" json:"deferred"`
+	DeferredReason string `db:"deferred_reason" json:"deferred_reason"`
+}
+
+func (q *Queries) GetSpec(ctx context.Context, id int32) (GetSpecRow, error) {
 	row := q.db.QueryRow(ctx, getSpec, id)
-	var i ZdxSpec
+	var i GetSpecRow
 	err := row.Scan(
 		&i.ID,
 		&i.FeatureID,
 		&i.Description,
 		&i.Kind,
+		&i.ConcernType,
 		&i.Deferred,
 		&i.DeferredReason,
 	)
@@ -142,20 +246,128 @@ func (q *Queries) LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) er
 	return err
 }
 
+const listChildFeatures = `-- name: ListChildFeatures :many
+SELECT id, project_id, name, description, kind, goal_id, component
+FROM zdx_features WHERE parent_feature_id = $1
+ORDER BY name
+`
+
+type ListChildFeaturesRow struct {
+	ID          int32       `db:"id" json:"id"`
+	ProjectID   int32       `db:"project_id" json:"project_id"`
+	Name        string      `db:"name" json:"name"`
+	Description string      `db:"description" json:"description"`
+	Kind        string      `db:"kind" json:"kind"`
+	GoalID      pgtype.Int4 `db:"goal_id" json:"goal_id"`
+	Component   string      `db:"component" json:"component"`
+}
+
+func (q *Queries) ListChildFeatures(ctx context.Context, parentFeatureID pgtype.Int4) ([]ListChildFeaturesRow, error) {
+	rows, err := q.db.Query(ctx, listChildFeatures, parentFeatureID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListChildFeaturesRow
+	for rows.Next() {
+		var i ListChildFeaturesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.Kind,
+			&i.GoalID,
+			&i.Component,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFeatureMultipliers = `-- name: ListFeatureMultipliers :many
+SELECT fm.multiplies_feature_id, f.name, f.description, f.kind
+FROM zdx_feature_multipliers fm
+JOIN zdx_features f ON f.id = fm.multiplies_feature_id
+WHERE fm.feature_id = $1
+ORDER BY f.name
+`
+
+type ListFeatureMultipliersRow struct {
+	MultipliesFeatureID int32  `db:"multiplies_feature_id" json:"multiplies_feature_id"`
+	Name                string `db:"name" json:"name"`
+	Description         string `db:"description" json:"description"`
+	Kind                string `db:"kind" json:"kind"`
+}
+
+func (q *Queries) ListFeatureMultipliers(ctx context.Context, featureID int32) ([]ListFeatureMultipliersRow, error) {
+	rows, err := q.db.Query(ctx, listFeatureMultipliers, featureID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFeatureMultipliersRow
+	for rows.Next() {
+		var i ListFeatureMultipliersRow
+		if err := rows.Scan(
+			&i.MultipliesFeatureID,
+			&i.Name,
+			&i.Description,
+			&i.Kind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listFeatures = `-- name: ListFeatures :many
-SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
+SELECT id, project_id, name, description, what, why, done_when, component, category,
+       kind, goal_id, parent_feature_id,
+       metric_name, metric_unit, baseline_value, target_value, graph_url,
+       last_reviewed_at
 FROM zdx_features WHERE project_id = $1 ORDER BY category, name
 `
 
-func (q *Queries) ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeature, error) {
+type ListFeaturesRow struct {
+	ID              int32              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	Name            string             `db:"name" json:"name"`
+	Description     string             `db:"description" json:"description"`
+	What            string             `db:"what" json:"what"`
+	Why             string             `db:"why" json:"why"`
+	DoneWhen        string             `db:"done_when" json:"done_when"`
+	Component       string             `db:"component" json:"component"`
+	Category        string             `db:"category" json:"category"`
+	Kind            string             `db:"kind" json:"kind"`
+	GoalID          pgtype.Int4        `db:"goal_id" json:"goal_id"`
+	ParentFeatureID pgtype.Int4        `db:"parent_feature_id" json:"parent_feature_id"`
+	MetricName      string             `db:"metric_name" json:"metric_name"`
+	MetricUnit      string             `db:"metric_unit" json:"metric_unit"`
+	BaselineValue   string             `db:"baseline_value" json:"baseline_value"`
+	TargetValue     string             `db:"target_value" json:"target_value"`
+	GraphUrl        string             `db:"graph_url" json:"graph_url"`
+	LastReviewedAt  pgtype.Timestamptz `db:"last_reviewed_at" json:"last_reviewed_at"`
+}
+
+func (q *Queries) ListFeatures(ctx context.Context, projectID int32) ([]ListFeaturesRow, error) {
 	rows, err := q.db.Query(ctx, listFeatures, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxFeature
+	var items []ListFeaturesRow
 	for rows.Next() {
-		var i ZdxFeature
+		var i ListFeaturesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -166,6 +378,14 @@ func (q *Queries) ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeatu
 			&i.DoneWhen,
 			&i.Component,
 			&i.Category,
+			&i.Kind,
+			&i.GoalID,
+			&i.ParentFeatureID,
+			&i.MetricName,
+			&i.MetricUnit,
+			&i.BaselineValue,
+			&i.TargetValue,
+			&i.GraphUrl,
 			&i.LastReviewedAt,
 		); err != nil {
 			return nil, err
@@ -178,8 +398,107 @@ func (q *Queries) ListFeatures(ctx context.Context, projectID int32) ([]ZdxFeatu
 	return items, nil
 }
 
+const listFeaturesByGoal = `-- name: ListFeaturesByGoal :many
+SELECT id, project_id, name, description, kind, component, parent_feature_id
+FROM zdx_features WHERE goal_id = $1
+ORDER BY name
+`
+
+type ListFeaturesByGoalRow struct {
+	ID              int32       `db:"id" json:"id"`
+	ProjectID       int32       `db:"project_id" json:"project_id"`
+	Name            string      `db:"name" json:"name"`
+	Description     string      `db:"description" json:"description"`
+	Kind            string      `db:"kind" json:"kind"`
+	Component       string      `db:"component" json:"component"`
+	ParentFeatureID pgtype.Int4 `db:"parent_feature_id" json:"parent_feature_id"`
+}
+
+func (q *Queries) ListFeaturesByGoal(ctx context.Context, goalID pgtype.Int4) ([]ListFeaturesByGoalRow, error) {
+	rows, err := q.db.Query(ctx, listFeaturesByGoal, goalID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFeaturesByGoalRow
+	for rows.Next() {
+		var i ListFeaturesByGoalRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.Kind,
+			&i.Component,
+			&i.ParentFeatureID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFeaturesNeedingInstrumentation = `-- name: ListFeaturesNeedingInstrumentation :many
+SELECT id, project_id, name, description, component,
+       metric_name, metric_unit, baseline_value, target_value, graph_url
+FROM zdx_features
+WHERE project_id = $1
+  AND kind = 'multiplier'
+  AND (baseline_value = '' OR target_value = '' OR graph_url = '')
+ORDER BY name
+`
+
+type ListFeaturesNeedingInstrumentationRow struct {
+	ID            int32  `db:"id" json:"id"`
+	ProjectID     int32  `db:"project_id" json:"project_id"`
+	Name          string `db:"name" json:"name"`
+	Description   string `db:"description" json:"description"`
+	Component     string `db:"component" json:"component"`
+	MetricName    string `db:"metric_name" json:"metric_name"`
+	MetricUnit    string `db:"metric_unit" json:"metric_unit"`
+	BaselineValue string `db:"baseline_value" json:"baseline_value"`
+	TargetValue   string `db:"target_value" json:"target_value"`
+	GraphUrl      string `db:"graph_url" json:"graph_url"`
+}
+
+// Multiplier features missing baseline/target/graph.
+func (q *Queries) ListFeaturesNeedingInstrumentation(ctx context.Context, projectID int32) ([]ListFeaturesNeedingInstrumentationRow, error) {
+	rows, err := q.db.Query(ctx, listFeaturesNeedingInstrumentation, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFeaturesNeedingInstrumentationRow
+	for rows.Next() {
+		var i ListFeaturesNeedingInstrumentationRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.Component,
+			&i.MetricName,
+			&i.MetricUnit,
+			&i.BaselineValue,
+			&i.TargetValue,
+			&i.GraphUrl,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIssueSpecs = `-- name: ListIssueSpecs :many
-SELECT si.spec_id, si.issue_id, s.description, s.kind, s.deferred
+SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type, s.deferred
 FROM zdx_spec_issues si
 JOIN zdx_specs s ON s.id = si.spec_id
 WHERE si.issue_id = $1
@@ -191,6 +510,7 @@ type ListIssueSpecsRow struct {
 	IssueID     string `db:"issue_id" json:"issue_id"`
 	Description string `db:"description" json:"description"`
 	Kind        string `db:"kind" json:"kind"`
+	ConcernType string `db:"concern_type" json:"concern_type"`
 	Deferred    bool   `db:"deferred" json:"deferred"`
 }
 
@@ -208,7 +528,60 @@ func (q *Queries) ListIssueSpecs(ctx context.Context, issueID string) ([]ListIss
 			&i.IssueID,
 			&i.Description,
 			&i.Kind,
+			&i.ConcernType,
 			&i.Deferred,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOverspeccedFeatures = `-- name: ListOverspeccedFeatures :many
+SELECT f.id, f.project_id, f.name, f.description, f.component, count(s.id)::int AS spec_count
+FROM zdx_features f
+JOIN zdx_specs s ON s.feature_id = f.id AND s.deferred = false
+WHERE f.project_id = $1
+GROUP BY f.id
+HAVING count(s.id) > $2
+ORDER BY count(s.id) DESC
+`
+
+type ListOverspeccedFeaturesParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	Threshold int32 `db:"threshold" json:"threshold"`
+}
+
+type ListOverspeccedFeaturesRow struct {
+	ID          int32  `db:"id" json:"id"`
+	ProjectID   int32  `db:"project_id" json:"project_id"`
+	Name        string `db:"name" json:"name"`
+	Description string `db:"description" json:"description"`
+	Component   string `db:"component" json:"component"`
+	SpecCount   int32  `db:"spec_count" json:"spec_count"`
+}
+
+// Features with more than @threshold non-deferred specs (decomposition signal).
+func (q *Queries) ListOverspeccedFeatures(ctx context.Context, arg ListOverspeccedFeaturesParams) ([]ListOverspeccedFeaturesRow, error) {
+	rows, err := q.db.Query(ctx, listOverspeccedFeatures, arg.ProjectID, arg.Threshold)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOverspeccedFeaturesRow
+	for rows.Next() {
+		var i ListOverspeccedFeaturesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.Component,
+			&i.SpecCount,
 		); err != nil {
 			return nil, err
 		}
@@ -261,23 +634,37 @@ func (q *Queries) ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecI
 }
 
 const listSpecs = `-- name: ListSpecs :many
-SELECT id, feature_id, description, kind, deferred, deferred_reason FROM zdx_specs WHERE feature_id = $1 ORDER BY id
+
+SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+FROM zdx_specs WHERE feature_id = $1 ORDER BY id
 `
 
-func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error) {
+type ListSpecsRow struct {
+	ID             int32  `db:"id" json:"id"`
+	FeatureID      int32  `db:"feature_id" json:"feature_id"`
+	Description    string `db:"description" json:"description"`
+	Kind           string `db:"kind" json:"kind"`
+	ConcernType    string `db:"concern_type" json:"concern_type"`
+	Deferred       bool   `db:"deferred" json:"deferred"`
+	DeferredReason string `db:"deferred_reason" json:"deferred_reason"`
+}
+
+// ── Specs ────────────────────────────────────────────────────────────────────
+func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ListSpecsRow, error) {
 	rows, err := q.db.Query(ctx, listSpecs, featureID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxSpec
+	var items []ListSpecsRow
 	for rows.Next() {
-		var i ZdxSpec
+		var i ListSpecsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.FeatureID,
 			&i.Description,
 			&i.Kind,
+			&i.ConcernType,
 			&i.Deferred,
 			&i.DeferredReason,
 		); err != nil {
@@ -292,27 +679,38 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, er
 }
 
 const listSpecsForProject = `-- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.deferred, s.deferred_reason
+SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, s.deferred, s.deferred_reason
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
 ORDER BY s.feature_id, s.id
 `
 
-func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error) {
+type ListSpecsForProjectRow struct {
+	ID             int32  `db:"id" json:"id"`
+	FeatureID      int32  `db:"feature_id" json:"feature_id"`
+	Description    string `db:"description" json:"description"`
+	Kind           string `db:"kind" json:"kind"`
+	ConcernType    string `db:"concern_type" json:"concern_type"`
+	Deferred       bool   `db:"deferred" json:"deferred"`
+	DeferredReason string `db:"deferred_reason" json:"deferred_reason"`
+}
+
+func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]ListSpecsForProjectRow, error) {
 	rows, err := q.db.Query(ctx, listSpecsForProject, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxSpec
+	var items []ListSpecsForProjectRow
 	for rows.Next() {
-		var i ZdxSpec
+		var i ListSpecsForProjectRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.FeatureID,
 			&i.Description,
 			&i.Kind,
+			&i.ConcernType,
 			&i.Deferred,
 			&i.DeferredReason,
 		); err != nil {
@@ -327,7 +725,8 @@ func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]Z
 }
 
 const listStaleFeatures = `-- name: ListStaleFeatures :many
-SELECT id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
+SELECT id, project_id, name, description, what, why, done_when, component, category,
+       kind, goal_id, parent_feature_id, last_reviewed_at
 FROM zdx_features
 WHERE project_id = $1
   AND (last_reviewed_at IS NULL OR last_reviewed_at < NOW() - ($2::int || ' days')::interval)
@@ -339,16 +738,31 @@ type ListStaleFeaturesParams struct {
 	StaleDays int32 `db:"stale_days" json:"stale_days"`
 }
 
-// Features not reviewed in more than @stale_days days (or never reviewed).
-func (q *Queries) ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ZdxFeature, error) {
+type ListStaleFeaturesRow struct {
+	ID              int32              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	Name            string             `db:"name" json:"name"`
+	Description     string             `db:"description" json:"description"`
+	What            string             `db:"what" json:"what"`
+	Why             string             `db:"why" json:"why"`
+	DoneWhen        string             `db:"done_when" json:"done_when"`
+	Component       string             `db:"component" json:"component"`
+	Category        string             `db:"category" json:"category"`
+	Kind            string             `db:"kind" json:"kind"`
+	GoalID          pgtype.Int4        `db:"goal_id" json:"goal_id"`
+	ParentFeatureID pgtype.Int4        `db:"parent_feature_id" json:"parent_feature_id"`
+	LastReviewedAt  pgtype.Timestamptz `db:"last_reviewed_at" json:"last_reviewed_at"`
+}
+
+func (q *Queries) ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ListStaleFeaturesRow, error) {
 	rows, err := q.db.Query(ctx, listStaleFeatures, arg.ProjectID, arg.StaleDays)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxFeature
+	var items []ListStaleFeaturesRow
 	for rows.Next() {
-		var i ZdxFeature
+		var i ListStaleFeaturesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -359,6 +773,9 @@ func (q *Queries) ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesPa
 			&i.DoneWhen,
 			&i.Component,
 			&i.Category,
+			&i.Kind,
+			&i.GoalID,
+			&i.ParentFeatureID,
 			&i.LastReviewedAt,
 		); err != nil {
 			return nil, err
@@ -371,8 +788,54 @@ func (q *Queries) ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesPa
 	return items, nil
 }
 
+const listUnattributedFeatures = `-- name: ListUnattributedFeatures :many
+SELECT id, project_id, name, description, kind, component
+FROM zdx_features
+WHERE project_id = $1
+  AND goal_id IS NULL
+  AND parent_feature_id IS NULL
+ORDER BY name
+`
+
+type ListUnattributedFeaturesRow struct {
+	ID          int32  `db:"id" json:"id"`
+	ProjectID   int32  `db:"project_id" json:"project_id"`
+	Name        string `db:"name" json:"name"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+	Component   string `db:"component" json:"component"`
+}
+
+// Features with no goal and no parent (orphans needing attribution).
+func (q *Queries) ListUnattributedFeatures(ctx context.Context, projectID int32) ([]ListUnattributedFeaturesRow, error) {
+	rows, err := q.db.Query(ctx, listUnattributedFeatures, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnattributedFeaturesRow
+	for rows.Next() {
+		var i ListUnattributedFeaturesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.Kind,
+			&i.Component,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUncoveredSpecs = `-- name: ListUncoveredSpecs :many
-SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
+SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
@@ -387,10 +850,10 @@ type ListUncoveredSpecsRow struct {
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	Description string `db:"description" json:"description"`
 	Kind        string `db:"kind" json:"kind"`
+	ConcernType string `db:"concern_type" json:"concern_type"`
 	FeatureName string `db:"feature_name" json:"feature_name"`
 }
 
-// Specs that have no entries in zdx_spec_tests (no test coverage) and are not deferred.
 func (q *Queries) ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error) {
 	rows, err := q.db.Query(ctx, listUncoveredSpecs, projectID)
 	if err != nil {
@@ -405,6 +868,7 @@ func (q *Queries) ListUncoveredSpecs(ctx context.Context, projectID int32) ([]Li
 			&i.FeatureID,
 			&i.Description,
 			&i.Kind,
+			&i.ConcernType,
 			&i.FeatureName,
 		); err != nil {
 			return nil, err
@@ -429,6 +893,20 @@ type MarkFeatureReviewedParams struct {
 
 func (q *Queries) MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error {
 	_, err := q.db.Exec(ctx, markFeatureReviewed, arg.ProjectID, arg.Name)
+	return err
+}
+
+const removeFeatureMultiplier = `-- name: RemoveFeatureMultiplier :exec
+DELETE FROM zdx_feature_multipliers WHERE feature_id = $1 AND multiplies_feature_id = $2
+`
+
+type RemoveFeatureMultiplierParams struct {
+	FeatureID           int32 `db:"feature_id" json:"feature_id"`
+	MultipliesFeatureID int32 `db:"multiplies_feature_id" json:"multiplies_feature_id"`
+}
+
+func (q *Queries) RemoveFeatureMultiplier(ctx context.Context, arg RemoveFeatureMultiplierParams) error {
+	_, err := q.db.Exec(ctx, removeFeatureMultiplier, arg.FeatureID, arg.MultipliesFeatureID)
 	return err
 }
 
@@ -462,7 +940,13 @@ SET description = CASE WHEN $1::text = 'description' THEN $2::text ELSE descript
     why         = CASE WHEN $1::text = 'why'         THEN $2::text ELSE why         END,
     done_when   = CASE WHEN $1::text = 'done_when'   THEN $2::text ELSE done_when   END,
     component   = CASE WHEN $1::text = 'component'   THEN $2::text ELSE component   END,
-    category    = CASE WHEN $1::text = 'category'    THEN $2::text ELSE category    END
+    category    = CASE WHEN $1::text = 'category'    THEN $2::text ELSE category    END,
+    kind        = CASE WHEN $1::text = 'kind'        THEN $2::text ELSE kind        END,
+    metric_name = CASE WHEN $1::text = 'metric_name' THEN $2::text ELSE metric_name END,
+    metric_unit = CASE WHEN $1::text = 'metric_unit' THEN $2::text ELSE metric_unit END,
+    baseline_value = CASE WHEN $1::text = 'baseline_value' THEN $2::text ELSE baseline_value END,
+    target_value   = CASE WHEN $1::text = 'target_value'   THEN $2::text ELSE target_value   END,
+    graph_url      = CASE WHEN $1::text = 'graph_url'      THEN $2::text ELSE graph_url      END
 WHERE project_id = $3 AND name = $4
 `
 
@@ -483,11 +967,56 @@ func (q *Queries) UpdateFeatureField(ctx context.Context, arg UpdateFeatureField
 	return err
 }
 
+const updateFeatureGoal = `-- name: UpdateFeatureGoal :exec
+UPDATE zdx_features SET goal_id = $1 WHERE id = $2
+`
+
+type UpdateFeatureGoalParams struct {
+	GoalID pgtype.Int4 `db:"goal_id" json:"goal_id"`
+	ID     int32       `db:"id" json:"id"`
+}
+
+func (q *Queries) UpdateFeatureGoal(ctx context.Context, arg UpdateFeatureGoalParams) error {
+	_, err := q.db.Exec(ctx, updateFeatureGoal, arg.GoalID, arg.ID)
+	return err
+}
+
+const updateFeatureParent = `-- name: UpdateFeatureParent :exec
+UPDATE zdx_features SET parent_feature_id = $1 WHERE id = $2
+`
+
+type UpdateFeatureParentParams struct {
+	ParentFeatureID pgtype.Int4 `db:"parent_feature_id" json:"parent_feature_id"`
+	ID              int32       `db:"id" json:"id"`
+}
+
+func (q *Queries) UpdateFeatureParent(ctx context.Context, arg UpdateFeatureParentParams) error {
+	_, err := q.db.Exec(ctx, updateFeatureParent, arg.ParentFeatureID, arg.ID)
+	return err
+}
+
+const updateSpecConcernType = `-- name: UpdateSpecConcernType :exec
+UPDATE zdx_specs SET concern_type = $1 WHERE id = $2
+`
+
+type UpdateSpecConcernTypeParams struct {
+	ConcernType string `db:"concern_type" json:"concern_type"`
+	ID          int32  `db:"id" json:"id"`
+}
+
+func (q *Queries) UpdateSpecConcernType(ctx context.Context, arg UpdateSpecConcernTypeParams) error {
+	_, err := q.db.Exec(ctx, updateSpecConcernType, arg.ConcernType, arg.ID)
+	return err
+}
+
 const upsertFeature = `-- name: UpsertFeature :one
 INSERT INTO zdx_features (project_id, name, description)
 VALUES ($1, $2, $3)
 ON CONFLICT (project_id, name) DO UPDATE SET description = EXCLUDED.description
-RETURNING id, project_id, name, description, what, why, done_when, component, category, last_reviewed_at
+RETURNING id, project_id, name, description, what, why, done_when, component, category,
+          kind, goal_id, parent_feature_id,
+          metric_name, metric_unit, baseline_value, target_value, graph_url,
+          last_reviewed_at
 `
 
 type UpsertFeatureParams struct {
@@ -496,9 +1025,30 @@ type UpsertFeatureParams struct {
 	Description string `db:"description" json:"description"`
 }
 
-func (q *Queries) UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (ZdxFeature, error) {
+type UpsertFeatureRow struct {
+	ID              int32              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	Name            string             `db:"name" json:"name"`
+	Description     string             `db:"description" json:"description"`
+	What            string             `db:"what" json:"what"`
+	Why             string             `db:"why" json:"why"`
+	DoneWhen        string             `db:"done_when" json:"done_when"`
+	Component       string             `db:"component" json:"component"`
+	Category        string             `db:"category" json:"category"`
+	Kind            string             `db:"kind" json:"kind"`
+	GoalID          pgtype.Int4        `db:"goal_id" json:"goal_id"`
+	ParentFeatureID pgtype.Int4        `db:"parent_feature_id" json:"parent_feature_id"`
+	MetricName      string             `db:"metric_name" json:"metric_name"`
+	MetricUnit      string             `db:"metric_unit" json:"metric_unit"`
+	BaselineValue   string             `db:"baseline_value" json:"baseline_value"`
+	TargetValue     string             `db:"target_value" json:"target_value"`
+	GraphUrl        string             `db:"graph_url" json:"graph_url"`
+	LastReviewedAt  pgtype.Timestamptz `db:"last_reviewed_at" json:"last_reviewed_at"`
+}
+
+func (q *Queries) UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (UpsertFeatureRow, error) {
 	row := q.db.QueryRow(ctx, upsertFeature, arg.ProjectID, arg.Name, arg.Description)
-	var i ZdxFeature
+	var i UpsertFeatureRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -509,44 +1059,14 @@ func (q *Queries) UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (Z
 		&i.DoneWhen,
 		&i.Component,
 		&i.Category,
-		&i.LastReviewedAt,
-	)
-	return i, err
-}
-
-const upsertPlan = `-- name: UpsertPlan :one
-INSERT INTO zdx_plans (feature_id, plan_type, complexity, approach, status)
-VALUES ($1, $2, $3, $4, 'pending')
-ON CONFLICT (feature_id) DO UPDATE
-SET plan_type = EXCLUDED.plan_type,
-    complexity = EXCLUDED.complexity,
-    approach = EXCLUDED.approach,
-    last_reviewed_at = NOW()
-RETURNING id, feature_id, plan_type, status, complexity, approach, last_reviewed_at
-`
-
-type UpsertPlanParams struct {
-	FeatureID  int32  `db:"feature_id" json:"feature_id"`
-	PlanType   string `db:"plan_type" json:"plan_type"`
-	Complexity string `db:"complexity" json:"complexity"`
-	Approach   string `db:"approach" json:"approach"`
-}
-
-func (q *Queries) UpsertPlan(ctx context.Context, arg UpsertPlanParams) (ZdxPlan, error) {
-	row := q.db.QueryRow(ctx, upsertPlan,
-		arg.FeatureID,
-		arg.PlanType,
-		arg.Complexity,
-		arg.Approach,
-	)
-	var i ZdxPlan
-	err := row.Scan(
-		&i.ID,
-		&i.FeatureID,
-		&i.PlanType,
-		&i.Status,
-		&i.Complexity,
-		&i.Approach,
+		&i.Kind,
+		&i.GoalID,
+		&i.ParentFeatureID,
+		&i.MetricName,
+		&i.MetricUnit,
+		&i.BaselineValue,
+		&i.TargetValue,
+		&i.GraphUrl,
 		&i.LastReviewedAt,
 	)
 	return i, err

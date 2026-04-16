@@ -12,7 +12,7 @@ func Register(api huma.API, deps *Deps) {
 	h.registerTaskRoutes(api)
 	h.registerFeatureRoutes(api)
 	h.registerProjectRoutes(api)
-	h.registerThemeRoutes(api)
+	h.registerFocusRoutes(api)
 	h.registerDxRoutes(api)
 	h.registerErrorRoutes(api)
 	h.registerCommentRoutes(api)
@@ -28,5 +28,6 @@ func Register(api huma.API, deps *Deps) {
 	h.registerPatternRoutes(api)
 	h.registerSoloRoutes(api)
 	h.registerHistoryRoutes(api)
+	h.registerPlanRoutes(api)
 	h.registerFileRoutes()
 }

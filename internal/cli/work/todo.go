@@ -20,8 +20,8 @@ const triageGuidance = `  triage checklist:
     1. verify independently (reproduce or read the code)
     2. dup-check: dx issue list; close duplicates with --reason=duplicate
     3. rewrite prescriptively: title=intended outcome; context=should/did/direction
-    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|ask|tracker> --priority=<1-4> --theme=<ID> --goal=<ID>
-       use the active themes and goals listed above to classify the issue
+    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|ask|tracker> --priority=<1-4> --focus=<ID> --goal=<ID>
+       use the active focuses and goals listed above to classify the issue
        type guide:
          ops    = one-time verifiable action (demo/test plan required)
          impl   = durable code change (resolution link required to close)
@@ -35,14 +35,14 @@ const triageGuidance = `  triage checklist:
 `
 
 func printTriageContext(c *cli.Client, slug string) {
-	var themeResp struct {
-		Themes []clitypes.ThemeItem `json:"themes"`
+	var focusResp struct {
+		Focuses []clitypes.FocusItem `json:"focuses"`
 	}
-	if err := c.Get("/api/dx/themes", url.Values{"slug": {slug}}, &themeResp); err == nil && len(themeResp.Themes) > 0 {
-		fmt.Println("  active themes:")
-		for _, t := range themeResp.Themes {
+	if err := c.Get("/api/dx/focuses", url.Values{"slug": {slug}}, &focusResp); err == nil && len(focusResp.Focuses) > 0 {
+		fmt.Println("  active focuses:")
+		for _, t := range focusResp.Focuses {
 			if t.Status == "active" {
-				fmt.Printf("    TH-%-3d  %s\n", t.ID, t.Name)
+				fmt.Printf("    FO-%-3d  %s\n", t.ID, t.Name)
 			}
 		}
 	}
@@ -1103,7 +1103,7 @@ func todoOwnerCmd() *cobra.Command {
 
 func todoOwnerTriageCmd() *cobra.Command {
 	var priority, title, issueType, context, questions string
-	var themeArgs, goalArgs []string
+	var focusArgs, goalArgs []string
 	var clarify bool
 	cmd := &cobra.Command{
 		Use:   "triage <IS-N>",
@@ -1189,16 +1189,16 @@ func todoOwnerTriageCmd() *cobra.Command {
 			if context != "" {
 				body.Context = &context
 			}
-			themes, err := parseTodoIDs(themeArgs, "TH-")
+			focuses, err := parseTodoIDs(focusArgs, "FO-")
 			if err != nil {
-				return fmt.Errorf("--theme: %w", err)
+				return fmt.Errorf("--focus: %w", err)
 			}
 			goals, err := parseTodoIDs(goalArgs, "G-")
 			if err != nil {
 				return fmt.Errorf("--goal: %w", err)
 			}
-			if len(themes) > 0 {
-				body.ThemeIds = &themes
+			if len(focuses) > 0 {
+				body.ThemeIds = &focuses // wire name still theme_ids for compat with generated client
 			}
 			if len(goals) > 0 {
 				body.GoalIds = &goals
@@ -1219,7 +1219,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 	cmd.Flags().StringVar(&context, "context", "", "rewrite issue context (answer embedded question, clarify scope)")
 	cmd.Flags().BoolVar(&clarify, "clarify", false, "create clarification questions instead of triaging (requires --questions)")
 	cmd.Flags().StringVar(&questions, "questions", "", "semicolon-separated questions; use | for choices: \"question|a,b,c;question2\"")
-	cmd.Flags().StringSliceVar(&themeArgs, "theme", nil, "theme ID(s) to link — TH-N or N (repeatable)")
+	cmd.Flags().StringSliceVar(&focusArgs, "focus", nil, "focus ID(s) to link — FO-N or N (repeatable)")
 	cmd.Flags().StringSliceVar(&goalArgs, "goal", nil, "goal ID(s) to link — G-N or N (repeatable)")
 	return cmd
 }

@@ -10,10 +10,10 @@ import {
 import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
 import { useState } from 'react'
 import {
-  useListThemes,
-  useSetThemeStatus,
-  useAddThemeBlocker,
-  useRemoveThemeBlocker,
+  useListFocuses,
+  useSetFocusStatus,
+  useAddFocusBlocker,
+  useRemoveFocusBlocker,
   useSearchIssues,
   type IssueItem,
 } from '../api'
@@ -32,32 +32,32 @@ const STATUS_COLORS: Record<string, 'success' | 'info' | 'default'> = {
   archived: 'default',
 }
 
-export function ThemeDetail({ slug, name }: { slug: string; name: string }) {
+export function FocusDetail({ slug, name }: { slug: string; name: string }) {
   const router = useRouter()
-  const { data: allThemes, isLoading } = useListThemes(slug)
-  const setThemeStatus = useSetThemeStatus()
-  const addBlocker = useAddThemeBlocker()
-  const removeBlocker = useRemoveThemeBlocker()
+  const { data: allFocuses, isLoading } = useListFocuses(slug)
+  const setFocusStatus = useSetFocusStatus()
+  const addBlocker = useAddFocusBlocker()
+  const removeBlocker = useRemoveFocusBlocker()
   const [issueSearch, setIssueSearch] = useState('')
   const { data: searchResults } = useSearchIssues(slug, issueSearch, issueSearch.length > 1)
 
-  const theme = allThemes?.find(t => t.name === name)
+  const focus = allFocuses?.find(t => t.name === name)
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
-  if (!theme) {
+  if (!focus) {
     return (
       <Box>
         <Button startIcon={<ArrowBackIcon />} size="small" sx={{ mb: 2 }} onClick={() => router.history.go(-1)}>
           Back
         </Button>
-        <Typography color="error">Theme "{name}" not found.</Typography>
+        <Typography color="error">Focus "{name}" not found.</Typography>
       </Box>
     )
   }
 
-  const blockerIds = theme.blockers ? theme.blockers.split(',').filter(Boolean) : []
-  const pLabel = PRIORITY_LABELS[theme.priority] ?? 'medium'
-  const availableStatuses = ['active', 'done', 'archived'].filter(s => s !== theme.status)
+  const blockerIds = focus.blockers ? focus.blockers.split(',').filter(Boolean) : []
+  const pLabel = PRIORITY_LABELS[focus.priority] ?? 'medium'
+  const availableStatuses = ['active', 'done', 'archived'].filter(s => s !== focus.status)
 
   return (
     <Box>
@@ -66,31 +66,31 @@ export function ThemeDetail({ slug, name }: { slug: string; name: string }) {
       </Button>
 
       <Typography variant="h5" sx={{ mb: 1 }}>
-        TH-{theme.id}: {theme.name}
+        FO-{focus.id}: {focus.name}
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
         <Chip label={pLabel} size="small" color={PRIORITY_COLORS[pLabel] || 'default'} />
-        <Chip label={theme.status} size="small" color={STATUS_COLORS[theme.status] || 'default'} variant="outlined" />
+        <Chip label={focus.status} size="small" color={STATUS_COLORS[focus.status] || 'default'} variant="outlined" />
         {availableStatuses.map(s => (
           <Button
             key={s}
             size="small"
             variant="outlined"
-            onClick={() => setThemeStatus.mutate({ slug, theme: `TH-${theme.id}`, status: s })}
-            disabled={setThemeStatus.isPending}
+            onClick={() => setFocusStatus.mutate({ slug, focus: `FO-${focus.id}`, status: s })}
+            disabled={setFocusStatus.isPending}
           >
             Mark {s}
           </Button>
         ))}
       </Box>
 
-      {theme.description && (
+      {focus.description && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
             Description
           </Typography>
-          <MarkdownContent slug={slug}>{theme.description}</MarkdownContent>
+          <MarkdownContent slug={slug}>{focus.description}</MarkdownContent>
         </Box>
       )}
 
@@ -113,7 +113,7 @@ export function ThemeDetail({ slug, name }: { slug: string; name: string }) {
                 params={{ slug, id }}
                 clickable
                 sx={{ textDecoration: 'none' }}
-                onDelete={() => removeBlocker.mutate({ slug, theme: `TH-${theme.id}`, issue: id })}
+                onDelete={() => removeBlocker.mutate({ slug, focus: `FO-${focus.id}`, issue: id })}
               />
             </Box>
           ))}
@@ -128,7 +128,7 @@ export function ThemeDetail({ slug, name }: { slug: string; name: string }) {
             onInputChange={(_, v) => setIssueSearch(v)}
             onChange={(_, v) => {
               if (v) {
-                addBlocker.mutate({ slug, theme: `TH-${theme.id}`, issue: `IS-${v.id}` })
+                addBlocker.mutate({ slug, focus: `FO-${focus.id}`, issue: `IS-${v.id}` })
                 setIssueSearch('')
               }
             }}
@@ -142,7 +142,7 @@ export function ThemeDetail({ slug, name }: { slug: string; name: string }) {
       </Box>
 
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3 }}>
-        Created: {new Date(theme.created_at).toLocaleString()}
+        Created: {new Date(focus.created_at).toLocaleString()}
       </Typography>
     </Box>
   )
