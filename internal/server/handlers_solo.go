@@ -303,7 +303,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 		hasPending := false
 		allDone := true
 		for _, t := range tasks {
-			if t.Status == "pending" || t.Status == "in_progress" {
+			if t.Status == "ready" || t.Status == "active" {
 				hasPending = true
 				allDone = false
 				break
@@ -343,7 +343,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 	for _, iss := range issues {
 		tasks, _ := s.q.ListTasksByIssue(ctx, db.ListTasksByIssueParams{ProjectID: projectID, Issue: iss.ID})
 		for _, t := range tasks {
-			if t.Status == "pending" {
+			if t.Status == "ready" {
 				candidates = append(candidates, soloCandidate{
 					Key:        fmt.Sprintf("dev-%s", t.ID),
 					Text:       t.Text,

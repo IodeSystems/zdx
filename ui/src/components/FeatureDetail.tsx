@@ -133,7 +133,7 @@ export function FeatureDetail({
   }
 
   const grouped = tasks.reduce((acc, t) => {
-    const k = t.status || 'pending'
+    const k = t.status || 'ready'
     ;(acc[k] ||= []).push(t)
     return acc
   }, {} as Record<string, FeatureTask[]>)

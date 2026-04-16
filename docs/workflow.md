@@ -20,9 +20,9 @@ Solo checks conditions in this exact order. First match wins.
 | 1b | `[owner:spec]` | global only | Feature with zero specs |
 | 1c | `[owner:review]` | global only | Feature not reviewed in >30 days (or never) |
 | 2a | `[tech:test-ref]` | global only | Spec with no linked test refs |
-| 2 | `[add]` | both | Open triaged issue with no pending/in-progress tasks (and has no completed tasks) |
-| 2* | `[closable]` | both | Open triaged issue with all tasks done (has completed tasks, none pending) |
-| 3 | `[dev]` | both | Open issue with a pending task |
+| 2 | `[add]` | both | Open triaged issue with no ready/active tasks (and has no completed tasks) |
+| 2* | `[closable]` | both | Open triaged issue with all tasks done (has completed tasks, none ready) |
+| 3 | `[dev]` | both | Open issue with a ready task |
 | - | `nothing to do` | both | No actionable items found |
 
 ## Scoping Rules
@@ -84,19 +84,19 @@ Solo checks conditions in this exact order. First match wins.
 - **Advances when**: Spec has at least one test ref linked, or is deferred.
 
 ### `[add]`
-- **Trigger**: Open triaged issue with no tasks (pending or in-progress). Issue has zero completed tasks.
+- **Trigger**: Open triaged issue with no tasks (ready or active). Issue has zero completed tasks.
 - **Agent action**: Decompose the issue into tasks via `dx todo tech add --issue=IS-N --text="..."`.
 - **Advances when**: At least one task exists for the issue.
 
 ### `[closable]`
-- **Trigger**: Open triaged issue where all tasks are done (has completed tasks, none pending/in-progress).
+- **Trigger**: Open triaged issue where all tasks are done (has completed tasks, none ready/active).
 - **Agent action**: Close the issue via `dx issue close IS-N --reason=done`.
 - **Advances when**: Issue status is closed.
 
 ### `[dev]`
-- **Trigger**: Open issue with at least one pending task.
+- **Trigger**: Open issue with at least one ready task.
 - **Agent action**: Work on the task, then mark done via `dx todo dev done TK-N`.
-- **Advances when**: Task status changes from pending to done.
+- **Advances when**: Task status changes from ready to done.
 
 ## Journal Cadence Formula
 

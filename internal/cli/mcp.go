@@ -379,7 +379,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "todo_dev_start",
-		Description: "Mark a task as in-progress",
+		Description: "Mark a task as active",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoDevStartInput) (*mcp.CallToolResult, any, error) {
 		n, err := parseTaskNum(in.ID)
 		if err != nil {
@@ -390,12 +390,12 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		}
 		if err := c.put("/api/task-status", map[string]any{
 			"id":     n,
-			"status": "in_progress",
+			"status": "active",
 			"reason": in.Reason,
 		}, &ok); err != nil {
 			return nil, nil, err
 		}
-		return nil, map[string]string{"status": "in_progress", "id": in.ID}, nil
+		return nil, map[string]string{"status": "active", "id": in.ID}, nil
 	})
 
 	type todoOwnerTriageInput struct {

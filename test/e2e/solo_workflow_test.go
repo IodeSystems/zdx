@@ -291,8 +291,8 @@ func TestSoloAdd(t *testing.T) {
 	if tasks[0].ID != taskID {
 		t.Errorf("task ID mismatch: want %d got %d", taskID, tasks[0].ID)
 	}
-	if tasks[0].Status != "pending" {
-		t.Errorf("task status: want pending, got %q", tasks[0].Status)
+	if tasks[0].Status != "ready" {
+		t.Errorf("task status: want ready, got %q", tasks[0].Status)
 	}
 
 	d.MarkTaskDone(taskID)
@@ -302,7 +302,7 @@ func TestSoloAdd(t *testing.T) {
 func TestSoloDev(t *testing.T) {
 	d := NewApiDriver(t, "solo-dev", "Solo Dev")
 	sc := Given(d).
-		TriagedIssue("Issue with pending task", "dev work", 2).
+		TriagedIssue("Issue with ready task", "dev work", 2).
 		Task(0, "Write the code").
 		Build()
 	issueID := sc.Issues[0]
@@ -311,12 +311,12 @@ func TestSoloDev(t *testing.T) {
 	tasks := d.ListTasks(issueID)
 	hasPending := false
 	for _, tk := range tasks {
-		if tk.Status == "pending" {
+		if tk.Status == "ready" {
 			hasPending = true
 		}
 	}
 	if !hasPending {
-		t.Fatal("expected at least one pending task")
+		t.Fatal("expected at least one ready task")
 	}
 
 	d.MarkTaskDone(taskID)
@@ -343,7 +343,7 @@ func TestSoloClosable(t *testing.T) {
 	tasks := d.ListTasks(issueID)
 	allDone := true
 	for _, tk := range tasks {
-		if tk.Status == "pending" || tk.Status == "in_progress" {
+		if tk.Status == "ready" || tk.Status == "active" {
 			allDone = false
 		}
 	}
@@ -412,8 +412,8 @@ func TestSoloFullLifecycle(t *testing.T) {
 
 	// 5. Dev: complete task.
 	tasks = d.ListTasks(issueID)
-	if len(tasks) != 1 || tasks[0].Status != "pending" {
-		t.Fatal("expected 1 pending task")
+	if len(tasks) != 1 || tasks[0].Status != "ready" {
+		t.Fatal("expected 1 ready task")
 	}
 	d.MarkTaskDone(taskID)
 

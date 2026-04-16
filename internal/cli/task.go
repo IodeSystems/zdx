@@ -17,7 +17,7 @@ func TaskCmd() *cobra.Command {
 func taskReadyCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "ready <TK-N>",
-		Short: "Promote a draft task from wip to pending",
+		Short: "Promote a draft task from wip to ready",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
@@ -27,7 +27,7 @@ func taskReadyCmd() *cobra.Command {
 			}, nil); err != nil {
 				return err
 			}
-			fmt.Printf("%s promoted to pending\n", args[0])
+			fmt.Printf("%s promoted to ready\n", args[0])
 			return nil
 		},
 	}

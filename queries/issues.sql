@@ -90,7 +90,7 @@ SELECT
   (SELECT count(*) FROM zdx_issues i WHERE i.project_id = $1 AND i.status = 'open') AS open_issues,
   (SELECT count(*) FROM zdx_issues i WHERE i.project_id = $1 AND i.status = 'wip') AS wip_issues,
   (SELECT count(*) FROM zdx_issues i WHERE i.project_id = $1 AND i.status = 'closed' AND i.created_at > NOW() - INTERVAL '30 days') AS recently_closed_issues,
-  (SELECT count(*) FROM zdx_tasks t WHERE t.project_id = $1 AND t.status = 'pending') AS pending_tasks,
+  (SELECT count(*) FROM zdx_tasks t WHERE t.project_id = $1 AND t.status = 'ready') AS pending_tasks,
   (SELECT count(*) FROM zdx_tasks t WHERE t.project_id = $1 AND t.status = 'done') AS done_tasks,
   (SELECT count(*) FROM zdx_blocker_questions q WHERE q.project_id = $1 AND q.status = 'pending') AS pending_blockers;
 

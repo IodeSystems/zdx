@@ -138,7 +138,7 @@ export function TaskDetail({
           </Button>
         )}
         {task.claimed_by && task.status !== 'done' && (
-          <Tooltip title={`Claimed by ${task.claimed_by}. Release returns the task to pending.`}>
+          <Tooltip title={`Claimed by ${task.claimed_by}. Release returns the task to ready.`}>
             <Button
               size="small"
               color="warning"

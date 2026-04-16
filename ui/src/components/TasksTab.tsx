@@ -19,7 +19,7 @@ const STATUS_COLORS: Record<string, 'success' | 'error' | 'warning' | 'default'>
   blocked: 'error',
 }
 
-const STATUSES = ['pending', 'blocked', 'done']
+const STATUSES = ['ready', 'active', 'blocked', 'done']
 
 export function TasksTab({
   slug,

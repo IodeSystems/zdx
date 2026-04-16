@@ -68,7 +68,7 @@ VALUES ($1, $2, $3, $4, $5, $6, $7)
 RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at;
 
 -- name: ReadyTask :exec
-UPDATE zdx_tasks SET status = 'pending', updated_at = NOW() WHERE id = $1 AND status = 'wip';
+UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1 AND status = 'wip';
 
 -- name: UpdateTaskStatus :exec
 UPDATE zdx_tasks SET status = $2, reason = $3, updated_at = NOW() WHERE id = $1;
@@ -79,7 +79,7 @@ SET status = 'done', test_plan = $2, test_refs = $3, completed_at = NOW(), updat
 WHERE id = $1;
 
 -- name: MarkTaskUndone :exec
-UPDATE zdx_tasks SET status = 'pending', completed_at = NULL, updated_at = NOW() WHERE id = $1;
+UPDATE zdx_tasks SET status = 'ready', completed_at = NULL, updated_at = NOW() WHERE id = $1;
 
 -- name: DeleteTask :exec
 DELETE FROM zdx_tasks WHERE id = $1;
@@ -109,7 +109,7 @@ SET claimed_by = @agent_id,
 WHERE id = (
     SELECT t.id FROM zdx_tasks t
     WHERE t.project_id = @project_id
-      AND t.status = 'pending'
+      AND t.status = 'ready'
       AND t.task_group = @task_group
       AND (t.claimed_by IS NULL OR t.lease_expires_at < NOW())
       AND (@issue::text = '' OR t.issue = @issue)
@@ -124,7 +124,7 @@ UPDATE zdx_tasks
 SET claimed_by = NULL,
     claimed_at = NULL,
     lease_expires_at = NULL,
-    status = 'pending',
+    status = 'ready',
     updated_at = NOW()
 WHERE id = $1 AND claimed_by = $2;
 
@@ -133,7 +133,7 @@ UPDATE zdx_tasks
 SET claimed_by = NULL,
     claimed_at = NULL,
     lease_expires_at = NULL,
-    status = 'pending',
+    status = 'ready',
     updated_at = NOW()
 WHERE id = $1;
 
@@ -154,7 +154,7 @@ UPDATE zdx_tasks
 SET claimed_by = NULL,
     claimed_at = NULL,
     lease_expires_at = NULL,
-    status = 'pending',
+    status = 'ready',
     updated_at = NOW()
 WHERE lease_expires_at < NOW()
   AND claimed_by IS NOT NULL
@@ -173,7 +173,7 @@ SET status = 'done',
 FROM zdx_issues i
 WHERE t.issue = i.id
   AND i.status = 'closed'
-  AND t.status IN ('pending', 'active', 'wip')
+  AND t.status IN ('ready', 'active', 'wip')
 RETURNING t.*;
 
 -- name: MarkTaskReviewed :exec
@@ -200,7 +200,7 @@ SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan,
 FROM zdx_tasks
 WHERE project_id = @project_id
   AND text = @text
-  AND status IN ('pending', 'active', 'wip', 'done')
+  AND status IN ('ready', 'active', 'wip', 'done')
   AND (@issue::text = '' OR issue = @issue)
 ORDER BY created_at DESC;
 
@@ -208,7 +208,7 @@ ORDER BY created_at DESC;
 UPDATE zdx_tasks
 SET stale_since = NOW(),
     updated_at = NOW()
-WHERE status = 'pending'
+WHERE status = 'ready'
   AND claimed_by IS NULL
   AND stale_since IS NULL
   AND created_at <= NOW() - make_interval(days => @stale_days::int)
@@ -220,7 +220,7 @@ SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan,
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
-  AND status = 'pending'
+  AND status = 'ready'
 ORDER BY stale_since ASC;
 
 -- name: ListStaleTasksByIssue :many
@@ -229,7 +229,7 @@ FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
   AND stale_since IS NOT NULL
-  AND status = 'pending'
+  AND status = 'ready'
 ORDER BY stale_since ASC;
 
 -- name: ClearStaleFlag :exec

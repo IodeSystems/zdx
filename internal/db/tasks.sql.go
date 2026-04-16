@@ -23,7 +23,7 @@ SET status = 'done',
 FROM zdx_issues i
 WHERE t.issue = i.id
   AND i.status = 'closed'
-  AND t.status IN ('pending', 'active', 'wip')
+  AND t.status IN ('ready', 'active', 'wip')
 RETURNING t.id, t.project_id, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.created_at, t.completed_at, t.updated_at, t.task_group, t.claimed_by, t.claimed_at, t.lease_expires_at, t.reviewed_at, t.stale_since
 `
 
@@ -77,7 +77,7 @@ SET claimed_by = $1,
 WHERE id = (
     SELECT t.id FROM zdx_tasks t
     WHERE t.project_id = $3
-      AND t.status = 'pending'
+      AND t.status = 'ready'
       AND t.task_group = $4
       AND (t.claimed_by IS NULL OR t.lease_expires_at < NOW())
       AND ($5::text = '' OR t.issue = $5)
@@ -309,7 +309,7 @@ const flagStaleTasks = `-- name: FlagStaleTasks :many
 UPDATE zdx_tasks
 SET stale_since = NOW(),
     updated_at = NOW()
-WHERE status = 'pending'
+WHERE status = 'ready'
   AND claimed_by IS NULL
   AND stale_since IS NULL
   AND created_at <= NOW() - make_interval(days => $1::int)
@@ -403,7 +403,7 @@ SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan,
 FROM zdx_tasks
 WHERE project_id = $1
   AND text = $2
-  AND status IN ('pending', 'active', 'wip', 'done')
+  AND status IN ('ready', 'active', 'wip', 'done')
   AND ($3::text = '' OR issue = $3)
 ORDER BY created_at DESC
 `
@@ -517,7 +517,7 @@ SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan,
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
-  AND status = 'pending'
+  AND status = 'ready'
 ORDER BY stale_since ASC
 `
 
@@ -581,7 +581,7 @@ FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
   AND stale_since IS NOT NULL
-  AND status = 'pending'
+  AND status = 'ready'
 ORDER BY stale_since ASC
 `
 
@@ -1276,7 +1276,7 @@ func (q *Queries) MarkTaskReviewed(ctx context.Context, id string) error {
 }
 
 const markTaskUndone = `-- name: MarkTaskUndone :exec
-UPDATE zdx_tasks SET status = 'pending', completed_at = NULL, updated_at = NOW() WHERE id = $1
+UPDATE zdx_tasks SET status = 'ready', completed_at = NULL, updated_at = NOW() WHERE id = $1
 `
 
 func (q *Queries) MarkTaskUndone(ctx context.Context, id string) error {
@@ -1285,7 +1285,7 @@ func (q *Queries) MarkTaskUndone(ctx context.Context, id string) error {
 }
 
 const readyTask = `-- name: ReadyTask :exec
-UPDATE zdx_tasks SET status = 'pending', updated_at = NOW() WHERE id = $1 AND status = 'wip'
+UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1 AND status = 'wip'
 `
 
 func (q *Queries) ReadyTask(ctx context.Context, id string) error {
@@ -1298,7 +1298,7 @@ UPDATE zdx_tasks
 SET claimed_by = NULL,
     claimed_at = NULL,
     lease_expires_at = NULL,
-    status = 'pending',
+    status = 'ready',
     updated_at = NOW()
 WHERE lease_expires_at < NOW()
   AND claimed_by IS NOT NULL
@@ -1351,7 +1351,7 @@ UPDATE zdx_tasks
 SET claimed_by = NULL,
     claimed_at = NULL,
     lease_expires_at = NULL,
-    status = 'pending',
+    status = 'ready',
     updated_at = NOW()
 WHERE id = $1 AND claimed_by = $2
 `
@@ -1371,7 +1371,7 @@ UPDATE zdx_tasks
 SET claimed_by = NULL,
     claimed_at = NULL,
     lease_expires_at = NULL,
-    status = 'pending',
+    status = 'ready',
     updated_at = NOW()
 WHERE id = $1
 `

@@ -268,7 +268,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "no tasks available to claim")
 			}
-			s.recordStatusChange(ctx, p.ID, "task", t.ID, "pending", "active", in.Body.AgentID)
+			s.recordStatusChange(ctx, p.ID, "task", t.ID, "ready", "active", in.Body.AgentID)
 			item := AgentTaskItem{
 				ID:             t.ID,
 				Text:           t.Text,
@@ -302,7 +302,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				if err := s.q.ReleaseTaskAdmin(ctx, taskID); err != nil {
 					return nil, apiErr(500, err.Error())
 				}
-				s.recordTaskStatusChange(ctx, taskID, prev, "pending", "")
+				s.recordTaskStatusChange(ctx, taskID, prev, "ready", "")
 				return &struct{}{}, nil
 			}
 			if err := s.q.ReleaseTask(ctx, db.ReleaseTaskParams{
@@ -311,7 +311,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, taskID, prev, "pending", in.Body.AgentID)
+			s.recordTaskStatusChange(ctx, taskID, prev, "ready", in.Body.AgentID)
 			return &struct{}{}, nil
 		})
 
@@ -355,7 +355,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				if r.ClaimedBy.Valid {
 					prevAgent = r.ClaimedBy.String
 				}
-				s.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "active", "pending", prevAgent)
+				s.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "active", "ready", prevAgent)
 			}
 			return &struct {
 				Body struct {

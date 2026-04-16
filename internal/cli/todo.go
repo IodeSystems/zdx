@@ -600,7 +600,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		}
 		hasPending := false
 		for _, t := range taskList.Tasks {
-			if t.Status == "pending" || t.Status == "in_progress" {
+			if t.Status == "ready" || t.Status == "active" {
 				hasPending = true
 				break
 			}
@@ -670,23 +670,23 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			}
 			fetched = append(fetched, issueTasks{issue: iss, tasks: taskList.Tasks})
 		}
-		// Prefer an in_progress task (resume uncommitted work) before any pending pick.
+		// Prefer an active task (resume uncommitted work) before any ready pick.
 		for _, ft := range fetched {
 			for _, t := range ft.tasks {
-				if t.Status == "in_progress" {
+				if t.Status == "active" {
 					fmt.Printf("[dev]     %s  %s\n", taskIDStr(t.ID), t.Text)
 					fmt.Printf("  issue: %s\n", issueIDStr(ft.issue.ID))
-					fmt.Fprintln(os.Stderr, "  note: resuming in_progress task. Use --agent-id to claim before starting work.")
+					fmt.Fprintln(os.Stderr, "  note: resuming active task. Use --agent-id to claim before starting work.")
 					return nil
 				}
 			}
 		}
-		// Within an issue, pick the lowest-ID pending task — task creation order usually
+		// Within an issue, pick the lowest-ID ready task — task creation order usually
 		// matches execution order, and the API returns tasks sorted by updated_at DESC.
 		for _, ft := range fetched {
 			pending := make([]taskItem, 0, len(ft.tasks))
 			for _, t := range ft.tasks {
-				if t.Status == "pending" {
+				if t.Status == "ready" {
 					pending = append(pending, t)
 				}
 			}
@@ -1107,7 +1107,7 @@ func todoDevStartCmd() *cobra.Command {
 			}
 			if err := c.put("/api/task-status", map[string]any{
 				"id":     int32(n),
-				"status": "in_progress",
+				"status": "active",
 				"reason": reason,
 			}, &ok); err != nil {
 				return err
@@ -1414,7 +1414,7 @@ func todoTechAddCmd() *cobra.Command {
 				}, nil); err != nil {
 					return err
 				}
-				fmt.Println("(auto-promoted to pending — no similar tasks found)")
+				fmt.Println("(auto-promoted to ready — no similar tasks found)")
 			}
 			return nil
 		},
@@ -1423,7 +1423,7 @@ func todoTechAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&feature, "feature", "", "link to feature name")
 	cmd.Flags().StringVar(&text, "text", "", "task description")
 	cmd.Flags().StringVar(&taskGroup, "task-group", "", "logical task group name")
-	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as pending")
+	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as ready")
 	cmd.Flags().BoolVar(&force, "force", false, "bypass duplicate detection")
 	cmd.MarkFlagRequired("text")
 	return cmd

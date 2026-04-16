@@ -574,10 +574,10 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				}
 			}
 
-			tldr := fmt.Sprintf("%s check-in: %d open issues, %d WIP, %d closed (30d), %d pending tasks, %d done tasks",
+			tldr := fmt.Sprintf("%s check-in: %d open issues, %d WIP, %d closed (30d), %d ready tasks, %d done tasks",
 				role, summary.OpenIssues, summary.WipIssues, summary.RecentlyClosedIssues, summary.PendingTasks, summary.DoneTasks)
 
-			assessment := fmt.Sprintf("Open issues: %d | WIP: %d | Recently closed (30d): %d\nPending tasks: %d | Completed tasks: %d",
+			assessment := fmt.Sprintf("Open issues: %d | WIP: %d | Recently closed (30d): %d\nReady tasks: %d | Completed tasks: %d",
 				summary.OpenIssues, summary.WipIssues, summary.RecentlyClosedIssues, summary.PendingTasks, summary.DoneTasks)
 			if churnNote != "" {
 				assessment += "\n\n**Session Health:** " + churnNote

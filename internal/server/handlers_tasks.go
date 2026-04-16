@@ -182,7 +182,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}
 			status := "wip"
 			if in.Body.AutoReady {
-				status = "pending"
+				status = "ready"
 			}
 
 			var similar []SimilarTaskItem
@@ -291,7 +291,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			if err := s.q.MarkTaskUndone(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, id, prev, "pending", "")
+			s.recordTaskStatusChange(ctx, id, prev, "ready", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -339,11 +339,11 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}
 			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     id,
-				Status: "pending",
+				Status: "ready",
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, id, prev, "pending", "")
+			s.recordTaskStatusChange(ctx, id, prev, "ready", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -481,7 +481,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
-	// ── Task ready (wip → pending) ───────────────────────────────────────────
+	// ── Task ready (wip → ready) ─────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "ready-task", Method: http.MethodPost, Path: "/api/dx/todo/task/ready"},
 		func(ctx context.Context, in *struct {
@@ -497,7 +497,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			if err := s.q.ReadyTask(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, id, prev, "pending", "")
+			s.recordTaskStatusChange(ctx, id, prev, "ready", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
