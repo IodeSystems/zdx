@@ -195,10 +195,10 @@ func releaseClaimedTasks(rc remoteConfig, agentID string) (released []string, er
 func claudeProjectDir() string {
 	cwd, _ := os.Getwd()
 	home, _ := os.UserHomeDir()
+	// claude CLI replaces / with - and keeps the leading dash (e.g. cwd
+	// /home/foo → slug -home-foo). Stripping it sends the tailer to an
+	// empty sibling directory and silently drops every event.
 	slug := strings.ReplaceAll(cwd, "/", "-")
-	if strings.HasPrefix(slug, "-") {
-		slug = slug[1:]
-	}
 	return filepath.Join(home, ".claude", "projects", slug)
 }
 
