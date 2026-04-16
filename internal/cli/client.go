@@ -59,6 +59,18 @@ func DefaultClient() (*Client, error) {
 	}, nil
 }
 
+// NewClient returns a Client talking to base with the given token. The slug
+// is empty; callers that need project-scoped operations must supply it via a
+// different constructor or fall back to DefaultClient. Used by setup/integrate
+// flows that mint tokens before a project is selected.
+func NewClient(base, token string) *Client {
+	return &Client{
+		base:  base,
+		token: token,
+		http:  &http.Client{},
+	}
+}
+
 // resolveRemoteAPIKey mirrors config.RemoteAPIKey but also reports the source.
 func resolveRemoteAPIKey() (token, source string) {
 	if v := os.Getenv("DX_REMOTE_API_KEY"); v != "" {

@@ -1,7 +1,8 @@
-package cli
+package servercmd
 
 import (
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/url"
 	"os"
 )
@@ -9,7 +10,7 @@ import (
 // bootstrapOnboardingIssue creates the initial project onboarding issue with
 // blocker questions for goals, architecture, constraints, and workflow.
 // Skips if the project already has issues.
-func bootstrapOnboardingIssue(c *Client) error {
+func bootstrapOnboardingIssue(c *cli.Client) error {
 	slug := c.Slug()
 	if slug == "" {
 		return nil
@@ -47,7 +48,7 @@ func bootstrapOnboardingIssue(c *Client) error {
 		return fmt.Errorf("create onboarding issue: %w", err)
 	}
 
-	issueID := IssueIDStr(resp.ID)
+	issueID := cli.IssueIDStr(resp.ID)
 	fmt.Printf("created %s  %s\n", issueID, resp.Title)
 
 	questions := []string{
@@ -71,7 +72,7 @@ func bootstrapOnboardingIssue(c *Client) error {
 			fmt.Fprintf(os.Stderr, "warning: could not create question: %v\n", err)
 			continue
 		}
-		fmt.Printf("  BQ-%d  %s\n", bq.ID, Truncate(q, 70))
+		fmt.Printf("  BQ-%d  %s\n", bq.ID, cli.Truncate(q, 70))
 	}
 
 	fmt.Println("\nanswer these questions to get started:")

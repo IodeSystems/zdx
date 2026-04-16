@@ -9,6 +9,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/agent"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
+	"github.com/iodesystems/zdx-go/internal/cli/servercmd"
 )
 
 func main() {
@@ -35,11 +36,11 @@ func main() {
 		cli.WatchCmd(),
 		cli.HooksCmd(),
 		cli.CtxCmd(),
-		cli.InitCmd(),
-		cli.SetupCmd(),
-		cli.DaemonCmd(),
-		cli.ServeCmd(),
-		cli.MigrateCmd(),
+		servercmd.InitCmd(),
+		servercmd.SetupCmd(),
+		servercmd.DaemonCmd(),
+		servercmd.ServeCmd(),
+		servercmd.MigrateCmd(),
 		cli.ErrorsCmd(),
 		cli.CommentCmd(),
 		cli.RevisionCmd(),
@@ -53,8 +54,8 @@ func main() {
 		agent.AgentCmd(),
 		cli.TaskCmd(),
 		cli.PatternCmd(),
-		cli.IntegrateCmd(),
-		cli.LoginCmd(),
+		servercmd.IntegrateCmd(),
+		servercmd.LoginCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

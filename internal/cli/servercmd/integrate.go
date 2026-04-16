@@ -1,7 +1,8 @@
-package cli
+package servercmd
 
 import (
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -42,7 +43,7 @@ func IntegrateCmd() *cobra.Command {
 
 			// Validate API key by hitting an authenticated endpoint.
 			if apiKey != "" {
-				client := &Client{base: serverURL, token: apiKey, http: &http.Client{}}
+				client := cli.NewClient(serverURL, apiKey)
 				var projects struct {
 					Items []struct{} `json:"items"`
 				}
@@ -73,7 +74,7 @@ func IntegrateCmd() *cobra.Command {
 
 			// Optionally bootstrap onboarding issue.
 			if bootstrap {
-				client, err := DefaultClient()
+				client, err := cli.DefaultClient()
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "bootstrap: cannot create client: %v\n", err)
 				} else if err := bootstrapOnboardingIssue(client); err != nil {

@@ -1,4 +1,4 @@
-package cli
+package servercmd
 
 import (
 	"crypto/rand"

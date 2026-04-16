@@ -1,12 +1,13 @@
-package cli
+package servercmd
 
 import (
 	"fmt"
-	"net/http"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
 )
 
 func SetupCmd() *cobra.Command {
@@ -21,7 +22,7 @@ func SetupCmd() *cobra.Command {
 			}
 
 			// Unauthenticated client pointed at the given URL (no token).
-			bare := &Client{base: serverURL, http: &http.Client{}}
+			bare := cli.NewClient(serverURL, "")
 
 			// 1. Create project (also unauthenticated during bootstrap —
 			//    middleware skips /api/setup/bootstrap, but /api/project still
@@ -53,7 +54,7 @@ func SetupCmd() *cobra.Command {
 			writeRemoteConfig(serverURL, slug)
 
 			// 4. Create project with auth
-			authed := &Client{base: serverURL, token: boot.Token, http: &http.Client{}}
+			authed := cli.NewClient(serverURL, boot.Token)
 			var proj struct {
 				ID   int32  `json:"id"`
 				Slug string `json:"slug"`

@@ -1,7 +1,8 @@
-package cli
+package servercmd
 
 import (
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/http"
 	"os"
 	"path/filepath"
@@ -48,7 +49,7 @@ func InitCmd() *cobra.Command {
 			}
 
 			if bootstrap && connected {
-				c, err := DefaultClient()
+				c, err := cli.DefaultClient()
 				if err != nil {
 					fmt.Fprintf(os.Stderr, "bootstrap: cannot create client: %v\n", err)
 				} else if err := bootstrapOnboardingIssue(c); err != nil {
