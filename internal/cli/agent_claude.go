@@ -466,58 +466,109 @@ func (a *claudeAdapter) RenderEvent(eventJSON []byte) string {
 	return renderSessionEvent(eventJSON, a.toolNames)
 }
 
-// renderSessionEvent turns a single JSONL line into a short progress string.
-// Returns empty string for events that should not be logged (e.g. queue ops).
-// toolNames accumulates tool_use id→name so later tool_result lines can show
-// which tool returned.
+// ANSI color codes. Emitted only when colorsEnabled is true (TTY + no NO_COLOR).
+const (
+	ansiReset   = "\033[0m"
+	ansiDim     = "\033[2m"
+	ansiBold    = "\033[1m"
+	ansiCyan    = "\033[36m"
+	ansiGreen   = "\033[32m"
+	ansiRed     = "\033[31m"
+	ansiMagenta = "\033[35m"
+	ansiBlue    = "\033[34m"
+)
+
+var colorsEnabled = computeColorsEnabled()
+
+func computeColorsEnabled() bool {
+	if os.Getenv("NO_COLOR") != "" {
+		return false
+	}
+	fi, err := os.Stdout.Stat()
+	if err != nil {
+		return false
+	}
+	return (fi.Mode() & os.ModeCharDevice) != 0
+}
+
+func colorize(codes, s string) string {
+	if !colorsEnabled || codes == "" {
+		return s
+	}
+	return codes + s + ansiReset
+}
+
+// renderSessionEvent turns a single JSONL line from a Claude transcript into
+// one or more human-readable lines (newline-separated) for stdout + agent.log.
+// Returns "" for events that should not be rendered (queue-operation,
+// attachment, non-tool-result user messages, malformed JSON).
+//
+// Output shape matches the retired bin/claude-work-render:
+//
+//	[Tool] detail            cyan bold (+ dim detail)
+//	text                     plain
+//	⟡ thinking               blue dim
+//	● title                  magenta bold
+//	✓ tool: content snippet  green dim (tool_result ok)
+//	✗ tool: content snippet  red (tool_result err)
+//
+// toolNames accumulates tool_use id → name so later tool_result lines can
+// label which tool returned.
 func renderSessionEvent(line []byte, toolNames map[string]string) string {
 	var evt struct {
 		Type    string          `json:"type"`
+		Title   string          `json:"title"`
 		Message json.RawMessage `json:"message"`
 	}
 	if err := json.Unmarshal(line, &evt); err != nil {
 		return ""
 	}
 	switch evt.Type {
+	case "queue-operation", "attachment":
+		return ""
+	case "ai-title":
+		t := strings.TrimSpace(evt.Title)
+		if t == "" {
+			return ""
+		}
+		return colorize(ansiBold+ansiMagenta, "● "+t)
 	case "assistant":
 		var m struct {
 			Content []struct {
-				Type  string          `json:"type"`
-				Text  string          `json:"text"`
-				Name  string          `json:"name"`
-				ID    string          `json:"id"`
-				Input json.RawMessage `json:"input"`
+				Type     string          `json:"type"`
+				Text     string          `json:"text"`
+				Thinking string          `json:"thinking"`
+				Name     string          `json:"name"`
+				ID       string          `json:"id"`
+				Input    json.RawMessage `json:"input"`
 			} `json:"content"`
 		}
 		if err := json.Unmarshal(evt.Message, &m); err != nil {
 			return ""
 		}
-		var parts []string
+		var lines []string
 		for _, c := range m.Content {
 			switch c.Type {
 			case "tool_use":
 				if c.ID != "" && c.Name != "" {
 					toolNames[c.ID] = c.Name
 				}
-				parts = append(parts, renderToolUse(c.Name, c.Input))
+				lines = append(lines, renderToolUse(c.Name, c.Input))
 			case "text":
-				s := strings.TrimSpace(c.Text)
+				s := flattenTrunc(c.Text, 200)
 				if s == "" {
 					continue
 				}
-				if i := strings.IndexByte(s, '\n'); i > 0 {
-					s = s[:i]
+				lines = append(lines, s)
+			case "thinking":
+				s := flattenTrunc(c.Thinking, 100)
+				if s == "" {
+					continue
 				}
-				if len(s) > 100 {
-					s = s[:100] + "…"
-				}
-				parts = append(parts, "text: "+s)
+				lines = append(lines, colorize(ansiDim+ansiBlue, "⟡ "+s))
 			}
 		}
-		if len(parts) == 0 {
-			return ""
-		}
-		return strings.Join(parts, "; ")
+		return strings.Join(lines, "\n")
 	case "user":
 		var m struct {
 			Content json.RawMessage `json:"content"`
@@ -530,14 +581,15 @@ func renderSessionEvent(line []byte, toolNames map[string]string) string {
 			return ""
 		}
 		var arr []struct {
-			Type      string `json:"type"`
-			ToolUseID string `json:"tool_use_id"`
-			IsError   bool   `json:"is_error"`
+			Type      string          `json:"type"`
+			ToolUseID string          `json:"tool_use_id"`
+			IsError   bool            `json:"is_error"`
+			Content   json.RawMessage `json:"content"`
 		}
 		if err := json.Unmarshal(raw, &arr); err != nil {
 			return ""
 		}
-		var parts []string
+		var lines []string
 		for _, c := range arr {
 			if c.Type != "tool_result" {
 				continue
@@ -546,16 +598,71 @@ func renderSessionEvent(line []byte, toolNames map[string]string) string {
 			if name == "" {
 				name = "tool"
 			}
-			status := "ok"
+			snippet := toolResultSnippet(c.Content, 120)
 			if c.IsError {
-				status = "err"
+				label := "✗ " + name
+				if snippet != "" {
+					label += ": " + snippet
+				}
+				lines = append(lines, colorize(ansiRed, label))
+			} else {
+				label := "✓ " + name
+				if snippet != "" {
+					label += ": " + snippet
+				}
+				lines = append(lines, colorize(ansiDim+ansiGreen, label))
 			}
-			parts = append(parts, fmt.Sprintf("← %s: %s", name, status))
 		}
-		if len(parts) == 0 {
+		return strings.Join(lines, "\n")
+	}
+	return ""
+}
+
+// flattenTrunc collapses newlines to spaces, trims, and truncates to n runes
+// with a trailing ellipsis. Returns "" if the input is blank.
+func flattenTrunc(s string, n int) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	s = strings.TrimSpace(s)
+	if s == "" {
+		return ""
+	}
+	r := []rune(s)
+	if len(r) > n {
+		return string(r[:n]) + "…"
+	}
+	return s
+}
+
+// toolResultSnippet extracts a short text snippet from tool_result content,
+// which can be either a JSON string or an array of content blocks (text /
+// image / etc). Returns "" when no usable text is present.
+func toolResultSnippet(content json.RawMessage, n int) string {
+	raw := bytes.TrimSpace(content)
+	if len(raw) == 0 {
+		return ""
+	}
+	switch raw[0] {
+	case '"':
+		var s string
+		if json.Unmarshal(raw, &s) != nil {
 			return ""
 		}
-		return strings.Join(parts, "; ")
+		return flattenTrunc(s, n)
+	case '[':
+		var blocks []struct {
+			Type string `json:"type"`
+			Text string `json:"text"`
+		}
+		if json.Unmarshal(raw, &blocks) != nil {
+			return ""
+		}
+		var parts []string
+		for _, b := range blocks {
+			if b.Text != "" {
+				parts = append(parts, b.Text)
+			}
+		}
+		return flattenTrunc(strings.Join(parts, " "), n)
 	}
 	return ""
 }
@@ -567,14 +674,7 @@ func renderToolUse(name string, input json.RawMessage) string {
 	switch name {
 	case "Bash":
 		if s, ok := in["command"].(string); ok {
-			s = strings.TrimSpace(s)
-			if i := strings.IndexByte(s, '\n'); i > 0 {
-				s = s[:i]
-			}
-			if len(s) > 80 {
-				s = s[:80] + "…"
-			}
-			summary = s
+			summary = flattenTrunc(s, 80)
 		}
 	case "Read", "Edit", "Write", "NotebookEdit":
 		if s, ok := in["file_path"].(string); ok {
@@ -600,10 +700,11 @@ func renderToolUse(name string, input json.RawMessage) string {
 	if name == "" {
 		name = "tool"
 	}
+	label := colorize(ansiBold+ansiCyan, "["+name+"]")
 	if summary == "" {
-		return name
+		return label
 	}
-	return fmt.Sprintf("%s: %s", name, summary)
+	return label + " " + colorize(ansiDim, summary)
 }
 
 func parseSubagentMeta(jsonlPath string) (id, agentType, desc string) {

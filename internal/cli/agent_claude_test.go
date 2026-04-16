@@ -1,0 +1,161 @@
+package cli
+
+import (
+	"strings"
+	"testing"
+)
+
+// renderSessionEvent tests run with ANSI disabled so assertions stay readable.
+// colorsEnabled is package-level and already false under `go test` (stdout is
+// not a char device), but we force it to be safe.
+func forceNoColor(t *testing.T) {
+	t.Helper()
+	prev := colorsEnabled
+	colorsEnabled = false
+	t.Cleanup(func() { colorsEnabled = prev })
+}
+
+func TestRenderSessionEvent(t *testing.T) {
+	forceNoColor(t)
+
+	cases := []struct {
+		name string
+		line string
+		want string
+	}{
+		{
+			name: "queue-operation is silent",
+			line: `{"type":"queue-operation","operation":"enqueue"}`,
+			want: "",
+		},
+		{
+			name: "attachment is silent",
+			line: `{"type":"attachment"}`,
+			want: "",
+		},
+		{
+			name: "ai-title",
+			line: `{"type":"ai-title","title":"Refactor renderer"}`,
+			want: "● Refactor renderer",
+		},
+		{
+			name: "assistant text trimmed+flattened",
+			line: `{"type":"assistant","message":{"content":[{"type":"text","text":"  hello\nworld  "}]}}`,
+			want: "hello world",
+		},
+		{
+			name: "assistant thinking",
+			line: `{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"planning next step"}]}}`,
+			want: "⟡ planning next step",
+		},
+		{
+			name: "assistant tool_use Bash",
+			line: `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"x","name":"Bash","input":{"command":"ls -la"}}]}}`,
+			want: "[Bash] ls -la",
+		},
+		{
+			name: "assistant tool_use Read",
+			line: `{"type":"assistant","message":{"content":[{"type":"tool_use","id":"x","name":"Read","input":{"file_path":"/tmp/x"}}]}}`,
+			want: "[Read] /tmp/x",
+		},
+		{
+			name: "assistant multi-block emits newline-separated lines",
+			line: `{"type":"assistant","message":{"content":[{"type":"thinking","thinking":"think"},{"type":"tool_use","id":"x","name":"Grep","input":{"pattern":"foo"}}]}}`,
+			want: "⟡ think\n[Grep] foo",
+		},
+		{
+			name: "user tool_result ok with string content",
+			line: `{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"x","is_error":false,"content":"matched 3 files"}]}}`,
+			want: "✓ tool: matched 3 files",
+		},
+		{
+			name: "user tool_result err with array content",
+			line: `{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"x","is_error":true,"content":[{"type":"text","text":"boom"}]}]}}`,
+			want: "✗ tool: boom",
+		},
+		{
+			name: "user plain-string content is silent",
+			line: `{"type":"user","message":{"content":"hello"}}`,
+			want: "",
+		},
+		{
+			name: "unknown event type is silent",
+			line: `{"type":"something-else"}`,
+			want: "",
+		},
+		{
+			name: "malformed json is silent",
+			line: `not-json`,
+			want: "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			toolNames := map[string]string{}
+			got := renderSessionEvent([]byte(tc.line), toolNames)
+			if got != tc.want {
+				t.Fatalf("line=%s\n  got  %q\n  want %q", tc.line, got, tc.want)
+			}
+		})
+	}
+}
+
+// tool_result should show the tool name that was captured from the preceding
+// tool_use via toolNames[id].
+func TestRenderSessionEvent_ToolNameLink(t *testing.T) {
+	forceNoColor(t)
+	toolNames := map[string]string{}
+
+	// 1) record tool_use name under its id
+	_ = renderSessionEvent([]byte(`{"type":"assistant","message":{"content":[{"type":"tool_use","id":"toolu_1","name":"Bash","input":{"command":"ls"}}]}}`), toolNames)
+	if toolNames["toolu_1"] != "Bash" {
+		t.Fatalf("expected toolNames[toolu_1]=Bash, got %v", toolNames)
+	}
+
+	// 2) matching tool_result should label as Bash (not fallback "tool")
+	got := renderSessionEvent([]byte(`{"type":"user","message":{"content":[{"type":"tool_result","tool_use_id":"toolu_1","is_error":false,"content":"ok"}]}}`), toolNames)
+	if got != "✓ Bash: ok" {
+		t.Fatalf("want '✓ Bash: ok', got %q", got)
+	}
+}
+
+// flattenTrunc should strip newlines, trim whitespace, and truncate with …
+// at the rune (not byte) boundary.
+func TestFlattenTrunc(t *testing.T) {
+	cases := []struct {
+		in   string
+		n    int
+		want string
+	}{
+		{"", 10, ""},
+		{"   ", 10, ""},
+		{"hello", 10, "hello"},
+		{"hello\nworld", 20, "hello world"},
+		{"abcdefghij", 5, "abcde…"},
+		{"日本語テスト文字", 3, "日本語…"},
+	}
+	for _, tc := range cases {
+		if got := flattenTrunc(tc.in, tc.n); got != tc.want {
+			t.Errorf("flattenTrunc(%q, %d) = %q, want %q", tc.in, tc.n, got, tc.want)
+		}
+	}
+}
+
+// colorize is a no-op when colors are disabled and wraps with reset otherwise.
+func TestColorize(t *testing.T) {
+	prev := colorsEnabled
+
+	colorsEnabled = false
+	if got := colorize(ansiRed, "x"); got != "x" {
+		t.Errorf("disabled: want 'x', got %q", got)
+	}
+
+	colorsEnabled = true
+	got := colorize(ansiRed, "x")
+	if !strings.HasPrefix(got, ansiRed) || !strings.HasSuffix(got, ansiReset) {
+		t.Errorf("enabled: want wrapped with red..reset, got %q", got)
+	}
+
+	colorsEnabled = prev
+}
