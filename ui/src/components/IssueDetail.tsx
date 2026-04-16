@@ -105,7 +105,7 @@ export function IssueDetail({
   const workEntries: IssueWorkItem[] = data?.work ?? []
   const blockingThemes = (allThemes ?? []).filter(t => t.blockers.split(',').includes(issueId))
   const blockingThemeIds = new Set(blockingThemes.map(t => t.id))
-  const availableThemes = (allThemes ?? []).filter(t => t.status === 'active' && !blockingThemeIds.has(t.id))
+  const availableThemes = (allThemes ?? []).filter(t => t.status !== 'archived' && !blockingThemeIds.has(t.id))
 
   if (!issue) {
     return (
