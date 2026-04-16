@@ -1,7 +1,8 @@
-package cli
+package devtools
 
 import (
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"os"
 	"os/exec"
 	"strings"
@@ -52,13 +53,13 @@ func WatchCmd() *cobra.Command {
 			}
 			fmt.Println()
 
-			_ = runShell(entry.Run, "")
+			_ = cli.RunShell(entry.Run, "")
 			for {
 				if !inotifyWait(entry.Dirs, entry.Include) {
 					return fmt.Errorf("inotifywait unavailable — install inotify-tools")
 				}
 				fmt.Print("\n— change detected —\n\n")
-				_ = runShell(entry.Run, "")
+				_ = cli.RunShell(entry.Run, "")
 			}
 		},
 	}

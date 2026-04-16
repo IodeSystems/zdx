@@ -37,3 +37,16 @@ func Truncate(s string, n int) string {
 	}
 	return s[:n-3] + "..."
 }
+
+// RunShell runs cmd via `/bin/sh -c` wired to the current stdio, optionally
+// inside cwd. Used by spec run (cli) and build steps (devtools).
+func RunShell(cmd, cwd string) error {
+	c := exec.Command("/bin/sh", "-c", cmd)
+	c.Stdout = os.Stdout
+	c.Stderr = os.Stderr
+	c.Stdin = os.Stdin
+	if cwd != "" {
+		c.Dir = cwd
+	}
+	return c.Run()
+}

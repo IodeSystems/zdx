@@ -1,7 +1,8 @@
-package cli
+package devtools
 
 import (
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 
 	"github.com/spf13/cobra"
 
@@ -32,7 +33,7 @@ func LintCmd() *cobra.Command {
 						label = step.Run
 					}
 					fmt.Printf("● lint %s (%s)\n", label, name)
-					if err := runShell(step.Run, step.CWD); err != nil {
+					if err := cli.RunShell(step.Run, step.CWD); err != nil {
 						fmt.Printf("  FAILED: %v\n", err)
 						failed = true
 					}

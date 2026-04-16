@@ -8,6 +8,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/agent"
+	"github.com/iodesystems/zdx-go/internal/cli/devtools"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/cli/servercmd"
 )
@@ -29,19 +30,19 @@ func main() {
 		cli.JournalCmd(),
 		cli.ThemeCmd(),
 		cli.SpecCmd(),
-		cli.BuildCmd(),
-		cli.TestCmd(),
-		cli.LintCmd(),
-		cli.CheckCmd(),
-		cli.WatchCmd(),
-		cli.HooksCmd(),
+		devtools.BuildCmd(),
+		devtools.TestCmd(),
+		devtools.LintCmd(),
+		devtools.CheckCmd(),
+		devtools.WatchCmd(),
+		devtools.HooksCmd(),
 		cli.CtxCmd(),
 		servercmd.InitCmd(),
 		servercmd.SetupCmd(),
 		servercmd.DaemonCmd(),
 		servercmd.ServeCmd(),
 		servercmd.MigrateCmd(),
-		cli.ErrorsCmd(),
+		devtools.ErrorsCmd(),
 		cli.CommentCmd(),
 		cli.RevisionCmd(),
 		cli.RefCmd(),
@@ -49,8 +50,8 @@ func main() {
 		cli.QuestionCmd(),
 		cli.QuestionProposalCmd(),
 		mcpcmd.McpCmd(),
-		cli.TimeCmd(),
-		cli.ClaudeCmd(),
+		devtools.TimeCmd(),
+		devtools.ClaudeCmd(),
 		agent.AgentCmd(),
 		cli.TaskCmd(),
 		cli.PatternCmd(),

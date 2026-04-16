@@ -1,8 +1,9 @@
-package cli
+package devtools
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/url"
 
 	"github.com/spf13/cobra"
@@ -47,11 +48,11 @@ func errorsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List recent error reports for this project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
 				Errors []errorReportItem `json:"errors"`
 			}
-			if err := c.Get("/api/dx/errors", QuerySlug(c), &resp); err != nil {
+			if err := c.Get("/api/dx/errors", cli.QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Errors) == 0 {
@@ -76,7 +77,7 @@ func errorsReportCmd() *cobra.Command {
 		Use:   "report",
 		Short: "Report an error to this project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp errorReportItem
 			if err := c.Post("/api/dx/errors/report", map[string]any{
 				"slug":        c.SlugOrDie(),
@@ -106,7 +107,7 @@ func slowQueriesListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List recent slow queries for this project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
 				Queries []slowQueryItem `json:"queries"`
 			}
@@ -140,7 +141,7 @@ func timedListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List slowest-ever operations",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
 				Items []timedItem `json:"items"`
 			}

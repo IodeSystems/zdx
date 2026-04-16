@@ -1,4 +1,4 @@
-package cli
+package devtools
 
 import (
 	"bufio"
@@ -6,6 +6,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"io"
 	"os"
 	"os/exec"
@@ -314,7 +315,7 @@ func testRunE(cmd *cobra.Command, args []string) error {
 
 		if s.Setup != "" {
 			fmt.Printf("  setup: %s\n", s.Setup)
-			if err := runShell(s.Setup, s.CWD); err != nil {
+			if err := cli.RunShell(s.Setup, s.CWD); err != nil {
 				fmt.Fprintf(os.Stderr, "  setup FAILED: %v\n", err)
 				results = append(results, TestResult{
 					Component: s.Component, Suite: s.Name, Runner: s.Runner,
@@ -328,12 +329,12 @@ func testRunE(cmd *cobra.Command, args []string) error {
 		}
 
 		start := time.Now()
-		err := runShell(s.Run, s.CWD)
+		err := cli.RunShell(s.Run, s.CWD)
 		dur := time.Since(start).Milliseconds()
 
 		if s.Teardown != "" {
 			fmt.Printf("  teardown: %s\n", s.Teardown)
-			_ = runShell(s.Teardown, s.CWD)
+			_ = cli.RunShell(s.Teardown, s.CWD)
 		}
 
 		status := "pass"
@@ -418,7 +419,7 @@ func testE2EBuildCmd() *cobra.Command {
 		Use:   "build",
 		Short: "Compile e2e test binary to " + testBin,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runShell("go test -c -o "+testBin+" "+testPkg, "")
+			return cli.RunShell("go test -c -o "+testBin+" "+testPkg, "")
 		},
 	}
 }
@@ -445,7 +446,7 @@ func testE2ERunE(cmd *cobra.Command, _ []string) error {
 	// Ensure binary exists.
 	if _, err := os.Stat(testBin); err != nil {
 		fmt.Fprintf(os.Stderr, "[e2e] binary not found — building...\n")
-		if err := runShell("go test -c -o "+testBin+" "+testPkg, ""); err != nil {
+		if err := cli.RunShell("go test -c -o "+testBin+" "+testPkg, ""); err != nil {
 			return fmt.Errorf("build: %w", err)
 		}
 	}
@@ -690,7 +691,7 @@ func writeE2EResults(results []TestResult) {
 
 // syncTestResults submits test results (with demo artifacts) to the server.
 func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta) {
-	c, err := DefaultClient()
+	c, err := cli.DefaultClient()
 	if err != nil {
 		return
 	}

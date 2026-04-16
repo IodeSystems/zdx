@@ -1,12 +1,11 @@
-package cli
+package devtools
 
 import (
 	"fmt"
-	"os"
-	"os/exec"
 
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
 
@@ -33,7 +32,7 @@ func BuildCmd() *cobra.Command {
 					label = s.Run
 				}
 				fmt.Printf("● %s (%s)\n", label, s.Component)
-				if err := runShell(s.Run, s.CWD); err != nil {
+				if err := cli.RunShell(s.Run, s.CWD); err != nil {
 					return fmt.Errorf("%s: %w", s.Run, err)
 				}
 			}
@@ -56,17 +55,6 @@ func CheckCmd() *cobra.Command {
 			return nil
 		},
 	}
-}
-
-func runShell(cmd, cwd string) error {
-	c := exec.Command("/bin/sh", "-c", cmd)
-	c.Stdout = os.Stdout
-	c.Stderr = os.Stderr
-	c.Stdin = os.Stdin
-	if cwd != "" {
-		c.Dir = cwd
-	}
-	return c.Run()
 }
 
 // RunBuild kept for compatibility.

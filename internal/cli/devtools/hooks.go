@@ -1,4 +1,4 @@
-package cli
+package devtools
 
 import (
 	"fmt"

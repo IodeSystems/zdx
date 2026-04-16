@@ -1,8 +1,9 @@
-package cli
+package devtools
 
 import (
 	"encoding/json"
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/url"
 	"os"
 	"os/exec"
@@ -40,7 +41,7 @@ func claudeSummarizeCmd() *cobra.Command {
 		Use:   "summarize",
 		Short: "Generate header, summary, and status for sessions via claude -p",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			slug := c.SlugOrDie()
 
 			if sessionID > 0 {
@@ -72,7 +73,7 @@ func claudeSummarizeCmd() *cobra.Command {
 	return cmd
 }
 
-func summarizeSession(c *Client, slug string, sessionID int64) error {
+func summarizeSession(c *cli.Client, slug string, sessionID int64) error {
 	params := url.Values{"slug": {slug}, "limit": {"500"}}
 	var resp struct {
 		Events []claudeEvent `json:"events"`

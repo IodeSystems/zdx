@@ -1,8 +1,9 @@
-package cli
+package devtools
 
 import (
 	"context"
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"os"
 	"os/exec"
 	"strings"
@@ -110,7 +111,7 @@ func resolveIngestToken() (string, error) {
 		}
 	}
 
-	cl, err := DefaultClient()
+	cl, err := cli.DefaultClient()
 	if err != nil {
 		return "", fmt.Errorf("cannot auto-provision token: %w", err)
 	}

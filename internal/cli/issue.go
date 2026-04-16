@@ -309,7 +309,7 @@ func runCloseHooks() error {
 			label = ns.Run
 		}
 		fmt.Printf("[close] %s: %s\n", ns.Component, label)
-		if err := runShell(ns.Run, ns.CWD); err != nil {
+		if err := RunShell(ns.Run, ns.CWD); err != nil {
 			return fmt.Errorf("close hook %q failed: %w", label, err)
 		}
 	}
