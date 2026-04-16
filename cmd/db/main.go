@@ -1,12 +1,14 @@
 package main
 
 import (
+	"errors"
 	"fmt"
 	"log"
 	"os"
 	"os/exec"
 	"strings"
 
+	migrate4 "github.com/golang-migrate/migrate/v4"
 	"github.com/iodesystems/zdx-go/internal/migrate"
 )
 
@@ -42,10 +44,35 @@ func runMigrate(noGen bool) {
 	}
 	migrateDSN := strings.Replace(dsn, "postgres://", "pgx5://", 1)
 
+	preVer, preDirty, preErr := migrate.Version(migrateDSN)
+	preNil := errors.Is(preErr, migrate4.ErrNilVersion)
+	if preErr != nil && !preNil {
+		log.Fatalf("migrate: read current version: %v", preErr)
+	}
+	if preDirty {
+		log.Fatalf("migrate: schema is dirty at version %d — manual intervention required", preVer)
+	}
+
 	if err := migrate.Up(migrateDSN); err != nil {
 		log.Fatalf("migrate: %v", err)
 	}
-	log.Println("migrations applied")
+
+	postVer, _, postErr := migrate.Version(migrateDSN)
+	postNil := errors.Is(postErr, migrate4.ErrNilVersion)
+	if postErr != nil && !postNil {
+		log.Fatalf("migrate: read post version: %v", postErr)
+	}
+
+	switch {
+	case postNil:
+		log.Println("migrate: no migrations embedded in this binary")
+	case preNil:
+		log.Printf("migrate: schema initialized at version %d", postVer)
+	case preVer == postVer:
+		log.Printf("migrate: already up-to-date at version %d", postVer)
+	default:
+		log.Printf("migrate: applied migrations %d → %d", preVer, postVer)
+	}
 
 	if !noGen {
 		runGen()

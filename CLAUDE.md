@@ -22,10 +22,11 @@ Server requires `DATABASE_URL` env var pointing to PostgreSQL 16+ with pgvector.
 ## Database Workflow
 
 1. Add migration in `internal/migrate/sql/` (NNN_name.up.sql + NNN_name.down.sql)
-2. Dev: migrations run automatically on server start
-3. Update shipped.sql: `./bin/db gen` (pg_dump of current schema)
+2. Rebuild `bin/db` so the new migration is in the embedded FS: `go build -o bin/db ./cmd/db` (or `make build`). `bin/db migrate` embeds the SQL at compile time, so a stale binary will silently skip new files.
+3. Dev: migrations run automatically on server start; or run `./bin/db migrate` manually. It prints the version delta so you can see what actually applied.
 4. Regenerate queries: `~/go/bin/sqlc generate`
 5. Verify: `go build ./...`
+6. shipped.sql is regenerated automatically by `bin/ship` during the compat-check (pg_dump in an ephemeral Postgres → `schema/next.sql` → `schema/shipped.sql`). No manual pg_dump step is needed during dev.
 
 ## Testing
 
