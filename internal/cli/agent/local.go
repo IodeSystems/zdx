@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"os"
 	"strings"
 	"time"
@@ -101,9 +102,9 @@ func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (s
 		Name:    "dx-agent-local",
 		Version: "0.1.0",
 	}, nil)
-	cli.RegisterMCPTools(srv, c)
-	cli.RegisterFSTools(srv, root)
-	cli.RegisterShellTools(srv, root)
+	mcpcmd.RegisterMCPTools(srv, c)
+	mcpcmd.RegisterFSTools(srv, root)
+	mcpcmd.RegisterShellTools(srv, root)
 
 	dispCtx, dispCancel := context.WithCancel(ctx)
 	disp, err := newLocalDispatcher(dispCtx, srv)

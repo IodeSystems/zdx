@@ -8,6 +8,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/agent"
+	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 )
 
 func main() {
@@ -46,7 +47,7 @@ func main() {
 		cli.QaCmd(),
 		cli.QuestionCmd(),
 		cli.QuestionProposalCmd(),
-		cli.McpCmd(),
+		mcpcmd.McpCmd(),
 		cli.TimeCmd(),
 		cli.ClaudeCmd(),
 		agent.AgentCmd(),

@@ -47,7 +47,7 @@ func bootstrapOnboardingIssue(c *Client) error {
 		return fmt.Errorf("create onboarding issue: %w", err)
 	}
 
-	issueID := issueIDStr(resp.ID)
+	issueID := IssueIDStr(resp.ID)
 	fmt.Printf("created %s  %s\n", issueID, resp.Title)
 
 	questions := []string{

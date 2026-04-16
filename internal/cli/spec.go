@@ -56,7 +56,7 @@ func specListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := MustClient()
 			var resp struct {
-				Features []featureItem `json:"features"`
+				Features []FeatureItem `json:"features"`
 			}
 			if err := c.Get("/api/features", QuerySlug(c), &resp); err != nil {
 				return err

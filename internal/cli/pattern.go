@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type patternItem struct {
+type PatternItem struct {
 	ID          int32           `json:"id"`
 	Name        string          `json:"name"`
 	Description string          `json:"description"`
@@ -30,7 +30,7 @@ func patternListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := MustClient()
 			var resp struct {
-				Patterns []patternItem `json:"patterns"`
+				Patterns []PatternItem `json:"patterns"`
 				Total    int64         `json:"total"`
 			}
 			if err := c.Get("/api/dx/patterns", QuerySlug(c), &resp); err != nil {
@@ -66,7 +66,7 @@ func patternAddCmd() *cobra.Command {
 				refs := parseCodeRefs(codeRefsStr)
 				body["code_refs"] = refs
 			}
-			var p patternItem
+			var p PatternItem
 			if err := c.Post("/api/dx/patterns/add", body, &p); err != nil {
 				return err
 			}
@@ -87,7 +87,7 @@ func patternShowCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := MustClient()
 			id := parsePatternID(args[0])
-			var p patternItem
+			var p PatternItem
 			q := QuerySlug(c)
 			q.Set("id", fmt.Sprintf("%d", id))
 			if err := c.Get("/api/dx/patterns/get", q, &p); err != nil {
@@ -142,7 +142,7 @@ func patternSearchCmd() *cobra.Command {
 			c := MustClient()
 			var resp struct {
 				Patterns []struct {
-					Pattern patternItem `json:"pattern"`
+					Pattern PatternItem `json:"pattern"`
 					Score   float64     `json:"score"`
 				} `json:"patterns"`
 			}

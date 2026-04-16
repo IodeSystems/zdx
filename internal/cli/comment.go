@@ -20,7 +20,7 @@ func resolveAuthorAlias(flag string) string {
 	return os.Getenv("DX_AUTHOR_ALIAS")
 }
 
-type commentItem struct {
+type CommentItem struct {
 	ID          int32  `json:"id"`
 	TargetType  string `json:"target_type"`
 	TargetID    string `json:"target_id"`
@@ -55,7 +55,7 @@ func commentListCmd() *cobra.Command {
 				q.Set("role", role)
 			}
 			var resp struct {
-				Comments []commentItem `json:"comments"`
+				Comments []CommentItem `json:"comments"`
 			}
 			if err := c.Get("/api/dx/comment/list", q, &resp); err != nil {
 				return err
@@ -72,7 +72,7 @@ func commentListCmd() *cobra.Command {
 	return cmd
 }
 
-func printComments(comments []commentItem) {
+func printComments(comments []CommentItem) {
 	for _, cm := range comments {
 		date := cm.CreatedAt
 		if len(date) >= 10 {
@@ -115,7 +115,7 @@ func commentAddCmd() *cobra.Command {
 			if alias := resolveAuthorAlias(authorAlias); alias != "" {
 				payload["author_alias"] = alias
 			}
-			var cm commentItem
+			var cm CommentItem
 			if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
 				return err
 			}
@@ -149,7 +149,7 @@ func commentMarkReadCmd() *cobra.Command {
 							return err
 						}
 						// Resolve comment to its target
-						var cm commentItem
+						var cm CommentItem
 						if err := c.Get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &cm); err != nil {
 							return fmt.Errorf("C-%d: %w", cid, err)
 						}
@@ -207,7 +207,7 @@ func commentReplyCmd() *cobra.Command {
 				return err
 			}
 
-			var orig commentItem
+			var orig CommentItem
 			if err := c.Get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &orig); err != nil {
 				return fmt.Errorf("could not find C-%d: %w", cid, err)
 			}
@@ -223,7 +223,7 @@ func commentReplyCmd() *cobra.Command {
 				if alias := resolveAuthorAlias(authorAlias); alias != "" {
 					payload["author_alias"] = alias
 				}
-				var cm commentItem
+				var cm CommentItem
 				if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
 					return err
 				}

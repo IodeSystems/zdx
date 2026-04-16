@@ -8,7 +8,7 @@ import (
 	"github.com/spf13/cobra"
 )
 
-type questionItem struct {
+type QuestionItem struct {
 	ID        int32  `json:"id"`
 	Category  string `json:"category"`
 	Question  string `json:"question"`
@@ -30,7 +30,7 @@ func qaAddCmd() *cobra.Command {
 		Short: "Add a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := MustClient()
-			var q questionItem
+			var q QuestionItem
 			if err := c.Post("/api/dx/qa/add", map[string]any{
 				"slug":     c.SlugOrDie(),
 				"category": category,
@@ -60,7 +60,7 @@ func qaAnswerCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
-			var q questionItem
+			var q QuestionItem
 			if err := c.Post("/api/dx/qa/answer", map[string]any{
 				"slug":   c.SlugOrDie(),
 				"id":     int32(id),
@@ -84,7 +84,7 @@ func qaListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := MustClient()
 			var resp struct {
-				Questions []questionItem `json:"questions"`
+				Questions []QuestionItem `json:"questions"`
 			}
 			if err := c.Get("/api/dx/qa/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err

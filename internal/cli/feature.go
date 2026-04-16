@@ -26,7 +26,7 @@ func featureListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := MustClient()
 			var resp struct {
-				Features []featureItem `json:"features"`
+				Features []FeatureItem `json:"features"`
 			}
 			if err := c.Get("/api/features", QuerySlug(c), &resp); err != nil {
 				return err
@@ -59,7 +59,7 @@ func featureAddCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := MustClient()
-			var f featureItem
+			var f FeatureItem
 			if err := c.Post("/api/feature", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"name":        args[0],
@@ -84,12 +84,12 @@ func featureShowCmd() *cobra.Command {
 			c := MustClient()
 			// Fetch the full list and find by name (no single-feature GET endpoint yet).
 			var resp struct {
-				Features []featureItem `json:"features"`
+				Features []FeatureItem `json:"features"`
 			}
 			if err := c.Get("/api/features", QuerySlug(c), &resp); err != nil {
 				return err
 			}
-			var f *featureItem
+			var f *FeatureItem
 			for i := range resp.Features {
 				if strings.EqualFold(resp.Features[i].Name, args[0]) {
 					f = &resp.Features[i]
@@ -177,7 +177,7 @@ func featureReviewCmd() *cobra.Command {
 	}
 }
 
-func printFeatureItem(f featureItem) {
+func printFeatureItem(f FeatureItem) {
 	fmt.Printf("Name:      %s\n", f.Name)
 	if f.Category != "" {
 		fmt.Printf("Category:  %s\n", f.Category)
