@@ -21,7 +21,6 @@ A self-hosted developer-experience platform for human+LLM collaborative software
 - Node.js 20+ / npm
 - PostgreSQL 16+ with pgvector
 - sqlc (`go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest`)
-- tygo (`go install github.com/gzuidhof/tygo@latest`)
 
 ## Quickstart
 

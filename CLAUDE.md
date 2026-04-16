@@ -17,7 +17,6 @@ Server requires `DATABASE_URL` env var pointing to PostgreSQL 16+ with pgvector.
 
 - `internal/db/*.sql.go` — sqlc from `queries/*.sql` + `schema/shipped.sql`. Regenerate: `~/go/bin/sqlc generate`
 - `ui/src/api.gen.ts` — openapi-typescript from server's `/openapi.json`. Auto-regenerated on dx-server startup.
-- `internal/db/tygo/` — Go→TypeScript types via tygo. Regenerate: `make generate`
 
 ## Database Workflow
 
