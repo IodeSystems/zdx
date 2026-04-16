@@ -46,7 +46,7 @@ func agentClaudeCmd() *cobra.Command {
 			}
 			installReleaseOnSignal(rc, alias, "", nil)
 			sid := uuid.New().String()
-			return runSession(rc, sid, issue, alias, chrome, "", false)
+			return runSession(rc, sid, issue, alias, chrome, "", false, nil)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
@@ -259,7 +259,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		log("──────────────────────────────────────────────")
 		startTime := time.Now()
 
-		if err := runSession(rc, sid, issueID, alias, chrome, prevSID, resumed); err != nil {
+		if err := runSession(rc, sid, issueID, alias, chrome, prevSID, resumed, log); err != nil {
 			log("session error: %v", err)
 		}
 
@@ -273,7 +273,9 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 }
 
 // runSession launches a single Claude CLI session with streaming.
-func runSession(rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool) error {
+// logFn, when non-nil, receives one-line renders of each JSONL event plus a
+// 60s idle heartbeat so watchers of the loop log file see progress live.
+func runSession(rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, logFn func(string, ...any)) error {
 	projDir := claudeProjectDir()
 	os.MkdirAll(projDir, 0o755)
 	sfile := filepath.Join(projDir, sid+".jsonl")
@@ -289,6 +291,12 @@ func runSession(rc remoteConfig, sid, issueID, alias string, chrome bool, prevSI
 	var subCancel func()
 	if rc.valid() {
 		subCancel = startSubagentWatcher(rc, sid, issueID, alias, subagentDir)
+	}
+
+	// Start local renderer (loop mode only)
+	var rendCancel func()
+	if logFn != nil {
+		rendCancel = startSessionRenderer(sfile, logFn)
 	}
 
 	// Build claude command
@@ -325,6 +333,9 @@ func runSession(rc remoteConfig, sid, issueID, alias string, chrome bool, prevSI
 	}
 	if subCancel != nil {
 		subCancel()
+	}
+	if rendCancel != nil {
+		rendCancel()
 	}
 
 	// Upload session (batch fallback for any missed events)
@@ -396,6 +407,242 @@ func startSessionStream(rc remoteConfig, sid, issueID, alias, sfile string) func
 	}()
 
 	return func() { close(done) }
+}
+
+// startSessionRenderer tails sfile and emits one-line renders of each JSONL
+// event to logFn, plus a 'heartbeat: events=N size=M' line every 60s of
+// silence so viewers of the loop log see progress even during quiet moments.
+func startSessionRenderer(sfile string, logFn func(string, ...any)) func() {
+	done := make(chan struct{})
+	var mu sync.Mutex
+	events := 0
+	lastRender := time.Now()
+	toolNames := map[string]string{}
+
+	// Heartbeat
+	go func() {
+		ticker := time.NewTicker(60 * time.Second)
+		defer ticker.Stop()
+		for {
+			select {
+			case <-done:
+				return
+			case <-ticker.C:
+			}
+			mu.Lock()
+			idle := time.Since(lastRender)
+			n := events
+			mu.Unlock()
+			if idle < 60*time.Second {
+				continue
+			}
+			var size int64
+			if st, err := os.Stat(sfile); err == nil {
+				size = st.Size()
+			}
+			logFn("heartbeat: events=%d size=%d", n, size)
+			mu.Lock()
+			lastRender = time.Now()
+			mu.Unlock()
+		}
+	}()
+
+	// Tailer
+	go func() {
+		for i := 0; i < 120; i++ {
+			if _, err := os.Stat(sfile); err == nil {
+				break
+			}
+			select {
+			case <-done:
+				return
+			case <-time.After(500 * time.Millisecond):
+			}
+		}
+		f, err := os.Open(sfile)
+		if err != nil {
+			return
+		}
+		defer f.Close()
+
+		buf := make([]byte, 0, 4096)
+		readBuf := make([]byte, 4096)
+		for {
+			select {
+			case <-done:
+				return
+			default:
+			}
+			n, rerr := f.Read(readBuf)
+			if n > 0 {
+				buf = append(buf, readBuf[:n]...)
+				for {
+					i := bytes.IndexByte(buf, '\n')
+					if i < 0 {
+						break
+					}
+					line := buf[:i]
+					buf = buf[i+1:]
+					if r := renderSessionEvent(line, toolNames); r != "" {
+						logFn("%s", r)
+						mu.Lock()
+						events++
+						lastRender = time.Now()
+						mu.Unlock()
+					}
+				}
+			}
+			if rerr != nil {
+				if rerr == io.EOF {
+					time.Sleep(200 * time.Millisecond)
+					continue
+				}
+				return
+			}
+		}
+	}()
+
+	return func() { close(done) }
+}
+
+// renderSessionEvent turns a single JSONL line into a short progress string.
+// Returns empty string for events that should not be logged (e.g. queue ops).
+// toolNames accumulates tool_use id→name so later tool_result lines can show
+// which tool returned.
+func renderSessionEvent(line []byte, toolNames map[string]string) string {
+	var evt struct {
+		Type    string          `json:"type"`
+		Message json.RawMessage `json:"message"`
+	}
+	if err := json.Unmarshal(line, &evt); err != nil {
+		return ""
+	}
+	switch evt.Type {
+	case "assistant":
+		var m struct {
+			Content []struct {
+				Type  string          `json:"type"`
+				Text  string          `json:"text"`
+				Name  string          `json:"name"`
+				ID    string          `json:"id"`
+				Input json.RawMessage `json:"input"`
+			} `json:"content"`
+		}
+		if err := json.Unmarshal(evt.Message, &m); err != nil {
+			return ""
+		}
+		var parts []string
+		for _, c := range m.Content {
+			switch c.Type {
+			case "tool_use":
+				if c.ID != "" && c.Name != "" {
+					toolNames[c.ID] = c.Name
+				}
+				parts = append(parts, renderToolUse(c.Name, c.Input))
+			case "text":
+				s := strings.TrimSpace(c.Text)
+				if s == "" {
+					continue
+				}
+				if i := strings.IndexByte(s, '\n'); i > 0 {
+					s = s[:i]
+				}
+				if len(s) > 100 {
+					s = s[:100] + "…"
+				}
+				parts = append(parts, "text: "+s)
+			}
+		}
+		if len(parts) == 0 {
+			return ""
+		}
+		return strings.Join(parts, "; ")
+	case "user":
+		var m struct {
+			Content json.RawMessage `json:"content"`
+		}
+		if err := json.Unmarshal(evt.Message, &m); err != nil {
+			return ""
+		}
+		raw := bytes.TrimSpace(m.Content)
+		if len(raw) == 0 || raw[0] != '[' {
+			return ""
+		}
+		var arr []struct {
+			Type      string `json:"type"`
+			ToolUseID string `json:"tool_use_id"`
+			IsError   bool   `json:"is_error"`
+		}
+		if err := json.Unmarshal(raw, &arr); err != nil {
+			return ""
+		}
+		var parts []string
+		for _, c := range arr {
+			if c.Type != "tool_result" {
+				continue
+			}
+			name := toolNames[c.ToolUseID]
+			if name == "" {
+				name = "tool"
+			}
+			status := "ok"
+			if c.IsError {
+				status = "err"
+			}
+			parts = append(parts, fmt.Sprintf("← %s: %s", name, status))
+		}
+		if len(parts) == 0 {
+			return ""
+		}
+		return strings.Join(parts, "; ")
+	}
+	return ""
+}
+
+func renderToolUse(name string, input json.RawMessage) string {
+	var in map[string]any
+	_ = json.Unmarshal(input, &in)
+	summary := ""
+	switch name {
+	case "Bash":
+		if s, ok := in["command"].(string); ok {
+			s = strings.TrimSpace(s)
+			if i := strings.IndexByte(s, '\n'); i > 0 {
+				s = s[:i]
+			}
+			if len(s) > 80 {
+				s = s[:80] + "…"
+			}
+			summary = s
+		}
+	case "Read", "Edit", "Write", "NotebookEdit":
+		if s, ok := in["file_path"].(string); ok {
+			summary = s
+		}
+	case "Grep", "Glob":
+		if s, ok := in["pattern"].(string); ok {
+			summary = s
+		}
+	case "Agent":
+		if s, ok := in["description"].(string); ok && s != "" {
+			summary = s
+		} else if s, ok := in["subagent_type"].(string); ok {
+			summary = s
+		}
+	case "WebFetch", "WebSearch":
+		if s, ok := in["url"].(string); ok {
+			summary = s
+		} else if s, ok := in["query"].(string); ok {
+			summary = s
+		}
+	}
+	if name == "" {
+		name = "tool"
+	}
+	if summary == "" {
+		return name
+	}
+	return fmt.Sprintf("%s: %s", name, summary)
 }
 
 // startSubagentWatcher scans for new subagent JSONL files and streams them.
