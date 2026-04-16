@@ -10,6 +10,8 @@
 #                                   current goes into maintenance, next gets migrated
 #                                   + new code, then current is updated and maintenance
 #                                   flag is cleared.
+#   bin/ship --no-resume            Refuse to resume a stuck rolling deploy; print
+#                                   recovery instructions and exit.
 #   bin/ship --allow-dirty          EMERGENCY ONLY — ships uncommitted changes.
 #
 # Config: home/deploy.secret.properties (gitignored)
@@ -46,6 +48,7 @@ PACKAGE_ONLY=false
 SKIP_BUILD=false
 ALLOW_DIRTY=false
 NON_COMPAT=false
+NO_RESUME=false
 BETA=true  # Currently in beta; flip to false when exiting beta
 SERVICE="zdx"
 REMOTE_HOME="/home/$SERVICE"
@@ -57,6 +60,7 @@ for arg in "$@"; do
     --no-package)                SKIP_BUILD=true ;;
     --allow-dirty)               ALLOW_DIRTY=true ;;
     --non-compatible-migration)  NON_COMPAT=true ;;
+    --no-resume)                 NO_RESUME=true ;;
   esac
 done
 
@@ -444,16 +448,17 @@ rsync -az --rsync-path="$RSYNC_PATH" \
   "$DEPLOY_DIR/provision/" "$HOST:$REMOTE_HOME/home/provision/"
 
 # ── Rolling deploy (compatible migration) ─────────────────────────────────────
+#
+# The deploy has three commit points. After each hz-client transition, bin/ship
+# may be interrupted (SIGINT, SSH failure, etc.) leaving Horizon in a non-idle
+# phase. Re-running bin/ship detects the phase via 'hz-client rolling status'
+# and resumes from there instead of failing at 'rolling start'.
+#
+#   idle         → full flow (start → deploy-next → continue → deploy-current → finalize)
+#   next-down    → resume at deploy-next (skip 'start')
+#   current-down → resume at deploy-current (skip 'start' and 'continue')
 
-if ! $NON_COMPAT; then
-  echo ""
-  echo "=== Rolling deploy ==="
-  $HZ status
-  echo ""
-
-  echo "[ship] Phase 1: rolling start (next goes offline)..."
-  $HZ rolling start
-
+deploy_next() {
   echo "[ship] Deploying next..."
   sync_slot next
 
@@ -469,17 +474,90 @@ if ! $NON_COMPAT; then
 
   ssh "$HOST" "sudo systemctl restart ${SERVICE}-next"
   wait_health 7602 "next"
+}
 
-  echo "[ship] Phase 2: rolling continue (current goes offline)..."
-  $HZ rolling continue
-
+deploy_current() {
   echo "[ship] Deploying current..."
   sync_slot current
   ssh "$HOST" "sudo systemctl restart ${SERVICE}-current"
   wait_health 7600 "current"
+}
 
-  echo "[ship] Phase 3: rolling finalize..."
-  $HZ rolling finalize
+if ! $NON_COMPAT; then
+  echo ""
+  echo "=== Rolling deploy ==="
+  $HZ status
+  echo ""
+
+  PHASE=$($HZ rolling status 2>/dev/null | awk -F': ' '/^Rolling phase:/ {print $2; exit}')
+  [ -z "$PHASE" ] && PHASE="unknown"
+  echo "[ship] Current rolling phase: $PHASE"
+
+  case "$PHASE" in
+    idle)
+      : # fresh deploy — fall through
+      ;;
+    next-down|current-down)
+      if $NO_RESUME; then
+        echo ""
+        echo "[ship] REFUSING: rolling deploy is in phase '$PHASE' and --no-resume was given."
+        echo ""
+        echo "  To resume automatically:  bin/ship                  (re-runs from phase $PHASE)"
+        echo "  To inspect state:         infra/hz-client rolling status"
+        echo "  To reset manually:"
+        case "$PHASE" in
+          next-down)
+            echo "    infra/hz-client next up         # restore next without deploying"
+            ;;
+          current-down)
+            echo "    infra/hz-client rolling finalize  # bring current back up"
+            ;;
+        esac
+        exit 1
+      fi
+      echo "[ship] Resuming deploy from phase: $PHASE"
+      ;;
+    draining-next|draining-current)
+      echo ""
+      echo "[ship] REFUSING: rolling deploy is mid-transition (phase: $PHASE)."
+      echo "[ship] Wait for the drain to finish, then re-run. Use 'infra/hz-client rolling status' to watch."
+      exit 1
+      ;;
+    *)
+      echo ""
+      echo "[ship] REFUSING: unrecognized rolling phase '$PHASE'."
+      echo "[ship] Run 'infra/hz-client rolling status' and 'infra/hz-client status' to inspect, then:"
+      echo "[ship]   - return both slots to 'up' (idle) before retrying, or"
+      echo "[ship]   - drive the remaining hz-client transitions manually."
+      exit 1
+      ;;
+  esac
+
+  case "$PHASE" in
+    idle)
+      echo "[ship] Phase 1: rolling start (next goes offline)..."
+      $HZ rolling start
+      deploy_next
+      echo "[ship] Phase 2: rolling continue (current goes offline)..."
+      $HZ rolling continue
+      deploy_current
+      echo "[ship] Phase 3: rolling finalize..."
+      $HZ rolling finalize
+      ;;
+    next-down)
+      deploy_next
+      echo "[ship] Phase 2: rolling continue (current goes offline)..."
+      $HZ rolling continue
+      deploy_current
+      echo "[ship] Phase 3: rolling finalize..."
+      $HZ rolling finalize
+      ;;
+    current-down)
+      deploy_current
+      echo "[ship] Phase 3: rolling finalize..."
+      $HZ rolling finalize
+      ;;
+  esac
 
 # ── Maintenance-mode deploy (incompatible migration) ─────────────────────────
 
