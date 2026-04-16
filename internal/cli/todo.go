@@ -1301,6 +1301,12 @@ func todoTechAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a task",
+		Args: func(cmd *cobra.Command, args []string) error {
+			if len(args) > 0 {
+				return fmt.Errorf("unexpected positional argument %q; use --issue to link to an issue", args[0])
+			}
+			return nil
+		},
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
 			var resp taskAddResponse
