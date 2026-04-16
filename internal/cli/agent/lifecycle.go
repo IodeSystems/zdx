@@ -156,6 +156,11 @@ func RunLifecycle(
 
 	if rc.valid() {
 		if cErr := postAgentSessionCreate(rc, sid, issueID, alias, provider, trigger); cErr != nil {
+			// Visible on stdout (not just stderr) so the operator sees the
+			// session isn't being recorded — otherwise the only clue is the
+			// missing "Session:" URL line, which is too easy to overlook.
+			fmt.Printf("%s session create failed — events will not be recorded: %v\n",
+				colorize(ansiBold+ansiRed, "WARNING:"), cErr)
 			fmt.Fprintf(os.Stderr, "[lifecycle] create: %v\n", cErr)
 		} else {
 			sessionURL := strings.TrimRight(rc.url, "/") + "/project/" + rc.slug + "/agents/" + sid
@@ -582,11 +587,20 @@ func (f *agentEventFlusher) stopAndDrain() {
 // ── Server HTTP helpers ───────────────────────────────────────────────────
 
 func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trigger string) error {
+	// Server's Huma schema currently marks every body field required. Send
+	// explicit empty strings for the optional identity fields so the request
+	// validates rather than 422s. IS-261 also loosens the server side; this
+	// is belt-and-suspenders so a future tag reset doesn't silently break
+	// session recording again.
 	body := dxclient.CreateAgentSessionRequest{
-		Provider: provider,
-		IssueId:  issueID,
-		Alias:    alias,
-		Trigger:  trigger,
+		Provider:         provider,
+		IssueId:          issueID,
+		Alias:            alias,
+		Trigger:          trigger,
+		Title:            "",
+		AgentId:          "",
+		AgentType:        "",
+		AgentDescription: "",
 	}
 	path := fmt.Sprintf("/api/dx/agent/sessions/%s/create?slug=%s",
 		url.PathEscape(sid), url.QueryEscape(rc.slug))
