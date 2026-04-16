@@ -44,9 +44,11 @@ func agentClaudeCmd() *cobra.Command {
 			if loop {
 				return runLoop(rc, alias, chrome)
 			}
-			installReleaseOnSignal(rc, alias, "", nil)
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			installReleaseOnSignal(rc, alias, "", nil, cancel)
 			sid := uuid.New().String()
-			return runSession(cmd.Context(), rc, sid, issue, alias, chrome, "", false)
+			return runSession(ctx, rc, sid, issue, alias, chrome, "", false)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
@@ -67,10 +69,20 @@ func (r remoteConfig) valid() bool {
 }
 
 // installReleaseOnSignal traps SIGINT/SIGTERM once and, before exiting,
-// releases every task claimed by alias (treated as the agent-id) and clears
-// the crash-recovery state file. A second signal triggers immediate exit.
-// stateFile may be empty (single-session mode); logFn may be nil.
-func installReleaseOnSignal(rc remoteConfig, alias, stateFile string, logFn func(string, ...any)) {
+// cancels the shared loop context (so the main loop and any in-flight
+// session stop picking new work), then releases every task claimed by
+// alias (treated as the agent-id) and clears the crash-recovery state
+// file. A second signal triggers immediate exit.
+//
+// Cancel-first ordering matters: if release ran before cancel, the main
+// loop could pick and start a new session during the release RTT and
+// orphan its freshly-claimed task. Cancelling first stops the picker at
+// its next ctx check, then we give the in-flight session a short window
+// to release its own claim, then we sweep as a safety net.
+//
+// stateFile may be empty (single-session mode); logFn may be nil; cancel
+// may be nil (no-op).
+func installReleaseOnSignal(rc remoteConfig, alias, stateFile string, logFn func(string, ...any), cancel context.CancelFunc) {
 	if logFn == nil {
 		logFn = func(format string, args ...any) {
 			fmt.Fprintf(os.Stderr, "[%s] "+format+"\n",
@@ -81,7 +93,20 @@ func installReleaseOnSignal(rc remoteConfig, alias, stateFile string, logFn func
 	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-sigCh
-		logFn("received signal %s: releasing claimed tasks...", sig)
+		logFn("received signal %s: cancelling loop and releasing claimed tasks...", sig)
+
+		if cancel != nil {
+			cancel()
+		}
+
+		// Give the in-flight session up to 2s to see the cancellation
+		// and release its own claim. A second signal short-circuits.
+		select {
+		case <-time.After(2 * time.Second):
+		case sig = <-sigCh:
+			logFn("second signal %s: force exit", sig)
+			os.Exit(130)
+		}
 
 		done := make(chan struct{})
 		go func() {
@@ -196,12 +221,18 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		}
 	}
 
-	installReleaseOnSignal(rc, alias, stateFile, log)
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	installReleaseOnSignal(rc, alias, stateFile, log, cancel)
 
 	selfPath, _ := os.Executable()
 	selfHash := fileHash(selfPath)
 
 	for {
+		if ctx.Err() != nil {
+			return nil
+		}
+
 		// Self-update detection. Skip when either hash is empty: a transient
 		// read error during a deploy (binary briefly unlinked/replaced) is
 		// indistinguishable from a real change, and slicing an empty hash
@@ -238,12 +269,24 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 			todo, err := runDxTodoSolo("")
 			if err != nil || todo == "" {
 				log("idle; sleeping 60s")
-				time.Sleep(60 * time.Second)
+				select {
+				case <-ctx.Done():
+					return nil
+				case <-time.After(60 * time.Second):
+				}
 				continue
 			}
 			log("todo solo:\n%s", todo)
 			issueID = extractIssueID(todo)
 			sid = uuid.New().String()
+		}
+
+		// Re-check cancellation before the point of no return (SESSION START
+		// line + server-side session create). Without this, a signal that
+		// arrives between solo-pick and session-start still leaves a stray
+		// SESSION START in the log and on the server.
+		if ctx.Err() != nil {
+			return nil
 		}
 
 		// Save state for crash recovery
@@ -262,7 +305,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		log("──────────────────────────────────────────────")
 		startTime := time.Now()
 
-		if err := runSession(context.Background(), rc, sid, issueID, alias, chrome, prevSID, resumed); err != nil {
+		if err := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed); err != nil {
 			log("session error: %v", err)
 		}
 
@@ -289,6 +332,7 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 		prevSID: prevSID,
 		resumed: resumed,
 		alias:   alias,
+		exited:  make(chan struct{}),
 	}
 
 	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "claude-cli")
@@ -314,7 +358,9 @@ type claudeAdapter struct {
 	resumed bool
 	alias   string
 
-	proc *exec.Cmd
+	proc       *exec.Cmd
+	exited     chan struct{}
+	exitedOnce sync.Once
 
 	toolNamesMu sync.Mutex
 	toolNames   map[string]string
@@ -322,7 +368,7 @@ type claudeAdapter struct {
 
 func (a *claudeAdapter) Provider() string { return "claude" }
 
-func (a *claudeAdapter) Start(_ context.Context, sid, _, _ string) (string, error) {
+func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, error) {
 	claudePath, err := exec.LookPath("claude")
 	if err != nil {
 		return "", fmt.Errorf("claude CLI not found in PATH")
@@ -351,6 +397,26 @@ func (a *claudeAdapter) Start(_ context.Context, sid, _, _ string) (string, erro
 	if err := a.proc.Start(); err != nil {
 		return "", err
 	}
+
+	// When the shared loop context cancels (e.g. SIGINT on the parent),
+	// send SIGTERM to claude so the session wraps up cleanly; escalate to
+	// SIGKILL after a grace window if it hasn't exited. Wait() observes the
+	// termination and returns the real exit code, so SESSION END gets logged.
+	go func() {
+		<-ctx.Done()
+		p := a.proc.Process
+		if p == nil {
+			return
+		}
+		_ = p.Signal(syscall.SIGTERM)
+		select {
+		case <-a.exited:
+			return
+		case <-time.After(10 * time.Second):
+			_ = p.Kill()
+		}
+	}()
+
 	return filepath.Join(a.projDir, sid+".jsonl"), nil
 }
 
@@ -359,6 +425,7 @@ func (a *claudeAdapter) Wait() (int, error) {
 		return 1, fmt.Errorf("claudeAdapter.Wait: process not started")
 	}
 	err := a.proc.Wait()
+	a.exitedOnce.Do(func() { close(a.exited) })
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			return ee.ExitCode(), nil

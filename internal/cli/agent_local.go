@@ -40,9 +40,11 @@ for the sessions/agents UI.`,
 			if loop {
 				return runLocalLoop(cmd.Context(), rc, llmCfg, alias, maxTurns)
 			}
-			installReleaseOnSignal(rc, alias, "", nil)
+			ctx, cancel := context.WithCancel(cmd.Context())
+			defer cancel()
+			installReleaseOnSignal(rc, alias, "", nil, cancel)
 			sid := uuid.New().String()
-			return runLocalSession(cmd.Context(), rc, llmCfg, sid, issue, alias, "", maxTurns)
+			return runLocalSession(ctx, rc, llmCfg, sid, issue, alias, "", maxTurns)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
@@ -172,7 +174,7 @@ func (a *localAdapter) RenderEvent(eventJSON []byte) string {
 
 // runLocalLoop mirrors agent_claude.runLoop: poll solo, run a session per pick,
 // repeat. Session state is persisted so SIGINT releases claimed tasks.
-func runLocalLoop(ctx context.Context, rc remoteConfig, llmCfg config.LLMLocal, alias string, maxTurns int) error {
+func runLocalLoop(parentCtx context.Context, rc remoteConfig, llmCfg config.LLMLocal, alias string, maxTurns int) error {
 	stateFile := ".zdx/cache/local-agent-state"
 	logFile := ".zdx/logs/local-agent.log"
 	_ = os.MkdirAll(".zdx/logs", 0o755)
@@ -192,7 +194,9 @@ func runLocalLoop(ctx context.Context, rc remoteConfig, llmCfg config.LLMLocal, 
 		}
 	}
 
-	installReleaseOnSignal(rc, alias, stateFile, logfn)
+	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+	installReleaseOnSignal(rc, alias, stateFile, logfn, cancel)
 
 	for {
 		if err := ctx.Err(); err != nil {
