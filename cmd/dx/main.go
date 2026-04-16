@@ -52,6 +52,7 @@ func main() {
 		cli.TaskCmd(),
 		cli.PatternCmd(),
 		cli.IntegrateCmd(),
+		cli.LoginCmd(),
 	)
 
 	if err := root.Execute(); err != nil {

@@ -14,11 +14,20 @@ import (
 
 // Client talks to a running dx-server instance.
 type Client struct {
-	base  string
-	token string
-	slug  string
-	http  *http.Client
+	base      string
+	token     string
+	slug      string
+	tokenFrom string // human-readable description of where token came from
+	http      *http.Client
 }
+
+// Token-source labels surfaced in 401/403 error hints.
+const (
+	tokenSrcEnv         = "$DX_REMOTE_API_KEY env var"
+	tokenSrcCredentials = ".zdx/credentials"
+	tokenSrcDaemon      = "~/.zdx/daemon.token"
+	tokenSrcNone        = "no credentials configured"
+)
 
 // DefaultClient resolves connection in priority order:
 //  1. DX_REMOTE_URL env / .zdx/config.yaml remote.url  → explicit server
@@ -29,7 +38,7 @@ func DefaultClient() (*Client, error) {
 
 	base := cfg.RemoteURL()
 	slug := cfg.RemoteSlug()
-	token := config.RemoteAPIKey()
+	token, tokenFrom := resolveRemoteAPIKey()
 
 	if base == "" {
 		conn := config.ReadDaemonConn()
@@ -38,14 +47,27 @@ func DefaultClient() (*Client, error) {
 		}
 		base = conn.URL
 		token = conn.Token
+		tokenFrom = tokenSrcDaemon
 	}
 
 	return &Client{
-		base:  base,
-		token: token,
-		slug:  slug,
-		http:  &http.Client{},
+		base:      base,
+		token:     token,
+		slug:      slug,
+		tokenFrom: tokenFrom,
+		http:      &http.Client{},
 	}, nil
+}
+
+// resolveRemoteAPIKey mirrors config.RemoteAPIKey but also reports the source.
+func resolveRemoteAPIKey() (token, source string) {
+	if v := os.Getenv("DX_REMOTE_API_KEY"); v != "" {
+		return v, tokenSrcEnv
+	}
+	if v := config.ReadCredentials(); v != "" {
+		return v, tokenSrcCredentials
+	}
+	return "", tokenSrcNone
 }
 
 func (c *Client) Slug() string { return c.slug }
@@ -65,7 +87,7 @@ func (c *Client) get(path string, params url.Values, out any) error {
 		return err
 	}
 	defer resp.Body.Close()
-	return checkResp(resp, out)
+	return c.checkResp(resp, out)
 }
 
 // attachAttributionHeaders copies agent/session identifiers from the environment
@@ -108,10 +130,10 @@ func (c *Client) doJSON(method, path string, body any, out any) error {
 		return err
 	}
 	defer resp.Body.Close()
-	return checkResp(resp, out)
+	return c.checkResp(resp, out)
 }
 
-func checkResp(resp *http.Response, out any) error {
+func (c *Client) checkResp(resp *http.Response, out any) error {
 	body, _ := io.ReadAll(resp.Body)
 	if resp.StatusCode >= 400 {
 		var e struct {
@@ -135,6 +157,13 @@ func checkResp(resp *http.Response, out any) error {
 		for _, ve := range e.Errors {
 			msg += fmt.Sprintf("\n  - %s at %s (value: %v)", ve.Message, ve.Location, ve.Value)
 		}
+		if hint := c.authHint(resp.StatusCode); hint != "" {
+			if msg != "" {
+				msg += "\n" + hint
+			} else {
+				msg = hint
+			}
+		}
 		if msg != "" {
 			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, msg)
 		}
@@ -144,6 +173,26 @@ func checkResp(resp *http.Response, out any) error {
 		return json.Unmarshal(body, out)
 	}
 	return nil
+}
+
+// authHint returns a recovery message for 401/403 naming the credential
+// source that was used and how to refresh it.
+func (c *Client) authHint(status int) string {
+	switch status {
+	case http.StatusUnauthorized:
+		src := c.tokenFrom
+		if src == "" {
+			src = tokenSrcNone
+		}
+		return fmt.Sprintf("API key invalid or expired. Source: %s. Run 'dx login' to refresh.", src)
+	case http.StatusForbidden:
+		slug := c.slug
+		if slug == "" {
+			slug = "<unset>"
+		}
+		return fmt.Sprintf("API key valid but lacks access to project '%s'. Run 'dx login --slug=%s' or check role.", slug, slug)
+	}
+	return ""
 }
 
 // SlugOrDie returns the slug or exits with a helpful message.
