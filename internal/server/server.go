@@ -109,14 +109,36 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	s.registerRoutes(s.api)
 	s.registerWSRoutes(s.api)
 
-	// SPA fallback: anything not under /api/ or /openapi* serves static files.
-	if staticDir != "" {
-		s.mux.NotFound(func(w http.ResponseWriter, r *http.Request) {
-			http.ServeFileFS(w, r, os.DirFS(staticDir), spaPath(r.URL.Path, staticDir))
-		})
-	}
+	s.mux.NotFound(notFoundHandler(staticDir))
 
 	return s
+}
+
+// notFoundHandler returns the router-level 404 handler: JSON 404 for unmatched
+// /api/* requests, SPA index.html fallback for everything else. Serving index.html
+// for unknown /api/* paths would cause clients to treat missing endpoints as success.
+func notFoundHandler(staticDir string) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		if strings.HasPrefix(r.URL.Path, "/api/") {
+			writeAPINotFound(w, r.URL.Path)
+			return
+		}
+		if staticDir != "" {
+			http.ServeFileFS(w, r, os.DirFS(staticDir), spaPath(r.URL.Path, staticDir))
+			return
+		}
+		http.NotFound(w, r)
+	}
+}
+
+// writeAPINotFound emits a JSON 404 for unmatched /api/* requests.
+func writeAPINotFound(w http.ResponseWriter, path string) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(http.StatusNotFound)
+	// Hand-rolled JSON: path is a URL path, so we only need to escape backslashes and quotes.
+	escaped := strings.ReplaceAll(path, `\`, `\\`)
+	escaped = strings.ReplaceAll(escaped, `"`, `\"`)
+	fmt.Fprintf(w, `{"error":"not found","path":"%s"}`, escaped)
 }
 
 // spaPath returns the file path relative to staticDir for the given URL path.
