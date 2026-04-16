@@ -141,6 +141,28 @@ type ZdxCounterEvent struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxDeploy struct {
+	ID               int32              `db:"id" json:"id"`
+	EnvironmentID    int32              `db:"environment_id" json:"environment_id"`
+	BuildSha         string             `db:"build_sha" json:"build_sha"`
+	BuildBranch      string             `db:"build_branch" json:"build_branch"`
+	DeployedAt       pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
+	DeployedByUserID pgtype.Int4        `db:"deployed_by_user_id" json:"deployed_by_user_id"`
+	Status           string             `db:"status" json:"status"`
+}
+
+type ZdxEnvironment struct {
+	ID                 int32              `db:"id" json:"id"`
+	ProjectID          int32              `db:"project_id" json:"project_id"`
+	Name               string             `db:"name" json:"name"`
+	Url                string             `db:"url" json:"url"`
+	CurrentBuildSha    string             `db:"current_build_sha" json:"current_build_sha"`
+	CurrentBuildBranch string             `db:"current_build_branch" json:"current_build_branch"`
+	DeployedAt         pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
+	DeployedByUserID   pgtype.Int4        `db:"deployed_by_user_id" json:"deployed_by_user_id"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxErrorEvent struct {
 	ID          int64              `db:"id" json:"id"`
 	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
