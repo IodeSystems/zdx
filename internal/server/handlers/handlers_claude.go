@@ -27,8 +27,21 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 		Header     string `json:"header"`
 		Summary    string `json:"summary"`
 		Status     string `json:"status"`
+		Lifecycle  string `json:"lifecycle"`
 		EventCount int64  `json:"event_count"`
 		CreatedAt  string `json:"created_at"`
+		UpdatedAt  string `json:"updated_at"`
+		ClosedAt   string `json:"closed_at,omitempty"`
+	}
+
+	lifecycleFor := func(closedAt pgtype.Timestamptz, eventCount int64) string {
+		if closedAt.Valid {
+			return "done"
+		}
+		if eventCount == 0 {
+			return "starting"
+		}
+		return "active"
 	}
 
 	type ClaudeEventItem struct {
@@ -72,7 +85,7 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 				out = make([]ClaudeSessionItem, len(rows))
 				for i, r := range rows {
 					cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
-					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt)}
+					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt)}
 				}
 			} else {
 				total, _ = h.Q.CountClaudeSessions(ctx, p.ID)
@@ -84,7 +97,7 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 				out = make([]ClaudeSessionItem, len(rows))
 				for i, r := range rows {
 					cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
-					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt)}
+					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt)}
 				}
 			}
 			return &struct {
@@ -125,8 +138,11 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 				Header:     sess.Header,
 				Summary:    sess.Summary,
 				Status:     sess.Status,
+				Lifecycle:  lifecycleFor(sess.ClosedAt, cnt),
 				EventCount: cnt,
 				CreatedAt:  fmtTS(sess.CreatedAt),
+				UpdatedAt:  fmtTS(sess.UpdatedAt),
+				ClosedAt:   fmtTS(sess.ClosedAt),
 			}}, nil
 		})
 
@@ -362,7 +378,7 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 			out := make([]ClaudeSessionItem, len(rows))
 			for i, r := range rows {
 				cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
-				out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt)}
+				out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt)}
 			}
 			return &struct {
 				Body struct {
@@ -579,6 +595,8 @@ func (h *Handler) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http
 		http.Error(w, `{"title":"Bad Request","status":400,"detail":"empty body"}`, http.StatusBadRequest)
 		return
 	}
+
+	_ = h.Q.CloseClaudeSession(ctx, sess.ID)
 
 	h.Broker.PublishAgentSessionLifecycle(slug, sess.SessionID, "agent.session-closed", map[string]any{
 		"session_id":  sess.SessionID,

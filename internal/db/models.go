@@ -72,6 +72,8 @@ type ZdxClaudeSession struct {
 	Header    string             `db:"header" json:"header"`
 	Summary   string             `db:"summary" json:"summary"`
 	Status    string             `db:"status" json:"status"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
 type ZdxCodeRef struct {

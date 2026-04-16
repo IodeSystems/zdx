@@ -1,37 +1,37 @@
 -- name: CreateClaudeSession :one
 INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at;
+RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at;
 
 -- name: GetClaudeSession :one
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND id = $2;
 
 -- name: GetClaudeSessionBySessionID :one
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND session_id = $2;
 
 -- name: ListClaudeSessions :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
-ORDER BY created_at DESC;
+ORDER BY updated_at DESC;
 
 -- name: CountClaudeSessions :one
 SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1;
 
 -- name: ListClaudeSessionsPaginated :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
-ORDER BY created_at DESC
+ORDER BY updated_at DESC
 LIMIT $2 OFFSET $3;
 
 -- name: ListClaudeSessionsByIssue :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions
 WHERE project_id = $1 AND issue_id = $2
-ORDER BY created_at DESC;
+ORDER BY updated_at DESC;
 
 -- name: CountClaudeSessionsByIssue :one
 SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1 AND issue_id = $2;
@@ -40,6 +40,16 @@ SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1 AND issue_id = $2
 UPDATE zdx_claude_sessions
 SET header = $3, summary = $4, status = $5
 WHERE project_id = $1 AND id = $2;
+
+-- name: TouchClaudeSession :exec
+UPDATE zdx_claude_sessions
+SET updated_at = NOW()
+WHERE id = $1;
+
+-- name: CloseClaudeSession :exec
+UPDATE zdx_claude_sessions
+SET closed_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND closed_at IS NULL;
 
 -- name: CreateClaudeEvent :exec
 INSERT INTO zdx_claude_events (session_pk, seq, event_type, event_json, agent_id, is_sidechain, agent_type, agent_description)
@@ -65,7 +75,7 @@ ORDER BY seq DESC
 LIMIT $2 OFFSET $3;
 
 -- name: ListChurnSessions :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions
 WHERE project_id = $1 AND status = 'churn'
   AND created_at >= $2

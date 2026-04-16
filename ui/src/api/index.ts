@@ -1439,8 +1439,11 @@ export interface ClaudeSessionItem {
   header: string
   summary: string
   status: string
+  lifecycle: string
   event_count: number
   created_at: string
+  updated_at: string
+  closed_at?: string
 }
 
 export interface ClaudeEventItem {

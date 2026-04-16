@@ -117,6 +117,8 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 			return nil, apiErr(404, "session not found")
 		}
 
+		_ = h.Q.CloseClaudeSession(ctx, sess.ID)
+
 		h.Broker.PublishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-closed", map[string]any{
 			"session_id":  sess.SessionID,
 			"session_pk":  sess.ID,
@@ -129,6 +131,11 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 				"cache_read":  in.Body.Tokens.CacheRead,
 				"cache_write": in.Body.Tokens.CacheWrite,
 			},
+		})
+		h.Broker.PublishClaudeSessionLifecycle(in.Slug, sess.SessionID, "claude.session-closed", map[string]any{
+			"session_id":  sess.SessionID,
+			"session_pk":  sess.ID,
+			"event_count": in.Body.EventCount,
 		})
 
 		go h.summarizeSessionFromDBAsync(p.ID, sess.ID)
@@ -185,6 +192,8 @@ func (h *Handler) getOrCreateAgentSession(ctx context.Context, projectID int32, 
 		Summary:   existing.Summary,
 		Status:    existing.Status,
 		CreatedAt: existing.CreatedAt,
+		UpdatedAt: existing.UpdatedAt,
+		ClosedAt:  existing.ClosedAt,
 	}, false, nil
 }
 
@@ -210,6 +219,7 @@ func (h *Handler) ingestAgentEvent(
 		AgentType:        agentType,
 		AgentDescription: agentDesc,
 	})
+	_ = h.Q.TouchClaudeSession(ctx, sessionPK)
 
 	var evPayload any
 	var parsed map[string]any

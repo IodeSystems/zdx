@@ -783,13 +783,14 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
   const { data: sessData, isLoading } = useClaudeSessions(slug)
   const fetchedSessions = sessData?.sessions ?? []
   const [liveSessions, setLiveSessions] = useState<ClaudeSessionItem[]>([])
-  const [closedUpdates, setClosedUpdates] = useState<Map<number, { event_count: number }>>(new Map())
+  const [closedUpdates, setClosedUpdates] = useState<Map<number, { event_count: number; updated_at: string }>>(new Map())
 
   const onWsMessage = useCallback((msg: { type: string; payload: unknown }) => {
     if (msg.type === 'claude.session-created') {
       const p = msg.payload as SessionCreatedPayload
       setLiveSessions((prev) => {
         if (prev.some((s) => s.session_id === p.session_id)) return prev
+        const nowISO = new Date().toISOString()
         return [{
           id: p.session_pk,
           session_id: p.session_id,
@@ -797,16 +798,18 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
           header: '',
           summary: '',
           status: '',
+          lifecycle: 'starting',
           issue_id: '',
           event_count: 0,
-          created_at: new Date().toISOString(),
+          created_at: nowISO,
+          updated_at: nowISO,
         }, ...prev]
       })
     } else if (msg.type === 'claude.session-closed') {
       const p = msg.payload as SessionClosedPayload
       setClosedUpdates((prev) => {
         const next = new Map(prev)
-        next.set(p.session_pk, { event_count: p.event_count })
+        next.set(p.session_pk, { event_count: p.event_count, updated_at: new Date().toISOString() })
         return next
       })
     }
@@ -818,11 +821,17 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
     const fetchedIds = new Set(fetchedSessions.map((s) => s.session_id))
     const newLive = liveSessions.filter((s) => !fetchedIds.has(s.session_id))
     const merged = [...newLive, ...fetchedSessions]
-    return merged.map((s) => {
+    const updated = merged.map((s) => {
       const update = closedUpdates.get(s.id)
-      if (update) return { ...s, event_count: update.event_count }
+      if (update) return { ...s, event_count: update.event_count, updated_at: update.updated_at, lifecycle: 'done' }
       return s
     })
+    updated.sort((a, b) => {
+      const ta = new Date(a.updated_at || a.created_at).getTime()
+      const tb = new Date(b.updated_at || b.created_at).getTime()
+      return tb - ta
+    })
+    return updated
   }, [fetchedSessions, liveSessions, closedUpdates])
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
@@ -850,6 +859,25 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
                       <Typography variant="body2" noWrap sx={{ flex: 1 }}>
                         {s.title || s.session_id.slice(0, 12)}
                       </Typography>
+                      {s.lifecycle && (
+                        <Chip
+                          label={s.lifecycle}
+                          size="small"
+                          variant={s.lifecycle === 'done' ? 'outlined' : 'filled'}
+                          sx={{
+                            height: 18,
+                            fontSize: '0.65rem',
+                            ...(s.lifecycle === 'starting' && { bgcolor: 'grey.500', color: '#fff' }),
+                            ...(s.lifecycle === 'active' && {
+                              bgcolor: '#1976d2',
+                              color: '#fff',
+                              animation: 'pulse 1.5s ease-in-out infinite',
+                              '@keyframes pulse': { '0%, 100%': { opacity: 1 }, '50%': { opacity: 0.6 } },
+                            }),
+                            ...(s.lifecycle === 'done' && { color: 'text.secondary', borderColor: 'divider' }),
+                          }}
+                        />
+                      )}
                       {s.status && (
                         <Chip
                           label={s.status}
@@ -881,9 +909,9 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
                           component="span"
                           variant="caption"
                           color="text.secondary"
-                          title={new Date(s.created_at).toLocaleString()}
+                          title={`Created: ${new Date(s.created_at).toLocaleString()} · Updated: ${new Date(s.updated_at || s.created_at).toLocaleString()}`}
                         >
-                          {fmtRelative(s.created_at)}
+                          {fmtRelative(s.updated_at || s.created_at)}
                         </Typography>
                         {s.issue_id && <Chip label={s.issue_id} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.7rem' }} />}
                         <Typography component="span" variant="caption" color="text.disabled">

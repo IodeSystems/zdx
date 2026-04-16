@@ -168,7 +168,9 @@ CREATE TABLE public.zdx_claude_sessions (
     alias text DEFAULT ''::text NOT NULL,
     header text DEFAULT ''::text NOT NULL,
     summary text DEFAULT ''::text NOT NULL,
-    status text DEFAULT ''::text NOT NULL
+    status text DEFAULT ''::text NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    closed_at timestamp with time zone
 );
 
 
@@ -3225,6 +3227,13 @@ CREATE INDEX zdx_claude_events_session ON public.zdx_claude_events USING btree (
 --
 
 CREATE INDEX zdx_claude_sessions_project ON public.zdx_claude_sessions USING btree (project_id);
+
+
+--
+-- Name: zdx_claude_sessions_project_updated; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_claude_sessions_project_updated ON public.zdx_claude_sessions USING btree (project_id, updated_at DESC);
 
 
 --

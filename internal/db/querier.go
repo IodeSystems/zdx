@@ -29,6 +29,7 @@ type Querier interface {
 	CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error)
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
 	ClearStaleFlag(ctx context.Context, id string) error
+	CloseClaudeSession(ctx context.Context, id int64) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CountApiKeys(ctx context.Context) (int32, error)
 	CountBlockerQuestions(ctx context.Context, projectID int32) (int64, error)
@@ -321,6 +322,7 @@ type Querier interface {
 	SetState(ctx context.Context, arg SetStateParams) error
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
+	TouchClaudeSession(ctx context.Context, id int64) error
 	UndeferSpec(ctx context.Context, id int32) error
 	UnlinkGoalIssue(ctx context.Context, arg UnlinkGoalIssueParams) error
 	UnlinkSpecIssue(ctx context.Context, arg UnlinkSpecIssueParams) error

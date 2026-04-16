@@ -11,6 +11,17 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const closeClaudeSession = `-- name: CloseClaudeSession :exec
+UPDATE zdx_claude_sessions
+SET closed_at = NOW(), updated_at = NOW()
+WHERE id = $1 AND closed_at IS NULL
+`
+
+func (q *Queries) CloseClaudeSession(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, closeClaudeSession, id)
+	return err
+}
+
 const countChurnSessions = `-- name: CountChurnSessions :one
 SELECT count(*) FROM zdx_claude_sessions
 WHERE project_id = $1 AND status = 'churn'
@@ -100,7 +111,7 @@ func (q *Queries) CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventPa
 const createClaudeSession = `-- name: CreateClaudeSession :one
 INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias)
 VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 `
 
 type CreateClaudeSessionParams struct {
@@ -122,6 +133,8 @@ type CreateClaudeSessionRow struct {
 	Summary   string             `db:"summary" json:"summary"`
 	Status    string             `db:"status" json:"status"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
 func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error) {
@@ -144,12 +157,14 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 		&i.Summary,
 		&i.Status,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ClosedAt,
 	)
 	return i, err
 }
 
 const getClaudeSession = `-- name: GetClaudeSession :one
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND id = $2
 `
 
@@ -169,6 +184,8 @@ type GetClaudeSessionRow struct {
 	Summary   string             `db:"summary" json:"summary"`
 	Status    string             `db:"status" json:"status"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
 func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error) {
@@ -185,12 +202,14 @@ func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionPara
 		&i.Summary,
 		&i.Status,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ClosedAt,
 	)
 	return i, err
 }
 
 const getClaudeSessionBySessionID = `-- name: GetClaudeSessionBySessionID :one
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions WHERE project_id = $1 AND session_id = $2
 `
 
@@ -210,6 +229,8 @@ type GetClaudeSessionBySessionIDRow struct {
 	Summary   string             `db:"summary" json:"summary"`
 	Status    string             `db:"status" json:"status"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
 func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (GetClaudeSessionBySessionIDRow, error) {
@@ -226,6 +247,8 @@ func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaude
 		&i.Summary,
 		&i.Status,
 		&i.CreatedAt,
+		&i.UpdatedAt,
+		&i.ClosedAt,
 	)
 	return i, err
 }
@@ -331,7 +354,7 @@ func (q *Queries) GetMaxClaudeEventSeq(ctx context.Context, sessionPk int64) (in
 }
 
 const listChurnSessions = `-- name: ListChurnSessions :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions
 WHERE project_id = $1 AND status = 'churn'
   AND created_at >= $2
@@ -354,6 +377,8 @@ type ListChurnSessionsRow struct {
 	Summary   string             `db:"summary" json:"summary"`
 	Status    string             `db:"status" json:"status"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
 func (q *Queries) ListChurnSessions(ctx context.Context, arg ListChurnSessionsParams) ([]ListChurnSessionsRow, error) {
@@ -376,6 +401,8 @@ func (q *Queries) ListChurnSessions(ctx context.Context, arg ListChurnSessionsPa
 			&i.Summary,
 			&i.Status,
 			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -471,10 +498,10 @@ func (q *Queries) ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeE
 }
 
 const listClaudeSessions = `-- name: ListClaudeSessions :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
-ORDER BY created_at DESC
+ORDER BY updated_at DESC
 `
 
 type ListClaudeSessionsRow struct {
@@ -488,6 +515,8 @@ type ListClaudeSessionsRow struct {
 	Summary   string             `db:"summary" json:"summary"`
 	Status    string             `db:"status" json:"status"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
 func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]ListClaudeSessionsRow, error) {
@@ -510,6 +539,8 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 			&i.Summary,
 			&i.Status,
 			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -522,10 +553,10 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 }
 
 const listClaudeSessionsByIssue = `-- name: ListClaudeSessionsByIssue :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions
 WHERE project_id = $1 AND issue_id = $2
-ORDER BY created_at DESC
+ORDER BY updated_at DESC
 `
 
 type ListClaudeSessionsByIssueParams struct {
@@ -544,6 +575,8 @@ type ListClaudeSessionsByIssueRow struct {
 	Summary   string             `db:"summary" json:"summary"`
 	Status    string             `db:"status" json:"status"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
 func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error) {
@@ -566,6 +599,8 @@ func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeS
 			&i.Summary,
 			&i.Status,
 			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -578,10 +613,10 @@ func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeS
 }
 
 const listClaudeSessionsPaginated = `-- name: ListClaudeSessionsPaginated :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
+SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
 FROM zdx_claude_sessions
 WHERE project_id = $1
-ORDER BY created_at DESC
+ORDER BY updated_at DESC
 LIMIT $2 OFFSET $3
 `
 
@@ -602,6 +637,8 @@ type ListClaudeSessionsPaginatedRow struct {
 	Summary   string             `db:"summary" json:"summary"`
 	Status    string             `db:"status" json:"status"`
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
 func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error) {
@@ -624,6 +661,8 @@ func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaud
 			&i.Summary,
 			&i.Status,
 			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
 		); err != nil {
 			return nil, err
 		}
@@ -633,6 +672,17 @@ func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaud
 		return nil, err
 	}
 	return items, nil
+}
+
+const touchClaudeSession = `-- name: TouchClaudeSession :exec
+UPDATE zdx_claude_sessions
+SET updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) TouchClaudeSession(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, touchClaudeSession, id)
+	return err
 }
 
 const updateClaudeSessionSummary = `-- name: UpdateClaudeSessionSummary :exec
