@@ -1,0 +1,92 @@
+import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ThemeProvider, CssBaseline } from '@mui/material'
+import { theme } from '../theme'
+import type { FeatureItem } from '../api'
+
+vi.mock('../api', async () => {
+  const actual = await vi.importActual<typeof import('../api')>('../api')
+  return {
+    ...actual,
+    useFeatures: vi.fn(),
+  }
+})
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: (props: any) => <a href={typeof props.to === 'string' ? props.to : '#'}>{props.children}</a>,
+}))
+
+import { useFeatures } from '../api'
+import { FeaturesTab } from './FeaturesTab'
+import { ComponentProvider } from './ComponentContext'
+
+const mockedUseFeatures = vi.mocked(useFeatures)
+
+function makeFeature(overrides: Partial<FeatureItem> = {}): FeatureItem {
+  return {
+    id: 1,
+    name: 'example-feature',
+    category: 'Auth',
+    component: 'server',
+    description: 'Example description',
+    done_when: '',
+    has_test_refs: true,
+    plan_status: '',
+    plan_type: '',
+    specs: [],
+    what: '',
+    why: '',
+    ...overrides,
+  }
+}
+
+let queryClient: QueryClient
+
+beforeEach(() => {
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+function renderTab(slug = 'test-project') {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <ComponentProvider slug={slug}>
+          <FeaturesTab slug={slug} />
+        </ComponentProvider>
+      </ThemeProvider>
+    </QueryClientProvider>,
+  )
+}
+
+describe('FeaturesTab', () => {
+  test('spec 39: features are grouped by category with name, component, and description', () => {
+    const features: FeatureItem[] = [
+      makeFeature({ id: 1, name: 'login', category: 'Auth', component: 'server', description: 'Handles sign-in' }),
+      makeFeature({ id: 2, name: 'signup', category: 'Auth', component: 'ui', description: 'Account creation' }),
+      makeFeature({ id: 3, name: 'dashboard', category: 'DeveloperPortal', component: 'ui', description: 'Main page' }),
+    ]
+    mockedUseFeatures.mockReturnValue({ data: features, isLoading: false } as any)
+
+    renderTab()
+
+    expect(screen.getByText('Auth')).toBeInTheDocument()
+    expect(screen.getByText('DeveloperPortal')).toBeInTheDocument()
+
+    for (const f of features) {
+      expect(screen.getByText(f.name)).toBeInTheDocument()
+      expect(screen.getByText(f.description)).toBeInTheDocument()
+    }
+
+    const serverChips = screen.getAllByText('server')
+    expect(serverChips.length).toBe(1)
+    const uiChips = screen.getAllByText('ui')
+    expect(uiChips.length).toBe(2)
+  })
+})
