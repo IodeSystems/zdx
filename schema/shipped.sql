@@ -1526,44 +1526,6 @@ CREATE TABLE public.zdx_state (
 
 
 --
--- Name: zdx_status_events; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_status_events (
-    id bigint NOT NULL,
-    project_id integer NOT NULL,
-    target_type text NOT NULL,
-    target_id text NOT NULL,
-    from_status text DEFAULT ''::text NOT NULL,
-    to_status text NOT NULL,
-    agent_id text DEFAULT ''::text NOT NULL,
-    session_id text DEFAULT ''::text NOT NULL,
-    user_id text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT zdx_status_events_target_type_check CHECK ((target_type = ANY (ARRAY['issue'::text, 'task'::text])))
-);
-
-
---
--- Name: zdx_status_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.zdx_status_events_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: zdx_status_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.zdx_status_events_id_seq OWNED BY public.zdx_status_events.id;
-
-
---
 -- Name: zdx_task_code_refs; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2248,13 +2210,6 @@ ALTER TABLE ONLY public.zdx_sprints ALTER COLUMN id SET DEFAULT nextval('public.
 
 
 --
--- Name: zdx_status_events id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_status_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_status_events_id_seq'::regclass);
-
-
---
 -- Name: zdx_test_demos id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2861,14 +2816,6 @@ ALTER TABLE ONLY public.zdx_state
 
 
 --
--- Name: zdx_status_events zdx_status_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_status_events
-    ADD CONSTRAINT zdx_status_events_pkey PRIMARY KEY (id);
-
-
---
 -- Name: zdx_task_code_refs zdx_task_code_refs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3383,20 +3330,6 @@ CREATE INDEX zdx_log_events_project_created ON public.zdx_log_events USING btree
 --
 
 CREATE INDEX zdx_revisions_target ON public.zdx_revisions USING btree (project_id, target_type, target_id);
-
-
---
--- Name: zdx_status_events_project_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX zdx_status_events_project_idx ON public.zdx_status_events USING btree (project_id, created_at DESC);
-
-
---
--- Name: zdx_status_events_target_idx; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX zdx_status_events_target_idx ON public.zdx_status_events USING btree (target_type, target_id, created_at DESC);
 
 
 --

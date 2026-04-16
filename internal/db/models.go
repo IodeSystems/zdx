@@ -522,19 +522,6 @@ type ZdxState struct {
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-type ZdxStatusEvent struct {
-	ID         int64              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	FromStatus string             `db:"from_status" json:"from_status"`
-	ToStatus   string             `db:"to_status" json:"to_status"`
-	AgentID    string             `db:"agent_id" json:"agent_id"`
-	SessionID  string             `db:"session_id" json:"session_id"`
-	UserID     string             `db:"user_id" json:"user_id"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
 type ZdxTask struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
