@@ -969,6 +969,28 @@ export const useDeleteInvite = () => {
   })
 }
 
+// ── Admin WebSocket diagnostics ───────────────────────────────────────────────
+
+export interface WSClientItem {
+  id: number
+  channel: string
+  user_id: number
+  remote_addr: string
+  connected_at: string
+}
+
+export const useWSClients = (refetchInterval = 2000) =>
+  useQuery<WSClientItem[]>({
+    queryKey: ['admin-ws-clients'],
+    queryFn: () => apiFetch<{ clients: WSClientItem[] }>('/api/admin/ws/clients').then(r => r.clients ?? []),
+    refetchInterval,
+  })
+
+export const useWSEcho = () =>
+  useMutation<{ sent_at: string }, Error, { channel: string; payload?: string }>({
+    mutationFn: (body) => apiPost<{ sent_at: string }>('/api/admin/ws/echo', body),
+  })
+
 // ── Issue similarity ──────────────────────────────────────────────────────────
 
 export interface SimilarIssueItem {

@@ -12,6 +12,7 @@ import { Route as rootRouteImport } from './routes/__root'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProjectSlugRouteImport } from './routes/project/$slug'
+import { Route as AdminWebsocketRouteImport } from './routes/admin/websocket'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminLlmRouteImport } from './routes/admin/llm'
 import { Route as AdminInvitesRouteImport } from './routes/admin/invites'
@@ -68,6 +69,11 @@ const AdminIndexRoute = AdminIndexRouteImport.update({
 const ProjectSlugRoute = ProjectSlugRouteImport.update({
   id: '/project/$slug',
   path: '/project/$slug',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminWebsocketRoute = AdminWebsocketRouteImport.update({
+  id: '/admin/websocket',
+  path: '/admin/websocket',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminUsersRoute = AdminUsersRouteImport.update({
@@ -291,6 +297,7 @@ export interface FileRoutesByFullPath {
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/websocket': typeof AdminWebsocketRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/project/$slug/agents': typeof ProjectSlugAgentsRouteWithChildren
@@ -338,6 +345,7 @@ export interface FileRoutesByTo {
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/websocket': typeof AdminWebsocketRoute
   '/admin': typeof AdminIndexRoute
   '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
@@ -378,6 +386,7 @@ export interface FileRoutesById {
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
   '/admin/users': typeof AdminUsersRoute
+  '/admin/websocket': typeof AdminWebsocketRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/project/$slug/agents': typeof ProjectSlugAgentsRouteWithChildren
@@ -427,6 +436,7 @@ export interface FileRouteTypes {
     | '/admin/invites'
     | '/admin/llm'
     | '/admin/users'
+    | '/admin/websocket'
     | '/project/$slug'
     | '/admin/'
     | '/project/$slug/agents'
@@ -474,6 +484,7 @@ export interface FileRouteTypes {
     | '/admin/invites'
     | '/admin/llm'
     | '/admin/users'
+    | '/admin/websocket'
     | '/admin'
     | '/project/$slug/blocker-questions'
     | '/project/$slug/counters'
@@ -513,6 +524,7 @@ export interface FileRouteTypes {
     | '/admin/invites'
     | '/admin/llm'
     | '/admin/users'
+    | '/admin/websocket'
     | '/project/$slug'
     | '/admin/'
     | '/project/$slug/agents'
@@ -561,6 +573,7 @@ export interface RootRouteChildren {
   AdminInvitesRoute: typeof AdminInvitesRoute
   AdminLlmRoute: typeof AdminLlmRoute
   AdminUsersRoute: typeof AdminUsersRoute
+  AdminWebsocketRoute: typeof AdminWebsocketRoute
   ProjectSlugRoute: typeof ProjectSlugRouteWithChildren
   AdminIndexRoute: typeof AdminIndexRoute
 }
@@ -586,6 +599,13 @@ declare module '@tanstack/react-router' {
       path: '/project/$slug'
       fullPath: '/project/$slug'
       preLoaderRoute: typeof ProjectSlugRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/websocket': {
+      id: '/admin/websocket'
+      path: '/admin/websocket'
+      fullPath: '/admin/websocket'
+      preLoaderRoute: typeof AdminWebsocketRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/users': {
@@ -1050,6 +1070,7 @@ const rootRouteChildren: RootRouteChildren = {
   AdminInvitesRoute: AdminInvitesRoute,
   AdminLlmRoute: AdminLlmRoute,
   AdminUsersRoute: AdminUsersRoute,
+  AdminWebsocketRoute: AdminWebsocketRoute,
   ProjectSlugRoute: ProjectSlugRouteWithChildren,
   AdminIndexRoute: AdminIndexRoute,
 }

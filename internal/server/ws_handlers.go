@@ -6,6 +6,8 @@ import (
 	"fmt"
 	"log"
 	"net/http"
+	"sort"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"nhooyr.io/websocket"
@@ -80,6 +82,103 @@ func (s *Server) registerWSRoutes(api huma.API) {
 	})
 
 	s.mux.HandleFunc("/api/ws/subscribe", s.handleWSSubscribe)
+
+	s.registerAdminWSDiagnostics(api)
+}
+
+// registerAdminWSDiagnostics exposes admin-only endpoints for inspecting the
+// live WS client registry and publishing test echo messages. Routes live under
+// /api/admin/ so they inherit the admin-role middleware.
+func (s *Server) registerAdminWSDiagnostics(api huma.API) {
+	type ClientItem struct {
+		ID          int64  `json:"id"`
+		Channel     string `json:"channel"`
+		UserID      int64  `json:"user_id"`
+		RemoteAddr  string `json:"remote_addr"`
+		ConnectedAt string `json:"connected_at"`
+	}
+
+	huma.Register(api, huma.Operation{
+		OperationID: "list-ws-clients",
+		Method:      http.MethodGet,
+		Path:        "/api/admin/ws/clients",
+		Summary:     "List live WebSocket subscribers",
+	}, func(ctx context.Context, _ *struct{}) (*struct {
+		Body struct {
+			Clients []ClientItem `json:"clients"`
+		}
+	}, error) {
+		s.wsClientsMu.Lock()
+		items := make([]ClientItem, 0, len(s.wsClients))
+		for _, c := range s.wsClients {
+			items = append(items, ClientItem{
+				ID:          c.ID,
+				Channel:     c.Channel,
+				UserID:      c.UserID,
+				RemoteAddr:  c.RemoteAddr,
+				ConnectedAt: c.ConnectedAt.Format(time.RFC3339),
+			})
+		}
+		s.wsClientsMu.Unlock()
+		sort.Slice(items, func(i, j int) bool { return items[i].ID < items[j].ID })
+		return &struct {
+			Body struct {
+				Clients []ClientItem `json:"clients"`
+			}
+		}{Body: struct {
+			Clients []ClientItem `json:"clients"`
+		}{Clients: items}}, nil
+	})
+
+	huma.Register(api, huma.Operation{
+		OperationID: "ws-echo",
+		Method:      http.MethodPost,
+		Path:        "/api/admin/ws/echo",
+		Summary:     "Publish an admin.echo message to a channel",
+	}, func(ctx context.Context, in *struct {
+		Body struct {
+			Channel string `json:"channel" minLength:"1"`
+			Payload string `json:"payload,omitempty"`
+		}
+	}) (*struct {
+		Body struct {
+			SentAt string `json:"sent_at"`
+		}
+	}, error) {
+		sentAt := time.Now().UTC()
+		s.publish(in.Body.Channel, "admin.echo", map[string]any{
+			"payload": in.Body.Payload,
+			"sent_at": sentAt.Format(time.RFC3339Nano),
+		})
+		return &struct {
+			Body struct {
+				SentAt string `json:"sent_at"`
+			}
+		}{Body: struct {
+			SentAt string `json:"sent_at"`
+		}{SentAt: sentAt.Format(time.RFC3339Nano)}}, nil
+	})
+}
+
+func (s *Server) registerWSClient(channel string, userID int64, remoteAddr string) int64 {
+	s.wsClientsMu.Lock()
+	defer s.wsClientsMu.Unlock()
+	s.wsClientSeq++
+	id := s.wsClientSeq
+	s.wsClients[id] = &wsClientEntry{
+		ID:          id,
+		Channel:     channel,
+		UserID:      userID,
+		RemoteAddr:  remoteAddr,
+		ConnectedAt: time.Now().UTC(),
+	}
+	return id
+}
+
+func (s *Server) unregisterWSClient(id int64) {
+	s.wsClientsMu.Lock()
+	delete(s.wsClients, id)
+	s.wsClientsMu.Unlock()
 }
 
 func (s *Server) handleWSSubscribe(w http.ResponseWriter, r *http.Request) {
@@ -89,7 +188,7 @@ func (s *Server) handleWSSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	channel, _, err := ws.VerifyToken(s.wsSecret, token)
+	channel, userID, err := ws.VerifyToken(s.wsSecret, token)
 	if err != nil {
 		http.Error(w, "invalid token: "+err.Error(), http.StatusForbidden)
 		return
@@ -103,6 +202,9 @@ func (s *Server) handleWSSubscribe(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 	defer conn.CloseNow()
+
+	clientID := s.registerWSClient(channel, userID, r.RemoteAddr)
+	defer s.unregisterWSClient(clientID)
 
 	sub := s.broker.Subscribe(channel)
 	defer sub.Close()

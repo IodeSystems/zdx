@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -35,6 +36,19 @@ type Server struct {
 	sink           timingSink
 	ingestLimiter  *ingestRateLimiter
 	errorClient    *zdxclient.Client
+
+	wsClientsMu sync.Mutex
+	wsClients   map[int64]*wsClientEntry
+	wsClientSeq int64
+}
+
+// wsClientEntry tracks a single live WebSocket subscriber for admin diagnostics.
+type wsClientEntry struct {
+	ID          int64
+	Channel     string
+	UserID      int64
+	RemoteAddr  string
+	ConnectedAt time.Time
 }
 
 func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Server {
@@ -74,6 +88,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 		features:       detectFeatures(ctx, pool),
 		sink:           sink,
 		ingestLimiter:  newIngestRateLimiter(1000, 10000),
+		wsClients:      make(map[int64]*wsClientEntry),
 	}
 
 	// Load LLM config eagerly so embedder is ready on first request.
