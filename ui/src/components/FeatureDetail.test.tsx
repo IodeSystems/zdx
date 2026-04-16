@@ -1,0 +1,152 @@
+import { describe, test, expect, afterEach, beforeEach, vi } from 'vitest'
+import { render, screen, cleanup } from '@testing-library/react'
+import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ThemeProvider, CssBaseline } from '@mui/material'
+import { theme } from '../theme'
+import type { FeatureItem, TaskItem, SpecItem } from '../api'
+
+vi.mock('../api', async () => {
+  const actual = await vi.importActual<typeof import('../api')>('../api')
+  return {
+    ...actual,
+    useFeature: vi.fn(),
+    useTasks: vi.fn(),
+    useSpecTests: vi.fn(),
+  }
+})
+
+vi.mock('@tanstack/react-router', () => ({
+  Link: (props: any) => <a href={typeof props.to === 'string' ? props.to : '#'}>{props.children}</a>,
+  useRouter: () => ({ history: { go: () => {} } }),
+}))
+
+vi.mock('./MarkdownContent', () => ({
+  MarkdownContent: ({ children }: { children: string }) => <div data-testid="markdown">{children}</div>,
+}))
+
+vi.mock('./CommentsAndRevisions', () => ({
+  CommentsAndRevisions: () => <div data-testid="comments" />,
+}))
+
+vi.mock('./DemoPlayer', () => ({
+  DemosSection: () => <div data-testid="demos" />,
+}))
+
+import { useFeature, useTasks, useSpecTests } from '../api'
+import { FeatureDetail } from './FeatureDetail'
+
+const mockedUseFeature = vi.mocked(useFeature)
+const mockedUseTasks = vi.mocked(useTasks)
+const mockedUseSpecTests = vi.mocked(useSpecTests)
+
+function makeFeature(overrides: Partial<FeatureItem> = {}): FeatureItem {
+  return {
+    id: 1,
+    name: 'example-feature',
+    category: 'DeveloperPortal',
+    component: 'ui',
+    description: 'Example description',
+    done_when: '',
+    has_test_refs: false,
+    plan_status: '',
+    plan_type: '',
+    specs: [],
+    what: '',
+    why: '',
+    ...overrides,
+  }
+}
+
+function makeTask(overrides: Partial<TaskItem> = {}): TaskItem {
+  return {
+    id: 1,
+    text: 'example task',
+    status: 'ready',
+    feature: 'example-feature',
+    depends: '',
+    reason: '',
+    task_group: '',
+    test_plan: '',
+    test_refs: '',
+    completed_at: '',
+    created_at: '2026-01-01T00:00:00Z',
+    updated_at: '2026-01-01T00:00:00Z',
+    ...overrides,
+  }
+}
+
+function makeSpec(overrides: Partial<SpecItem> = {}): SpecItem {
+  return {
+    id: 1,
+    kind: 'must',
+    description: 'Given X, when Y, then Z',
+    deferred: false,
+    deferred_reason: '',
+    ...overrides,
+  }
+}
+
+let queryClient: QueryClient
+
+beforeEach(() => {
+  queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  mockedUseSpecTests.mockReturnValue({ data: [], isLoading: false } as any)
+})
+
+afterEach(() => {
+  cleanup()
+  vi.clearAllMocks()
+})
+
+function renderDetail(slug = 'test-project', name = 'example-feature') {
+  return render(
+    <QueryClientProvider client={queryClient}>
+      <ThemeProvider theme={theme}>
+        <CssBaseline />
+        <FeatureDetail slug={slug} name={name} />
+      </ThemeProvider>
+    </QueryClientProvider>,
+  )
+}
+
+describe('FeatureDetail', () => {
+  test('spec 40: specs, tasks, what/why/done-when criteria are displayed', () => {
+    const specs: SpecItem[] = [
+      makeSpec({ id: 10, description: 'Given a feature, when viewed, then name is shown', kind: 'must' }),
+      makeSpec({ id: 11, description: 'Given specs, when listed, then kind chip appears', kind: 'should' }),
+    ]
+    const feature: FeatureItem = makeFeature({
+      what: 'WHAT: users can view feature detail',
+      why: 'WHY: to understand the feature scope',
+      done_when: 'DONE-WHEN: detail page renders all fields',
+      specs,
+    })
+    const tasks: TaskItem[] = [
+      makeTask({ id: 101, text: 'Implement detail page', status: 'done' }),
+      makeTask({ id: 102, text: 'Wire up tasks list', status: 'ready' }),
+    ]
+
+    mockedUseFeature.mockReturnValue({ data: feature, isLoading: false } as any)
+    mockedUseTasks.mockReturnValue({ data: { tasks, total: tasks.length }, isLoading: false } as any)
+
+    renderDetail()
+
+    expect(screen.getByText(feature.name)).toBeInTheDocument()
+
+    const markdownBlocks = screen.getAllByTestId('markdown').map(n => n.textContent)
+    expect(markdownBlocks).toContain(feature.what)
+    expect(markdownBlocks).toContain(feature.why)
+    expect(markdownBlocks).toContain(feature.done_when)
+
+    expect(screen.getByText(`Specs (${specs.length})`)).toBeInTheDocument()
+    for (const s of specs) {
+      expect(screen.getByText(s.description)).toBeInTheDocument()
+      expect(screen.getAllByText(s.kind).length).toBeGreaterThan(0)
+    }
+
+    expect(screen.getByText(`Tasks (${tasks.length})`)).toBeInTheDocument()
+    for (const t of tasks) {
+      expect(screen.getByText(t.text)).toBeInTheDocument()
+    }
+  })
+})
