@@ -14,6 +14,49 @@ type Config struct {
 	Remote     Remote               `yaml:"remote"`
 	Hooks      Hooks                `yaml:"hooks"`
 	Components map[string]Component `yaml:"components"`
+	LLMLocal   LLMLocal             `yaml:"llm_local"`
+}
+
+// LLMLocal configures the local-LLM provider used by `dx agent local`.
+type LLMLocal struct {
+	BaseURL        string `yaml:"base_url"`
+	Model          string `yaml:"model"`
+	APIKey         string `yaml:"api_key"`
+	TimeoutSeconds int    `yaml:"timeout_seconds"`
+}
+
+const (
+	defaultLLMLocalBaseURL = "http://192.168.1.76:8111"
+	defaultLLMLocalModel   = "qwen3-30b-a3b"
+	defaultLLMLocalTimeout = 120
+)
+
+// ResolvedLLMLocal returns the local-LLM config with defaults and env overrides applied.
+// Env: DX_LLM_LOCAL_BASE_URL, DX_LLM_LOCAL_MODEL, DX_LLM_LOCAL_API_KEY.
+func (c *Config) ResolvedLLMLocal() LLMLocal {
+	var l LLMLocal
+	if c != nil {
+		l = c.LLMLocal
+	}
+	if v := os.Getenv("DX_LLM_LOCAL_BASE_URL"); v != "" {
+		l.BaseURL = v
+	}
+	if v := os.Getenv("DX_LLM_LOCAL_MODEL"); v != "" {
+		l.Model = v
+	}
+	if v := os.Getenv("DX_LLM_LOCAL_API_KEY"); v != "" {
+		l.APIKey = v
+	}
+	if l.BaseURL == "" {
+		l.BaseURL = defaultLLMLocalBaseURL
+	}
+	if l.Model == "" {
+		l.Model = defaultLLMLocalModel
+	}
+	if l.TimeoutSeconds <= 0 {
+		l.TimeoutSeconds = defaultLLMLocalTimeout
+	}
+	return l
 }
 
 type Remote struct {

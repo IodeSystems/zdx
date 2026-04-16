@@ -15,7 +15,8 @@ import (
 )
 
 func McpCmd() *cobra.Command {
-	return &cobra.Command{
+	var withFS, withShell bool
+	cmd := &cobra.Command{
 		Use:   "mcp",
 		Short: "Start MCP server (stdio transport)",
 		RunE: func(cmd *cobra.Command, args []string) error {
@@ -28,9 +29,26 @@ func McpCmd() *cobra.Command {
 				Version: "0.1.0",
 			}, nil)
 			registerMCPTools(srv, c)
+			if withFS {
+				root, err := gitRepoRoot()
+				if err != nil {
+					return fmt.Errorf("--with-fs requires a git repo: %w", err)
+				}
+				RegisterFSTools(srv, root)
+			}
+			if withShell {
+				root, err := gitRepoRoot()
+				if err != nil {
+					return fmt.Errorf("--with-shell requires a git repo: %w", err)
+				}
+				RegisterShellTools(srv, root)
+			}
 			return srv.Run(cmd.Context(), &mcp.StdioTransport{})
 		},
 	}
+	cmd.Flags().BoolVar(&withFS, "with-fs", false, "expose filesystem tools (read_file, write_file, edit_file, grep, glob, list_dir)")
+	cmd.Flags().BoolVar(&withShell, "with-shell", false, "expose run_bash shell tool")
+	return cmd
 }
 
 func registerMCPTools(srv *mcp.Server, c *Client) {
