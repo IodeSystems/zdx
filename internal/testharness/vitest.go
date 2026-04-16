@@ -63,9 +63,9 @@ type vitestReport struct {
 }
 
 type vitestFileResult struct {
-	TestFilePath string             `json:"testFilePath"`
+	TestFilePath string             `json:"name"`
 	Status       string             `json:"status"` // "passed" | "failed"
-	TestResults  []vitestTestResult `json:"testResults"`
+	TestResults  []vitestTestResult `json:"assertionResults"`
 }
 
 type vitestTestResult struct {
