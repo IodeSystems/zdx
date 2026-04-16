@@ -1310,15 +1310,26 @@ func todoTechAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := mustClient()
 			var resp taskAddResponse
-			if err := c.post("/api/dx/todo/tech/add", map[string]any{
-				"slug":       c.SlugOrDie(),
-				"text":       text,
-				"feature":    feature,
-				"issue":      issue,
-				"task_group": taskGroup,
-				"auto_ready": autoReady,
-				"force":      force,
-			}, &resp); err != nil {
+			body := map[string]any{
+				"slug": c.SlugOrDie(),
+				"text": text,
+			}
+			if feature != "" {
+				body["feature"] = feature
+			}
+			if issue != "" {
+				body["issue"] = issue
+			}
+			if taskGroup != "" {
+				body["task_group"] = taskGroup
+			}
+			if autoReady {
+				body["auto_ready"] = true
+			}
+			if force {
+				body["force"] = true
+			}
+			if err := c.post("/api/dx/todo/tech/add", body, &resp); err != nil {
 				return err
 			}
 			if resp.DuplicateBlocked {

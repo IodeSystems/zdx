@@ -104,6 +104,11 @@ func checkResp(resp *http.Response, out any) error {
 			Title  string `json:"title"`
 			Detail string `json:"detail"`
 			Error  string `json:"error"`
+			Errors []struct {
+				Message  string `json:"message"`
+				Location string `json:"location"`
+				Value    any    `json:"value"`
+			} `json:"errors"`
 		}
 		_ = json.Unmarshal(body, &e)
 		msg := e.Title
@@ -112,6 +117,9 @@ func checkResp(resp *http.Response, out any) error {
 		}
 		if e.Detail != "" {
 			msg += ": " + e.Detail
+		}
+		for _, ve := range e.Errors {
+			msg += fmt.Sprintf("\n  - %s at %s (value: %v)", ve.Message, ve.Location, ve.Value)
 		}
 		if msg != "" {
 			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, msg)
