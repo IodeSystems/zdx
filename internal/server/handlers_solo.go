@@ -94,23 +94,24 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 		issues = filtered
 	}
 
-	// Check for unread LLM comments on issues
-	for _, iss := range issues {
-		hasUnread, _ := s.q.HasUnreadCommentsForTarget(ctx, db.HasUnreadCommentsForTargetParams{
-			ProjectID: projectID, TargetType: "issue", TargetID: iss.ID, Role: "llm",
-		})
-		if hasUnread {
-			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("comment-issue-%s", iss.ID),
-				Text:       fmt.Sprintf("Unread comments on %s: %s", iss.ID, iss.Title),
-				Kind:       "read:comments",
-				TargetType: "issue",
-				TargetID:   iss.ID,
-				IssueRef:   iss.ID,
-				Priority:   5,
-				Persona:    "dev",
-			})
+	// Check for unread LLM comments on issues (any status, not just open)
+	unreadIssues, _ := s.q.ListIssuesWithUnreadComments(ctx, db.ListIssuesWithUnreadCommentsParams{
+		ProjectID: projectID, Role: "llm",
+	})
+	for _, ui := range unreadIssues {
+		if issueFilter != "" && ui.ID != issueFilter {
+			continue
 		}
+		candidates = append(candidates, soloCandidate{
+			Key:        fmt.Sprintf("comment-issue-%s", ui.ID),
+			Text:       fmt.Sprintf("Unread comments on %s: %s", ui.ID, ui.Title),
+			Kind:       "read:comments",
+			TargetType: "issue",
+			TargetID:   ui.ID,
+			IssueRef:   ui.ID,
+			Priority:   5,
+			Persona:    "dev",
+		})
 	}
 
 	// Check for unread LLM comments on features

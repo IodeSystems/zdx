@@ -214,6 +214,8 @@ type Querier interface {
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesBlockedBy(ctx context.Context, blockedByID string) ([]string, error)
 	ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error)
+	// Returns issues (any status) that have unread comments for the given role.
+	ListIssuesWithUnreadComments(ctx context.Context, arg ListIssuesWithUnreadCommentsParams) ([]ListIssuesWithUnreadCommentsRow, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ListJournalEntriesRow, error)
 	ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([]ZdxLogEvent, error)
 	ListLogEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)

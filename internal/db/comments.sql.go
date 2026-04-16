@@ -657,6 +657,54 @@ func (q *Queries) ListCommentsPaginated(ctx context.Context, arg ListCommentsPag
 	return items, nil
 }
 
+const listIssuesWithUnreadComments = `-- name: ListIssuesWithUnreadComments :many
+SELECT DISTINCT i.id, i.title, i.status
+FROM zdx_issues i
+JOIN zdx_comments c ON c.project_id = i.project_id AND c.target_type = 'issue' AND c.target_id = i.id
+WHERE i.project_id = $1
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = $2
+      AND r.last_read_at >= c.created_at
+  )
+ORDER BY i.id
+`
+
+type ListIssuesWithUnreadCommentsParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Role      string `db:"role" json:"role"`
+}
+
+type ListIssuesWithUnreadCommentsRow struct {
+	ID     string `db:"id" json:"id"`
+	Title  string `db:"title" json:"title"`
+	Status string `db:"status" json:"status"`
+}
+
+// Returns issues (any status) that have unread comments for the given role.
+func (q *Queries) ListIssuesWithUnreadComments(ctx context.Context, arg ListIssuesWithUnreadCommentsParams) ([]ListIssuesWithUnreadCommentsRow, error) {
+	rows, err := q.db.Query(ctx, listIssuesWithUnreadComments, arg.ProjectID, arg.Role)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIssuesWithUnreadCommentsRow
+	for rows.Next() {
+		var i ListIssuesWithUnreadCommentsRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRevisions = `-- name: ListRevisions :many
 SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, created_at
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3

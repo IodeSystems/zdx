@@ -37,6 +37,24 @@ func TestQueueKindReadCommentsIssue(t *testing.T) {
 	}
 }
 
+func TestQueueKindReadCommentsClosedIssue(t *testing.T) {
+	d := NewApiDriver(t, "q-rc-closed", "Queue ReadComments Closed Issue")
+	sc := Given(d).TriagedIssue("Closed commented issue", "test", 3).Build()
+	issueID := sc.Issues[0]
+	targetID := fmt.Sprintf("IS-%d", issueID)
+
+	d.CloseIssue(issueID)
+	d.AddComment("issue", targetID, "Follow-up question on closed issue")
+	items := d.EvaluateQueue("")
+	item := requireKind(t, items, "read:comments")
+	if item.TargetType != "issue" {
+		t.Errorf("expected target_type=issue, got %q", item.TargetType)
+	}
+	if item.TargetID != targetID {
+		t.Errorf("expected target_id=%s, got %s", targetID, item.TargetID)
+	}
+}
+
 func TestQueueKindReadCommentsFeature(t *testing.T) {
 	d := NewApiDriver(t, "q-rc-feat", "Queue ReadComments Feature")
 	Given(d).Feature("rc-feat", "A feature with comments").Build()

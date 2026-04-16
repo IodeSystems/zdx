@@ -245,11 +245,8 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		targetIssues = filtered
 	}
 
-	// 0. Check for unread LLM comments on any open issue.
+	// 0. Check for unread LLM comments on any issue (regardless of status).
 	for _, iss := range targetIssues {
-		if iss.Status != "open" {
-			continue
-		}
 		var unreadResp struct {
 			HasUnread bool `json:"has_unread"`
 		}

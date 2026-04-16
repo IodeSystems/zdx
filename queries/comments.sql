@@ -108,6 +108,22 @@ WHERE c.project_id = @project_id
 ORDER BY c.created_at
 LIMIT 20;
 
+-- name: ListIssuesWithUnreadComments :many
+-- Returns issues (any status) that have unread comments for the given role.
+SELECT DISTINCT i.id, i.title, i.status
+FROM zdx_issues i
+JOIN zdx_comments c ON c.project_id = i.project_id AND c.target_type = 'issue' AND c.target_id = i.id
+WHERE i.project_id = @project_id
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = @role
+      AND r.last_read_at >= c.created_at
+  )
+ORDER BY i.id;
+
 -- name: GetCommentByID :one
 SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE id = $1;
