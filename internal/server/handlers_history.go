@@ -3,20 +3,11 @@ package server
 import (
 	"context"
 	"net/http"
-	"sort"
 
 	"github.com/danielgtaylor/huma/v2"
-	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
-
-func tsUnixNano(ts pgtype.Timestamptz) int64 {
-	if !ts.Valid {
-		return 0
-	}
-	return ts.Time.UnixNano()
-}
 
 type HistoryEvent struct {
 	Kind       string `json:"kind"`
@@ -46,13 +37,6 @@ func (s *Server) registerHistoryRoutes(api huma.API) {
 				return nil, apiErr(400, "target_type must be 'issue' or 'task'")
 			}
 
-			statusRows, err := s.q.ListStatusEventsByTarget(ctx, db.ListStatusEventsByTargetParams{
-				TargetType: in.TargetType,
-				TargetID:   in.TargetID,
-			})
-			if err != nil {
-				return nil, apiErr(500, err.Error())
-			}
 			revRows, err := s.q.ListRevisionsByTarget(ctx, db.ListRevisionsByTargetParams{
 				TargetType: in.TargetType,
 				TargetID:   in.TargetID,
@@ -61,47 +45,26 @@ func (s *Server) registerHistoryRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 
-			type sortable struct {
-				ts int64
-				ev HistoryEvent
-			}
-			rows := make([]sortable, 0, len(statusRows)+len(revRows))
-			for _, r := range statusRows {
-				rows = append(rows, sortable{ts: tsUnixNano(r.CreatedAt), ev: HistoryEvent{
-					Kind:       "status",
-					ID:         r.ID,
-					CreatedAt:  fmtTS(r.CreatedAt),
-					FromStatus: r.FromStatus,
-					ToStatus:   r.ToStatus,
-					AgentID:    r.AgentID,
-					SessionID:  r.SessionID,
-					UserID:     r.UserID,
-				}})
-			}
-			for _, r := range revRows {
-				rows = append(rows, sortable{ts: tsUnixNano(r.CreatedAt), ev: HistoryEvent{
-					Kind:      "field",
+			events := make([]HistoryEvent, len(revRows))
+			for i, r := range revRows {
+				ev := HistoryEvent{
 					ID:        int64(r.ID),
 					CreatedAt: fmtTS(r.CreatedAt),
-					Field:     r.Field,
-					OldVal:    r.OldVal,
-					NewVal:    r.NewVal,
 					AgentID:   r.Agent,
 					SessionID: r.SessionID,
 					UserID:    r.UserID,
-				}})
-			}
-
-			sort.SliceStable(rows, func(i, j int) bool {
-				if rows[i].ts != rows[j].ts {
-					return rows[i].ts > rows[j].ts
 				}
-				return rows[i].ev.ID > rows[j].ev.ID
-			})
-
-			events := make([]HistoryEvent, len(rows))
-			for i, r := range rows {
-				events[i] = r.ev
+				if r.Field == "status" {
+					ev.Kind = "status"
+					ev.FromStatus = r.OldVal
+					ev.ToStatus = r.NewVal
+				} else {
+					ev.Kind = "field"
+					ev.Field = r.Field
+					ev.OldVal = r.OldVal
+					ev.NewVal = r.NewVal
+				}
+				events[i] = ev
 			}
 
 			return &struct {

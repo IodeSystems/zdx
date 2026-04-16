@@ -385,7 +385,6 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			s.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed")
-			s.recordStatusEvent(ctx, p.ID, "issue", issueID, prevStatus, "closed", "")
 			notes := ptrStr(in.Body.Notes)
 			note := "[closed"
 			if reason != "" {
@@ -416,7 +415,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			}
 			_ = s.q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: 0})
 			if projectID != 0 {
-				s.recordStatusEvent(ctx, projectID, "issue", issueID, prevStatus, "open", "")
+				s.recordRevision(ctx, projectID, "issue", issueID, "status", prevStatus, "open")
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -661,7 +660,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if err := s.q.ReadyIssue(ctx, db.ReadyIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordStatusEvent(ctx, p.ID, "issue", issueID, "wip", "open", "")
+			s.recordRevision(ctx, p.ID, "issue", issueID, "status", "wip", "open")
 			return &struct{ Body struct{ OK bool } }{Body: struct{ OK bool }{OK: true}}, nil
 		})
 

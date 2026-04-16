@@ -20,7 +20,7 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 				if r.ClaimedBy.Valid {
 					prevAgent = r.ClaimedBy.String
 				}
-				s.recordStatusEvent(ctx, r.ProjectID, "task", r.ID, "active", "pending", prevAgent)
+				s.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "active", "pending", prevAgent)
 			}
 		}
 
@@ -30,7 +30,7 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 		} else if len(orphaned) > 0 {
 			log.Printf("task-recovery: cancelled %d orphaned tasks (parent issue closed)", len(orphaned))
 			for _, r := range orphaned {
-				s.recordStatusEvent(ctx, r.ProjectID, "task", r.ID, "", "done", "")
+				s.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "", "done", "")
 			}
 		}
 

@@ -268,7 +268,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "no tasks available to claim")
 			}
-			s.recordStatusEvent(ctx, p.ID, "task", t.ID, "pending", "active", in.Body.AgentID)
+			s.recordStatusChange(ctx, p.ID, "task", t.ID, "pending", "active", in.Body.AgentID)
 			item := AgentTaskItem{
 				ID:             t.ID,
 				Text:           t.Text,
@@ -355,7 +355,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				if r.ClaimedBy.Valid {
 					prevAgent = r.ClaimedBy.String
 				}
-				s.recordStatusEvent(ctx, r.ProjectID, "task", r.ID, "active", "pending", prevAgent)
+				s.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "active", "pending", prevAgent)
 			}
 			return &struct {
 				Body struct {
