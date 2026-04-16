@@ -159,7 +159,16 @@ export function IssueDetail({
           <Chip label={issue.component} size="small" variant="outlined" />
         )}
         {issue.issue_type && (
-          <Chip label={issue.issue_type} size="small" variant="outlined" color={issue.issue_type === 'impl' ? 'secondary' : 'default'} />
+          <Chip
+            label={issue.issue_type}
+            size="small"
+            variant="outlined"
+            color={
+              issue.issue_type === 'impl' ? 'secondary' :
+              issue.issue_type === 'ask' ? 'info' :
+              'default'
+            }
+          />
         )}
         {(((issue.blocked_by ?? []) as unknown) as string[]).map((bid: string) => (
           <Chip

@@ -322,7 +322,12 @@ export function IssuesTab({ slug }: { slug: string }) {
                     IS-{i.id}: {issueDisplayTitle(i.title, i.context)}
                   </Typography>
                   {(i.issue_type && i.issue_type !== 'ops') && (
-                    <Chip label={i.issue_type} size="small" color="secondary" variant="outlined" />
+                    <Chip
+                      label={i.issue_type}
+                      size="small"
+                      color={i.issue_type === 'ask' ? 'info' : 'secondary'}
+                      variant="outlined"
+                    />
                   )}
                   <Chip
                     label={i.status}

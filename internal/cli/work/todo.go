@@ -20,8 +20,13 @@ const triageGuidance = `  triage checklist:
     1. verify independently (reproduce or read the code)
     2. dup-check: dx issue list; close duplicates with --reason=duplicate
     3. rewrite prescriptively: title=intended outcome; context=should/did/direction
-    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|tracker> --priority=<1-4> --theme=<ID> --goal=<ID>
+    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|ask|tracker> --priority=<1-4> --theme=<ID> --goal=<ID>
        use the active themes and goals listed above to classify the issue
+       type guide:
+         ops    = one-time verifiable action (demo/test plan required)
+         impl   = durable code change (resolution link required to close)
+         ask    = investigation/research/justification (no test plan; may spawn follow-up issues)
+         tracker = umbrella issue (closed by its children; solo skips it)
     if the issue is too vague to triage, create clarification questions instead:
       dx question add --target-type=issue --target-id=IS-N --context="<question>" --choices="opt1,opt2,..."
     solo will block progress on the issue until all questions are answered.
@@ -1070,11 +1075,16 @@ func todoDevReviewCmd() *cobra.Command {
 			if resp.TestRefs != "" {
 				fmt.Printf("Test refs:  %s\n", resp.TestRefs)
 			}
-			if resp.IssueType == "ops" {
+			switch resp.IssueType {
+			case "ops":
 				fmt.Println("\nReview checklist (ops):")
 				fmt.Println("  - Demo recording artifacts reviewed (playwright code, stdout/stderr, browser logs)")
 				fmt.Println("  - Test plan coverage verified")
-			} else {
+			case "ask":
+				fmt.Println("\nReview checklist (ask):")
+				fmt.Println("  - Investigation finding recorded in issue body or task notes")
+				fmt.Println("  - Any follow-up issues proposed/filed if investigation surfaced concerns")
+			default:
 				fmt.Println("\nReview checklist (impl):")
 				fmt.Println("  - Fix SHAs and diffs reviewed")
 				fmt.Println("  - Test plan and code blocks verified")
@@ -1210,7 +1220,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&priority, "priority", "", "priority 1-4 (1=highest)")
 	cmd.Flags().StringVar(&title, "title", "", "set issue title")
-	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops, impl, or tracker")
+	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops, impl, ask, or tracker")
 	cmd.Flags().StringVar(&context, "context", "", "rewrite issue context (answer embedded question, clarify scope)")
 	cmd.Flags().BoolVar(&clarify, "clarify", false, "create clarification questions instead of triaging (requires --questions)")
 	cmd.Flags().StringVar(&questions, "questions", "", "semicolon-separated questions; use | for choices: \"question|a,b,c;question2\"")

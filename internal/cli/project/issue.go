@@ -148,7 +148,7 @@ func issueAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&ctx, "context", "", "context / description")
 	cmd.Flags().StringVar(&component, "component", "", "component")
 	cmd.Flags().StringVar(&blockedBy, "blocked-by", "", "blocking issues (IS-N, comma-separated)")
-	cmd.Flags().StringVar(&issueType, "type", "ops", "issue type: ops, impl, or tracker")
+	cmd.Flags().StringVar(&issueType, "type", "ops", "issue type: ops, impl, ask, or tracker")
 	cmd.Flags().StringVar(&issueURL, "url", "", "URL related to the issue")
 	cmd.Flags().StringVar(&parent, "parent", "", "parent issue (IS-N): new issue blocks the parent")
 	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as open")

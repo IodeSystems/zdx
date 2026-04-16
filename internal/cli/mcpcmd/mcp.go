@@ -92,7 +92,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Component string `json:"component,omitempty" jsonschema:"component"`
 		BlockedBy string `json:"blocked_by,omitempty" jsonschema:"blocking issue (IS-N)"`
 		Parent    string `json:"parent,omitempty" jsonschema:"parent issue (IS-N): new issue blocks the parent"`
-		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, or tracker"`
+		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, ask, or tracker"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "issue_add",
@@ -172,7 +172,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Context   string `json:"context,omitempty" jsonschema:"context / description"`
 		Priority  *int   `json:"priority,omitempty" jsonschema:"priority (1-4)"`
 		Component string `json:"component,omitempty" jsonschema:"component"`
-		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, or tracker"`
+		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, ask, or tracker"`
 		BlockedBy string `json:"blocked_by,omitempty" jsonschema:"blocking issue (IS-N) or empty to clear"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
@@ -407,7 +407,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		ID        string `json:"id" jsonschema:"required,issue ID (IS-N)"`
 		Priority  int    `json:"priority" jsonschema:"required,priority 1-4 (1=highest)"`
 		Title     string `json:"title,omitempty" jsonschema:"set issue title"`
-		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, or tracker"`
+		IssueType string `json:"issue_type,omitempty" jsonschema:"issue type: ops, impl, ask, or tracker"`
 		Context   string `json:"context,omitempty" jsonschema:"rewrite issue context"`
 		ThemeIDs  []int  `json:"theme_ids,omitempty" jsonschema:"theme IDs to link"`
 		GoalIDs   []int  `json:"goal_ids,omitempty" jsonschema:"goal IDs to link"`
