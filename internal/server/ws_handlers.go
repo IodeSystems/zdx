@@ -50,10 +50,6 @@ func (s *Server) PublishAgentSessionLifecycle(slug string, sessionID string, eve
 }
 
 func (s *Server) registerWSRoutes(api huma.API) {
-	if !s.IsWSEnabled() {
-		return
-	}
-
 	huma.Register(api, huma.Operation{
 		OperationID: "ws-sign",
 		Method:      http.MethodPost,

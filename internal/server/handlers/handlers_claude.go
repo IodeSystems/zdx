@@ -326,17 +326,15 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			if h.Broker.IsWSEnabled() {
-				sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
-				if err == nil {
-					payload := map[string]string{
-						"header":  in.Body.Header,
-						"summary": in.Body.Summary,
-						"status":  in.Body.Status,
-					}
-					h.Broker.PublishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-updated", payload)
-					h.Broker.PublishClaudeEvent(in.Slug, sess.SessionID, "claude.session-updated", payload)
+			sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			if err == nil {
+				payload := map[string]string{
+					"header":  in.Body.Header,
+					"summary": in.Body.Summary,
+					"status":  in.Body.Status,
 				}
+				h.Broker.PublishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-updated", payload)
+				h.Broker.PublishClaudeEvent(in.Slug, sess.SessionID, "claude.session-updated", payload)
 			}
 			return &struct {
 				Body struct {
@@ -726,19 +724,17 @@ Transcript:
 		return
 	}
 
-	if h.Broker.IsWSEnabled() {
-		sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: projectID, ID: sessionPK})
-		if err == nil {
-			p, pErr := h.Q.GetProjectByID(ctx, projectID)
-			if pErr == nil {
-				payload := map[string]string{
-					"header":  summary.Header,
-					"summary": summary.Summary,
-					"status":  summary.Status,
-				}
-				h.Broker.PublishAgentSessionLifecycle(p.Slug, sess.SessionID, "agent.session-updated", payload)
-				h.Broker.PublishClaudeEvent(p.Slug, sess.SessionID, "claude.session-updated", payload)
+	sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: projectID, ID: sessionPK})
+	if err == nil {
+		p, pErr := h.Q.GetProjectByID(ctx, projectID)
+		if pErr == nil {
+			payload := map[string]string{
+				"header":  summary.Header,
+				"summary": summary.Summary,
+				"status":  summary.Status,
 			}
+			h.Broker.PublishAgentSessionLifecycle(p.Slug, sess.SessionID, "agent.session-updated", payload)
+			h.Broker.PublishClaudeEvent(p.Slug, sess.SessionID, "claude.session-updated", payload)
 		}
 	}
 }

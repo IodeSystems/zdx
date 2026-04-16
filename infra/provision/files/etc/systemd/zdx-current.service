@@ -17,6 +17,7 @@ Environment=ZDX_SLOT=current
 Environment=PORT=7600
 Environment=STATIC_DIR=/home/zdx/home/versions/current/public
 Environment=DATABASE_URL=postgres://zdx:zdx@localhost:7650/zdx?sslmode=disable
+Environment=ZDX_VALKEY_ADDR=127.0.0.1:7651
 Environment=ZDX_PROJECT_SLUG=zdx
 
 # Hardening

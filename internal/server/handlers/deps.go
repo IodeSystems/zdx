@@ -31,7 +31,6 @@ type Broker interface {
 	PublishClaudeEvent(slug, sessionID, eventType string, payload any)
 	PublishClaudeSessionLifecycle(slug, sessionID, eventType string, payload any)
 	PublishAgentSessionLifecycle(slug, sessionID, eventType string, payload any)
-	IsWSEnabled() bool
 }
 
 type Reconciler interface {

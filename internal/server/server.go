@@ -160,12 +160,6 @@ func spaPath(urlPath, staticDir string) string {
 	return "index.html"
 }
 
-// IsWSEnabled reports whether this server instance should register WebSocket endpoints.
-// WS is disabled on the "next" deploy slot to keep load segregated during rolling deploys.
-func (s *Server) IsWSEnabled() bool {
-	return s.slot != "next"
-}
-
 // buildDeps constructs the Deps struct handed to the handlers package so every
 // HTTP handler sees the same state the Server is holding. Server satisfies the
 // Broker / Reconciler / IngestRegistrar interfaces directly; *embedder
