@@ -57,6 +57,8 @@ run "sqlc-drift" bash -c '
   fi
 '
 
+run "openapi-drift" go run ./cmd/dx-client-gen -check
+
 # ── Wait and report ──────────────────────────────────────────────────────────
 
 for i in "${!PIDS[@]}"; do

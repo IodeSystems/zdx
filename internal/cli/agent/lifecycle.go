@@ -16,6 +16,8 @@ import (
 	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 // AgentAdapter is the provider-agnostic surface a coding agent (Claude,
@@ -580,45 +582,41 @@ func (f *agentEventFlusher) stopAndDrain() {
 // ── Server HTTP helpers ───────────────────────────────────────────────────
 
 func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trigger string) error {
-	u := fmt.Sprintf("%s/api/dx/agent/sessions/%s/create?slug=%s",
-		rc.url, url.PathEscape(sid), url.QueryEscape(rc.slug))
-	body := map[string]string{
-		"provider": provider,
-		"issue_id": issueID,
-		"alias":    alias,
-		"trigger":  trigger,
+	body := dxclient.CreateAgentSessionRequest{
+		Provider: provider,
+		IssueId:  issueID,
+		Alias:    alias,
+		Trigger:  trigger,
 	}
-	buf, _ := json.Marshal(body)
-	req, _ := http.NewRequest("POST", u, bytes.NewReader(buf))
-	req.Header.Set("X-Api-Key", rc.key)
-	req.Header.Set("Content-Type", "application/json")
-	client := &http.Client{Timeout: 10 * time.Second}
-	resp, err := client.Do(req)
-	if err != nil {
-		return err
-	}
-	defer resp.Body.Close()
-	if resp.StatusCode >= 400 {
-		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("create HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
-	}
-	return nil
+	path := fmt.Sprintf("/api/dx/agent/sessions/%s/create?slug=%s",
+		url.PathEscape(sid), url.QueryEscape(rc.slug))
+	return postLifecycleJSON(rc, path, body, "create")
 }
 
 func postAgentSessionClose(rc remoteConfig, sid string, exitCode int, durationMs int64, eventCount int32) error {
-	u := fmt.Sprintf("%s/api/dx/agent/sessions/%s/close?slug=%s",
-		rc.url, url.PathEscape(sid), url.QueryEscape(rc.slug))
-	body := map[string]any{
-		"exit_code":   exitCode,
-		"duration_ms": durationMs,
-		"event_count": eventCount,
+	body := dxclient.CloseAgentSessionRequest{
+		ExitCode:   int32(exitCode),
+		DurationMs: durationMs,
+		EventCount: eventCount,
 		// Tokens are derived server-side from persisted events; we send
 		// zeros and let the server's GetClaudeSessionTokenUsage be the
 		// source of truth.
-		"tokens": map[string]int64{},
+		Tokens: dxclient.TokensStruct{},
 	}
-	buf, _ := json.Marshal(body)
-	req, _ := http.NewRequest("POST", u, bytes.NewReader(buf))
+	path := fmt.Sprintf("/api/dx/agent/sessions/%s/close?slug=%s",
+		url.PathEscape(sid), url.QueryEscape(rc.slug))
+	return postLifecycleJSON(rc, path, body, "close")
+}
+
+// postLifecycleJSON marshals body and POSTs it to rc.url+path with the
+// standard session-lifecycle headers. op is a short label used in error
+// messages so the operator can tell create from close from events.
+func postLifecycleJSON(rc remoteConfig, path string, body any, op string) error {
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return fmt.Errorf("%s: marshal: %w", op, err)
+	}
+	req, _ := http.NewRequest("POST", rc.url+path, bytes.NewReader(buf))
 	req.Header.Set("X-Api-Key", rc.key)
 	req.Header.Set("Content-Type", "application/json")
 	client := &http.Client{Timeout: 10 * time.Second}
@@ -629,7 +627,7 @@ func postAgentSessionClose(rc remoteConfig, sid string, exitCode int, durationMs
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
 		b, _ := io.ReadAll(resp.Body)
-		return fmt.Errorf("close HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(b)))
+		return fmt.Errorf("%s HTTP %d: %s", op, resp.StatusCode, strings.TrimSpace(string(b)))
 	}
 	return nil
 }

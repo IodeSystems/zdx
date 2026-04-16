@@ -1,0 +1,8 @@
+package: dxclient
+output: internal/dxclient/models.gen.go
+generate:
+  models: true
+output-options:
+  skip-prune: true
+compatibility:
+  always-prefix-enum-values: true
