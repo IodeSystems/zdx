@@ -155,7 +155,8 @@ func RunLifecycle(
 	}
 
 	if rc.valid() {
-		if cErr := postAgentSessionCreate(rc, sid, issueID, alias, provider, trigger); cErr != nil {
+		sessPK, cErr := postAgentSessionCreate(rc, sid, issueID, alias, provider, trigger)
+		if cErr != nil {
 			// Visible on stdout (not just stderr) so the operator sees the
 			// session isn't being recorded — otherwise the only clue is the
 			// missing "Session:" URL line, which is too easy to overlook.
@@ -163,7 +164,11 @@ func RunLifecycle(
 				colorize(ansiBold+ansiRed, "WARNING:"), cErr)
 			fmt.Fprintf(os.Stderr, "[lifecycle] create: %v\n", cErr)
 		} else {
-			sessionURL := strings.TrimRight(rc.url, "/") + "/project/" + rc.slug + "/agents/" + sid
+			// The UI route /project/<slug>/agents/<id> expects the numeric
+			// session pk (it coerces the path param with Number()); the UUID
+			// sid would yield NaN and all downstream fetches would fail.
+			sessionURL := fmt.Sprintf("%s/project/%s/agents/%d",
+				strings.TrimRight(rc.url, "/"), rc.slug, sessPK)
 			fmt.Printf("%s %s\n", colorize(ansiBold, "Session:"), colorize(ansiBold+ansiCyan, sessionURL))
 		}
 	}
@@ -586,7 +591,10 @@ func (f *agentEventFlusher) stopAndDrain() {
 
 // ── Server HTTP helpers ───────────────────────────────────────────────────
 
-func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trigger string) error {
+// postAgentSessionCreate POSTs the session-create body and returns the server's
+// numeric session pk from the response. The pk — not the UUID sid — is what the
+// UI route expects in its path; see the Session: URL build in RunLifecycle.
+func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trigger string) (int64, error) {
 	// Server's Huma schema currently marks every body field required. Send
 	// explicit empty strings for the optional identity fields so the request
 	// validates rather than 422s. IS-261 also loosens the server side; this
@@ -604,7 +612,11 @@ func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trig
 	}
 	path := fmt.Sprintf("/api/dx/agent/sessions/%s/create?slug=%s",
 		url.PathEscape(sid), url.QueryEscape(rc.slug))
-	return postLifecycleJSON(rc, path, body, "create")
+	var resp dxclient.CreateAgentSessionResponse
+	if err := postLifecycleJSON(rc, path, body, &resp, "create"); err != nil {
+		return 0, err
+	}
+	return resp.Id, nil
 }
 
 func postAgentSessionClose(rc remoteConfig, sid string, exitCode int, durationMs int64, eventCount int32) error {
@@ -619,13 +631,14 @@ func postAgentSessionClose(rc remoteConfig, sid string, exitCode int, durationMs
 	}
 	path := fmt.Sprintf("/api/dx/agent/sessions/%s/close?slug=%s",
 		url.PathEscape(sid), url.QueryEscape(rc.slug))
-	return postLifecycleJSON(rc, path, body, "close")
+	return postLifecycleJSON(rc, path, body, nil, "close")
 }
 
 // postLifecycleJSON marshals body and POSTs it to rc.url+path with the
-// standard session-lifecycle headers. op is a short label used in error
-// messages so the operator can tell create from close from events.
-func postLifecycleJSON(rc remoteConfig, path string, body any, op string) error {
+// standard session-lifecycle headers. If respOut is non-nil, decodes the 2xx
+// response body into it. op is a short label used in error messages so the
+// operator can tell create from close from events.
+func postLifecycleJSON(rc remoteConfig, path string, body, respOut any, op string) error {
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return fmt.Errorf("%s: marshal: %w", op, err)
@@ -642,6 +655,11 @@ func postLifecycleJSON(rc remoteConfig, path string, body any, op string) error 
 	if resp.StatusCode >= 400 {
 		b, _ := io.ReadAll(resp.Body)
 		return fmt.Errorf("%s HTTP %d: %s", op, resp.StatusCode, strings.TrimSpace(string(b)))
+	}
+	if respOut != nil {
+		if err := json.NewDecoder(resp.Body).Decode(respOut); err != nil {
+			return fmt.Errorf("%s: decode response: %w", op, err)
+		}
 	}
 	return nil
 }
