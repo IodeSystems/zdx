@@ -17,6 +17,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/llm"
+	"github.com/iodesystems/zdx-go/internal/server/handlers"
 	"github.com/iodesystems/zdx-go/internal/ws"
 	"github.com/iodesystems/zdx-go/pkg/zdxclient"
 )
@@ -32,7 +33,7 @@ type Server struct {
 	broker         ws.Broker
 	api            huma.API
 	emb            *embedder
-	features       SchemaFeatures
+	features       handlers.SchemaFeatures
 	sink           timingSink
 	ingestLimiter  *ingestRateLimiter
 	errorClient    *zdxclient.Client
@@ -92,9 +93,9 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	}
 
 	// Load LLM config eagerly so embedder is ready on first request.
-	s.reloadEmbedder(ctx)
+	s.ReloadEmbedder(ctx)
 	// Index any issues not yet in the vector store (e.g. pre-dating LLM config setup).
-	go s.reindexAllIssues()
+	go s.ReindexAllIssues()
 
 	cfg := huma.DefaultConfig("ZDX API", "1.0.0")
 	cfg.Info.Description = "zdx developer-experience platform API"
@@ -106,7 +107,12 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	s.mux.Use(s.timingMiddleware)
 	s.api = humachi.New(s.mux, cfg)
 
-	s.registerRoutes(s.api)
+	handlers.Register(s.api, s.buildDeps())
+	s.registerIngestRoutes(s.api)
+	s.registerCounterIngestRoutes(s.api)
+	s.registerErrorIngestRoutes(s.api)
+	s.registerLogIngestRoutes(s.api)
+	s.registerPromIngestRoutes(s.api)
 	s.registerWSRoutes(s.api)
 
 	s.mux.NotFound(notFoundHandler(staticDir))
@@ -160,20 +166,42 @@ func (s *Server) IsWSEnabled() bool {
 	return s.slot != "next"
 }
 
+// buildDeps constructs the Deps struct handed to the handlers package so every
+// HTTP handler sees the same state the Server is holding. Server satisfies the
+// Broker / Reconciler / IngestRegistrar interfaces directly; *embedder
+// satisfies Embedder via the exported Upsert*/TopN*/Complete/Reload methods.
+func (s *Server) buildDeps() *handlers.Deps {
+	return &handlers.Deps{
+		Q:               s.q,
+		Features:        s.features,
+		Emb:             s.emb,
+		Broker:          s,
+		Reconciler:      s,
+		IngestRegistrar: s,
+		ErrorClient:     s.errorClient,
+		BuildSHA:        s.buildSHA,
+		ZDXProjectSlug:  s.zdxProjectSlug,
+		UploadsDir:      s.uploadsDir,
+		Slot:            s.slot,
+		WSSecret:        s.wsSecret,
+		Mux:             s.mux,
+	}
+}
+
 // reloadEmbedder re-reads the LLM config from DB and refreshes the embedder client.
 // If triggerReindex is true and a valid config is present, bulk-indexes all existing
 // issues in the background (needed after first-time LLM config, or config change).
-func (s *Server) reloadEmbedder(ctx context.Context) {
+func (s *Server) ReloadEmbedder(ctx context.Context) {
 	if !s.features.HasLLMConfig {
-		s.emb.reload(nil)
+		s.emb.Reload(nil)
 		return
 	}
 	cfg, err := s.q.GetLLMConfig(ctx)
 	if err != nil {
-		s.emb.reload(nil)
+		s.emb.Reload(nil)
 		return
 	}
-	s.emb.reload(&llm.Config{
+	s.emb.Reload(&llm.Config{
 		Type:   cfg.Type,
 		URL:    cfg.Url,
 		Model:  cfg.Model,
@@ -182,7 +210,7 @@ func (s *Server) reloadEmbedder(ctx context.Context) {
 }
 
 // reindexAllIssues bulk-indexes all open issues and questions across all projects.
-func (s *Server) reindexAllIssues() {
+func (s *Server) ReindexAllIssues() {
 	ctx := context.Background()
 	projects, err := s.q.ListProjects(ctx)
 	if err != nil {
@@ -205,7 +233,7 @@ func (s *Server) reindexAllIssues() {
 				continue
 			}
 			issID := fmt.Sprintf("IS-%s", iss.ID)
-			s.emb.upsertIssue(ctx, p.ID, issID, text)
+			s.emb.UpsertIssue(ctx, p.ID, issID, text)
 			indexed++
 		}
 		if indexed > 0 {
@@ -222,89 +250,13 @@ func (s *Server) reindexAllIssues() {
 			if q.Question == "" {
 				continue
 			}
-			s.emb.upsertQuestion(ctx, p.ID, q.ID, q.Question)
+			s.emb.UpsertQuestion(ctx, p.ID, q.ID, q.Question)
 			qIndexed++
 		}
 		if qIndexed > 0 {
 			log.Printf("reindex: indexed %d questions for project %s", qIndexed, p.Slug)
 		}
 	}
-}
-
-// findSimilarIssues embeds queryText and returns the top-n similar open issues.
-func (s *Server) findSimilarIssues(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarIssueItem, error) {
-	results, err := s.emb.topN(ctx, projectID, queryText, n)
-	if err != nil {
-		return nil, err
-	}
-	if len(results) == 0 {
-		return []SimilarIssueItem{}, nil
-	}
-	// Fetch titles for the returned IDs.
-	out := make([]SimilarIssueItem, 0, len(results))
-	for _, r := range results {
-		id := issueIDFromInt(int32(r.ID)) //nolint:gosec
-		iss, err := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: projectID, ID: id})
-		if err != nil {
-			continue // stale index entry — skip
-		}
-		if iss.IssueType == "tracker" {
-			continue
-		}
-		out = append(out, SimilarIssueItem{ID: id, Title: iss.Title, Context: iss.Context, Status: iss.Status, Score: r.Score})
-	}
-	return out, nil
-}
-
-type SimilarQuestionItem struct {
-	ID       int32   `json:"id"`
-	Question string  `json:"question"`
-	Answer   string  `json:"answer"`
-	Score    float32 `json:"score"`
-}
-
-func (s *Server) findSimilarQuestions(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarQuestionItem, error) {
-	results, err := s.emb.topNQuestions(ctx, projectID, queryText, n)
-	if err != nil {
-		return nil, err
-	}
-	if len(results) == 0 {
-		return []SimilarQuestionItem{}, nil
-	}
-	out := make([]SimilarQuestionItem, 0, len(results))
-	for _, r := range results {
-		q, err := s.q.GetQuestion(ctx, db.GetQuestionParams{ProjectID: projectID, ID: int32(r.ID)}) //nolint:gosec
-		if err != nil {
-			continue
-		}
-		out = append(out, SimilarQuestionItem{
-			ID:       q.ID,
-			Question: q.Question,
-			Answer:   q.Answer.String,
-			Score:    r.Score,
-		})
-	}
-	return out, nil
-}
-
-func (s *Server) findSimilarTasks(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarTaskItem, error) {
-	results, err := s.emb.topNTasks(ctx, projectID, queryText, n)
-	if err != nil {
-		return nil, err
-	}
-	if len(results) == 0 {
-		return []SimilarTaskItem{}, nil
-	}
-	out := make([]SimilarTaskItem, 0, len(results))
-	for _, r := range results {
-		id := taskIDFromInt(int32(r.ID)) //nolint:gosec
-		task, err := s.q.GetTask(ctx, id)
-		if err != nil {
-			continue
-		}
-		out = append(out, SimilarTaskItem{ID: id, Text: task.Text, Status: task.Status, Issue: task.Issue, Score: r.Score})
-	}
-	return out, nil
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -352,19 +304,6 @@ var maintenancePage = []byte(`<!doctype html>
 
 // ── Auth middleware ────────────────────────────────────────────────────────
 
-type contextKey int
-
-const (
-	ctxAPIKeyID   contextKey = 1
-	ctxUserID     contextKey = 2
-	ctxQueryStart contextKey = 3
-	ctxSource     contextKey = 4
-	ctxUserRole   contextKey = 5
-	ctxSkipTiming contextKey = 6
-	ctxAgentID    contextKey = 7
-	ctxSessionID  contextKey = 8
-)
-
 // apiKeyMiddleware validates X-Api-Key on /api/* requests, except health, openapi, and setup/bootstrap.
 // Non-/api/ paths (SPA, static assets) pass through without auth.
 func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
@@ -388,16 +327,16 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 		}
 		// Fire-and-forget last_used_at update; don't block the request.
 		go func() { _ = s.q.TouchApiKey(context.Background(), key.ID) }()
-		ctx := context.WithValue(r.Context(), ctxAPIKeyID, key.ID)
-		ctx = context.WithValue(ctx, ctxUserID, key.UserID)
+		ctx := context.WithValue(r.Context(), handlers.CtxAPIKeyID, key.ID)
+		ctx = context.WithValue(ctx, handlers.CtxUserID, key.UserID)
 		if u, uErr := s.q.GetUserByID(r.Context(), key.UserID); uErr == nil {
-			ctx = context.WithValue(ctx, ctxUserRole, u.Role)
+			ctx = context.WithValue(ctx, handlers.CtxUserRole, u.Role)
 		}
 		if v := r.Header.Get("X-ZDX-Agent-Id"); v != "" {
-			ctx = context.WithValue(ctx, ctxAgentID, v)
+			ctx = context.WithValue(ctx, handlers.CtxAgentID, v)
 		}
 		if v := r.Header.Get("X-ZDX-Session-Id"); v != "" {
-			ctx = context.WithValue(ctx, ctxSessionID, v)
+			ctx = context.WithValue(ctx, handlers.CtxSessionID, v)
 		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
@@ -407,7 +346,7 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 func (s *Server) adminMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if strings.HasPrefix(r.URL.Path, "/api/admin/") {
-			role := ctxUserRoleVal(r.Context())
+			role := handlers.UserRoleFromContext(r.Context())
 			if role != "admin" {
 				http.Error(w, `{"title":"Forbidden","status":403,"detail":"admin role required"}`, http.StatusForbidden)
 				return
@@ -424,7 +363,7 @@ func (s *Server) adminMiddleware(next http.Handler) http.Handler {
 // Runs before any handler or downstream middleware that touches the DB.
 func (s *Server) sourceMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r.WithContext(WithSource(r.Context(), r.URL.Path)))
+		next.ServeHTTP(w, r.WithContext(handlers.WithSource(r.Context(), r.URL.Path)))
 	})
 }
 
@@ -507,38 +446,4 @@ func (s *Server) errorMiddleware(next http.Handler) http.Handler {
 			)
 		}
 	})
-}
-
-// ── helpers used by handlers ───────────────────────────────────────────────
-
-func apiErr(status int, msg string) huma.StatusError {
-	return huma.NewError(status, msg)
-}
-
-func ctxUserIDVal(ctx context.Context) int32 {
-	v, _ := ctx.Value(ctxUserID).(int32)
-	return v
-}
-
-func ctxUserRoleVal(ctx context.Context) string {
-	v, _ := ctx.Value(ctxUserRole).(string)
-	return v
-}
-
-func ctxAgentIDVal(ctx context.Context) string {
-	v, _ := ctx.Value(ctxAgentID).(string)
-	return v
-}
-
-func ctxSessionIDVal(ctx context.Context) string {
-	v, _ := ctx.Value(ctxSessionID).(string)
-	return v
-}
-
-func getProject(ctx context.Context, q *db.Queries, slug string) (db.ZdxProject, error) {
-	p, err := q.GetProjectBySlug(ctx, slug)
-	if err != nil {
-		return p, huma.NewError(http.StatusNotFound, "project not found: "+slug)
-	}
-	return p, nil
 }

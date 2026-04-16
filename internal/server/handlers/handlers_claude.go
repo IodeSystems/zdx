@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"bufio"
@@ -17,7 +17,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/llm"
 )
 
-func (s *Server) registerClaudeRoutes(api huma.API) {
+func (h *Handler) registerClaudeRoutes(api huma.API) {
 	type ClaudeSessionItem struct {
 		ID         int64  `json:"id"`
 		IssueID    string `json:"issue_id"`
@@ -55,7 +55,7 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 				Total    int64               `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -64,26 +64,26 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 			var out []ClaudeSessionItem
 
 			if in.IssueID != "" {
-				total, _ = s.q.CountClaudeSessionsByIssue(ctx, db.CountClaudeSessionsByIssueParams{ProjectID: p.ID, IssueID: in.IssueID})
-				rows, err := s.q.ListClaudeSessionsByIssue(ctx, db.ListClaudeSessionsByIssueParams{ProjectID: p.ID, IssueID: in.IssueID})
+				total, _ = h.Q.CountClaudeSessionsByIssue(ctx, db.CountClaudeSessionsByIssueParams{ProjectID: p.ID, IssueID: in.IssueID})
+				rows, err := h.Q.ListClaudeSessionsByIssue(ctx, db.ListClaudeSessionsByIssueParams{ProjectID: p.ID, IssueID: in.IssueID})
 				if err != nil {
 					return nil, apiErr(500, err.Error())
 				}
 				out = make([]ClaudeSessionItem, len(rows))
 				for i, r := range rows {
-					cnt, _ := s.q.CountClaudeEvents(ctx, r.ID)
+					cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
 					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt)}
 				}
 			} else {
-				total, _ = s.q.CountClaudeSessions(ctx, p.ID)
+				total, _ = h.Q.CountClaudeSessions(ctx, p.ID)
 				limit, offset := parsePage(in.Limit, in.Offset)
-				rows, err := s.q.ListClaudeSessionsPaginated(ctx, db.ListClaudeSessionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+				rows, err := h.Q.ListClaudeSessionsPaginated(ctx, db.ListClaudeSessionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 				if err != nil {
 					return nil, apiErr(500, err.Error())
 				}
 				out = make([]ClaudeSessionItem, len(rows))
 				for i, r := range rows {
-					cnt, _ := s.q.CountClaudeEvents(ctx, r.ID)
+					cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
 					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt)}
 				}
 			}
@@ -105,15 +105,15 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 		}) (*struct {
 			Body ClaudeSessionItem
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
 			if err != nil {
 				return nil, apiErr(404, "session not found")
 			}
-			cnt, _ := s.q.CountClaudeEvents(ctx, sess.ID)
+			cnt, _ := h.Q.CountClaudeEvents(ctx, sess.ID)
 			return &struct {
 				Body ClaudeSessionItem
 			}{Body: ClaudeSessionItem{
@@ -142,17 +142,17 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 				Total  int64             `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
 			if err != nil {
 				return nil, apiErr(404, "session not found")
 			}
-			total, _ := s.q.CountClaudeEvents(ctx, sess.ID)
+			total, _ := h.Q.CountClaudeEvents(ctx, sess.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListClaudeEventsPaginated(ctx, db.ListClaudeEventsPaginatedParams{
+			rows, err := h.Q.ListClaudeEventsPaginated(ctx, db.ListClaudeEventsPaginatedParams{
 				SessionPk: sess.ID,
 				Limit:     limit,
 				Offset:    offset,
@@ -197,15 +197,15 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 				CacheCreationInputTokens int64 `json:"cache_creation_input_tokens"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
 			if err != nil {
 				return nil, apiErr(404, "session not found")
 			}
-			usage, err := s.q.GetClaudeSessionTokenUsage(ctx, sess.ID)
+			usage, err := h.Q.GetClaudeSessionTokenUsage(ctx, sess.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -249,15 +249,15 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 				Agents []AgentTokenUsageRow `json:"agents"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
 			if err != nil {
 				return nil, apiErr(404, "session not found")
 			}
-			rows, err := s.q.GetClaudeSessionTokenUsageByAgent(ctx, sess.ID)
+			rows, err := h.Q.GetClaudeSessionTokenUsageByAgent(ctx, sess.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -297,11 +297,11 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 				OK bool `json:"ok"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.UpdateClaudeSessionSummary(ctx, db.UpdateClaudeSessionSummaryParams{
+			if err := h.Q.UpdateClaudeSessionSummary(ctx, db.UpdateClaudeSessionSummaryParams{
 				ProjectID: p.ID,
 				ID:        in.SessionID,
 				Header:    in.Body.Header,
@@ -310,16 +310,16 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			if s.IsWSEnabled() {
-				sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			if h.Broker.IsWSEnabled() {
+				sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
 				if err == nil {
 					payload := map[string]string{
 						"header":  in.Body.Header,
 						"summary": in.Body.Summary,
 						"status":  in.Body.Status,
 					}
-					s.publishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-updated", payload)
-					s.publishClaudeEvent(in.Slug, sess.SessionID, "claude.session-updated", payload)
+					h.Broker.PublishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-updated", payload)
+					h.Broker.PublishClaudeEvent(in.Slug, sess.SessionID, "claude.session-updated", payload)
 				}
 			}
 			return &struct {
@@ -341,7 +341,7 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 				Total    int64               `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -354,14 +354,14 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 			if !since.Valid {
 				since = pgtype.Timestamptz{Time: time.Now().AddDate(0, 0, -7), Valid: true}
 			}
-			total, _ := s.q.CountChurnSessions(ctx, db.CountChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
-			rows, err := s.q.ListChurnSessions(ctx, db.ListChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+			total, _ := h.Q.CountChurnSessions(ctx, db.CountChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+			rows, err := h.Q.ListChurnSessions(ctx, db.ListChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			out := make([]ClaudeSessionItem, len(rows))
 			for i, r := range rows {
-				cnt, _ := s.q.CountClaudeEvents(ctx, r.ID)
+				cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
 				out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt)}
 			}
 			return &struct {
@@ -382,11 +382,11 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 		}) (*struct {
 			Body PatternItem
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
+			sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
 			if err != nil {
 				return nil, apiErr(404, "session not found")
 			}
@@ -394,7 +394,7 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 				return nil, apiErr(400, "session is not a churn session")
 			}
 
-			events, err := s.q.ListClaudeEvents(ctx, sess.ID)
+			events, err := h.Q.ListClaudeEvents(ctx, sess.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -445,7 +445,7 @@ Session summary: ` + sess.Summary + `
 Transcript:
 ` + transcript.String()
 
-			result, err := s.emb.complete(ctx, []llm.ChatMessage{
+			result, err := h.Emb.Complete(ctx, []llm.ChatMessage{
 				{Role: "user", Content: prompt},
 			})
 			if err != nil {
@@ -466,7 +466,7 @@ Transcript:
 				return nil, apiErr(500, "failed to parse LLM response")
 			}
 
-			row, err := s.q.InsertPattern(ctx, db.InsertPatternParams{
+			row, err := h.Q.InsertPattern(ctx, db.InsertPatternParams{
 				ProjectID:   p.ID,
 				Name:        extracted.Name,
 				Description: extracted.Description,
@@ -475,7 +475,7 @@ Transcript:
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			go s.emb.upsertPattern(context.Background(), p.ID, row.ID, row.Name+" "+row.Description)
+			go h.Emb.UpsertPattern(context.Background(), p.ID, row.ID, row.Name+" "+row.Description)
 			return &struct{ Body PatternItem }{Body: toPatternItem(row)}, nil
 		})
 
@@ -483,7 +483,7 @@ Transcript:
 	// point for older dx-cli builds that POST raw JSONL; delegates to the
 	// unified ingestion path via shared helpers (getOrCreateAgentSession,
 	// ingestAgentEvent). Will be removed once deployed agents upgrade.
-	s.mux.Post("/api/dx/claude/sessions/ingest/stream", s.handleClaudeSessionIngestStream)
+	h.Mux.Post("/api/dx/claude/sessions/ingest/stream", h.handleClaudeSessionIngestStream)
 }
 
 // ── Claude session streaming ingest (legacy) ─────────────────────────────
@@ -494,7 +494,7 @@ Transcript:
 // event persistence and WS publishes follow a single code path. A later task
 // will remove this endpoint and migrate clients to /api/dx/agent/sessions.
 
-func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	slug := r.URL.Query().Get("slug")
@@ -511,7 +511,7 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 		return
 	}
 
-	p, err := s.q.GetProjectBySlug(ctx, slug)
+	p, err := h.Q.GetProjectBySlug(ctx, slug)
 	if err != nil {
 		http.Error(w, `{"title":"Not Found","status":404,"detail":"project not found"}`, http.StatusNotFound)
 		return
@@ -533,26 +533,26 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 
 		if !sessionReady {
 			title := extractTitleFromLegacyLine(line)
-			s2, created, cErr := s.getOrCreateAgentSession(ctx, p.ID, sessionUUID, issueID, alias, title)
+			s2, created, cErr := h.getOrCreateAgentSession(ctx, p.ID, sessionUUID, issueID, alias, title)
 			if cErr != nil {
 				http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
 				return
 			}
 			sess = s2
 			if !created {
-				cnt, cntErr := s.q.CountClaudeEvents(ctx, sess.ID)
+				cnt, cntErr := h.Q.CountClaudeEvents(ctx, sess.ID)
 				if cntErr == nil {
 					seq = int32(cnt)
 				}
 			} else {
-				s.publishAgentSessionLifecycle(slug, sess.SessionID, "agent.session-created", map[string]any{
+				h.Broker.PublishAgentSessionLifecycle(slug, sess.SessionID, "agent.session-created", map[string]any{
 					"session_id": sess.SessionID,
 					"session_pk": sess.ID,
 					"title":      title,
 					"alias":      alias,
 				})
 				// Legacy event name for subscribers that have not migrated.
-				s.publishClaudeSessionLifecycle(slug, sess.SessionID, "claude.session-created", map[string]any{
+				h.Broker.PublishClaudeSessionLifecycle(slug, sess.SessionID, "claude.session-created", map[string]any{
 					"session_id": sess.SessionID,
 					"session_pk": sess.ID,
 					"title":      title,
@@ -570,7 +570,7 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 			}
 		}
 
-		s.ingestAgentEvent(ctx, slug, sess.SessionID, sess.ID, seq, eventType, []byte(line), agentID, agentType, agentDesc)
+		h.ingestAgentEvent(ctx, slug, sess.SessionID, sess.ID, seq, eventType, []byte(line), agentID, agentType, agentDesc)
 		allLines = append(allLines, line)
 		seq++
 	}
@@ -580,12 +580,12 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 		return
 	}
 
-	s.publishAgentSessionLifecycle(slug, sess.SessionID, "agent.session-closed", map[string]any{
+	h.Broker.PublishAgentSessionLifecycle(slug, sess.SessionID, "agent.session-closed", map[string]any{
 		"session_id":  sess.SessionID,
 		"session_pk":  sess.ID,
 		"event_count": seq,
 	})
-	s.publishClaudeSessionLifecycle(slug, sess.SessionID, "claude.session-closed", map[string]any{
+	h.Broker.PublishClaudeSessionLifecycle(slug, sess.SessionID, "claude.session-closed", map[string]any{
 		"session_id":  sess.SessionID,
 		"session_pk":  sess.ID,
 		"event_count": seq,
@@ -599,7 +599,7 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 	})
 
 	if !isSidechain {
-		go s.summarizeSessionAsync(p.ID, sess.ID, allLines)
+		go h.summarizeSessionAsync(p.ID, sess.ID, allLines)
 	}
 }
 
@@ -625,7 +625,7 @@ func extractTitleFromLegacyLine(line string) string {
 	return ""
 }
 
-func (s *Server) summarizeSessionAsync(projectID int32, sessionPK int64, lines []string) {
+func (h *Handler) summarizeSessionAsync(projectID int32, sessionPK int64, lines []string) {
 	ctx := WithSource(context.Background(), "auto-summarize")
 
 	var transcript strings.Builder
@@ -669,7 +669,7 @@ Return ONLY valid JSON, no markdown fences, no explanation.
 Transcript:
 ` + transcript.String()
 
-	result, err := s.emb.complete(ctx, []llm.ChatMessage{
+	result, err := h.Emb.Complete(ctx, []llm.ChatMessage{
 		{Role: "user", Content: prompt},
 	})
 	if err != nil {
@@ -697,7 +697,7 @@ Transcript:
 		summary.Status = "ok"
 	}
 
-	if err := s.q.UpdateClaudeSessionSummary(ctx, db.UpdateClaudeSessionSummaryParams{
+	if err := h.Q.UpdateClaudeSessionSummary(ctx, db.UpdateClaudeSessionSummaryParams{
 		ProjectID: projectID,
 		ID:        sessionPK,
 		Header:    summary.Header,
@@ -708,18 +708,18 @@ Transcript:
 		return
 	}
 
-	if s.IsWSEnabled() {
-		sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: projectID, ID: sessionPK})
+	if h.Broker.IsWSEnabled() {
+		sess, err := h.Q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: projectID, ID: sessionPK})
 		if err == nil {
-			p, pErr := s.q.GetProjectByID(ctx, projectID)
+			p, pErr := h.Q.GetProjectByID(ctx, projectID)
 			if pErr == nil {
 				payload := map[string]string{
 					"header":  summary.Header,
 					"summary": summary.Summary,
 					"status":  summary.Status,
 				}
-				s.publishAgentSessionLifecycle(p.Slug, sess.SessionID, "agent.session-updated", payload)
-				s.publishClaudeEvent(p.Slug, sess.SessionID, "claude.session-updated", payload)
+				h.Broker.PublishAgentSessionLifecycle(p.Slug, sess.SessionID, "agent.session-updated", payload)
+				h.Broker.PublishClaudeEvent(p.Slug, sess.SessionID, "claude.session-updated", payload)
 			}
 		}
 	}

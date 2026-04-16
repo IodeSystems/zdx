@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -17,7 +17,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerIssueRoutes(api huma.API) {
+func (h *Handler) registerIssueRoutes(api huma.API) {
 	type IssueIntIDInput struct {
 		ID int32 `json:"id"`
 	}
@@ -29,13 +29,13 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Total  int64       `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountIssues(ctx, p.ID)
+			total, _ := h.Q.CountIssues(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListIssuesPaginated(ctx, db.ListIssuesPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			rows, err := h.Q.ListIssuesPaginated(ctx, db.ListIssuesPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -63,11 +63,11 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Issues []IssueItem `json:"issues"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.SearchIssues(ctx, db.SearchIssuesParams{ProjectID: p.ID, Query: in.Q})
+			rows, err := h.Q.SearchIssues(ctx, db.SearchIssuesParams{ProjectID: p.ID, Query: in.Q})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -96,16 +96,16 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Work  []IssueWorkItem `json:"work"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(intFromPrefixed(in.ID, "IS-"))
-			row, err := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+			row, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "issue not found: "+in.ID)
 			}
-			work, _ := s.q.GetIssueWork(ctx, issueID)
+			work, _ := h.Q.GetIssueWork(ctx, issueID)
 			workItems := make([]IssueWorkItem, len(work))
 			for i, w := range work {
 				workItems[i] = IssueWorkItem{Agent: w.Agent, Note: w.Note, CreatedAt: fmtTS(w.CreatedAt)}
@@ -114,7 +114,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Issue IssueItem       `json:"issue"`
 				Work  []IssueWorkItem `json:"work"`
 			}
-			return &struct{ Body respBody }{Body: respBody{Issue: s.toIssueItemWithBlockers(ctx, row), Work: workItems}}, nil
+			return &struct{ Body respBody }{Body: respBody{Issue: h.toIssueItemWithBlockers(ctx, row), Work: workItems}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "add-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/add"},
@@ -138,11 +138,11 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Similar []SimilarIssueItem `json:"similar,omitempty"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			id, err := s.q.NextIssueID(ctx)
+			id, err := h.Q.NextIssueID(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -178,26 +178,26 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			issueText := params.Title + " " + params.Context
 			var similar []SimilarIssueItem
 			if !in.Body.AutoReady {
-				similar, _ = s.findSimilarIssues(ctx, p.ID, issueText, 5)
+				similar, _ = h.findSimilarIssues(ctx, p.ID, issueText, 5)
 			}
 
-			row, err := s.q.CreateIssue(ctx, params)
+			row, err := h.Q.CreateIssue(ctx, params)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			for _, blockerID := range in.Body.BlockedBy {
-				_ = s.q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: row.ID, BlockedByID: blockerID})
+				_ = h.Q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: row.ID, BlockedByID: blockerID})
 			}
 			for _, fid := range in.Body.ScreenshotIDs {
-				_ = s.q.AttachFileToIssue(ctx, db.AttachFileToIssueParams{
+				_ = h.Q.AttachFileToIssue(ctx, db.AttachFileToIssueParams{
 					IssueID: row.ID,
 					FileID:  fid,
 					Kind:    "screenshot",
 				})
 			}
-			go s.emb.upsertIssue(context.Background(), p.ID, row.ID, issueText)
+			go h.Emb.UpsertIssue(context.Background(), p.ID, row.ID, issueText)
 			item := toIssueItem(row)
-			s.publishIssue(in.Body.Slug, row.ID, "issue.created", item)
+			h.Broker.PublishIssue(in.Body.Slug, row.ID, "issue.created", item)
 			return &struct {
 				Body struct {
 					IssueItem
@@ -222,15 +222,15 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				GoalIDs   []int32 `json:"goal_ids,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
 			// Capture old values for revision log
-			oldIssue, _ := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+			oldIssue, _ := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
 			newPriority := strconv.Itoa(int(in.Body.Priority))
-			if err := s.q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
+			if err := h.Q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
 				ID:        issueID,
 				Priority:  newPriority,
 				ProjectID: p.ID,
@@ -238,7 +238,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			if oldIssue.Priority != newPriority {
-				s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority)
+				h.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority)
 			}
 			for field, val := range map[string]*string{
 				"title":      in.Body.Title,
@@ -246,7 +246,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				"context":    in.Body.Context,
 			} {
 				if val != nil && *val != "" {
-					if err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+					if err := h.Q.SetIssueField(ctx, db.SetIssueFieldParams{
 						Field:     field,
 						Value:     *val,
 						ProjectID: p.ID,
@@ -263,14 +263,14 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					case "context":
 						oldVal = oldIssue.Context
 					}
-					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val)
+					h.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val)
 				}
 			}
 			for _, tid := range in.Body.ThemeIDs {
-				_ = s.q.AddThemeBlocker(ctx, db.AddThemeBlockerParams{ThemeID: tid, IssueID: issueID})
+				_ = h.Q.AddThemeBlocker(ctx, db.AddThemeBlockerParams{ThemeID: tid, IssueID: issueID})
 			}
 			for _, gid := range in.Body.GoalIDs {
-				_ = s.q.LinkGoalIssue(ctx, db.LinkGoalIssueParams{GoalID: gid, IssueID: issueID})
+				_ = h.Q.LinkGoalIssue(ctx, db.LinkGoalIssueParams{GoalID: gid, IssueID: issueID})
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -288,16 +288,16 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				URL       *string `json:"url,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
-			oldIssue, _ := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+			oldIssue, _ := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
 
 			if in.Body.Priority != nil {
 				newPriority := strconv.Itoa(int(*in.Body.Priority))
-				if err := s.q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
+				if err := h.Q.SetIssuePriority(ctx, db.SetIssuePriorityParams{
 					ID:        issueID,
 					Priority:  newPriority,
 					ProjectID: p.ID,
@@ -305,7 +305,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					return nil, apiErr(500, err.Error())
 				}
 				if oldIssue.Priority != newPriority {
-					s.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority)
+					h.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority)
 				}
 			}
 
@@ -327,7 +327,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				if val == nil {
 					continue
 				}
-				if err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+				if err := h.Q.SetIssueField(ctx, db.SetIssueFieldParams{
 					Field:     field,
 					Value:     *val,
 					ProjectID: p.ID,
@@ -336,7 +336,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 					return nil, apiErr(500, err.Error())
 				}
 				if oldValMap[field] != *val {
-					s.recordRevision(ctx, p.ID, "issue", issueID, field, oldValMap[field], *val)
+					h.recordRevision(ctx, p.ID, "issue", issueID, field, oldValMap[field], *val)
 				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -352,7 +352,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				DuplicateOf *string `json:"duplicate_of,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -364,27 +364,27 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			}
 			agent := ""
 			if uid := ctxUserIDVal(ctx); uid != 0 {
-				if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
+				if u, uErr := h.Q.GetUserByID(ctx, uid); uErr == nil {
 					agent = u.Email
 				}
 			}
 			if reason == "done" || reason == "" {
-				issue, gErr := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
+				issue, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
 				if gErr == nil && issue.IssueType == "impl" {
-					count, _ := s.q.CountIssueResolutions(ctx, issueID)
+					count, _ := h.Q.CountIssueResolutions(ctx, issueID)
 					if count == 0 {
 						return nil, apiErr(400, "impl issues require at least one resolution before closing; use 'dx issue resolve' first")
 					}
 				}
 			}
 			prevStatus := "open"
-			if issue, gErr := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); gErr == nil {
+			if issue, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); gErr == nil {
 				prevStatus = issue.Status
 			}
-			if err := s.q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf}); err != nil {
+			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed")
+			h.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed")
 			notes := ptrStr(in.Body.Notes)
 			note := "[closed"
 			if reason != "" {
@@ -397,8 +397,8 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if notes != "" {
 				note += notes
 			}
-			_ = s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
-			s.publishIssue(in.Body.Slug, issueID, "issue.closed", map[string]any{"id": issueID, "reason": reason})
+			_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
+			h.Broker.PublishIssue(in.Body.Slug, issueID, "issue.closed", map[string]any{"id": issueID, "reason": reason})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -409,13 +409,13 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			issueID := issueIDFromInt(in.Body.ID)
 			prevStatus := ""
 			var projectID int32
-			if issue, gErr := s.q.GetIssueByAnyProject(ctx, issueID); gErr == nil {
+			if issue, gErr := h.Q.GetIssueByAnyProject(ctx, issueID); gErr == nil {
 				prevStatus = issue.Status
 				projectID = issue.ProjectID
 			}
-			_ = s.q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: 0})
+			_ = h.Q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: 0})
 			if projectID != 0 {
-				s.recordRevision(ctx, projectID, "issue", issueID, "status", prevStatus, "open")
+				h.recordRevision(ctx, projectID, "issue", issueID, "status", prevStatus, "open")
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -429,7 +429,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			}
 		}) (*struct{ Body OKBody }, error) {
 			issueID := issueIDFromInt(in.Body.ID)
-			err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+			err := h.Q.SetIssueField(ctx, db.SetIssueFieldParams{
 				Field: in.Body.Field,
 				Value: in.Body.Value,
 				ID:    issueID,
@@ -448,7 +448,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			}
 		}) (*struct{ Body OKBody }, error) {
 			issueID := issueIDFromInt(in.Body.ID)
-			err := s.q.SetIssueField(ctx, db.SetIssueFieldParams{
+			err := h.Q.SetIssueField(ctx, db.SetIssueFieldParams{
 				Field: "component",
 				Value: in.Body.Kind,
 				ID:    issueID,
@@ -467,12 +467,12 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				BlockedBy string `json:"blocked_by"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			_, err := getProject(ctx, s.q, in.Body.Slug)
+			_, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
-			if err := s.q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: issueID, BlockedByID: in.Body.BlockedBy}); err != nil {
+			if err := h.Q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: issueID, BlockedByID: in.Body.BlockedBy}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -486,17 +486,17 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				BlockedBy string `json:"blocked_by,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			_, err := getProject(ctx, s.q, in.Body.Slug)
+			_, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
 			if in.Body.BlockedBy == "" {
-				if err := s.q.RemoveAllIssueBlocks(ctx, issueID); err != nil {
+				if err := h.Q.RemoveAllIssueBlocks(ctx, issueID); err != nil {
 					return nil, apiErr(500, err.Error())
 				}
 			} else {
-				if err := s.q.RemoveIssueBlock(ctx, db.RemoveIssueBlockParams{IssueID: issueID, BlockedByID: in.Body.BlockedBy}); err != nil {
+				if err := h.Q.RemoveIssueBlock(ctx, db.RemoveIssueBlockParams{IssueID: issueID, BlockedByID: in.Body.BlockedBy}); err != nil {
 					return nil, apiErr(500, err.Error())
 				}
 			}
@@ -512,12 +512,12 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Blockers []string `json:"blockers"`
 			}
 		}, error) {
-			_, err := getProject(ctx, s.q, in.Slug)
+			_, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(intFromPrefixed(in.ID, "IS-"))
-			rows, err := s.q.ListIssueBlockers(ctx, issueID)
+			rows, err := h.Q.ListIssueBlockers(ctx, issueID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -557,7 +557,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if in.Body.ByRole != nil {
 				agent = *in.Body.ByRole
 			}
-			if err := s.q.AppendIssueWork(ctx, db.AppendIssueWorkParams{
+			if err := h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{
 				IssueID: issueID,
 				Agent:   agent,
 				Note:    note,
@@ -580,13 +580,13 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Total int64 `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountWorklogForProject(ctx, p.ID)
+			total, _ := h.Q.CountWorklogForProject(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListWorklogForProjectPaginated(ctx, db.ListWorklogForProjectPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			rows, err := h.Q.ListWorklogForProjectPaginated(ctx, db.ListWorklogForProjectPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -626,11 +626,11 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if n <= 0 {
 				n = 5
 			}
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			results, err := s.findSimilarIssues(ctx, p.ID, in.Body.Text, n)
+			results, err := h.findSimilarIssues(ctx, p.ID, in.Body.Text, n)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -652,15 +652,15 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				ID   int32  `json:"id"`
 			}
 		}) (*struct{ Body struct{ OK bool } }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
-			if err := s.q.ReadyIssue(ctx, db.ReadyIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
+			if err := h.Q.ReadyIssue(ctx, db.ReadyIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordRevision(ctx, p.ID, "issue", issueID, "status", "wip", "open")
+			h.recordRevision(ctx, p.ID, "issue", issueID, "status", "wip", "open")
 			return &struct{ Body struct{ OK bool } }{Body: struct{ OK bool }{OK: true}}, nil
 		})
 
@@ -675,7 +675,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Commits []GitCommit `json:"commits"`
 			}
 		}, error) {
-			if !s.features.HasProjectGitConfig {
+			if !h.Features.HasProjectGitConfig {
 				return &struct {
 					Body struct {
 						Commits []GitCommit `json:"commits"`
@@ -686,7 +686,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if n <= 0 || n > 100 {
 				n = 20
 			}
-			row, err := s.q.GetProjectGitConfig(ctx, in.Slug)
+			row, err := h.Q.GetProjectGitConfig(ctx, in.Slug)
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
 			}
@@ -698,15 +698,15 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
 				gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
 			}
-			dir := s.repoDir(in.Slug)
+			dir := h.Reconciler.RepoDir(in.Slug)
 			branch := row.GitBranch
 			if branch == "" {
 				branch = "main"
 			}
-			if err := ensureRepo(dir, gitURL, branch); err != nil {
+			if err := EnsureRepo(dir, gitURL, branch); err != nil {
 				return nil, apiErr(500, "git: "+err.Error())
 			}
-			commits, err := recentCommits(dir, branch, n)
+			commits, err := RecentCommits(dir, branch, n)
 			if err != nil {
 				return nil, apiErr(500, "git: "+err.Error())
 			}
@@ -758,12 +758,12 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			if len(in.Body.SHAs) == 0 {
 				return nil, apiErr(400, "at least one SHA is required")
 			}
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
-			if _, err := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
+			if _, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); err != nil {
 				return nil, apiErr(http.StatusNotFound, "issue not found")
 			}
 			source := in.Body.Source
@@ -774,7 +774,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			author := in.Body.Author
 			if author == "" {
 				if uid := ctxUserIDVal(ctx); uid != 0 {
-					if u, uErr := s.q.GetUserByID(ctx, uid); uErr == nil {
+					if u, uErr := h.Q.GetUserByID(ctx, uid); uErr == nil {
 						author = u.Email
 					}
 				}
@@ -787,7 +787,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				parentRes = pgtype.Text{String: in.Body.ParentResID, Valid: true}
 			}
 			now := pgtype.Timestamptz{Time: time.Now(), Valid: true}
-			res, err := s.q.CreateIssueResolution(ctx, db.CreateIssueResolutionParams{
+			res, err := h.Q.CreateIssueResolution(ctx, db.CreateIssueResolutionParams{
 				ID:                 resID,
 				IssueID:            issueID,
 				BranchOfOrigin:     branch,
@@ -801,7 +801,7 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 			}
 			commits := make([]ResolutionCommitItem, len(in.Body.SHAs))
 			for i, sha := range in.Body.SHAs {
-				if err := s.q.AddResolutionCommit(ctx, db.AddResolutionCommitParams{
+				if err := h.Q.AddResolutionCommit(ctx, db.AddResolutionCommitParams{
 					ResolutionID: resID,
 					Sha:          sha,
 					Ord:          int32(i),
@@ -843,36 +843,36 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Resolutions []ResolutionItem `json:"resolutions"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := issueIDFromInt(intFromPrefixed(in.ID, "IS-"))
-			resolutions, err := s.q.ListIssueResolutions(ctx, issueID)
+			resolutions, err := h.Q.ListIssueResolutions(ctx, issueID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 
 			var repoDir, gitBranch string
-			if in.Branch != "" && s.features.HasProjectGitConfig {
-				row, gErr := s.q.GetProjectGitConfig(ctx, in.Slug)
+			if in.Branch != "" && h.Features.HasProjectGitConfig {
+				row, gErr := h.Q.GetProjectGitConfig(ctx, in.Slug)
 				if gErr == nil && row.GitUrl != "" {
 					gitURL := row.GitUrl
 					if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
 						gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
 					}
-					repoDir = s.repoDir(in.Slug)
+					repoDir = h.Reconciler.RepoDir(in.Slug)
 					gitBranch = row.GitBranch
 					if gitBranch == "" {
 						gitBranch = "main"
 					}
-					_ = ensureRepo(repoDir, gitURL, gitBranch)
+					_ = EnsureRepo(repoDir, gitURL, gitBranch)
 				}
 			}
 
 			items := make([]ResolutionItem, 0, len(resolutions))
 			for _, r := range resolutions {
-				commits, cErr := s.q.ListResolutionCommits(ctx, r.ID)
+				commits, cErr := h.Q.ListResolutionCommits(ctx, r.ID)
 				if cErr != nil {
 					continue
 				}
@@ -922,11 +922,11 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				ResolutionID string `json:"resolution_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			_, err := getProject(ctx, s.q, in.Body.Slug)
+			_, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.DeleteIssueResolution(ctx, in.Body.ResolutionID); err != nil {
+			if err := h.Q.DeleteIssueResolution(ctx, in.Body.ResolutionID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -943,11 +943,11 @@ func (s *Server) registerIssueRoutes(api huma.API) {
 				Results []ReconcileResult `json:"results"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			results, err := s.reconcileBranch(ctx, p.ID, in.Body.Slug, in.Body.Branch)
+			results, err := h.Reconciler.ReconcileBranch(ctx, p.ID, in.Body.Slug, in.Body.Branch)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -983,9 +983,9 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 	}
 }
 
-func (s *Server) toIssueItemWithBlockers(ctx context.Context, r db.ZdxIssue) IssueItem {
+func (h *Handler) toIssueItemWithBlockers(ctx context.Context, r db.ZdxIssue) IssueItem {
 	item := toIssueItem(r)
-	blockers, err := s.q.ListIssueBlockers(ctx, r.ID)
+	blockers, err := h.Q.ListIssueBlockers(ctx, r.ID)
 	if err == nil && len(blockers) > 0 {
 		item.BlockedBy = blockers
 	}
@@ -1003,7 +1003,7 @@ func checkResolutionReverted(repoDir, branch string, commits []commitSHA) (rever
 			continue
 		}
 		cmd := exec.Command("git", "-C", repoDir, "log", "--format=%H", "--all", "--grep=This reverts commit "+sha)
-		cmd.Env = gitEnv()
+		cmd.Env = GitEnv()
 		out, err := cmd.Output()
 		if err != nil {
 			continue
@@ -1014,7 +1014,7 @@ func checkResolutionReverted(repoDir, branch string, commits []commitSHA) (rever
 		}
 		firstLine := strings.SplitN(revertCommit, "\n", 2)[0]
 		isAncestor := exec.Command("git", "-C", repoDir, "merge-base", "--is-ancestor", firstLine, "origin/"+branch)
-		isAncestor.Env = gitEnv()
+		isAncestor.Env = GitEnv()
 		if isAncestor.Run() == nil {
 			return true, firstLine
 		}

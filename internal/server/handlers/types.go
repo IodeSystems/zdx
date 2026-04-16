@@ -1,37 +1,4 @@
-package server
-
-import (
-	"fmt"
-	"strconv"
-	"strings"
-	"time"
-
-	"github.com/danielgtaylor/huma/v2"
-	"github.com/jackc/pgx/v5/pgtype"
-)
-
-// ── ID conversion helpers ─────────────────────────────────────────────────
-
-func intFromPrefixed(s, prefix string) int32 {
-	if !strings.HasPrefix(s, prefix) {
-		return 0
-	}
-	n, _ := strconv.ParseInt(s[len(prefix):], 10, 32)
-	return int32(n)
-}
-
-func issueIntID(id string) int32 { return intFromPrefixed(id, "IS-") }
-func taskIntID(id string) int32  { return intFromPrefixed(id, "TK-") }
-
-func issueIDFromInt(n int32) string { return fmt.Sprintf("IS-%d", n) }
-func taskIDFromInt(n int32) string  { return fmt.Sprintf("TK-%d", n) }
-
-func fmtTS(ts pgtype.Timestamptz) string {
-	if !ts.Valid {
-		return ""
-	}
-	return ts.Time.UTC().Format(time.RFC3339)
-}
+package handlers
 
 // ── Response types ─────────────────────────────────────────────────────────
 
@@ -224,6 +191,13 @@ type SimilarTaskItem struct {
 	Score  float32 `json:"score"`
 }
 
+type SimilarQuestionItem struct {
+	ID       int32   `json:"id"`
+	Question string  `json:"question"`
+	Answer   string  `json:"answer"`
+	Score    float32 `json:"score"`
+}
+
 type QuestionItem struct {
 	ID               int32  `json:"id"`
 	Category         string `json:"category"`
@@ -313,59 +287,4 @@ type PaginatedSlugInput struct {
 
 type IssueSlugInput struct {
 	Slug string `query:"slug" required:"true"`
-}
-
-// ── Shared helpers ───────────────────────────────────────────────────────
-
-// ptrStr dereferences a *string, returning "" for nil.
-func ptrStr(s *string) string {
-	if s == nil {
-		return ""
-	}
-	return *s
-}
-
-// ptrInt32 dereferences a *int32, returning 0 for nil.
-func ptrInt32(n *int32) int32 {
-	if n == nil {
-		return 0
-	}
-	return *n
-}
-
-func parsePage(limit, offset int32) (int32, int32) {
-	if limit <= 0 || limit > 500 {
-		limit = 200
-	}
-	if offset < 0 {
-		offset = 0
-	}
-	return limit, offset
-}
-
-// ── Route registration ─────────────────────────────────────────────────────
-
-func (s *Server) registerRoutes(api huma.API) {
-	s.registerAuthRoutes(api)
-	s.registerIssueRoutes(api)
-	s.registerTaskRoutes(api)
-	s.registerFeatureRoutes(api)
-	s.registerProjectRoutes(api)
-	s.registerThemeRoutes(api)
-	s.registerDxRoutes(api)
-	s.registerErrorRoutes(api)
-	s.registerCommentRoutes(api)
-	s.registerAdminRoutes(api)
-	s.registerCodeRefRoutes(api)
-	s.registerQARoutes(api)
-	s.registerClaudeRoutes(api)
-	s.registerAgentSessionRoutes(api)
-	s.registerCounterRoutes(api)
-	s.registerErrorEventRoutes(api)
-	s.registerLogEventRoutes(api)
-	s.registerAgentRoutes(api)
-	s.registerPatternRoutes(api)
-	s.registerSoloRoutes(api)
-	s.registerHistoryRoutes(api)
-	s.registerFileRoutes()
 }

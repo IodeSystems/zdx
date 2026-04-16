@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -16,7 +16,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/llm"
 )
 
-func (s *Server) registerAdminRoutes(api huma.API) {
+func (h *Handler) registerAdminRoutes(api huma.API) {
 	// ── Admin: LLM config ─────────────────────────────────────────────────────
 
 	type LLMConfigBody struct {
@@ -28,10 +28,10 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "get-llm-config", Method: http.MethodGet, Path: "/api/admin/llm-config"},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body LLMConfigBody }, error) {
-			if !s.features.HasLLMConfig {
+			if !h.Features.HasLLMConfig {
 				return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{}}, nil
 			}
-			cfg, err := s.q.GetLLMConfig(ctx)
+			cfg, err := h.Q.GetLLMConfig(ctx)
 			if err != nil {
 				// No config yet — return empty.
 				return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{}}, nil
@@ -46,10 +46,10 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "set-llm-config", Method: http.MethodPut, Path: "/api/admin/llm-config"},
 		func(ctx context.Context, in *struct{ Body LLMConfigBody }) (*struct{ Body LLMConfigBody }, error) {
-			if !s.features.HasLLMConfig {
+			if !h.Features.HasLLMConfig {
 				return nil, apiErr(http.StatusServiceUnavailable, "LLM config schema not yet applied — run: dx migrate up")
 			}
-			cfg, err := s.q.UpsertLLMConfig(ctx, db.UpsertLLMConfigParams{
+			cfg, err := h.Q.UpsertLLMConfig(ctx, db.UpsertLLMConfigParams{
 				Type:   in.Body.Type,
 				Url:    in.Body.URL,
 				Model:  in.Body.Model,
@@ -58,9 +58,9 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.reloadEmbedder(ctx)
+			h.IngestRegistrar.ReloadEmbedder(ctx)
 			// Bulk-index existing issues now that a new LLM config is set.
-			go s.reindexAllIssues()
+			go h.IngestRegistrar.ReindexAllIssues()
 			return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{
 				Type:  cfg.Type,
 				URL:   cfg.Url,
@@ -76,8 +76,8 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 			}
 		}, error) {
 			apiKey := in.Body.APIKey
-			if apiKey == "" && s.features.HasLLMConfig {
-				if cur, err := s.q.GetLLMConfig(ctx); err == nil {
+			if apiKey == "" && h.Features.HasLLMConfig {
+				if cur, err := h.Q.GetLLMConfig(ctx); err == nil {
 					apiKey = cur.ApiKey
 				}
 			}
@@ -118,10 +118,10 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug string `query:"slug" required:"true"`
 		}) (*struct{ Body GitConfigBody }, error) {
-			if !s.features.HasProjectGitConfig {
+			if !h.Features.HasProjectGitConfig {
 				return &struct{ Body GitConfigBody }{Body: GitConfigBody{GitBranch: "main"}}, nil
 			}
-			row, err := s.q.GetProjectGitConfig(ctx, in.Slug)
+			row, err := h.Q.GetProjectGitConfig(ctx, in.Slug)
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
 			}
@@ -141,10 +141,10 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 				GitToken  string `json:"git_token,omitempty"`
 			}
 		}) (*struct{ Body GitConfigBody }, error) {
-			if !s.features.HasProjectGitConfig {
+			if !h.Features.HasProjectGitConfig {
 				return nil, apiErr(http.StatusServiceUnavailable, "git config schema not yet applied — run: dx migrate up")
 			}
-			if err := s.q.SetProjectGitConfig(ctx, db.SetProjectGitConfigParams{
+			if err := h.Q.SetProjectGitConfig(ctx, db.SetProjectGitConfigParams{
 				Slug:      in.Body.Slug,
 				GitUrl:    in.Body.GitURL,
 				GitBranch: in.Body.GitBranch,
@@ -175,8 +175,8 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 			gitURL := in.Body.GitURL
 			branch := in.Body.GitBranch
 			token := in.Body.GitToken
-			if token == "" && s.features.HasProjectGitConfig && in.Body.Slug != "" {
-				if row, err := s.q.GetProjectGitConfig(ctx, in.Body.Slug); err == nil {
+			if token == "" && h.Features.HasProjectGitConfig && in.Body.Slug != "" {
+				if row, err := h.Q.GetProjectGitConfig(ctx, in.Body.Slug); err == nil {
 					token = row.GitToken
 				}
 			}
@@ -189,7 +189,7 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 					Message string `json:"message"`
 				}
 			}{}
-			if err := gitLsRemote(gitURL, branch); err != nil {
+			if err := GitLsRemote(gitURL, branch); err != nil {
 				resp.Body.OK = false
 				resp.Body.Message = err.Error()
 				return resp, nil
@@ -212,10 +212,10 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 				Stage string `json:"stage"`
 			}
 		}, error) {
-			if !s.features.HasProjectStage {
+			if !h.Features.HasProjectStage {
 				return nil, apiErr(http.StatusServiceUnavailable, "stage schema not yet applied — run: dx migrate up")
 			}
-			if err := s.q.SetProjectStage(ctx, db.SetProjectStageParams{
+			if err := h.Q.SetProjectStage(ctx, db.SetProjectStageParams{
 				Stage: in.Body.Stage,
 				Slug:  in.Body.Slug,
 			}); err != nil {
@@ -240,9 +240,9 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 				ProjectCount int `json:"project_count"`
 			}
 		}, error) {
-			users, _ := s.q.ListUsers(ctx)
-			invites, _ := s.q.ListInvites(ctx)
-			projects, _ := s.q.ListProjects(ctx)
+			users, _ := h.Q.ListUsers(ctx)
+			invites, _ := h.Q.ListInvites(ctx)
+			projects, _ := h.Q.ListProjects(ctx)
 			return &struct {
 				Body struct {
 					UserCount    int `json:"user_count"`
@@ -281,7 +281,7 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 			var rows []db.ListUsersRow
 			var err error
 			if in.Q != "" {
-				sRows, sErr := s.q.SearchUsers(ctx, in.Q)
+				sRows, sErr := h.Q.SearchUsers(ctx, in.Q)
 				if sErr != nil {
 					return nil, apiErr(500, sErr.Error())
 				}
@@ -290,7 +290,7 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 				}
 				err = nil
 			} else {
-				rows, err = s.q.ListUsers(ctx)
+				rows, err = h.Q.ListUsers(ctx)
 			}
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -324,7 +324,7 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 			if in.Body.Role != "admin" && in.Body.Role != "user" && in.Body.Role != "viewer" {
 				return nil, apiErr(http.StatusBadRequest, "role must be admin, user, or viewer")
 			}
-			if err := s.q.UpdateUserRole(ctx, db.UpdateUserRoleParams{ID: in.ID, Role: in.Body.Role}); err != nil {
+			if err := h.Q.UpdateUserRole(ctx, db.UpdateUserRoleParams{ID: in.ID, Role: in.Body.Role}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{}{}, nil
@@ -348,7 +348,7 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 				Invites []InviteItem `json:"invites"`
 			}
 		}, error) {
-			rows, err := s.q.ListInvites(ctx)
+			rows, err := h.Q.ListInvites(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -386,7 +386,7 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 				return nil, apiErr(500, "generate token: "+err.Error())
 			}
 			token := hex.EncodeToString(raw[:])
-			inv, err := s.q.CreateInvite(ctx, db.CreateInviteParams{
+			inv, err := h.Q.CreateInvite(ctx, db.CreateInviteParams{
 				Email:     in.Body.Email,
 				Token:     token,
 				InvitedBy: ctxUserIDVal(ctx),
@@ -409,7 +409,7 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			ID int32 `path:"id"`
 		}) (*struct{}, error) {
-			if err := s.q.DeleteInvite(ctx, in.ID); err != nil {
+			if err := h.Q.DeleteInvite(ctx, in.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{}{}, nil
@@ -437,13 +437,13 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 		}, error) {
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				p, err := getProject(ctx, s.q, in.Slug)
+				p, err := getProject(ctx, h.Q, in.Slug)
 				if err != nil {
 					return nil, err
 				}
 				pid = pgtype.Int4{Int32: p.ID, Valid: true}
 			}
-			rows, err := s.q.ListIntegrationTokens(ctx, pid)
+			rows, err := h.Q.ListIntegrationTokens(ctx, pid)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -486,11 +486,11 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 				Token string `json:"token"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			token, err := generateIntegrationToken()
+			token, err := GenerateIntegrationToken()
 			if err != nil {
 				return nil, apiErr(500, "generate token: "+err.Error())
 			}
@@ -498,12 +498,12 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 			if in.Body.Component != "" {
 				comp = pgtype.Text{String: in.Body.Component, Valid: true}
 			}
-			row, err := s.q.CreateIntegrationToken(ctx, db.CreateIntegrationTokenParams{
+			row, err := h.Q.CreateIntegrationToken(ctx, db.CreateIntegrationTokenParams{
 				ProjectID:   p.ID,
 				Component:   comp,
 				Name:        in.Body.Name,
-				TokenHash:   hashIntegrationToken(token),
-				TokenPrefix: tokenPrefix(token),
+				TokenHash:   HashIntegrationToken(token),
+				TokenPrefix: TokenPrefix(token),
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -533,7 +533,7 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			ID int32 `path:"id"`
 		}) (*struct{}, error) {
-			if err := s.q.RevokeIntegrationToken(ctx, in.ID); err != nil {
+			if err := h.Q.RevokeIntegrationToken(ctx, in.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{}{}, nil
@@ -543,15 +543,10 @@ func (s *Server) registerAdminRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			ID int32 `path:"id"`
 		}) (*struct{}, error) {
-			if err := s.q.DeleteIntegrationToken(ctx, in.ID); err != nil {
+			if err := h.Q.DeleteIntegrationToken(ctx, in.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{}{}, nil
 		})
 
-	s.registerIngestRoutes(api)
-	s.registerCounterIngestRoutes(api)
-	s.registerErrorIngestRoutes(api)
-	s.registerLogIngestRoutes(api)
-	s.registerPromIngestRoutes(api)
 }

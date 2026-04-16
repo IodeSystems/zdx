@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -23,7 +23,7 @@ type HistoryEvent struct {
 	UserID     string `json:"user_id"`
 }
 
-func (s *Server) registerHistoryRoutes(api huma.API) {
+func (h *Handler) registerHistoryRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "list-history", Method: http.MethodGet, Path: "/api/dx/history"},
 		func(ctx context.Context, in *struct {
 			TargetType string `query:"target_type" required:"true"`
@@ -37,7 +37,7 @@ func (s *Server) registerHistoryRoutes(api huma.API) {
 				return nil, apiErr(400, "target_type must be 'issue' or 'task'")
 			}
 
-			revRows, err := s.q.ListRevisionsByTarget(ctx, db.ListRevisionsByTargetParams{
+			revRows, err := h.Q.ListRevisionsByTarget(ctx, db.ListRevisionsByTargetParams{
 				TargetType: in.TargetType,
 				TargetID:   in.TargetID,
 			})

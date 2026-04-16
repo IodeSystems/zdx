@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -11,7 +11,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerQARoutes(api huma.API) {
+func (h *Handler) registerQARoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "add-question", Method: http.MethodPost, Path: "/api/dx/qa/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -21,7 +21,7 @@ func (s *Server) registerQARoutes(api huma.API) {
 				ParentQuestionID *int32 `json:"parent_question_id,omitempty"`
 			}
 		}) (*struct{ Body QuestionItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -33,11 +33,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 			if in.Body.ParentQuestionID != nil {
 				params.ParentQuestionID = pgtype.Int4{Int32: *in.Body.ParentQuestionID, Valid: true}
 			}
-			row, err := s.q.InsertQuestion(ctx, params)
+			row, err := h.Q.InsertQuestion(ctx, params)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			go s.emb.upsertQuestion(context.Background(), p.ID, row.ID, row.Question)
+			go h.Emb.UpsertQuestion(context.Background(), p.ID, row.ID, row.Question)
 			return &struct{ Body QuestionItem }{Body: toQuestionItem(row)}, nil
 		})
 
@@ -57,11 +57,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 			if n <= 0 {
 				n = 5
 			}
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			results, err := s.findSimilarQuestions(ctx, p.ID, in.Body.Text, n)
+			results, err := h.findSimilarQuestions(ctx, p.ID, in.Body.Text, n)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -82,11 +82,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Answer string `json:"answer"`
 			}
 		}) (*struct{ Body QuestionItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.AnswerQuestion(ctx, db.AnswerQuestionParams{
+			row, err := h.Q.AnswerQuestion(ctx, db.AnswerQuestionParams{
 				ProjectID: p.ID,
 				ID:        in.Body.ID,
 				Answer:    pgtype.Text{String: in.Body.Answer, Valid: true},
@@ -102,11 +102,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 			Slug string `query:"slug" required:"true"`
 			ID   int32  `query:"id" required:"true"`
 		}) (*struct{ Body QuestionItem }, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.GetQuestion(ctx, db.GetQuestionParams{ProjectID: p.ID, ID: in.ID})
+			row, err := h.Q.GetQuestion(ctx, db.GetQuestionParams{ProjectID: p.ID, ID: in.ID})
 			if err != nil {
 				return nil, apiErr(404, "question not found")
 			}
@@ -120,13 +120,13 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Total     int64          `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountQuestions(ctx, p.ID)
+			total, _ := h.Q.CountQuestions(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListQuestionsPaginated(ctx, db.ListQuestionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			rows, err := h.Q.ListQuestionsPaginated(ctx, db.ListQuestionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -156,11 +156,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Questions []QuestionItem `json:"questions"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListChildQuestions(ctx, db.ListChildQuestionsParams{
+			rows, err := h.Q.ListChildQuestions(ctx, db.ListChildQuestionsParams{
 				ProjectID:        p.ID,
 				ParentQuestionID: pgtype.Int4{Int32: in.ParentQuestionID, Valid: true},
 			})
@@ -190,11 +190,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Questions []QuestionItem `json:"questions"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListUnansweredQuestions(ctx, p.ID)
+			rows, err := h.Q.ListUnansweredQuestions(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -225,7 +225,7 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Choices    []string `json:"choices,omitempty"`
 			}
 		}) (*struct{ Body BlockerQuestionItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -233,7 +233,7 @@ func (s *Server) registerQARoutes(api huma.API) {
 			if in.Body.Choices == nil {
 				choicesJSON = []byte("[]")
 			}
-			row, err := s.q.InsertBlockerQuestion(ctx, db.InsertBlockerQuestionParams{
+			row, err := h.Q.InsertBlockerQuestion(ctx, db.InsertBlockerQuestionParams{
 				ProjectID:  p.ID,
 				TargetType: in.Body.TargetType,
 				TargetID:   in.Body.TargetID,
@@ -255,11 +255,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 				AnsweredBy string `json:"answered_by,omitempty"`
 			}
 		}) (*struct{ Body BlockerQuestionItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.AnswerBlockerQuestion(ctx, db.AnswerBlockerQuestionParams{
+			if err := h.Q.AnswerBlockerQuestion(ctx, db.AnswerBlockerQuestionParams{
 				ProjectID:  p.ID,
 				ID:         in.Body.ID,
 				Answer:     in.Body.Answer,
@@ -267,7 +267,7 @@ func (s *Server) registerQARoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			row, err := s.q.GetBlockerQuestion(ctx, db.GetBlockerQuestionParams{
+			row, err := h.Q.GetBlockerQuestion(ctx, db.GetBlockerQuestionParams{
 				ProjectID: p.ID,
 				ID:        in.Body.ID,
 			})
@@ -289,19 +289,19 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Total     int64                 `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			var rows []db.ZdxBlockerQuestion
 			var total int64
 			if in.Status == "pending" {
-				rows, err = s.q.ListPendingBlockerQuestions(ctx, p.ID)
+				rows, err = h.Q.ListPendingBlockerQuestions(ctx, p.ID)
 				total = int64(len(rows))
 			} else {
-				total, _ = s.q.CountBlockerQuestions(ctx, p.ID)
+				total, _ = h.Q.CountBlockerQuestions(ctx, p.ID)
 				limit, offset := parsePage(in.Limit, in.Offset)
-				rows, err = s.q.ListBlockerQuestionsPaginated(ctx, db.ListBlockerQuestionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+				rows, err = h.Q.ListBlockerQuestionsPaginated(ctx, db.ListBlockerQuestionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			}
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -335,11 +335,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Context      string `json:"context"`
 			}
 		}) (*struct{ Body QuestionProposalItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.InsertQuestionProposal(ctx, db.InsertQuestionProposalParams{
+			row, err := h.Q.InsertQuestionProposal(ctx, db.InsertQuestionProposalParams{
 				ProjectID:    p.ID,
 				QuestionID:   in.Body.QuestionID,
 				QuestionType: in.Body.QuestionType,
@@ -362,11 +362,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Proposals []QuestionProposalItem `json:"proposals"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListQuestionProposalsByQuestion(ctx, db.ListQuestionProposalsByQuestionParams{
+			rows, err := h.Q.ListQuestionProposalsByQuestion(ctx, db.ListQuestionProposalsByQuestionParams{
 				ProjectID:    p.ID,
 				QuestionID:   in.QuestionID,
 				QuestionType: in.QuestionType,
@@ -401,22 +401,22 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Issue    IssueItem            `json:"issue"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			proposal, err := s.q.GetQuestionProposal(ctx, db.GetQuestionProposalParams{
+			proposal, err := h.Q.GetQuestionProposal(ctx, db.GetQuestionProposalParams{
 				ProjectID: p.ID,
 				ID:        in.Body.ID,
 			})
 			if err != nil {
 				return nil, apiErr(404, "proposal not found")
 			}
-			issueID, err := s.q.NextIssueID(ctx)
+			issueID, err := h.Q.NextIssueID(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			issue, err := s.q.CreateIssue(ctx, db.CreateIssueParams{
+			issue, err := h.Q.CreateIssue(ctx, db.CreateIssueParams{
 				ID:        issueID,
 				ProjectID: p.ID,
 				Title:     proposal.Title,
@@ -427,8 +427,8 @@ func (s *Server) registerQARoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			go s.emb.upsertIssue(context.Background(), p.ID, issue.ID, proposal.Title+" "+proposal.Context)
-			accepted, err := s.q.AcceptQuestionProposal(ctx, db.AcceptQuestionProposalParams{
+			go h.Emb.UpsertIssue(context.Background(), p.ID, issue.ID, proposal.Title+" "+proposal.Context)
+			accepted, err := h.Q.AcceptQuestionProposal(ctx, db.AcceptQuestionProposalParams{
 				ProjectID:      p.ID,
 				ID:             in.Body.ID,
 				CreatedIssueID: pgtype.Text{String: issue.ID, Valid: true},
@@ -437,7 +437,7 @@ func (s *Server) registerQARoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			issueItem := toIssueItem(issue)
-			s.publishIssue(in.Body.Slug, issue.ID, "issue.created", issueItem)
+			h.Broker.PublishIssue(in.Body.Slug, issue.ID, "issue.created", issueItem)
 			return &struct {
 				Body struct {
 					Proposal QuestionProposalItem `json:"proposal"`
@@ -459,11 +459,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Reason string `json:"reason"`
 			}
 		}) (*struct{ Body QuestionProposalItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.DenyQuestionProposal(ctx, db.DenyQuestionProposalParams{
+			row, err := h.Q.DenyQuestionProposal(ctx, db.DenyQuestionProposalParams{
 				ProjectID:    p.ID,
 				ID:           in.Body.ID,
 				DeniedReason: in.Body.Reason,
@@ -484,11 +484,11 @@ func (s *Server) registerQARoutes(api huma.API) {
 				Questions []BlockerQuestionItem `json:"questions"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListBlockerQuestionsByTarget(ctx, db.ListBlockerQuestionsByTargetParams{
+			rows, err := h.Q.ListBlockerQuestionsByTarget(ctx, db.ListBlockerQuestionsByTargetParams{
 				ProjectID:  p.ID,
 				TargetType: in.TargetType,
 				TargetID:   in.TargetID,

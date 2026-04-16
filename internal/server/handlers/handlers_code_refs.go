@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerCodeRefRoutes(api huma.API) {
+func (h *Handler) registerCodeRefRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "attach-code-ref-to-issue", Method: http.MethodPost, Path: "/api/dx/code-refs/issue/attach"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -22,15 +22,15 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				Note      *string `json:"note,omitempty"`
 			}
 		}) (*struct{ Body CodeRefItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			issueID := in.Body.IssueID
-			if _, ferr := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); ferr != nil {
+			if _, ferr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); ferr != nil {
 				return nil, apiErr(http.StatusNotFound, "issue not found: "+issueID)
 			}
-			ref, err := s.q.CreateCodeRef(ctx, db.CreateCodeRefParams{
+			ref, err := h.Q.CreateCodeRef(ctx, db.CreateCodeRefParams{
 				ProjectID: p.ID,
 				FilePath:  in.Body.FilePath,
 				GitHash:   ptrStr(in.Body.GitHash),
@@ -41,7 +41,7 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			if err := s.q.AttachCodeRefToIssue(ctx, db.AttachCodeRefToIssueParams{IssueID: issueID, CodeRefID: ref.ID}); err != nil {
+			if err := h.Q.AttachCodeRefToIssue(ctx, db.AttachCodeRefToIssueParams{IssueID: issueID, CodeRefID: ref.ID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body CodeRefItem }{Body: toCodeRefItem(ref)}, nil
@@ -55,12 +55,12 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				CodeRefID int32  `json:"code_ref_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			_ = p
-			if err := s.q.DetachCodeRefFromIssue(ctx, db.DetachCodeRefFromIssueParams{IssueID: in.Body.IssueID, CodeRefID: in.Body.CodeRefID}); err != nil {
+			if err := h.Q.DetachCodeRefFromIssue(ctx, db.DetachCodeRefFromIssueParams{IssueID: in.Body.IssueID, CodeRefID: in.Body.CodeRefID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -75,12 +75,12 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				Refs []CodeRefItem `json:"refs"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			_ = p
-			rows, err := s.q.ListCodeRefsByIssue(ctx, in.IssueID)
+			rows, err := h.Q.ListCodeRefsByIssue(ctx, in.IssueID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -111,11 +111,11 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				Note      *string `json:"note,omitempty"`
 			}
 		}) (*struct{ Body CodeRefItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			ref, err := s.q.CreateCodeRef(ctx, db.CreateCodeRefParams{
+			ref, err := h.Q.CreateCodeRef(ctx, db.CreateCodeRefParams{
 				ProjectID: p.ID,
 				FilePath:  in.Body.FilePath,
 				GitHash:   ptrStr(in.Body.GitHash),
@@ -126,7 +126,7 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			if err := s.q.AttachCodeRefToTask(ctx, db.AttachCodeRefToTaskParams{TaskID: in.Body.TaskID, CodeRefID: ref.ID}); err != nil {
+			if err := h.Q.AttachCodeRefToTask(ctx, db.AttachCodeRefToTaskParams{TaskID: in.Body.TaskID, CodeRefID: ref.ID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body CodeRefItem }{Body: toCodeRefItem(ref)}, nil
@@ -140,12 +140,12 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				CodeRefID int32  `json:"code_ref_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			_ = p
-			if err := s.q.DetachCodeRefFromTask(ctx, db.DetachCodeRefFromTaskParams{TaskID: in.Body.TaskID, CodeRefID: in.Body.CodeRefID}); err != nil {
+			if err := h.Q.DetachCodeRefFromTask(ctx, db.DetachCodeRefFromTaskParams{TaskID: in.Body.TaskID, CodeRefID: in.Body.CodeRefID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -160,12 +160,12 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				Refs []CodeRefItem `json:"refs"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			_ = p
-			rows, err := s.q.ListCodeRefsByTask(ctx, in.TaskID)
+			rows, err := h.Q.ListCodeRefsByTask(ctx, in.TaskID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -196,11 +196,11 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				Note      *string `json:"note,omitempty"`
 			}
 		}) (*struct{ Body CodeRefItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			ref, err := s.q.CreateCodeRef(ctx, db.CreateCodeRefParams{
+			ref, err := h.Q.CreateCodeRef(ctx, db.CreateCodeRefParams{
 				ProjectID: p.ID,
 				FilePath:  in.Body.FilePath,
 				GitHash:   ptrStr(in.Body.GitHash),
@@ -211,7 +211,7 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			if err := s.q.AttachCodeRefToTest(ctx, db.AttachCodeRefToTestParams{TestID: in.Body.TestID, CodeRefID: ref.ID}); err != nil {
+			if err := h.Q.AttachCodeRefToTest(ctx, db.AttachCodeRefToTestParams{TestID: in.Body.TestID, CodeRefID: ref.ID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body CodeRefItem }{Body: toCodeRefItem(ref)}, nil
@@ -225,12 +225,12 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				CodeRefID int32  `json:"code_ref_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			_ = p
-			if err := s.q.DetachCodeRefFromTest(ctx, db.DetachCodeRefFromTestParams{TestID: in.Body.TestID, CodeRefID: in.Body.CodeRefID}); err != nil {
+			if err := h.Q.DetachCodeRefFromTest(ctx, db.DetachCodeRefFromTestParams{TestID: in.Body.TestID, CodeRefID: in.Body.CodeRefID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -245,12 +245,12 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				Refs []CodeRefItem `json:"refs"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			_ = p
-			rows, err := s.q.ListCodeRefsByTest(ctx, in.TestID)
+			rows, err := h.Q.ListCodeRefsByTest(ctx, in.TestID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -276,11 +276,11 @@ func (s *Server) registerCodeRefRoutes(api huma.API) {
 				CodeRefID int32  `json:"code_ref_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.DeleteCodeRef(ctx, db.DeleteCodeRefParams{ProjectID: p.ID, ID: in.Body.CodeRefID}); err != nil {
+			if err := h.Q.DeleteCodeRef(ctx, db.DeleteCodeRefParams{ProjectID: p.ID, ID: in.Body.CodeRefID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil

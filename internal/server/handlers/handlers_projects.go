@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -9,7 +9,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerProjectRoutes(api huma.API) {
+func (h *Handler) registerProjectRoutes(api huma.API) {
 	// ── Goals & Constraints ──────────────────────────────────────────────────
 
 	type GoalItem struct {
@@ -38,11 +38,11 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 				Goals []GoalItem `json:"goals"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListProjectGoals(ctx, p.ID)
+			rows, err := h.Q.ListProjectGoals(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -69,7 +69,7 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 				Status      string `json:"status"`
 			}
 		}) (*struct{ Body GoalItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -77,7 +77,7 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 			if status == "" {
 				status = "active"
 			}
-			row, err := s.q.CreateProjectGoal(ctx, db.CreateProjectGoalParams{
+			row, err := h.Q.CreateProjectGoal(ctx, db.CreateProjectGoalParams{
 				ProjectID:   p.ID,
 				Title:       in.Body.Title,
 				Description: in.Body.Description,
@@ -100,7 +100,7 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 				Status      string `json:"status"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.UpdateProjectGoal(ctx, db.UpdateProjectGoalParams{
+			if err := h.Q.UpdateProjectGoal(ctx, db.UpdateProjectGoalParams{
 				ID:          in.Body.ID,
 				Title:       in.Body.Title,
 				Description: in.Body.Description,
@@ -118,7 +118,7 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 				ID int32 `json:"id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.DeleteProjectGoal(ctx, in.Body.ID); err != nil {
+			if err := h.Q.DeleteProjectGoal(ctx, in.Body.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -130,11 +130,11 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 				Constraints []ConstraintItem `json:"constraints"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListProjectConstraints(ctx, p.ID)
+			rows, err := h.Q.ListProjectConstraints(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -161,7 +161,7 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 				Status      string `json:"status"`
 			}
 		}) (*struct{ Body ConstraintItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -169,7 +169,7 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 			if status == "" {
 				status = "active"
 			}
-			row, err := s.q.CreateProjectConstraint(ctx, db.CreateProjectConstraintParams{
+			row, err := h.Q.CreateProjectConstraint(ctx, db.CreateProjectConstraintParams{
 				ProjectID:   p.ID,
 				Title:       in.Body.Title,
 				Description: in.Body.Description,
@@ -192,7 +192,7 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 				Status      string `json:"status"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.UpdateProjectConstraint(ctx, db.UpdateProjectConstraintParams{
+			if err := h.Q.UpdateProjectConstraint(ctx, db.UpdateProjectConstraintParams{
 				ID:          in.Body.ID,
 				Title:       in.Body.Title,
 				Description: in.Body.Description,
@@ -210,7 +210,7 @@ func (s *Server) registerProjectRoutes(api huma.API) {
 				ID int32 `json:"id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.DeleteProjectConstraint(ctx, in.Body.ID); err != nil {
+			if err := h.Q.DeleteProjectConstraint(ctx, in.Body.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil

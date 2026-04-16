@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -10,19 +10,19 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) publishTaskByID(ctx context.Context, id, eventType string, payload any) {
-	task, err := s.q.GetTask(ctx, id)
+func (h *Handler) publishTaskByID(ctx context.Context, id, eventType string, payload any) {
+	task, err := h.Q.GetTask(ctx, id)
 	if err != nil {
 		return
 	}
-	p, err := s.q.GetProjectByID(ctx, task.ProjectID)
+	p, err := h.Q.GetProjectByID(ctx, task.ProjectID)
 	if err != nil {
 		return
 	}
-	s.publishTask(p.Slug, id, eventType, payload)
+	h.Broker.PublishTask(p.Slug, id, eventType, payload)
 }
 
-func (s *Server) registerTaskRoutes(api huma.API) {
+func (h *Handler) registerTaskRoutes(api huma.API) {
 	type TasksSlugOutput = struct {
 		Body struct {
 			Tasks []TaskItem `json:"tasks"`
@@ -32,13 +32,13 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "list-tasks", Method: http.MethodGet, Path: "/api/tasks"},
 		func(ctx context.Context, in *PaginatedSlugInput) (*TasksSlugOutput, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountTasks(ctx, db.CountTasksParams{ProjectID: p.ID, StatusFilter: in.Status, Search: in.Search})
+			total, _ := h.Q.CountTasks(ctx, db.CountTasksParams{ProjectID: p.ID, StatusFilter: in.Status, Search: in.Search})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTasksPaginated(ctx, db.ListTasksPaginatedParams{ProjectID: p.ID, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
+			rows, err := h.Q.ListTasksPaginated(ctx, db.ListTasksPaginatedParams{ProjectID: p.ID, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -57,12 +57,12 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			Slug string `query:"slug" required:"true"`
 			ID   string `query:"id" required:"true"`
 		}) (*struct{ Body TaskItem }, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			id := taskIDFromInt(taskIntID(in.ID))
-			row, err := s.q.GetTask(ctx, id)
+			row, err := h.Q.GetTask(ctx, id)
 			if err != nil {
 				return nil, apiErr(404, "task not found")
 			}
@@ -87,13 +87,13 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			Status  string `query:"status"`
 			Search  string `query:"search"`
 		}) (*TasksSlugOutput, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountTasksByFeature(ctx, db.CountTasksByFeatureParams{ProjectID: p.ID, Feature: in.Feature, StatusFilter: in.Status, Search: in.Search})
+			total, _ := h.Q.CountTasksByFeature(ctx, db.CountTasksByFeatureParams{ProjectID: p.ID, Feature: in.Feature, StatusFilter: in.Status, Search: in.Search})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTasksByFeaturePaginated(ctx, db.ListTasksByFeaturePaginatedParams{ProjectID: p.ID, Feature: in.Feature, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
+			rows, err := h.Q.ListTasksByFeaturePaginated(ctx, db.ListTasksByFeaturePaginatedParams{ProjectID: p.ID, Feature: in.Feature, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -116,13 +116,13 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			Status  string `query:"status"`
 			Search  string `query:"search"`
 		}) (*TasksSlugOutput, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountTasksByIssue(ctx, db.CountTasksByIssueParams{ProjectID: p.ID, Issue: in.IssueID, StatusFilter: in.Status, Search: in.Search})
+			total, _ := h.Q.CountTasksByIssue(ctx, db.CountTasksByIssueParams{ProjectID: p.ID, Issue: in.IssueID, StatusFilter: in.Status, Search: in.Search})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTasksByIssuePaginated(ctx, db.ListTasksByIssuePaginatedParams{ProjectID: p.ID, Issue: in.IssueID, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
+			rows, err := h.Q.ListTasksByIssuePaginated(ctx, db.ListTasksByIssuePaginatedParams{ProjectID: p.ID, Issue: in.IssueID, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -155,7 +155,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				DuplicateBlocked bool              `json:"duplicate_blocked,omitempty"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -166,7 +166,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}
 
 			if !in.Body.Force {
-				exactMatches, err := s.q.GetTaskByExactText(ctx, db.GetTaskByExactTextParams{
+				exactMatches, err := h.Q.GetTaskByExactText(ctx, db.GetTaskByExactTextParams{
 					ProjectID: p.ID,
 					Text:      in.Body.Text,
 					Issue:     issueFilter,
@@ -176,7 +176,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				}
 			}
 
-			id, err := s.q.NextTaskID(ctx)
+			id, err := h.Q.NextTaskID(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -188,7 +188,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			var similar []SimilarTaskItem
 			var duplicateBlocked bool
 			if !in.Body.AutoReady && !in.Body.Force {
-				similar, _ = s.findSimilarTasks(ctx, p.ID, in.Body.Text, 5)
+				similar, _ = h.findSimilarTasks(ctx, p.ID, in.Body.Text, 5)
 				if issueFilter != "" {
 					for _, s := range similar {
 						if s.Issue == issueFilter && s.Score > 0.85 {
@@ -213,7 +213,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				}{Similar: similar, DuplicateBlocked: true}}, nil
 			}
 
-			row, err := s.q.CreateTask(ctx, db.CreateTaskParams{
+			row, err := h.Q.CreateTask(ctx, db.CreateTaskParams{
 				ID:        id,
 				ProjectID: p.ID,
 				Text:      in.Body.Text,
@@ -225,7 +225,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			go s.emb.upsertTask(context.Background(), p.ID, row.ID, row.Text)
+			go h.Emb.UpsertTask(context.Background(), p.ID, row.ID, row.Text)
 			item := toTaskItem(db.ZdxTask{ID: row.ID, ProjectID: row.ProjectID, Text: row.Text, Feature: row.Feature, Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends, TestPlan: row.TestPlan, TestRefs: row.TestRefs, CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt, TaskGroup: row.TaskGroup})
 			return &struct {
 				Body struct {
@@ -252,28 +252,28 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			prev := ""
 			var oldTask db.GetTaskRow
 			var haveOld bool
-			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+			if t, gErr := h.Q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
 				oldTask = t
 				haveOld = true
 			}
 			newTestPlan := ptrStr(in.Body.TestPlan)
 			newTestRefs := ptrStr(in.Body.TestRefs)
-			if err := s.q.MarkTaskDone(ctx, db.MarkTaskDoneParams{
+			if err := h.Q.MarkTaskDone(ctx, db.MarkTaskDoneParams{
 				ID:       id,
 				TestPlan: newTestPlan,
 				TestRefs: newTestRefs,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, id, prev, "done", "")
+			h.recordTaskStatusChange(ctx, id, prev, "done", "")
 			if haveOld {
-				s.recordTaskFieldRevisions(ctx, oldTask, map[string]string{
+				h.recordTaskFieldRevisions(ctx, oldTask, map[string]string{
 					"test_plan": newTestPlan,
 					"test_refs": newTestRefs,
 				})
 			}
-			s.publishTaskByID(ctx, id, "task.done", map[string]any{"id": id})
+			h.publishTaskByID(ctx, id, "task.done", map[string]any{"id": id})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -285,13 +285,13 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
 			prev := ""
-			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+			if t, gErr := h.Q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
 			}
-			if err := s.q.MarkTaskUndone(ctx, id); err != nil {
+			if err := h.Q.MarkTaskUndone(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, id, prev, "ready", "")
+			h.recordTaskStatusChange(ctx, id, prev, "ready", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -306,22 +306,22 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			prev := ""
 			var oldTask db.GetTaskRow
 			var haveOld bool
-			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+			if t, gErr := h.Q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
 				oldTask = t
 				haveOld = true
 			}
 			newReason := ptrStr(in.Body.Reason)
-			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
+			if err := h.Q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     id,
 				Status: "blocked",
 				Reason: newReason,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, id, prev, "blocked", "")
+			h.recordTaskStatusChange(ctx, id, prev, "blocked", "")
 			if haveOld {
-				s.recordTaskFieldRevisions(ctx, oldTask, map[string]string{"reason": newReason})
+				h.recordTaskFieldRevisions(ctx, oldTask, map[string]string{"reason": newReason})
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -334,16 +334,16 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
 			prev := ""
-			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+			if t, gErr := h.Q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
 			}
-			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
+			if err := h.Q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     id,
 				Status: "ready",
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, id, prev, "ready", "")
+			h.recordTaskStatusChange(ctx, id, prev, "ready", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -360,22 +360,22 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			prev := ""
 			var oldTask db.GetTaskRow
 			var haveOld bool
-			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+			if t, gErr := h.Q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
 				oldTask = t
 				haveOld = true
 			}
 			newReason := ptrStr(in.Body.Reason)
-			if err := s.q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
+			if err := h.Q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     id,
 				Status: in.Body.Status,
 				Reason: newReason,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, id, prev, in.Body.Status, "")
+			h.recordTaskStatusChange(ctx, id, prev, in.Body.Status, "")
 			if haveOld {
-				s.recordTaskFieldRevisions(ctx, oldTask, map[string]string{"reason": newReason})
+				h.recordTaskFieldRevisions(ctx, oldTask, map[string]string{"reason": newReason})
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -386,7 +386,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				ID int32 `json:"id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.DeleteTask(ctx, taskIDFromInt(in.Body.ID)); err != nil {
+			if err := h.Q.DeleteTask(ctx, taskIDFromInt(in.Body.ID)); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -401,15 +401,15 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				Tasks []TaskItem `json:"tasks"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			var rows []db.ListStaleTasksByIssueRow
 			if in.Issue != "" {
-				rows, err = s.q.ListStaleTasksByIssue(ctx, db.ListStaleTasksByIssueParams{ProjectID: p.ID, Issue: in.Issue})
+				rows, err = h.Q.ListStaleTasksByIssue(ctx, db.ListStaleTasksByIssueParams{ProjectID: p.ID, Issue: in.Issue})
 			} else {
-				staleRows, err2 := s.q.ListStaleTasks(ctx, p.ID)
+				staleRows, err2 := h.Q.ListStaleTasks(ctx, p.ID)
 				if err2 != nil {
 					return nil, apiErr(500, err2.Error())
 				}
@@ -450,13 +450,13 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}
 			var projectID int32
 			if in.Body.Slug != "" {
-				p, err := getProject(ctx, s.q, in.Body.Slug)
+				p, err := getProject(ctx, h.Q, in.Body.Slug)
 				if err != nil {
 					return nil, err
 				}
 				projectID = p.ID
 			}
-			flagged, err := s.q.FlagStaleTasks(ctx, db.FlagStaleTasksParams{StaleDays: days, ProjectID: projectID})
+			flagged, err := h.Q.FlagStaleTasks(ctx, db.FlagStaleTasksParams{StaleDays: days, ProjectID: projectID})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -491,13 +491,13 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
 			prev := ""
-			if t, gErr := s.q.GetTask(ctx, id); gErr == nil {
+			if t, gErr := h.Q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
 			}
-			if err := s.q.ReadyTask(ctx, id); err != nil {
+			if err := h.Q.ReadyTask(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, id, prev, "ready", "")
+			h.recordTaskStatusChange(ctx, id, prev, "ready", "")
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -510,14 +510,14 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
-			t, gErr := s.q.GetTask(ctx, id)
+			t, gErr := h.Q.GetTask(ctx, id)
 			if gErr != nil {
 				return nil, apiErr(404, "task not found: "+id)
 			}
 			if t.Status != "wip" {
 				return nil, apiErr(409, "cannot delete "+id+": status is "+t.Status+" (delete is restricted to wip drafts; use 'dx todo dev done' or close the parent issue instead)")
 			}
-			n, err := s.q.DeleteDraftTask(ctx, id)
+			n, err := h.Q.DeleteDraftTask(ctx, id)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -545,11 +545,11 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			if n <= 0 {
 				n = 5
 			}
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			results, err := s.findSimilarTasks(ctx, p.ID, in.Body.Text, n)
+			results, err := h.findSimilarTasks(ctx, p.ID, in.Body.Text, n)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -591,12 +591,12 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				TestRefs  string   `json:"test_refs"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			id := taskIDFromInt(in.ID)
-			row, err := s.q.GetTaskWithReview(ctx, id)
+			row, err := h.Q.GetTaskWithReview(ctx, id)
 			if err != nil {
 				return nil, apiErr(404, "task not found")
 			}
@@ -605,7 +605,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			}
 			issueType := ""
 			if row.Issue != "" {
-				issueRow, err := s.q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: row.Issue})
+				issueRow, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: row.Issue})
 				if err == nil {
 					issueType = issueRow.IssueType
 				}
@@ -641,17 +641,17 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 				Comment string `json:"comment"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			id := taskIDFromInt(in.Body.ID)
-			if err := s.q.MarkTaskReviewed(ctx, id); err != nil {
+			if err := h.Q.MarkTaskReviewed(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			if in.Body.Comment != "" {
 				body := fmt.Sprintf("## Review [%s]\n\n%s", in.Body.Verdict, in.Body.Comment)
-				s.q.AddComment(ctx, db.AddCommentParams{
+				h.Q.AddComment(ctx, db.AddCommentParams{
 					ProjectID:  p.ID,
 					TargetType: "task",
 					TargetID:   fmt.Sprintf("TK-%d", in.Body.ID),
@@ -659,7 +659,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 					Author:     "reviewer",
 				})
 			}
-			s.publishTask(p.Slug, id, "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict})
+			h.Broker.PublishTask(p.Slug, id, "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -668,12 +668,12 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 			Slug  string `query:"slug" required:"true"`
 			Issue string `query:"issue"`
 		}) (*TasksSlugOutput, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			if in.Issue != "" {
-				rows, err := s.q.ListUnreviewedDoneTasksByIssue(ctx, db.ListUnreviewedDoneTasksByIssueParams{ProjectID: p.ID, Issue: in.Issue})
+				rows, err := h.Q.ListUnreviewedDoneTasksByIssue(ctx, db.ListUnreviewedDoneTasksByIssueParams{ProjectID: p.ID, Issue: in.Issue})
 				if err != nil {
 					return nil, apiErr(500, err.Error())
 				}
@@ -688,7 +688,7 @@ func (s *Server) registerTaskRoutes(api huma.API) {
 					Total int64      `json:"total"`
 				}{Tasks: out, Total: int64(len(out))}}, nil
 			}
-			rows, err := s.q.ListUnreviewedDoneTasks(ctx, p.ID)
+			rows, err := h.Q.ListUnreviewedDoneTasks(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}

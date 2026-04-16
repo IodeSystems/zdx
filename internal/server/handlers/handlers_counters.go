@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerCounterRoutes(api huma.API) {
+func (h *Handler) registerCounterRoutes(api huma.API) {
 	type CountedItem struct {
 		ID          int64           `json:"id"`
 		Name        string          `json:"name"`
@@ -39,7 +39,7 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 		}, error) {
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
@@ -47,9 +47,9 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 			if in.TagFilter != "" {
 				tagFilter = []byte(in.TagFilter)
 			}
-			total, _ := s.q.CountCounted(ctx, db.CountCountedParams{ProjectID: pid, TagFilter: tagFilter})
+			total, _ := h.Q.CountCounted(ctx, db.CountCountedParams{ProjectID: pid, TagFilter: tagFilter})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListCountedPaginated(ctx, db.ListCountedPaginatedParams{ProjectID: pid, TagFilter: tagFilter, Lim: limit, Off: offset})
+			rows, err := h.Q.ListCountedPaginated(ctx, db.ListCountedPaginatedParams{ProjectID: pid, TagFilter: tagFilter, Lim: limit, Off: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -102,7 +102,7 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 			}
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
@@ -110,7 +110,7 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 			if in.TagFilter != "" {
 				tagFilter = []byte(in.TagFilter)
 			}
-			rows, err := s.q.ListCountedGrouped(ctx, db.ListCountedGroupedParams{ProjectID: pid, TagFilter: tagFilter, GroupKey: in.GroupBy})
+			rows, err := h.Q.ListCountedGrouped(ctx, db.ListCountedGroupedParams{ProjectID: pid, TagFilter: tagFilter, GroupKey: in.GroupBy})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -146,11 +146,11 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 		}, error) {
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
-			rows, err := s.q.ListCountedDistinctTagKeys(ctx, pid)
+			rows, err := h.Q.ListCountedDistinctTagKeys(ctx, pid)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -183,11 +183,11 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 			}
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
-			rows, err := s.q.ListCountedDistinctTagValues(ctx, db.ListCountedDistinctTagValuesParams{ProjectID: pid, TagKey: in.TagKey})
+			rows, err := h.Q.ListCountedDistinctTagValues(ctx, db.ListCountedDistinctTagValuesParams{ProjectID: pid, TagKey: in.TagKey})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -235,7 +235,7 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 		}, error) {
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
@@ -255,9 +255,9 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			total, _ := s.q.CountCounterEvents(ctx, db.CountCounterEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until})
+			total, _ := h.Q.CountCounterEvents(ctx, db.CountCounterEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListCounterEvents(ctx, db.ListCounterEventsParams{
+			rows, err := h.Q.ListCounterEvents(ctx, db.ListCounterEventsParams{
 				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, Lim: limit, Off: offset,
 			})
 			if err != nil {
@@ -310,7 +310,7 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 			}
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
@@ -330,7 +330,7 @@ func (s *Server) registerCounterRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			rows, err := s.q.ListCounterEventsGrouped(ctx, db.ListCounterEventsGroupedParams{
+			rows, err := h.Q.ListCounterEventsGrouped(ctx, db.ListCounterEventsGroupedParams{
 				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, GroupKey: in.GroupBy,
 			})
 			if err != nil {

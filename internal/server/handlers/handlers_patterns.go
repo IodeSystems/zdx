@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -40,7 +40,7 @@ func toPatternItem(r db.ZdxPattern) PatternItem {
 	}
 }
 
-func (s *Server) registerPatternRoutes(api huma.API) {
+func (h *Handler) registerPatternRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "add-pattern", Method: http.MethodPost, Path: "/api/dx/patterns/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -50,7 +50,7 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 				CodeRefs    json.RawMessage `json:"code_refs,omitempty"`
 			}
 		}) (*struct{ Body PatternItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -58,7 +58,7 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 			if len(refs) == 0 {
 				refs = json.RawMessage("[]")
 			}
-			row, err := s.q.InsertPattern(ctx, db.InsertPatternParams{
+			row, err := h.Q.InsertPattern(ctx, db.InsertPatternParams{
 				ProjectID:   p.ID,
 				Name:        in.Body.Name,
 				Description: in.Body.Description,
@@ -67,7 +67,7 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			go s.emb.upsertPattern(context.Background(), p.ID, row.ID, row.Name+" "+row.Description)
+			go h.Emb.UpsertPattern(context.Background(), p.ID, row.ID, row.Name+" "+row.Description)
 			return &struct{ Body PatternItem }{Body: toPatternItem(row)}, nil
 		})
 
@@ -81,7 +81,7 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 				CodeRefs    json.RawMessage `json:"code_refs,omitempty"`
 			}
 		}) (*struct{ Body PatternItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -89,7 +89,7 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 			if len(refs) == 0 {
 				refs = json.RawMessage("[]")
 			}
-			row, err := s.q.UpdatePattern(ctx, db.UpdatePatternParams{
+			row, err := h.Q.UpdatePattern(ctx, db.UpdatePatternParams{
 				ProjectID:   p.ID,
 				ID:          in.Body.ID,
 				Name:        in.Body.Name,
@@ -99,7 +99,7 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			go s.emb.upsertPattern(context.Background(), p.ID, row.ID, row.Name+" "+row.Description)
+			go h.Emb.UpsertPattern(context.Background(), p.ID, row.ID, row.Name+" "+row.Description)
 			return &struct{ Body PatternItem }{Body: toPatternItem(row)}, nil
 		})
 
@@ -108,11 +108,11 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 			Slug string `query:"slug" required:"true"`
 			ID   int32  `query:"id" required:"true"`
 		}) (*struct{ Body PatternItem }, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.GetPattern(ctx, db.GetPatternParams{ProjectID: p.ID, ID: in.ID})
+			row, err := h.Q.GetPattern(ctx, db.GetPatternParams{ProjectID: p.ID, ID: in.ID})
 			if err != nil {
 				return nil, apiErr(404, "pattern not found")
 			}
@@ -130,11 +130,11 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 				OK bool `json:"ok"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.DeletePattern(ctx, db.DeletePatternParams{ProjectID: p.ID, ID: in.Body.ID}); err != nil {
+			if err := h.Q.DeletePattern(ctx, db.DeletePatternParams{ProjectID: p.ID, ID: in.Body.ID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct {
@@ -153,22 +153,22 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 				Total    int64         `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountPatterns(ctx, p.ID)
+			total, _ := h.Q.CountPatterns(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
 
 			var rows []db.ZdxPattern
 			if in.Search != "" {
-				rows, err = s.q.SearchPatterns(ctx, db.SearchPatternsParams{
+				rows, err = h.Q.SearchPatterns(ctx, db.SearchPatternsParams{
 					ProjectID: p.ID,
 					Column2:   pgtype.Text{String: in.Search, Valid: true},
 					Limit:     limit,
 				})
 			} else {
-				rows, err = s.q.ListPatternsPaginated(ctx, db.ListPatternsPaginatedParams{
+				rows, err = h.Q.ListPatternsPaginated(ctx, db.ListPatternsPaginatedParams{
 					ProjectID: p.ID,
 					Limit:     limit,
 					Offset:    offset,
@@ -210,11 +210,11 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 			if n <= 0 {
 				n = 5
 			}
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			results, err := s.findSimilarPatterns(ctx, p.ID, in.Body.Text, n)
+			results, err := h.findSimilarPatterns(ctx, p.ID, in.Body.Text, n)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -237,16 +237,16 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 				Indexed int `json:"indexed"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			patterns, err := s.q.ListPatterns(ctx, p.ID)
+			patterns, err := h.Q.ListPatterns(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			for _, pat := range patterns {
-				s.emb.upsertPattern(ctx, p.ID, pat.ID, pat.Name+" "+pat.Description)
+				h.Emb.UpsertPattern(ctx, p.ID, pat.ID, pat.Name+" "+pat.Description)
 			}
 			return &struct {
 				Body struct {
@@ -258,14 +258,14 @@ func (s *Server) registerPatternRoutes(api huma.API) {
 		})
 }
 
-func (s *Server) findSimilarPatterns(ctx context.Context, projectID int32, text string, n int) ([]SimilarPatternItem, error) {
-	results, err := s.emb.topNPatterns(ctx, projectID, text, n)
+func (h *Handler) findSimilarPatterns(ctx context.Context, projectID int32, text string, n int) ([]SimilarPatternItem, error) {
+	results, err := h.Emb.TopNPatterns(ctx, projectID, text, n)
 	if err != nil {
 		return nil, err
 	}
 	out := make([]SimilarPatternItem, 0, len(results))
 	for _, r := range results {
-		row, err := s.q.GetPattern(ctx, db.GetPatternParams{ProjectID: projectID, ID: int32(r.ID)}) //nolint:gosec
+		row, err := h.Q.GetPattern(ctx, db.GetPatternParams{ProjectID: projectID, ID: int32(r.ID)}) //nolint:gosec
 		if err != nil {
 			continue
 		}

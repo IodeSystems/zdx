@@ -12,30 +12,31 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"nhooyr.io/websocket"
 
+	"github.com/iodesystems/zdx-go/internal/server/handlers"
 	"github.com/iodesystems/zdx-go/internal/ws"
 )
 
-func (s *Server) publish(channel, eventType string, payload any) {
+func (s *Server) Publish(channel, eventType string, payload any) {
 	s.broker.Publish(channel, ws.Message{Type: eventType, Payload: payload})
 }
 
-func (s *Server) publishIssue(slug string, issueID string, eventType string, payload any) {
-	s.publish(fmt.Sprintf("project:%s:issues", slug), eventType, payload)
-	s.publish(fmt.Sprintf("issue:%s", issueID), eventType, payload)
+func (s *Server) PublishIssue(slug string, issueID string, eventType string, payload any) {
+	s.Publish(fmt.Sprintf("project:%s:issues", slug), eventType, payload)
+	s.Publish(fmt.Sprintf("issue:%s", issueID), eventType, payload)
 }
 
-func (s *Server) publishTask(slug string, taskID string, eventType string, payload any) {
-	s.publish(fmt.Sprintf("project:%s:tasks", slug), eventType, payload)
-	s.publish(fmt.Sprintf("task:%s", taskID), eventType, payload)
+func (s *Server) PublishTask(slug string, taskID string, eventType string, payload any) {
+	s.Publish(fmt.Sprintf("project:%s:tasks", slug), eventType, payload)
+	s.Publish(fmt.Sprintf("task:%s", taskID), eventType, payload)
 }
 
-func (s *Server) publishClaudeEvent(slug string, sessionID string, eventType string, payload any) {
-	s.publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
+func (s *Server) PublishClaudeEvent(slug string, sessionID string, eventType string, payload any) {
+	s.Publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
 }
 
-func (s *Server) publishClaudeSessionLifecycle(slug string, sessionID string, eventType string, payload any) {
-	s.publish(fmt.Sprintf("project:%s:claude", slug), eventType, payload)
-	s.publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
+func (s *Server) PublishClaudeSessionLifecycle(slug string, sessionID string, eventType string, payload any) {
+	s.Publish(fmt.Sprintf("project:%s:claude", slug), eventType, payload)
+	s.Publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
 }
 
 // publishAgentSessionLifecycle broadcasts a provider-agnostic session
@@ -43,9 +44,9 @@ func (s *Server) publishClaudeSessionLifecycle(slug string, sessionID string, ev
 // agent.session-updated) on the per-project and per-session WS channels.
 // It reuses the existing claude:* channel names so existing subscribers
 // continue to receive lifecycle notifications during the transition.
-func (s *Server) publishAgentSessionLifecycle(slug string, sessionID string, eventType string, payload any) {
-	s.publish(fmt.Sprintf("project:%s:claude", slug), eventType, payload)
-	s.publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
+func (s *Server) PublishAgentSessionLifecycle(slug string, sessionID string, eventType string, payload any) {
+	s.Publish(fmt.Sprintf("project:%s:claude", slug), eventType, payload)
+	s.Publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
 }
 
 func (s *Server) registerWSRoutes(api huma.API) {
@@ -67,9 +68,9 @@ func (s *Server) registerWSRoutes(api huma.API) {
 			Token string `json:"token"`
 		}
 	}, error) {
-		userID := ctxUserIDVal(ctx)
+		userID := handlers.UserIDFromContext(ctx)
 		if userID == 0 {
-			return nil, apiErr(401, "authentication required")
+			return nil, handlers.APIErr(401, "authentication required")
 		}
 		token := ws.SignChannel(s.wsSecret, in.Body.Channel, int64(userID))
 		return &struct {
@@ -146,7 +147,7 @@ func (s *Server) registerAdminWSDiagnostics(api huma.API) {
 		}
 	}, error) {
 		sentAt := time.Now().UTC()
-		s.publish(in.Body.Channel, "admin.echo", map[string]any{
+		s.Publish(in.Body.Channel, "admin.echo", map[string]any{
 			"payload": in.Body.Payload,
 			"sent_at": sentAt.Format(time.RFC3339Nano),
 		})

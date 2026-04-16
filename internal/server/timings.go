@@ -7,6 +7,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/zdx-go/internal/server/handlers"
 	"github.com/iodesystems/zdx-go/pkg/zdxclient"
 )
 
@@ -56,7 +57,7 @@ func (s timingSink) track(ctx context.Context, name string, start time.Time) {
 	if ms < 1 {
 		return
 	}
-	s.send(Timing{Name: name, DurationMs: ms, Source: sourceFromCtx(ctx)})
+	s.send(Timing{Name: name, DurationMs: ms, Source: handlers.SourceFromContext(ctx)})
 }
 
 // send pushes a timing without ever blocking the caller. On overflow we drop
@@ -71,27 +72,9 @@ func (s timingSink) send(t Timing) {
 	}
 }
 
-// sourceFromCtx returns the label stamped by sourceMiddleware or WithSource,
-// falling back to "background" for queries originating outside a labeled scope.
-func sourceFromCtx(ctx context.Context) string {
-	if s, ok := ctx.Value(ctxSource).(string); ok && s != "" {
-		return s
-	}
-	return "background"
-}
-
-// WithSource labels ctx so queries running under it are attributed to source
-// instead of "background". Use at the entry of cron jobs, CLI commands, or
-// any long-lived goroutine you want visible in the timings dashboard.
-func WithSource(ctx context.Context, source string) context.Context {
-	return context.WithValue(ctx, ctxSource, source)
-}
-
-// WithoutTiming returns a ctx that the QueryTracer will skip entirely.
-// Reserved for the drainer itself and rare genuinely-uninteresting queries.
-func WithoutTiming(ctx context.Context) context.Context {
-	return context.WithValue(ctx, ctxSkipTiming, true)
-}
+// WithoutTiming is a local alias for handlers.WithoutTiming so server-internal
+// callers don't need to import the handlers package for a single ctx helper.
+func WithoutTiming(ctx context.Context) context.Context { return handlers.WithoutTiming(ctx) }
 
 // StartTimedEventsRetention deletes zdx_timed_events and zdx_counter_events
 // rows older than 30 days. Runs once immediately, then every 24 hours.

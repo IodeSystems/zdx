@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -12,11 +12,11 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerAuthRoutes(api huma.API) {
+func (h *Handler) registerAuthRoutes(api huma.API) {
 	// Health
 	huma.Register(api, huma.Operation{OperationID: "health", Method: http.MethodGet, Path: "/api/health"},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body map[string]string }, error) {
-			return &struct{ Body map[string]string }{Body: map[string]string{"status": "ok", "build_sha": s.buildSHA}}, nil
+			return &struct{ Body map[string]string }{Body: map[string]string{"status": "ok", "build_sha": h.BuildSHA}}, nil
 		})
 
 	// Config (authenticated)
@@ -32,7 +32,7 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 				}
 			}{Body: struct {
 				ZdxProjectSlug string `json:"zdx_project_slug"`
-			}{ZdxProjectSlug: s.zdxProjectSlug}}, nil
+			}{ZdxProjectSlug: h.ZDXProjectSlug}}, nil
 		})
 
 	// ── Setup (unauthenticated, one-time bootstrap) ───────────────────────────
@@ -50,14 +50,14 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 				Email string `json:"email"`
 			}
 		}, error) {
-			count, err := s.q.CountApiKeys(ctx)
+			count, err := h.Q.CountApiKeys(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			if count > 0 {
 				return nil, apiErr(409, "server already set up")
 			}
-			user, err := s.q.CreateUser(ctx, db.CreateUserParams{Email: in.Body.Email, Name: in.Body.Name})
+			user, err := h.Q.CreateUser(ctx, db.CreateUserParams{Email: in.Body.Email, Name: in.Body.Name})
 			if err != nil {
 				return nil, apiErr(500, "create user: "+err.Error())
 			}
@@ -70,7 +70,7 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 			if in.Body.KeyName != nil && *in.Body.KeyName != "" {
 				keyName = *in.Body.KeyName
 			}
-			if _, err := s.q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: keyName}); err != nil {
+			if _, err := h.Q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: keyName}); err != nil {
 				return nil, apiErr(500, "create api key: "+err.Error())
 			}
 			return &struct {
@@ -108,11 +108,11 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 				Role  string `json:"role"`
 			}
 		}, error) {
-			inv, err := s.q.GetInviteByToken(ctx, in.Body.InviteCode)
+			inv, err := h.Q.GetInviteByToken(ctx, in.Body.InviteCode)
 			if err != nil {
 				return nil, apiErr(http.StatusUnauthorized, "invalid or expired invite code")
 			}
-			inviter, err := s.q.GetUserByID(ctx, inv.InvitedBy)
+			inviter, err := h.Q.GetUserByID(ctx, inv.InvitedBy)
 			if err != nil {
 				return nil, apiErr(500, "lookup inviter: "+err.Error())
 			}
@@ -121,7 +121,7 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, "hash password: "+err.Error())
 			}
-			user, err := s.q.CreateUserWithPassword(ctx, db.CreateUserWithPasswordParams{
+			user, err := h.Q.CreateUserWithPassword(ctx, db.CreateUserWithPasswordParams{
 				Email:        in.Body.Email,
 				Name:         in.Body.Name,
 				PasswordHash: string(hash),
@@ -135,10 +135,10 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 				return nil, apiErr(500, "generate token: "+err.Error())
 			}
 			token := hex.EncodeToString(raw[:])
-			if _, err := s.q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: "web"}); err != nil {
+			if _, err := h.Q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: "web"}); err != nil {
 				return nil, apiErr(500, "create api key: "+err.Error())
 			}
-			_ = s.q.MarkInviteUsed(ctx, inv.ID)
+			_ = h.Q.MarkInviteUsed(ctx, inv.ID)
 			return &struct {
 				Body struct {
 					Token string `json:"token"`
@@ -165,7 +165,7 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 				Role  string `json:"role"`
 			}
 		}, error) {
-			user, err := s.q.GetUserByEmail(ctx, in.Body.Email)
+			user, err := h.Q.GetUserByEmail(ctx, in.Body.Email)
 			if err != nil {
 				return nil, apiErr(http.StatusUnauthorized, "invalid credentials")
 			}
@@ -177,7 +177,7 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 				return nil, apiErr(500, "generate token: "+err.Error())
 			}
 			token := hex.EncodeToString(raw[:])
-			if _, err := s.q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: "web"}); err != nil {
+			if _, err := h.Q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: user.ID, Token: token, Name: "web"}); err != nil {
 				return nil, apiErr(500, "create api key: "+err.Error())
 			}
 			return &struct {
@@ -199,7 +199,7 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 			if uid == 0 {
 				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
 			}
-			user, err := s.q.GetUserByID(ctx, uid)
+			user, err := h.Q.GetUserByID(ctx, uid)
 			if err != nil {
 				return nil, apiErr(http.StatusUnauthorized, "user not found")
 			}
@@ -222,7 +222,7 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 				Projects []ProjectItem `json:"projects"`
 			}
 		}, error) {
-			rows, err := s.q.ListProjects(ctx)
+			rows, err := h.Q.ListProjects(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -246,7 +246,7 @@ func (s *Server) registerAuthRoutes(api huma.API) {
 				Name string `json:"name"`
 			}
 		}) (*struct{ Body ProjectItem }, error) {
-			row, err := s.q.CreateProject(ctx, db.CreateProjectParams{Slug: in.Body.Slug, Name: in.Body.Name})
+			row, err := h.Q.CreateProject(ctx, db.CreateProjectParams{Slug: in.Body.Slug, Name: in.Body.Name})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}

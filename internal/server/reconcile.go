@@ -12,16 +12,10 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/server/handlers"
 )
 
-type ReconcileResult struct {
-	IssueID      string   `json:"issue_id"`
-	ResolutionID string   `json:"resolution_id"`
-	MatchedSHAs  []string `json:"matched_shas"`
-	Source       string   `json:"source"`
-}
-
-func (s *Server) reconcileBranch(ctx context.Context, projectID int32, slug, targetBranch string) ([]ReconcileResult, error) {
+func (s *Server) ReconcileBranch(ctx context.Context, projectID int32, slug, targetBranch string) ([]handlers.ReconcileResult, error) {
 	row, err := s.q.GetProjectGitConfig(ctx, slug)
 	if err != nil {
 		return nil, fmt.Errorf("project git config not found")
@@ -33,12 +27,12 @@ func (s *Server) reconcileBranch(ctx context.Context, projectID int32, slug, tar
 	if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
 		gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
 	}
-	dir := s.repoDir(slug)
+	dir := s.RepoDir(slug)
 	defaultBranch := row.GitBranch
 	if defaultBranch == "" {
 		defaultBranch = "main"
 	}
-	if err := ensureRepo(dir, gitURL, defaultBranch); err != nil {
+	if err := handlers.EnsureRepo(dir, gitURL, defaultBranch); err != nil {
 		return nil, fmt.Errorf("git: %w", err)
 	}
 
@@ -47,7 +41,7 @@ func (s *Server) reconcileBranch(ctx context.Context, projectID int32, slug, tar
 		return nil, err
 	}
 
-	var results []ReconcileResult
+	var results []handlers.ReconcileResult
 	for _, res := range resolutions {
 		if res.BranchOfOrigin == targetBranch {
 			continue
@@ -98,7 +92,7 @@ func (s *Server) reconcileBranch(ctx context.Context, projectID int32, slug, tar
 				Ord:          int32(i),
 			})
 		}
-		results = append(results, ReconcileResult{
+		results = append(results, handlers.ReconcileResult{
 			IssueID:      res.IssueID,
 			ResolutionID: newResID,
 			MatchedSHAs:  matchedSHAs,
@@ -110,19 +104,19 @@ func (s *Server) reconcileBranch(ctx context.Context, projectID int32, slug, tar
 
 func isAncestor(repoDir, sha, ref string) bool {
 	cmd := exec.Command("git", "-C", repoDir, "merge-base", "--is-ancestor", sha, ref)
-	cmd.Env = gitEnv()
+	cmd.Env = handlers.GitEnv()
 	return cmd.Run() == nil
 }
 
 func getPatchID(repoDir, sha string) string {
 	cmd := exec.Command("git", "-C", repoDir, "show", sha)
-	cmd.Env = gitEnv()
+	cmd.Env = handlers.GitEnv()
 	showOut, err := cmd.Output()
 	if err != nil {
 		return ""
 	}
 	patchCmd := exec.Command("git", "-C", repoDir, "patch-id", "--stable")
-	patchCmd.Env = gitEnv()
+	patchCmd.Env = handlers.GitEnv()
 	patchCmd.Stdin = strings.NewReader(string(showOut))
 	out, err := patchCmd.Output()
 	if err != nil {
@@ -148,7 +142,7 @@ func findEquivalentCommits(repoDir string, originalCommits []db.ZdxIssueResoluti
 	}
 
 	cmd := exec.Command("git", "-C", repoDir, "log", "--format=%H", "origin/"+targetBranch, "-100")
-	cmd.Env = gitEnv()
+	cmd.Env = handlers.GitEnv()
 	out, err := cmd.Output()
 	if err != nil {
 		return nil
@@ -187,13 +181,13 @@ func findSquashEquivalent(repoDir string, originalCommits []db.ZdxIssueResolutio
 	last := originalCommits[len(originalCommits)-1].Sha
 
 	cmd := exec.Command("git", "-C", repoDir, "diff", first+"^", last)
-	cmd.Env = gitEnv()
+	cmd.Env = handlers.GitEnv()
 	combinedDiff, err := cmd.Output()
 	if err != nil || len(combinedDiff) == 0 {
 		return nil
 	}
 	patchCmd := exec.Command("git", "-C", repoDir, "patch-id", "--stable")
-	patchCmd.Env = gitEnv()
+	patchCmd.Env = handlers.GitEnv()
 	patchCmd.Stdin = strings.NewReader(string(combinedDiff))
 	out, err := patchCmd.Output()
 	if err != nil {
@@ -206,7 +200,7 @@ func findSquashEquivalent(repoDir string, originalCommits []db.ZdxIssueResolutio
 	combinedPatchID := parts[0]
 
 	logCmd := exec.Command("git", "-C", repoDir, "log", "--format=%H", "origin/"+targetBranch, "-50")
-	logCmd.Env = gitEnv()
+	logCmd.Env = handlers.GitEnv()
 	logOut, err := logCmd.Output()
 	if err != nil {
 		return nil

@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"crypto/rand"
@@ -19,17 +19,17 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerFileRoutes() {
-	s.mux.Post("/api/upload", s.handleUpload)
-	s.mux.Get("/api/files/{id}", s.handleFileServe)
-	s.mux.Get("/api/dx/demos", s.handleListDemos)
-	s.mux.Get("/api/dx/demos/{type}/{name}", s.handleServeDemo)
-	s.mux.Post("/api/dx/demos/upload", s.handleDemoUpload)
+func (h *Handler) registerFileRoutes() {
+	h.Mux.Post("/api/upload", h.handleUpload)
+	h.Mux.Get("/api/files/{id}", h.handleFileServe)
+	h.Mux.Get("/api/dx/demos", h.handleListDemos)
+	h.Mux.Get("/api/dx/demos/{type}/{name}", h.handleServeDemo)
+	h.Mux.Post("/api/dx/demos/upload", h.handleDemoUpload)
 }
 
 // handleUpload accepts multipart/form-data with a single "file" field.
-// Stores to s.uploadsDir and records in zdx_files. Returns {id, url}.
-func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
+// Stores to h.UploadsDir and records in zdx_files. Returns {id, url}.
+func (h *Handler) handleUpload(w http.ResponseWriter, r *http.Request) {
 	const maxSize = 10 << 20 // 10 MB
 	if err := r.ParseMultipartForm(maxSize); err != nil {
 		http.Error(w, `{"title":"Bad Request","status":400,"detail":"invalid multipart"}`, http.StatusBadRequest)
@@ -64,7 +64,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("%02d", now.Month()),
 		hex.EncodeToString(rnd[:])+ext,
 	)
-	absPath := filepath.Join(s.uploadsDir, relPath)
+	absPath := filepath.Join(h.UploadsDir, relPath)
 	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
 		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
 		return
@@ -81,7 +81,7 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	row, err := s.q.CreateFile(r.Context(), db.CreateFileParams{
+	row, err := h.Q.CreateFile(r.Context(), db.CreateFileParams{
 		Provider:  "fs",
 		Path:      relPath,
 		MimeType:  mimeType,
@@ -100,26 +100,26 @@ func (s *Server) handleUpload(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleFileServe serves an uploaded file by its zdx_files.id.
-func (s *Server) handleFileServe(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleFileServe(w http.ResponseWriter, r *http.Request) {
 	idStr := chi.URLParam(r, "id")
 	id, err := strconv.ParseInt(idStr, 10, 32)
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	row, err := s.q.GetFile(r.Context(), int32(id))
+	row, err := h.Q.GetFile(r.Context(), int32(id))
 	if err != nil {
 		http.NotFound(w, r)
 		return
 	}
-	absPath := filepath.Join(s.uploadsDir, row.Path)
+	absPath := filepath.Join(h.UploadsDir, row.Path)
 	w.Header().Set("Content-Type", row.MimeType)
 	http.ServeFile(w, r, absPath)
 }
 
 // ── Demo handlers ────────────────────────────────────────────────────────
 
-func (s *Server) demosDir() string {
+func (h *Handler) demosDir() string {
 	if d := os.Getenv("DEMOS_DIR"); d != "" {
 		return d
 	}
@@ -131,8 +131,8 @@ type DemoListItem struct {
 	Name string `json:"name"`
 }
 
-func (s *Server) handleListDemos(w http.ResponseWriter, r *http.Request) {
-	base := s.demosDir()
+func (h *Handler) handleListDemos(w http.ResponseWriter, r *http.Request) {
+	base := h.demosDir()
 	var items []DemoListItem
 
 	for _, subdir := range []string{"cli", "video"} {
@@ -154,7 +154,7 @@ func (s *Server) handleListDemos(w http.ResponseWriter, r *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{"demos": items})
 }
 
-func (s *Server) handleServeDemo(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 	demoType := chi.URLParam(r, "type")
 	demoName := chi.URLParam(r, "name")
 
@@ -167,7 +167,7 @@ func (s *Server) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	base := s.demosDir()
+	base := h.demosDir()
 	var absPath string
 	switch demoType {
 	case "cli":
@@ -204,7 +204,7 @@ func (s *Server) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 
 // handleDemoUpload accepts multipart/form-data with fields: file, slug, test_name, demo_type.
 // Stores the file via zdx_files and links it to the test via zdx_test_demos.
-func (s *Server) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 	const maxSize = 50 << 20 // 50 MB for video files
 	if err := r.ParseMultipartForm(maxSize); err != nil {
 		http.Error(w, `{"title":"Bad Request","status":400,"detail":"invalid multipart"}`, http.StatusBadRequest)
@@ -251,7 +251,7 @@ func (s *Server) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 		fmt.Sprintf("%02d", now.Month()),
 		hex.EncodeToString(rnd[:])+ext,
 	)
-	absPath := filepath.Join(s.uploadsDir, relPath)
+	absPath := filepath.Join(h.UploadsDir, relPath)
 	if err := os.MkdirAll(filepath.Dir(absPath), 0o755); err != nil {
 		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
 		return
@@ -269,13 +269,13 @@ func (s *Server) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	p, err := getProject(ctx, s.q, slug)
+	p, err := getProject(ctx, h.Q, slug)
 	if err != nil {
 		http.Error(w, `{"title":"Not Found","status":404,"detail":"project not found"}`, http.StatusNotFound)
 		return
 	}
 
-	fileRow, err := s.q.CreateFile(ctx, db.CreateFileParams{
+	fileRow, err := h.Q.CreateFile(ctx, db.CreateFileParams{
 		Provider:  "fs",
 		Path:      relPath,
 		MimeType:  mimeType,
@@ -286,7 +286,7 @@ func (s *Server) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	test, err := s.q.GetTest(ctx, db.GetTestParams{
+	test, err := h.Q.GetTest(ctx, db.GetTestParams{
 		ProjectID: p.ID,
 		Component: "e2e",
 		Name:      testName,
@@ -296,7 +296,7 @@ func (s *Server) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	_, err = s.q.UpsertTestDemo(ctx, db.UpsertTestDemoParams{
+	_, err = h.Q.UpsertTestDemo(ctx, db.UpsertTestDemoParams{
 		TestID:       test.ID,
 		DemoType:     demoType,
 		ArtifactPath: relPath,

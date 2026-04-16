@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerFeatureRoutes(api huma.API) {
+func (h *Handler) registerFeatureRoutes(api huma.API) {
 	type FeaturesOutput = struct {
 		Body struct {
 			Features []FeatureItem `json:"features"`
@@ -22,13 +22,13 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 	// /api/dx/todo/list — feature list with specs and plan (used by CLI todo queue)
 	huma.Register(api, huma.Operation{OperationID: "list-features-todo", Method: http.MethodGet, Path: "/api/dx/todo/list"},
 		func(ctx context.Context, in *IssueSlugInput) (*FeaturesOutput, error) {
-			return s.featuresWithSpecs(ctx, in.Slug)
+			return h.featuresWithSpecs(ctx, in.Slug)
 		})
 
 	// /api/features — same data, used by removeFeature lookup
 	huma.Register(api, huma.Operation{OperationID: "list-features", Method: http.MethodGet, Path: "/api/features"},
 		func(ctx context.Context, in *IssueSlugInput) (*FeaturesOutput, error) {
-			return s.featuresWithSpecs(ctx, in.Slug)
+			return h.featuresWithSpecs(ctx, in.Slug)
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "get-feature", Method: http.MethodGet, Path: "/api/dx/feature"},
@@ -36,15 +36,15 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 			Slug string `query:"slug" required:"true"`
 			Name string `query:"name" required:"true"`
 		}) (*struct{ Body FeatureItem }, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			feat, err := s.q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Name})
+			feat, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Name})
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "feature not found: "+in.Name)
 			}
-			specs, _ := s.q.ListSpecs(ctx, feat.ID)
+			specs, _ := h.Q.ListSpecs(ctx, feat.ID)
 			return &struct{ Body FeatureItem }{Body: toFeatureItem(feat, specs)}, nil
 		})
 
@@ -56,11 +56,11 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Description string `json:"description"`
 			}
 		}) (*struct{ Body FeatureItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.UpsertFeature(ctx, db.UpsertFeatureParams{
+			row, err := h.Q.UpsertFeature(ctx, db.UpsertFeatureParams{
 				ProjectID:   p.ID,
 				Name:        in.Body.Name,
 				Description: in.Body.Description,
@@ -77,7 +77,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				ID int32 `json:"id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.DeleteFeature(ctx, in.Body.ID); err != nil {
+			if err := h.Q.DeleteFeature(ctx, in.Body.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -92,11 +92,11 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Value   string `json:"value"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.UpdateFeatureField(ctx, db.UpdateFeatureFieldParams{
+			if err := h.Q.UpdateFeatureField(ctx, db.UpdateFeatureFieldParams{
 				ProjectID: p.ID,
 				Name:      in.Body.Feature,
 				Field:     in.Body.Field,
@@ -116,16 +116,16 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Value   string `json:"value"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			f, err := s.q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature})
+			f, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature})
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "feature not found")
 			}
 			// field is the spec kind (unit_test, api_test, ui_test); value is description
-			_, err = s.q.AddSpec(ctx, db.AddSpecParams{
+			_, err = h.Q.AddSpec(ctx, db.AddSpecParams{
 				FeatureID:   f.ID,
 				Description: in.Body.Value,
 				Kind:        in.Body.Field,
@@ -143,7 +143,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				TestID int32 `json:"test_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.LinkSpecTest(ctx, db.LinkSpecTestParams{
+			if err := h.Q.LinkSpecTest(ctx, db.LinkSpecTestParams{
 				SpecID: in.Body.SpecID,
 				TestID: in.Body.TestID,
 			}); err != nil {
@@ -159,7 +159,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				TestID int32 `json:"test_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.UnlinkSpecTest(ctx, db.UnlinkSpecTestParams{
+			if err := h.Q.UnlinkSpecTest(ctx, db.UnlinkSpecTestParams{
 				SpecID: in.Body.SpecID,
 				TestID: in.Body.TestID,
 			}); err != nil {
@@ -175,7 +175,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Reason string `json:"reason"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.DeferSpec(ctx, db.DeferSpecParams{ID: in.Body.SpecID, Reason: in.Body.Reason}); err != nil {
+			if err := h.Q.DeferSpec(ctx, db.DeferSpecParams{ID: in.Body.SpecID, Reason: in.Body.Reason}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -187,7 +187,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				SpecID int32 `json:"spec_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.UndeferSpec(ctx, in.Body.SpecID); err != nil {
+			if err := h.Q.UndeferSpec(ctx, in.Body.SpecID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -202,11 +202,11 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Issues []SpecIssueItem `json:"issues"`
 			}
 		}, error) {
-			spec, err := s.q.GetSpec(ctx, in.SpecID)
+			spec, err := h.Q.GetSpec(ctx, in.SpecID)
 			if err != nil {
 				return nil, apiErr(404, "spec not found")
 			}
-			issueRows, _ := s.q.ListSpecIssues(ctx, in.SpecID)
+			issueRows, _ := h.Q.ListSpecIssues(ctx, in.SpecID)
 			issues := make([]SpecIssueItem, len(issueRows))
 			for i, r := range issueRows {
 				issues[i] = SpecIssueItem{SpecID: r.SpecID, IssueID: r.IssueID, Title: r.Title, Status: r.Status}
@@ -238,7 +238,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				IssueID string `json:"issue_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.LinkSpecIssue(ctx, db.LinkSpecIssueParams{SpecID: in.Body.SpecID, IssueID: in.Body.IssueID}); err != nil {
+			if err := h.Q.LinkSpecIssue(ctx, db.LinkSpecIssueParams{SpecID: in.Body.SpecID, IssueID: in.Body.IssueID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -251,7 +251,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				IssueID string `json:"issue_id"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := s.q.UnlinkSpecIssue(ctx, db.UnlinkSpecIssueParams{SpecID: in.Body.SpecID, IssueID: in.Body.IssueID}); err != nil {
+			if err := h.Q.UnlinkSpecIssue(ctx, db.UnlinkSpecIssueParams{SpecID: in.Body.SpecID, IssueID: in.Body.IssueID}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -265,7 +265,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Tests []SpecTestItem `json:"tests"`
 			}
 		}, error) {
-			rows, err := s.q.ListTestsForSpec(ctx, in.SpecID)
+			rows, err := h.Q.ListTestsForSpec(ctx, in.SpecID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -290,7 +290,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Demos []SpecDemoItem `json:"demos"`
 			}
 		}, error) {
-			rows, err := s.q.ListDemosForSpec(ctx, in.SpecID)
+			rows, err := h.Q.ListDemosForSpec(ctx, in.SpecID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -328,7 +328,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Features []FeatureItem `json:"features"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -336,7 +336,7 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 			if days == 0 {
 				days = 30
 			}
-			rows, err := s.q.ListStaleFeatures(ctx, db.ListStaleFeaturesParams{ProjectID: p.ID, StaleDays: days})
+			rows, err := h.Q.ListStaleFeatures(ctx, db.ListStaleFeaturesParams{ProjectID: p.ID, StaleDays: days})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -360,11 +360,11 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Feature string `json:"feature"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.MarkFeatureReviewed(ctx, db.MarkFeatureReviewedParams{ProjectID: p.ID, Name: in.Body.Feature}); err != nil {
+			if err := h.Q.MarkFeatureReviewed(ctx, db.MarkFeatureReviewedParams{ProjectID: p.ID, Name: in.Body.Feature}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -376,11 +376,11 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Specs []UncoveredSpecItem `json:"specs"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListUncoveredSpecs(ctx, p.ID)
+			rows, err := h.Q.ListUncoveredSpecs(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -409,11 +409,11 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Specs []UncoveredSpecItem `json:"specs"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListSpecsWithoutDemos(ctx, p.ID)
+			rows, err := h.Q.ListSpecsWithoutDemos(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -448,15 +448,15 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 				Approach   string `json:"approach"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			f, err := s.q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature})
+			f, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature})
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "feature not found")
 			}
-			_, err = s.q.UpsertPlan(ctx, db.UpsertPlanParams{
+			_, err = h.Q.UpsertPlan(ctx, db.UpsertPlanParams{
 				FeatureID:  f.ID,
 				PlanType:   in.Body.PlanType,
 				Complexity: in.Body.Complexity,
@@ -471,21 +471,21 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 
 // ── Internal helpers ───────────────────────────────────────────────────────
 
-func (s *Server) featuresWithSpecs(ctx context.Context, slug string) (*struct {
+func (h *Handler) featuresWithSpecs(ctx context.Context, slug string) (*struct {
 	Body struct {
 		Features []FeatureItem `json:"features"`
 	}
 }, error) {
-	p, err := getProject(ctx, s.q, slug)
+	p, err := getProject(ctx, h.Q, slug)
 	if err != nil {
 		return nil, err
 	}
-	rows, err := s.q.ListFeatures(ctx, p.ID)
+	rows, err := h.Q.ListFeatures(ctx, p.ID)
 	if err != nil {
 		return nil, apiErr(500, err.Error())
 	}
 	// Fetch all specs in one query and group by feature_id.
-	allSpecs, _ := s.q.ListSpecsForProject(ctx, p.ID)
+	allSpecs, _ := h.Q.ListSpecsForProject(ctx, p.ID)
 	specsByFeature := make(map[int32][]db.ZdxSpec, len(allSpecs))
 	for _, sp := range allSpecs {
 		specsByFeature[sp.FeatureID] = append(specsByFeature[sp.FeatureID], sp)

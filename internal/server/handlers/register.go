@@ -1,0 +1,32 @@
+package handlers
+
+import "github.com/danielgtaylor/huma/v2"
+
+// Register wires every API route group in this package onto the given API.
+// Callers (server.registerRoutes) pass their concrete Deps, which satisfies the
+// Broker / Reconciler / Embedder / IngestRegistrar interfaces.
+func Register(api huma.API, deps *Deps) {
+	h := &Handler{Deps: deps}
+	h.registerAuthRoutes(api)
+	h.registerIssueRoutes(api)
+	h.registerTaskRoutes(api)
+	h.registerFeatureRoutes(api)
+	h.registerProjectRoutes(api)
+	h.registerThemeRoutes(api)
+	h.registerDxRoutes(api)
+	h.registerErrorRoutes(api)
+	h.registerCommentRoutes(api)
+	h.registerAdminRoutes(api)
+	h.registerCodeRefRoutes(api)
+	h.registerQARoutes(api)
+	h.registerClaudeRoutes(api)
+	h.registerAgentSessionRoutes(api)
+	h.registerCounterRoutes(api)
+	h.registerErrorEventRoutes(api)
+	h.registerLogEventRoutes(api)
+	h.registerAgentRoutes(api)
+	h.registerPatternRoutes(api)
+	h.registerSoloRoutes(api)
+	h.registerHistoryRoutes(api)
+	h.registerFileRoutes()
+}

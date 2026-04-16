@@ -6,13 +6,16 @@ import (
 	"time"
 
 	"github.com/jackc/pgx/v5"
+
+	"github.com/iodesystems/zdx-go/internal/server/handlers"
 )
 
 // QueryTracer implements pgx.QueryTracer. Every query that crosses the pool
 // is timed and pushed to Sink. Source is read from ctx (stamped by
-// sourceMiddleware for HTTP, by WithSource for background work); if missing,
-// the query is still recorded with source="background" so nothing disappears.
-// A ctx carrying ctxSkipTiming is ignored — used by the drainer itself.
+// sourceMiddleware for HTTP, by handlers.WithSource for background work); if
+// missing, the query is still recorded with source="background" so nothing
+// disappears. A ctx carrying handlers.CtxSkipTiming is ignored — used by the
+// drainer itself.
 type QueryTracer struct {
 	Sink timingSink
 }
@@ -23,17 +26,17 @@ type queryStartInfo struct {
 }
 
 func (QueryTracer) TraceQueryStart(ctx context.Context, _ *pgx.Conn, data pgx.TraceQueryStartData) context.Context {
-	if v, _ := ctx.Value(ctxSkipTiming).(bool); v {
+	if handlers.SkipTimingFromContext(ctx) {
 		return ctx
 	}
-	return context.WithValue(ctx, ctxQueryStart, queryStartInfo{
+	return context.WithValue(ctx, handlers.CtxQueryStart, queryStartInfo{
 		start: time.Now(),
 		name:  sqlQueryName(data.SQL),
 	})
 }
 
 func (t QueryTracer) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, _ pgx.TraceQueryEndData) {
-	info, ok := ctx.Value(ctxQueryStart).(queryStartInfo)
+	info, ok := ctx.Value(handlers.CtxQueryStart).(queryStartInfo)
 	if !ok {
 		return
 	}
@@ -44,7 +47,7 @@ func (t QueryTracer) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, _ pgx.Trace
 	tags := map[string]string{"query": strings.TrimPrefix(info.name, "sql:")}
 	t.Sink.send(Timing{
 		Name:       info.name,
-		Source:     sourceFromCtx(ctx),
+		Source:     handlers.SourceFromContext(ctx),
 		DurationMs: ms,
 		Tags:       tags,
 	})

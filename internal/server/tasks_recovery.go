@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/server/handlers"
 )
 
 func (s *Server) StartTaskRecovery(ctx context.Context) {
@@ -20,7 +21,7 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 				if r.ClaimedBy.Valid {
 					prevAgent = r.ClaimedBy.String
 				}
-				s.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "active", "ready", prevAgent)
+				handlers.RecordStatusChange(ctx, s.q, r.ProjectID, "task", r.ID, "active", "ready", prevAgent)
 			}
 		}
 
@@ -30,7 +31,7 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 		} else if len(orphaned) > 0 {
 			log.Printf("task-recovery: cancelled %d orphaned tasks (parent issue closed)", len(orphaned))
 			for _, r := range orphaned {
-				s.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "", "done", "")
+				handlers.RecordStatusChange(ctx, s.q, r.ProjectID, "task", r.ID, "", "done", "")
 			}
 		}
 

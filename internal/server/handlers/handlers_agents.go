@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -58,7 +58,7 @@ func agentItemFrom(a db.ZdxAgent) AgentItem {
 	}
 }
 
-func (s *Server) registerAgentRoutes(api huma.API) {
+func (h *Handler) registerAgentRoutes(api huma.API) {
 	// Register / upsert agent
 	huma.Register(api, huma.Operation{OperationID: "register-agent", Method: http.MethodPost, Path: "/api/agents/register"},
 		func(ctx context.Context, in *struct {
@@ -77,7 +77,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				ValkeyUrl      string `json:"valkey_url"`
 			}
 		}) (*struct{ Body AgentItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -85,7 +85,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			if status == "" {
 				status = "active"
 			}
-			a, err := s.q.RegisterAgent(ctx, db.RegisterAgentParams{
+			a, err := h.Q.RegisterAgent(ctx, db.RegisterAgentParams{
 				ID:             in.Body.ID,
 				ProjectID:      p.ID,
 				SessionID:      in.Body.SessionID,
@@ -113,11 +113,11 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				Agents []AgentItem `json:"agents"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListAgentsByProject(ctx, p.ID)
+			rows, err := h.Q.ListAgentsByProject(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -139,7 +139,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			ID string `path:"id" required:"true"`
 		}) (*struct{ Body AgentItem }, error) {
-			a, err := s.q.GetAgent(ctx, in.ID)
+			a, err := h.Q.GetAgent(ctx, in.ID)
 			if err != nil {
 				return nil, apiErr(404, "agent not found")
 			}
@@ -152,7 +152,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			ID string `path:"id" required:"true"`
 		}) (*struct{}, error) {
-			if err := s.q.UpdateAgentHeartbeat(ctx, in.ID); err != nil {
+			if err := h.Q.UpdateAgentHeartbeat(ctx, in.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{}{}, nil
@@ -163,7 +163,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			ID string `path:"id" required:"true"`
 		}) (*struct{}, error) {
-			if err := s.q.DeleteAgent(ctx, in.ID); err != nil {
+			if err := h.Q.DeleteAgent(ctx, in.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{}{}, nil
@@ -185,7 +185,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				mins = 5
 			}
 			interval := pgtype.Interval{Microseconds: int64(mins) * 60 * 1_000_000, Valid: true}
-			rows, err := s.q.ReapStaleAgents(ctx, interval)
+			rows, err := h.Q.ReapStaleAgents(ctx, interval)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -211,7 +211,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				Tasks []AgentTaskItem `json:"tasks"`
 			}
 		}, error) {
-			rows, err := s.q.ListTasksByAgent(ctx, pgtype.Text{String: in.ID, Valid: true})
+			rows, err := h.Q.ListTasksByAgent(ctx, pgtype.Text{String: in.ID, Valid: true})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -249,7 +249,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				LeaseDurationMin int32  `json:"lease_duration_min"`
 			}
 		}) (*struct{ Body AgentTaskItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -258,7 +258,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				dur = 30
 			}
 			interval := pgtype.Interval{Microseconds: int64(dur) * 60 * 1_000_000, Valid: true}
-			t, err := s.q.ClaimTask(ctx, db.ClaimTaskParams{
+			t, err := h.Q.ClaimTask(ctx, db.ClaimTaskParams{
 				AgentID:       pgtype.Text{String: in.Body.AgentID, Valid: true},
 				LeaseDuration: interval,
 				ProjectID:     p.ID,
@@ -268,7 +268,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "no tasks available to claim")
 			}
-			s.recordStatusChange(ctx, p.ID, "task", t.ID, "ready", "active", in.Body.AgentID)
+			h.recordStatusChange(ctx, p.ID, "task", t.ID, "ready", "active", in.Body.AgentID)
 			item := AgentTaskItem{
 				ID:             t.ID,
 				Text:           t.Text,
@@ -295,23 +295,23 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 		}) (*struct{}, error) {
 			taskID := in.ID
 			prev := ""
-			if t, gErr := s.q.GetTask(ctx, taskID); gErr == nil {
+			if t, gErr := h.Q.GetTask(ctx, taskID); gErr == nil {
 				prev = t.Status
 			}
 			if in.Body.AgentID == "" {
-				if err := s.q.ReleaseTaskAdmin(ctx, taskID); err != nil {
+				if err := h.Q.ReleaseTaskAdmin(ctx, taskID); err != nil {
 					return nil, apiErr(500, err.Error())
 				}
-				s.recordTaskStatusChange(ctx, taskID, prev, "ready", "")
+				h.recordTaskStatusChange(ctx, taskID, prev, "ready", "")
 				return &struct{}{}, nil
 			}
-			if err := s.q.ReleaseTask(ctx, db.ReleaseTaskParams{
+			if err := h.Q.ReleaseTask(ctx, db.ReleaseTaskParams{
 				ID:        taskID,
 				ClaimedBy: pgtype.Text{String: in.Body.AgentID, Valid: true},
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			s.recordTaskStatusChange(ctx, taskID, prev, "ready", in.Body.AgentID)
+			h.recordTaskStatusChange(ctx, taskID, prev, "ready", in.Body.AgentID)
 			return &struct{}{}, nil
 		})
 
@@ -329,7 +329,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				dur = 30
 			}
 			interval := pgtype.Interval{Microseconds: int64(dur) * 60 * 1_000_000, Valid: true}
-			if err := s.q.RenewTaskLease(ctx, db.RenewTaskLeaseParams{
+			if err := h.Q.RenewTaskLease(ctx, db.RenewTaskLeaseParams{
 				LeaseDuration: interval,
 				ID:            in.ID,
 				AgentID:       pgtype.Text{String: in.Body.AgentID, Valid: true},
@@ -346,7 +346,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				Reclaimed int `json:"reclaimed"`
 			}
 		}, error) {
-			rows, err := s.q.ReclaimExpiredTasks(ctx)
+			rows, err := h.Q.ReclaimExpiredTasks(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -355,7 +355,7 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 				if r.ClaimedBy.Valid {
 					prevAgent = r.ClaimedBy.String
 				}
-				s.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "active", "ready", prevAgent)
+				h.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "active", "ready", prevAgent)
 			}
 			return &struct {
 				Body struct {

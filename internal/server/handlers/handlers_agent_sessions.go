@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"bufio"
@@ -24,7 +24,7 @@ import (
 // getOrCreateAgentSession). The batch /ingest endpoint is left intact; a later
 // task removes it.
 
-func (s *Server) registerAgentSessionRoutes(api huma.API) {
+func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{
 		OperationID: "create-agent-session",
 		Method:      http.MethodPost,
@@ -49,16 +49,16 @@ func (s *Server) registerAgentSessionRoutes(api huma.API) {
 			Created   bool   `json:"created"`
 		}
 	}, error) {
-		p, err := getProject(ctx, s.q, in.Slug)
+		p, err := getProject(ctx, h.Q, in.Slug)
 		if err != nil {
 			return nil, err
 		}
-		sess, created, err := s.getOrCreateAgentSession(ctx, p.ID, in.Sid, in.Body.IssueID, in.Body.Alias, in.Body.Title)
+		sess, created, err := h.getOrCreateAgentSession(ctx, p.ID, in.Sid, in.Body.IssueID, in.Body.Alias, in.Body.Title)
 		if err != nil {
 			return nil, apiErr(500, err.Error())
 		}
 		if created {
-			s.publishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-created", map[string]any{
+			h.Broker.PublishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-created", map[string]any{
 				"session_id": sess.SessionID,
 				"session_pk": sess.ID,
 				"provider":   in.Body.Provider,
@@ -105,11 +105,11 @@ func (s *Server) registerAgentSessionRoutes(api huma.API) {
 			Status    string `json:"status"`
 		}
 	}, error) {
-		p, err := getProject(ctx, s.q, in.Slug)
+		p, err := getProject(ctx, h.Q, in.Slug)
 		if err != nil {
 			return nil, err
 		}
-		sess, err := s.q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
+		sess, err := h.Q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
 			ProjectID: p.ID,
 			SessionID: in.Sid,
 		})
@@ -117,7 +117,7 @@ func (s *Server) registerAgentSessionRoutes(api huma.API) {
 			return nil, apiErr(404, "session not found")
 		}
 
-		s.publishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-closed", map[string]any{
+		h.Broker.PublishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-closed", map[string]any{
 			"session_id":  sess.SessionID,
 			"session_pk":  sess.ID,
 			"exit_code":   in.Body.ExitCode,
@@ -131,7 +131,7 @@ func (s *Server) registerAgentSessionRoutes(api huma.API) {
 			},
 		})
 
-		go s.summarizeSessionFromDBAsync(p.ID, sess.ID)
+		go h.summarizeSessionFromDBAsync(p.ID, sess.ID)
 
 		return &struct {
 			Body struct {
@@ -145,7 +145,7 @@ func (s *Server) registerAgentSessionRoutes(api huma.API) {
 	})
 
 	// Events ingestion: raw ndjson body, wrapped-event format per line.
-	s.mux.Post("/api/dx/agent/sessions/{sid}/events", s.handleAgentSessionEvents)
+	h.Mux.Post("/api/dx/agent/sessions/{sid}/events", h.handleAgentSessionEvents)
 }
 
 // ── Shared helpers ─────────────────────────────────────────────────────────
@@ -153,8 +153,8 @@ func (s *Server) registerAgentSessionRoutes(api huma.API) {
 // getOrCreateAgentSession looks up a session by (project_id, session_id) and
 // creates one if it doesn't exist. The second return is true when this call
 // created the row.
-func (s *Server) getOrCreateAgentSession(ctx context.Context, projectID int32, sessionID, issueID, alias, title string) (db.CreateClaudeSessionRow, bool, error) {
-	sess, err := s.q.CreateClaudeSession(ctx, db.CreateClaudeSessionParams{
+func (h *Handler) getOrCreateAgentSession(ctx context.Context, projectID int32, sessionID, issueID, alias, title string) (db.CreateClaudeSessionRow, bool, error) {
+	sess, err := h.Q.CreateClaudeSession(ctx, db.CreateClaudeSessionParams{
 		ProjectID: projectID,
 		IssueID:   issueID,
 		SessionID: sessionID,
@@ -167,7 +167,7 @@ func (s *Server) getOrCreateAgentSession(ctx context.Context, projectID int32, s
 	if !strings.Contains(err.Error(), "duplicate key") {
 		return db.CreateClaudeSessionRow{}, false, err
 	}
-	existing, lookupErr := s.q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
+	existing, lookupErr := h.Q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
 		ProjectID: projectID,
 		SessionID: sessionID,
 	})
@@ -190,7 +190,7 @@ func (s *Server) getOrCreateAgentSession(ctx context.Context, projectID int32, s
 
 // ingestAgentEvent persists one event and publishes it on the WS channel
 // under both agent.event (new) and claude.event (legacy, for UI transition).
-func (s *Server) ingestAgentEvent(
+func (h *Handler) ingestAgentEvent(
 	ctx context.Context,
 	slug, sessionID string,
 	sessionPK int64,
@@ -200,7 +200,7 @@ func (s *Server) ingestAgentEvent(
 	agentID, agentType, agentDesc string,
 ) {
 	isSidechain := agentID != ""
-	_ = s.q.CreateClaudeEvent(ctx, db.CreateClaudeEventParams{
+	_ = h.Q.CreateClaudeEvent(ctx, db.CreateClaudeEventParams{
 		SessionPk:        sessionPK,
 		Seq:              seq,
 		EventType:        eventType,
@@ -229,14 +229,14 @@ func (s *Server) ingestAgentEvent(
 		"agent_type":        agentType,
 		"agent_description": agentDesc,
 	}
-	s.publishClaudeEvent(slug, sessionID, "agent.event", payload)
+	h.Broker.PublishClaudeEvent(slug, sessionID, "agent.event", payload)
 	// Emit legacy event name so the current UI keeps working during transition.
-	s.publishClaudeEvent(slug, sessionID, "claude.event", payload)
+	h.Broker.PublishClaudeEvent(slug, sessionID, "claude.event", payload)
 }
 
 // ── /events handler ───────────────────────────────────────────────────────
 
-func (s *Server) handleAgentSessionEvents(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) handleAgentSessionEvents(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
 	sid := chi.URLParam(r, "sid")
@@ -246,13 +246,13 @@ func (s *Server) handleAgentSessionEvents(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	p, err := s.q.GetProjectBySlug(ctx, slug)
+	p, err := h.Q.GetProjectBySlug(ctx, slug)
 	if err != nil {
 		http.Error(w, `{"title":"Not Found","status":404,"detail":"project not found"}`, http.StatusNotFound)
 		return
 	}
 
-	sess, err := s.q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
+	sess, err := h.Q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
 		ProjectID: p.ID,
 		SessionID: sid,
 	})
@@ -261,7 +261,7 @@ func (s *Server) handleAgentSessionEvents(w http.ResponseWriter, r *http.Request
 		return
 	}
 
-	maxSeq, err := s.q.GetMaxClaudeEventSeq(ctx, sess.ID)
+	maxSeq, err := h.Q.GetMaxClaudeEventSeq(ctx, sess.ID)
 	if err != nil {
 		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
 		return
@@ -298,7 +298,7 @@ func (s *Server) handleAgentSessionEvents(w http.ResponseWriter, r *http.Request
 		if len(eventBytes) == 0 {
 			eventBytes = []byte("{}")
 		}
-		s.ingestAgentEvent(ctx, slug, sess.SessionID, sess.ID, ev.Seq, ev.EventType, eventBytes, ev.AgentID, ev.AgentType, ev.AgentDescription)
+		h.ingestAgentEvent(ctx, slug, sess.SessionID, sess.ID, ev.Seq, ev.EventType, eventBytes, ev.AgentID, ev.AgentType, ev.AgentDescription)
 		if ev.Seq > maxSeq {
 			maxSeq = ev.Seq
 		}
@@ -320,9 +320,9 @@ func (s *Server) handleAgentSessionEvents(w http.ResponseWriter, r *http.Request
 // summarizeSessionFromDBAsync loads all events for the session from the DB,
 // reconstructs the transcript, and runs the shared summarize pipeline. Used by
 // the /close endpoint where the request body does not carry the events.
-func (s *Server) summarizeSessionFromDBAsync(projectID int32, sessionPK int64) {
+func (h *Handler) summarizeSessionFromDBAsync(projectID int32, sessionPK int64) {
 	ctx := WithSource(context.Background(), "auto-summarize")
-	events, err := s.q.ListClaudeEvents(ctx, sessionPK)
+	events, err := h.Q.ListClaudeEvents(ctx, sessionPK)
 	if err != nil {
 		return
 	}
@@ -330,5 +330,5 @@ func (s *Server) summarizeSessionFromDBAsync(projectID int32, sessionPK int64) {
 	for _, ev := range events {
 		lines = append(lines, string(ev.EventJson))
 	}
-	s.summarizeSessionAsync(projectID, sessionPK, lines)
+	h.summarizeSessionAsync(projectID, sessionPK, lines)
 }

@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -12,7 +12,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerErrorRoutes(api huma.API) {
+func (h *Handler) registerErrorRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "report-error", Method: http.MethodPost, Path: "/api/dx/errors/report"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -23,11 +23,11 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 				StackTrace string `json:"stack_trace"`
 			}
 		}) (*struct{ Body ErrorReportItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.InsertErrorReport(ctx, db.InsertErrorReportParams{
+			row, err := h.Q.InsertErrorReport(ctx, db.InsertErrorReportParams{
 				ProjectID:  pgtype.Int4{Int32: p.ID, Valid: true},
 				Source:     in.Body.Source,
 				Endpoint:   in.Body.Endpoint,
@@ -54,14 +54,14 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 				Total  int64             `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			pid := pgtype.Int4{Int32: p.ID, Valid: true}
-			total, _ := s.q.CountErrorReports(ctx, pid)
+			total, _ := h.Q.CountErrorReports(ctx, pid)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListErrorReportsPaginated(ctx, db.ListErrorReportsPaginatedParams{ProjectID: pid, Limit: limit, Offset: offset})
+			rows, err := h.Q.ListErrorReportsPaginated(ctx, db.ListErrorReportsPaginatedParams{ProjectID: pid, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -92,7 +92,7 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 			ID   int64  `path:"id"`
 			Slug string `query:"slug,omitempty"`
 		}) (*struct{ Body ErrorReportItem }, error) {
-			row, err := s.q.GetErrorReportByID(ctx, in.ID)
+			row, err := h.Q.GetErrorReportByID(ctx, in.ID)
 			if err != nil {
 				return nil, apiErr(404, "error report not found")
 			}
@@ -105,8 +105,8 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 				CreatedAt:  fmtTS(row.CreatedAt),
 			}
 			if in.Slug != "" {
-				if p, pErr := getProject(ctx, s.q, in.Slug); pErr == nil {
-					if linked, lErr := s.q.GetIssueBySourceErrorID(ctx, db.GetIssueBySourceErrorIDParams{
+				if p, pErr := getProject(ctx, h.Q, in.Slug); pErr == nil {
+					if linked, lErr := h.Q.GetIssueBySourceErrorID(ctx, db.GetIssueBySourceErrorIDParams{
 						ProjectID:     p.ID,
 						SourceErrorID: pgtype.Int8{Int64: row.ID, Valid: true},
 					}); lErr == nil {
@@ -124,11 +124,11 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "clear-errors", Method: http.MethodDelete, Path: "/api/dx/errors"},
 		func(ctx context.Context, in *IssueSlugInput) (*struct{}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.DeleteErrorReports(ctx, pgtype.Int4{Int32: p.ID, Valid: true}); err != nil {
+			if err := h.Q.DeleteErrorReports(ctx, pgtype.Int4{Int32: p.ID, Valid: true}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return nil, nil
@@ -145,11 +145,11 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 				ExplainJson string `json:"explain_json"`
 			}
 		}) (*struct{ Body SlowQueryItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.InsertSlowQuery(ctx, db.InsertSlowQueryParams{
+			row, err := h.Q.InsertSlowQuery(ctx, db.InsertSlowQueryParams{
 				ProjectID:   pgtype.Int4{Int32: p.ID, Valid: true},
 				SqlHash:     in.Body.SqlHash,
 				SqlText:     in.Body.SqlText,
@@ -178,14 +178,14 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 				Total   int64           `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
 			pid := pgtype.Int4{Int32: p.ID, Valid: true}
-			total, _ := s.q.CountSlowQueries(ctx, pid)
+			total, _ := h.Q.CountSlowQueries(ctx, pid)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListSlowQueriesPaginated(ctx, db.ListSlowQueriesPaginatedParams{ProjectID: pid, Limit: limit, Offset: offset})
+			rows, err := h.Q.ListSlowQueriesPaginated(ctx, db.ListSlowQueriesPaginatedParams{ProjectID: pid, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -240,7 +240,7 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 		}, error) {
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
@@ -248,9 +248,9 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 			if in.TagFilter != "" {
 				tagFilter = []byte(in.TagFilter)
 			}
-			total, _ := s.q.CountTimed(ctx, db.CountTimedParams{ProjectID: pid, TagFilter: tagFilter})
+			total, _ := h.Q.CountTimed(ctx, db.CountTimedParams{ProjectID: pid, TagFilter: tagFilter})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTimedPaginated(ctx, db.ListTimedPaginatedParams{ProjectID: pid, TagFilter: tagFilter, Lim: limit, Off: offset})
+			rows, err := h.Q.ListTimedPaginated(ctx, db.ListTimedPaginatedParams{ProjectID: pid, TagFilter: tagFilter, Lim: limit, Off: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -303,7 +303,7 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 			}
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
@@ -311,7 +311,7 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 			if in.TagFilter != "" {
 				tagFilter = []byte(in.TagFilter)
 			}
-			rows, err := s.q.ListTimedGrouped(ctx, db.ListTimedGroupedParams{ProjectID: pid, TagFilter: tagFilter, GroupKey: in.GroupBy})
+			rows, err := h.Q.ListTimedGrouped(ctx, db.ListTimedGroupedParams{ProjectID: pid, TagFilter: tagFilter, GroupKey: in.GroupBy})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -347,11 +347,11 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 		}, error) {
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
-			rows, err := s.q.ListTimedDistinctTagKeys(ctx, pid)
+			rows, err := h.Q.ListTimedDistinctTagKeys(ctx, pid)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -384,11 +384,11 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 			}
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
-			rows, err := s.q.ListTimedDistinctTagValues(ctx, db.ListTimedDistinctTagValuesParams{ProjectID: pid, TagKey: in.TagKey})
+			rows, err := h.Q.ListTimedDistinctTagValues(ctx, db.ListTimedDistinctTagValuesParams{ProjectID: pid, TagKey: in.TagKey})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -436,7 +436,7 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 		}, error) {
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
@@ -456,9 +456,9 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			total, _ := s.q.CountTimedEvents(ctx, db.CountTimedEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until})
+			total, _ := h.Q.CountTimedEvents(ctx, db.CountTimedEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTimedEvents(ctx, db.ListTimedEventsParams{
+			rows, err := h.Q.ListTimedEvents(ctx, db.ListTimedEventsParams{
 				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, Lim: limit, Off: offset,
 			})
 			if err != nil {
@@ -511,7 +511,7 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 			}
 			pid := pgtype.Int4{Valid: false}
 			if in.Slug != "" {
-				if p, err := getProject(ctx, s.q, in.Slug); err == nil {
+				if p, err := getProject(ctx, h.Q, in.Slug); err == nil {
 					pid = pgtype.Int4{Int32: p.ID, Valid: true}
 				}
 			}
@@ -531,7 +531,7 @@ func (s *Server) registerErrorRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			rows, err := s.q.ListTimedEventsGrouped(ctx, db.ListTimedEventsGroupedParams{
+			rows, err := h.Q.ListTimedEventsGrouped(ctx, db.ListTimedEventsGroupedParams{
 				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, GroupKey: in.GroupBy,
 			})
 			if err != nil {

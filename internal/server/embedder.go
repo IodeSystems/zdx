@@ -30,7 +30,7 @@ func newEmbedder(dataDir string, sink timingSink) *embedder {
 }
 
 // reload re-reads the LLM config from DB and replaces the active client.
-func (e *embedder) reload(cfg *llm.Config) {
+func (e *embedder) Reload(cfg *llm.Config) {
 	e.mu.Lock()
 	defer e.mu.Unlock()
 	if cfg == nil {
@@ -66,7 +66,7 @@ func (e *embedder) questionIndexPath(projectID int32) string {
 
 // upsertIssue embeds issueText and upserts it into the project's zvec index.
 // Silently no-ops when no LLM client is configured.
-func (e *embedder) upsertIssue(ctx context.Context, projectID int32, issueID string, issueText string) {
+func (e *embedder) UpsertIssue(ctx context.Context, projectID int32, issueID string, issueText string) {
 	vec, err := e.embed(ctx, issueText)
 	if err != nil {
 		log.Printf("embedder: embed issue %s: %v", issueID, err)
@@ -92,7 +92,7 @@ func (e *embedder) upsertIssue(ctx context.Context, projectID int32, issueID str
 }
 
 // topN returns up to n issues most similar to queryText from the project index.
-func (e *embedder) topN(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+func (e *embedder) TopN(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
 	vec, err := e.embed(ctx, queryText)
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)
@@ -149,7 +149,7 @@ func roundUp8(d int) int {
 }
 
 // upsertQuestion embeds questionText and upserts it into the project's question zvec index.
-func (e *embedder) upsertQuestion(ctx context.Context, projectID int32, questionID int32, questionText string) {
+func (e *embedder) UpsertQuestion(ctx context.Context, projectID int32, questionID int32, questionText string) {
 	vec, err := e.embed(ctx, questionText)
 	if err != nil {
 		log.Printf("embedder: embed question %d: %v", questionID, err)
@@ -172,7 +172,7 @@ func (e *embedder) upsertQuestion(ctx context.Context, projectID int32, question
 	e.sink.track(ctx, "zvec:upsert-question", start)
 }
 
-func (e *embedder) complete(ctx context.Context, messages []llm.ChatMessage) (string, error) {
+func (e *embedder) Complete(ctx context.Context, messages []llm.ChatMessage) (string, error) {
 	e.mu.RLock()
 	c := e.client
 	e.mu.RUnlock()
@@ -183,7 +183,7 @@ func (e *embedder) complete(ctx context.Context, messages []llm.ChatMessage) (st
 }
 
 // topNQuestions returns up to n questions most similar to queryText.
-func (e *embedder) topNQuestions(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+func (e *embedder) TopNQuestions(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
 	vec, err := e.embed(ctx, queryText)
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)
@@ -211,7 +211,7 @@ func (e *embedder) taskIndexPath(projectID int32) string {
 	return filepath.Join(e.dataDir, fmt.Sprintf("tasks-%d.zvec", projectID))
 }
 
-func (e *embedder) upsertTask(ctx context.Context, projectID int32, taskID string, taskText string) {
+func (e *embedder) UpsertTask(ctx context.Context, projectID int32, taskID string, taskText string) {
 	vec, err := e.embed(ctx, taskText)
 	if err != nil {
 		log.Printf("embedder: embed task %s: %v", taskID, err)
@@ -236,7 +236,7 @@ func (e *embedder) upsertTask(ctx context.Context, projectID int32, taskID strin
 	e.sink.track(ctx, "zvec:upsert-task", start)
 }
 
-func (e *embedder) topNTasks(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+func (e *embedder) TopNTasks(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
 	vec, err := e.embed(ctx, queryText)
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)
@@ -264,7 +264,7 @@ func (e *embedder) patternIndexPath(projectID int32) string {
 	return filepath.Join(e.dataDir, fmt.Sprintf("patterns-%d.zvec", projectID))
 }
 
-func (e *embedder) upsertPattern(ctx context.Context, projectID int32, patternID int32, patternText string) {
+func (e *embedder) UpsertPattern(ctx context.Context, projectID int32, patternID int32, patternText string) {
 	vec, err := e.embed(ctx, patternText)
 	if err != nil {
 		log.Printf("embedder: embed pattern %d: %v", patternID, err)
@@ -287,7 +287,7 @@ func (e *embedder) upsertPattern(ctx context.Context, projectID int32, patternID
 	e.sink.track(ctx, "zvec:upsert-pattern", start)
 }
 
-func (e *embedder) topNPatterns(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+func (e *embedder) TopNPatterns(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
 	vec, err := e.embed(ctx, queryText)
 	if err != nil {
 		return nil, fmt.Errorf("embed query: %w", err)

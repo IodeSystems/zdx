@@ -5,10 +5,13 @@ import (
 	"log"
 
 	"github.com/jackc/pgx/v5/pgxpool"
+
+	"github.com/iodesystems/zdx-go/internal/server/handlers"
 )
 
-// SchemaFeatures records which optional schema additions are present.
-// Detected once at startup via information_schema inspection.
+// detectFeatures inspects information_schema to determine which optional
+// schema additions are present. Safe to call before the sqlc queries are
+// used, since it only reads system catalog tables.
 //
 // Migration rules for straddle-safe deploys:
 //   - Add columns as NOT NULL DEFAULT <val> (or nullable) so old binaries
@@ -20,20 +23,8 @@ import (
 //     SchemaFeature flag and return 503 gracefully if absent.
 //   - compat-check will flag incompatible migrations; use
 //     bin/ship --non-compatible-migration for breaking changes.
-type SchemaFeatures struct {
-	// HasLLMConfig is true when the zdx_llm_configs table exists (migration 018).
-	HasLLMConfig bool
-	// HasProjectGitConfig is true when zdx_projects has git_url (migration 019).
-	HasProjectGitConfig bool
-	// HasProjectStage is true when zdx_projects has stage (migration 031).
-	HasProjectStage bool
-}
-
-// detectFeatures inspects information_schema to determine which optional
-// schema additions are present. Safe to call before the sqlc queries are
-// used, since it only reads system catalog tables.
-func detectFeatures(ctx context.Context, pool *pgxpool.Pool) SchemaFeatures {
-	var f SchemaFeatures
+func detectFeatures(ctx context.Context, pool *pgxpool.Pool) handlers.SchemaFeatures {
+	var f handlers.SchemaFeatures
 
 	tableExists := func(table string) bool {
 		var n int

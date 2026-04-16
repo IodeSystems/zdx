@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -24,10 +24,10 @@ type soloCandidate struct {
 	Persona    string
 }
 
-func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFilter string) ([]soloCandidate, error) {
+func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueFilter string) ([]soloCandidate, error) {
 	var candidates []soloCandidate
 
-	issues, err := s.q.ListOpenIssues(ctx, projectID)
+	issues, err := h.Q.ListOpenIssues(ctx, projectID)
 	if err != nil {
 		return nil, err
 	}
@@ -57,7 +57,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 
 	// Build blocked-by-BQ set
 	bqBlocked := map[string]bool{}
-	pendingBQs, _ := s.q.ListPendingBlockerQuestions(ctx, projectID)
+	pendingBQs, _ := h.Q.ListPendingBlockerQuestions(ctx, projectID)
 	for _, q := range pendingBQs {
 		if q.TargetType == "issue" {
 			for _, iss := range issues {
@@ -95,7 +95,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 	}
 
 	// Check for unread LLM comments on issues (any status, not just open)
-	unreadIssues, _ := s.q.ListIssuesWithUnreadComments(ctx, db.ListIssuesWithUnreadCommentsParams{
+	unreadIssues, _ := h.Q.ListIssuesWithUnreadComments(ctx, db.ListIssuesWithUnreadCommentsParams{
 		ProjectID: projectID, Role: "llm",
 	})
 	for _, ui := range unreadIssues {
@@ -115,10 +115,10 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 	}
 
 	// Check for unread LLM comments on features
-	features, _ := s.q.ListFeatures(ctx, projectID)
+	features, _ := h.Q.ListFeatures(ctx, projectID)
 	if issueFilter == "" {
 		for _, f := range features {
-			hasUnread, _ := s.q.HasUnreadCommentsForTarget(ctx, db.HasUnreadCommentsForTargetParams{
+			hasUnread, _ := h.Q.HasUnreadCommentsForTarget(ctx, db.HasUnreadCommentsForTargetParams{
 				ProjectID: projectID, TargetType: "feature", TargetID: f.Name, Role: "llm",
 			})
 			if hasUnread {
@@ -137,7 +137,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 
 	// Unanswered QA questions
 	if issueFilter == "" {
-		unanswered, _ := s.q.ListUnansweredQuestions(ctx, projectID)
+		unanswered, _ := h.Q.ListUnansweredQuestions(ctx, projectID)
 		for _, q := range unanswered {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("qa-%d", q.ID),
@@ -153,7 +153,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 
 	// Stale unread comments
 	if issueFilter == "" {
-		stale, _ := s.q.ListStaleUnreadComments(ctx, db.ListStaleUnreadCommentsParams{
+		stale, _ := h.Q.ListStaleUnreadComments(ctx, db.ListStaleUnreadCommentsParams{
 			ProjectID: projectID, Role: "llm", AgeHours: 24,
 		})
 		for _, c := range stale {
@@ -171,14 +171,14 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 
 	// Project health checks (global only)
 	if issueFilter == "" {
-		goalCount, _ := s.q.CountProjectGoals(ctx, projectID)
+		goalCount, _ := h.Q.CountProjectGoals(ctx, projectID)
 		if goalCount == 0 {
 			candidates = append(candidates, soloCandidate{
 				Key: "health-goals", Text: "Project has no goals defined",
 				Kind: "owner:goals", TargetType: "project", Priority: 15, Persona: "owner",
 			})
 		}
-		constraintCount, _ := s.q.CountProjectConstraints(ctx, projectID)
+		constraintCount, _ := h.Q.CountProjectConstraints(ctx, projectID)
 		if constraintCount == 0 {
 			candidates = append(candidates, soloCandidate{
 				Key: "health-constraints", Text: "Project has no constraints defined",
@@ -186,13 +186,13 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 			})
 		}
 
-		closedTaskCount, _ := s.q.CountClosedTasks(ctx, projectID)
+		closedTaskCount, _ := h.Q.CountClosedTasks(ctx, projectID)
 		if closedTaskCount > 0 {
 			var ownerDate, techDate string
-			if oe, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: projectID, Role: "owner"}); err == nil {
+			if oe, err := h.Q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: projectID, Role: "owner"}); err == nil {
 				ownerDate = oe.Date
 			}
-			if te, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: projectID, Role: "tech"}); err == nil {
+			if te, err := h.Q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: projectID, Role: "tech"}); err == nil {
 				techDate = te.Date
 			}
 			now := time.Now()
@@ -215,7 +215,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 		}
 
 		for _, r := range []string{"owner", "tech"} {
-			if _, err := s.q.GetUnreviewedJournalEntry(ctx, db.GetUnreviewedJournalEntryParams{ProjectID: projectID, Role: r}); err == nil {
+			if _, err := h.Q.GetUnreviewedJournalEntry(ctx, db.GetUnreviewedJournalEntryParams{ProjectID: projectID, Role: r}); err == nil {
 				candidates = append(candidates, soloCandidate{
 					Key: fmt.Sprintf("journal-review-%s", r), Text: fmt.Sprintf("Review generated %s check-in", r),
 					Kind: r + ":journal-review", TargetType: "project", Priority: 20, Persona: r,
@@ -243,7 +243,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 	// Cross-cutting checks (global only)
 	if issueFilter == "" {
 		for _, f := range features {
-			specs, _ := s.q.ListSpecs(ctx, f.ID)
+			specs, _ := h.Q.ListSpecs(ctx, f.ID)
 			if len(specs) == 0 {
 				candidates = append(candidates, soloCandidate{
 					Key:        fmt.Sprintf("spec-missing-%s", f.Name),
@@ -257,7 +257,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 			}
 		}
 
-		staleFeatures, _ := s.q.ListStaleFeatures(ctx, db.ListStaleFeaturesParams{ProjectID: projectID, StaleDays: 30})
+		staleFeatures, _ := h.Q.ListStaleFeatures(ctx, db.ListStaleFeaturesParams{ProjectID: projectID, StaleDays: 30})
 		for _, f := range staleFeatures {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("review-feature-%s", f.Name),
@@ -270,7 +270,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 			})
 		}
 
-		uncoveredSpecs, _ := s.q.ListUncoveredSpecs(ctx, projectID)
+		uncoveredSpecs, _ := h.Q.ListUncoveredSpecs(ctx, projectID)
 		for _, sp := range uncoveredSpecs {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("test-ref-%d", sp.ID),
@@ -283,7 +283,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 			})
 		}
 
-		demoGaps, _ := s.q.ListSpecsWithoutDemos(ctx, projectID)
+		demoGaps, _ := h.Q.ListSpecsWithoutDemos(ctx, projectID)
 		for _, sp := range demoGaps {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("demo-gap-%d", sp.ID),
@@ -299,7 +299,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 
 	// Issues with no pending tasks
 	for _, iss := range issues {
-		tasks, _ := s.q.ListTasksByIssue(ctx, db.ListTasksByIssueParams{ProjectID: projectID, Issue: iss.ID})
+		tasks, _ := h.Q.ListTasksByIssue(ctx, db.ListTasksByIssueParams{ProjectID: projectID, Issue: iss.ID})
 		hasPending := false
 		allDone := true
 		for _, t := range tasks {
@@ -341,7 +341,7 @@ func (s *Server) generateSoloQueue(ctx context.Context, projectID int32, issueFi
 
 	// Pending tasks
 	for _, iss := range issues {
-		tasks, _ := s.q.ListTasksByIssue(ctx, db.ListTasksByIssueParams{ProjectID: projectID, Issue: iss.ID})
+		tasks, _ := h.Q.ListTasksByIssue(ctx, db.ListTasksByIssueParams{ProjectID: projectID, Issue: iss.ID})
 		for _, t := range tasks {
 			if t.Status == "ready" {
 				candidates = append(candidates, soloCandidate{
@@ -386,7 +386,7 @@ type EvaluateDiff struct {
 	Unchanged []SoloQueueItem  `json:"unchanged"`
 }
 
-func (s *Server) registerSoloRoutes(api huma.API) {
+func (h *Handler) registerSoloRoutes(api huma.API) {
 
 	// GET /api/dx/solo — return persisted todo queue
 	huma.Register(api, huma.Operation{OperationID: "list-solo-queue", Method: http.MethodGet, Path: "/api/dx/solo"},
@@ -398,7 +398,7 @@ func (s *Server) registerSoloRoutes(api huma.API) {
 		}) (*struct {
 			Body []TodoItem
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -419,7 +419,7 @@ func (s *Server) registerSoloRoutes(api huma.API) {
 				status = pgtype.Text{String: in.Status, Valid: true}
 			}
 
-			rows, err := s.q.ListTodosFiltered(ctx, db.ListTodosFilteredParams{
+			rows, err := h.Q.ListTodosFiltered(ctx, db.ListTodosFilteredParams{
 				ProjectID:  p.ID,
 				Blocked:    blocked,
 				TargetType: pgtype.Text{},
@@ -446,17 +446,17 @@ func (s *Server) registerSoloRoutes(api huma.API) {
 		}) (*struct {
 			Body EvaluateDiff
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 
-			proposed, err := s.generateSoloQueue(ctx, p.ID, in.Body.Issue)
+			proposed, err := h.generateSoloQueue(ctx, p.ID, in.Body.Issue)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 
-			current, err := s.q.ListTodos(ctx, p.ID)
+			current, err := h.Q.ListTodos(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -506,7 +506,7 @@ func (s *Server) registerSoloRoutes(api huma.API) {
 				Items []SoloQueueItem `json:"items"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -514,7 +514,7 @@ func (s *Server) registerSoloRoutes(api huma.API) {
 			keys := make([]string, 0, len(in.Body.Items))
 			for _, item := range in.Body.Items {
 				keys = append(keys, item.Key)
-				_, err := s.q.UpsertTodo(ctx, db.UpsertTodoParams{
+				_, err := h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
 					ProjectID:  p.ID,
 					Text:       item.Text,
 					Key:        item.Key,
@@ -533,7 +533,7 @@ func (s *Server) registerSoloRoutes(api huma.API) {
 			}
 
 			if len(keys) > 0 {
-				if err := s.q.ResolveTodosNotInKeys(ctx, db.ResolveTodosNotInKeysParams{
+				if err := h.Q.ResolveTodosNotInKeys(ctx, db.ResolveTodosNotInKeysParams{
 					ProjectID: p.ID,
 					Keys:      keys,
 				}); err != nil {

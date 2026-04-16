@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -14,7 +14,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/techmetrics"
 )
 
-func (s *Server) registerDxRoutes(api huma.API) {
+func (h *Handler) registerDxRoutes(api huma.API) {
 	// ── State ─────────────────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "get-state", Method: http.MethodGet, Path: "/api/dx/state"},
@@ -26,11 +26,11 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Value string `json:"value"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			val, err := s.q.GetState(ctx, db.GetStateParams{ProjectID: p.ID, Key: in.Key})
+			val, err := h.Q.GetState(ctx, db.GetStateParams{ProjectID: p.ID, Key: in.Key})
 			if err != nil {
 				val = ""
 			}
@@ -51,11 +51,11 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Value string `json:"value"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.SetState(ctx, db.SetStateParams{
+			if err := h.Q.SetState(ctx, db.SetStateParams{
 				ProjectID: p.ID,
 				Key:       in.Body.Key,
 				Value:     in.Body.Value,
@@ -73,11 +73,11 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Todos []TodoItem `json:"todos"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListTodos(ctx, p.ID)
+			rows, err := h.Q.ListTodos(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -101,11 +101,11 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Todos []WriteTodoInput `json:"todos"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.DeleteTodosForProject(ctx, p.ID); err != nil {
+			if err := h.Q.DeleteTodosForProject(ctx, p.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			for _, t := range in.Body.Todos {
@@ -113,7 +113,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				if status == "" {
 					status = "open"
 				}
-				_, err := s.q.CreateTodo(ctx, db.CreateTodoParams{
+				_, err := h.Q.CreateTodo(ctx, db.CreateTodoParams{
 					ProjectID:  p.ID,
 					Text:       t.Text,
 					Key:        t.Key,
@@ -143,12 +143,12 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Results []TestResultInput `json:"results"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
 			for _, r := range in.Body.Results {
-				test, _ := s.q.UpsertTest(ctx, db.UpsertTestParams{
+				test, _ := h.Q.UpsertTest(ctx, db.UpsertTestParams{
 					ProjectID:  p.ID,
 					Component:  r.Driver,
 					Name:       r.TestName,
@@ -156,7 +156,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 					Status:     r.Status,
 					DurationMs: r.DurationMS,
 				})
-				_ = s.q.UpsertTestResult(ctx, db.UpsertTestResultParams{
+				_ = h.Q.UpsertTestResult(ctx, db.UpsertTestResultParams{
 					ProjectID:  p.ID,
 					Driver:     r.Driver,
 					TestName:   r.TestName,
@@ -166,7 +166,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 					Branch:     r.Branch,
 					GitSha:     r.GitSHA,
 				})
-				_ = s.q.InsertTestResultHistory(ctx, db.InsertTestResultHistoryParams{
+				_ = h.Q.InsertTestResultHistory(ctx, db.InsertTestResultHistoryParams{
 					ProjectID:  p.ID,
 					Driver:     r.Driver,
 					TestName:   r.TestName,
@@ -178,7 +178,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				})
 				if test.ID != 0 {
 					for _, d := range r.DemoArtifacts {
-						_, _ = s.q.UpsertTestDemo(ctx, db.UpsertTestDemoParams{
+						_, _ = h.Q.UpsertTestDemo(ctx, db.UpsertTestDemoParams{
 							TestID:       test.ID,
 							DemoType:     d.DemoType,
 							ArtifactPath: d.ArtifactPath,
@@ -207,13 +207,13 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Total int64      `json:"total"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			total, _ := s.q.CountTests(ctx, p.ID)
+			total, _ := h.Q.CountTests(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := s.q.ListTestsPaginated(ctx, db.ListTestsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			rows, err := h.Q.ListTestsPaginated(ctx, db.ListTestsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -259,7 +259,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				History []TestHistoryItem `json:"history"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -267,7 +267,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			if in.Limit > 0 && in.Limit <= 200 {
 				maxResults = in.Limit
 			}
-			rows, err := s.q.ListTestResultHistory(ctx, db.ListTestResultHistoryParams{
+			rows, err := h.Q.ListTestResultHistory(ctx, db.ListTestResultHistoryParams{
 				ProjectID:    p.ID,
 				TestName:     in.TestName,
 				MaxResults:   maxResults,
@@ -305,11 +305,11 @@ func (s *Server) registerDxRoutes(api huma.API) {
 		}) (*struct {
 			Body TestItem
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			t, err := s.q.GetTestByID(ctx, db.GetTestByIDParams{ProjectID: p.ID, ID: in.TestID})
+			t, err := h.Q.GetTestByID(ctx, db.GetTestByIDParams{ProjectID: p.ID, ID: in.TestID})
 			if err != nil {
 				return nil, apiErr(404, "test not found")
 			}
@@ -340,7 +340,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				ChangelogJSON string `json:"changelog_json,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -352,7 +352,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			if changelogJSON == "" {
 				changelogJSON = "{}"
 			}
-			_, err = s.q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
+			_, err = h.Q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
 				ProjectID:     p.ID,
 				Role:          in.Body.Role,
 				Date:          in.Body.Date,
@@ -378,11 +378,11 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Entries []JournalEntryItem `json:"entries"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: in.Role})
+			rows, err := h.Q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: in.Role})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -418,11 +418,11 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Entry JournalEntryItem `json:"entry"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			r, err := s.q.GetJournalEntryByID(ctx, db.GetJournalEntryByIDParams{ID: in.ID, ProjectID: p.ID})
+			r, err := h.Q.GetJournalEntryByID(ctx, db.GetJournalEntryByIDParams{ID: in.ID, ProjectID: p.ID})
 			if err != nil {
 				return nil, apiErr(404, "journal entry not found")
 			}
@@ -454,11 +454,11 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				StateJSON string `json:"state_json"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			entry, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: in.Role})
+			entry, err := h.Q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: in.Role})
 			if err != nil {
 				return &struct {
 					Body struct {
@@ -488,7 +488,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Entry JournalEntryItem `json:"entry"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
@@ -502,7 +502,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			changelogJSON := "{}"
 
 			if role == "tech" {
-				row, err := s.q.GetProjectGitConfig(ctx, in.Body.Slug)
+				row, err := h.Q.GetProjectGitConfig(ctx, in.Body.Slug)
 				if err != nil || row.GitUrl == "" {
 					return nil, apiErr(400, "project has no git config — configure repo URL in admin settings")
 				}
@@ -510,12 +510,12 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
 					gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
 				}
-				dir := s.repoDir(in.Body.Slug)
+				dir := h.Reconciler.RepoDir(in.Body.Slug)
 				branch := row.GitBranch
 				if branch == "" {
 					branch = "main"
 				}
-				if err := ensureRepo(dir, gitURL, branch); err != nil {
+				if err := EnsureRepo(dir, gitURL, branch); err != nil {
 					return nil, apiErr(500, "git: "+err.Error())
 				}
 
@@ -523,7 +523,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 
 				var prevDate string
 				var prevStateJSON string
-				entries, _ := s.q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: role})
+				entries, _ := h.Q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: role})
 				if len(entries) > 0 {
 					prevDate = entries[0].Date
 					prevStateJSON = entries[0].StateJson
@@ -542,21 +542,21 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				}
 			}
 
-			summary, _ := s.q.ProjectStateSummary(ctx, p.ID)
-			topIssues, _ := s.q.TopPriorityOpenIssues(ctx, p.ID)
+			summary, _ := h.Q.ProjectStateSummary(ctx, p.ID)
+			topIssues, _ := h.Q.TopPriorityOpenIssues(ctx, p.ID)
 
 			var churnNote string
 			if role == "tech" {
 				since := pgtype.Timestamptz{Time: time.Now().AddDate(0, 0, -7), Valid: true}
-				entries, _ := s.q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: "tech"})
+				entries, _ := h.Q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: "tech"})
 				if len(entries) > 0 {
 					if t, err := time.Parse("2006-01-02", entries[0].Date); err == nil {
 						since = pgtype.Timestamptz{Time: t, Valid: true}
 					}
 				}
-				churnCount, _ := s.q.CountChurnSessions(ctx, db.CountChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+				churnCount, _ := h.Q.CountChurnSessions(ctx, db.CountChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
 				if churnCount > 0 {
-					churns, _ := s.q.ListChurnSessions(ctx, db.ListChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+					churns, _ := h.Q.ListChurnSessions(ctx, db.ListChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
 					var themes []string
 					for _, c := range churns {
 						if c.Header != "" {
@@ -599,7 +599,7 @@ func (s *Server) registerDxRoutes(api huma.API) {
 			}
 			next := strings.Join(nextItems, "\n")
 
-			inserted, err := s.q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
+			inserted, err := h.Q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
 				ProjectID:     p.ID,
 				Role:          role,
 				Date:          today,
@@ -643,18 +643,18 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				Role string `json:"role"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			entry, err := s.q.GetUnreviewedJournalEntry(ctx, db.GetUnreviewedJournalEntryParams{
+			entry, err := h.Q.GetUnreviewedJournalEntry(ctx, db.GetUnreviewedJournalEntryParams{
 				ProjectID: p.ID,
 				Role:      in.Body.Role,
 			})
 			if err != nil {
 				return nil, apiErr(404, "no unreviewed entry found for role "+in.Body.Role)
 			}
-			err = s.q.MarkJournalEntryReviewed(ctx, entry.ID)
+			err = h.Q.MarkJournalEntryReviewed(ctx, entry.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -675,19 +675,19 @@ func (s *Server) registerDxRoutes(api huma.API) {
 				ClosedTaskCount  int64  `json:"closed_task_count"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			goalCount, _ := s.q.CountProjectGoals(ctx, p.ID)
-			constraintCount, _ := s.q.CountProjectConstraints(ctx, p.ID)
-			closedTaskCount, _ := s.q.CountClosedTasks(ctx, p.ID)
+			goalCount, _ := h.Q.CountProjectGoals(ctx, p.ID)
+			constraintCount, _ := h.Q.CountProjectConstraints(ctx, p.ID)
+			closedTaskCount, _ := h.Q.CountClosedTasks(ctx, p.ID)
 
 			var ownerDate, techDate string
-			if oe, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: "owner"}); err == nil {
+			if oe, err := h.Q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: "owner"}); err == nil {
 				ownerDate = oe.Date
 			}
-			if te, err := s.q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: "tech"}); err == nil {
+			if te, err := h.Q.GetLatestJournalEntry(ctx, db.GetLatestJournalEntryParams{ProjectID: p.ID, Role: "tech"}); err == nil {
 				techDate = te.Date
 			}
 

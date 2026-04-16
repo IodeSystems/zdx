@@ -2,9 +2,6 @@ package server
 
 import (
 	"context"
-	"crypto/rand"
-	"crypto/sha256"
-	"encoding/hex"
 	"encoding/json"
 	"fmt"
 	"log"
@@ -22,41 +19,8 @@ import (
 	"github.com/prometheus/prometheus/prompb"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/server/handlers"
 )
-
-// ── Token generation ──────────────────────────────────────────────────────
-
-// integrationTokenPrefix is the human-visible lead-in so secrets are easy to
-// grep for in logs and distinguish from other credential formats.
-const integrationTokenPrefix = "zdxk_"
-
-// generateIntegrationToken returns a fresh opaque bearer token. The prefix
-// makes leaks easy to spot; the 32 random bytes (64 hex chars) give 256 bits
-// of entropy, well beyond what's needed for an auth token.
-func generateIntegrationToken() (string, error) {
-	var raw [32]byte
-	if _, err := rand.Read(raw[:]); err != nil {
-		return "", err
-	}
-	return integrationTokenPrefix + hex.EncodeToString(raw[:]), nil
-}
-
-// hashIntegrationToken returns the sha256 hex digest stored in the DB.
-// Tokens are never stored in plaintext; only the hash and a short prefix.
-func hashIntegrationToken(token string) string {
-	sum := sha256.Sum256([]byte(token))
-	return hex.EncodeToString(sum[:])
-}
-
-// tokenPrefix returns the first 12 chars of the token for display/lookup.
-// Long enough to be distinctive, short enough that seeing it in a dashboard
-// doesn't meaningfully reduce the search space for an attacker.
-func tokenPrefix(token string) string {
-	if len(token) < 12 {
-		return token
-	}
-	return token[:12]
-}
 
 // ── Rate limiter ──────────────────────────────────────────────────────────
 
@@ -150,14 +114,14 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 			ctx = WithoutTiming(ctx)
 			token := strings.TrimPrefix(in.Authorization, "Bearer ")
 			if token == in.Authorization || token == "" {
-				return nil, apiErr(http.StatusUnauthorized, "missing bearer token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "missing bearer token")
 			}
-			row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(token))
+			row, err := s.q.GetIntegrationTokenByHash(ctx, handlers.HashIntegrationToken(token))
 			if err != nil {
-				return nil, apiErr(http.StatusUnauthorized, "invalid token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "invalid token")
 			}
 			if row.RevokedAt.Valid {
-				return nil, apiErr(http.StatusUnauthorized, "token revoked")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "token revoked")
 			}
 			if len(in.Body.Events) == 0 {
 				return &struct {
@@ -167,7 +131,7 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 				}{}, nil
 			}
 			if !s.ingestLimiter.allow(row.ID, float64(len(in.Body.Events))) {
-				return nil, apiErr(http.StatusTooManyRequests, "rate limit exceeded")
+				return nil, handlers.APIErr(http.StatusTooManyRequests, "rate limit exceeded")
 			}
 
 			// Resolve defaults: per-batch override wins over token default.
@@ -252,14 +216,14 @@ func (s *Server) registerCounterIngestRoutes(api huma.API) {
 			ctx = WithoutTiming(ctx)
 			token := strings.TrimPrefix(in.Authorization, "Bearer ")
 			if token == in.Authorization || token == "" {
-				return nil, apiErr(http.StatusUnauthorized, "missing bearer token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "missing bearer token")
 			}
-			row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(token))
+			row, err := s.q.GetIntegrationTokenByHash(ctx, handlers.HashIntegrationToken(token))
 			if err != nil {
-				return nil, apiErr(http.StatusUnauthorized, "invalid token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "invalid token")
 			}
 			if row.RevokedAt.Valid {
-				return nil, apiErr(http.StatusUnauthorized, "token revoked")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "token revoked")
 			}
 			if len(in.Body.Events) == 0 {
 				return &struct {
@@ -269,7 +233,7 @@ func (s *Server) registerCounterIngestRoutes(api huma.API) {
 				}{}, nil
 			}
 			if !s.ingestLimiter.allow(row.ID, float64(len(in.Body.Events))) {
-				return nil, apiErr(http.StatusTooManyRequests, "rate limit exceeded")
+				return nil, handlers.APIErr(http.StatusTooManyRequests, "rate limit exceeded")
 			}
 
 			component := in.Body.Component
@@ -354,14 +318,14 @@ func (s *Server) registerErrorIngestRoutes(api huma.API) {
 			ctx = WithoutTiming(ctx)
 			token := strings.TrimPrefix(in.Authorization, "Bearer ")
 			if token == in.Authorization || token == "" {
-				return nil, apiErr(http.StatusUnauthorized, "missing bearer token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "missing bearer token")
 			}
-			row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(token))
+			row, err := s.q.GetIntegrationTokenByHash(ctx, handlers.HashIntegrationToken(token))
 			if err != nil {
-				return nil, apiErr(http.StatusUnauthorized, "invalid token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "invalid token")
 			}
 			if row.RevokedAt.Valid {
-				return nil, apiErr(http.StatusUnauthorized, "token revoked")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "token revoked")
 			}
 			if len(in.Body.Events) == 0 {
 				return &struct {
@@ -371,7 +335,7 @@ func (s *Server) registerErrorIngestRoutes(api huma.API) {
 				}{}, nil
 			}
 			if !s.ingestLimiter.allow(row.ID, float64(len(in.Body.Events))) {
-				return nil, apiErr(http.StatusTooManyRequests, "rate limit exceeded")
+				return nil, handlers.APIErr(http.StatusTooManyRequests, "rate limit exceeded")
 			}
 
 			component := in.Body.Component
@@ -444,14 +408,14 @@ func (s *Server) registerLogIngestRoutes(api huma.API) {
 			ctx = WithoutTiming(ctx)
 			token := strings.TrimPrefix(in.Authorization, "Bearer ")
 			if token == in.Authorization || token == "" {
-				return nil, apiErr(http.StatusUnauthorized, "missing bearer token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "missing bearer token")
 			}
-			row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(token))
+			row, err := s.q.GetIntegrationTokenByHash(ctx, handlers.HashIntegrationToken(token))
 			if err != nil {
-				return nil, apiErr(http.StatusUnauthorized, "invalid token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "invalid token")
 			}
 			if row.RevokedAt.Valid {
-				return nil, apiErr(http.StatusUnauthorized, "token revoked")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "token revoked")
 			}
 			if len(in.Body.Events) == 0 {
 				return &struct {
@@ -461,7 +425,7 @@ func (s *Server) registerLogIngestRoutes(api huma.API) {
 				}{}, nil
 			}
 			if !s.ingestLimiter.allow(row.ID, float64(len(in.Body.Events))) {
-				return nil, apiErr(http.StatusTooManyRequests, "rate limit exceeded")
+				return nil, handlers.APIErr(http.StatusTooManyRequests, "rate limit exceeded")
 			}
 
 			component := in.Body.Component
@@ -520,24 +484,24 @@ func (s *Server) registerPromIngestRoutes(api huma.API) {
 			ctx = WithoutTiming(ctx)
 			token := strings.TrimPrefix(in.Authorization, "Bearer ")
 			if token == in.Authorization || token == "" {
-				return nil, apiErr(http.StatusUnauthorized, "missing bearer token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "missing bearer token")
 			}
-			row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(token))
+			row, err := s.q.GetIntegrationTokenByHash(ctx, handlers.HashIntegrationToken(token))
 			if err != nil {
-				return nil, apiErr(http.StatusUnauthorized, "invalid token")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "invalid token")
 			}
 			if row.RevokedAt.Valid {
-				return nil, apiErr(http.StatusUnauthorized, "token revoked")
+				return nil, handlers.APIErr(http.StatusUnauthorized, "token revoked")
 			}
 
 			decoded, err := snappy.Decode(nil, in.RawBody)
 			if err != nil {
-				return nil, apiErr(http.StatusBadRequest, "snappy decode: "+err.Error())
+				return nil, handlers.APIErr(http.StatusBadRequest, "snappy decode: "+err.Error())
 			}
 
 			var req prompb.WriteRequest
 			if err := req.Unmarshal(decoded); err != nil {
-				return nil, apiErr(http.StatusBadRequest, "protobuf decode: "+err.Error())
+				return nil, handlers.APIErr(http.StatusBadRequest, "protobuf decode: "+err.Error())
 			}
 
 			var sampleCount int
@@ -548,7 +512,7 @@ func (s *Server) registerPromIngestRoutes(api huma.API) {
 				return &struct{}{}, nil
 			}
 			if !s.ingestLimiter.allow(row.ID, float64(sampleCount)) {
-				return nil, apiErr(http.StatusTooManyRequests, "rate limit exceeded")
+				return nil, handlers.APIErr(http.StatusTooManyRequests, "rate limit exceeded")
 			}
 
 			component := ""
@@ -653,7 +617,7 @@ func (s *Server) BootstrapSelfIntegrationToken(ctx context.Context) (string, err
 		if tok == "" {
 			return false
 		}
-		row, err := s.q.GetIntegrationTokenByHash(ctx, hashIntegrationToken(tok))
+		row, err := s.q.GetIntegrationTokenByHash(ctx, handlers.HashIntegrationToken(tok))
 		return err == nil && !row.RevokedAt.Valid
 	}
 
@@ -672,7 +636,7 @@ func (s *Server) BootstrapSelfIntegrationToken(ctx context.Context) (string, err
 	if err != nil {
 		return "", nil // project not yet provisioned — skip, not fatal
 	}
-	tok, err := generateIntegrationToken()
+	tok, err := handlers.GenerateIntegrationToken()
 	if err != nil {
 		return "", fmt.Errorf("generate self token: %w", err)
 	}
@@ -680,8 +644,8 @@ func (s *Server) BootstrapSelfIntegrationToken(ctx context.Context) (string, err
 		ProjectID:   p.ID,
 		Component:   pgtype.Text{String: "zdx-server", Valid: true},
 		Name:        "self-integration",
-		TokenHash:   hashIntegrationToken(tok),
-		TokenPrefix: tokenPrefix(tok),
+		TokenHash:   handlers.HashIntegrationToken(tok),
+		TokenPrefix: handlers.TokenPrefix(tok),
 	}); err != nil {
 		return "", fmt.Errorf("create self token: %w", err)
 	}

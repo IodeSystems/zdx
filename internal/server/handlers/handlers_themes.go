@@ -1,4 +1,4 @@
-package server
+package handlers
 
 import (
 	"context"
@@ -10,18 +10,18 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-func (s *Server) registerThemeRoutes(api huma.API) {
+func (h *Handler) registerThemeRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "list-themes", Method: http.MethodGet, Path: "/api/dx/themes"},
 		func(ctx context.Context, in *IssueSlugInput) (*struct {
 			Body struct {
 				Themes []ThemeItem `json:"themes"`
 			}
 		}, error) {
-			p, err := getProject(ctx, s.q, in.Slug)
+			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
 			}
-			rows, err := s.q.ListThemes(ctx, p.ID)
+			rows, err := h.Q.ListThemes(ctx, p.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -57,11 +57,11 @@ func (s *Server) registerThemeRoutes(api huma.API) {
 				Blockers    string `json:"blockers"`
 			}
 		}) (*struct{ Body ThemeItem }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			row, err := s.q.CreateTheme(ctx, db.CreateThemeParams{
+			row, err := h.Q.CreateTheme(ctx, db.CreateThemeParams{
 				ProjectID:   p.ID,
 				Name:        in.Body.Name,
 				Description: in.Body.Description,
@@ -88,15 +88,15 @@ func (s *Server) registerThemeRoutes(api huma.API) {
 				Status string `json:"status"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			theme, err := s.resolveTheme(ctx, p.ID, in.Body.Theme)
+			theme, err := h.resolveTheme(ctx, p.ID, in.Body.Theme)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.UpdateThemeStatus(ctx, db.UpdateThemeStatusParams{
+			if err := h.Q.UpdateThemeStatus(ctx, db.UpdateThemeStatusParams{
 				ProjectID: p.ID,
 				ID:        theme.ID,
 				Status:    in.Body.Status,
@@ -114,15 +114,15 @@ func (s *Server) registerThemeRoutes(api huma.API) {
 				Issue string `json:"issue"` // "IS-N"
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			theme, err := s.resolveTheme(ctx, p.ID, in.Body.Theme)
+			theme, err := h.resolveTheme(ctx, p.ID, in.Body.Theme)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.AddThemeBlocker(ctx, db.AddThemeBlockerParams{
+			if err := h.Q.AddThemeBlocker(ctx, db.AddThemeBlockerParams{
 				ThemeID: theme.ID,
 				IssueID: in.Body.Issue,
 			}); err != nil {
@@ -139,15 +139,15 @@ func (s *Server) registerThemeRoutes(api huma.API) {
 				Issue string `json:"issue"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			p, err := getProject(ctx, s.q, in.Body.Slug)
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
-			theme, err := s.resolveTheme(ctx, p.ID, in.Body.Theme)
+			theme, err := h.resolveTheme(ctx, p.ID, in.Body.Theme)
 			if err != nil {
 				return nil, err
 			}
-			if err := s.q.RemoveThemeBlocker(ctx, db.RemoveThemeBlockerParams{
+			if err := h.Q.RemoveThemeBlocker(ctx, db.RemoveThemeBlockerParams{
 				ThemeID: theme.ID,
 				IssueID: in.Body.Issue,
 			}); err != nil {
@@ -159,17 +159,17 @@ func (s *Server) registerThemeRoutes(api huma.API) {
 
 // ── Internal helper ───────────────────────────────────────────────────────
 
-func (s *Server) resolveTheme(ctx context.Context, projectID int32, ref string) (db.ZdxTheme, error) {
+func (h *Handler) resolveTheme(ctx context.Context, projectID int32, ref string) (db.ZdxTheme, error) {
 	// "TH-N" → integer lookup
 	if strings.HasPrefix(ref, "TH-") {
 		id := intFromPrefixed(ref, "TH-")
-		t, err := s.q.GetThemeByID(ctx, db.GetThemeByIDParams{ProjectID: projectID, ID: id})
+		t, err := h.Q.GetThemeByID(ctx, db.GetThemeByIDParams{ProjectID: projectID, ID: id})
 		if err != nil {
 			return db.ZdxTheme{}, apiErr(http.StatusNotFound, "theme not found: "+ref)
 		}
 		return t, nil
 	}
-	t, err := s.q.GetThemeByName(ctx, db.GetThemeByNameParams{ProjectID: projectID, Name: ref})
+	t, err := h.Q.GetThemeByName(ctx, db.GetThemeByNameParams{ProjectID: projectID, Name: ref})
 	if err != nil {
 		return db.ZdxTheme{}, apiErr(http.StatusNotFound, "theme not found: "+ref)
 	}
