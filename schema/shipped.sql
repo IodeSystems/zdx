@@ -407,6 +407,78 @@ ALTER SEQUENCE public.zdx_counter_events_id_seq OWNED BY public.zdx_counter_even
 
 
 --
+-- Name: zdx_deploys; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_deploys (
+    id integer NOT NULL,
+    environment_id integer NOT NULL,
+    build_sha text NOT NULL,
+    build_branch text DEFAULT ''::text NOT NULL,
+    deployed_at timestamp with time zone DEFAULT now() NOT NULL,
+    deployed_by_user_id integer,
+    status text DEFAULT 'success'::text NOT NULL
+);
+
+
+--
+-- Name: zdx_deploys_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_deploys_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_deploys_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_deploys_id_seq OWNED BY public.zdx_deploys.id;
+
+
+--
+-- Name: zdx_environments; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_environments (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    name text NOT NULL,
+    url text DEFAULT ''::text NOT NULL,
+    current_build_sha text DEFAULT ''::text NOT NULL,
+    current_build_branch text DEFAULT ''::text NOT NULL,
+    deployed_at timestamp with time zone,
+    deployed_by_user_id integer,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_environments_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_environments_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_environments_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_environments_id_seq OWNED BY public.zdx_environments.id;
+
+
+--
 -- Name: zdx_error_events; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1985,6 +2057,20 @@ ALTER TABLE ONLY public.zdx_counter_events ALTER COLUMN id SET DEFAULT nextval('
 
 
 --
+-- Name: zdx_deploys id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploys ALTER COLUMN id SET DEFAULT nextval('public.zdx_deploys_id_seq'::regclass);
+
+
+--
+-- Name: zdx_environments id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_environments ALTER COLUMN id SET DEFAULT nextval('public.zdx_environments_id_seq'::regclass);
+
+
+--
 -- Name: zdx_error_events id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2354,6 +2440,22 @@ ALTER TABLE ONLY public.zdx_counted
 
 ALTER TABLE ONLY public.zdx_counter_events
     ADD CONSTRAINT zdx_counter_events_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_deploys zdx_deploys_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploys
+    ADD CONSTRAINT zdx_deploys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_environments zdx_environments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_environments
+    ADD CONSTRAINT zdx_environments_pkey PRIMARY KEY (id);
 
 
 --
@@ -3212,6 +3314,20 @@ CREATE INDEX zdx_counter_events_project_created ON public.zdx_counter_events USI
 
 
 --
+-- Name: zdx_deploys_env_time; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_deploys_env_time ON public.zdx_deploys USING btree (environment_id, deployed_at DESC);
+
+
+--
+-- Name: zdx_environments_project_name; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX zdx_environments_project_name ON public.zdx_environments USING btree (project_id, name);
+
+
+--
 -- Name: zdx_error_events_context_gin; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3418,6 +3534,38 @@ ALTER TABLE ONLY public.zdx_counted
 
 ALTER TABLE ONLY public.zdx_counter_events
     ADD CONSTRAINT zdx_counter_events_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_deploys zdx_deploys_deployed_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploys
+    ADD CONSTRAINT zdx_deploys_deployed_by_user_id_fkey FOREIGN KEY (deployed_by_user_id) REFERENCES public.zdx_users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zdx_deploys zdx_deploys_environment_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_deploys
+    ADD CONSTRAINT zdx_deploys_environment_id_fkey FOREIGN KEY (environment_id) REFERENCES public.zdx_environments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_environments zdx_environments_deployed_by_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_environments
+    ADD CONSTRAINT zdx_environments_deployed_by_user_id_fkey FOREIGN KEY (deployed_by_user_id) REFERENCES public.zdx_users(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zdx_environments zdx_environments_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_environments
+    ADD CONSTRAINT zdx_environments_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
