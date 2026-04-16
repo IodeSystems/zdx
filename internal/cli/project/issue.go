@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func IssueCmd() *cobra.Command {
@@ -93,19 +93,28 @@ func issueAddCmd() *cobra.Command {
 		Short: "Create an issue",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			body := map[string]any{
-				"slug":       c.SlugOrDie(),
-				"title":      title,
-				"context":    ctx,
-				"component":  component,
-				"issue_type": issueType,
-				"auto_ready": autoReady,
+			body := dxclient.AddIssueRequest{
+				Slug:      c.SlugOrDie(),
+				AutoReady: &autoReady,
+			}
+			if title != "" {
+				body.Title = &title
+			}
+			if ctx != "" {
+				body.Context = &ctx
+			}
+			if component != "" {
+				body.Component = &component
+			}
+			if issueType != "" {
+				body.IssueType = &issueType
 			}
 			if issueURL != "" {
-				body["url"] = issueURL
+				body.Url = &issueURL
 			}
 			if blockedBy != "" {
-				body["blocked_by"] = strings.Split(blockedBy, ",")
+				blockers := strings.Split(blockedBy, ",")
+				body.BlockedBy = &blockers
 			}
 			var resp clitypes.IssueAddResponse
 			if err := c.Post("/api/dx/todo/issue/add", body, &resp); err != nil {
@@ -114,10 +123,10 @@ func issueAddCmd() *cobra.Command {
 			fmt.Printf("%s  %s\n", clitypes.IssueIDStr(resp.ID), resp.Title)
 			if parent != "" {
 				parentNum, _ := strconv.ParseInt(parent[3:], 10, 32)
-				if err := c.Post("/api/dx/todo/issue/add-block", map[string]any{
-					"slug":       c.SlugOrDie(),
-					"id":         int32(parentNum),
-					"blocked_by": clitypes.IssueIDStr(resp.ID),
+				if err := c.Post("/api/dx/todo/issue/add-block", dxclient.IssueAddBlockRequest{
+					Slug:      c.SlugOrDie(),
+					Id:        int32(parentNum),
+					BlockedBy: clitypes.IssueIDStr(resp.ID),
 				}, nil); err != nil {
 					return fmt.Errorf("created issue but failed to add block on parent: %w", err)
 				}
@@ -133,9 +142,9 @@ func issueAddCmd() *cobra.Command {
 				fmt.Printf("To close as duplicate:\n")
 				fmt.Printf("  dx issue close %s --reason=duplicate --duplicate-of=<IS-N>\n", clitypes.IssueIDStr(resp.ID))
 			} else if !autoReady {
-				if err := c.Post("/api/dx/todo/issue/ready", map[string]any{
-					"slug": c.SlugOrDie(),
-					"id":   resp.ID,
+				if err := c.Post("/api/dx/todo/issue/ready", dxclient.ReadyIssueRequest{
+					Slug: c.SlugOrDie(),
+					Id:   resp.ID,
 				}, nil); err != nil {
 					return err
 				}
@@ -164,9 +173,9 @@ func issueReadyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			n, _ := strconv.ParseInt(args[0][3:], 10, 32)
-			if err := c.Post("/api/dx/todo/issue/ready", map[string]any{
-				"slug": c.SlugOrDie(),
-				"id":   int32(n),
+			if err := c.Post("/api/dx/todo/issue/ready", dxclient.ReadyIssueRequest{
+				Slug: c.SlugOrDie(),
+				Id:   int32(n),
 			}, nil); err != nil {
 				return err
 			}
@@ -277,13 +286,15 @@ func issueCloseCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			body := map[string]any{
-				"slug":   c.SlugOrDie(),
-				"id":     int32(n),
-				"reason": reason,
+			body := dxclient.CloseIssueRequest{
+				Slug: c.SlugOrDie(),
+				Id:   int32(n),
+			}
+			if reason != "" {
+				body.Reason = &reason
 			}
 			if duplicateOf != "" {
-				body["duplicate_of"] = duplicateOf
+				body.DuplicateOf = &duplicateOf
 			}
 			if err := c.Post("/api/dx/todo/issue/close", body, &ok); err != nil {
 				return err
@@ -310,10 +321,10 @@ func issueBlockCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Post("/api/dx/todo/issue/add-block", map[string]any{
-				"slug":       c.SlugOrDie(),
-				"id":         int32(n),
-				"blocked_by": by,
+			if err := c.Post("/api/dx/todo/issue/add-block", dxclient.IssueAddBlockRequest{
+				Slug:      c.SlugOrDie(),
+				Id:        int32(n),
+				BlockedBy: by,
 			}, &ok); err != nil {
 				return err
 			}
@@ -339,12 +350,12 @@ func issueUnblockCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			body := map[string]any{
-				"slug": c.SlugOrDie(),
-				"id":   int32(n),
+			body := dxclient.IssueRemoveBlockRequest{
+				Slug: c.SlugOrDie(),
+				Id:   int32(n),
 			}
 			if by != "" {
-				body["blocked_by"] = by
+				body.BlockedBy = &by
 			}
 			if err := c.Post("/api/dx/todo/issue/remove-block", body, &ok); err != nil {
 				return err
@@ -372,24 +383,25 @@ func issueEditCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := cli.MustClient()
-			body := map[string]any{
-				"slug": c.SlugOrDie(),
-				"id":   int32(n),
+			body := dxclient.EditIssueRequest{
+				Slug: c.SlugOrDie(),
+				Id:   int32(n),
 			}
 			if cmd.Flags().Changed("title") {
-				body["title"] = title
+				body.Title = &title
 			}
 			if cmd.Flags().Changed("context") {
-				body["context"] = ctx
+				body.Context = &ctx
 			}
 			if cmd.Flags().Changed("priority") {
-				body["priority"] = int32(priority)
+				p := int32(priority)
+				body.Priority = &p
 			}
 			if cmd.Flags().Changed("component") {
-				body["component"] = component
+				body.Component = &component
 			}
 			if cmd.Flags().Changed("type") {
-				body["issue_type"] = issueType
+				body.IssueType = &issueType
 			}
 			var ok struct {
 				OK bool `json:"ok"`
@@ -444,13 +456,13 @@ func issueResolveCmd() *cobra.Command {
 				}
 			}
 			c := cli.MustClient()
-			body := map[string]any{
-				"slug": c.SlugOrDie(),
-				"id":   int32(n),
-				"shas": fullSHAs,
+			body := dxclient.ResolveIssueRequest{
+				Slug: c.SlugOrDie(),
+				Id:   int32(n),
+				Shas: &fullSHAs,
 			}
 			if branch != "" {
-				body["branch"] = branch
+				body.Branch = &branch
 			}
 			var resp struct {
 				Resolution struct {
@@ -556,9 +568,9 @@ func issueReconcileCmd() *cobra.Command {
 					MatchedSHAs  []string `json:"matched_shas"`
 				} `json:"results"`
 			}
-			if err := c.Post("/api/dx/todo/issue/reconcile", map[string]any{
-				"slug":   c.SlugOrDie(),
-				"branch": branch,
+			if err := c.Post("/api/dx/todo/issue/reconcile", dxclient.ReconcileBranchRequest{
+				Slug:   c.SlugOrDie(),
+				Branch: branch,
 			}, &resp); err != nil {
 				return err
 			}

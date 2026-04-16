@@ -3,10 +3,12 @@ package devtools
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/url"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 type errorReportItem struct {
@@ -79,12 +81,12 @@ func errorsReportCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var resp errorReportItem
-			if err := c.Post("/api/dx/errors/report", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"source":      source,
-				"endpoint":    endpoint,
-				"error_name":  name,
-				"stack_trace": stack,
+			if err := c.Post("/api/dx/errors/report", dxclient.ReportErrorRequest{
+				Slug:       c.SlugOrDie(),
+				Source:     source,
+				Endpoint:   endpoint,
+				ErrorName:  name,
+				StackTrace: stack,
 			}, &resp); err != nil {
 				return err
 			}

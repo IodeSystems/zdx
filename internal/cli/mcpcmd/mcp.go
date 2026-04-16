@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/url"
 	"os/exec"
 	"strconv"
@@ -14,7 +13,9 @@ import (
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func McpCmd() *cobra.Command {
@@ -103,22 +104,32 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 			issType = "ops"
 		}
 		var iss clitypes.IssueItem
-		if err := c.Post("/api/dx/todo/issue/add", map[string]any{
-			"slug":       slug,
-			"title":      in.Title,
-			"context":    in.Context,
-			"component":  in.Component,
-			"blocked_by": in.BlockedBy,
-			"issue_type": issType,
-		}, &iss); err != nil {
+		addBody := dxclient.AddIssueRequest{
+			Slug:      slug,
+			IssueType: &issType,
+		}
+		if in.Title != "" {
+			addBody.Title = &in.Title
+		}
+		if in.Context != "" {
+			addBody.Context = &in.Context
+		}
+		if in.Component != "" {
+			addBody.Component = &in.Component
+		}
+		if in.BlockedBy != "" {
+			blockers := []string{in.BlockedBy}
+			addBody.BlockedBy = &blockers
+		}
+		if err := c.Post("/api/dx/todo/issue/add", addBody, &iss); err != nil {
 			return nil, nil, err
 		}
 		if in.Parent != "" {
 			parentNum, _ := strconv.ParseInt(in.Parent[3:], 10, 32)
-			_ = c.Post("/api/dx/todo/issue/add-block", map[string]any{
-				"slug":       slug,
-				"id":         int32(parentNum),
-				"blocked_by": clitypes.IssueIDStr(int32(iss.ID)),
+			_ = c.Post("/api/dx/todo/issue/add-block", dxclient.IssueAddBlockRequest{
+				Slug:      slug,
+				Id:        int32(parentNum),
+				BlockedBy: clitypes.IssueIDStr(int32(iss.ID)),
 			}, nil)
 		}
 		return nil, iss, nil
@@ -156,11 +167,14 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.Post("/api/dx/todo/issue/close", map[string]any{
-			"slug":   slug,
-			"id":     n,
-			"reason": in.Reason,
-		}, &ok); err != nil {
+		closeBody := dxclient.CloseIssueRequest{
+			Slug: slug,
+			Id:   n,
+		}
+		if in.Reason != "" {
+			closeBody.Reason = &in.Reason
+		}
+		if err := c.Post("/api/dx/todo/issue/close", closeBody, &ok); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "closed", "id": in.ID}, nil
@@ -183,16 +197,28 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if err != nil {
 			return nil, nil, err
 		}
-		body := map[string]any{"slug": slug, "id": n}
-		raw, _ := json.Marshal(in)
-		var fields map[string]any
-		json.Unmarshal(raw, &fields)
-		for k, v := range fields {
-			if k == "id" {
-				continue
-			}
-			body[k] = v
+		body := dxclient.EditIssueRequest{
+			Slug: slug,
+			Id:   n,
 		}
+		if in.Title != "" {
+			body.Title = &in.Title
+		}
+		if in.Context != "" {
+			body.Context = &in.Context
+		}
+		if in.Priority != nil {
+			p := int32(*in.Priority)
+			body.Priority = &p
+		}
+		if in.Component != "" {
+			body.Component = &in.Component
+		}
+		if in.IssueType != "" {
+			body.IssueType = &in.IssueType
+		}
+		// Note: EditIssueRequest has no blocked_by; MCP schema advertises it
+		// but it's ignored. Separate issue_block / issue_unblock tools handle that.
 		var ok struct {
 			OK bool `json:"ok"`
 		}
@@ -217,10 +243,10 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.Post("/api/dx/todo/issue/set-blocked-by", map[string]any{
-			"slug":       slug,
-			"id":         n,
-			"blocked_by": in.By,
+		if err := c.Post("/api/dx/todo/issue/add-block", dxclient.IssueAddBlockRequest{
+			Slug:      slug,
+			Id:        n,
+			BlockedBy: in.By,
 		}, &ok); err != nil {
 			return nil, nil, err
 		}
@@ -229,6 +255,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 
 	type issueUnblockInput struct {
 		ID string `json:"id" jsonschema:"required,issue ID (IS-N)"`
+		By string `json:"by,omitempty" jsonschema:"specific blocker (IS-N) to remove; omit to clear all"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "issue_unblock",
@@ -241,11 +268,14 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.Post("/api/dx/todo/issue/set-blocked-by", map[string]any{
-			"slug":       slug,
-			"id":         n,
-			"blocked_by": "",
-		}, &ok); err != nil {
+		body := dxclient.IssueRemoveBlockRequest{
+			Slug: slug,
+			Id:   n,
+		}
+		if in.By != "" {
+			body.BlockedBy = &in.By
+		}
+		if err := c.Post("/api/dx/todo/issue/remove-block", body, &ok); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "unblocked", "id": in.ID}, nil
@@ -368,11 +398,14 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.Post("/api/dx/todo/dev/done", map[string]any{
-			"id":        n,
-			"test_plan": in.TestPlan,
-			"test_refs": in.TestRefs,
-		}, &ok); err != nil {
+		doneBody := dxclient.MarkTaskDoneRequest{Id: n}
+		if in.TestPlan != "" {
+			doneBody.TestPlan = &in.TestPlan
+		}
+		if in.TestRefs != "" {
+			doneBody.TestRefs = &in.TestRefs
+		}
+		if err := c.Post("/api/dx/todo/dev/done", doneBody, &ok); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "done", "id": in.ID}, nil
@@ -393,11 +426,14 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.Put("/api/task-status", map[string]any{
-			"id":     n,
-			"status": "active",
-			"reason": in.Reason,
-		}, &ok); err != nil {
+		startBody := dxclient.UpdateTaskStatusRequest{
+			Id:     n,
+			Status: "active",
+		}
+		if in.Reason != "" {
+			startBody.Reason = &in.Reason
+		}
+		if err := c.Put("/api/task-status", startBody, &ok); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "active", "id": in.ID}, nil
@@ -420,25 +456,33 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if err != nil {
 			return nil, nil, err
 		}
-		body := map[string]any{
-			"slug":     slug,
-			"id":       n,
-			"priority": int32(in.Priority),
+		body := dxclient.TriageIssueRequest{
+			Slug:     slug,
+			Id:       n,
+			Priority: int32(in.Priority),
 		}
 		if in.Title != "" {
-			body["title"] = in.Title
+			body.Title = &in.Title
 		}
 		if in.IssueType != "" {
-			body["issue_type"] = in.IssueType
+			body.IssueType = &in.IssueType
 		}
 		if in.Context != "" {
-			body["context"] = in.Context
+			body.Context = &in.Context
 		}
 		if len(in.ThemeIDs) > 0 {
-			body["theme_ids"] = in.ThemeIDs
+			ids := make([]int32, len(in.ThemeIDs))
+			for i, v := range in.ThemeIDs {
+				ids[i] = int32(v)
+			}
+			body.ThemeIds = &ids
 		}
 		if len(in.GoalIDs) > 0 {
-			body["goal_ids"] = in.GoalIDs
+			ids := make([]int32, len(in.GoalIDs))
+			for i, v := range in.GoalIDs {
+				ids[i] = int32(v)
+			}
+			body.GoalIds = &ids
 		}
 		var ok struct {
 			OK bool `json:"ok"`
@@ -461,14 +505,23 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Description: "Add a task to an issue or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoTechAddInput) (*mcp.CallToolResult, any, error) {
 		var resp clitypes.TaskAddResponse
-		if err := c.Post("/api/dx/todo/tech/add", map[string]any{
-			"slug":       slug,
-			"text":       in.Text,
-			"feature":    in.Feature,
-			"issue":      in.Issue,
-			"task_group": in.TaskGroup,
-			"force":      in.Force,
-		}, &resp); err != nil {
+		addBody := dxclient.AddTaskRequest{
+			Slug: slug,
+			Text: in.Text,
+		}
+		if in.Feature != "" {
+			addBody.Feature = &in.Feature
+		}
+		if in.Issue != "" {
+			addBody.Issue = &in.Issue
+		}
+		if in.TaskGroup != "" {
+			addBody.TaskGroup = &in.TaskGroup
+		}
+		if in.Force {
+			addBody.Force = &in.Force
+		}
+		if err := c.Post("/api/dx/todo/tech/add", addBody, &resp); err != nil {
 			return nil, nil, err
 		}
 		if resp.DuplicateBlocked {
@@ -542,10 +595,11 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 				Score   float64              `json:"score"`
 			} `json:"patterns"`
 		}
-		if err := c.Post("/api/dx/patterns/similar", map[string]any{
-			"slug": slug,
-			"text": in.Text,
-			"n":    n,
+		nInt := int64(n)
+		if err := c.Post("/api/dx/patterns/similar", dxclient.SimilarPatternsRequest{
+			Slug: slug,
+			Text: in.Text,
+			N:    &nInt,
 		}, &resp); err != nil {
 			return nil, nil, err
 		}
@@ -562,15 +616,14 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "pattern_refine",
 		Description: "Refine a pattern by updating its name, description, or code refs to be more helpful in future searches",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in patternRefineInput) (*mcp.CallToolResult, any, error) {
-		body := map[string]any{"slug": slug, "id": in.ID}
-		if in.Name != "" {
-			body["name"] = in.Name
-		}
-		if in.Description != "" {
-			body["description"] = in.Description
+		body := dxclient.UpdatePatternRequest{
+			Slug:        slug,
+			Id:          in.ID,
+			Name:        in.Name,
+			Description: in.Description,
 		}
 		if len(in.CodeRefs) > 0 {
-			body["code_refs"] = in.CodeRefs
+			body.CodeRefs = in.CodeRefs
 		}
 		var p clitypes.PatternItem
 		if err := c.Post("/api/dx/patterns/update", body, &p); err != nil {
@@ -601,10 +654,11 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 				Score    float32 `json:"score"`
 			} `json:"questions"`
 		}
-		if err := c.Post("/api/dx/qa/similar", map[string]any{
-			"slug": slug,
-			"text": in.Text,
-			"n":    n,
+		nInt := int64(n)
+		if err := c.Post("/api/dx/qa/similar", dxclient.SimilarQuestionsRequest{
+			Slug: slug,
+			Text: in.Text,
+			N:    &nInt,
 		}, &resp); err != nil {
 			return nil, nil, err
 		}
@@ -620,10 +674,10 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Description: "Add a new question to the project's Q&A knowledge base",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in questionAddInput) (*mcp.CallToolResult, any, error) {
 		var q clitypes.QuestionItem
-		if err := c.Post("/api/dx/qa/add", map[string]any{
-			"slug":     slug,
-			"category": in.Category,
-			"question": in.Question,
+		if err := c.Post("/api/dx/qa/add", dxclient.AddQuestionRequest{
+			Slug:     slug,
+			Category: in.Category,
+			Question: in.Question,
 		}, &q); err != nil {
 			return nil, nil, err
 		}
@@ -668,11 +722,11 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Description: "Add a comment to an issue, task, or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in commentAddInput) (*mcp.CallToolResult, any, error) {
 		var cm clitypes.CommentItem
-		if err := c.Post("/api/dx/comment/add", map[string]any{
-			"slug":        slug,
-			"target_type": in.TargetType,
-			"target_id":   in.TargetID,
-			"body":        in.Body,
+		if err := c.Post("/api/dx/comment/add", dxclient.AddCommentRequest{
+			Slug:       slug,
+			TargetType: in.TargetType,
+			TargetId:   in.TargetID,
+			Body:       in.Body,
 		}, &cm); err != nil {
 			return nil, nil, err
 		}

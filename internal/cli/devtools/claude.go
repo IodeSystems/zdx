@@ -3,7 +3,6 @@ package devtools
 import (
 	"encoding/json"
 	"fmt"
-	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/url"
 	"os"
 	"os/exec"
@@ -11,6 +10,9 @@ import (
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func ClaudeCmd() *cobra.Command {
@@ -140,11 +142,7 @@ Transcript:
 	result = strings.TrimSuffix(result, "```")
 	result = strings.TrimSpace(result)
 
-	var summary struct {
-		Header  string `json:"header"`
-		Summary string `json:"summary"`
-		Status  string `json:"status"`
-	}
+	var summary dxclient.UpdateClaudeSessionSummaryRequest
 	if err := json.Unmarshal([]byte(result), &summary); err != nil {
 		return fmt.Errorf("parse claude response: %w\nraw: %s", err, result)
 	}

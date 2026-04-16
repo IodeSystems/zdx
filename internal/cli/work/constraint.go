@@ -6,6 +6,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 type constraintItem struct {
@@ -62,12 +63,12 @@ func constraintAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var g constraintItem
-			if err := c.Post("/api/constraint", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"title":       args[0],
-				"description": desc,
-				"priority":    priority,
-				"status":      status,
+			if err := c.Post("/api/constraint", dxclient.CreateConstraintRequest{
+				Slug:        c.SlugOrDie(),
+				Title:       args[0],
+				Description: desc,
+				Priority:    priority,
+				Status:      status,
 			}, &g); err != nil {
 				return err
 			}

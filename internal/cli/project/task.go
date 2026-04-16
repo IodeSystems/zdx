@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func TaskCmd() *cobra.Command {
@@ -24,8 +25,8 @@ func taskReadyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			n, _ := strconv.ParseInt(args[0][3:], 10, 32)
-			if err := c.Post("/api/dx/todo/task/ready", map[string]any{
-				"id": int32(n),
+			if err := c.Post("/api/dx/todo/task/ready", dxclient.ReadyTaskRequest{
+				Id: int32(n),
 			}, nil); err != nil {
 				return err
 			}
@@ -49,8 +50,8 @@ func taskDeleteCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid task id %q: %w", args[0], err)
 			}
-			if err := c.Post("/api/dx/todo/task/delete", map[string]any{
-				"id": int32(n),
+			if err := c.Post("/api/dx/todo/task/delete", dxclient.DeleteDraftTaskRequest{
+				Id: int32(n),
 			}, nil); err != nil {
 				return err
 			}

@@ -6,7 +6,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"github.com/iodesystems/zdx-go/internal/cli"
 	"io"
 	"os"
 	"os/exec"
@@ -18,7 +17,9 @@ import (
 
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/config"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 	"github.com/iodesystems/zdx-go/internal/testharness"
 )
 
@@ -703,41 +704,47 @@ func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta)
 		return
 	}
 
-	var apiResults []map[string]any
+	apiResults := make([]dxclient.TestResultInput, 0, len(results))
 	for _, r := range results {
 		comp := r.Component
 		if strings.HasPrefix(r.Test, "TestDemo") {
 			comp = "demo"
 		}
-		item := map[string]any{
-			"driver":      comp,
-			"test_name":   r.Test,
-			"feature":     r.Feature,
-			"status":      r.Status,
-			"duration_ms": r.DurationMs,
-			"branch":      r.Branch,
-			"git_sha":     r.GitSHA,
+		item := dxclient.TestResultInput{
+			Driver:     comp,
+			TestName:   r.Test,
+			Feature:    r.Feature,
+			Status:     r.Status,
+			DurationMs: int32(r.DurationMs),
+		}
+		if r.Branch != "" {
+			branch := r.Branch
+			item.Branch = &branch
+		}
+		if r.GitSHA != "" {
+			sha := r.GitSHA
+			item.GitSha = &sha
 		}
 		// Match demo artifacts by checking if the test output references the artifact file.
-		var demos []map[string]string
+		var demos []dxclient.DemoArtifactRef
 		for _, m := range metas {
 			base := filepath.Base(m.ArtifactPath)
 			if strings.Contains(r.Output, base) {
-				demos = append(demos, map[string]string{
-					"demo_type":     m.DemoType,
-					"artifact_path": m.ArtifactPath,
+				demos = append(demos, dxclient.DemoArtifactRef{
+					DemoType:     m.DemoType,
+					ArtifactPath: m.ArtifactPath,
 				})
 			}
 		}
 		if len(demos) > 0 {
-			item["demo_artifacts"] = demos
+			item.DemoArtifacts = &demos
 		}
 		apiResults = append(apiResults, item)
 	}
 
-	if err := c.Post("/api/dx/test-results/submit", map[string]any{
-		"slug":    slug,
-		"results": apiResults,
+	if err := c.Post("/api/dx/test-results/submit", dxclient.SubmitTestResultsRequest{
+		Slug:    slug,
+		Results: &apiResults,
 	}, nil); err != nil {
 		fmt.Fprintf(os.Stderr, "[sync] submit failed: %v\n", err)
 		return

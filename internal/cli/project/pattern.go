@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func PatternCmd() *cobra.Command {
@@ -52,14 +52,13 @@ func patternAddCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			body := map[string]any{
-				"slug":        c.SlugOrDie(),
-				"name":        args[0],
-				"description": desc,
+			body := dxclient.AddPatternRequest{
+				Slug:        c.SlugOrDie(),
+				Name:        args[0],
+				Description: desc,
 			}
 			if codeRefsStr != "" {
-				refs := parseCodeRefs(codeRefsStr)
-				body["code_refs"] = refs
+				body.CodeRefs = parseCodeRefs(codeRefsStr)
 			}
 			var p clitypes.PatternItem
 			if err := c.Post("/api/dx/patterns/add", body, &p); err != nil {
@@ -115,9 +114,9 @@ func patternDeleteCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Post("/api/dx/patterns/delete", map[string]any{
-				"slug": c.SlugOrDie(),
-				"id":   id,
+			if err := c.Post("/api/dx/patterns/delete", dxclient.DeletePatternRequest{
+				Slug: c.SlugOrDie(),
+				Id:   id,
 			}, &ok); err != nil {
 				return err
 			}
@@ -141,10 +140,11 @@ func patternSearchCmd() *cobra.Command {
 					Score   float64              `json:"score"`
 				} `json:"patterns"`
 			}
-			if err := c.Post("/api/dx/patterns/similar", map[string]any{
-				"slug": c.SlugOrDie(),
-				"text": args[0],
-				"n":    n,
+			nInt := int64(n)
+			if err := c.Post("/api/dx/patterns/similar", dxclient.SimilarPatternsRequest{
+				Slug: c.SlugOrDie(),
+				Text: args[0],
+				N:    &nInt,
 			}, &resp); err != nil {
 				return err
 			}

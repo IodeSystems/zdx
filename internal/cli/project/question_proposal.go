@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 type questionProposalItem struct {
@@ -38,12 +39,12 @@ func questionProposalAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var p questionProposalItem
-			if err := c.Post("/api/dx/question-proposals/add", map[string]any{
-				"slug":          c.SlugOrDie(),
-				"question_id":   questionID,
-				"question_type": questionType,
-				"title":         title,
-				"context":       ctx,
+			if err := c.Post("/api/dx/question-proposals/add", dxclient.AddQuestionProposalRequest{
+				Slug:         c.SlugOrDie(),
+				QuestionId:   questionID,
+				QuestionType: questionType,
+				Title:        title,
+				Context:      ctx,
 			}, &p); err != nil {
 				return err
 			}
@@ -116,9 +117,9 @@ func questionProposalAcceptCmd() *cobra.Command {
 					ID string `json:"id"`
 				} `json:"issue"`
 			}
-			if err := c.Post("/api/dx/question-proposals/accept", map[string]any{
-				"slug": c.SlugOrDie(),
-				"id":   int32(id),
+			if err := c.Post("/api/dx/question-proposals/accept", dxclient.AcceptQuestionProposalRequest{
+				Slug: c.SlugOrDie(),
+				Id:   int32(id),
 			}, &resp); err != nil {
 				return err
 			}
@@ -142,10 +143,10 @@ func questionProposalDenyCmd() *cobra.Command {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
 			var p questionProposalItem
-			if err := c.Post("/api/dx/question-proposals/deny", map[string]any{
-				"slug":   c.SlugOrDie(),
-				"id":     int32(id),
-				"reason": reason,
+			if err := c.Post("/api/dx/question-proposals/deny", dxclient.DenyQuestionProposalRequest{
+				Slug:   c.SlugOrDie(),
+				Id:     int32(id),
+				Reason: reason,
 			}, &p); err != nil {
 				return err
 			}

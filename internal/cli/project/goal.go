@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func GoalCmd() *cobra.Command {
@@ -54,12 +54,12 @@ func goalAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var g clitypes.GoalItem
-			if err := c.Post("/api/goal", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"title":       args[0],
-				"description": desc,
-				"priority":    priority,
-				"status":      status,
+			if err := c.Post("/api/goal", dxclient.CreateGoalRequest{
+				Slug:        c.SlugOrDie(),
+				Title:       args[0],
+				Description: desc,
+				Priority:    priority,
+				Status:      status,
 			}, &g); err != nil {
 				return err
 			}

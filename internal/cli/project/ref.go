@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 type codeRefItem struct {
@@ -67,22 +68,22 @@ func refIssueAttachCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			body := map[string]any{
-				"slug":      c.SlugOrDie(),
-				"issue_id":  args[0],
-				"file_path": filePath,
+			body := dxclient.AttachCodeRefToIssueRequest{
+				Slug:     c.SlugOrDie(),
+				IssueId:  args[0],
+				FilePath: filePath,
 			}
 			if gitHash != "" {
-				body["git_hash"] = gitHash
+				body.GitHash = &gitHash
 			}
 			if lineStart > 0 {
-				body["line_start"] = lineStart
+				body.LineStart = &lineStart
 			}
 			if lineEnd > 0 {
-				body["line_end"] = lineEnd
+				body.LineEnd = &lineEnd
 			}
 			if note != "" {
-				body["note"] = note
+				body.Note = &note
 			}
 			var ref codeRefItem
 			if err := c.Post("/api/dx/code-refs/issue/attach", body, &ref); err != nil {
@@ -143,10 +144,10 @@ func refIssueDetachCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Post("/api/dx/code-refs/issue/detach", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"issue_id":    args[0],
-				"code_ref_id": int32(id),
+			if err := c.Post("/api/dx/code-refs/issue/detach", dxclient.DetachCodeRefFromIssueRequest{
+				Slug:      c.SlugOrDie(),
+				IssueId:   args[0],
+				CodeRefId: int32(id),
 			}, &ok); err != nil {
 				return err
 			}
@@ -165,22 +166,22 @@ func refTaskAttachCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			body := map[string]any{
-				"slug":      c.SlugOrDie(),
-				"task_id":   args[0],
-				"file_path": filePath,
+			body := dxclient.AttachCodeRefToTaskRequest{
+				Slug:     c.SlugOrDie(),
+				TaskId:   args[0],
+				FilePath: filePath,
 			}
 			if gitHash != "" {
-				body["git_hash"] = gitHash
+				body.GitHash = &gitHash
 			}
 			if lineStart > 0 {
-				body["line_start"] = lineStart
+				body.LineStart = &lineStart
 			}
 			if lineEnd > 0 {
-				body["line_end"] = lineEnd
+				body.LineEnd = &lineEnd
 			}
 			if note != "" {
-				body["note"] = note
+				body.Note = &note
 			}
 			var ref codeRefItem
 			if err := c.Post("/api/dx/code-refs/task/attach", body, &ref); err != nil {
@@ -241,10 +242,10 @@ func refTaskDetachCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Post("/api/dx/code-refs/task/detach", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"task_id":     args[0],
-				"code_ref_id": int32(id),
+			if err := c.Post("/api/dx/code-refs/task/detach", dxclient.DetachCodeRefFromTaskRequest{
+				Slug:      c.SlugOrDie(),
+				TaskId:    args[0],
+				CodeRefId: int32(id),
 			}, &ok); err != nil {
 				return err
 			}

@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func SpecCmd() *cobra.Command {
@@ -32,11 +32,11 @@ func specAddCmd() *cobra.Command {
 				OK bool `json:"ok"`
 			}
 			// The update-specs endpoint uses field=kind, value=description.
-			if err := c.Post("/api/dx/specs/update", map[string]any{
-				"slug":    c.SlugOrDie(),
-				"feature": feature,
-				"field":   kind,
-				"value":   text,
+			if err := c.Post("/api/dx/specs/update", dxclient.UpdateSpecsRequest{
+				Slug:    c.SlugOrDie(),
+				Feature: feature,
+				Field:   kind,
+				Value:   text,
 			}, &ok); err != nil {
 				return err
 			}
@@ -103,9 +103,9 @@ func specLinkCmd() *cobra.Command {
 			}
 			c := cli.MustClient()
 			var ok struct{ OK bool }
-			if err := c.Post("/api/dx/specs/link-test", map[string]any{
-				"spec_id": specID,
-				"test_id": testID,
+			if err := c.Post("/api/dx/specs/link-test", dxclient.LinkSpecTestRequest{
+				SpecId: int32(specID),
+				TestId: int32(testID),
 			}, &ok); err != nil {
 				return err
 			}
@@ -128,9 +128,9 @@ func specDeferCmd() *cobra.Command {
 			}
 			c := cli.MustClient()
 			var ok struct{ OK bool }
-			if err := c.Post("/api/dx/specs/defer", map[string]any{
-				"spec_id": specID,
-				"reason":  reason,
+			if err := c.Post("/api/dx/specs/defer", dxclient.DeferSpecRequest{
+				SpecId: int32(specID),
+				Reason: reason,
 			}, &ok); err != nil {
 				return err
 			}
@@ -154,8 +154,8 @@ func specUndeferCmd() *cobra.Command {
 			}
 			c := cli.MustClient()
 			var ok struct{ OK bool }
-			if err := c.Post("/api/dx/specs/undefer", map[string]any{
-				"spec_id": specID,
+			if err := c.Post("/api/dx/specs/undefer", dxclient.UndeferSpecRequest{
+				SpecId: int32(specID),
 			}, &ok); err != nil {
 				return err
 			}
@@ -181,9 +181,9 @@ func specUnlinkCmd() *cobra.Command {
 			}
 			c := cli.MustClient()
 			var ok struct{ OK bool }
-			if err := c.Post("/api/dx/specs/unlink-test", map[string]any{
-				"spec_id": specID,
-				"test_id": testID,
+			if err := c.Post("/api/dx/specs/unlink-test", dxclient.UnlinkSpecTestRequest{
+				SpecId: int32(specID),
+				TestId: int32(testID),
 			}, &ok); err != nil {
 				return err
 			}

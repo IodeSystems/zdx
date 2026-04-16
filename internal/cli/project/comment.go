@@ -10,8 +10,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 // resolveAuthorAlias returns the explicit --as flag value if set, otherwise
@@ -72,14 +72,14 @@ func commentAddCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			payload := map[string]any{
-				"slug":        c.SlugOrDie(),
-				"target_type": args[0],
-				"target_id":   args[1],
-				"body":        body,
+			payload := dxclient.AddCommentRequest{
+				Slug:       c.SlugOrDie(),
+				TargetType: args[0],
+				TargetId:   args[1],
+				Body:       body,
 			}
 			if alias := resolveAuthorAlias(authorAlias); alias != "" {
-				payload["author_alias"] = alias
+				payload.AuthorAlias = &alias
 			}
 			var cm clitypes.CommentItem
 			if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
@@ -122,11 +122,11 @@ func commentMarkReadCmd() *cobra.Command {
 						var ok struct {
 							OK bool `json:"ok"`
 						}
-						if err := c.Post("/api/dx/comment/mark-read", map[string]any{
-							"slug":        c.SlugOrDie(),
-							"target_type": cm.TargetType,
-							"target_id":   cm.TargetID,
-							"role":        role,
+						if err := c.Post("/api/dx/comment/mark-read", dxclient.MarkCommentsReadRequest{
+							Slug:       c.SlugOrDie(),
+							TargetType: cm.TargetType,
+							TargetId:   cm.TargetID,
+							Role:       role,
 						}, &ok); err != nil {
 							return fmt.Errorf("C-%d: %w", cid, err)
 						}
@@ -143,11 +143,11 @@ func commentMarkReadCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Post("/api/dx/comment/mark-read", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"target_type": args[0],
-				"target_id":   args[1],
-				"role":        role,
+			if err := c.Post("/api/dx/comment/mark-read", dxclient.MarkCommentsReadRequest{
+				Slug:       c.SlugOrDie(),
+				TargetType: args[0],
+				TargetId:   args[1],
+				Role:       role,
 			}, &ok); err != nil {
 				return err
 			}
@@ -179,15 +179,15 @@ func commentReplyCmd() *cobra.Command {
 			}
 
 			if body != "" {
-				payload := map[string]any{
-					"slug":        c.SlugOrDie(),
-					"target_type": orig.TargetType,
-					"target_id":   orig.TargetID,
-					"body":        body,
-					"parent_id":   cid,
+				payload := dxclient.AddCommentRequest{
+					Slug:       c.SlugOrDie(),
+					TargetType: orig.TargetType,
+					TargetId:   orig.TargetID,
+					Body:       body,
+					ParentId:   &cid,
 				}
 				if alias := resolveAuthorAlias(authorAlias); alias != "" {
-					payload["author_alias"] = alias
+					payload.AuthorAlias = &alias
 				}
 				var cm clitypes.CommentItem
 				if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
@@ -200,10 +200,10 @@ func commentReplyCmd() *cobra.Command {
 				var resp struct {
 					ID int32 `json:"id"`
 				}
-				if err := c.Post("/api/dx/comment/react", map[string]any{
-					"slug":       c.SlugOrDie(),
-					"comment_id": cid,
-					"emoji":      react,
+				if err := c.Post("/api/dx/comment/react", dxclient.ReactToCommentRequest{
+					Slug:      c.SlugOrDie(),
+					CommentId: cid,
+					Emoji:     react,
 				}, &resp); err != nil {
 					return err
 				}
@@ -236,10 +236,10 @@ func commentReactCmd() *cobra.Command {
 			var resp struct {
 				ID int32 `json:"id"`
 			}
-			if err := c.Post("/api/dx/comment/react", map[string]any{
-				"slug":       c.SlugOrDie(),
-				"comment_id": cid,
-				"emoji":      args[1],
+			if err := c.Post("/api/dx/comment/react", dxclient.ReactToCommentRequest{
+				Slug:      c.SlugOrDie(),
+				CommentId: cid,
+				Emoji:     args[1],
 			}, &resp); err != nil {
 				return err
 			}

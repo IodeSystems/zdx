@@ -10,6 +10,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func QuestionCmd() *cobra.Command {
@@ -42,13 +43,16 @@ func questionAddCmd() *cobra.Command {
 				}
 			}
 			var q clitypes.BlockerQuestionItem
-			if err := c.Post("/api/dx/blocker-questions/add", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"target_type": targetType,
-				"target_id":   targetID,
-				"context":     ctx,
-				"choices":     choiceList,
-			}, &q); err != nil {
+			body := dxclient.AddBlockerQuestionRequest{
+				Slug:       c.SlugOrDie(),
+				TargetType: targetType,
+				TargetId:   targetID,
+				Context:    ctx,
+			}
+			if len(choiceList) > 0 {
+				body.Choices = &choiceList
+			}
+			if err := c.Post("/api/dx/blocker-questions/add", body, &q); err != nil {
 				return err
 			}
 			fmt.Printf("BQ-%d  [%s:%s]  %s\n", q.ID, q.TargetType, q.TargetID, q.Context)
@@ -79,12 +83,15 @@ func questionAnswerCmd() *cobra.Command {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
 			var q clitypes.BlockerQuestionItem
-			if err := c.Post("/api/dx/blocker-questions/answer", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"id":          int32(id),
-				"answer":      answer,
-				"answered_by": answeredBy,
-			}, &q); err != nil {
+			body := dxclient.AnswerBlockerQuestionRequest{
+				Slug:   c.SlugOrDie(),
+				Id:     int32(id),
+				Answer: answer,
+			}
+			if answeredBy != "" {
+				body.AnsweredBy = &answeredBy
+			}
+			if err := c.Post("/api/dx/blocker-questions/answer", body, &q); err != nil {
 				return err
 			}
 			fmt.Printf("BQ-%d  answered\n", q.ID)

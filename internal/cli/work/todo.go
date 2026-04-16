@@ -12,8 +12,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 const triageGuidance = `  triage checklist:
@@ -184,11 +184,11 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			_ = c.Post("/api/dx/comment/mark-read", map[string]any{
-				"slug":        slug,
-				"target_type": "issue",
-				"target_id":   clitypes.IssueIDStr(iss.ID),
-				"role":        "llm",
+			_ = c.Post("/api/dx/comment/mark-read", dxclient.MarkCommentsReadRequest{
+				Slug:       slug,
+				TargetType: "issue",
+				TargetId:   clitypes.IssueIDStr(iss.ID),
+				Role:       "llm",
 			}, &ok)
 			return nil
 		}
@@ -231,11 +231,11 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			_ = c.Post("/api/dx/comment/mark-read", map[string]any{
-				"slug":        slug,
-				"target_type": "feature",
-				"target_id":   f.Name,
-				"role":        "llm",
+			_ = c.Post("/api/dx/comment/mark-read", dxclient.MarkCommentsReadRequest{
+				Slug:       slug,
+				TargetType: "feature",
+				TargetId:   f.Name,
+				Role:       "llm",
 			}, &ok)
 			return nil
 		}
@@ -538,13 +538,11 @@ Analyze the project to bootstrap its feature catalog and first issue:
 	// 3. Find a pending task
 	if agentID != "" {
 		// Agent mode: atomically claim a task via the ClaimTask API.
-		claimBody := map[string]any{
-			"slug":       slug,
-			"agent_id":   agentID,
-			"task_group": agentTaskGroup,
-		}
-		if issueFlag != "" {
-			claimBody["issue"] = issueFlag
+		claimBody := dxclient.ClaimTaskRequest{
+			Slug:      slug,
+			AgentId:   agentID,
+			TaskGroup: agentTaskGroup,
+			Issue:     issueFlag,
 		}
 		var claimed clitypes.AgentTaskItem
 		if err := c.Post("/api/tasks/claim", claimBody, &claimed); err == nil {
@@ -640,18 +638,11 @@ func printStaleWarning(createdAt string, taskID string) {
 
 // ── evaluate ─────────────────────────────────────────────────────────────────
 
-type soloQueueItem struct {
-	Key        string `json:"key"`
-	Text       string `json:"text"`
-	Kind       string `json:"kind"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	IssueRef   string `json:"issue_ref"`
-	Priority   int32  `json:"priority"`
-	Blocked    bool   `json:"blocked"`
-	Persona    string `json:"persona"`
-	Status     string `json:"status"`
-}
+// soloQueueItem is the wire shape of one queue item shared between evaluate
+// and apply. Aliased to the generated dxclient type so the apply request can
+// embed a []soloQueueItem directly and any server-side schema change surfaces
+// as a compile error here.
+type soloQueueItem = dxclient.SoloQueueItem
 
 type evaluateDiffResp struct {
 	Added   []soloQueueItem `json:"added"`
@@ -677,9 +668,9 @@ func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
 	slug := c.SlugOrDie()
 
 	var diff evaluateDiffResp
-	if err := c.Post("/api/dx/solo/evaluate", map[string]any{
-		"slug":  slug,
-		"issue": issueFlag,
+	if err := c.Post("/api/dx/solo/evaluate", dxclient.SoloEvaluateRequest{
+		Slug:  slug,
+		Issue: issueFlag,
 	}, &diff); err != nil {
 		return err
 	}
@@ -694,7 +685,7 @@ func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
 	if len(diff.Added) > 0 {
 		fmt.Printf("+ %d new:\n", len(diff.Added))
 		for _, a := range diff.Added {
-			fmt.Printf("  + [%s] %s  %s\n", a.Kind, a.TargetID, a.Text)
+			fmt.Printf("  + [%s] %s  %s\n", a.Kind, a.TargetId, a.Text)
 		}
 	}
 	if len(diff.Removed) > 0 {
@@ -726,9 +717,9 @@ func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
 	var ok struct {
 		OK bool `json:"ok"`
 	}
-	if err := c.Post("/api/dx/solo/apply", map[string]any{
-		"slug":  slug,
-		"items": items,
+	if err := c.Post("/api/dx/solo/apply", dxclient.SoloApplyRequest{
+		Slug:  slug,
+		Items: &items,
 	}, &ok); err != nil {
 		return err
 	}
@@ -962,10 +953,10 @@ func todoDevDoneCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Post("/api/dx/todo/dev/done", map[string]any{
-				"id":        int32(n),
-				"test_plan": testPlan,
-				"test_refs": testRefs,
+			if err := c.Post("/api/dx/todo/dev/done", dxclient.MarkTaskDoneRequest{
+				Id:       int32(n),
+				TestPlan: &testPlan,
+				TestRefs: &testRefs,
 			}, &ok); err != nil {
 				return err
 			}
@@ -990,7 +981,7 @@ func todoDevUndoneCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Post("/api/dx/todo/dev/undone", map[string]any{"id": int32(n)}, &ok); err != nil {
+			if err := c.Post("/api/dx/todo/dev/undone", dxclient.MarkTaskUndoneRequest{Id: int32(n)}, &ok); err != nil {
 				return err
 			}
 			fmt.Printf("%s undone\n", id)
@@ -1012,10 +1003,10 @@ func todoDevStartCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Put("/api/task-status", map[string]any{
-				"id":     int32(n),
-				"status": "active",
-				"reason": reason,
+			if err := c.Put("/api/task-status", dxclient.UpdateTaskStatusRequest{
+				Id:     int32(n),
+				Status: "active",
+				Reason: &reason,
 			}, &ok); err != nil {
 				return err
 			}
@@ -1044,10 +1035,10 @@ func todoDevReviewCmd() *cobra.Command {
 				var ok struct {
 					OK bool `json:"ok"`
 				}
-				if err := c.Post("/api/dx/todo/dev/review", map[string]any{
-					"slug":    slug,
-					"id":      int32(n),
-					"verdict": verdict,
+				if err := c.Post("/api/dx/todo/dev/review", dxclient.MarkTaskReviewedRequest{
+					Slug:    slug,
+					Id:      int32(n),
+					Verdict: verdict,
 				}, &ok); err != nil {
 					return err
 				}
@@ -1147,28 +1138,28 @@ func todoOwnerTriageCmd() *cobra.Command {
 						}
 					}
 					var q clitypes.BlockerQuestionItem
-					if err := c.Post("/api/dx/blocker-questions/add", map[string]any{
-						"slug":        slug,
-						"target_type": "issue",
-						"target_id":   id,
-						"context":     qCtx,
-						"choices":     choiceList,
+					if err := c.Post("/api/dx/blocker-questions/add", dxclient.AddBlockerQuestionRequest{
+						Slug:       slug,
+						TargetType: "issue",
+						TargetId:   id,
+						Context:    qCtx,
+						Choices:    &choiceList,
 					}, &q); err != nil {
 						return err
 					}
 					fmt.Printf("BQ-%d  [issue:%s]  %s\n", q.ID, id, qCtx)
 				}
 				if title != "" || context != "" {
-					body := map[string]any{
-						"slug":     slug,
-						"id":       int32(n),
-						"priority": int32(0),
+					body := dxclient.TriageIssueRequest{
+						Slug:     slug,
+						Id:       int32(n),
+						Priority: 0,
 					}
 					if title != "" {
-						body["title"] = title
+						body.Title = &title
 					}
 					if context != "" {
-						body["context"] = context
+						body.Context = &context
 					}
 					var ok struct {
 						OK bool `json:"ok"`
@@ -1183,19 +1174,19 @@ func todoOwnerTriageCmd() *cobra.Command {
 				return fmt.Errorf("--priority is required (use --clarify for vague issues)")
 			}
 			pri, _ := strconv.ParseInt(priority, 10, 32)
-			body := map[string]any{
-				"slug":     slug,
-				"id":       int32(n),
-				"priority": int32(pri),
+			body := dxclient.TriageIssueRequest{
+				Slug:     slug,
+				Id:       int32(n),
+				Priority: int32(pri),
 			}
 			if title != "" {
-				body["title"] = title
+				body.Title = &title
 			}
 			if issueType != "" {
-				body["issue_type"] = issueType
+				body.IssueType = &issueType
 			}
 			if context != "" {
-				body["context"] = context
+				body.Context = &context
 			}
 			themes, err := parseTodoIDs(themeArgs, "TH-")
 			if err != nil {
@@ -1206,10 +1197,10 @@ func todoOwnerTriageCmd() *cobra.Command {
 				return fmt.Errorf("--goal: %w", err)
 			}
 			if len(themes) > 0 {
-				body["theme_ids"] = themes
+				body.ThemeIds = &themes
 			}
 			if len(goals) > 0 {
-				body["goal_ids"] = goals
+				body.GoalIds = &goals
 			}
 			var ok struct {
 				OK bool `json:"ok"`
@@ -1232,13 +1223,13 @@ func todoOwnerTriageCmd() *cobra.Command {
 	return cmd
 }
 
-// parseTodoIDs converts loose ID forms (e.g. "TH-6" or "6") to int IDs.
+// parseTodoIDs converts loose ID forms (e.g. "TH-6" or "6") to int32 IDs.
 // Prefix match is case-insensitive.
-func parseTodoIDs(args []string, prefix string) ([]int, error) {
+func parseTodoIDs(args []string, prefix string) ([]int32, error) {
 	if len(args) == 0 {
 		return nil, nil
 	}
-	out := make([]int, 0, len(args))
+	out := make([]int32, 0, len(args))
 	for _, a := range args {
 		s := strings.TrimSpace(a)
 		if s == "" {
@@ -1247,11 +1238,11 @@ func parseTodoIDs(args []string, prefix string) ([]int, error) {
 		if len(s) >= len(prefix) && strings.EqualFold(s[:len(prefix)], prefix) {
 			s = s[len(prefix):]
 		}
-		n, err := strconv.Atoi(s)
+		n, err := strconv.ParseInt(s, 10, 32)
 		if err != nil {
 			return nil, fmt.Errorf("invalid ID %q (expected %sN or N)", a, prefix)
 		}
-		out = append(out, n)
+		out = append(out, int32(n))
 	}
 	return out, nil
 }
@@ -1279,24 +1270,24 @@ func todoTechAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var resp clitypes.TaskAddResponse
-			body := map[string]any{
-				"slug": c.SlugOrDie(),
-				"text": text,
+			body := dxclient.AddTaskRequest{
+				Slug: c.SlugOrDie(),
+				Text: text,
 			}
 			if feature != "" {
-				body["feature"] = feature
+				body.Feature = &feature
 			}
 			if issue != "" {
-				body["issue"] = issue
+				body.Issue = &issue
 			}
 			if taskGroup != "" {
-				body["task_group"] = taskGroup
+				body.TaskGroup = &taskGroup
 			}
 			if autoReady {
-				body["auto_ready"] = true
+				body.AutoReady = &autoReady
 			}
 			if force {
-				body["force"] = true
+				body.Force = &force
 			}
 			if err := c.Post("/api/dx/todo/tech/add", body, &resp); err != nil {
 				return err
@@ -1320,8 +1311,8 @@ func todoTechAddCmd() *cobra.Command {
 				fmt.Printf("To delete:\n")
 				fmt.Printf("  dx task delete %s\n", clitypes.TaskIDStr(resp.ID))
 			} else if !autoReady {
-				if err := c.Post("/api/dx/todo/task/ready", map[string]any{
-					"id": resp.ID,
+				if err := c.Post("/api/dx/todo/task/ready", dxclient.ReadyTaskRequest{
+					Id: resp.ID,
 				}, nil); err != nil {
 					return err
 				}
@@ -1397,10 +1388,11 @@ func printSimilarPatterns(c *cli.Client, slug, text string) {
 			Score   float64              `json:"score"`
 		} `json:"patterns"`
 	}
-	if err := c.Post("/api/dx/patterns/similar", map[string]any{
-		"slug": slug,
-		"text": text,
-		"n":    3,
+	n := int64(3)
+	if err := c.Post("/api/dx/patterns/similar", dxclient.SimilarPatternsRequest{
+		Slug: slug,
+		Text: text,
+		N:    &n,
 	}, &resp); err != nil || len(resp.Patterns) == 0 {
 		return
 	}

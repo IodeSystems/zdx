@@ -8,8 +8,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func QaCmd() *cobra.Command {
@@ -26,10 +26,10 @@ func qaAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var q clitypes.QuestionItem
-			if err := c.Post("/api/dx/qa/add", map[string]any{
-				"slug":     c.SlugOrDie(),
-				"category": category,
-				"question": question,
+			if err := c.Post("/api/dx/qa/add", dxclient.AddQuestionRequest{
+				Slug:     c.SlugOrDie(),
+				Category: category,
+				Question: question,
 			}, &q); err != nil {
 				return err
 			}
@@ -56,10 +56,10 @@ func qaAnswerCmd() *cobra.Command {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
 			var q clitypes.QuestionItem
-			if err := c.Post("/api/dx/qa/answer", map[string]any{
-				"slug":   c.SlugOrDie(),
-				"id":     int32(id),
-				"answer": answer,
+			if err := c.Post("/api/dx/qa/answer", dxclient.AnswerQuestionRequest{
+				Slug:   c.SlugOrDie(),
+				Id:     int32(id),
+				Answer: answer,
 			}, &q); err != nil {
 				return err
 			}

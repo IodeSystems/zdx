@@ -7,8 +7,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func FeatureCmd() *cobra.Command {
@@ -64,10 +64,10 @@ func featureAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var f clitypes.FeatureItem
-			if err := c.Post("/api/feature", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"name":        args[0],
-				"description": desc,
+			if err := c.Post("/api/feature", dxclient.UpsertFeatureRequest{
+				Slug:        c.SlugOrDie(),
+				Name:        args[0],
+				Description: desc,
 			}, &f); err != nil {
 				return err
 			}
@@ -133,11 +133,11 @@ func featureSetCmd() *cobra.Command {
 				if !cmd.Flags().Changed(fieldFlag(field)) {
 					continue
 				}
-				if err := c.Post("/api/dx/features/field", map[string]any{
-					"slug":    slug,
-					"feature": name,
-					"field":   field,
-					"value":   value,
+				if err := c.Post("/api/dx/features/field", dxclient.SetFeatureFieldRequest{
+					Slug:    slug,
+					Feature: name,
+					Field:   field,
+					Value:   value,
 				}, nil); err != nil {
 					return fmt.Errorf("set %s: %w", field, err)
 				}
@@ -169,9 +169,9 @@ func featureReviewCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Post("/api/dx/feature/review", map[string]any{
-				"slug":    c.SlugOrDie(),
-				"feature": args[0],
+			if err := c.Post("/api/dx/feature/review", dxclient.MarkFeatureReviewedRequest{
+				Slug:    c.SlugOrDie(),
+				Feature: args[0],
 			}, &ok); err != nil {
 				return err
 			}

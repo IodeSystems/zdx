@@ -6,8 +6,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func ThemeCmd() *cobra.Command {
@@ -55,12 +55,12 @@ func themeAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var t clitypes.ThemeItem
-			if err := c.Post("/api/dx/themes/add", map[string]any{
-				"slug":        c.SlugOrDie(),
-				"name":        args[0],
-				"description": desc,
-				"priority":    int32(priority),
-				"blockers":    blockers,
+			if err := c.Post("/api/dx/themes/add", dxclient.AddThemeRequest{
+				Slug:        c.SlugOrDie(),
+				Name:        args[0],
+				Description: desc,
+				Priority:    int32(priority),
+				Blockers:    blockers,
 			}, &t); err != nil {
 				return err
 			}
@@ -84,10 +84,10 @@ func themeStatusCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.Post("/api/dx/themes/status", map[string]any{
-				"slug":   c.SlugOrDie(),
-				"theme":  args[0],
-				"status": args[1],
+			if err := c.Post("/api/dx/themes/status", dxclient.SetThemeStatusRequest{
+				Slug:   c.SlugOrDie(),
+				Theme:  args[0],
+				Status: args[1],
 			}, &ok); err != nil {
 				return err
 			}

@@ -14,8 +14,8 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func AgentCmd() *cobra.Command {
@@ -161,19 +161,19 @@ func agentStartCmd() *cobra.Command {
 			fmt.Printf("compose:  %s (db port %d, valkey port %d)\n", composeProject, dbPort, valkeyPort)
 
 			var agent clitypes.AgentItem
-			if err := c.Post("/api/agents/register", map[string]any{
-				"slug":            slug,
-				"id":              id,
-				"session_id":      sessionID,
-				"worktree_path":   wtPath,
-				"worktree_branch": branchName,
-				"pid":             os.Getpid(),
-				"status":          "active",
-				"task_group":      taskGroup,
-				"compose_project": composeProject,
-				"server_port":     serverPort,
-				"database_url":    dbURL,
-				"valkey_url":      valkeyURL,
+			if err := c.Post("/api/agents/register", dxclient.RegisterAgentRequest{
+				Slug:           slug,
+				Id:             id,
+				SessionId:      sessionID,
+				WorktreePath:   wtPath,
+				WorktreeBranch: branchName,
+				Pid:            int32(os.Getpid()),
+				Status:         "active",
+				TaskGroup:      taskGroup,
+				ComposeProject: composeProject,
+				ServerPort:     serverPort,
+				DatabaseUrl:    dbURL,
+				ValkeyUrl:      valkeyURL,
 			}, &agent); err != nil {
 				return fmt.Errorf("register: %w", err)
 			}
@@ -249,7 +249,7 @@ func agentStopCmd() *cobra.Command {
 				return fmt.Errorf("list tasks: %w", err)
 			}
 			for _, t := range taskResp.Tasks {
-				if err := c.Post("/api/tasks/"+t.ID+"/release", map[string]any{"agent_id": id}, nil); err != nil {
+				if err := c.Post("/api/tasks/"+t.ID+"/release", dxclient.ReleaseTaskRequest{AgentId: id}, nil); err != nil {
 					fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.ID, err)
 				} else {
 					fmt.Printf("released task %s\n", t.ID)
@@ -298,7 +298,7 @@ func agentReapCmd() *cobra.Command {
 			var resp struct {
 				Reaped []clitypes.AgentItem `json:"reaped"`
 			}
-			if err := c.Post("/api/agents/reap", map[string]any{"threshold_minutes": thresholdMin}, &resp); err != nil {
+			if err := c.Post("/api/agents/reap", dxclient.ReapAgentsRequest{ThresholdMinutes: thresholdMin}, &resp); err != nil {
 				return err
 			}
 			if len(resp.Reaped) == 0 {
@@ -359,19 +359,19 @@ func agentResumeCmd() *cobra.Command {
 			}
 
 			var updated clitypes.AgentItem
-			if err := c.Post("/api/agents/register", map[string]any{
-				"slug":            slug,
-				"id":              id,
-				"session_id":      agent.SessionID,
-				"worktree_path":   agent.WorktreePath,
-				"worktree_branch": agent.WorktreeBranch,
-				"pid":             os.Getpid(),
-				"status":          "active",
-				"task_group":      agent.TaskGroup,
-				"compose_project": agent.ComposeProject,
-				"server_port":     agent.ServerPort,
-				"database_url":    agent.DatabaseUrl,
-				"valkey_url":      agent.ValkeyUrl,
+			if err := c.Post("/api/agents/register", dxclient.RegisterAgentRequest{
+				Slug:           slug,
+				Id:             id,
+				SessionId:      agent.SessionID,
+				WorktreePath:   agent.WorktreePath,
+				WorktreeBranch: agent.WorktreeBranch,
+				Pid:            int32(os.Getpid()),
+				Status:         "active",
+				TaskGroup:      agent.TaskGroup,
+				ComposeProject: agent.ComposeProject,
+				ServerPort:     agent.ServerPort,
+				DatabaseUrl:    agent.DatabaseUrl,
+				ValkeyUrl:      agent.ValkeyUrl,
 			}, &updated); err != nil {
 				return fmt.Errorf("re-register: %w", err)
 			}
@@ -402,7 +402,7 @@ func agentReleaseCmd() *cobra.Command {
 				return fmt.Errorf("list tasks: %w", err)
 			}
 			for _, t := range taskResp.Tasks {
-				if err := c.Post("/api/tasks/"+t.ID+"/release", map[string]any{"agent_id": id}, nil); err != nil {
+				if err := c.Post("/api/tasks/"+t.ID+"/release", dxclient.ReleaseTaskRequest{AgentId: id}, nil); err != nil {
 					fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.ID, err)
 				} else {
 					fmt.Printf("released task %s\n", t.ID)

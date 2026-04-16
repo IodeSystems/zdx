@@ -2,11 +2,12 @@ package servercmd
 
 import (
 	"fmt"
-	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/url"
 	"os"
 
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 // bootstrapOnboardingIssue creates the initial project onboarding issue with
@@ -40,12 +41,16 @@ func bootstrapOnboardingIssue(c *cli.Client) error {
 		ID    int32  `json:"id"`
 		Title string `json:"title"`
 	}
-	if err := c.Post("/api/dx/todo/issue/add", map[string]any{
-		"slug":       slug,
-		"title":      "Project onboarding: define goals, architecture, and constraints",
-		"context":    "Bootstrap issue for new project setup. Answer the attached questions to establish project direction so that automated workflows can make informed decisions.",
-		"issue_type": "ops",
-		"auto_ready": true,
+	title := "Project onboarding: define goals, architecture, and constraints"
+	ctx := "Bootstrap issue for new project setup. Answer the attached questions to establish project direction so that automated workflows can make informed decisions."
+	issueType := "ops"
+	autoReady := true
+	if err := c.Post("/api/dx/todo/issue/add", dxclient.AddIssueRequest{
+		Slug:      slug,
+		Title:     &title,
+		Context:   &ctx,
+		IssueType: &issueType,
+		AutoReady: &autoReady,
 	}, &resp); err != nil {
 		return fmt.Errorf("create onboarding issue: %w", err)
 	}
@@ -64,11 +69,11 @@ func bootstrapOnboardingIssue(c *cli.Client) error {
 		var bq struct {
 			ID int32 `json:"id"`
 		}
-		body := map[string]any{
-			"slug":        slug,
-			"target_type": "issue",
-			"target_id":   issueID,
-			"context":     q,
+		body := dxclient.AddBlockerQuestionRequest{
+			Slug:       slug,
+			TargetType: "issue",
+			TargetId:   issueID,
+			Context:    q,
 		}
 		if err := c.Post("/api/dx/blocker-questions/add", body, &bq); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not create question: %v\n", err)

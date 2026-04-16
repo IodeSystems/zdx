@@ -8,6 +8,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func SetupCmd() *cobra.Command {
@@ -33,11 +34,14 @@ func SetupCmd() *cobra.Command {
 				Token string `json:"token"`
 				Email string `json:"email"`
 			}
-			if err := bare.Post("/api/setup/bootstrap", map[string]any{
-				"email":    email,
-				"name":     name,
-				"key_name": keyName,
-			}, &boot); err != nil {
+			bootBody := dxclient.SetupBootstrapRequest{
+				Email: email,
+				Name:  name,
+			}
+			if keyName != "" {
+				bootBody.KeyName = &keyName
+			}
+			if err := bare.Post("/api/setup/bootstrap", bootBody, &boot); err != nil {
 				return fmt.Errorf("bootstrap: %w", err)
 			}
 			fmt.Printf("user:  %s\n", boot.Email)
@@ -60,9 +64,9 @@ func SetupCmd() *cobra.Command {
 				Slug string `json:"slug"`
 				Name string `json:"name"`
 			}
-			if err := authed.Post("/api/project", map[string]any{
-				"slug": slug,
-				"name": projectName,
+			if err := authed.Post("/api/project", dxclient.CreateProjectRequest{
+				Slug: slug,
+				Name: projectName,
 			}, &proj); err != nil {
 				return fmt.Errorf("create project: %w", err)
 			}

@@ -11,9 +11,9 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/zdx-go/internal/techmetrics"
-
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
+	"github.com/iodesystems/zdx-go/internal/techmetrics"
 )
 
 type (
@@ -65,14 +65,14 @@ func journalCheckinCmd() *cobra.Command {
 				date = time.Now().Format("2006-01-02")
 			}
 
-			body := map[string]any{
-				"slug":       c.SlugOrDie(),
-				"role":       role,
-				"date":       date,
-				"tldr":       tldr,
-				"assessment": assessment,
-				"concerns":   concerns,
-				"next":       next,
+			body := dxclient.JournalCheckinRequest{
+				Slug:       c.SlugOrDie(),
+				Role:       role,
+				Date:       date,
+				Tldr:       tldr,
+				Assessment: assessment,
+				Concerns:   concerns,
+				Next:       next,
 			}
 
 			if role == "tech" {
@@ -106,15 +106,17 @@ func journalCheckinCmd() *cobra.Command {
 				metrics.GitFilesChanged = filesChanged
 
 				stateJSON := metricsToJSON(metrics)
-				body["state_json"] = stateJSON
+				body.StateJson = &stateJSON
 
 				if prevMetrics, ok := parseTechMetrics(prevStateJSON); ok {
 					deltas := computeDeltas(prevMetrics, metrics)
-					body["changelog_json"] = deltasToJSON(deltas)
+					changelog := deltasToJSON(deltas)
+					body.ChangelogJson = &changelog
 					fmt.Println("metrics (delta from last entry):")
 					fmt.Print(formatMetricsSummary(metrics, deltas))
 				} else {
-					body["changelog_json"] = "[]"
+					empty := "[]"
+					body.ChangelogJson = &empty
 					deltas := computeDeltas(TechMetrics{}, metrics)
 					fmt.Println("metrics (baseline):")
 					fmt.Print(formatMetricsSummary(metrics, deltas))
@@ -247,10 +249,12 @@ func journalAddCmd() *cobra.Command {
 				return fmt.Errorf("invalid issue ID %q (expected IS-N)", issue)
 			}
 			c := cli.MustClient()
-			body := map[string]any{
-				"issue_id": int32(id),
-				"by_role":  role,
-				"note":     note,
+			body := dxclient.AppendIssueWorkRequest{
+				IssueId: int32(id),
+				Note:    note,
+			}
+			if role != "" {
+				body.ByRole = &role
 			}
 			var resp struct{ OK bool }
 			if err := c.Post("/api/issue-work", body, &resp); err != nil {
