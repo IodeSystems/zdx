@@ -53,12 +53,18 @@ sudo -u "$APP_USER" mkdir -p \
   "$APP_HOME/home/files" \
   "$APP_HOME/home/provision"
 
-# Repair ownership unconditionally. Prior ship runs (or unrelated hands)
-# may have left entries under $APP_HOME/home/ owned by a non-zdx UID —
-# e.g., a local-machine UID that happens to map to a different user on
-# the server. Subsequent sudo-as-zdx rsyncs then fail with EACCES on
-# mkstemp inside those dirs.
-chown -R "$APP_USER:$APP_USER" "$APP_HOME/home"
+# Repair ownership of the directories bin/ship's sudo-as-zdx rsync writes to.
+# Prior ship runs (or unrelated hands) may have left entries under these
+# trees owned by a non-zdx UID — e.g. rsync -a preserving the local
+# operator's UID, which happens to collide with a local user on the
+# server. Subsequent sudo-as-zdx rsyncs then fail with EACCES on mkstemp.
+#
+# IMPORTANT: do NOT chown $APP_HOME/home/data/* — those dirs are volumes
+# for docker services (postgres UID 999, valkey UID 999) and rechowning
+# to zdx breaks those services on the next container restart.
+for dir in provision versions/current versions/next; do
+  chown -R "$APP_USER:$APP_USER" "$APP_HOME/home/$dir"
+done
 
 echo "  Home directories OK."
 
