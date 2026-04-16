@@ -1024,11 +1024,11 @@ func todoDevStartCmd() *cobra.Command {
 }
 
 func todoDevReviewCmd() *cobra.Command {
-	var verdict, body string
+	var verdict string
 	cmd := &cobra.Command{
 		Use:   "review <TK-N>",
 		Short: "Review a completed task or submit review verdict",
-		Long:  "Without --verdict: prints task details and review material.\nWith --verdict: marks the task as reviewed and posts a review comment.",
+		Long:  "Without --verdict: prints task details and review material.\nWith --verdict: marks the task as reviewed (silent — use 'dx comment add' for any notes).",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
@@ -1044,7 +1044,6 @@ func todoDevReviewCmd() *cobra.Command {
 					"slug":    slug,
 					"id":      int32(n),
 					"verdict": verdict,
-					"comment": body,
 				}, &ok); err != nil {
 					return err
 				}
@@ -1089,12 +1088,12 @@ func todoDevReviewCmd() *cobra.Command {
 				fmt.Println("  - Fix SHAs and diffs reviewed")
 				fmt.Println("  - Test plan and code blocks verified")
 			}
-			fmt.Printf("\nSubmit review: dx todo dev review %s --verdict=<approve|reject> --body=\"...\"\n", id)
+			fmt.Printf("\nSubmit review: dx todo dev review %s --verdict=<approve|reject>\n", id)
+			fmt.Printf("Add notes (optional): dx comment add task %s --body=\"...\"\n", id)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&verdict, "verdict", "", "review verdict: approve or reject")
-	cmd.Flags().StringVar(&body, "body", "", "review comment body")
 	return cmd
 }
 

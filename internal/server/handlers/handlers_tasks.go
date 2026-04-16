@@ -2,7 +2,6 @@ package handlers
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -638,7 +637,6 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				Slug    string `json:"slug"`
 				ID      int32  `json:"id"`
 				Verdict string `json:"verdict"`
-				Comment string `json:"comment"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -648,16 +646,6 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			id := taskIDFromInt(in.Body.ID)
 			if err := h.Q.MarkTaskReviewed(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
-			}
-			if in.Body.Comment != "" {
-				body := fmt.Sprintf("## Review [%s]\n\n%s", in.Body.Verdict, in.Body.Comment)
-				h.Q.AddComment(ctx, db.AddCommentParams{
-					ProjectID:  p.ID,
-					TargetType: "task",
-					TargetID:   fmt.Sprintf("TK-%d", in.Body.ID),
-					Body:       body,
-					Author:     "reviewer",
-				})
 			}
 			h.Broker.PublishTask(p.Slug, id, "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict})
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil

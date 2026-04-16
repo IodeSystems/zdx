@@ -177,7 +177,6 @@ func TestReviewAfterDone(t *testing.T) {
 			"slug":    d.Slug,
 			"id":      taskID,
 			"verdict": "approve",
-			"comment": "LGTM",
 		}, nil))
 
 	mustOK(t, apiDo(t, http.MethodGet,
@@ -185,5 +184,12 @@ func TestReviewAfterDone(t *testing.T) {
 		nil, &unreviewed))
 	if len(unreviewed.Tasks) != 0 {
 		t.Fatalf("expected 0 unreviewed tasks after review, got %d", len(unreviewed.Tasks))
+	}
+
+	// Review must not produce a comment on the task — would otherwise feed
+	// back into solo's stale-unread-comment queue and risk an auto-loop.
+	taskIDStr := fmt.Sprintf("TK-%d", taskID)
+	if d.HasUnreadComments("task", taskIDStr) {
+		t.Fatal("review created an unread comment on the task; reviewer cycle should not use comments")
 	}
 }
