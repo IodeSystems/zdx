@@ -303,12 +303,12 @@ export function IssueDetail({
                 key={t.id}
                 component={Link as any}
                 to="/project/$slug/tasks/$id"
-                params={{ slug, id: t.id }}
+                params={{ slug, id: `TK-${t.id}` }}
                 sx={{ display: 'flex', gap: 1, alignItems: 'center', textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
               >
                 <Chip label={t.status} size="small" color={t.status === 'done' ? 'success' : 'default'} variant="outlined" />
                 <Typography variant="body2">
-                  {t.id}: [{t.feature}] {t.text}
+                  TK-{t.id}: [{t.feature}] {t.text}
                 </Typography>
               </Box>
             ))}
