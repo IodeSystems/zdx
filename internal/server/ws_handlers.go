@@ -36,6 +36,16 @@ func (s *Server) publishClaudeSessionLifecycle(slug string, sessionID string, ev
 	s.publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
 }
 
+// publishAgentSessionLifecycle broadcasts a provider-agnostic session
+// lifecycle event (agent.session-created / agent.session-closed /
+// agent.session-updated) on the per-project and per-session WS channels.
+// It reuses the existing claude:* channel names so existing subscribers
+// continue to receive lifecycle notifications during the transition.
+func (s *Server) publishAgentSessionLifecycle(slug string, sessionID string, eventType string, payload any) {
+	s.publish(fmt.Sprintf("project:%s:claude", slug), eventType, payload)
+	s.publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
+}
+
 func (s *Server) registerWSRoutes(api huma.API) {
 	if !s.IsWSEnabled() {
 		return

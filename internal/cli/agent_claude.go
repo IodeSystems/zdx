@@ -3,10 +3,10 @@ package cli
 import (
 	"bufio"
 	"bytes"
+	"context"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
-	"io"
 	"net/http"
 	"net/url"
 	"os"
@@ -46,7 +46,7 @@ func agentClaudeCmd() *cobra.Command {
 			}
 			installReleaseOnSignal(rc, alias, "", nil)
 			sid := uuid.New().String()
-			return runSession(rc, sid, issue, alias, chrome, "", false, nil)
+			return runSession(cmd.Context(), rc, sid, issue, alias, chrome, "", false)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
@@ -262,7 +262,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		log("──────────────────────────────────────────────")
 		startTime := time.Now()
 
-		if err := runSession(rc, sid, issueID, alias, chrome, prevSID, resumed, log); err != nil {
+		if err := runSession(context.Background(), rc, sid, issueID, alias, chrome, prevSID, resumed); err != nil {
 			log("session error: %v", err)
 		}
 
@@ -275,237 +275,128 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 	}
 }
 
-// runSession launches a single Claude CLI session with streaming.
-// logFn, when non-nil, receives one-line renders of each JSONL event plus a
-// 60s idle heartbeat so watchers of the loop log file see progress live.
-func runSession(rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, logFn func(string, ...any)) error {
+// runSession launches a single Claude CLI session and drives its lifecycle
+// through the provider-agnostic RunLifecycle runner. Event tailing, WS
+// streaming, and close are all owned by the shared runner — this wrapper
+// only constructs a claudeAdapter and prints the post-session token summary.
+func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool) error {
 	projDir := claudeProjectDir()
-	os.MkdirAll(projDir, 0o755)
-	sfile := filepath.Join(projDir, sid+".jsonl")
+	_ = os.MkdirAll(projDir, 0o755)
 
-	// Start streaming to server
-	var streamCancel func()
-	if rc.valid() {
-		streamCancel = startSessionStream(rc, sid, issueID, alias, sfile)
+	adapter := &claudeAdapter{
+		projDir: projDir,
+		chrome:  chrome,
+		prevSID: prevSID,
+		resumed: resumed,
+		alias:   alias,
 	}
 
-	// Start subagent watcher
-	subagentDir := filepath.Join(projDir, sid, "subagents")
-	var subCancel func()
-	if rc.valid() {
-		subCancel = startSubagentWatcher(rc, sid, issueID, alias, subagentDir)
-	}
+	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "claude-cli")
 
-	// Start local renderer (loop mode only)
-	var rendCancel func()
-	if logFn != nil {
-		rendCancel = startSessionRenderer(sfile, logFn)
-	}
+	// Print token usage summary from the on-disk transcripts regardless of
+	// whether the lifecycle runner reached the server; useful in dev.
+	printTokenSummary(
+		filepath.Join(projDir, sid+".jsonl"),
+		filepath.Join(projDir, sid, "subagents"),
+	)
+	return err
+}
 
-	// Build claude command
+// ── Claude AgentAdapter ──────────────────────────────────────────────────
+
+// claudeAdapter implements AgentAdapter against the real `claude` CLI. It
+// launches the process with ZDX-aware environment vars and returns the
+// transcript path that Claude writes its JSONL session to.
+type claudeAdapter struct {
+	projDir string
+	chrome  bool
+	prevSID string
+	resumed bool
+	alias   string
+
+	proc *exec.Cmd
+
+	toolNamesMu sync.Mutex
+	toolNames   map[string]string
+}
+
+func (a *claudeAdapter) Provider() string { return "claude" }
+
+func (a *claudeAdapter) Start(_ context.Context, sid, _, _ string) (string, error) {
 	claudePath, err := exec.LookPath("claude")
 	if err != nil {
-		return fmt.Errorf("claude CLI not found in PATH")
+		return "", fmt.Errorf("claude CLI not found in PATH")
 	}
 
 	var cmdArgs []string
 	cmdArgs = append(cmdArgs, "--dangerously-skip-permissions")
-	if chrome {
+	if a.chrome {
 		cmdArgs = append(cmdArgs, "--chrome")
 	}
-	if resumed && prevSID != "" {
-		cmdArgs = append(cmdArgs, "--resume", prevSID, "--fork-session", "--session-id", sid, "-p", "/work")
+	if a.resumed && a.prevSID != "" {
+		cmdArgs = append(cmdArgs, "--resume", a.prevSID, "--fork-session", "--session-id", sid, "-p", "/work")
 	} else {
 		cmdArgs = append(cmdArgs, "--session-id", sid, "-p", "/work")
 	}
 
-	proc := exec.Command(claudePath, cmdArgs...)
-	proc.Stdin = os.Stdin
-	proc.Stdout = os.Stdout
-	proc.Stderr = os.Stderr
-	proc.Env = append(os.Environ(),
+	a.proc = exec.Command(claudePath, cmdArgs...)
+	a.proc.Stdin = os.Stdin
+	a.proc.Stdout = os.Stdout
+	a.proc.Stderr = os.Stderr
+	a.proc.Env = append(os.Environ(),
 		"ZDX_SESSION_ID="+sid,
-		"ZDX_AGENT_ID="+alias,
+		"ZDX_AGENT_ID="+a.alias,
 	)
 
-	err = proc.Run()
-
-	// Stop streaming
-	if streamCancel != nil {
-		streamCancel()
+	if err := a.proc.Start(); err != nil {
+		return "", err
 	}
-	if subCancel != nil {
-		subCancel()
-	}
-	if rendCancel != nil {
-		rendCancel()
-	}
-
-	// Upload session (batch fallback for any missed events)
-	if rc.valid() {
-		uploadSession(rc, sid, sfile, issueID, alias)
-	}
-
-	// Print token usage summary
-	printTokenSummary(sfile, filepath.Join(projDir, sid, "subagents"))
-
-	return err
+	return filepath.Join(a.projDir, sid+".jsonl"), nil
 }
 
-// startSessionStream tails the session JSONL file and streams it to the server.
-func startSessionStream(rc remoteConfig, sid, issueID, alias, sfile string) func() {
-	done := make(chan struct{})
-	go func() {
-		// Wait for session file to appear
-		for i := 0; i < 120; i++ {
-			if _, err := os.Stat(sfile); err == nil {
-				break
-			}
-			select {
-			case <-done:
-				return
-			case <-time.After(500 * time.Millisecond):
-			}
+func (a *claudeAdapter) Wait() (int, error) {
+	if a.proc == nil {
+		return 1, fmt.Errorf("claudeAdapter.Wait: process not started")
+	}
+	err := a.proc.Wait()
+	if err != nil {
+		if ee, ok := err.(*exec.ExitError); ok {
+			return ee.ExitCode(), nil
 		}
-
-		f, err := os.Open(sfile)
-		if err != nil {
-			return
-		}
-		defer f.Close()
-
-		u := fmt.Sprintf("%s/api/dx/claude/sessions/ingest/stream?slug=%s&session_id=%s&issue_id=%s&alias=%s",
-			rc.url, url.QueryEscape(rc.slug), url.QueryEscape(sid),
-			url.QueryEscape(issueID), url.QueryEscape(alias))
-
-		pr, pw := io.Pipe()
-		go func() {
-			defer pw.Close()
-			reader := bufio.NewReader(f)
-			for {
-				select {
-				case <-done:
-					return
-				default:
-				}
-				line, err := reader.ReadBytes('\n')
-				if len(line) > 0 {
-					pw.Write(line)
-				}
-				if err != nil {
-					time.Sleep(200 * time.Millisecond)
-					continue
-				}
-			}
-		}()
-
-		req, _ := http.NewRequest("POST", u, pr)
-		req.Header.Set("X-Api-Key", rc.key)
-		req.Header.Set("Content-Type", "application/x-ndjson")
-		client := &http.Client{Timeout: 0}
-		resp, err := client.Do(req)
-		if err == nil {
-			resp.Body.Close()
-		}
-	}()
-
-	return func() { close(done) }
+		return 1, err
+	}
+	return a.proc.ProcessState.ExitCode(), nil
 }
 
-// startSessionRenderer tails sfile and emits one-line renders of each JSONL
-// event to logFn, plus a 'heartbeat: events=N size=M' line every 60s of
-// silence so viewers of the loop log see progress even during quiet moments.
-func startSessionRenderer(sfile string, logFn func(string, ...any)) func() {
-	done := make(chan struct{})
-	var mu sync.Mutex
-	events := 0
-	lastRender := time.Now()
-	toolNames := map[string]string{}
+func (a *claudeAdapter) SubagentDir(sid string) string {
+	return filepath.Join(a.projDir, sid, "subagents")
+}
 
-	// Heartbeat
-	go func() {
-		ticker := time.NewTicker(60 * time.Second)
-		defer ticker.Stop()
-		for {
-			select {
-			case <-done:
-				return
-			case <-ticker.C:
-			}
-			mu.Lock()
-			idle := time.Since(lastRender)
-			n := events
-			mu.Unlock()
-			if idle < 60*time.Second {
-				continue
-			}
-			var size int64
-			if st, err := os.Stat(sfile); err == nil {
-				size = st.Size()
-			}
-			logFn("heartbeat: events=%d size=%d", n, size)
-			mu.Lock()
-			lastRender = time.Now()
-			mu.Unlock()
-		}
-	}()
+func (a *claudeAdapter) ParseLine(line []byte, agentID string) (AgentEvent, error) {
+	trimmed := bytes.TrimSpace(line)
+	if len(trimmed) == 0 {
+		return AgentEvent{}, fmt.Errorf("empty line")
+	}
+	var peek struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(trimmed, &peek); err != nil {
+		return AgentEvent{}, err
+	}
+	return AgentEvent{
+		EventType: peek.Type,
+		EventJSON: json.RawMessage(append([]byte(nil), trimmed...)),
+		AgentID:   agentID,
+	}, nil
+}
 
-	// Tailer
-	go func() {
-		for i := 0; i < 120; i++ {
-			if _, err := os.Stat(sfile); err == nil {
-				break
-			}
-			select {
-			case <-done:
-				return
-			case <-time.After(500 * time.Millisecond):
-			}
-		}
-		f, err := os.Open(sfile)
-		if err != nil {
-			return
-		}
-		defer f.Close()
-
-		buf := make([]byte, 0, 4096)
-		readBuf := make([]byte, 4096)
-		for {
-			select {
-			case <-done:
-				return
-			default:
-			}
-			n, rerr := f.Read(readBuf)
-			if n > 0 {
-				buf = append(buf, readBuf[:n]...)
-				for {
-					i := bytes.IndexByte(buf, '\n')
-					if i < 0 {
-						break
-					}
-					line := buf[:i]
-					buf = buf[i+1:]
-					if r := renderSessionEvent(line, toolNames); r != "" {
-						logFn("%s", r)
-						mu.Lock()
-						events++
-						lastRender = time.Now()
-						mu.Unlock()
-					}
-				}
-			}
-			if rerr != nil {
-				if rerr == io.EOF {
-					time.Sleep(200 * time.Millisecond)
-					continue
-				}
-				return
-			}
-		}
-	}()
-
-	return func() { close(done) }
+func (a *claudeAdapter) RenderEvent(eventJSON []byte) string {
+	a.toolNamesMu.Lock()
+	if a.toolNames == nil {
+		a.toolNames = map[string]string{}
+	}
+	defer a.toolNamesMu.Unlock()
+	return renderSessionEvent(eventJSON, a.toolNames)
 }
 
 // renderSessionEvent turns a single JSONL line into a short progress string.
@@ -648,50 +539,6 @@ func renderToolUse(name string, input json.RawMessage) string {
 	return fmt.Sprintf("%s: %s", name, summary)
 }
 
-// startSubagentWatcher scans for new subagent JSONL files and streams them.
-func startSubagentWatcher(rc remoteConfig, sid, issueID, alias, baseDir string) func() {
-	done := make(chan struct{})
-	var mu sync.Mutex
-	known := make(map[string]bool)
-	var cancels []func()
-
-	go func() {
-		for {
-			select {
-			case <-done:
-				return
-			case <-time.After(2 * time.Second):
-			}
-
-			matches, _ := filepath.Glob(filepath.Join(baseDir, "agent-*.jsonl"))
-			mu.Lock()
-			for _, m := range matches {
-				if known[m] {
-					continue
-				}
-				known[m] = true
-
-				agentID, agentType, agentDesc := parseSubagentMeta(m)
-				u := fmt.Sprintf("%s/api/dx/claude/sessions/ingest/stream?slug=%s&session_id=%s&issue_id=%s&alias=%s&agent_id=%s&agent_type=%s&agent_description=%s",
-					rc.url, url.QueryEscape(rc.slug), url.QueryEscape(sid),
-					url.QueryEscape(issueID), url.QueryEscape(alias),
-					url.QueryEscape(agentID), url.QueryEscape(agentType), url.QueryEscape(agentDesc))
-
-				cancel := streamFile(m, u, rc.key, done)
-				cancels = append(cancels, cancel)
-			}
-			mu.Unlock()
-		}
-	}()
-
-	return func() {
-		close(done)
-		for _, c := range cancels {
-			c()
-		}
-	}
-}
-
 func parseSubagentMeta(jsonlPath string) (id, agentType, desc string) {
 	base := strings.TrimSuffix(filepath.Base(jsonlPath), ".jsonl")
 	id = base
@@ -719,108 +566,6 @@ func parseSubagentMeta(jsonlPath string) (id, agentType, desc string) {
 		}
 	}
 	return
-}
-
-func streamFile(path, u, apiKey string, done <-chan struct{}) func() {
-	fileDone := make(chan struct{})
-	go func() {
-		f, err := os.Open(path)
-		if err != nil {
-			return
-		}
-		defer f.Close()
-
-		pr, pw := io.Pipe()
-		go func() {
-			defer pw.Close()
-			reader := bufio.NewReader(f)
-			for {
-				select {
-				case <-done:
-					return
-				case <-fileDone:
-					return
-				default:
-				}
-				line, err := reader.ReadBytes('\n')
-				if len(line) > 0 {
-					pw.Write(line)
-				}
-				if err != nil {
-					time.Sleep(200 * time.Millisecond)
-					continue
-				}
-			}
-		}()
-
-		req, _ := http.NewRequest("POST", u, pr)
-		req.Header.Set("X-Api-Key", apiKey)
-		req.Header.Set("Content-Type", "application/x-ndjson")
-		client := &http.Client{Timeout: 0}
-		resp, err := client.Do(req)
-		if err == nil {
-			resp.Body.Close()
-		}
-	}()
-	return func() { close(fileDone) }
-}
-
-func uploadSession(rc remoteConfig, sid, sfile, issueID, alias string) {
-	if _, err := os.Stat(sfile); err != nil {
-		return
-	}
-	data, err := os.ReadFile(sfile)
-	if err != nil {
-		return
-	}
-
-	u := fmt.Sprintf("%s/api/dx/claude/sessions/ingest?slug=%s&session_id=%s&issue_id=%s&alias=%s",
-		rc.url, url.QueryEscape(rc.slug), url.QueryEscape(sid),
-		url.QueryEscape(issueID), url.QueryEscape(alias))
-
-	req, _ := http.NewRequest("POST", u, strings.NewReader(string(data)))
-	req.Header.Set("X-Api-Key", rc.key)
-	req.Header.Set("Content-Type", "application/x-ndjson")
-	client := &http.Client{Timeout: 30 * time.Second}
-	resp, err := client.Do(req)
-	if err == nil {
-		resp.Body.Close()
-		fmt.Printf("upload: session %s → HTTP %d\n", sid, resp.StatusCode)
-	}
-
-	// Upload subagent transcripts
-	projDir := claudeProjectDir()
-	subDir := filepath.Join(projDir, sid, "subagents")
-	uploadSubagents(rc, sid, issueID, alias, subDir)
-}
-
-func uploadSubagents(rc remoteConfig, sid, issueID, alias, subDir string) {
-	matches, _ := filepath.Glob(filepath.Join(subDir, "agent-*.jsonl"))
-	for _, m := range matches {
-		agentID, agentType, agentDesc := parseSubagentMeta(m)
-		data, err := os.ReadFile(m)
-		if err != nil {
-			continue
-		}
-		u := fmt.Sprintf("%s/api/dx/claude/sessions/ingest?slug=%s&session_id=%s&issue_id=%s&alias=%s&agent_id=%s&agent_type=%s&agent_description=%s",
-			rc.url, url.QueryEscape(rc.slug), url.QueryEscape(sid),
-			url.QueryEscape(issueID), url.QueryEscape(alias),
-			url.QueryEscape(agentID), url.QueryEscape(agentType), url.QueryEscape(agentDesc))
-
-		req, _ := http.NewRequest("POST", u, strings.NewReader(string(data)))
-		req.Header.Set("X-Api-Key", rc.key)
-		req.Header.Set("Content-Type", "application/x-ndjson")
-		client := &http.Client{Timeout: 30 * time.Second}
-		resp, err := client.Do(req)
-		if err == nil {
-			resp.Body.Close()
-			fmt.Printf("upload: subagent %s → HTTP %d\n", agentID, resp.StatusCode)
-		}
-
-		// Recurse into nested subagents
-		nestedDir := strings.TrimSuffix(m, ".jsonl") + "/subagents"
-		uploadSubagents(rc, sid, issueID, alias, nestedDir)
-	}
 }
 
 type tokenUsage struct {

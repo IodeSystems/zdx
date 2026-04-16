@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io"
 	"log"
 	"net/http"
 	"strings"
@@ -314,11 +313,13 @@ func (s *Server) registerClaudeRoutes(api huma.API) {
 			if s.IsWSEnabled() {
 				sess, err := s.q.GetClaudeSession(ctx, db.GetClaudeSessionParams{ProjectID: p.ID, ID: in.SessionID})
 				if err == nil {
-					s.publishClaudeEvent(in.Slug, sess.SessionID, "claude.session-updated", map[string]string{
+					payload := map[string]string{
 						"header":  in.Body.Header,
 						"summary": in.Body.Summary,
 						"status":  in.Body.Status,
-					})
+					}
+					s.publishAgentSessionLifecycle(in.Slug, sess.SessionID, "agent.session-updated", payload)
+					s.publishClaudeEvent(in.Slug, sess.SessionID, "claude.session-updated", payload)
 				}
 			}
 			return &struct {
@@ -478,146 +479,20 @@ Transcript:
 			return &struct{ Body PatternItem }{Body: toPatternItem(row)}, nil
 		})
 
-	// Ingest endpoint: accepts JSONL body, creates session + events in one call.
-	s.mux.Post("/api/dx/claude/sessions/ingest", s.handleClaudeSessionIngest)
-
-	// Streaming ingest: reads JSONL line-by-line, inserts events incrementally,
-	// and publishes each event to WebSocket for real-time UI updates.
+	// Streaming ingest: legacy alias. Preserved as a backward-compat entry
+	// point for older dx-cli builds that POST raw JSONL; delegates to the
+	// unified ingestion path via shared helpers (getOrCreateAgentSession,
+	// ingestAgentEvent). Will be removed once deployed agents upgrade.
 	s.mux.Post("/api/dx/claude/sessions/ingest/stream", s.handleClaudeSessionIngestStream)
 }
 
-// ── Claude session ingest ─────────────────────────────────────────────────
-
-func (s *Server) handleClaudeSessionIngest(w http.ResponseWriter, r *http.Request) {
-	ctx := r.Context()
-
-	slug := r.URL.Query().Get("slug")
-	sessionUUID := r.URL.Query().Get("session_id")
-	issueID := r.URL.Query().Get("issue_id")
-	alias := r.URL.Query().Get("alias")
-	agentID := r.URL.Query().Get("agent_id")
-	agentType := r.URL.Query().Get("agent_type")
-	agentDesc := r.URL.Query().Get("agent_description")
-	isSidechain := agentID != ""
-
-	if slug == "" || sessionUUID == "" {
-		http.Error(w, `{"title":"Bad Request","status":400,"detail":"slug and session_id required"}`, http.StatusBadRequest)
-		return
-	}
-
-	p, err := s.q.GetProjectBySlug(ctx, slug)
-	if err != nil {
-		http.Error(w, `{"title":"Not Found","status":404,"detail":"project not found"}`, http.StatusNotFound)
-		return
-	}
-
-	body, err := io.ReadAll(io.LimitReader(r.Body, 50<<20)) // 50 MB max
-	if err != nil {
-		http.Error(w, `{"title":"Bad Request","status":400,"detail":"read body failed"}`, http.StatusBadRequest)
-		return
-	}
-
-	lines := strings.Split(strings.TrimSpace(string(body)), "\n")
-	if len(lines) == 0 {
-		http.Error(w, `{"title":"Bad Request","status":400,"detail":"empty body"}`, http.StatusBadRequest)
-		return
-	}
-
-	// Extract title from ai-title event if present.
-	title := ""
-	for _, line := range lines {
-		var ev map[string]any
-		if json.Unmarshal([]byte(line), &ev) == nil {
-			if ev["type"] == "ai-title" {
-				if msg, ok := ev["message"].(map[string]any); ok {
-					if t, ok := msg["content"].(string); ok {
-						title = t
-					}
-				}
-				if t, ok := ev["title"].(string); ok && title == "" {
-					title = t
-				}
-			}
-		}
-	}
-
-	var sessionPK int64
-	var sessionID string
-
-	sess, err := s.q.CreateClaudeSession(ctx, db.CreateClaudeSessionParams{
-		ProjectID: p.ID,
-		IssueID:   issueID,
-		SessionID: sessionUUID,
-		Title:     title,
-		Alias:     alias,
-	})
-	if err != nil {
-		if strings.Contains(err.Error(), "duplicate key") {
-			// Subagent uploads reuse the parent session.
-			existing, lookupErr := s.q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
-				ProjectID: p.ID,
-				SessionID: sessionUUID,
-			})
-			if lookupErr != nil {
-				http.Error(w, `{"title":"Conflict","status":409,"detail":"session already exists"}`, http.StatusConflict)
-				return
-			}
-			sessionPK = existing.ID
-			sessionID = existing.SessionID
-		} else {
-			http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
-			return
-		}
-	} else {
-		sessionPK = sess.ID
-		sessionID = sess.SessionID
-	}
-
-	// For appending to existing sessions, offset seq past existing events.
-	seqOffset := int32(0)
-	if sess.ID == 0 {
-		cnt, cntErr := s.q.CountClaudeEvents(ctx, sessionPK)
-		if cntErr == nil {
-			seqOffset = int32(cnt)
-		}
-	}
-
-	for i, line := range lines {
-		if strings.TrimSpace(line) == "" {
-			continue
-		}
-		var ev map[string]any
-		eventType := ""
-		if json.Unmarshal([]byte(line), &ev) == nil {
-			if t, ok := ev["type"].(string); ok {
-				eventType = t
-			}
-		}
-		_ = s.q.CreateClaudeEvent(ctx, db.CreateClaudeEventParams{
-			SessionPk:        sessionPK,
-			Seq:              seqOffset + int32(i),
-			EventType:        eventType,
-			EventJson:        []byte(line),
-			AgentID:          agentID,
-			IsSidechain:      isSidechain,
-			AgentType:        agentType,
-			AgentDescription: agentDesc,
-		})
-	}
-
-	w.Header().Set("Content-Type", "application/json")
-	_ = json.NewEncoder(w).Encode(map[string]any{
-		"id":         sessionPK,
-		"session_id": sessionID,
-		"events":     len(lines),
-	})
-
-	if !isSidechain {
-		go s.summarizeSessionAsync(p.ID, sessionPK, lines)
-	}
-}
-
-// ── Claude session streaming ingest ──────────────────────────────────────
+// ── Claude session streaming ingest (legacy) ─────────────────────────────
+//
+// Accepts raw adapter JSONL (one event per line, adapter-native schema) via
+// query params. Aliased to the unified /api/dx/agent/sessions/{sid}/events
+// path: uses the same getOrCreateAgentSession + ingestAgentEvent helpers so
+// event persistence and WS publishes follow a single code path. A later task
+// will remove this endpoint and migrate clients to /api/dx/agent/sessions.
 
 func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
@@ -642,12 +517,11 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 		return
 	}
 
-	var sessionPK int64
-	var sessionID string
-	sessionCreated := false
-
 	scanner := bufio.NewScanner(r.Body)
-	scanner.Buffer(make([]byte, 1<<20), 1<<20) // 1 MB max line size
+	scanner.Buffer(make([]byte, 1<<20), 4<<20)
+
+	var sess db.CreateClaudeSessionRow
+	sessionReady := false
 	seq := int32(0)
 	var allLines []string
 
@@ -657,117 +531,98 @@ func (s *Server) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http.
 			continue
 		}
 
-		if !sessionCreated {
-			title := ""
-			var ev map[string]any
-			if json.Unmarshal([]byte(line), &ev) == nil {
-				if ev["type"] == "ai-title" {
-					if msg, ok := ev["message"].(map[string]any); ok {
-						if t, ok := msg["content"].(string); ok {
-							title = t
-						}
-					}
-					if t, ok := ev["title"].(string); ok && title == "" {
-						title = t
-					}
-				}
+		if !sessionReady {
+			title := extractTitleFromLegacyLine(line)
+			s2, created, cErr := s.getOrCreateAgentSession(ctx, p.ID, sessionUUID, issueID, alias, title)
+			if cErr != nil {
+				http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+				return
 			}
-
-			sess, createErr := s.q.CreateClaudeSession(ctx, db.CreateClaudeSessionParams{
-				ProjectID: p.ID,
-				IssueID:   issueID,
-				SessionID: sessionUUID,
-				Title:     title,
-				Alias:     alias,
-			})
-			if createErr != nil {
-				if strings.Contains(createErr.Error(), "duplicate key") {
-					existing, lookupErr := s.q.GetClaudeSessionBySessionID(ctx, db.GetClaudeSessionBySessionIDParams{
-						ProjectID: p.ID,
-						SessionID: sessionUUID,
-					})
-					if lookupErr != nil {
-						http.Error(w, `{"title":"Conflict","status":409,"detail":"session already exists"}`, http.StatusConflict)
-						return
-					}
-					sessionPK = existing.ID
-					sessionID = existing.SessionID
-					cnt, cntErr := s.q.CountClaudeEvents(ctx, sessionPK)
-					if cntErr == nil {
-						seq = int32(cnt)
-					}
-				} else {
-					http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
-					return
+			sess = s2
+			if !created {
+				cnt, cntErr := s.q.CountClaudeEvents(ctx, sess.ID)
+				if cntErr == nil {
+					seq = int32(cnt)
 				}
 			} else {
-				sessionPK = sess.ID
-				sessionID = sess.SessionID
-				s.publishClaudeSessionLifecycle(slug, sessionID, "claude.session-created", map[string]any{
-					"session_id": sessionID,
-					"session_pk": sessionPK,
+				s.publishAgentSessionLifecycle(slug, sess.SessionID, "agent.session-created", map[string]any{
+					"session_id": sess.SessionID,
+					"session_pk": sess.ID,
+					"title":      title,
+					"alias":      alias,
+				})
+				// Legacy event name for subscribers that have not migrated.
+				s.publishClaudeSessionLifecycle(slug, sess.SessionID, "claude.session-created", map[string]any{
+					"session_id": sess.SessionID,
+					"session_pk": sess.ID,
 					"title":      title,
 					"alias":      alias,
 				})
 			}
-			sessionCreated = true
+			sessionReady = true
 		}
 
-		var ev map[string]any
 		eventType := ""
+		var ev map[string]any
 		if json.Unmarshal([]byte(line), &ev) == nil {
 			if t, ok := ev["type"].(string); ok {
 				eventType = t
 			}
 		}
 
-		_ = s.q.CreateClaudeEvent(ctx, db.CreateClaudeEventParams{
-			SessionPk:        sessionPK,
-			Seq:              seq,
-			EventType:        eventType,
-			EventJson:        []byte(line),
-			AgentID:          agentID,
-			IsSidechain:      isSidechain,
-			AgentType:        agentType,
-			AgentDescription: agentDesc,
-		})
-
-		s.publishClaudeEvent(slug, sessionID, "claude.event", map[string]any{
-			"session_id":        sessionID,
-			"session_pk":        sessionPK,
-			"seq":               seq,
-			"event_type":        eventType,
-			"event_json":        ev,
-			"agent_id":          agentID,
-			"agent_type":        agentType,
-			"agent_description": agentDesc,
-		})
-
+		s.ingestAgentEvent(ctx, slug, sess.SessionID, sess.ID, seq, eventType, []byte(line), agentID, agentType, agentDesc)
 		allLines = append(allLines, line)
 		seq++
 	}
 
-	if !sessionCreated {
+	if !sessionReady {
 		http.Error(w, `{"title":"Bad Request","status":400,"detail":"empty body"}`, http.StatusBadRequest)
 		return
 	}
 
-	s.publishClaudeSessionLifecycle(slug, sessionID, "claude.session-closed", map[string]any{
-		"session_id":  sessionID,
-		"session_pk":  sessionPK,
+	s.publishAgentSessionLifecycle(slug, sess.SessionID, "agent.session-closed", map[string]any{
+		"session_id":  sess.SessionID,
+		"session_pk":  sess.ID,
+		"event_count": seq,
+	})
+	s.publishClaudeSessionLifecycle(slug, sess.SessionID, "claude.session-closed", map[string]any{
+		"session_id":  sess.SessionID,
+		"session_pk":  sess.ID,
 		"event_count": seq,
 	})
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(map[string]any{
-		"id":         sessionPK,
-		"session_id": sessionID,
+		"id":         sess.ID,
+		"session_id": sess.SessionID,
 		"events":     seq,
 	})
 
 	if !isSidechain {
-		go s.summarizeSessionAsync(p.ID, sessionPK, allLines)
+		go s.summarizeSessionAsync(p.ID, sess.ID, allLines)
 	}
+}
+
+// extractTitleFromLegacyLine parses a Claude-adapter ai-title event to pull
+// out the one-line session title. Returns empty string when the line is not
+// an ai-title event.
+func extractTitleFromLegacyLine(line string) string {
+	var ev map[string]any
+	if json.Unmarshal([]byte(line), &ev) != nil {
+		return ""
+	}
+	if ev["type"] != "ai-title" {
+		return ""
+	}
+	if msg, ok := ev["message"].(map[string]any); ok {
+		if t, ok := msg["content"].(string); ok && t != "" {
+			return t
+		}
+	}
+	if t, ok := ev["title"].(string); ok {
+		return t
+	}
+	return ""
 }
 
 func (s *Server) summarizeSessionAsync(projectID int32, sessionPK int64, lines []string) {
@@ -858,11 +713,13 @@ Transcript:
 		if err == nil {
 			p, pErr := s.q.GetProjectByID(ctx, projectID)
 			if pErr == nil {
-				s.publishClaudeEvent(p.Slug, sess.SessionID, "claude.session-updated", map[string]string{
+				payload := map[string]string{
 					"header":  summary.Header,
 					"summary": summary.Summary,
 					"status":  summary.Status,
-				})
+				}
+				s.publishAgentSessionLifecycle(p.Slug, sess.SessionID, "agent.session-updated", payload)
+				s.publishClaudeEvent(p.Slug, sess.SessionID, "claude.session-updated", payload)
 			}
 		}
 	}

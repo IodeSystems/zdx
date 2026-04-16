@@ -350,6 +350,7 @@ func (s *Server) registerRoutes(api huma.API) {
 	s.registerCodeRefRoutes(api)
 	s.registerQARoutes(api)
 	s.registerClaudeRoutes(api)
+	s.registerAgentSessionRoutes(api)
 	s.registerCounterRoutes(api)
 	s.registerErrorEventRoutes(api)
 	s.registerLogEventRoutes(api)

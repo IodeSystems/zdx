@@ -52,16 +52,46 @@ for the sessions/agents UI.`,
 	return cmd
 }
 
-// runLocalSession runs one chat session against llmCfg for the given seed prompt.
-// Either issueID or seedPrompt must be non-empty; when both empty it reads from stdin.
+// runLocalSession wraps the local-LLM chat loop in a localAdapter and drives
+// it through the shared RunLifecycle runner. Event tailing, WS streaming,
+// and session close are all owned by RunLifecycle.
 func runLocalSession(ctx context.Context, rc remoteConfig, llmCfg config.LLMLocal, sid, issueID, alias, seedPrompt string, maxTurns int) error {
+	adapter := &localAdapter{
+		llmCfg:     llmCfg,
+		maxTurns:   maxTurns,
+		seedPrompt: seedPrompt,
+	}
+	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "local-cli")
+	return err
+}
+
+// ── Local AgentAdapter ────────────────────────────────────────────────────
+
+// localAdapter implements AgentAdapter for the in-process local-LLM loop.
+// The chat loop writes Claude-compatible JSONL to
+// .zdx/agent/local/<sid>.jsonl; the shared runner tails that file, so no
+// bespoke tailer or stream POST is needed here.
+type localAdapter struct {
+	llmCfg     config.LLMLocal
+	maxTurns   int
+	seedPrompt string
+
+	doneCh chan struct{}
+	runErr error
+
+	toolNames map[string]string
+}
+
+func (a *localAdapter) Provider() string { return "local" }
+
+func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (string, error) {
 	c, err := DefaultClient()
 	if err != nil {
-		return err
+		return "", err
 	}
 	root, err := gitRepoRoot()
 	if err != nil {
-		return fmt.Errorf("dx agent local must run inside a git repo: %w", err)
+		return "", fmt.Errorf("dx agent local must run inside a git repo: %w", err)
 	}
 
 	srv := mcp.NewServer(&mcp.Implementation{
@@ -73,24 +103,21 @@ func runLocalSession(ctx context.Context, rc remoteConfig, llmCfg config.LLMLoca
 	RegisterShellTools(srv, root)
 
 	dispCtx, dispCancel := context.WithCancel(ctx)
-	defer dispCancel()
 	disp, err := newLocalDispatcher(dispCtx, srv)
 	if err != nil {
-		return err
+		dispCancel()
+		return "", err
 	}
-	defer disp.Close()
 
-	log, err := newSessionLog(sid, issueID, root)
+	sessLog, err := newSessionLog(sid, issueID, root)
 	if err != nil {
-		return err
+		disp.Close()
+		dispCancel()
+		return "", err
 	}
-	defer log.Close()
-
-	streamCancel := log.StartStream(rc, issueID, alias)
-	defer streamCancel()
 
 	system := localSystemPrompt(alias, issueID)
-	user := seedPrompt
+	user := a.seedPrompt
 	if user == "" {
 		if issueID != "" {
 			user = fmt.Sprintf("Work the vertical for %s. Use dx tools to read, triage, decompose, and close tasks. Use filesystem/shell tools to implement code. Stop when the issue is closed.", issueID)
@@ -99,9 +126,48 @@ func runLocalSession(ctx context.Context, rc remoteConfig, llmCfg config.LLMLoca
 		}
 	}
 
-	fmt.Printf("── session %s  issue=%s  model=%s ──\n", sid, issueID, llmCfg.Model)
-	cs := newChatSession(llmCfg, disp, log, maxTurns)
-	return cs.Run(ctx, system, user)
+	fmt.Printf("── session %s  issue=%s  model=%s ──\n", sid, issueID, a.llmCfg.Model)
+	cs := newChatSession(a.llmCfg, disp, sessLog, a.maxTurns)
+
+	a.doneCh = make(chan struct{})
+	go func() {
+		defer close(a.doneCh)
+		defer disp.Close()
+		defer dispCancel()
+		defer sessLog.Close()
+		a.runErr = cs.Run(ctx, system, user)
+	}()
+
+	return sessLog.path, nil
+}
+
+func (a *localAdapter) Wait() (int, error) {
+	<-a.doneCh
+	if a.runErr != nil {
+		return 1, a.runErr
+	}
+	return 0, nil
+}
+
+func (a *localAdapter) SubagentDir(_ string) string { return "" }
+
+func (a *localAdapter) ParseLine(line []byte, agentID string) (AgentEvent, error) {
+	// Local transcripts use the same Claude-compatible JSONL envelope, so
+	// the Claude parser is a natural fit.
+	return (&claudeAdapter{}).ParseLine(line, agentID)
+}
+
+func (a *localAdapter) RenderEvent(eventJSON []byte) string {
+	if a == nil {
+		return ""
+	}
+	// Mirror the Claude renderer so .zdx/logs/agent.log reads uniformly
+	// across providers; tool-name state lives on a per-adapter map so tool
+	// results can be correlated with their originating tool_use.
+	if a.toolNames == nil {
+		a.toolNames = map[string]string{}
+	}
+	return renderSessionEvent(eventJSON, a.toolNames)
 }
 
 // runLocalLoop mirrors agent_claude.runLoop: poll solo, run a session per pick,

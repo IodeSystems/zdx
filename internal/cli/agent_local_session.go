@@ -1,12 +1,7 @@
 package cli
 
 import (
-	"bufio"
 	"encoding/json"
-	"fmt"
-	"io"
-	"net/http"
-	"net/url"
 	"os"
 	"path/filepath"
 	"sync"
@@ -16,16 +11,16 @@ import (
 )
 
 // sessionLog writes Claude-compatible JSONL envelopes for a local-LLM session
-// and (optionally) streams the file to /api/dx/claude/sessions/ingest/stream so
-// events render in the sessions/agents UI in real time.
+// to .zdx/agent/local/<sid>.jsonl. The shared RunLifecycle runner is
+// responsible for tailing that file and streaming events to the server;
+// this type only handles the write side.
 type sessionLog struct {
-	sid      string
-	path     string
-	cwd      string
-	f        *os.File
-	mu       sync.Mutex
-	parent   string
-	streamCh chan struct{}
+	sid    string
+	path   string
+	cwd    string
+	f      *os.File
+	mu     sync.Mutex
+	parent string
 }
 
 func newSessionLog(sid, issueID, cwd string) (*sessionLog, error) {
@@ -42,10 +37,6 @@ func newSessionLog(sid, issueID, cwd string) (*sessionLog, error) {
 }
 
 func (s *sessionLog) Close() error {
-	if s.streamCh != nil {
-		close(s.streamCh)
-		s.streamCh = nil
-	}
 	return s.f.Close()
 }
 
@@ -152,80 +143,4 @@ func (s *sessionLog) AITitle(title string) error {
 			"content": title,
 		},
 	})
-}
-
-// StartStream starts tailing the JSONL file and POSTing to
-// /api/dx/claude/sessions/ingest/stream. Returns a cancel func.
-func (s *sessionLog) StartStream(rc remoteConfig, issueID, alias string) func() {
-	if !rc.valid() {
-		return func() {}
-	}
-	done := make(chan struct{})
-	s.streamCh = done
-
-	go func() {
-		for i := 0; i < 60; i++ {
-			if fi, err := os.Stat(s.path); err == nil && fi.Size() > 0 {
-				break
-			}
-			select {
-			case <-done:
-				return
-			case <-time.After(200 * time.Millisecond):
-			}
-		}
-
-		f, err := os.Open(s.path)
-		if err != nil {
-			return
-		}
-		defer f.Close()
-
-		u := fmt.Sprintf("%s/api/dx/claude/sessions/ingest/stream?slug=%s&session_id=%s&issue_id=%s&alias=%s&agent_id=%s&agent_type=local",
-			rc.url,
-			url.QueryEscape(rc.slug),
-			url.QueryEscape(s.sid),
-			url.QueryEscape(issueID),
-			url.QueryEscape(alias),
-			url.QueryEscape("local"))
-
-		pr, pw := io.Pipe()
-		go func() {
-			defer pw.Close()
-			reader := bufio.NewReader(f)
-			for {
-				select {
-				case <-done:
-					return
-				default:
-				}
-				line, err := reader.ReadBytes('\n')
-				if len(line) > 0 {
-					_, _ = pw.Write(line)
-				}
-				if err != nil {
-					time.Sleep(200 * time.Millisecond)
-					continue
-				}
-			}
-		}()
-
-		req, _ := http.NewRequest("POST", u, pr)
-		req.Header.Set("X-Api-Key", rc.key)
-		req.Header.Set("Content-Type", "application/x-ndjson")
-		client := &http.Client{Timeout: 0}
-		resp, err := client.Do(req)
-		if err == nil {
-			resp.Body.Close()
-		}
-	}()
-
-	return func() {
-		select {
-		case <-done:
-		default:
-			close(done)
-		}
-		s.streamCh = nil
-	}
 }
