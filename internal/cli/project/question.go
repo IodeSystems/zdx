@@ -20,12 +20,19 @@ func QuestionCmd() *cobra.Command {
 
 func questionAddCmd() *cobra.Command {
 	var targetType, targetID, ctx, choices string
+	var choiceArgs []string
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Create a blocker question",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var choiceList []string
+			for _, ch := range choiceArgs {
+				ch = strings.TrimSpace(ch)
+				if ch != "" {
+					choiceList = append(choiceList, ch)
+				}
+			}
 			if choices != "" {
 				for _, ch := range strings.Split(choices, ",") {
 					ch = strings.TrimSpace(ch)
@@ -51,7 +58,8 @@ func questionAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&targetType, "target-type", "", "target entity type (issue, task, feature)")
 	cmd.Flags().StringVar(&targetID, "target-id", "", "target entity ID (e.g. IS-1, TK-5)")
 	cmd.Flags().StringVar(&ctx, "context", "", "question context describing what needs a decision")
-	cmd.Flags().StringVar(&choices, "choices", "", "comma-separated choices (optional)")
+	cmd.Flags().StringVar(&choices, "choices", "", "comma-separated choices (optional; commas inside options are not supported — use --choice instead)")
+	cmd.Flags().StringArrayVarP(&choiceArgs, "choice", "C", nil, "single choice; repeat for multiple (safe for options containing commas)")
 	cmd.MarkFlagRequired("target-type")
 	cmd.MarkFlagRequired("target-id")
 	cmd.MarkFlagRequired("context")
