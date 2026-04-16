@@ -8,11 +8,11 @@ function ClaudeSessionRoute() {
     <SessionDetail
       slug={slug}
       sessionId={Number(sessionId)}
-      onBack={() => navigate({ to: '/project/$slug/claude', params: { slug } })}
+      onBack={() => navigate({ to: '/project/$slug/agents', params: { slug } })}
     />
   )
 }
 
-export const Route = createFileRoute('/project/$slug/claude/$sessionId')({
+export const Route = createFileRoute('/project/$slug/agents/$sessionId')({
   component: ClaudeSessionRoute,
 })

@@ -99,7 +99,7 @@ const NAV_GROUPS: NavGroup[] = [
     group: 'Support',
     items: [
       { label: 'Questions', icon: <QuestionAnswerIcon fontSize="small" />, path: 'questions' },
-      { label: 'Claude', icon: <SmartToyIcon fontSize="small" />, path: 'claude' },
+      { label: 'Agents', icon: <SmartToyIcon fontSize="small" />, path: 'agents' },
     ],
   },
 ]

@@ -74,7 +74,7 @@ export function StatusTimeline({
               )}
               {e.session_id && (
                 <Link
-                  to="/project/$slug/claude/$sessionId"
+                  to="/project/$slug/agents/$sessionId"
                   params={{ slug, sessionId: e.session_id }}
                   style={{ textDecoration: 'none' }}
                 >

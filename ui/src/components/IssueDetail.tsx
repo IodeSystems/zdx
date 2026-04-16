@@ -359,7 +359,7 @@ export function IssueDetail({
               <Box
                 key={s.id}
                 component={Link as any}
-                to="/project/$slug/claude/$sessionId"
+                to="/project/$slug/agents/$sessionId"
                 params={{ slug, sessionId: String(s.id) }}
                 sx={{ display: 'flex', gap: 1, alignItems: 'center', textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
               >

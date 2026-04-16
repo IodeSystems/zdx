@@ -4,6 +4,6 @@ function ClaudeLayout() {
   return <Outlet />
 }
 
-export const Route = createFileRoute('/project/$slug/claude')({
+export const Route = createFileRoute('/project/$slug/agents')({
   component: ClaudeLayout,
 })

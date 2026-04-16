@@ -6,6 +6,6 @@ function ClaudeIndexRoute() {
   return <ClaudeSessionsTab slug={slug} />
 }
 
-export const Route = createFileRoute('/project/$slug/claude/')({
+export const Route = createFileRoute('/project/$slug/agents/')({
   component: ClaudeIndexRoute,
 })

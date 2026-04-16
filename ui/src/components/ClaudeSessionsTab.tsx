@@ -34,7 +34,7 @@ import {
   type AgentTokenUsage,
 } from '../api'
 import { useChannel } from '../hooks/useChannel'
-import { fmtDate } from '../utils/date'
+import { fmtRelative } from '../utils/date'
 
 const EVENT_COLORS: Record<string, string> = {
   user: '#2196f3',
@@ -839,7 +839,7 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
           {sessions.map((s) => (
             <Link
               key={s.id}
-              to="/project/$slug/claude/$sessionId"
+              to="/project/$slug/agents/$sessionId"
               params={{ slug, sessionId: String(s.id) }}
               style={{ textDecoration: 'none', color: 'inherit' }}
             >
@@ -877,8 +877,13 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
                         </Typography>
                       )}
                       <Box component="span" sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                        <Typography component="span" variant="caption" color="text.secondary">
-                          {fmtDate(s.created_at)}
+                        <Typography
+                          component="span"
+                          variant="caption"
+                          color="text.secondary"
+                          title={new Date(s.created_at).toLocaleString()}
+                        >
+                          {fmtRelative(s.created_at)}
                         </Typography>
                         {s.issue_id && <Chip label={s.issue_id} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.7rem' }} />}
                         <Typography component="span" variant="caption" color="text.disabled">
