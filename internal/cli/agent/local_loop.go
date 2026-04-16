@@ -1,9 +1,10 @@
-package cli
+package agent
 
 import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"strings"
 	"time"
 
@@ -44,7 +45,7 @@ func newChatSession(llmCfg config.LLMLocal, disp *localDispatcher, log *sessionL
 // tool_calls or maxTurns is exceeded. Every message, tool_use, and tool_result
 // is recorded to the session log.
 func (cs *chatSession) Run(ctx context.Context, system, user string) error {
-	_ = cs.log.AITitle(truncate(user, 80))
+	_ = cs.log.AITitle(cli.Truncate(user, 80))
 	_ = cs.log.UserText(user)
 
 	msgs := []llm.ChatMsg{}
@@ -105,7 +106,7 @@ func (cs *chatSession) Run(ctx context.Context, system, user string) error {
 		})
 
 		for _, tc := range resp.ToolCalls {
-			fmt.Printf("→ tool: %s(%s)\n", tc.Function.Name, truncate(tc.Function.Arguments, 200))
+			fmt.Printf("→ tool: %s(%s)\n", tc.Function.Name, cli.Truncate(tc.Function.Arguments, 200))
 			toolCtx, cancel := context.WithTimeout(ctx, cs.timeout)
 			result, isErr, dispErr := cs.dispatcher.Dispatch(toolCtx, tc.Function.Name, tc.Function.Arguments)
 			cancel()

@@ -198,13 +198,13 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	var agentTaskGroup string
 	var heartbeatStop chan struct{}
 	if agentID != "" {
-		var agent agentItem
+		var agent AgentItem
 		if err := c.Get("/api/agents/"+agentID, nil, &agent); err != nil {
 			return fmt.Errorf("agent %s not found: %w", agentID, err)
 		}
 		agentTaskGroup = agent.TaskGroup
 		heartbeatStop = make(chan struct{})
-		go heartbeatLoop(c, agentID, 60*time.Second, heartbeatStop)
+		go HeartbeatLoop(c, agentID, 60*time.Second, heartbeatStop)
 		defer close(heartbeatStop)
 	}
 
@@ -639,7 +639,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		if issueFlag != "" {
 			claimBody["issue"] = issueFlag
 		}
-		var claimed agentTaskItem
+		var claimed AgentTaskItem
 		if err := c.Post("/api/tasks/claim", claimBody, &claimed); err == nil {
 			printStaleWarning(claimed.CreatedAt, claimed.ID)
 			fmt.Printf("[dev]     %s  %s\n", claimed.ID, claimed.Text)
@@ -1521,7 +1521,7 @@ func printSimilarPatterns(c *Client, slug, text string) {
 	for _, r := range resp.Patterns {
 		fmt.Printf("  %.3f  PT-%-4d  %s\n", r.Score, r.Pattern.ID, r.Pattern.Name)
 		if r.Pattern.Description != "" {
-			fmt.Printf("         %s\n", truncate(r.Pattern.Description, 80))
+			fmt.Printf("         %s\n", Truncate(r.Pattern.Description, 80))
 		}
 	}
 }

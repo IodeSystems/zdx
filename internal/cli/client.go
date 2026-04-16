@@ -103,18 +103,24 @@ func attachAttributionHeaders(req *http.Request) {
 }
 
 func (c *Client) Post(path string, body any, out any) error {
-	return c.doJSON("POST", path, body, out)
+	return c.DoJSON("POST", path, body, out)
 }
 
 func (c *Client) Put(path string, body any, out any) error {
-	return c.doJSON("PUT", path, body, out)
+	return c.DoJSON("PUT", path, body, out)
 }
 
 func (c *Client) Patch(path string, body any, out any) error {
-	return c.doJSON("PATCH", path, body, out)
+	return c.DoJSON("PATCH", path, body, out)
 }
 
-func (c *Client) doJSON(method, path string, body any, out any) error {
+// Delete performs an HTTP DELETE. Included because some endpoints accept DELETE
+// without a body; callers pass nil body+out.
+func (c *Client) Delete(path string, body any, out any) error {
+	return c.DoJSON("DELETE", path, body, out)
+}
+
+func (c *Client) DoJSON(method, path string, body any, out any) error {
 	b, err := json.Marshal(body)
 	if err != nil {
 		return err

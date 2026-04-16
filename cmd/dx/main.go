@@ -7,6 +7,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/agent"
 )
 
 func main() {
@@ -48,7 +49,7 @@ func main() {
 		cli.McpCmd(),
 		cli.TimeCmd(),
 		cli.ClaudeCmd(),
-		cli.AgentCmd(),
+		agent.AgentCmd(),
 		cli.TaskCmd(),
 		cli.PatternCmd(),
 		cli.IntegrateCmd(),

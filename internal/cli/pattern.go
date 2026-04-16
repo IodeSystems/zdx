@@ -42,7 +42,7 @@ func patternListCmd() *cobra.Command {
 			}
 			for _, p := range resp.Patterns {
 				refs := countCodeRefs(p.CodeRefs)
-				fmt.Printf("PT-%-4d  %-30s  %d refs  %s\n", p.ID, p.Name, refs, truncate(p.Description, 60))
+				fmt.Printf("PT-%-4d  %-30s  %d refs  %s\n", p.ID, p.Name, refs, Truncate(p.Description, 60))
 			}
 			return nil
 		},

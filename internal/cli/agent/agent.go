@@ -1,4 +1,4 @@
-package cli
+package agent
 
 import (
 	"crypto/rand"
@@ -10,9 +10,10 @@ import (
 	"path/filepath"
 	"strconv"
 	"strings"
-	"time"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
 )
 
 func AgentCmd() *cobra.Command {
@@ -65,35 +66,6 @@ func longSessionID() string {
 	return hex.EncodeToString(b)
 }
 
-type agentItem struct {
-	ID             string `json:"id"`
-	ProjectID      int32  `json:"project_id"`
-	SessionID      string `json:"session_id"`
-	WorktreePath   string `json:"worktree_path"`
-	WorktreeBranch string `json:"worktree_branch"`
-	Pid            int32  `json:"pid"`
-	Status         string `json:"status"`
-	TaskGroup      string `json:"task_group"`
-	ComposeProject string `json:"compose_project"`
-	ServerPort     int32  `json:"server_port"`
-	DatabaseUrl    string `json:"database_url"`
-	ValkeyUrl      string `json:"valkey_url"`
-	LastHeartbeat  string `json:"last_heartbeat"`
-	CreatedAt      string `json:"created_at"`
-}
-
-type agentTaskItem struct {
-	ID             string `json:"id"`
-	Text           string `json:"text"`
-	Feature        string `json:"feature"`
-	Status         string `json:"status"`
-	Issue          string `json:"issue"`
-	TaskGroup      string `json:"task_group"`
-	CreatedAt      string `json:"created_at"`
-	ClaimedAt      string `json:"claimed_at"`
-	LeaseExpiresAt string `json:"lease_expires_at"`
-}
-
 func shortID() string {
 	b := make([]byte, 4)
 	_, _ = rand.Read(b)
@@ -107,7 +79,7 @@ func agentStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "Start a new agent (worktree + compose + register)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			slug := c.SlugOrDie()
 
 			id := shortID()
@@ -116,7 +88,7 @@ func agentStartCmd() *cobra.Command {
 				branchName += "/" + issue
 			}
 
-			repoRoot, err := gitRepoRoot()
+			repoRoot, err := cli.GitRepoRoot()
 			if err != nil {
 				return fmt.Errorf("not in a git repo: %w", err)
 			}
@@ -186,7 +158,7 @@ func agentStartCmd() *cobra.Command {
 
 			fmt.Printf("compose:  %s (db port %d, valkey port %d)\n", composeProject, dbPort, valkeyPort)
 
-			var agent agentItem
+			var agent cli.AgentItem
 			if err := c.Post("/api/agents/register", map[string]any{
 				"slug":            slug,
 				"id":              id,
@@ -220,9 +192,9 @@ func agentListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List active agents",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Agents []agentItem `json:"agents"`
+				Agents []cli.AgentItem `json:"agents"`
 			}
 			if err := c.Get("/api/agents/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err
@@ -236,14 +208,14 @@ func agentListCmd() *cobra.Command {
 					a.ID, a.Status, a.Pid, a.ServerPort, a.WorktreeBranch, a.LastHeartbeat)
 				if showTasks {
 					var taskResp struct {
-						Tasks []agentTaskItem `json:"tasks"`
+						Tasks []cli.AgentTaskItem `json:"tasks"`
 					}
 					if err := c.Get("/api/agents/"+a.ID+"/tasks", nil, &taskResp); err != nil {
 						fmt.Printf("  (tasks error: %v)\n", err)
 						continue
 					}
 					for _, t := range taskResp.Tasks {
-						fmt.Printf("  %-8s %-8s %s\n", t.ID, t.Status, truncate(t.Text, 60))
+						fmt.Printf("  %-8s %-8s %s\n", t.ID, t.Status, cli.Truncate(t.Text, 60))
 					}
 				}
 			}
@@ -260,16 +232,16 @@ func agentStopCmd() *cobra.Command {
 		Short: "Gracefully stop an agent",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id := args[0]
 
-			var agent agentItem
+			var agent cli.AgentItem
 			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
 				return fmt.Errorf("get agent: %w", err)
 			}
 
 			var taskResp struct {
-				Tasks []agentTaskItem `json:"tasks"`
+				Tasks []cli.AgentTaskItem `json:"tasks"`
 			}
 			if err := c.Get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
 				return fmt.Errorf("list tasks: %w", err)
@@ -282,7 +254,7 @@ func agentStopCmd() *cobra.Command {
 				}
 			}
 
-			if err := c.doJSON("DELETE", "/api/agents/"+id, nil, nil); err != nil {
+			if err := c.Delete("/api/agents/"+id, nil, nil); err != nil {
 				fmt.Fprintf(os.Stderr, "warn: delete agent: %v\n", err)
 			} else {
 				fmt.Printf("deleted agent %s\n", id)
@@ -320,9 +292,9 @@ func agentReapCmd() *cobra.Command {
 		Use:   "reap",
 		Short: "Reap stale agents (heartbeat expired)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			var resp struct {
-				Reaped []agentItem `json:"reaped"`
+				Reaped []cli.AgentItem `json:"reaped"`
 			}
 			if err := c.Post("/api/agents/reap", map[string]any{"threshold_minutes": thresholdMin}, &resp); err != nil {
 				return err
@@ -347,11 +319,11 @@ func agentResumeCmd() *cobra.Command {
 		Short: "Resume a dead agent (re-register with new PID)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id := args[0]
 			slug := c.SlugOrDie()
 
-			var agent agentItem
+			var agent cli.AgentItem
 			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
 				return fmt.Errorf("agent %s not found (may have been reaped): %w", id, err)
 			}
@@ -384,7 +356,7 @@ func agentResumeCmd() *cobra.Command {
 				fmt.Printf("ports:    db=%d valkey=%d\n", dbPort, valkeyPort)
 			}
 
-			var updated agentItem
+			var updated cli.AgentItem
 			if err := c.Post("/api/agents/register", map[string]any{
 				"slug":            slug,
 				"id":              id,
@@ -413,16 +385,16 @@ func agentReleaseCmd() *cobra.Command {
 		Short: "Release agent resources (compose, worktree, tasks) without deleting DB record",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := MustClient()
+			c := cli.MustClient()
 			id := args[0]
 
-			var agent agentItem
+			var agent cli.AgentItem
 			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
 				return fmt.Errorf("get agent: %w", err)
 			}
 
 			var taskResp struct {
-				Tasks []agentTaskItem `json:"tasks"`
+				Tasks []cli.AgentTaskItem `json:"tasks"`
 			}
 			if err := c.Get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
 				return fmt.Errorf("list tasks: %w", err)
@@ -476,33 +448,4 @@ func discoverComposePort(project, composeFile, service string, containerPort int
 		return 0, fmt.Errorf("parse port %q: %w", parts[1], err)
 	}
 	return port, nil
-}
-
-func gitRepoRoot() (string, error) {
-	out, err := exec.Command("git", "rev-parse", "--show-toplevel").Output()
-	if err != nil {
-		return "", err
-	}
-	return strings.TrimSpace(string(out)), nil
-}
-
-func truncate(s string, n int) string {
-	if len(s) <= n {
-		return s
-	}
-	return s[:n-3] + "..."
-}
-
-// heartbeatLoop sends heartbeats until the stop channel is closed.
-func heartbeatLoop(c *Client, agentID string, interval time.Duration, stop <-chan struct{}) {
-	t := time.NewTicker(interval)
-	defer t.Stop()
-	for {
-		select {
-		case <-stop:
-			return
-		case <-t.C:
-			_ = c.Post("/api/agents/"+agentID+"/heartbeat", nil, nil)
-		}
-	}
 }

@@ -1,8 +1,9 @@
-package cli
+package agent
 
 import (
 	"context"
 	"fmt"
+	"github.com/iodesystems/zdx-go/internal/cli"
 	"os"
 	"strings"
 	"time"
@@ -87,11 +88,11 @@ type localAdapter struct {
 func (a *localAdapter) Provider() string { return "local" }
 
 func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (string, error) {
-	c, err := DefaultClient()
+	c, err := cli.DefaultClient()
 	if err != nil {
 		return "", err
 	}
-	root, err := gitRepoRoot()
+	root, err := cli.GitRepoRoot()
 	if err != nil {
 		return "", fmt.Errorf("dx agent local must run inside a git repo: %w", err)
 	}
@@ -100,9 +101,9 @@ func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (s
 		Name:    "dx-agent-local",
 		Version: "0.1.0",
 	}, nil)
-	registerMCPTools(srv, c)
-	RegisterFSTools(srv, root)
-	RegisterShellTools(srv, root)
+	cli.RegisterMCPTools(srv, c)
+	cli.RegisterFSTools(srv, root)
+	cli.RegisterShellTools(srv, root)
 
 	dispCtx, dispCancel := context.WithCancel(ctx)
 	disp, err := newLocalDispatcher(dispCtx, srv)

@@ -71,7 +71,7 @@ func bootstrapOnboardingIssue(c *Client) error {
 			fmt.Fprintf(os.Stderr, "warning: could not create question: %v\n", err)
 			continue
 		}
-		fmt.Printf("  BQ-%d  %s\n", bq.ID, truncate(q, 70))
+		fmt.Printf("  BQ-%d  %s\n", bq.ID, Truncate(q, 70))
 	}
 
 	fmt.Println("\nanswer these questions to get started:")

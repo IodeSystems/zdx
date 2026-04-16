@@ -28,16 +28,16 @@ func McpCmd() *cobra.Command {
 				Name:    "dx",
 				Version: "0.1.0",
 			}, nil)
-			registerMCPTools(srv, c)
+			RegisterMCPTools(srv, c)
 			if withFS {
-				root, err := gitRepoRoot()
+				root, err := GitRepoRoot()
 				if err != nil {
 					return fmt.Errorf("--with-fs requires a git repo: %w", err)
 				}
 				RegisterFSTools(srv, root)
 			}
 			if withShell {
-				root, err := gitRepoRoot()
+				root, err := GitRepoRoot()
 				if err != nil {
 					return fmt.Errorf("--with-shell requires a git repo: %w", err)
 				}
@@ -51,7 +51,9 @@ func McpCmd() *cobra.Command {
 	return cmd
 }
 
-func registerMCPTools(srv *mcp.Server, c *Client) {
+// RegisterMCPTools wires the issue/task/feature/etc MCP tools onto srv, scoped
+// to the project slug reachable via c.
+func RegisterMCPTools(srv *mcp.Server, c *Client) {
 	slug := c.Slug()
 
 	// ── issue tools ──────────────────────────────────────────────────────────
