@@ -2,7 +2,10 @@ package server
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"path/filepath"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -277,6 +280,43 @@ func (s *Server) registerFeatureRoutes(api huma.API) {
 			}{Body: struct {
 				Tests []SpecTestItem `json:"tests"`
 			}{Tests: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-spec-demos", Method: http.MethodGet, Path: "/api/dx/specs/demos"},
+		func(ctx context.Context, in *struct {
+			SpecID int32 `query:"spec_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Demos []SpecDemoItem `json:"demos"`
+			}
+		}, error) {
+			rows, err := s.q.ListDemosForSpec(ctx, in.SpecID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]SpecDemoItem, len(rows))
+			for i, r := range rows {
+				name := strings.TrimSuffix(filepath.Base(r.ArtifactPath), filepath.Ext(r.ArtifactPath))
+				url := fmt.Sprintf("/api/dx/demos/%s/%s", r.DemoType, name)
+				if r.FileID.Valid {
+					url = fmt.Sprintf("/api/files/%d", r.FileID.Int32)
+				}
+				out[i] = SpecDemoItem{
+					ID:            r.ID,
+					Type:          r.DemoType,
+					TestComponent: r.TestComponent,
+					TestName:      r.TestName,
+					URL:           url,
+					Name:          name,
+				}
+			}
+			return &struct {
+				Body struct {
+					Demos []SpecDemoItem `json:"demos"`
+				}
+			}{Body: struct {
+				Demos []SpecDemoItem `json:"demos"`
+			}{Demos: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-stale-features", Method: http.MethodGet, Path: "/api/dx/features/stale"},

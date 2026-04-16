@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Accordion,
   AccordionSummary,
@@ -8,14 +8,16 @@ import {
   Typography,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
-import { useDemos, useDemoContent, type DemoListItem } from '../api'
+import {
+  useDemos,
+  useDemoContent,
+  useSpecDemos,
+  type DemoListItem,
+  type CLIDemoData,
+  type SpecDemoItem,
+} from '../api'
 
-function CLIDemoPlayer({ name }: { name: string }) {
-  const { data, isLoading } = useDemoContent('cli', name)
-
-  if (isLoading) return <Typography variant="body2" color="text.secondary">Loading...</Typography>
-  if (!data) return null
-
+function CLIDemoBody({ data }: { data: CLIDemoData }) {
   return (
     <Box sx={{ fontFamily: 'monospace', fontSize: '0.85rem' }}>
       {data.recorded_at && (
@@ -53,6 +55,29 @@ function CLIDemoPlayer({ name }: { name: string }) {
   )
 }
 
+function CLIDemoPlayer({ name }: { name: string }) {
+  const { data, isLoading } = useDemoContent('cli', name)
+  if (isLoading) return <Typography variant="body2" color="text.secondary">Loading...</Typography>
+  if (!data) return null
+  return <CLIDemoBody data={data} />
+}
+
+function CLIDemoPlayerByUrl({ url }: { url: string }) {
+  const [data, setData] = useState<CLIDemoData | null>(null)
+  const [error, setError] = useState<string | null>(null)
+  useEffect(() => {
+    let cancelled = false
+    fetch(url)
+      .then((r) => (r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`))))
+      .then((j: CLIDemoData) => { if (!cancelled) setData(j) })
+      .catch((e: Error) => { if (!cancelled) setError(e.message) })
+    return () => { cancelled = true }
+  }, [url])
+  if (error) return <Typography variant="body2" color="error">Failed to load: {error}</Typography>
+  if (!data) return <Typography variant="body2" color="text.secondary">Loading...</Typography>
+  return <CLIDemoBody data={data} />
+}
+
 function VideoDemoPlayer({ name }: { name: string }) {
   return (
     <Box sx={{ maxWidth: 800 }}>
@@ -62,6 +87,14 @@ function VideoDemoPlayer({ name }: { name: string }) {
         style={{ width: '100%', borderRadius: 4 }}
         src={`/api/dx/demos/video/${encodeURIComponent(name)}`}
       />
+    </Box>
+  )
+}
+
+function VideoDemoPlayerByUrl({ url }: { url: string }) {
+  return (
+    <Box sx={{ maxWidth: 800 }}>
+      <video controls preload="metadata" style={{ width: '100%', borderRadius: 4 }} src={url} />
     </Box>
   )
 }
@@ -102,6 +135,45 @@ export function DemosSection() {
       {expanded && (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
           {demos.map((d) => <DemoItem key={`${d.type}-${d.name}`} demo={d} />)}
+        </Box>
+      )}
+    </Box>
+  )
+}
+
+function SpecDemoItemRow({ demo }: { demo: SpecDemoItem }) {
+  return (
+    <Accordion disableGutters variant="outlined" sx={{ '&:before': { display: 'none' } }}>
+      <AccordionSummary expandIcon={<ExpandMoreIcon />}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+          <Chip label={demo.type} size="small" variant="outlined" color={demo.type === 'cli' ? 'info' : 'secondary'} />
+          <Typography variant="body2">{demo.test_component}/{demo.test_name}</Typography>
+        </Box>
+      </AccordionSummary>
+      <AccordionDetails>
+        {demo.type === 'cli' ? <CLIDemoPlayerByUrl url={demo.url} /> : <VideoDemoPlayerByUrl url={demo.url} />}
+      </AccordionDetails>
+    </Accordion>
+  )
+}
+
+export function SpecDemos({ specId }: { specId: number }) {
+  const { data: demos, isLoading } = useSpecDemos(specId)
+  const list = demos ?? []
+  return (
+    <Box sx={{ mb: 2, mt: 3 }}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+        Demo coverage ({list.length})
+      </Typography>
+      {isLoading ? (
+        <Typography variant="body2" color="text.secondary">Loading...</Typography>
+      ) : list.length === 0 ? (
+        <Typography variant="body2" color="text.secondary">
+          No demo coverage for this spec. Run <code>dx test --layer demo</code> to record one, or link an existing recording to a covering test.
+        </Typography>
+      ) : (
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+          {list.map((d) => <SpecDemoItemRow key={d.id} demo={d} />)}
         </Box>
       )}
     </Box>

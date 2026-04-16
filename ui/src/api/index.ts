@@ -1306,6 +1306,27 @@ export const useSpecTests = (specId: number, enabled = true) =>
     enabled: enabled && specId > 0,
   })
 
+export interface SpecDemoItem {
+  id: number
+  type: 'cli' | 'video'
+  test_component: string
+  test_name: string
+  url: string
+  name: string
+}
+
+export const useSpecDemos = (specId: number, enabled = true) =>
+  useQuery<SpecDemoItem[]>({
+    queryKey: ['spec-demos', specId],
+    queryFn: async () => {
+      const res = await apiFetch<{ demos: SpecDemoItem[] }>(
+        `/api/dx/specs/demos?spec_id=${specId}`
+      )
+      return res.demos ?? []
+    },
+    enabled: enabled && specId > 0,
+  })
+
 export interface SpecIssueItem {
   spec_id: number
   issue_id: string

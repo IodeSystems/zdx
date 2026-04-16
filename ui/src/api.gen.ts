@@ -212,6 +212,40 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/ws/clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /** List live WebSocket subscribers */
+        get: operations["list-ws-clients"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/ws/echo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /** Publish an admin.echo message to a channel */
+        post: operations["ws-echo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/list": {
         parameters: {
             query?: never;
@@ -382,6 +416,38 @@ export interface paths {
         get: operations["list-constraints"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/sessions/{sid}/close": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["close-agent-session"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/agent/sessions/{sid}/create": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create-agent-session"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1172,6 +1238,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/history": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-history"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/issues/similar": {
         parameters: {
             query?: never;
@@ -1804,6 +1886,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list-specs-without-demos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/demos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-spec-demos"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2734,6 +2832,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["triage-issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/todo/task/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["delete-draft-task"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3728,6 +3842,40 @@ export interface components {
             summary: string;
             title: string;
         };
+        ClientItem: {
+            channel: string;
+            connected_at: string;
+            /** Format: int64 */
+            id: number;
+            remote_addr: string;
+            /** Format: int64 */
+            user_id: number;
+        };
+        "Close-agent-sessionRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Close-agent-sessionRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            duration_ms: number;
+            /** Format: int32 */
+            event_count: number;
+            /** Format: int32 */
+            exit_code: number;
+            tokens: components["schemas"]["TokensStruct"];
+        };
+        "Close-agent-sessionResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Close-agent-sessionResponse.json
+             */
+            readonly $schema?: string;
+            session_id: string;
+            status: string;
+        };
         "Close-issueRequest": {
             /**
              * Format: uri
@@ -3866,6 +4014,34 @@ export interface components {
             /** Format: int32 */
             value: number;
         };
+        "Create-agent-sessionRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-agent-sessionRequest.json
+             */
+            readonly $schema?: string;
+            agent_description: string;
+            agent_id: string;
+            agent_type: string;
+            alias: string;
+            issue_id: string;
+            provider: string;
+            title: string;
+            trigger: string;
+        };
+        "Create-agent-sessionResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-agent-sessionResponse.json
+             */
+            readonly $schema?: string;
+            created: boolean;
+            /** Format: int64 */
+            id: number;
+            session_id: string;
+        };
         "Create-constraintRequest": {
             /**
              * Format: uri
@@ -3982,6 +4158,16 @@ export interface components {
              * Format: uri
              * @description A URL to the JSON Schema for this object.
              * @example https://example.com/schemas/Delete-constraintRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            id: number;
+        };
+        "Delete-draft-taskRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Delete-draft-taskRequest.json
              */
             readonly $schema?: string;
             /** Format: int32 */
@@ -4371,6 +4557,20 @@ export interface components {
             status: string;
             title: string;
             updated_at: string;
+        };
+        HistoryEvent: {
+            agent_id: string;
+            created_at: string;
+            field?: string;
+            from_status?: string;
+            /** Format: int64 */
+            id: number;
+            kind: string;
+            new_val?: string;
+            old_val?: string;
+            session_id: string;
+            to_status?: string;
+            user_id: string;
         };
         "Ingest-countersResponse": {
             /**
@@ -5008,6 +5208,15 @@ export interface components {
             readonly $schema?: string;
             goals: components["schemas"]["GoalItem"][] | null;
         };
+        "List-historyResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-historyResponse.json
+             */
+            readonly $schema?: string;
+            events: components["schemas"]["HistoryEvent"][] | null;
+        };
         "List-integration-tokensResponse": {
             /**
              * Format: uri
@@ -5156,6 +5365,15 @@ export interface components {
             queries: components["schemas"]["SlowQueryItem"][] | null;
             /** Format: int64 */
             total: number;
+        };
+        "List-spec-demosResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-spec-demosResponse.json
+             */
+            readonly $schema?: string;
+            demos: components["schemas"]["SpecDemoItem"][] | null;
         };
         "List-spec-testsResponse": {
             /**
@@ -5352,6 +5570,15 @@ export interface components {
             entries: components["schemas"]["Item"][] | null;
             /** Format: int64 */
             total: number;
+        };
+        "List-ws-clientsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-ws-clientsResponse.json
+             */
+            readonly $schema?: string;
+            clients: components["schemas"]["ClientItem"][] | null;
         };
         LogEventGroupedItem: {
             /** Format: int32 */
@@ -5783,8 +6010,10 @@ export interface components {
             id: number;
             new_val: string;
             old_val: string;
+            session_id: string;
             target_id: string;
             target_type: string;
+            user_id: string;
         };
         "Search-issuesResponse": {
             /**
@@ -6070,6 +6299,15 @@ export interface components {
             target_type: string;
             text: string;
         };
+        SpecDemoItem: {
+            /** Format: int32 */
+            id: number;
+            name: string;
+            test_component: string;
+            test_name: string;
+            type: string;
+            url: string;
+        };
         SpecIssueItem: {
             issue_id: string;
             /** Format: int32 */
@@ -6330,6 +6568,16 @@ export interface components {
             target_type: string;
             text: string;
         };
+        TokensStruct: {
+            /** Format: int64 */
+            cache_read: number;
+            /** Format: int64 */
+            cache_write: number;
+            /** Format: int64 */
+            input: number;
+            /** Format: int64 */
+            output: number;
+        };
         "Triage-issueRequest": {
             /**
              * Format: uri
@@ -6543,6 +6791,25 @@ export interface components {
             target_id: string;
             target_type: string;
             text: string;
+        };
+        "Ws-echoRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Ws-echoRequest.json
+             */
+            readonly $schema?: string;
+            channel: string;
+            payload?: string;
+        };
+        "Ws-echoResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Ws-echoResponse.json
+             */
+            readonly $schema?: string;
+            sent_at: string;
         };
         "Ws-signRequest": {
             /**
@@ -7102,6 +7369,68 @@ export interface operations {
             };
         };
     };
+    "list-ws-clients": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-ws-clientsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "ws-echo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Ws-echoRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ws-echoResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-agents": {
         parameters: {
             query: {
@@ -7531,6 +7860,80 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-constraintsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "close-agent-session": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Close-agent-sessionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Close-agent-sessionResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-agent-session": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path: {
+                sid: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-agent-sessionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Create-agent-sessionResponse"];
                 };
             };
             /** @description Error */
@@ -9200,6 +9603,38 @@ export interface operations {
             };
         };
     };
+    "list-history": {
+        parameters: {
+            query: {
+                target_type: string;
+                target_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-historyResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "similar-issues": {
         parameters: {
             query?: never;
@@ -10504,6 +10939,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-specs-without-demosResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-spec-demos": {
+        parameters: {
+            query: {
+                spec_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-spec-demosResponse"];
                 };
             };
             /** @description Error */
@@ -12432,6 +12898,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Triage-issueRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-draft-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Delete-draft-taskRequest"];
             };
         };
         responses: {

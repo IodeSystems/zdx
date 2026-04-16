@@ -111,6 +111,15 @@ type SpecTestItem struct {
 	Status    string `json:"status"`
 }
 
+type SpecDemoItem struct {
+	ID            int32  `json:"id"`
+	Type          string `json:"type"`
+	TestComponent string `json:"test_component"`
+	TestName      string `json:"test_name"`
+	URL           string `json:"url"`
+	Name          string `json:"name"`
+}
+
 type UncoveredSpecItem struct {
 	ID          int32  `json:"id"`
 	FeatureID   int32  `json:"feature_id"`

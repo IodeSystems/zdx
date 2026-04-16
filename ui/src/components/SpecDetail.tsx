@@ -24,7 +24,7 @@ import {
   type SpecTestItem,
 } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
-import { DemosSection } from './DemoPlayer'
+import { SpecDemos } from './DemoPlayer'
 
 function TestStatusIcon({ status }: { status: string }) {
   const icon = status === 'pass' ? '\u2713' : status === 'fail' ? '\u2717' : '\u25CB'
@@ -177,9 +177,7 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
         </Box>
       )}
 
-      <Box sx={{ mt: 3 }}>
-        <DemosSection />
-      </Box>
+      <SpecDemos specId={specId} />
 
       <CommentsAndRevisions slug={slug} targetType="spec" targetId={String(specId)} />
 

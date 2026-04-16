@@ -88,6 +88,16 @@ RETURNING id, test_id, demo_type, artifact_path, file_id, created_at;
 SELECT id, test_id, demo_type, artifact_path, file_id, created_at
 FROM zdx_test_demos WHERE test_id = $1 ORDER BY demo_type, artifact_path;
 
+-- name: ListDemosForSpec :many
+-- All demo artifacts attached to tests linked to the given spec.
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+       t.component AS test_component, t.name AS test_name
+FROM zdx_test_demos td
+JOIN zdx_spec_tests st ON st.test_id = td.test_id
+JOIN zdx_tests t ON t.id = td.test_id
+WHERE st.spec_id = $1
+ORDER BY td.demo_type, t.name;
+
 -- name: ListSpecsWithoutDemos :many
 -- Specs linked to tests but where none of those tests have demo artifacts.
 -- Non-deferred specs only.
