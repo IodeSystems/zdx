@@ -17,6 +17,7 @@ type Timing struct {
 	Name       string
 	DurationMs int32
 	Source     string
+	Tags       map[string]string
 }
 
 // timingSink is the buffered channel the QueryTracer and middlewares write to.
@@ -35,7 +36,7 @@ func NewTimingSink() timingSink {
 func StartSinkToClient(sink <-chan Timing, c *zdxclient.Client) {
 	go func() {
 		for t := range sink {
-			c.RecordWithSource(t.Name, t.Source, time.Duration(t.DurationMs)*time.Millisecond, nil)
+			c.RecordWithSource(t.Name, t.Source, time.Duration(t.DurationMs)*time.Millisecond, zdxclient.Tags(t.Tags))
 		}
 	}()
 }

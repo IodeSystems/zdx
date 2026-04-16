@@ -41,10 +41,12 @@ func (t QueryTracer) TraceQueryEnd(ctx context.Context, _ *pgx.Conn, _ pgx.Trace
 	if ms < 1 {
 		return
 	}
+	tags := map[string]string{"query": strings.TrimPrefix(info.name, "sql:")}
 	t.Sink.send(Timing{
 		Name:       info.name,
 		Source:     sourceFromCtx(ctx),
 		DurationMs: ms,
+		Tags:       tags,
 	})
 }
 
