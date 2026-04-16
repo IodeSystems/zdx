@@ -21,12 +21,14 @@ export function ChoiceAnswerForm({ slug, question }: { slug: string; question: B
   const [customText, setCustomText] = useState('')
   const [context, setContext] = useState('')
 
+  const choices = question.choices ?? []
+
   const buildAnswer = () => {
     let answer = ''
     if (selected === 'other') {
       answer = customText.trim()
     } else if (selected !== null) {
-      answer = question.choices[selected]
+      answer = choices[selected]
     }
     if (context.trim()) {
       answer = answer ? `${answer}\n\n${context.trim()}` : context.trim()
@@ -50,13 +52,13 @@ export function ChoiceAnswerForm({ slug, question }: { slug: string; question: B
     setContext('')
   }
 
-  const hasChoices = question.choices.length > 0
+  const hasChoices = choices.length > 0
 
   return (
     <Box sx={{ mt: 1.5 }}>
       {hasChoices && (
         <Stack spacing={1} sx={{ mb: 1.5 }}>
-          {question.choices.map((choice, i) => (
+          {choices.map((choice, i) => (
             <Paper
               key={i}
               variant="outlined"

@@ -1174,7 +1174,7 @@ export interface BlockerQuestionItem {
   target_type: string
   target_id: string
   context: string
-  choices: string[]
+  choices: string[] | null
   answer: string
   answered_by: string
   status: string
