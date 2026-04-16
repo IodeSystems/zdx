@@ -319,6 +319,17 @@ func (q *Queries) GetClaudeSessionTokenUsageByAgent(ctx context.Context, session
 	return items, nil
 }
 
+const getMaxClaudeEventSeq = `-- name: GetMaxClaudeEventSeq :one
+SELECT coalesce(max(seq), -1)::int AS max_seq FROM zdx_claude_events WHERE session_pk = $1
+`
+
+func (q *Queries) GetMaxClaudeEventSeq(ctx context.Context, sessionPk int64) (int32, error) {
+	row := q.db.QueryRow(ctx, getMaxClaudeEventSeq, sessionPk)
+	var max_seq int32
+	err := row.Scan(&max_seq)
+	return max_seq, err
+}
+
 const listChurnSessions = `-- name: ListChurnSessions :many
 SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at
 FROM zdx_claude_sessions

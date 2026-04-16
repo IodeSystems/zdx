@@ -54,6 +54,9 @@ ORDER BY seq;
 -- name: CountClaudeEvents :one
 SELECT count(*) FROM zdx_claude_events WHERE session_pk = $1;
 
+-- name: GetMaxClaudeEventSeq :one
+SELECT coalesce(max(seq), -1)::int AS max_seq FROM zdx_claude_events WHERE session_pk = $1;
+
 -- name: ListClaudeEventsPaginated :many
 SELECT id, session_pk, seq, event_type, event_json, created_at, agent_id, is_sidechain, agent_type, agent_description
 FROM zdx_claude_events

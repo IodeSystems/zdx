@@ -134,6 +134,7 @@ type Querier interface {
 	GetJournalEntryByID(ctx context.Context, arg GetJournalEntryByIDParams) (GetJournalEntryByIDRow, error)
 	GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (GetLatestJournalEntryRow, error)
+	GetMaxClaudeEventSeq(ctx context.Context, sessionPk int64) (int32, error)
 	GetPattern(ctx context.Context, arg GetPatternParams) (ZdxPattern, error)
 	GetPlanByFeature(ctx context.Context, featureID int32) (ZdxPlan, error)
 	GetProjectByID(ctx context.Context, id int32) (ZdxProject, error)
