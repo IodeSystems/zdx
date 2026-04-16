@@ -565,34 +565,6 @@ export const useUnreadCount = (slug: string) =>
     refetchInterval: 60_000,
   })
 
-// ── revisions ─────────────────────────────────────────────────────────────────
-
-export interface RevisionItem {
-  id: number
-  target_type: string
-  target_id: string
-  field: string
-  old_val: string
-  new_val: string
-  agent: string
-  created_at: string
-}
-
-export const useRevisions = (slug: string, targetType: string, targetId: string, limit?: number, offset?: number) =>
-  useQuery<{ revisions: RevisionItem[]; total: number }>({
-    queryKey: ['revisions', slug, targetType, targetId, limit, offset],
-    queryFn: async () => {
-      const params = new URLSearchParams({ slug, target_type: targetType, target_id: targetId })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      const res = await apiFetch<{ revisions: RevisionItem[]; total: number }>(
-        `/api/dx/revisions?${params}`
-      )
-      return { revisions: res.revisions ?? [], total: res.total ?? 0 }
-    },
-    enabled: !!slug && !!targetType && !!targetId,
-  })
-
 // ── unified history (status + field revisions) ──────────────────────────────
 
 export interface HistoryEvent {
