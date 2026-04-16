@@ -205,7 +205,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		// Self-update detection
 		if h := fileHash(selfPath); h != selfHash {
 			log("self-update: %s → %s, re-execing", selfHash[:8], h[:8])
-			if err := syscallExec(selfPath, os.Args); err != nil {
+			if err := selfReexec(selfPath, os.Args); err != nil {
 				log("re-exec failed: %v", err)
 			}
 		}
@@ -926,10 +926,9 @@ func fileHash(path string) string {
 	return fmt.Sprintf("%x", h)
 }
 
-func syscallExec(path string, args []string) error {
-	cmd := exec.Command(path, args[1:]...)
-	cmd.Stdin = os.Stdin
-	cmd.Stdout = os.Stdout
-	cmd.Stderr = os.Stderr
-	return cmd.Run()
+// selfReexec replaces the current process image with a fresh exec of the
+// binary. syscall.Exec does not return on success, so any return is an error
+// and the caller should keep the old binary running until the next tick.
+func selfReexec(path string, args []string) error {
+	return syscall.Exec(path, args, os.Environ())
 }
