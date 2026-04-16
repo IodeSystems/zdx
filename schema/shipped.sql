@@ -1544,7 +1544,7 @@ CREATE TABLE public.zdx_tasks (
     project_id integer NOT NULL,
     text text NOT NULL,
     feature text DEFAULT ''::text NOT NULL,
-    status text DEFAULT 'pending'::text NOT NULL,
+    status text DEFAULT 'wip'::text NOT NULL,
     reason text DEFAULT ''::text NOT NULL,
     issue text DEFAULT ''::text NOT NULL,
     depends text DEFAULT ''::text NOT NULL,
