@@ -64,7 +64,7 @@ func refIssueAttachCmd() *cobra.Command {
 		Short: "Attach a code reference to an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			body := map[string]any{
 				"slug":      c.SlugOrDie(),
 				"issue_id":  args[0],
@@ -83,7 +83,7 @@ func refIssueAttachCmd() *cobra.Command {
 				body["note"] = note
 			}
 			var ref codeRefItem
-			if err := c.post("/api/dx/code-refs/issue/attach", body, &ref); err != nil {
+			if err := c.Post("/api/dx/code-refs/issue/attach", body, &ref); err != nil {
 				return err
 			}
 			printCodeRef(ref)
@@ -105,11 +105,11 @@ func refIssueListCmd() *cobra.Command {
 		Short: "List code references attached to an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Refs []codeRefItem `json:"refs"`
 			}
-			if err := c.get("/api/dx/code-refs/issue", url.Values{
+			if err := c.Get("/api/dx/code-refs/issue", url.Values{
 				"slug":     {c.SlugOrDie()},
 				"issue_id": {args[0]},
 			}, &resp); err != nil {
@@ -133,7 +133,7 @@ func refIssueDetachCmd() *cobra.Command {
 		Short: "Detach a code reference from an issue",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id, err := strconv.ParseInt(args[1], 10, 32)
 			if err != nil {
 				return fmt.Errorf("invalid ref id: %s", args[1])
@@ -141,7 +141,7 @@ func refIssueDetachCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/code-refs/issue/detach", map[string]any{
+			if err := c.Post("/api/dx/code-refs/issue/detach", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"issue_id":    args[0],
 				"code_ref_id": int32(id),
@@ -162,7 +162,7 @@ func refTaskAttachCmd() *cobra.Command {
 		Short: "Attach a code reference to a task",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			body := map[string]any{
 				"slug":      c.SlugOrDie(),
 				"task_id":   args[0],
@@ -181,7 +181,7 @@ func refTaskAttachCmd() *cobra.Command {
 				body["note"] = note
 			}
 			var ref codeRefItem
-			if err := c.post("/api/dx/code-refs/task/attach", body, &ref); err != nil {
+			if err := c.Post("/api/dx/code-refs/task/attach", body, &ref); err != nil {
 				return err
 			}
 			printCodeRef(ref)
@@ -203,11 +203,11 @@ func refTaskListCmd() *cobra.Command {
 		Short: "List code references attached to a task",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Refs []codeRefItem `json:"refs"`
 			}
-			if err := c.get("/api/dx/code-refs/task", url.Values{
+			if err := c.Get("/api/dx/code-refs/task", url.Values{
 				"slug":    {c.SlugOrDie()},
 				"task_id": {args[0]},
 			}, &resp); err != nil {
@@ -231,7 +231,7 @@ func refTaskDetachCmd() *cobra.Command {
 		Short: "Detach a code reference from a task",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id, err := strconv.ParseInt(args[1], 10, 32)
 			if err != nil {
 				return fmt.Errorf("invalid ref id: %s", args[1])
@@ -239,7 +239,7 @@ func refTaskDetachCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/code-refs/task/detach", map[string]any{
+			if err := c.Post("/api/dx/code-refs/task/detach", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"task_id":     args[0],
 				"code_ref_id": int32(id),

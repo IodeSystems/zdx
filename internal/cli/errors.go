@@ -47,11 +47,11 @@ func errorsListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List recent error reports for this project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Errors []errorReportItem `json:"errors"`
 			}
-			if err := c.get("/api/dx/errors", querySlug(c), &resp); err != nil {
+			if err := c.Get("/api/dx/errors", QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Errors) == 0 {
@@ -76,9 +76,9 @@ func errorsReportCmd() *cobra.Command {
 		Use:   "report",
 		Short: "Report an error to this project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp errorReportItem
-			if err := c.post("/api/dx/errors/report", map[string]any{
+			if err := c.Post("/api/dx/errors/report", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"source":      source,
 				"endpoint":    endpoint,
@@ -106,11 +106,11 @@ func slowQueriesListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List recent slow queries for this project",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Queries []slowQueryItem `json:"queries"`
 			}
-			if err := c.get("/api/dx/slow-queries", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
+			if err := c.Get("/api/dx/slow-queries", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err
 			}
 			if len(resp.Queries) == 0 {
@@ -140,7 +140,7 @@ func timedListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List slowest-ever operations",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Items []timedItem `json:"items"`
 			}
@@ -148,7 +148,7 @@ func timedListCmd() *cobra.Command {
 			if slug := c.Slug(); slug != "" {
 				params.Set("slug", slug)
 			}
-			if err := c.get("/api/dx/timed", params, &resp); err != nil {
+			if err := c.Get("/api/dx/timed", params, &resp); err != nil {
 				return err
 			}
 			if len(resp.Items) == 0 {

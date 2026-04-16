@@ -118,7 +118,7 @@ func resolveIngestToken() (string, error) {
 	var resp struct {
 		Token string `json:"token"`
 	}
-	err = cl.post("/api/admin/integration-tokens", map[string]string{
+	err = cl.Post("/api/admin/integration-tokens", map[string]string{
 		"slug": cl.SlugOrDie(),
 		"name": "dx-time-cli",
 	}, &resp)

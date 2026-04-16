@@ -72,7 +72,7 @@ func resolveRemoteAPIKey() (token, source string) {
 
 func (c *Client) Slug() string { return c.slug }
 
-func (c *Client) get(path string, params url.Values, out any) error {
+func (c *Client) Get(path string, params url.Values, out any) error {
 	u := c.base + path
 	if len(params) > 0 {
 		u += "?" + params.Encode()
@@ -102,15 +102,15 @@ func attachAttributionHeaders(req *http.Request) {
 	}
 }
 
-func (c *Client) post(path string, body any, out any) error {
+func (c *Client) Post(path string, body any, out any) error {
 	return c.doJSON("POST", path, body, out)
 }
 
-func (c *Client) put(path string, body any, out any) error {
+func (c *Client) Put(path string, body any, out any) error {
 	return c.doJSON("PUT", path, body, out)
 }
 
-func (c *Client) patch(path string, body any, out any) error {
+func (c *Client) Patch(path string, body any, out any) error {
 	return c.doJSON("PATCH", path, body, out)
 }
 

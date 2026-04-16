@@ -41,7 +41,7 @@ func journalCheckinCmd() *cobra.Command {
 		Use:   "checkin",
 		Short: "Record a standup check-in",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			if date == "" {
 				date = time.Now().Format("2006-01-02")
 			}
@@ -73,7 +73,7 @@ func journalCheckinCmd() *cobra.Command {
 				var showResp struct {
 					Entries []json.RawMessage `json:"entries"`
 				}
-				_ = c.get("/api/dx/journal/show", params, &showResp)
+				_ = c.Get("/api/dx/journal/show", params, &showResp)
 				if len(showResp.Entries) > 0 {
 					var prev journalEntry
 					if json.Unmarshal(showResp.Entries[0], &prev) == nil {
@@ -103,7 +103,7 @@ func journalCheckinCmd() *cobra.Command {
 			}
 
 			var resp struct{ OK bool }
-			if err := c.post("/api/dx/journal/checkin", body, &resp); err != nil {
+			if err := c.Post("/api/dx/journal/checkin", body, &resp); err != nil {
 				return err
 			}
 			fmt.Println("ok")
@@ -126,7 +126,7 @@ func journalShowCmd() *cobra.Command {
 		Use:   "show",
 		Short: "List standup entries",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			params := url.Values{
 				"slug": {c.SlugOrDie()},
 				"role": {role},
@@ -134,7 +134,7 @@ func journalShowCmd() *cobra.Command {
 			var resp struct {
 				Entries []journalEntry `json:"entries"`
 			}
-			if err := c.get("/api/dx/journal/show", params, &resp); err != nil {
+			if err := c.Get("/api/dx/journal/show", params, &resp); err != nil {
 				return err
 			}
 			if len(resp.Entries) == 0 {
@@ -188,7 +188,7 @@ func journalStateCmd() *cobra.Command {
 		Use:   "state",
 		Short: "Show latest standup state snapshot",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			params := url.Values{
 				"slug": {c.SlugOrDie()},
 				"role": {role},
@@ -196,7 +196,7 @@ func journalStateCmd() *cobra.Command {
 			var resp struct {
 				StateJSON string `json:"state_json"`
 			}
-			if err := c.get("/api/dx/journal/state", params, &resp); err != nil {
+			if err := c.Get("/api/dx/journal/state", params, &resp); err != nil {
 				return err
 			}
 			if resp.StateJSON == "" {
@@ -227,14 +227,14 @@ func journalAddCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid issue ID %q (expected IS-N)", issue)
 			}
-			c := mustClient()
+			c := MustClient()
 			body := map[string]any{
 				"issue_id": int32(id),
 				"by_role":  role,
 				"note":     note,
 			}
 			var resp struct{ OK bool }
-			if err := c.post("/api/issue-work", body, &resp); err != nil {
+			if err := c.Post("/api/issue-work", body, &resp); err != nil {
 				return err
 			}
 			fmt.Printf("ok — work-log entry added to %s\n", issue)
@@ -261,7 +261,7 @@ func journalListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List work-log entries",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			params := url.Values{
 				"slug": {c.SlugOrDie()},
 			}
@@ -269,7 +269,7 @@ func journalListCmd() *cobra.Command {
 				Entries []worklogEntry `json:"entries"`
 				Total   int64          `json:"total"`
 			}
-			if err := c.get("/api/dx/worklog", params, &resp); err != nil {
+			if err := c.Get("/api/dx/worklog", params, &resp); err != nil {
 				return err
 			}
 			entries := resp.Entries

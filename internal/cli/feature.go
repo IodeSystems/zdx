@@ -24,11 +24,11 @@ func featureListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List features",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Features []featureItem `json:"features"`
 			}
-			if err := c.get("/api/features", querySlug(c), &resp); err != nil {
+			if err := c.Get("/api/features", QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Features) == 0 {
@@ -58,9 +58,9 @@ func featureAddCmd() *cobra.Command {
 		Short: "Create or update a feature",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var f featureItem
-			if err := c.post("/api/feature", map[string]any{
+			if err := c.Post("/api/feature", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"name":        args[0],
 				"description": desc,
@@ -81,12 +81,12 @@ func featureShowCmd() *cobra.Command {
 		Short: "Show feature detail with specs",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			// Fetch the full list and find by name (no single-feature GET endpoint yet).
 			var resp struct {
 				Features []featureItem `json:"features"`
 			}
-			if err := c.get("/api/features", querySlug(c), &resp); err != nil {
+			if err := c.Get("/api/features", QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			var f *featureItem
@@ -112,7 +112,7 @@ func featureSetCmd() *cobra.Command {
 		Short: "Set fields on a feature",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			slug := c.SlugOrDie()
 			name := args[0]
 
@@ -129,7 +129,7 @@ func featureSetCmd() *cobra.Command {
 				if !cmd.Flags().Changed(fieldFlag(field)) {
 					continue
 				}
-				if err := c.post("/api/dx/features/field", map[string]any{
+				if err := c.Post("/api/dx/features/field", map[string]any{
 					"slug":    slug,
 					"feature": name,
 					"field":   field,
@@ -161,11 +161,11 @@ func featureReviewCmd() *cobra.Command {
 		Short: "Mark feature as owner-reviewed (resets cool-down timer)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/feature/review", map[string]any{
+			if err := c.Post("/api/dx/feature/review", map[string]any{
 				"slug":    c.SlugOrDie(),
 				"feature": args[0],
 			}, &ok); err != nil {

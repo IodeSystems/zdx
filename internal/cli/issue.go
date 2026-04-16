@@ -23,11 +23,11 @@ func issueListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List issues",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Issues []issueItem `json:"issues"`
 			}
-			if err := c.get("/api/dx/todo/issue/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
+			if err := c.Get("/api/dx/todo/issue/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err
 			}
 			if len(resp.Issues) == 0 {
@@ -43,7 +43,7 @@ func issueListCmd() *cobra.Command {
 							Reverted bool   `json:"reverted"`
 						} `json:"resolutions"`
 					}
-					_ = c.get("/api/dx/todo/issue/resolutions", url.Values{
+					_ = c.Get("/api/dx/todo/issue/resolutions", url.Values{
 						"slug":   {c.SlugOrDie()},
 						"id":     {issueIDStr(iss.ID)},
 						"branch": {branch},
@@ -89,7 +89,7 @@ func issueAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Create an issue",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			body := map[string]any{
 				"slug":       c.SlugOrDie(),
 				"title":      title,
@@ -105,13 +105,13 @@ func issueAddCmd() *cobra.Command {
 				body["blocked_by"] = strings.Split(blockedBy, ",")
 			}
 			var resp issueAddResponse
-			if err := c.post("/api/dx/todo/issue/add", body, &resp); err != nil {
+			if err := c.Post("/api/dx/todo/issue/add", body, &resp); err != nil {
 				return err
 			}
 			fmt.Printf("%s  %s\n", issueIDStr(resp.ID), resp.Title)
 			if parent != "" {
 				parentNum, _ := strconv.ParseInt(parent[3:], 10, 32)
-				if err := c.post("/api/dx/todo/issue/add-block", map[string]any{
+				if err := c.Post("/api/dx/todo/issue/add-block", map[string]any{
 					"slug":       c.SlugOrDie(),
 					"id":         int32(parentNum),
 					"blocked_by": issueIDStr(resp.ID),
@@ -130,7 +130,7 @@ func issueAddCmd() *cobra.Command {
 				fmt.Printf("To close as duplicate:\n")
 				fmt.Printf("  dx issue close %s --reason=duplicate --duplicate-of=<IS-N>\n", issueIDStr(resp.ID))
 			} else if !autoReady {
-				if err := c.post("/api/dx/todo/issue/ready", map[string]any{
+				if err := c.Post("/api/dx/todo/issue/ready", map[string]any{
 					"slug": c.SlugOrDie(),
 					"id":   resp.ID,
 				}, nil); err != nil {
@@ -159,9 +159,9 @@ func issueReadyCmd() *cobra.Command {
 		Short: "Promote a draft issue from wip to open",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			n, _ := strconv.ParseInt(args[0][3:], 10, 32)
-			if err := c.post("/api/dx/todo/issue/ready", map[string]any{
+			if err := c.Post("/api/dx/todo/issue/ready", map[string]any{
 				"slug": c.SlugOrDie(),
 				"id":   int32(n),
 			}, nil); err != nil {
@@ -179,12 +179,12 @@ func issueShowCmd() *cobra.Command {
 		Short: "Show issue detail with work log",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Issue issueItem       `json:"issue"`
 				Work  []issueWorkItem `json:"work"`
 			}
-			if err := c.get("/api/dx/todo/issue/show", url.Values{
+			if err := c.Get("/api/dx/todo/issue/show", url.Values{
 				"slug": {c.SlugOrDie()},
 				"id":   {args[0]},
 			}, &resp); err != nil {
@@ -206,7 +206,7 @@ func issueShowCmd() *cobra.Command {
 					} `json:"commits"`
 				} `json:"resolutions"`
 			}
-			if err := c.get("/api/dx/todo/issue/resolutions", url.Values{
+			if err := c.Get("/api/dx/todo/issue/resolutions", url.Values{
 				"slug": {c.SlugOrDie()},
 				"id":   {args[0]},
 			}, &resResp); err == nil && len(resResp.Resolutions) > 0 {
@@ -270,7 +270,7 @@ func issueCloseCmd() *cobra.Command {
 			}
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := mustClient()
+			c := MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -282,7 +282,7 @@ func issueCloseCmd() *cobra.Command {
 			if duplicateOf != "" {
 				body["duplicate_of"] = duplicateOf
 			}
-			if err := c.post("/api/dx/todo/issue/close", body, &ok); err != nil {
+			if err := c.Post("/api/dx/todo/issue/close", body, &ok); err != nil {
 				return err
 			}
 			fmt.Printf("%s closed\n", id)
@@ -325,11 +325,11 @@ func issueBlockCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := mustClient()
+			c := MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/todo/issue/add-block", map[string]any{
+			if err := c.Post("/api/dx/todo/issue/add-block", map[string]any{
 				"slug":       c.SlugOrDie(),
 				"id":         int32(n),
 				"blocked_by": by,
@@ -354,7 +354,7 @@ func issueUnblockCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := mustClient()
+			c := MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
@@ -365,7 +365,7 @@ func issueUnblockCmd() *cobra.Command {
 			if by != "" {
 				body["blocked_by"] = by
 			}
-			if err := c.post("/api/dx/todo/issue/remove-block", body, &ok); err != nil {
+			if err := c.Post("/api/dx/todo/issue/remove-block", body, &ok); err != nil {
 				return err
 			}
 			if by != "" {
@@ -390,7 +390,7 @@ func issueEditCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			c := mustClient()
+			c := MustClient()
 			body := map[string]any{
 				"slug": c.SlugOrDie(),
 				"id":   int32(n),
@@ -413,7 +413,7 @@ func issueEditCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/todo/issue/edit", body, &ok); err != nil {
+			if err := c.Post("/api/dx/todo/issue/edit", body, &ok); err != nil {
 				return err
 			}
 			fmt.Printf("%s updated\n", id)
@@ -462,7 +462,7 @@ func issueResolveCmd() *cobra.Command {
 					fullSHAs[i] = strings.TrimSpace(string(out))
 				}
 			}
-			c := mustClient()
+			c := MustClient()
 			body := map[string]any{
 				"slug": c.SlugOrDie(),
 				"id":   int32(n),
@@ -480,7 +480,7 @@ func issueResolveCmd() *cobra.Command {
 					} `json:"commits"`
 				} `json:"resolution"`
 			}
-			if err := c.post("/api/dx/todo/issue/resolve", body, &resp); err != nil {
+			if err := c.Post("/api/dx/todo/issue/resolve", body, &resp); err != nil {
 				return err
 			}
 			fmt.Printf("%s resolved (resolution %s)\n", id, resp.Resolution.ID)
@@ -505,7 +505,7 @@ func issueResolutionsCmd() *cobra.Command {
 		Short: "List resolutions for an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			params := url.Values{
 				"slug": {c.SlugOrDie()},
 				"id":   {args[0]},
@@ -528,7 +528,7 @@ func issueResolutionsCmd() *cobra.Command {
 					} `json:"commits"`
 				} `json:"resolutions"`
 			}
-			if err := c.get("/api/dx/todo/issue/resolutions", params, &resp); err != nil {
+			if err := c.Get("/api/dx/todo/issue/resolutions", params, &resp); err != nil {
 				return err
 			}
 			if len(resp.Resolutions) == 0 {
@@ -567,7 +567,7 @@ func issueReconcileCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := args[0]
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Results []struct {
 					IssueID      string   `json:"issue_id"`
@@ -575,7 +575,7 @@ func issueReconcileCmd() *cobra.Command {
 					MatchedSHAs  []string `json:"matched_shas"`
 				} `json:"results"`
 			}
-			if err := c.post("/api/dx/todo/issue/reconcile", map[string]any{
+			if err := c.Post("/api/dx/todo/issue/reconcile", map[string]any{
 				"slug":   c.SlugOrDie(),
 				"branch": branch,
 			}, &resp); err != nil {

@@ -28,12 +28,12 @@ func patternListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List patterns",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Patterns []patternItem `json:"patterns"`
 				Total    int64         `json:"total"`
 			}
-			if err := c.get("/api/dx/patterns", querySlug(c), &resp); err != nil {
+			if err := c.Get("/api/dx/patterns", QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Patterns) == 0 {
@@ -56,7 +56,7 @@ func patternAddCmd() *cobra.Command {
 		Short: "Add a pattern",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			body := map[string]any{
 				"slug":        c.SlugOrDie(),
 				"name":        args[0],
@@ -67,7 +67,7 @@ func patternAddCmd() *cobra.Command {
 				body["code_refs"] = refs
 			}
 			var p patternItem
-			if err := c.post("/api/dx/patterns/add", body, &p); err != nil {
+			if err := c.Post("/api/dx/patterns/add", body, &p); err != nil {
 				return err
 			}
 			fmt.Printf("PT-%d  %s\n", p.ID, p.Name)
@@ -85,12 +85,12 @@ func patternShowCmd() *cobra.Command {
 		Short: "Show pattern details",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id := parsePatternID(args[0])
 			var p patternItem
-			q := querySlug(c)
+			q := QuerySlug(c)
 			q.Set("id", fmt.Sprintf("%d", id))
-			if err := c.get("/api/dx/patterns/get", q, &p); err != nil {
+			if err := c.Get("/api/dx/patterns/get", q, &p); err != nil {
 				return err
 			}
 			fmt.Printf("PT-%d  %s\n", p.ID, p.Name)
@@ -115,12 +115,12 @@ func patternDeleteCmd() *cobra.Command {
 		Short: "Delete a pattern",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id := parsePatternID(args[0])
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/patterns/delete", map[string]any{
+			if err := c.Post("/api/dx/patterns/delete", map[string]any{
 				"slug": c.SlugOrDie(),
 				"id":   id,
 			}, &ok); err != nil {
@@ -139,14 +139,14 @@ func patternSearchCmd() *cobra.Command {
 		Short: "Search patterns by similarity",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Patterns []struct {
 					Pattern patternItem `json:"pattern"`
 					Score   float64     `json:"score"`
 				} `json:"patterns"`
 			}
-			if err := c.post("/api/dx/patterns/similar", map[string]any{
+			if err := c.Post("/api/dx/patterns/similar", map[string]any{
 				"slug": c.SlugOrDie(),
 				"text": args[0],
 				"n":    n,

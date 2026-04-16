@@ -30,11 +30,11 @@ func goalListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List project goals",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Goals []goalItem `json:"goals"`
 			}
-			if err := c.get("/api/goals", querySlug(c), &resp); err != nil {
+			if err := c.Get("/api/goals", QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Goals) == 0 {
@@ -58,9 +58,9 @@ func goalAddCmd() *cobra.Command {
 		Short: "Add a project goal",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var g goalItem
-			if err := c.post("/api/goal", map[string]any{
+			if err := c.Post("/api/goal", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"title":       args[0],
 				"description": desc,

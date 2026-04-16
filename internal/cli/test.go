@@ -734,7 +734,7 @@ func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta)
 		apiResults = append(apiResults, item)
 	}
 
-	if err := c.post("/api/dx/test-results/submit", map[string]any{
+	if err := c.Post("/api/dx/test-results/submit", map[string]any{
 		"slug":    slug,
 		"results": apiResults,
 	}, nil); err != nil {

@@ -107,7 +107,7 @@ func agentStartCmd() *cobra.Command {
 		Use:   "start",
 		Short: "Start a new agent (worktree + compose + register)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			slug := c.SlugOrDie()
 
 			id := shortID()
@@ -187,7 +187,7 @@ func agentStartCmd() *cobra.Command {
 			fmt.Printf("compose:  %s (db port %d, valkey port %d)\n", composeProject, dbPort, valkeyPort)
 
 			var agent agentItem
-			if err := c.post("/api/agents/register", map[string]any{
+			if err := c.Post("/api/agents/register", map[string]any{
 				"slug":            slug,
 				"id":              id,
 				"session_id":      sessionID,
@@ -220,11 +220,11 @@ func agentListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List active agents",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Agents []agentItem `json:"agents"`
 			}
-			if err := c.get("/api/agents/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
+			if err := c.Get("/api/agents/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err
 			}
 			if len(resp.Agents) == 0 {
@@ -238,7 +238,7 @@ func agentListCmd() *cobra.Command {
 					var taskResp struct {
 						Tasks []agentTaskItem `json:"tasks"`
 					}
-					if err := c.get("/api/agents/"+a.ID+"/tasks", nil, &taskResp); err != nil {
+					if err := c.Get("/api/agents/"+a.ID+"/tasks", nil, &taskResp); err != nil {
 						fmt.Printf("  (tasks error: %v)\n", err)
 						continue
 					}
@@ -260,22 +260,22 @@ func agentStopCmd() *cobra.Command {
 		Short: "Gracefully stop an agent",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id := args[0]
 
 			var agent agentItem
-			if err := c.get("/api/agents/"+id, nil, &agent); err != nil {
+			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
 				return fmt.Errorf("get agent: %w", err)
 			}
 
 			var taskResp struct {
 				Tasks []agentTaskItem `json:"tasks"`
 			}
-			if err := c.get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
+			if err := c.Get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
 				return fmt.Errorf("list tasks: %w", err)
 			}
 			for _, t := range taskResp.Tasks {
-				if err := c.post("/api/tasks/"+t.ID+"/release", map[string]any{"agent_id": id}, nil); err != nil {
+				if err := c.Post("/api/tasks/"+t.ID+"/release", map[string]any{"agent_id": id}, nil); err != nil {
 					fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.ID, err)
 				} else {
 					fmt.Printf("released task %s\n", t.ID)
@@ -320,11 +320,11 @@ func agentReapCmd() *cobra.Command {
 		Use:   "reap",
 		Short: "Reap stale agents (heartbeat expired)",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Reaped []agentItem `json:"reaped"`
 			}
-			if err := c.post("/api/agents/reap", map[string]any{"threshold_minutes": thresholdMin}, &resp); err != nil {
+			if err := c.Post("/api/agents/reap", map[string]any{"threshold_minutes": thresholdMin}, &resp); err != nil {
 				return err
 			}
 			if len(resp.Reaped) == 0 {
@@ -347,12 +347,12 @@ func agentResumeCmd() *cobra.Command {
 		Short: "Resume a dead agent (re-register with new PID)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id := args[0]
 			slug := c.SlugOrDie()
 
 			var agent agentItem
-			if err := c.get("/api/agents/"+id, nil, &agent); err != nil {
+			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
 				return fmt.Errorf("agent %s not found (may have been reaped): %w", id, err)
 			}
 
@@ -385,7 +385,7 @@ func agentResumeCmd() *cobra.Command {
 			}
 
 			var updated agentItem
-			if err := c.post("/api/agents/register", map[string]any{
+			if err := c.Post("/api/agents/register", map[string]any{
 				"slug":            slug,
 				"id":              id,
 				"session_id":      agent.SessionID,
@@ -413,22 +413,22 @@ func agentReleaseCmd() *cobra.Command {
 		Short: "Release agent resources (compose, worktree, tasks) without deleting DB record",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id := args[0]
 
 			var agent agentItem
-			if err := c.get("/api/agents/"+id, nil, &agent); err != nil {
+			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
 				return fmt.Errorf("get agent: %w", err)
 			}
 
 			var taskResp struct {
 				Tasks []agentTaskItem `json:"tasks"`
 			}
-			if err := c.get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
+			if err := c.Get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
 				return fmt.Errorf("list tasks: %w", err)
 			}
 			for _, t := range taskResp.Tasks {
-				if err := c.post("/api/tasks/"+t.ID+"/release", map[string]any{"agent_id": id}, nil); err != nil {
+				if err := c.Post("/api/tasks/"+t.ID+"/release", map[string]any{"agent_id": id}, nil); err != nil {
 					fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.ID, err)
 				} else {
 					fmt.Printf("released task %s\n", t.ID)
@@ -502,7 +502,7 @@ func heartbeatLoop(c *Client, agentID string, interval time.Duration, stop <-cha
 		case <-stop:
 			return
 		case <-t.C:
-			_ = c.post("/api/agents/"+agentID+"/heartbeat", nil, nil)
+			_ = c.Post("/api/agents/"+agentID+"/heartbeat", nil, nil)
 		}
 	}
 }

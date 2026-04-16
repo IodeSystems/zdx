@@ -20,7 +20,7 @@ func bootstrapOnboardingIssue(c *Client) error {
 		Items []struct{ ID int32 } `json:"items"`
 		Total int                  `json:"total"`
 	}
-	if err := c.get("/api/dx/todo/issue/list", url.Values{
+	if err := c.Get("/api/dx/todo/issue/list", url.Values{
 		"slug":  {slug},
 		"limit": {"1"},
 	}, &listing); err != nil {
@@ -37,7 +37,7 @@ func bootstrapOnboardingIssue(c *Client) error {
 		ID    int32  `json:"id"`
 		Title string `json:"title"`
 	}
-	if err := c.post("/api/dx/todo/issue/add", map[string]any{
+	if err := c.Post("/api/dx/todo/issue/add", map[string]any{
 		"slug":       slug,
 		"title":      "Project onboarding: define goals, architecture, and constraints",
 		"context":    "Bootstrap issue for new project setup. Answer the attached questions to establish project direction so that automated workflows can make informed decisions.",
@@ -67,7 +67,7 @@ func bootstrapOnboardingIssue(c *Client) error {
 			"target_id":   issueID,
 			"context":     q,
 		}
-		if err := c.post("/api/dx/blocker-questions/add", body, &bq); err != nil {
+		if err := c.Post("/api/dx/blocker-questions/add", body, &bq); err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not create question: %v\n", err)
 			continue
 		}

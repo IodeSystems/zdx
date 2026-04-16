@@ -32,7 +32,7 @@ func SetupCmd() *cobra.Command {
 				Token string `json:"token"`
 				Email string `json:"email"`
 			}
-			if err := bare.post("/api/setup/bootstrap", map[string]any{
+			if err := bare.Post("/api/setup/bootstrap", map[string]any{
 				"email":    email,
 				"name":     name,
 				"key_name": keyName,
@@ -59,7 +59,7 @@ func SetupCmd() *cobra.Command {
 				Slug string `json:"slug"`
 				Name string `json:"name"`
 			}
-			if err := authed.post("/api/project", map[string]any{
+			if err := authed.Post("/api/project", map[string]any{
 				"slug": slug,
 				"name": projectName,
 			}, &proj); err != nil {

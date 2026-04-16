@@ -34,9 +34,9 @@ func questionProposalAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Create an issue proposal on a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var p questionProposalItem
-			if err := c.post("/api/dx/question-proposals/add", map[string]any{
+			if err := c.Post("/api/dx/question-proposals/add", map[string]any{
 				"slug":          c.SlugOrDie(),
 				"question_id":   questionID,
 				"question_type": questionType,
@@ -65,7 +65,7 @@ func questionProposalListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List proposals for a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Proposals []questionProposalItem `json:"proposals"`
 			}
@@ -74,7 +74,7 @@ func questionProposalListCmd() *cobra.Command {
 				"question_id":   {strconv.Itoa(int(questionID))},
 				"question_type": {questionType},
 			}
-			if err := c.get("/api/dx/question-proposals/by-question", params, &resp); err != nil {
+			if err := c.Get("/api/dx/question-proposals/by-question", params, &resp); err != nil {
 				return err
 			}
 			if len(resp.Proposals) == 0 {
@@ -103,7 +103,7 @@ func questionProposalAcceptCmd() *cobra.Command {
 		Short: "Accept a proposal (creates an issue)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
@@ -114,7 +114,7 @@ func questionProposalAcceptCmd() *cobra.Command {
 					ID string `json:"id"`
 				} `json:"issue"`
 			}
-			if err := c.post("/api/dx/question-proposals/accept", map[string]any{
+			if err := c.Post("/api/dx/question-proposals/accept", map[string]any{
 				"slug": c.SlugOrDie(),
 				"id":   int32(id),
 			}, &resp); err != nil {
@@ -134,13 +134,13 @@ func questionProposalDenyCmd() *cobra.Command {
 		Short: "Deny a proposal",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
 			var p questionProposalItem
-			if err := c.post("/api/dx/question-proposals/deny", map[string]any{
+			if err := c.Post("/api/dx/question-proposals/deny", map[string]any{
 				"slug":   c.SlugOrDie(),
 				"id":     int32(id),
 				"reason": reason,

@@ -34,7 +34,7 @@ func questionAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Create a blocker question",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var choiceList []string
 			if choices != "" {
 				for _, ch := range strings.Split(choices, ",") {
@@ -45,7 +45,7 @@ func questionAddCmd() *cobra.Command {
 				}
 			}
 			var q blockerQuestionItem
-			if err := c.post("/api/dx/blocker-questions/add", map[string]any{
+			if err := c.Post("/api/dx/blocker-questions/add", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"target_type": targetType,
 				"target_id":   targetID,
@@ -75,13 +75,13 @@ func questionAnswerCmd() *cobra.Command {
 		Short: "Answer a blocker question",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
 			var q blockerQuestionItem
-			if err := c.post("/api/dx/blocker-questions/answer", map[string]any{
+			if err := c.Post("/api/dx/blocker-questions/answer", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"id":          int32(id),
 				"answer":      answer,
@@ -105,7 +105,7 @@ func questionListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List blocker questions",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Questions []blockerQuestionItem `json:"questions"`
 			}
@@ -113,7 +113,7 @@ func questionListCmd() *cobra.Command {
 			if status != "" {
 				params.Set("status", status)
 			}
-			if err := c.get("/api/dx/blocker-questions/list", params, &resp); err != nil {
+			if err := c.Get("/api/dx/blocker-questions/list", params, &resp); err != nil {
 				return err
 			}
 			if len(resp.Questions) == 0 {

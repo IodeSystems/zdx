@@ -30,11 +30,11 @@ func constraintListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List project constraints",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Constraints []constraintItem `json:"constraints"`
 			}
-			if err := c.get("/api/constraints", querySlug(c), &resp); err != nil {
+			if err := c.Get("/api/constraints", QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Constraints) == 0 {
@@ -58,9 +58,9 @@ func constraintAddCmd() *cobra.Command {
 		Short: "Add a project constraint",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var g constraintItem
-			if err := c.post("/api/constraint", map[string]any{
+			if err := c.Post("/api/constraint", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"title":       args[0],
 				"description": desc,

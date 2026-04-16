@@ -46,7 +46,7 @@ func IntegrateCmd() *cobra.Command {
 				var projects struct {
 					Items []struct{} `json:"items"`
 				}
-				if err := client.get("/api/projects", nil, &projects); err != nil {
+				if err := client.Get("/api/projects", nil, &projects); err != nil {
 					return fmt.Errorf("API key validation failed: %w", err)
 				}
 				fmt.Println("api key: valid")

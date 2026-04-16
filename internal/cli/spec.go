@@ -23,12 +23,12 @@ func specAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Add a spec statement to a feature",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
 			// The update-specs endpoint uses field=kind, value=description.
-			if err := c.post("/api/dx/specs/update", map[string]any{
+			if err := c.Post("/api/dx/specs/update", map[string]any{
 				"slug":    c.SlugOrDie(),
 				"feature": feature,
 				"field":   kind,
@@ -54,11 +54,11 @@ func specListCmd() *cobra.Command {
 		Short: "List specs for a feature",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Features []featureItem `json:"features"`
 			}
-			if err := c.get("/api/features", querySlug(c), &resp); err != nil {
+			if err := c.Get("/api/features", QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			for _, f := range resp.Features {
@@ -97,9 +97,9 @@ func specLinkCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid test-id: %s", args[1])
 			}
-			c := mustClient()
+			c := MustClient()
 			var ok struct{ OK bool }
-			if err := c.post("/api/dx/specs/link-test", map[string]any{
+			if err := c.Post("/api/dx/specs/link-test", map[string]any{
 				"spec_id": specID,
 				"test_id": testID,
 			}, &ok); err != nil {
@@ -122,9 +122,9 @@ func specDeferCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid spec-id: %s", args[0])
 			}
-			c := mustClient()
+			c := MustClient()
 			var ok struct{ OK bool }
-			if err := c.post("/api/dx/specs/defer", map[string]any{
+			if err := c.Post("/api/dx/specs/defer", map[string]any{
 				"spec_id": specID,
 				"reason":  reason,
 			}, &ok); err != nil {
@@ -148,9 +148,9 @@ func specUndeferCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid spec-id: %s", args[0])
 			}
-			c := mustClient()
+			c := MustClient()
 			var ok struct{ OK bool }
-			if err := c.post("/api/dx/specs/undefer", map[string]any{
+			if err := c.Post("/api/dx/specs/undefer", map[string]any{
 				"spec_id": specID,
 			}, &ok); err != nil {
 				return err
@@ -175,9 +175,9 @@ func specUnlinkCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid test-id: %s", args[1])
 			}
-			c := mustClient()
+			c := MustClient()
 			var ok struct{ OK bool }
-			if err := c.post("/api/dx/specs/unlink-test", map[string]any{
+			if err := c.Post("/api/dx/specs/unlink-test", map[string]any{
 				"spec_id": specID,
 				"test_id": testID,
 			}, &ok); err != nil {

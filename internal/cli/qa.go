@@ -29,9 +29,9 @@ func qaAddCmd() *cobra.Command {
 		Use:   "add",
 		Short: "Add a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var q questionItem
-			if err := c.post("/api/dx/qa/add", map[string]any{
+			if err := c.Post("/api/dx/qa/add", map[string]any{
 				"slug":     c.SlugOrDie(),
 				"category": category,
 				"question": question,
@@ -55,13 +55,13 @@ func qaAnswerCmd() *cobra.Command {
 		Short: "Answer a question",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			id, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
 			var q questionItem
-			if err := c.post("/api/dx/qa/answer", map[string]any{
+			if err := c.Post("/api/dx/qa/answer", map[string]any{
 				"slug":   c.SlugOrDie(),
 				"id":     int32(id),
 				"answer": answer,
@@ -82,11 +82,11 @@ func qaListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List questions",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Questions []questionItem `json:"questions"`
 			}
-			if err := c.get("/api/dx/qa/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
+			if err := c.Get("/api/dx/qa/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
 				return err
 			}
 			if len(resp.Questions) == 0 {

@@ -66,7 +66,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var resp struct {
 			Issues []issueItem `json:"issues"`
 		}
-		if err := c.get("/api/dx/todo/issue/list", url.Values{"slug": {slug}}, &resp); err != nil {
+		if err := c.Get("/api/dx/todo/issue/list", url.Values{"slug": {slug}}, &resp); err != nil {
 			return nil, nil, err
 		}
 		if in.Status != "" {
@@ -98,7 +98,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 			issType = "ops"
 		}
 		var iss issueItem
-		if err := c.post("/api/dx/todo/issue/add", map[string]any{
+		if err := c.Post("/api/dx/todo/issue/add", map[string]any{
 			"slug":       slug,
 			"title":      in.Title,
 			"context":    in.Context,
@@ -110,7 +110,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		}
 		if in.Parent != "" {
 			parentNum, _ := strconv.ParseInt(in.Parent[3:], 10, 32)
-			_ = c.post("/api/dx/todo/issue/add-block", map[string]any{
+			_ = c.Post("/api/dx/todo/issue/add-block", map[string]any{
 				"slug":       slug,
 				"id":         int32(parentNum),
 				"blocked_by": issueIDStr(int32(iss.ID)),
@@ -130,7 +130,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 			Issue issueItem       `json:"issue"`
 			Work  []issueWorkItem `json:"work"`
 		}
-		if err := c.get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {in.ID}}, &resp); err != nil {
+		if err := c.Get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {in.ID}}, &resp); err != nil {
 			return nil, nil, err
 		}
 		return nil, resp, nil
@@ -151,7 +151,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.post("/api/dx/todo/issue/close", map[string]any{
+		if err := c.Post("/api/dx/todo/issue/close", map[string]any{
 			"slug":   slug,
 			"id":     n,
 			"reason": in.Reason,
@@ -191,7 +191,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.post("/api/dx/todo/issue/edit", body, &ok); err != nil {
+		if err := c.Post("/api/dx/todo/issue/edit", body, &ok); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "updated", "id": in.ID}, nil
@@ -212,7 +212,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
+		if err := c.Post("/api/dx/todo/issue/set-blocked-by", map[string]any{
 			"slug":       slug,
 			"id":         n,
 			"blocked_by": in.By,
@@ -236,7 +236,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.post("/api/dx/todo/issue/set-blocked-by", map[string]any{
+		if err := c.Post("/api/dx/todo/issue/set-blocked-by", map[string]any{
 			"slug":       slug,
 			"id":         n,
 			"blocked_by": "",
@@ -280,7 +280,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 				Issue issueItem       `json:"issue"`
 				Work  []issueWorkItem `json:"work"`
 			}
-			if err := c.get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {id}}, &resp); err != nil {
+			if err := c.Get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {id}}, &resp); err != nil {
 				return nil, nil, err
 			}
 			return nil, resp, nil
@@ -289,7 +289,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 			var taskList struct {
 				Tasks []taskItem `json:"tasks"`
 			}
-			if err := c.get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
+			if err := c.Get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
 				return nil, nil, err
 			}
 			for _, t := range taskList.Tasks {
@@ -302,7 +302,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 			var featList struct {
 				Features []featureItem `json:"features"`
 			}
-			if err := c.get("/api/features", url.Values{"slug": {slug}}, &featList); err != nil {
+			if err := c.Get("/api/features", url.Values{"slug": {slug}}, &featList); err != nil {
 				return nil, nil, err
 			}
 			for _, f := range featList.Features {
@@ -326,21 +326,21 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 			Tasks []taskItem `json:"tasks"`
 		}
 		if in.Issue != "" {
-			if err := c.get("/api/dx/todo/issue/tasks", url.Values{
+			if err := c.Get("/api/dx/todo/issue/tasks", url.Values{
 				"slug":     {slug},
 				"issue_id": {in.Issue},
 			}, &taskList); err != nil {
 				return nil, nil, err
 			}
 		} else if in.Feature != "" {
-			if err := c.get("/api/tasks-by-feature", url.Values{
+			if err := c.Get("/api/tasks-by-feature", url.Values{
 				"slug":    {slug},
 				"feature": {in.Feature},
 			}, &taskList); err != nil {
 				return nil, nil, err
 			}
 		} else {
-			if err := c.get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
+			if err := c.Get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
 				return nil, nil, err
 			}
 		}
@@ -363,7 +363,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.post("/api/dx/todo/dev/done", map[string]any{
+		if err := c.Post("/api/dx/todo/dev/done", map[string]any{
 			"id":        n,
 			"test_plan": in.TestPlan,
 			"test_refs": in.TestRefs,
@@ -388,7 +388,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.put("/api/task-status", map[string]any{
+		if err := c.Put("/api/task-status", map[string]any{
 			"id":     n,
 			"status": "active",
 			"reason": in.Reason,
@@ -438,7 +438,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var ok struct {
 			OK bool `json:"ok"`
 		}
-		if err := c.post("/api/dx/todo/owner/triage", body, &ok); err != nil {
+		if err := c.Post("/api/dx/todo/owner/triage", body, &ok); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]any{"status": "triaged", "id": in.ID, "priority": in.Priority}, nil
@@ -456,7 +456,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		Description: "Add a task to an issue or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoTechAddInput) (*mcp.CallToolResult, any, error) {
 		var resp taskAddResponse
-		if err := c.post("/api/dx/todo/tech/add", map[string]any{
+		if err := c.Post("/api/dx/todo/tech/add", map[string]any{
 			"slug":       slug,
 			"text":       in.Text,
 			"feature":    in.Feature,
@@ -490,7 +490,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var resp struct {
 			Features []featureItem `json:"features"`
 		}
-		if err := c.get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
+		if err := c.Get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
 			return nil, nil, err
 		}
 		return nil, resp, nil
@@ -506,7 +506,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var resp struct {
 			Features []featureItem `json:"features"`
 		}
-		if err := c.get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
+		if err := c.Get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
 			return nil, nil, err
 		}
 		for _, f := range resp.Features {
@@ -537,7 +537,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 				Score   float64     `json:"score"`
 			} `json:"patterns"`
 		}
-		if err := c.post("/api/dx/patterns/similar", map[string]any{
+		if err := c.Post("/api/dx/patterns/similar", map[string]any{
 			"slug": slug,
 			"text": in.Text,
 			"n":    n,
@@ -568,7 +568,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 			body["code_refs"] = in.CodeRefs
 		}
 		var p patternItem
-		if err := c.post("/api/dx/patterns/update", body, &p); err != nil {
+		if err := c.Post("/api/dx/patterns/update", body, &p); err != nil {
 			return nil, nil, err
 		}
 		return nil, p, nil
@@ -596,7 +596,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 				Score    float32 `json:"score"`
 			} `json:"questions"`
 		}
-		if err := c.post("/api/dx/qa/similar", map[string]any{
+		if err := c.Post("/api/dx/qa/similar", map[string]any{
 			"slug": slug,
 			"text": in.Text,
 			"n":    n,
@@ -615,7 +615,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		Description: "Add a new question to the project's Q&A knowledge base",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in questionAddInput) (*mcp.CallToolResult, any, error) {
 		var q questionItem
-		if err := c.post("/api/dx/qa/add", map[string]any{
+		if err := c.Post("/api/dx/qa/add", map[string]any{
 			"slug":     slug,
 			"category": in.Category,
 			"question": in.Question,
@@ -647,7 +647,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		var resp struct {
 			Comments []commentItem `json:"comments"`
 		}
-		if err := c.get("/api/dx/comment/list", q, &resp); err != nil {
+		if err := c.Get("/api/dx/comment/list", q, &resp); err != nil {
 			return nil, nil, err
 		}
 		return nil, resp, nil
@@ -663,7 +663,7 @@ func registerMCPTools(srv *mcp.Server, c *Client) {
 		Description: "Add a comment to an issue, task, or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in commentAddInput) (*mcp.CallToolResult, any, error) {
 		var cm commentItem
-		if err := c.post("/api/dx/comment/add", map[string]any{
+		if err := c.Post("/api/dx/comment/add", map[string]any{
 			"slug":        slug,
 			"target_type": in.TargetType,
 			"target_id":   in.TargetID,

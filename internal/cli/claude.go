@@ -40,7 +40,7 @@ func claudeSummarizeCmd() *cobra.Command {
 		Use:   "summarize",
 		Short: "Generate header, summary, and status for sessions via claude -p",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			slug := c.SlugOrDie()
 
 			if sessionID > 0 {
@@ -51,7 +51,7 @@ func claudeSummarizeCmd() *cobra.Command {
 				Sessions []claudeSession `json:"sessions"`
 			}
 			params := url.Values{"slug": {slug}, "limit": {"100"}}
-			if err := c.get("/api/dx/claude/sessions", params, &resp); err != nil {
+			if err := c.Get("/api/dx/claude/sessions", params, &resp); err != nil {
 				return err
 			}
 
@@ -78,7 +78,7 @@ func summarizeSession(c *Client, slug string, sessionID int64) error {
 		Events []claudeEvent `json:"events"`
 		Total  int64         `json:"total"`
 	}
-	if err := c.get("/api/dx/claude/sessions/"+strconv.FormatInt(sessionID, 10)+"/events", params, &resp); err != nil {
+	if err := c.Get("/api/dx/claude/sessions/"+strconv.FormatInt(sessionID, 10)+"/events", params, &resp); err != nil {
 		return fmt.Errorf("fetch events: %w", err)
 	}
 
@@ -156,7 +156,7 @@ Transcript:
 	var patchResp struct {
 		OK bool `json:"ok"`
 	}
-	if err := c.patch(patchURL, summary, &patchResp); err != nil {
+	if err := c.Patch(patchURL, summary, &patchResp); err != nil {
 		return fmt.Errorf("patch summary: %w", err)
 	}
 

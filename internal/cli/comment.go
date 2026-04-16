@@ -45,7 +45,7 @@ func commentListCmd() *cobra.Command {
 		Short: "List comments on a target (e.g. comment list issue IS-5)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			q := url.Values{
 				"slug":        {c.SlugOrDie()},
 				"target_type": {args[0]},
@@ -57,7 +57,7 @@ func commentListCmd() *cobra.Command {
 			var resp struct {
 				Comments []commentItem `json:"comments"`
 			}
-			if err := c.get("/api/dx/comment/list", q, &resp); err != nil {
+			if err := c.Get("/api/dx/comment/list", q, &resp); err != nil {
 				return err
 			}
 			if len(resp.Comments) == 0 {
@@ -105,7 +105,7 @@ func commentAddCmd() *cobra.Command {
 		Short: "Add a comment (e.g. comment add issue IS-5 --body '...')",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			payload := map[string]any{
 				"slug":        c.SlugOrDie(),
 				"target_type": args[0],
@@ -116,7 +116,7 @@ func commentAddCmd() *cobra.Command {
 				payload["author_alias"] = alias
 			}
 			var cm commentItem
-			if err := c.post("/api/dx/comment/add", payload, &cm); err != nil {
+			if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
 				return err
 			}
 			fmt.Printf("C-%d added\n", cm.ID)
@@ -136,7 +136,7 @@ func commentMarkReadCmd() *cobra.Command {
 		Short: "Mark comments as read — by target or by comment IDs",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 
 			// Check if first arg looks like C-N (batch by comment IDs)
 			if strings.HasPrefix(args[0], "C-") {
@@ -150,13 +150,13 @@ func commentMarkReadCmd() *cobra.Command {
 						}
 						// Resolve comment to its target
 						var cm commentItem
-						if err := c.get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &cm); err != nil {
+						if err := c.Get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &cm); err != nil {
 							return fmt.Errorf("C-%d: %w", cid, err)
 						}
 						var ok struct {
 							OK bool `json:"ok"`
 						}
-						if err := c.post("/api/dx/comment/mark-read", map[string]any{
+						if err := c.Post("/api/dx/comment/mark-read", map[string]any{
 							"slug":        c.SlugOrDie(),
 							"target_type": cm.TargetType,
 							"target_id":   cm.TargetID,
@@ -177,7 +177,7 @@ func commentMarkReadCmd() *cobra.Command {
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/comment/mark-read", map[string]any{
+			if err := c.Post("/api/dx/comment/mark-read", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"target_type": args[0],
 				"target_id":   args[1],
@@ -201,14 +201,14 @@ func commentReplyCmd() *cobra.Command {
 		Short: "Reply to a comment by ID (e.g. comment reply C-123 --body '...')",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			cid, err := parseCommentID(args[0])
 			if err != nil {
 				return err
 			}
 
 			var orig commentItem
-			if err := c.get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &orig); err != nil {
+			if err := c.Get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &orig); err != nil {
 				return fmt.Errorf("could not find C-%d: %w", cid, err)
 			}
 
@@ -224,7 +224,7 @@ func commentReplyCmd() *cobra.Command {
 					payload["author_alias"] = alias
 				}
 				var cm commentItem
-				if err := c.post("/api/dx/comment/add", payload, &cm); err != nil {
+				if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
 					return err
 				}
 				fmt.Printf("C-%d added (reply to C-%d)\n", cm.ID, cid)
@@ -234,7 +234,7 @@ func commentReplyCmd() *cobra.Command {
 				var resp struct {
 					ID int32 `json:"id"`
 				}
-				if err := c.post("/api/dx/comment/react", map[string]any{
+				if err := c.Post("/api/dx/comment/react", map[string]any{
 					"slug":       c.SlugOrDie(),
 					"comment_id": cid,
 					"emoji":      react,
@@ -262,7 +262,7 @@ func commentReactCmd() *cobra.Command {
 		Short: "React to a comment (e.g. comment react C-123 thumbs-up)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			cid, err := parseCommentID(args[0])
 			if err != nil {
 				return err
@@ -270,7 +270,7 @@ func commentReactCmd() *cobra.Command {
 			var resp struct {
 				ID int32 `json:"id"`
 			}
-			if err := c.post("/api/dx/comment/react", map[string]any{
+			if err := c.Post("/api/dx/comment/react", map[string]any{
 				"slug":       c.SlugOrDie(),
 				"comment_id": cid,
 				"emoji":      args[1],
@@ -318,11 +318,11 @@ func revisionListCmd() *cobra.Command {
 		Short: "List revisions for a target",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Revisions []revisionItem `json:"revisions"`
 			}
-			if err := c.get("/api/dx/revisions", url.Values{
+			if err := c.Get("/api/dx/revisions", url.Values{
 				"slug":        {c.SlugOrDie()},
 				"target_type": {args[0]},
 				"target_id":   {args[1]},

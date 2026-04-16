@@ -28,11 +28,11 @@ func themeListCmd() *cobra.Command {
 		Use:   "list",
 		Short: "List themes",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var resp struct {
 				Themes []themeItem `json:"themes"`
 			}
-			if err := c.get("/api/dx/themes", querySlug(c), &resp); err != nil {
+			if err := c.Get("/api/dx/themes", QuerySlug(c), &resp); err != nil {
 				return err
 			}
 			if len(resp.Themes) == 0 {
@@ -60,9 +60,9 @@ func themeAddCmd() *cobra.Command {
 		Short: "Add a theme",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var t themeItem
-			if err := c.post("/api/dx/themes/add", map[string]any{
+			if err := c.Post("/api/dx/themes/add", map[string]any{
 				"slug":        c.SlugOrDie(),
 				"name":        args[0],
 				"description": desc,
@@ -87,11 +87,11 @@ func themeStatusCmd() *cobra.Command {
 		Short: "Set theme status (active|done|dropped)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := mustClient()
+			c := MustClient()
 			var ok struct {
 				OK bool `json:"ok"`
 			}
-			if err := c.post("/api/dx/themes/status", map[string]any{
+			if err := c.Post("/api/dx/themes/status", map[string]any{
 				"slug":   c.SlugOrDie(),
 				"theme":  args[0],
 				"status": args[1],
@@ -104,8 +104,8 @@ func themeStatusCmd() *cobra.Command {
 	}
 }
 
-// querySlug builds url.Values with the client's project slug.
-func querySlug(c *Client) url.Values {
+// QuerySlug builds url.Values with the client's project slug.
+func QuerySlug(c *Client) url.Values {
 	return url.Values{"slug": {c.SlugOrDie()}}
 }
 
