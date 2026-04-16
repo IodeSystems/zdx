@@ -238,6 +238,66 @@ func (q *Queries) ListGoalIssues(ctx context.Context, goalID int32) ([]string, e
 	return items, nil
 }
 
+const listGoalsNeedingMetrics = `-- name: ListGoalsNeedingMetrics :many
+SELECT id, project_id, title, description, priority, status, metric_name, metric_unit, created_at, updated_at
+FROM zdx_project_goals
+WHERE project_id = $1
+  AND status = 'active'
+  AND metric_name = ''
+  AND created_at < NOW() - ($2::int || ' days')::interval
+ORDER BY priority, title
+`
+
+type ListGoalsNeedingMetricsParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	AgeDays   int32 `db:"age_days" json:"age_days"`
+}
+
+type ListGoalsNeedingMetricsRow struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
+	Description string             `db:"description" json:"description"`
+	Priority    int32              `db:"priority" json:"priority"`
+	Status      string             `db:"status" json:"status"`
+	MetricName  string             `db:"metric_name" json:"metric_name"`
+	MetricUnit  string             `db:"metric_unit" json:"metric_unit"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+// Active goals with no metric defined, created more than @age_days ago.
+func (q *Queries) ListGoalsNeedingMetrics(ctx context.Context, arg ListGoalsNeedingMetricsParams) ([]ListGoalsNeedingMetricsRow, error) {
+	rows, err := q.db.Query(ctx, listGoalsNeedingMetrics, arg.ProjectID, arg.AgeDays)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListGoalsNeedingMetricsRow
+	for rows.Next() {
+		var i ListGoalsNeedingMetricsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Description,
+			&i.Priority,
+			&i.Status,
+			&i.MetricName,
+			&i.MetricUnit,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIssueGoals = `-- name: ListIssueGoals :many
 SELECT g.id, g.project_id, g.title, g.description, g.priority, g.status, g.metric_name, g.metric_unit, g.created_at, g.updated_at
 FROM zdx_project_goals g

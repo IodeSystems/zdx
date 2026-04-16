@@ -295,6 +295,68 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				Persona:    "owner",
 			})
 		}
+
+		// ── Maturity nudges ──────────────────────────────────────────────
+
+		// Goals without metrics (active > 14 days)
+		unquantifiedGoals, _ := h.Q.ListGoalsNeedingMetrics(ctx, db.ListGoalsNeedingMetricsParams{
+			ProjectID: projectID, AgeDays: 14,
+		})
+		for _, g := range unquantifiedGoals {
+			candidates = append(candidates, soloCandidate{
+				Key:        fmt.Sprintf("quantify-goal-%d", g.ID),
+				Text:       fmt.Sprintf("Quantify goal %d: %s — add metric_name and metric_unit", g.ID, g.Title),
+				Kind:       "owner:quantify-goal",
+				TargetType: "goal",
+				TargetID:   fmt.Sprintf("%d", g.ID),
+				Priority:   33,
+				Persona:    "owner",
+			})
+		}
+
+		// Features with no goal and no parent (unattributed)
+		unattributed, _ := h.Q.ListUnattributedFeatures(ctx, projectID)
+		for _, f := range unattributed {
+			candidates = append(candidates, soloCandidate{
+				Key:        fmt.Sprintf("attribute-feature-%d", f.ID),
+				Text:       fmt.Sprintf("Attribute feature %q to a goal or parent feature", f.Name),
+				Kind:       "owner:attribute-feature",
+				TargetType: "feature",
+				TargetID:   f.Name,
+				Priority:   34,
+				Persona:    "owner",
+			})
+		}
+
+		// Multiplier features missing instrumentation
+		uninstrumented, _ := h.Q.ListFeaturesNeedingInstrumentation(ctx, projectID)
+		for _, f := range uninstrumented {
+			candidates = append(candidates, soloCandidate{
+				Key:        fmt.Sprintf("instrument-feature-%d", f.ID),
+				Text:       fmt.Sprintf("Instrument multiplier feature %q — needs baseline, target, and graph", f.Name),
+				Kind:       "tech:instrument-feature",
+				TargetType: "feature",
+				TargetID:   f.Name,
+				Priority:   34,
+				Persona:    "tech",
+			})
+		}
+
+		// Over-specced features (decomposition signal)
+		overspecced, _ := h.Q.ListOverspeccedFeatures(ctx, db.ListOverspeccedFeaturesParams{
+			ProjectID: projectID, Threshold: 8,
+		})
+		for _, f := range overspecced {
+			candidates = append(candidates, soloCandidate{
+				Key:        fmt.Sprintf("decompose-feature-%d", f.ID),
+				Text:       fmt.Sprintf("Decompose feature %q — %d specs exceeds threshold (8)", f.Name, f.SpecCount),
+				Kind:       "owner:decompose-feature",
+				TargetType: "feature",
+				TargetID:   f.Name,
+				Priority:   35,
+				Persona:    "owner",
+			})
+		}
 	}
 
 	// Issues with no pending tasks

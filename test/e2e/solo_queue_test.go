@@ -315,15 +315,23 @@ func TestQueueEmpty(t *testing.T) {
 	d.CloseIssue(sc.Issues[0])
 
 	items := d.EvaluateQueue("")
-	// Filter out demo-gap since we can't easily satisfy it
-	var nonDemoItems []SoloQueueItem
+	// Filter out maturity nudges and demo-gap since this test
+	// doesn't set up the full goal/feature attribution model.
+	maturityKinds := map[string]bool{
+		"owner:demo-gap":             true,
+		"owner:quantify-goal":        true,
+		"owner:attribute-feature":    true,
+		"tech:instrument-feature":    true,
+		"owner:decompose-feature":    true,
+	}
+	var actionableItems []SoloQueueItem
 	for _, it := range items {
-		if it.Kind != "owner:demo-gap" {
-			nonDemoItems = append(nonDemoItems, it)
+		if !maturityKinds[it.Kind] {
+			actionableItems = append(actionableItems, it)
 		}
 	}
-	if len(nonDemoItems) != 0 {
-		t.Errorf("expected empty queue (excluding demo-gap), got %d items: %v", len(nonDemoItems), kindsOf(nonDemoItems))
+	if len(actionableItems) != 0 {
+		t.Errorf("expected empty queue (excluding maturity nudges), got %d items: %v", len(actionableItems), kindsOf(actionableItems))
 	}
 }
 

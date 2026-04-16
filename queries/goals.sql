@@ -58,6 +58,16 @@ DELETE FROM zdx_project_constraints WHERE id = $1;
 -- name: CountProjectConstraints :one
 SELECT count(*) FROM zdx_project_constraints WHERE project_id = $1;
 
+-- name: ListGoalsNeedingMetrics :many
+-- Active goals with no metric defined, created more than @age_days ago.
+SELECT id, project_id, title, description, priority, status, metric_name, metric_unit, created_at, updated_at
+FROM zdx_project_goals
+WHERE project_id = @project_id
+  AND status = 'active'
+  AND metric_name = ''
+  AND created_at < NOW() - (@age_days::int || ' days')::interval
+ORDER BY priority, title;
+
 -- name: LinkGoalIssue :exec
 INSERT INTO zdx_goal_issues (goal_id, issue_id) VALUES ($1, $2)
 ON CONFLICT DO NOTHING;

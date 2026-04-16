@@ -232,6 +232,8 @@ type Querier interface {
 	ListFocusFeatures(ctx context.Context, focusID int32) ([]ListFocusFeaturesRow, error)
 	ListFocuses(ctx context.Context, projectID int32) ([]ListFocusesRow, error)
 	ListGoalIssues(ctx context.Context, goalID int32) ([]string, error)
+	// Active goals with no metric defined, created more than @age_days ago.
+	ListGoalsNeedingMetrics(ctx context.Context, arg ListGoalsNeedingMetricsParams) ([]ListGoalsNeedingMetricsRow, error)
 	ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error)
 	ListInvites(ctx context.Context) ([]ZdxInvite, error)
 	ListIssueBlockers(ctx context.Context, issueID string) ([]string, error)
