@@ -282,15 +282,23 @@ func (s *Server) registerAgentRoutes(api huma.API) {
 			return &struct{ Body AgentTaskItem }{Body: item}, nil
 		})
 
-	// Release a task
+	// Release a task. If agent_id is empty, performs an admin release
+	// (clears the claim unconditionally); otherwise only the claiming agent
+	// can release.
 	huma.Register(api, huma.Operation{OperationID: "release-task", Method: http.MethodPost, Path: "/api/tasks/{id}/release"},
 		func(ctx context.Context, in *struct {
 			ID   string `path:"id" required:"true"`
 			Body struct {
-				AgentID string `json:"agent_id" required:"true"`
+				AgentID string `json:"agent_id"`
 			}
 		}) (*struct{}, error) {
 			taskID := in.ID
+			if in.Body.AgentID == "" {
+				if err := s.q.ReleaseTaskAdmin(ctx, taskID); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				return &struct{}{}, nil
+			}
 			if err := s.q.ReleaseTask(ctx, db.ReleaseTaskParams{
 				ID:        taskID,
 				ClaimedBy: pgtype.Text{String: in.Body.AgentID, Valid: true},

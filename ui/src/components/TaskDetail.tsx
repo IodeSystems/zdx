@@ -1,8 +1,8 @@
 import { useEffect } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
-import { Box, Button, Chip, Typography } from '@mui/material'
-import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
-import { useTask, useTasks, useUpdateTaskStatus, useTaskCodeRefs } from '../api'
+import { Box, Button, Chip, Tooltip, Typography } from '@mui/material'
+import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, LockOpen as LockOpenIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
+import { useTask, useTasks, useUpdateTaskStatus, useReleaseTask, useTaskCodeRefs } from '../api'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
@@ -24,6 +24,7 @@ export function TaskDetail({
   const { data: allTasksData } = useTasks(slug)
   const { data: codeRefs } = useTaskCodeRefs(slug, taskId)
   const updateStatus = useUpdateTaskStatus()
+  const releaseTask = useReleaseTask()
   const router = useRouter()
 
   const task = taskData
@@ -135,7 +136,33 @@ export function TaskDetail({
             Mark done
           </Button>
         )}
+        {task.claimed_by && task.status !== 'done' && (
+          <Tooltip title={`Claimed by ${task.claimed_by}. Release returns the task to pending.`}>
+            <Button
+              size="small"
+              color="warning"
+              startIcon={<LockOpenIcon />}
+              onClick={() => releaseTask.mutate({ slug, taskId: `TK-${task.id}` })}
+              disabled={releaseTask.isPending}
+            >
+              Release claim
+            </Button>
+          </Tooltip>
+        )}
       </Box>
+
+      {task.claimed_by && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+            Claimed
+          </Typography>
+          <Typography variant="body2">
+            {task.claimed_by}
+            {task.claimed_at && ` · since ${new Date(task.claimed_at).toLocaleString()}`}
+            {task.lease_expires_at && ` · lease expires ${new Date(task.lease_expires_at).toLocaleString()}`}
+          </Typography>
+        </Box>
+      )}
 
       {task.reason && (
         <Box sx={{ mb: 2 }}>

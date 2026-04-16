@@ -337,25 +337,28 @@ func (q *Queries) FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) 
 }
 
 const getTask = `-- name: GetTask :one
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1
 `
 
 type GetTaskRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID             string             `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Feature        string             `db:"feature" json:"feature"`
+	Status         string             `db:"status" json:"status"`
+	Reason         string             `db:"reason" json:"reason"`
+	Issue          string             `db:"issue" json:"issue"`
+	Depends        string             `db:"depends" json:"depends"`
+	TestPlan       string             `db:"test_plan" json:"test_plan"`
+	TestRefs       string             `db:"test_refs" json:"test_refs"`
+	TaskGroup      string             `db:"task_group" json:"task_group"`
+	ClaimedBy      pgtype.Text        `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
@@ -373,6 +376,9 @@ func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
 		&i.TestPlan,
 		&i.TestRefs,
 		&i.TaskGroup,
+		&i.ClaimedBy,
+		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -1345,6 +1351,21 @@ type ReleaseTaskParams struct {
 
 func (q *Queries) ReleaseTask(ctx context.Context, arg ReleaseTaskParams) error {
 	_, err := q.db.Exec(ctx, releaseTask, arg.ID, arg.ClaimedBy)
+	return err
+}
+
+const releaseTaskAdmin = `-- name: ReleaseTaskAdmin :exec
+UPDATE zdx_tasks
+SET claimed_by = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
+    status = 'pending',
+    updated_at = NOW()
+WHERE id = $1
+`
+
+func (q *Queries) ReleaseTaskAdmin(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, releaseTaskAdmin, id)
 	return err
 }
 

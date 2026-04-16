@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bufio"
+	"bytes"
 	"crypto/sha256"
 	"encoding/json"
 	"fmt"
@@ -10,9 +11,11 @@ import (
 	"net/url"
 	"os"
 	"os/exec"
+	"os/signal"
 	"path/filepath"
 	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/uuid"
@@ -41,6 +44,7 @@ func agentClaudeCmd() *cobra.Command {
 			if loop {
 				return runLoop(rc, alias, chrome)
 			}
+			installReleaseOnSignal(rc, alias, "", nil)
 			sid := uuid.New().String()
 			return runSession(rc, sid, issue, alias, chrome, "", false)
 		},
@@ -60,6 +64,107 @@ type remoteConfig struct {
 
 func (r remoteConfig) valid() bool {
 	return r.url != "" && r.slug != "" && r.key != ""
+}
+
+// installReleaseOnSignal traps SIGINT/SIGTERM once and, before exiting,
+// releases every task claimed by alias (treated as the agent-id) and clears
+// the crash-recovery state file. A second signal triggers immediate exit.
+// stateFile may be empty (single-session mode); logFn may be nil.
+func installReleaseOnSignal(rc remoteConfig, alias, stateFile string, logFn func(string, ...any)) {
+	if logFn == nil {
+		logFn = func(format string, args ...any) {
+			fmt.Fprintf(os.Stderr, "[%s] "+format+"\n",
+				append([]any{time.Now().Format(time.RFC3339)}, args...)...)
+		}
+	}
+	sigCh := make(chan os.Signal, 2)
+	signal.Notify(sigCh, syscall.SIGINT, syscall.SIGTERM)
+	go func() {
+		sig := <-sigCh
+		logFn("received signal %s: releasing claimed tasks...", sig)
+
+		done := make(chan struct{})
+		go func() {
+			defer close(done)
+			if alias != "" {
+				released, err := releaseClaimedTasks(rc, alias)
+				if len(released) > 0 {
+					logFn("released %d task(s): %s", len(released), strings.Join(released, ","))
+				}
+				if err != nil {
+					logFn("release error: %v", err)
+				}
+			}
+			if stateFile != "" {
+				os.Remove(stateFile)
+			}
+		}()
+
+		select {
+		case <-done:
+		case <-time.After(5 * time.Second):
+			logFn("release timeout (5s), exiting anyway")
+		case sig = <-sigCh:
+			logFn("second signal %s: force exit", sig)
+		}
+		os.Exit(130)
+	}()
+}
+
+// releaseClaimedTasks lists every task claimed by agentID and asks the server
+// to release them (admin release — empty agent_id in body). Best-effort: any
+// error is logged and returned for callers to surface, but we keep going so a
+// single bad request does not prevent the rest from being released.
+func releaseClaimedTasks(rc remoteConfig, agentID string) (released []string, err error) {
+	if !rc.valid() || agentID == "" {
+		return nil, nil
+	}
+	client := &http.Client{Timeout: 5 * time.Second}
+
+	listURL := fmt.Sprintf("%s/api/agents/%s/tasks", rc.url, url.PathEscape(agentID))
+	req, _ := http.NewRequest("GET", listURL, nil)
+	req.Header.Set("X-Api-Key", rc.key)
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != 200 {
+		return nil, fmt.Errorf("list-agent-tasks: HTTP %d", resp.StatusCode)
+	}
+
+	var listBody struct {
+		Tasks []struct {
+			ID     string `json:"id"`
+			Status string `json:"status"`
+		} `json:"tasks"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&listBody); err != nil {
+		return nil, err
+	}
+
+	for _, t := range listBody.Tasks {
+		if t.Status == "done" {
+			continue
+		}
+		relURL := fmt.Sprintf("%s/api/tasks/%s/release", rc.url, url.PathEscape(t.ID))
+		body := bytes.NewBufferString(`{"agent_id":""}`)
+		r, _ := http.NewRequest("POST", relURL, body)
+		r.Header.Set("X-Api-Key", rc.key)
+		r.Header.Set("Content-Type", "application/json")
+		rr, rerr := client.Do(r)
+		if rerr != nil {
+			err = rerr
+			continue
+		}
+		rr.Body.Close()
+		if rr.StatusCode != 200 && rr.StatusCode != 204 {
+			err = fmt.Errorf("release-task %s: HTTP %d", t.ID, rr.StatusCode)
+			continue
+		}
+		released = append(released, t.ID)
+	}
+	return released, err
 }
 
 func claudeProjectDir() string {
@@ -90,6 +195,8 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 			logf.WriteString(line)
 		}
 	}
+
+	installReleaseOnSignal(rc, alias, stateFile, log)
 
 	selfPath, _ := os.Executable()
 	selfHash := fileHash(selfPath)

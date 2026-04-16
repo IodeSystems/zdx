@@ -59,7 +59,7 @@ ORDER BY updated_at DESC
 LIMIT @page_limit OFFSET @page_offset;
 
 -- name: GetTask :one
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1;
 
 -- name: CreateTask :one
@@ -124,6 +124,15 @@ SET claimed_by = NULL,
     status = 'pending',
     updated_at = NOW()
 WHERE id = $1 AND claimed_by = $2;
+
+-- name: ReleaseTaskAdmin :exec
+UPDATE zdx_tasks
+SET claimed_by = NULL,
+    claimed_at = NULL,
+    lease_expires_at = NULL,
+    status = 'pending',
+    updated_at = NOW()
+WHERE id = $1;
 
 -- name: RenewTaskLease :exec
 UPDATE zdx_tasks

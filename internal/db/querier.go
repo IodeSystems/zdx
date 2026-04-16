@@ -296,6 +296,7 @@ type Querier interface {
 	ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error)
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)
 	ReleaseTask(ctx context.Context, arg ReleaseTaskParams) error
+	ReleaseTaskAdmin(ctx context.Context, id string) error
 	RemoveAllIssueBlocks(ctx context.Context, issueID string) error
 	RemoveIssueBlock(ctx context.Context, arg RemoveIssueBlockParams) error
 	RemoveThemeBlocker(ctx context.Context, arg RemoveThemeBlockerParams) error

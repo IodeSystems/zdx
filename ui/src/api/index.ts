@@ -282,6 +282,25 @@ export const useUpdateTaskStatus = () => {
   })
 }
 
+// Release (unclaim) a task. Empty agent_id triggers an admin release that
+// clears the claim regardless of which agent originally took it.
+export const useReleaseTask = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; taskId: string }>({
+    mutationFn: async ({ taskId }) => {
+      await apiFetch(`/api/tasks/${encodeURIComponent(taskId)}/release`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ agent_id: '' }),
+      })
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['task', v.slug] })
+      qc.invalidateQueries({ queryKey: ['tasks', v.slug] })
+    },
+  })
+}
+
 // ── features ──────────────────────────────────────────────────────────────────
 
 export const useFeatures = (slug: string) =>

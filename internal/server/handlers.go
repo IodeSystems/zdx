@@ -53,21 +53,24 @@ type IssueItem struct {
 }
 
 type TaskItem struct {
-	ID          int32  `json:"id" doc:"Server integer ID; CLI formats as TK-N"`
-	Text        string `json:"text"`
-	Feature     string `json:"feature"`
-	Status      string `json:"status"`
-	Reason      string `json:"reason"`
-	IssueID     *int32 `json:"issue_id,omitempty" doc:"Linked issue integer ID; CLI formats as IS-N"`
-	Depends     string `json:"depends"`
-	TestPlan    string `json:"test_plan"`
-	TestRefs    string `json:"test_refs"`
-	TaskGroup   string `json:"task_group"`
-	CreatedAt   string `json:"created_at"`
-	CompletedAt string `json:"completed_at"`
-	UpdatedAt   string `json:"updated_at"`
-	ReviewedAt  string `json:"reviewed_at,omitempty"`
-	StaleSince  string `json:"stale_since,omitempty"`
+	ID             int32  `json:"id" doc:"Server integer ID; CLI formats as TK-N"`
+	Text           string `json:"text"`
+	Feature        string `json:"feature"`
+	Status         string `json:"status"`
+	Reason         string `json:"reason"`
+	IssueID        *int32 `json:"issue_id,omitempty" doc:"Linked issue integer ID; CLI formats as IS-N"`
+	Depends        string `json:"depends"`
+	TestPlan       string `json:"test_plan"`
+	TestRefs       string `json:"test_refs"`
+	TaskGroup      string `json:"task_group"`
+	CreatedAt      string `json:"created_at"`
+	CompletedAt    string `json:"completed_at"`
+	UpdatedAt      string `json:"updated_at"`
+	ReviewedAt     string `json:"reviewed_at,omitempty"`
+	StaleSince     string `json:"stale_since,omitempty"`
+	ClaimedBy      string `json:"claimed_by,omitempty"`
+	ClaimedAt      string `json:"claimed_at,omitempty"`
+	LeaseExpiresAt string `json:"lease_expires_at,omitempty"`
 }
 
 type FeatureItem struct {

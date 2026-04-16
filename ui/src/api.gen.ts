@@ -468,6 +468,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/claude/sessions/churns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-churn-sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/claude/sessions/{sessionId}": {
         parameters: {
             query?: never;
@@ -494,6 +510,22 @@ export interface paths {
         get: operations["get-claude-session-events"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/claude/sessions/{sessionId}/extract-pattern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["extract-pattern-from-session"];
         delete?: never;
         options?: never;
         head?: never;
@@ -804,6 +836,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/comment/stale-unread": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["comment-stale-unread"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/comment/unread-check": {
         parameters: {
             query?: never;
@@ -980,6 +1028,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/error-events/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-error-event"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/errors": {
         parameters: {
             query?: never;
@@ -1006,6 +1070,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["report-error"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/errors/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-error"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1124,6 +1204,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/journal/entry": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["journal-entry"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/journal/generate": {
         parameters: {
             query?: never;
@@ -1134,6 +1230,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["journal-generate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/journal/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["journal-review"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1252,6 +1364,118 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-patterns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/patterns/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-pattern"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/patterns/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["delete-pattern"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/patterns/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-pattern"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/patterns/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reindex-patterns"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/patterns/similar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["similar-patterns"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/patterns/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["update-pattern"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/plan/create": {
         parameters: {
             query?: never;
@@ -1364,6 +1588,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/qa/unanswered": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-unanswered-questions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/question-proposals/accept": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["accept-question-proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/question-proposals/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-question-proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/question-proposals/by-question": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-question-proposals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/question-proposals/deny": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deny-question-proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/revisions": {
         parameters: {
             query?: never;
@@ -1412,6 +1716,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/solo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-solo-queue"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/solo/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["solo-apply"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/solo/evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["solo-evaluate"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/solo/health": {
         parameters: {
             query?: never;
@@ -1438,6 +1790,54 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["defer-spec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/demo-gap": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-specs-without-demos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-spec"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/link-issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["link-spec-issue"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1508,6 +1908,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/specs/unlink-issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["unlink-spec-issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/specs/unlink-test": {
         parameters: {
             query?: never;
@@ -1566,6 +1982,38 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["similar-tasks"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/tasks/stale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-stale-tasks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/tasks/sweep-stale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["sweep-stale-tasks"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1876,6 +2324,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/todo/dev/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["mark-task-reviewed"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/todo/dev/review-data": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-review-data"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/todo/dev/unblock": {
         parameters: {
             query?: never;
@@ -1902,6 +2382,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["mark-task-undone"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/todo/dev/unreviewed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-unreviewed-tasks"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -2036,6 +2532,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/todo/issue/reconcile": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reconcile-branch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/todo/issue/remove-block": {
         parameters: {
             query?: never;
@@ -2062,6 +2574,54 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["reopen-issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/todo/issue/resolution/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["delete-issue-resolution"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/todo/issue/resolutions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-issue-resolutions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/todo/issue/resolve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["resolve-issue"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2654,6 +3214,27 @@ export interface paths {
 export type webhooks = Record<string, never>;
 export interface components {
     schemas: {
+        "Accept-question-proposalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Accept-question-proposalRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            id: number;
+            slug: string;
+        };
+        "Accept-question-proposalResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Accept-question-proposalResponse.json
+             */
+            readonly $schema?: string;
+            issue: components["schemas"]["IssueItem"];
+            proposal: components["schemas"]["QuestionProposalItem"];
+        };
         "Add-blocker-questionRequest": {
             /**
              * Format: uri
@@ -2674,7 +3255,10 @@ export interface components {
              * @example https://example.com/schemas/Add-commentRequest.json
              */
             readonly $schema?: string;
+            author_alias?: string;
             body: string;
+            /** Format: int32 */
+            parent_id?: number;
             slug: string;
             target_id: string;
             target_type: string;
@@ -2694,6 +3278,7 @@ export interface components {
             screenshot_ids?: number[] | null;
             slug: string;
             source?: string;
+            /** Format: int64 */
             source_error_id?: number;
             title?: string;
             url?: string;
@@ -2722,7 +3307,34 @@ export interface components {
             source: string;
             status: string;
             title: string;
+            updated_at: string;
             url: string;
+        };
+        "Add-patternRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-patternRequest.json
+             */
+            readonly $schema?: string;
+            code_refs?: unknown;
+            description: string;
+            name: string;
+            slug: string;
+        };
+        "Add-question-proposalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-question-proposalRequest.json
+             */
+            readonly $schema?: string;
+            context: string;
+            /** Format: int32 */
+            question_id: number;
+            question_type: string;
+            slug: string;
+            title: string;
         };
         "Add-questionRequest": {
             /**
@@ -2759,6 +3371,7 @@ export interface components {
             auto_ready?: boolean;
             depends?: string;
             feature?: string;
+            force?: boolean;
             issue?: string;
             slug: string;
             task_group?: string;
@@ -2771,9 +3384,12 @@ export interface components {
              * @example https://example.com/schemas/Add-taskResponse.json
              */
             readonly $schema?: string;
+            claimed_at?: string;
+            claimed_by?: string;
             completed_at: string;
             created_at: string;
             depends: string;
+            duplicate_blocked?: boolean;
             feature: string;
             /**
              * Format: int32
@@ -2785,8 +3401,11 @@ export interface components {
              * @description Linked issue integer ID; CLI formats as IS-N
              */
             issue_id?: number;
+            lease_expires_at?: string;
             reason: string;
+            reviewed_at?: string;
             similar?: components["schemas"]["SimilarTaskItem"][] | null;
+            stale_since?: string;
             status: string;
             task_group: string;
             test_plan: string;
@@ -2874,6 +3493,7 @@ export interface components {
              */
             readonly $schema?: string;
             claimed_at: string;
+            created_at: string;
             feature: string;
             id: string;
             issue: string;
@@ -2929,8 +3549,8 @@ export interface components {
              * @example https://example.com/schemas/Append-issue-workRequest.json
              */
             readonly $schema?: string;
-            by_role: string;
-            entry_type: string;
+            by_role?: string;
+            entry_type?: string;
             /** Format: int32 */
             issue_id: number;
             note: string;
@@ -3076,11 +3696,15 @@ export interface components {
             task_group: string;
         };
         ClaudeEventItem: {
+            agent_description: string;
+            agent_id: string;
+            agent_type: string;
             created_at: string;
             event_json: unknown;
             event_type: string;
             /** Format: int64 */
             id: number;
+            is_sidechain: boolean;
             /** Format: int32 */
             seq: number;
         };
@@ -3136,6 +3760,15 @@ export interface components {
             line_start: number;
             note: string;
         };
+        "Comment-stale-unreadResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Comment-stale-unreadResponse.json
+             */
+            readonly $schema?: string;
+            comments: components["schemas"]["StaleCommentItem"][] | null;
+        };
         "Comment-unread-checkResponse": {
             /**
              * Format: uri
@@ -3153,10 +3786,13 @@ export interface components {
              */
             readonly $schema?: string;
             author: string;
+            author_alias?: string;
             body: string;
             created_at: string;
             /** Format: int32 */
             id: number;
+            /** Format: int32 */
+            parent_id?: number;
             target_id: string;
             target_type: string;
             unread?: boolean;
@@ -3326,6 +3962,7 @@ export interface components {
              * @example https://example.com/schemas/Defer-specRequest.json
              */
             readonly $schema?: string;
+            reason: string;
             /** Format: int32 */
             spec_id: number;
         };
@@ -3370,6 +4007,36 @@ export interface components {
             /** Format: int32 */
             id: number;
         };
+        "Delete-issue-resolutionRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Delete-issue-resolutionRequest.json
+             */
+            readonly $schema?: string;
+            resolution_id: string;
+            slug: string;
+        };
+        "Delete-patternRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Delete-patternRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            id: number;
+            slug: string;
+        };
+        "Delete-patternResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Delete-patternResponse.json
+             */
+            readonly $schema?: string;
+            ok: boolean;
+        };
         "Delete-taskRequest": {
             /**
              * Format: uri
@@ -3379,6 +4046,22 @@ export interface components {
             readonly $schema?: string;
             /** Format: int32 */
             id: number;
+        };
+        DemoArtifactRef: {
+            artifact_path: string;
+            demo_type: string;
+        };
+        "Deny-question-proposalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Deny-question-proposalRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            id: number;
+            reason: string;
+            slug: string;
         };
         "Detach-code-ref-from-issueRequest": {
             /**
@@ -3451,6 +4134,12 @@ export interface components {
             last_seen: string;
         };
         ErrorEventItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ErrorEventItem.json
+             */
+            readonly $schema?: string;
             component: string;
             context_json: unknown;
             created_at: string;
@@ -3517,6 +4206,22 @@ export interface components {
             source: string;
             stack_trace: string;
         };
+        EvaluateChange: {
+            after: components["schemas"]["SoloQueueItem"];
+            before: components["schemas"]["TodoItem"];
+        };
+        EvaluateDiff: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/EvaluateDiff.json
+             */
+            readonly $schema?: string;
+            added: components["schemas"]["SoloQueueItem"][] | null;
+            changed: components["schemas"]["EvaluateChange"][] | null;
+            removed: components["schemas"]["TodoItem"][] | null;
+            unchanged: components["schemas"]["SoloQueueItem"][] | null;
+        };
         FeatureItem: {
             /**
              * Format: uri
@@ -3582,6 +4287,28 @@ export interface components {
              */
             readonly $schema?: string;
             zdx_project_slug: string;
+        };
+        "Get-review-dataResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Get-review-dataResponse.json
+             */
+            readonly $schema?: string;
+            issue_type: string;
+            task: components["schemas"]["TaskItem"];
+            test_plan: string;
+            test_refs: string;
+        };
+        "Get-specResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Get-specResponse.json
+             */
+            readonly $schema?: string;
+            issues: components["schemas"]["SpecIssueItem"][] | null;
+            spec: components["schemas"]["SpecItem"];
         };
         "Get-stateResponse": {
             /**
@@ -3878,6 +4605,7 @@ export interface components {
             source: string;
             status: string;
             title: string;
+            updated_at: string;
             url: string;
         };
         IssueWorkItem: {
@@ -3909,6 +4637,15 @@ export interface components {
             state_json?: string;
             tldr: string;
         };
+        "Journal-entryResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Journal-entryResponse.json
+             */
+            readonly $schema?: string;
+            entry: components["schemas"]["JournalEntryItem"];
+        };
         "Journal-generateRequest": {
             /**
              * Format: uri
@@ -3927,6 +4664,16 @@ export interface components {
              */
             readonly $schema?: string;
             entry: components["schemas"]["JournalEntryItem"];
+        };
+        "Journal-reviewRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Journal-reviewRequest.json
+             */
+            readonly $schema?: string;
+            role: string;
+            slug: string;
         };
         "Journal-showResponse": {
             /**
@@ -3952,6 +4699,8 @@ export interface components {
             changelog_json: string;
             concerns: string;
             date: string;
+            /** Format: int32 */
+            id: number;
             next: string;
             state_json: string;
             tldr: string;
@@ -3967,6 +4716,17 @@ export interface components {
             model: string;
             type: string;
             url: string;
+        };
+        "Link-spec-issueRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Link-spec-issueRequest.json
+             */
+            readonly $schema?: string;
+            issue_id: string;
+            /** Format: int32 */
+            spec_id: number;
         };
         "Link-spec-testRequest": {
             /**
@@ -4035,6 +4795,17 @@ export interface components {
              */
             readonly $schema?: string;
             questions: components["schemas"]["QuestionItem"][] | null;
+        };
+        "List-churn-sessionsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-churn-sessionsResponse.json
+             */
+            readonly $schema?: string;
+            sessions: components["schemas"]["ClaudeSessionItem"][] | null;
+            /** Format: int64 */
+            total: number;
         };
         "List-claude-sessionsResponse": {
             /**
@@ -4255,6 +5026,15 @@ export interface components {
             readonly $schema?: string;
             invites: components["schemas"]["InviteItem"][] | null;
         };
+        "List-issue-resolutionsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-issue-resolutionsResponse.json
+             */
+            readonly $schema?: string;
+            resolutions: components["schemas"]["ResolutionItem"][] | null;
+        };
         "List-issuesResponse": {
             /**
              * Format: uri
@@ -4315,6 +5095,17 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        "List-patternsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-patternsResponse.json
+             */
+            readonly $schema?: string;
+            patterns: components["schemas"]["PatternItem"][] | null;
+            /** Format: int64 */
+            total: number;
+        };
         "List-projectsResponse": {
             /**
              * Format: uri
@@ -4323,6 +5114,15 @@ export interface components {
              */
             readonly $schema?: string;
             projects: components["schemas"]["ProjectItem"][] | null;
+        };
+        "List-question-proposalsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-question-proposalsResponse.json
+             */
+            readonly $schema?: string;
+            proposals: components["schemas"]["QuestionProposalItem"][] | null;
         };
         "List-questionsResponse": {
             /**
@@ -4366,6 +5166,15 @@ export interface components {
             readonly $schema?: string;
             tests: components["schemas"]["SpecTestItem"][] | null;
         };
+        "List-specs-without-demosResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-specs-without-demosResponse.json
+             */
+            readonly $schema?: string;
+            specs: components["schemas"]["UncoveredSpecItem"][] | null;
+        };
         "List-stale-featuresResponse": {
             /**
              * Format: uri
@@ -4374,6 +5183,15 @@ export interface components {
              */
             readonly $schema?: string;
             features: components["schemas"]["FeatureItem"][] | null;
+        };
+        "List-stale-tasksResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-stale-tasksResponse.json
+             */
+            readonly $schema?: string;
+            tasks: components["schemas"]["TaskItem"][] | null;
         };
         "List-tasks-by-featureResponse": {
             /**
@@ -4495,6 +5313,15 @@ export interface components {
             readonly $schema?: string;
             todos: components["schemas"]["TodoItem"][] | null;
         };
+        "List-unanswered-questionsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-unanswered-questionsResponse.json
+             */
+            readonly $schema?: string;
+            questions: components["schemas"]["QuestionItem"][] | null;
+        };
         "List-uncovered-specsResponse": {
             /**
              * Format: uri
@@ -4503,6 +5330,17 @@ export interface components {
              */
             readonly $schema?: string;
             specs: components["schemas"]["UncoveredSpecItem"][] | null;
+        };
+        "List-unreviewed-tasksResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-unreviewed-tasksResponse.json
+             */
+            readonly $schema?: string;
+            tasks: components["schemas"]["TaskItem"][] | null;
+            /** Format: int64 */
+            total: number;
         };
         "List-worklogResponse": {
             /**
@@ -4567,6 +5405,19 @@ export interface components {
             test_plan?: string;
             test_refs?: string;
         };
+        "Mark-task-reviewedRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Mark-task-reviewedRequest.json
+             */
+            readonly $schema?: string;
+            comment: string;
+            /** Format: int32 */
+            id: number;
+            slug: string;
+            verdict: string;
+        };
         "Mark-task-undoneRequest": {
             /**
              * Format: uri
@@ -4609,6 +5460,21 @@ export interface components {
             readonly $schema?: string;
             ok: boolean;
         };
+        PatternItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PatternItem.json
+             */
+            readonly $schema?: string;
+            code_refs: unknown;
+            created_at: string;
+            description: string;
+            /** Format: int32 */
+            id: number;
+            name: string;
+            updated_at: string;
+        };
         ProjectItem: {
             /**
              * Format: uri
@@ -4638,6 +5504,26 @@ export interface components {
             /** Format: int32 */
             parent_question_id: number | null;
             question: string;
+            updated_at: string;
+        };
+        QuestionProposalItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/QuestionProposalItem.json
+             */
+            readonly $schema?: string;
+            context: string;
+            created_at: string;
+            created_issue_id: string;
+            denied_reason: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            question_id: number;
+            question_type: string;
+            status: string;
+            title: string;
             updated_at: string;
         };
         "React-to-commentRequest": {
@@ -4722,6 +5608,31 @@ export interface components {
             /** Format: int64 */
             reclaimed: number;
         };
+        "Reconcile-branchRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reconcile-branchRequest.json
+             */
+            readonly $schema?: string;
+            branch: string;
+            slug: string;
+        };
+        "Reconcile-branchResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reconcile-branchResponse.json
+             */
+            readonly $schema?: string;
+            results: components["schemas"]["ReconcileResult"][] | null;
+        };
+        ReconcileResult: {
+            issue_id: string;
+            matched_shas: string[] | null;
+            resolution_id: string;
+            source: string;
+        };
         "Register-agentRequest": {
             /**
              * Format: uri
@@ -4743,6 +5654,25 @@ export interface components {
             valkey_url: string;
             worktree_branch: string;
             worktree_path: string;
+        };
+        "Reindex-patternsRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reindex-patternsRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+        };
+        "Reindex-patternsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reindex-patternsResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            indexed: number;
         };
         "Release-taskRequest": {
             /**
@@ -4802,6 +5732,48 @@ export interface components {
             slug: string;
             sql_hash: string;
             sql_text: string;
+        };
+        ResolutionCommitItem: {
+            /** Format: int32 */
+            ord: number;
+            sha: string;
+        };
+        ResolutionItem: {
+            author: string;
+            branch_of_origin: string;
+            commits: components["schemas"]["ResolutionCommitItem"][] | null;
+            id: string;
+            issue_id: string;
+            parent_resolution?: string;
+            resolved_at: string;
+            reverted: boolean;
+            reverted_by?: string;
+            source: string;
+        };
+        "Resolve-issueRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Resolve-issueRequest.json
+             */
+            readonly $schema?: string;
+            author?: string;
+            branch?: string;
+            /** Format: int32 */
+            id: number;
+            parent_resolution_id?: string;
+            shas: string[] | null;
+            slug: string;
+            source?: string;
+        };
+        "Resolve-issueResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Resolve-issueResponse.json
+             */
+            readonly $schema?: string;
+            resolution: components["schemas"]["ResolutionItem"];
         };
         RevisionItem: {
             agent: string;
@@ -4940,6 +5912,27 @@ export interface components {
             readonly $schema?: string;
             issues: components["schemas"]["SimilarIssueItem"][] | null;
         };
+        "Similar-patternsRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Similar-patternsRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            n?: number;
+            slug: string;
+            text: string;
+        };
+        "Similar-patternsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Similar-patternsResponse.json
+             */
+            readonly $schema?: string;
+            patterns: components["schemas"]["SimilarPatternItem"][] | null;
+        };
         "Similar-questionsRequest": {
             /**
              * Format: uri
@@ -4990,6 +5983,11 @@ export interface components {
             status: string;
             title: string;
         };
+        SimilarPatternItem: {
+            pattern: components["schemas"]["PatternItem"];
+            /** Format: double */
+            score: number;
+        };
         SimilarQuestionItem: {
             answer: string;
             /** Format: int32 */
@@ -5023,6 +6021,26 @@ export interface components {
             sql_hash: string;
             sql_text: string;
         };
+        "Solo-applyRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-applyRequest.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["SoloQueueItem"][] | null;
+            slug: string;
+        };
+        "Solo-evaluateRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-evaluateRequest.json
+             */
+            readonly $schema?: string;
+            issue: string;
+            slug: string;
+        };
         "Solo-healthResponse": {
             /**
              * Format: uri
@@ -5039,6 +6057,26 @@ export interface components {
             owner_journal_date: string;
             tech_journal_date: string;
         };
+        SoloQueueItem: {
+            blocked: boolean;
+            issue_ref: string;
+            key: string;
+            kind: string;
+            persona: string;
+            /** Format: int32 */
+            priority: number;
+            status: string;
+            target_id: string;
+            target_type: string;
+            text: string;
+        };
+        SpecIssueItem: {
+            issue_id: string;
+            /** Format: int32 */
+            spec_id: number;
+            status: string;
+            title: string;
+        };
         SpecItem: {
             deferred: boolean;
             deferred_reason: string;
@@ -5047,13 +6085,6 @@ export interface components {
             id: number;
             kind: string;
         };
-        SpecIssueItem: {
-            /** Format: int32 */
-            spec_id: number;
-            issue_id: string;
-            title: string;
-            status: string;
-        };
         SpecTestItem: {
             component: string;
             /** Format: int32 */
@@ -5061,6 +6092,18 @@ export interface components {
             layer: string;
             name: string;
             status: string;
+        };
+        StaleCommentItem: {
+            author: string;
+            author_alias?: string;
+            body: string;
+            created_at: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            parent_id?: number;
+            target_id: string;
+            target_type: string;
         };
         "Submit-test-resultsRequest": {
             /**
@@ -5072,6 +6115,27 @@ export interface components {
             results: components["schemas"]["TestResultInput"][] | null;
             slug: string;
         };
+        "Sweep-stale-tasksRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Sweep-stale-tasksRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+            /** Format: int32 */
+            stale_days: number;
+        };
+        "Sweep-stale-tasksResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Sweep-stale-tasksResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            flagged: number;
+        };
         TaskItem: {
             /**
              * Format: uri
@@ -5079,6 +6143,8 @@ export interface components {
              * @example https://example.com/schemas/TaskItem.json
              */
             readonly $schema?: string;
+            claimed_at?: string;
+            claimed_by?: string;
             completed_at: string;
             created_at: string;
             depends: string;
@@ -5093,7 +6159,10 @@ export interface components {
              * @description Linked issue integer ID; CLI formats as IS-N
              */
             issue_id?: number;
+            lease_expires_at?: string;
             reason: string;
+            reviewed_at?: string;
+            stale_since?: string;
             status: string;
             task_group: string;
             test_plan: string;
@@ -5134,9 +6203,11 @@ export interface components {
             ok: boolean;
         };
         TestHistoryItem: {
+            branch: string;
             driver: string;
             /** Format: int32 */
             duration_ms: number;
+            git_sha: string;
             /** Format: int32 */
             id: number;
             run_at: string;
@@ -5161,10 +6232,13 @@ export interface components {
             status: string;
         };
         TestResultInput: {
+            branch?: string;
+            demo_artifacts?: components["schemas"]["DemoArtifactRef"][] | null;
             driver: string;
             /** Format: int32 */
             duration_ms: number;
             feature: string;
+            git_sha?: string;
             status: string;
             test_name: string;
         };
@@ -5238,15 +6312,22 @@ export interface components {
             total_ms: number;
         };
         TodoItem: {
+            blocked: boolean;
+            claimed_at?: string;
+            claimed_by?: string;
             created_at: string;
             /** Format: int32 */
             id: number;
+            issue_ref: string;
             key: string;
+            kind: string;
             persona: string;
             /** Format: int32 */
             priority: number;
-            resolved_at: string;
+            resolved_at?: string;
             status: string;
+            target_id: string;
+            target_type: string;
             text: string;
         };
         "Triage-issueRequest": {
@@ -5257,12 +6338,14 @@ export interface components {
              */
             readonly $schema?: string;
             context?: string;
+            goal_ids?: number[] | null;
             /** Format: int32 */
             id: number;
             issue_type?: string;
             /** Format: int32 */
             priority: number;
             slug: string;
+            theme_ids?: number[] | null;
             title?: string;
         };
         "Unblock-taskRequest": {
@@ -5291,6 +6374,17 @@ export interface components {
              * @example https://example.com/schemas/Undefer-specRequest.json
              */
             readonly $schema?: string;
+            /** Format: int32 */
+            spec_id: number;
+        };
+        "Unlink-spec-issueRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Unlink-spec-issueRequest.json
+             */
+            readonly $schema?: string;
+            issue_id: string;
             /** Format: int32 */
             spec_id: number;
         };
@@ -5368,6 +6462,20 @@ export interface components {
             id: number;
             value: string;
         };
+        "Update-patternRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-patternRequest.json
+             */
+            readonly $schema?: string;
+            code_refs?: unknown;
+            description: string;
+            /** Format: int32 */
+            id: number;
+            name: string;
+            slug: string;
+        };
         "Update-specsRequest": {
             /**
              * Format: uri
@@ -5423,11 +6531,17 @@ export interface components {
             todos: components["schemas"]["WriteTodoInput"][] | null;
         };
         WriteTodoInput: {
+            blocked: boolean;
+            claimed_by?: string;
+            issue_ref: string;
             key: string;
+            kind: string;
             persona: string;
             /** Format: int32 */
             priority: number;
             status: string;
+            target_id: string;
+            target_type: string;
             text: string;
         };
         "Ws-signRequest": {
@@ -6567,10 +7681,9 @@ export interface operations {
         parameters: {
             query: {
                 slug: string;
+                issue_id?: string;
                 limit?: number;
                 offset?: number;
-                status?: string;
-                search?: string;
             };
             header?: never;
             path?: never;
@@ -6585,6 +7698,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-claude-sessionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-churn-sessions": {
+        parameters: {
+            query: {
+                slug: string;
+                since?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-churn-sessionsResponse"];
                 };
             };
             /** @description Error */
@@ -6653,6 +7798,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Get-claude-session-eventsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "extract-pattern-from-session": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path: {
+                sessionId: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatternItem"];
                 };
             };
             /** @description Error */
@@ -7297,6 +8475,39 @@ export interface operations {
             };
         };
     };
+    "comment-stale-unread": {
+        parameters: {
+            query: {
+                slug: string;
+                role: string;
+                age_hours?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Comment-stale-unreadResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "comment-unread-check": {
         parameters: {
             query: {
@@ -7666,6 +8877,37 @@ export interface operations {
             };
         };
     };
+    "get-error-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorEventItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-errors": {
         parameters: {
             query: {
@@ -7742,6 +8984,39 @@ export interface operations {
                 "application/json": components["schemas"]["Report-errorRequest"];
             };
         };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ErrorReportItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-error": {
+        parameters: {
+            query?: {
+                slug?: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
         responses: {
             /** @description OK */
             200: {
@@ -7991,6 +9266,38 @@ export interface operations {
             };
         };
     };
+    "journal-entry": {
+        parameters: {
+            query: {
+                slug: string;
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Journal-entryResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "journal-generate": {
         parameters: {
             query?: never;
@@ -8011,6 +9318,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Journal-generateResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "journal-review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Journal-reviewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
                 };
             };
             /** @description Error */
@@ -8240,6 +9580,238 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Notifications-unread-countResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-patterns": {
+        parameters: {
+            query: {
+                slug: string;
+                limit?: number;
+                offset?: number;
+                status?: string;
+                search?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-patternsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-pattern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-patternRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatternItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-pattern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Delete-patternRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Delete-patternResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-pattern": {
+        parameters: {
+            query: {
+                slug: string;
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatternItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "reindex-patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reindex-patternsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reindex-patternsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "similar-patterns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Similar-patternsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Similar-patternsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-pattern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-patternRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PatternItem"];
                 };
             };
             /** @description Error */
@@ -8484,6 +10056,169 @@ export interface operations {
             };
         };
     };
+    "list-unanswered-questions": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-unanswered-questionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "accept-question-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Accept-question-proposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Accept-question-proposalResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-question-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-question-proposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionProposalItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-question-proposals": {
+        parameters: {
+            query: {
+                slug: string;
+                question_id: number;
+                question_type: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-question-proposalsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "deny-question-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Deny-question-proposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["QuestionProposalItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-revisions": {
         parameters: {
             query?: {
@@ -8587,6 +10322,106 @@ export interface operations {
             };
         };
     };
+    "list-solo-queue": {
+        parameters: {
+            query: {
+                slug: string;
+                issue?: string;
+                blocked?: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoItem"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "solo-apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Solo-applyRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "solo-evaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Solo-evaluateRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EvaluateDiff"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "solo-health": {
         parameters: {
             query: {
@@ -8628,6 +10463,101 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Defer-specRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-specs-without-demos": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-specs-without-demosResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-spec": {
+        parameters: {
+            query: {
+                spec_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Get-specResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "link-spec-issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Link-spec-issueRequest"];
             };
         };
         responses: {
@@ -8756,6 +10686,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Undefer-specRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "unlink-spec-issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Unlink-spec-issueRequest"];
             };
         };
         responses: {
@@ -8943,6 +10906,71 @@ export interface operations {
             };
         };
     };
+    "list-stale-tasks": {
+        parameters: {
+            query: {
+                slug: string;
+                issue?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-stale-tasksResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "sweep-stale-tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Sweep-stale-tasksRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Sweep-stale-tasksResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "submit-test-results": {
         parameters: {
             query?: never;
@@ -9049,6 +11077,7 @@ export interface operations {
                 slug?: string;
                 test_name?: string;
                 limit?: number;
+                branch?: string;
             };
             header?: never;
             path?: never;
@@ -9570,6 +11599,71 @@ export interface operations {
             };
         };
     };
+    "mark-task-reviewed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Mark-task-reviewedRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-review-data": {
+        parameters: {
+            query: {
+                slug: string;
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Get-review-dataResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "unblock-task": {
         parameters: {
             query?: never;
@@ -9623,6 +11717,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-unreviewed-tasks": {
+        parameters: {
+            query: {
+                slug: string;
+                issue?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-unreviewed-tasksResponse"];
                 };
             };
             /** @description Error */
@@ -9901,6 +12027,39 @@ export interface operations {
             };
         };
     };
+    "reconcile-branch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reconcile-branchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reconcile-branchResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "issue-remove-block": {
         parameters: {
             query?: never;
@@ -9954,6 +12113,105 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-issue-resolution": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Delete-issue-resolutionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-issue-resolutions": {
+        parameters: {
+            query: {
+                slug: string;
+                id: string;
+                branch?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-issue-resolutionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "resolve-issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Resolve-issueRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Resolve-issueResponse"];
                 };
             };
             /** @description Error */
