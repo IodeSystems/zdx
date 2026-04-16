@@ -3,6 +3,7 @@ package main
 import (
 	"context"
 	"fmt"
+	"io"
 	"log"
 	"net/http"
 	"os"
@@ -85,7 +86,19 @@ func main() {
 		} else {
 			server.StartSinkToClient(sink, client)
 			srv.SetErrorClient(client)
+			// Dogfood: every log.Printf line is also shipped to the project
+			// /logs dashboard. Stderr stays primary so journald/console output
+			// is unchanged. Suppressed substrings short-circuit feedback loops
+			// where the forwarding path itself would emit a log line.
+			log.SetOutput(&server.LogWriter{
+				Primary: os.Stderr,
+				Forward: func(level, msg string) {
+					client.RecordLog(level, msg, nil)
+				},
+				Suppress: []string{"zdxclient", "InsertLogEvent"},
+			})
 			defer func() {
+				log.SetOutput(io.Writer(os.Stderr))
 				ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 				_ = client.Close(ctx)
 				cancel()
