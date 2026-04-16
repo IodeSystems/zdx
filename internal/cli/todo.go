@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/url"
 	"os"
+	"sort"
 	"strconv"
 	"strings"
 	"time"
@@ -649,6 +650,11 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			return nil
 		}
 	} else {
+		type issueTasks struct {
+			issue issueItem
+			tasks []taskItem
+		}
+		fetched := make([]issueTasks, 0, len(targetIssues))
 		for _, iss := range targetIssues {
 			if iss.Status != "open" {
 				continue
@@ -662,15 +668,38 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			}, &taskList); err != nil {
 				return err
 			}
-			for _, t := range taskList.Tasks {
-				if t.Status == "pending" {
-					printStaleWarning(t.CreatedAt, taskIDStr(t.ID))
+			fetched = append(fetched, issueTasks{issue: iss, tasks: taskList.Tasks})
+		}
+		// Prefer an in_progress task (resume uncommitted work) before any pending pick.
+		for _, ft := range fetched {
+			for _, t := range ft.tasks {
+				if t.Status == "in_progress" {
 					fmt.Printf("[dev]     %s  %s\n", taskIDStr(t.ID), t.Text)
-					fmt.Printf("  issue: %s\n", issueIDStr(iss.ID))
-					fmt.Fprintln(os.Stderr, "  note: task not claimed. Use --agent-id to claim before starting work.")
+					fmt.Printf("  issue: %s\n", issueIDStr(ft.issue.ID))
+					fmt.Fprintln(os.Stderr, "  note: resuming in_progress task. Use --agent-id to claim before starting work.")
 					return nil
 				}
 			}
+		}
+		// Within an issue, pick the lowest-ID pending task — task creation order usually
+		// matches execution order, and the API returns tasks sorted by updated_at DESC.
+		for _, ft := range fetched {
+			pending := make([]taskItem, 0, len(ft.tasks))
+			for _, t := range ft.tasks {
+				if t.Status == "pending" {
+					pending = append(pending, t)
+				}
+			}
+			if len(pending) == 0 {
+				continue
+			}
+			sort.Slice(pending, func(i, j int) bool { return pending[i].ID < pending[j].ID })
+			t := pending[0]
+			printStaleWarning(t.CreatedAt, taskIDStr(t.ID))
+			fmt.Printf("[dev]     %s  %s\n", taskIDStr(t.ID), t.Text)
+			fmt.Printf("  issue: %s\n", issueIDStr(ft.issue.ID))
+			fmt.Fprintln(os.Stderr, "  note: task not claimed. Use --agent-id to claim before starting work.")
+			return nil
 		}
 	}
 
