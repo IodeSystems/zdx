@@ -109,17 +109,18 @@ func (q *Queries) CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventPa
 }
 
 const createClaudeSession = `-- name: CreateClaudeSession :one
-INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
+INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias, todo_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id
 `
 
 type CreateClaudeSessionParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	IssueID   string `db:"issue_id" json:"issue_id"`
-	SessionID string `db:"session_id" json:"session_id"`
-	Title     string `db:"title" json:"title"`
-	Alias     string `db:"alias" json:"alias"`
+	ProjectID int32       `db:"project_id" json:"project_id"`
+	IssueID   string      `db:"issue_id" json:"issue_id"`
+	SessionID string      `db:"session_id" json:"session_id"`
+	Title     string      `db:"title" json:"title"`
+	Alias     string      `db:"alias" json:"alias"`
+	TodoID    pgtype.Int4 `db:"todo_id" json:"todo_id"`
 }
 
 type CreateClaudeSessionRow struct {
@@ -135,6 +136,7 @@ type CreateClaudeSessionRow struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID    pgtype.Int4        `db:"todo_id" json:"todo_id"`
 }
 
 func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error) {
@@ -144,6 +146,7 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 		arg.SessionID,
 		arg.Title,
 		arg.Alias,
+		arg.TodoID,
 	)
 	var i CreateClaudeSessionRow
 	err := row.Scan(
@@ -159,13 +162,17 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.TodoID,
 	)
 	return i, err
 }
 
 const getClaudeSession = `-- name: GetClaudeSession :one
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions WHERE project_id = $1 AND id = $2
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1 AND s.id = $2
 `
 
 type GetClaudeSessionParams struct {
@@ -174,18 +181,22 @@ type GetClaudeSessionParams struct {
 }
 
 type GetClaudeSessionRow struct {
-	ID        int64              `db:"id" json:"id"`
-	ProjectID int32              `db:"project_id" json:"project_id"`
-	IssueID   string             `db:"issue_id" json:"issue_id"`
-	SessionID string             `db:"session_id" json:"session_id"`
-	Title     string             `db:"title" json:"title"`
-	Alias     string             `db:"alias" json:"alias"`
-	Header    string             `db:"header" json:"header"`
-	Summary   string             `db:"summary" json:"summary"`
-	Status    string             `db:"status" json:"status"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	ID             int64              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	IssueID        string             `db:"issue_id" json:"issue_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	Title          string             `db:"title" json:"title"`
+	Alias          string             `db:"alias" json:"alias"`
+	Header         string             `db:"header" json:"header"`
+	Summary        string             `db:"summary" json:"summary"`
+	Status         string             `db:"status" json:"status"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
+	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
+	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
 }
 
 func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error) {
@@ -204,13 +215,20 @@ func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionPara
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.TodoID,
+		&i.TodoText,
+		&i.TodoTargetType,
+		&i.TodoTargetID,
 	)
 	return i, err
 }
 
 const getClaudeSessionBySessionID = `-- name: GetClaudeSessionBySessionID :one
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions WHERE project_id = $1 AND session_id = $2
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1 AND s.session_id = $2
 `
 
 type GetClaudeSessionBySessionIDParams struct {
@@ -219,18 +237,22 @@ type GetClaudeSessionBySessionIDParams struct {
 }
 
 type GetClaudeSessionBySessionIDRow struct {
-	ID        int64              `db:"id" json:"id"`
-	ProjectID int32              `db:"project_id" json:"project_id"`
-	IssueID   string             `db:"issue_id" json:"issue_id"`
-	SessionID string             `db:"session_id" json:"session_id"`
-	Title     string             `db:"title" json:"title"`
-	Alias     string             `db:"alias" json:"alias"`
-	Header    string             `db:"header" json:"header"`
-	Summary   string             `db:"summary" json:"summary"`
-	Status    string             `db:"status" json:"status"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	ID             int64              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	IssueID        string             `db:"issue_id" json:"issue_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	Title          string             `db:"title" json:"title"`
+	Alias          string             `db:"alias" json:"alias"`
+	Header         string             `db:"header" json:"header"`
+	Summary        string             `db:"summary" json:"summary"`
+	Status         string             `db:"status" json:"status"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
+	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
+	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
 }
 
 func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (GetClaudeSessionBySessionIDRow, error) {
@@ -249,6 +271,10 @@ func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaude
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ClosedAt,
+		&i.TodoID,
+		&i.TodoText,
+		&i.TodoTargetType,
+		&i.TodoTargetID,
 	)
 	return i, err
 }
@@ -498,25 +524,31 @@ func (q *Queries) ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeE
 }
 
 const listClaudeSessions = `-- name: ListClaudeSessions :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions
-WHERE project_id = $1
-ORDER BY updated_at DESC
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1
+ORDER BY s.updated_at DESC
 `
 
 type ListClaudeSessionsRow struct {
-	ID        int64              `db:"id" json:"id"`
-	ProjectID int32              `db:"project_id" json:"project_id"`
-	IssueID   string             `db:"issue_id" json:"issue_id"`
-	SessionID string             `db:"session_id" json:"session_id"`
-	Title     string             `db:"title" json:"title"`
-	Alias     string             `db:"alias" json:"alias"`
-	Header    string             `db:"header" json:"header"`
-	Summary   string             `db:"summary" json:"summary"`
-	Status    string             `db:"status" json:"status"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	ID             int64              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	IssueID        string             `db:"issue_id" json:"issue_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	Title          string             `db:"title" json:"title"`
+	Alias          string             `db:"alias" json:"alias"`
+	Header         string             `db:"header" json:"header"`
+	Summary        string             `db:"summary" json:"summary"`
+	Status         string             `db:"status" json:"status"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
+	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
+	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
 }
 
 func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]ListClaudeSessionsRow, error) {
@@ -541,6 +573,10 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
+			&i.TodoID,
+			&i.TodoText,
+			&i.TodoTargetType,
+			&i.TodoTargetID,
 		); err != nil {
 			return nil, err
 		}
@@ -553,10 +589,12 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 }
 
 const listClaudeSessionsByIssue = `-- name: ListClaudeSessionsByIssue :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions
-WHERE project_id = $1 AND issue_id = $2
-ORDER BY updated_at DESC
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1 AND s.issue_id = $2
+ORDER BY s.updated_at DESC
 `
 
 type ListClaudeSessionsByIssueParams struct {
@@ -565,18 +603,22 @@ type ListClaudeSessionsByIssueParams struct {
 }
 
 type ListClaudeSessionsByIssueRow struct {
-	ID        int64              `db:"id" json:"id"`
-	ProjectID int32              `db:"project_id" json:"project_id"`
-	IssueID   string             `db:"issue_id" json:"issue_id"`
-	SessionID string             `db:"session_id" json:"session_id"`
-	Title     string             `db:"title" json:"title"`
-	Alias     string             `db:"alias" json:"alias"`
-	Header    string             `db:"header" json:"header"`
-	Summary   string             `db:"summary" json:"summary"`
-	Status    string             `db:"status" json:"status"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	ID             int64              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	IssueID        string             `db:"issue_id" json:"issue_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	Title          string             `db:"title" json:"title"`
+	Alias          string             `db:"alias" json:"alias"`
+	Header         string             `db:"header" json:"header"`
+	Summary        string             `db:"summary" json:"summary"`
+	Status         string             `db:"status" json:"status"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
+	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
+	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
 }
 
 func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error) {
@@ -601,6 +643,10 @@ func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeS
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
+			&i.TodoID,
+			&i.TodoText,
+			&i.TodoTargetType,
+			&i.TodoTargetID,
 		); err != nil {
 			return nil, err
 		}
@@ -613,10 +659,12 @@ func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeS
 }
 
 const listClaudeSessionsPaginated = `-- name: ListClaudeSessionsPaginated :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions
-WHERE project_id = $1
-ORDER BY updated_at DESC
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1
+ORDER BY s.updated_at DESC
 LIMIT $2 OFFSET $3
 `
 
@@ -627,18 +675,22 @@ type ListClaudeSessionsPaginatedParams struct {
 }
 
 type ListClaudeSessionsPaginatedRow struct {
-	ID        int64              `db:"id" json:"id"`
-	ProjectID int32              `db:"project_id" json:"project_id"`
-	IssueID   string             `db:"issue_id" json:"issue_id"`
-	SessionID string             `db:"session_id" json:"session_id"`
-	Title     string             `db:"title" json:"title"`
-	Alias     string             `db:"alias" json:"alias"`
-	Header    string             `db:"header" json:"header"`
-	Summary   string             `db:"summary" json:"summary"`
-	Status    string             `db:"status" json:"status"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	ID             int64              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	IssueID        string             `db:"issue_id" json:"issue_id"`
+	SessionID      string             `db:"session_id" json:"session_id"`
+	Title          string             `db:"title" json:"title"`
+	Alias          string             `db:"alias" json:"alias"`
+	Header         string             `db:"header" json:"header"`
+	Summary        string             `db:"summary" json:"summary"`
+	Status         string             `db:"status" json:"status"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
+	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
+	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
 }
 
 func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error) {
@@ -663,6 +715,10 @@ func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaud
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ClosedAt,
+			&i.TodoID,
+			&i.TodoText,
+			&i.TodoTargetType,
+			&i.TodoTargetID,
 		); err != nil {
 			return nil, err
 		}

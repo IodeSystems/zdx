@@ -122,6 +122,7 @@ func RunLifecycle(
 	adapter AgentAdapter,
 	rc remoteConfig,
 	sid, issueID, alias, trigger string,
+	todoID int32,
 ) (exitCode int, err error) {
 	if adapter == nil {
 		return 1, errors.New("RunLifecycle: nil adapter")
@@ -155,7 +156,7 @@ func RunLifecycle(
 	}
 
 	if rc.valid() {
-		sessPK, cErr := postAgentSessionCreate(rc, sid, issueID, alias, provider, trigger)
+		sessPK, cErr := postAgentSessionCreate(rc, sid, issueID, alias, provider, trigger, todoID)
 		if cErr != nil {
 			// Visible on stdout (not just stderr) so the operator sees the
 			// session isn't being recorded — otherwise the only clue is the
@@ -594,7 +595,7 @@ func (f *agentEventFlusher) stopAndDrain() {
 // postAgentSessionCreate POSTs the session-create body and returns the server's
 // numeric session pk from the response. The pk — not the UUID sid — is what the
 // UI route expects in its path; see the Session: URL build in RunLifecycle.
-func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trigger string) (int64, error) {
+func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trigger string, todoID int32) (int64, error) {
 	// Server's Huma schema currently marks every body field required. Send
 	// explicit empty strings for the optional identity fields so the request
 	// validates rather than 422s. IS-261 also loosens the server side; this
@@ -605,6 +606,9 @@ func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trig
 		IssueId:  issueID,
 		Alias:    alias,
 		Trigger:  trigger,
+	}
+	if todoID > 0 {
+		body.TodoId = &todoID
 	}
 	path := fmt.Sprintf("/api/dx/agent/sessions/%s/create?slug=%s",
 		url.PathEscape(sid), url.QueryEscape(rc.slug))

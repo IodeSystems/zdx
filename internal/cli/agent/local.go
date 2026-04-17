@@ -111,7 +111,7 @@ func runLocalSession(ctx context.Context, rc remoteConfig, llmCfg config.LLMLoca
 		maxTurns:   maxTurns,
 		seedPrompt: seedPrompt,
 	}
-	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "local-cli")
+	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "local-cli", 0)
 	return err
 }
 

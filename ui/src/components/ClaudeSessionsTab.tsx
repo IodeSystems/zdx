@@ -709,6 +709,24 @@ export function SessionDetail({
           />
         )}
       </Box>
+      {session?.todo_text && (
+        <Box sx={{ mb: 1, display: 'flex', gap: 0.75, alignItems: 'flex-start' }}>
+          <Typography variant="caption" sx={{ fontWeight: 600, color: 'primary.main', mt: '2px' }}>
+            Todo:
+          </Typography>
+          <Typography variant="body2" sx={{ flex: 1 }}>
+            {session.todo_text}
+          </Typography>
+          {session.todo_target_type && session.todo_target_id && (
+            <Chip
+              label={`${session.todo_target_type}:${session.todo_target_id}`}
+              size="small"
+              variant="outlined"
+              sx={{ height: 20, fontSize: '0.7rem' }}
+            />
+          )}
+        </Box>
+      )}
       {(session?.header || session?.summary) && (
         <Box sx={{ mb: 1, p: 1.5, bgcolor: 'action.hover', borderRadius: 1, border: 1, borderColor: 'divider' }}>
           {session.header && (
@@ -894,6 +912,24 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
                   }
                   secondary={
                     <Box component="span" sx={{ display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+                      {s.todo_text && (
+                        <Box component="span" sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+                          <Typography component="span" variant="caption" sx={{ fontWeight: 600, color: 'primary.main' }}>
+                            Todo:
+                          </Typography>
+                          <Typography component="span" variant="caption" color="text.primary" noWrap sx={{ flex: 1 }}>
+                            {s.todo_text.slice(0, 140)}
+                          </Typography>
+                          {s.todo_target_type && s.todo_target_id && (
+                            <Chip
+                              label={`${s.todo_target_type}:${s.todo_target_id}`}
+                              size="small"
+                              variant="outlined"
+                              sx={{ height: 16, fontSize: '0.65rem' }}
+                            />
+                          )}
+                        </Box>
+                      )}
                       {s.header && (
                         <Typography component="span" variant="caption" color="text.primary" noWrap>
                           {s.header}

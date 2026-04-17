@@ -19,19 +19,23 @@ import (
 
 func (h *Handler) registerClaudeRoutes(api huma.API) {
 	type ClaudeSessionItem struct {
-		ID         int64  `json:"id"`
-		IssueID    string `json:"issue_id"`
-		SessionID  string `json:"session_id"`
-		Title      string `json:"title"`
-		Alias      string `json:"alias"`
-		Header     string `json:"header"`
-		Summary    string `json:"summary"`
-		Status     string `json:"status"`
-		Lifecycle  string `json:"lifecycle"`
-		EventCount int64  `json:"event_count"`
-		CreatedAt  string `json:"created_at"`
-		UpdatedAt  string `json:"updated_at"`
-		ClosedAt   string `json:"closed_at,omitempty"`
+		ID             int64  `json:"id"`
+		IssueID        string `json:"issue_id"`
+		SessionID      string `json:"session_id"`
+		Title          string `json:"title"`
+		Alias          string `json:"alias"`
+		Header         string `json:"header"`
+		Summary        string `json:"summary"`
+		Status         string `json:"status"`
+		Lifecycle      string `json:"lifecycle"`
+		EventCount     int64  `json:"event_count"`
+		CreatedAt      string `json:"created_at"`
+		UpdatedAt      string `json:"updated_at"`
+		ClosedAt       string `json:"closed_at,omitempty"`
+		TodoID         int32  `json:"todo_id,omitempty"`
+		TodoText       string `json:"todo_text,omitempty"`
+		TodoTargetType string `json:"todo_target_type,omitempty"`
+		TodoTargetID   string `json:"todo_target_id,omitempty"`
 	}
 
 	lifecycleFor := func(closedAt pgtype.Timestamptz, eventCount int64) string {
@@ -42,6 +46,19 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 			return "starting"
 		}
 		return "active"
+	}
+
+	todoInt := func(v pgtype.Int4) int32 {
+		if v.Valid {
+			return v.Int32
+		}
+		return 0
+	}
+	todoStr := func(v pgtype.Text) string {
+		if v.Valid {
+			return v.String
+		}
+		return ""
 	}
 
 	type ClaudeEventItem struct {
@@ -85,7 +102,7 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 				out = make([]ClaudeSessionItem, len(rows))
 				for i, r := range rows {
 					cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
-					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt)}
+					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt), TodoID: todoInt(r.TodoID), TodoText: todoStr(r.TodoText), TodoTargetType: todoStr(r.TodoTargetType), TodoTargetID: todoStr(r.TodoTargetID)}
 				}
 			} else {
 				total, _ = h.Q.CountClaudeSessions(ctx, p.ID)
@@ -97,7 +114,7 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 				out = make([]ClaudeSessionItem, len(rows))
 				for i, r := range rows {
 					cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
-					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt)}
+					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt), TodoID: todoInt(r.TodoID), TodoText: todoStr(r.TodoText), TodoTargetType: todoStr(r.TodoTargetType), TodoTargetID: todoStr(r.TodoTargetID)}
 				}
 			}
 			return &struct {
@@ -130,19 +147,23 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 			return &struct {
 				Body ClaudeSessionItem
 			}{Body: ClaudeSessionItem{
-				ID:         sess.ID,
-				IssueID:    sess.IssueID,
-				SessionID:  sess.SessionID,
-				Title:      sess.Title,
-				Alias:      sess.Alias,
-				Header:     sess.Header,
-				Summary:    sess.Summary,
-				Status:     sess.Status,
-				Lifecycle:  lifecycleFor(sess.ClosedAt, cnt),
-				EventCount: cnt,
-				CreatedAt:  fmtTS(sess.CreatedAt),
-				UpdatedAt:  fmtTS(sess.UpdatedAt),
-				ClosedAt:   fmtTS(sess.ClosedAt),
+				ID:             sess.ID,
+				IssueID:        sess.IssueID,
+				SessionID:      sess.SessionID,
+				Title:          sess.Title,
+				Alias:          sess.Alias,
+				Header:         sess.Header,
+				Summary:        sess.Summary,
+				Status:         sess.Status,
+				Lifecycle:      lifecycleFor(sess.ClosedAt, cnt),
+				EventCount:     cnt,
+				CreatedAt:      fmtTS(sess.CreatedAt),
+				UpdatedAt:      fmtTS(sess.UpdatedAt),
+				ClosedAt:       fmtTS(sess.ClosedAt),
+				TodoID:         todoInt(sess.TodoID),
+				TodoText:       todoStr(sess.TodoText),
+				TodoTargetType: todoStr(sess.TodoTargetType),
+				TodoTargetID:   todoStr(sess.TodoTargetID),
 			}}, nil
 		})
 
@@ -547,7 +568,7 @@ func (h *Handler) handleClaudeSessionIngestStream(w http.ResponseWriter, r *http
 
 		if !sessionReady {
 			title := extractTitleFromLegacyLine(line)
-			s2, created, cErr := h.getOrCreateAgentSession(ctx, p.ID, sessionUUID, issueID, alias, title)
+			s2, created, cErr := h.getOrCreateAgentSession(ctx, p.ID, sessionUUID, issueID, alias, title, 0)
 			if cErr != nil {
 				http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
 				return

@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
@@ -41,6 +42,7 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 			AgentID          string `json:"agent_id" required:"false"`
 			AgentType        string `json:"agent_type" required:"false"`
 			AgentDescription string `json:"agent_description" required:"false"`
+			TodoID           int32  `json:"todo_id" required:"false"`
 		}
 	}) (*struct {
 		Body struct {
@@ -53,7 +55,7 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 		if err != nil {
 			return nil, err
 		}
-		sess, created, err := h.getOrCreateAgentSession(ctx, p.ID, in.Sid, in.Body.IssueID, in.Body.Alias, in.Body.Title)
+		sess, created, err := h.getOrCreateAgentSession(ctx, p.ID, in.Sid, in.Body.IssueID, in.Body.Alias, in.Body.Title, in.Body.TodoID)
 		if err != nil {
 			return nil, apiErr(500, err.Error())
 		}
@@ -160,13 +162,18 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 // getOrCreateAgentSession looks up a session by (project_id, session_id) and
 // creates one if it doesn't exist. The second return is true when this call
 // created the row.
-func (h *Handler) getOrCreateAgentSession(ctx context.Context, projectID int32, sessionID, issueID, alias, title string) (db.CreateClaudeSessionRow, bool, error) {
+func (h *Handler) getOrCreateAgentSession(ctx context.Context, projectID int32, sessionID, issueID, alias, title string, todoID int32) (db.CreateClaudeSessionRow, bool, error) {
+	todo := pgtype.Int4{}
+	if todoID > 0 {
+		todo = pgtype.Int4{Int32: todoID, Valid: true}
+	}
 	sess, err := h.Q.CreateClaudeSession(ctx, db.CreateClaudeSessionParams{
 		ProjectID: projectID,
 		IssueID:   issueID,
 		SessionID: sessionID,
 		Title:     title,
 		Alias:     alias,
+		TodoID:    todo,
 	})
 	if err == nil {
 		return sess, true, nil
@@ -194,6 +201,7 @@ func (h *Handler) getOrCreateAgentSession(ctx context.Context, projectID int32, 
 		CreatedAt: existing.CreatedAt,
 		UpdatedAt: existing.UpdatedAt,
 		ClosedAt:  existing.ClosedAt,
+		TodoID:    existing.TodoID,
 	}, false, nil
 }
 

@@ -1,37 +1,49 @@
 -- name: CreateClaudeSession :one
-INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at;
+INSERT INTO zdx_claude_sessions (project_id, issue_id, session_id, title, alias, todo_id)
+VALUES ($1, $2, $3, $4, $5, $6)
+RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at, todo_id;
 
 -- name: GetClaudeSession :one
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions WHERE project_id = $1 AND id = $2;
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1 AND s.id = $2;
 
 -- name: GetClaudeSessionBySessionID :one
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions WHERE project_id = $1 AND session_id = $2;
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1 AND s.session_id = $2;
 
 -- name: ListClaudeSessions :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions
-WHERE project_id = $1
-ORDER BY updated_at DESC;
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1
+ORDER BY s.updated_at DESC;
 
 -- name: CountClaudeSessions :one
 SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1;
 
 -- name: ListClaudeSessionsPaginated :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions
-WHERE project_id = $1
-ORDER BY updated_at DESC
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1
+ORDER BY s.updated_at DESC
 LIMIT $2 OFFSET $3;
 
 -- name: ListClaudeSessionsByIssue :many
-SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
-FROM zdx_claude_sessions
-WHERE project_id = $1 AND issue_id = $2
-ORDER BY updated_at DESC;
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+FROM zdx_claude_sessions s
+LEFT JOIN zdx_todos t ON t.id = s.todo_id
+WHERE s.project_id = $1 AND s.issue_id = $2
+ORDER BY s.updated_at DESC;
 
 -- name: CountClaudeSessionsByIssue :one
 SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1 AND issue_id = $2;

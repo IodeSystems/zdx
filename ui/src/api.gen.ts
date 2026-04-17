@@ -4479,6 +4479,8 @@ export interface components {
             issue_id: string;
             provider: string;
             title?: string;
+            /** Format: int32 */
+            todo_id?: number;
             trigger: string;
         };
         "Create-agent-sessionResponse": {

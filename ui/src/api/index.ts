@@ -1557,6 +1557,10 @@ export interface ClaudeSessionItem {
   created_at: string
   updated_at: string
   closed_at?: string
+  todo_id?: number
+  todo_text?: string
+  todo_target_type?: string
+  todo_target_id?: string
 }
 
 export interface ClaudeEventItem {

@@ -54,7 +54,7 @@ func agentClaudeCmd() *cobra.Command {
 			installReleaseOnSignal(rc, alias, "", nil, cancel)
 			sid := uuid.New().String()
 			resolved := sel.resolve(rc, 0)
-			return runSession(ctx, rc, sid, issue, alias, chrome, "", false, resolved)
+			return runSession(ctx, rc, sid, issue, alias, chrome, "", false, resolved, 0)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
@@ -354,7 +354,11 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 		if resolvedModel != "" {
 			log("model: %s", resolvedModel)
 		}
-		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed, resolvedModel)
+		var todoID int32
+		if activeTodo != nil {
+			todoID = activeTodo.ID
+		}
+		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed, resolvedModel, todoID)
 
 		// Stop lease renewal.
 		if leaseCancel != nil {
@@ -394,7 +398,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 // through the provider-agnostic RunLifecycle runner. Event tailing, WS
 // streaming, and close are all owned by the shared runner — this wrapper
 // only constructs a claudeAdapter and prints the post-session token summary.
-func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string) error {
+func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string, todoID int32) error {
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
@@ -408,7 +412,7 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 		exited:  make(chan struct{}),
 	}
 
-	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "claude-cli")
+	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "claude-cli", todoID)
 
 	// Print token usage summary from the on-disk transcripts regardless of
 	// whether the lifecycle runner reached the server; useful in dev.

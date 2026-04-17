@@ -632,6 +632,7 @@ type CreateAgentSessionRequest struct {
 	IssueId          string  `json:"issue_id"`
 	Provider         string  `json:"provider"`
 	Title            *string `json:"title,omitempty"`
+	TodoId           *int32  `json:"todo_id,omitempty"`
 	Trigger          string  `json:"trigger"`
 }
 
