@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
@@ -634,11 +635,18 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "mark-task-reviewed", Method: http.MethodPost, Path: "/api/dx/todo/dev/review"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug    string `json:"slug"`
-				ID      int32  `json:"id"`
-				Verdict string `json:"verdict"`
+				Slug         string `json:"slug"`
+				ID           int32  `json:"id"`
+				Verdict      string `json:"verdict"`
+				Body         string `json:"body,omitempty" required:"false"`
+				ReviewerRole string `json:"reviewer_role,omitempty" required:"false"`
 			}
-		}) (*struct{ Body OKBody }, error) {
+		}) (*struct {
+			Body struct {
+				OK     bool  `json:"ok"`
+				Review int32 `json:"review_id"`
+			}
+		}, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
@@ -647,16 +655,85 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			if err := h.Q.MarkTaskReviewed(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			role := in.Body.ReviewerRole
+			if role == "" {
+				role = "reviewer"
+			}
+			var reviewerUID pgtype.Int4
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				reviewerUID = pgtype.Int4{Int32: uid, Valid: true}
+			}
+			rev, err := h.Q.UpsertTaskReview(ctx, db.UpsertTaskReviewParams{
+				ProjectID:      p.ID,
+				TaskID:         id,
+				ReviewerRole:   role,
+				ReviewerUserID: reviewerUID,
+				Verdict:        in.Body.Verdict,
+				Body:           in.Body.Body,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
 			if in.Body.Verdict == "approve" {
 				_ = h.Q.UpsertCommentRead(ctx, db.UpsertCommentReadParams{
 					ProjectID:  p.ID,
-					TargetType: "task",
-					TargetID:   id,
+					TargetType: "review",
+					TargetID:   reviewIDStr(rev.ID),
 					Role:       "llm",
 				})
 			}
-			h.Broker.PublishTask(p.Slug, id, "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict})
-			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+			h.Broker.PublishTask(p.Slug, id, "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict, "review_id": rev.ID})
+			return &struct {
+				Body struct {
+					OK     bool  `json:"ok"`
+					Review int32 `json:"review_id"`
+				}
+			}{Body: struct {
+				OK     bool  `json:"ok"`
+				Review int32 `json:"review_id"`
+			}{OK: true, Review: rev.ID}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-task-reviews", Method: http.MethodGet, Path: "/api/dx/task/review"},
+		func(ctx context.Context, in *struct {
+			Slug   string `query:"slug" required:"true"`
+			TaskID string `query:"task_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Reviews []TaskReviewItem `json:"reviews"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListTaskReviews(ctx, db.ListTaskReviewsParams{ProjectID: p.ID, TaskID: in.TaskID})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TaskReviewItem, 0, len(rows))
+			for _, r := range rows {
+				item := TaskReviewItem{
+					ID:           r.ID,
+					TaskID:       r.TaskID,
+					ReviewerRole: r.ReviewerRole,
+					Verdict:      r.Verdict,
+					Body:         r.Body,
+					CreatedAt:    fmtTS(r.CreatedAt),
+					UpdatedAt:    fmtTS(r.UpdatedAt),
+				}
+				if r.ReviewerEmail.Valid {
+					item.ReviewerEmail = r.ReviewerEmail.String
+				}
+				out = append(out, item)
+			}
+			return &struct {
+				Body struct {
+					Reviews []TaskReviewItem `json:"reviews"`
+				}
+			}{Body: struct {
+				Reviews []TaskReviewItem `json:"reviews"`
+			}{Reviews: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-unreviewed-tasks", Method: http.MethodGet, Path: "/api/dx/todo/dev/unreviewed"},

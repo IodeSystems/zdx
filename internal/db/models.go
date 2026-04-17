@@ -631,6 +631,18 @@ type ZdxTaskCodeRef struct {
 	CodeRefID int32  `db:"code_ref_id" json:"code_ref_id"`
 }
 
+type ZdxTaskReview struct {
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	TaskID         string             `db:"task_id" json:"task_id"`
+	ReviewerRole   string             `db:"reviewer_role" json:"reviewer_role"`
+	ReviewerUserID pgtype.Int4        `db:"reviewer_user_id" json:"reviewer_user_id"`
+	Verdict        string             `db:"verdict" json:"verdict"`
+	Body           string             `db:"body" json:"body"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
 type ZdxTest struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`

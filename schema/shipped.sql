@@ -1719,6 +1719,43 @@ CREATE TABLE public.zdx_task_code_refs (
 
 
 --
+-- Name: zdx_task_reviews; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_task_reviews (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    task_id text NOT NULL,
+    reviewer_role text DEFAULT 'reviewer'::text NOT NULL,
+    reviewer_user_id integer,
+    verdict text DEFAULT ''::text NOT NULL,
+    body text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_task_reviews_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_task_reviews_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_task_reviews_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_task_reviews_id_seq OWNED BY public.zdx_task_reviews.id;
+
+
+--
 -- Name: zdx_tasks; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2368,6 +2405,13 @@ ALTER TABLE ONLY public.zdx_specs ALTER COLUMN id SET DEFAULT nextval('public.zd
 --
 
 ALTER TABLE ONLY public.zdx_sprints ALTER COLUMN id SET DEFAULT nextval('public.zdx_sprints_id_seq'::regclass);
+
+
+--
+-- Name: zdx_task_reviews id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_task_reviews ALTER COLUMN id SET DEFAULT nextval('public.zdx_task_reviews_id_seq'::regclass);
 
 
 --
@@ -3026,6 +3070,22 @@ ALTER TABLE ONLY public.zdx_task_code_refs
 
 
 --
+-- Name: zdx_task_reviews zdx_task_reviews_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_task_reviews
+    ADD CONSTRAINT zdx_task_reviews_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_task_reviews zdx_task_reviews_project_id_task_id_reviewer_role_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_task_reviews
+    ADD CONSTRAINT zdx_task_reviews_project_id_task_id_reviewer_role_key UNIQUE (project_id, task_id, reviewer_role);
+
+
+--
 -- Name: zdx_tasks zdx_tasks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3546,6 +3606,13 @@ CREATE INDEX zdx_log_events_project_created ON public.zdx_log_events USING btree
 --
 
 CREATE INDEX zdx_revisions_target ON public.zdx_revisions USING btree (project_id, target_type, target_id);
+
+
+--
+-- Name: zdx_task_reviews_task_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_task_reviews_task_idx ON public.zdx_task_reviews USING btree (project_id, task_id);
 
 
 --
@@ -4197,6 +4264,30 @@ ALTER TABLE ONLY public.zdx_task_code_refs
 
 ALTER TABLE ONLY public.zdx_task_code_refs
     ADD CONSTRAINT zdx_task_code_refs_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_task_reviews zdx_task_reviews_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_task_reviews
+    ADD CONSTRAINT zdx_task_reviews_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
+
+
+--
+-- Name: zdx_task_reviews zdx_task_reviews_reviewer_user_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_task_reviews
+    ADD CONSTRAINT zdx_task_reviews_reviewer_user_id_fkey FOREIGN KEY (reviewer_user_id) REFERENCES public.zdx_users(id);
+
+
+--
+-- Name: zdx_task_reviews zdx_task_reviews_task_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_task_reviews
+    ADD CONSTRAINT zdx_task_reviews_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
 
 
 --

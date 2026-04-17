@@ -5,6 +5,7 @@ import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, LockOpen as
 import { useTask, useTasks, useUpdateTaskStatus, useReleaseTask, useReadyTask, useTaskCodeRefs } from '../api'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { TaskReviewSection } from './TaskReviewSection'
 import { CodeRefs } from './CodeRefs'
 import { MarkdownContent } from './MarkdownContent'
 import { EditHistory } from './EditHistory'
@@ -266,6 +267,8 @@ export function TaskDetail({
       )}
 
       <BlockerQuestionsSection slug={slug} targetType="task" targetId={taskId} />
+
+      <TaskReviewSection slug={slug} taskId={taskId} />
 
       <CodeRefs refs={codeRefs ?? []} />
 

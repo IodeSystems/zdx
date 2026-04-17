@@ -1161,6 +1161,19 @@ export const useTaskCodeRefs = (slug: string, taskId: string) =>
     enabled: !!slug && !!taskId,
   })
 
+export type TaskReviewItem = components['schemas']['TaskReviewItem']
+
+export const useTaskReviews = (slug: string, taskId: string) =>
+  useQuery<TaskReviewItem[]>({
+    queryKey: ['task-reviews', slug, taskId],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/task/review', { params: { query: { slug, task_id: taskId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.reviews ?? []) as TaskReviewItem[]
+    },
+    enabled: !!slug && !!taskId,
+  })
+
 // ── questions ─────────────────────────────────────────────────────────────────
 
 export interface QuestionItem {

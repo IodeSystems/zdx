@@ -1219,11 +1219,11 @@ func todoDevStartCmd() *cobra.Command {
 }
 
 func todoDevReviewCmd() *cobra.Command {
-	var verdict string
+	var verdict, body string
 	cmd := &cobra.Command{
 		Use:   "review <TK-N>",
 		Short: "Review a completed task or submit review verdict",
-		Long:  "Without --verdict: prints task details and review material.\nWith --verdict: marks the task as reviewed (silent — use 'dx comment add' for any notes).",
+		Long:  "Without --verdict: prints task details and review material.\nWith --verdict: marks the task as reviewed and persists verdict + --body on the review record (NOT a task comment).",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
@@ -1233,18 +1233,26 @@ func todoDevReviewCmd() *cobra.Command {
 			slug := c.SlugOrDie()
 
 			if verdict != "" {
-				resp, err := c.MarkTaskReviewedWithResponse(ctx, dxclient.MarkTaskReviewedRequest{
+				req := dxclient.MarkTaskReviewedRequest{
 					Slug:    slug,
 					Id:      int32(n),
 					Verdict: verdict,
-				})
+				}
+				if body != "" {
+					req.Body = &body
+				}
+				resp, err := c.MarkTaskReviewedWithResponse(ctx, req)
 				if err != nil {
 					return err
 				}
 				if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 					return err
 				}
-				fmt.Printf("%s reviewed [%s]\n", id, verdict)
+				fmt.Printf("%s reviewed [%s]", id, verdict)
+				if resp.JSON200 != nil && resp.JSON200.ReviewId != 0 {
+					fmt.Printf(" review_id=%d", resp.JSON200.ReviewId)
+				}
+				fmt.Println()
 				return nil
 			}
 
@@ -1287,12 +1295,13 @@ func todoDevReviewCmd() *cobra.Command {
 				fmt.Println("  - Fix SHAs and diffs reviewed")
 				fmt.Println("  - Test plan and code blocks verified")
 			}
-			fmt.Printf("\nSubmit review: dx todo dev review %s --verdict=<approve|reject>\n", id)
-			fmt.Printf("Add notes (optional): dx comment add task %s --body=\"...\"\n", id)
+			fmt.Printf("\nSubmit review: dx todo dev review %s --verdict=<approve|reject> [--body=\"...\"]\n", id)
+			fmt.Printf("Discuss the review: dx comment add review <review-id> --body=\"...\"\n")
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&verdict, "verdict", "", "review verdict: approve or reject")
+	cmd.Flags().StringVar(&body, "body", "", "review note persisted on the review record (NOT a task comment)")
 	return cmd
 }
 

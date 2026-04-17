@@ -46,6 +46,17 @@ type TaskItem struct {
 	LeaseExpiresAt string `json:"lease_expires_at,omitempty"`
 }
 
+type TaskReviewItem struct {
+	ID            int32  `json:"id"`
+	TaskID        string `json:"task_id"`
+	ReviewerRole  string `json:"reviewer_role"`
+	ReviewerEmail string `json:"reviewer_email,omitempty"`
+	Verdict       string `json:"verdict"`
+	Body          string `json:"body"`
+	CreatedAt     string `json:"created_at"`
+	UpdatedAt     string `json:"updated_at"`
+}
+
 type FeatureItem struct {
 	ID              int32      `json:"id"`
 	Name            string     `json:"name"`

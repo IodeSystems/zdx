@@ -29,6 +29,7 @@ func taskIntID(id string) int32  { return intFromPrefixed(id, "TK-") }
 
 func issueIDFromInt(n int32) string { return fmt.Sprintf("IS-%d", n) }
 func taskIDFromInt(n int32) string  { return fmt.Sprintf("TK-%d", n) }
+func reviewIDStr(n int32) string    { return strconv.FormatInt(int64(n), 10) }
 
 // IssueIDFromInt is the exported form for callers outside this package.
 func IssueIDFromInt(n int32) string { return issueIDFromInt(n) }

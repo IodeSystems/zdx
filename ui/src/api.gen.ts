@@ -2486,6 +2486,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/task/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-task-reviews"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/tasks/similar": {
         parameters: {
             query?: never;
@@ -5956,6 +5972,15 @@ export interface components {
             readonly $schema?: string;
             tasks: components["schemas"]["TaskItem"][] | null;
         };
+        "List-task-reviewsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-task-reviewsResponse.json
+             */
+            readonly $schema?: string;
+            reviews: components["schemas"]["TaskReviewItem"][] | null;
+        };
         "List-tasks-by-featureResponse": {
             /**
              * Format: uri
@@ -6175,10 +6200,23 @@ export interface components {
              * @example https://example.com/schemas/Mark-task-reviewedRequest.json
              */
             readonly $schema?: string;
+            body?: string;
             /** Format: int32 */
             id: number;
+            reviewer_role?: string;
             slug: string;
             verdict: string;
+        };
+        "Mark-task-reviewedResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Mark-task-reviewedResponse.json
+             */
+            readonly $schema?: string;
+            ok: boolean;
+            /** Format: int32 */
+            review_id: number;
         };
         "Mark-task-undoneRequest": {
             /**
@@ -7077,6 +7115,17 @@ export interface components {
             test_refs: string;
             text: string;
             updated_at: string;
+        };
+        TaskReviewItem: {
+            body: string;
+            created_at: string;
+            /** Format: int32 */
+            id: number;
+            reviewer_email?: string;
+            reviewer_role: string;
+            task_id: string;
+            updated_at: string;
+            verdict: string;
         };
         "Test-llm-configResponse": {
             /**
@@ -12876,6 +12925,38 @@ export interface operations {
             };
         };
     };
+    "list-task-reviews": {
+        parameters: {
+            query: {
+                slug: string;
+                task_id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-task-reviewsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "similar-tasks": {
         parameters: {
             query?: never;
@@ -13458,7 +13539,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OKBody"];
+                    "application/json": components["schemas"]["Mark-task-reviewedResponse"];
                 };
             };
             /** @description Error */

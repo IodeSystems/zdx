@@ -59,6 +59,7 @@ func main() {
 		devtools.ClaudeCmd(),
 		agent.AgentCmd(),
 		project.TaskCmd(),
+		project.ReviewCmd(),
 		project.PatternCmd(),
 		servercmd.IntegrateCmd(),
 		servercmd.LoginCmd(),

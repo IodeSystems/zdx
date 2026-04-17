@@ -1853,6 +1853,13 @@ type ListStaleTasksResponse struct {
 	Tasks  *[]TaskItem `json:"tasks"`
 }
 
+// ListTaskReviewsResponse defines model for List-task-reviewsResponse.
+type ListTaskReviewsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string           `json:"$schema,omitempty"`
+	Reviews *[]TaskReviewItem `json:"reviews"`
+}
+
 // ListTasksByFeatureResponse defines model for List-tasks-by-featureResponse.
 type ListTasksByFeatureResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2023,10 +2030,20 @@ type MarkTaskDoneRequest struct {
 // MarkTaskReviewedRequest defines model for Mark-task-reviewedRequest.
 type MarkTaskReviewedRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema  *string `json:"$schema,omitempty"`
-	Id      int32   `json:"id"`
-	Slug    string  `json:"slug"`
-	Verdict string  `json:"verdict"`
+	Schema       *string `json:"$schema,omitempty"`
+	Body         *string `json:"body,omitempty"`
+	Id           int32   `json:"id"`
+	ReviewerRole *string `json:"reviewer_role,omitempty"`
+	Slug         string  `json:"slug"`
+	Verdict      string  `json:"verdict"`
+}
+
+// MarkTaskReviewedResponse defines model for Mark-task-reviewedResponse.
+type MarkTaskReviewedResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string `json:"$schema,omitempty"`
+	Ok       bool    `json:"ok"`
+	ReviewId int32   `json:"review_id"`
 }
 
 // MarkTaskUndoneRequest defines model for Mark-task-undoneRequest.
@@ -2765,6 +2782,18 @@ type TaskItem struct {
 	TestRefs       string  `json:"test_refs"`
 	Text           string  `json:"text"`
 	UpdatedAt      string  `json:"updated_at"`
+}
+
+// TaskReviewItem defines model for TaskReviewItem.
+type TaskReviewItem struct {
+	Body          string  `json:"body"`
+	CreatedAt     string  `json:"created_at"`
+	Id            int32   `json:"id"`
+	ReviewerEmail *string `json:"reviewer_email,omitempty"`
+	ReviewerRole  string  `json:"reviewer_role"`
+	TaskId        string  `json:"task_id"`
+	UpdatedAt     string  `json:"updated_at"`
+	Verdict       string  `json:"verdict"`
 }
 
 // TestLlmConfigResponse defines model for Test-llm-configResponse.
@@ -3596,6 +3625,12 @@ type ListUncoveredSpecsParams struct {
 type GetStateParams struct {
 	Slug string `form:"slug" json:"slug"`
 	Key  string `form:"key" json:"key"`
+}
+
+// ListTaskReviewsParams defines parameters for ListTaskReviews.
+type ListTaskReviewsParams struct {
+	Slug   string `form:"slug" json:"slug"`
+	TaskId string `form:"task_id" json:"task_id"`
 }
 
 // ListStaleTasksParams defines parameters for ListStaleTasks.
@@ -4912,6 +4947,9 @@ type ClientInterface interface {
 	SetStateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SetState(ctx context.Context, body SetStateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTaskReviews request
+	ListTaskReviews(ctx context.Context, params *ListTaskReviewsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SimilarTasksWithBody request with any body
 	SimilarTasksWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8156,6 +8194,18 @@ func (c *APIClient) SetStateWithBody(ctx context.Context, contentType string, bo
 
 func (c *APIClient) SetState(ctx context.Context, body SetStateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetStateRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListTaskReviews(ctx context.Context, params *ListTaskReviewsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTaskReviewsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -18176,6 +18226,63 @@ func NewSetStateRequestWithBody(server string, contentType string, body io.Reade
 	return req, nil
 }
 
+// NewListTaskReviewsRequest generates requests for ListTaskReviews
+func NewListTaskReviewsRequest(server string, params *ListTaskReviewsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/task/review")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "task_id", params.TaskId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewSimilarTasksRequest calls the generic SimilarTasks builder with application/json body
 func NewSimilarTasksRequest(server string, body SimilarTasksJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -23006,6 +23113,9 @@ type ClientWithResponsesInterface interface {
 
 	SetStateWithResponse(ctx context.Context, body SetStateJSONRequestBody, reqEditors ...RequestEditorFn) (*SetStateResponse, error)
 
+	// ListTaskReviewsWithResponse request
+	ListTaskReviewsWithResponse(ctx context.Context, params *ListTaskReviewsParams, reqEditors ...RequestEditorFn) (*ParsedListTaskReviewsResponse, error)
+
 	// SimilarTasksWithBodyWithResponse request with any body
 	SimilarTasksWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarTasksResponse, error)
 
@@ -23070,9 +23180,9 @@ type ClientWithResponsesInterface interface {
 	MarkTaskDoneWithResponse(ctx context.Context, body MarkTaskDoneJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkTaskDoneResponse, error)
 
 	// MarkTaskReviewedWithBodyWithResponse request with any body
-	MarkTaskReviewedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkTaskReviewedResponse, error)
+	MarkTaskReviewedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedMarkTaskReviewedResponse, error)
 
-	MarkTaskReviewedWithResponse(ctx context.Context, body MarkTaskReviewedJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkTaskReviewedResponse, error)
+	MarkTaskReviewedWithResponse(ctx context.Context, body MarkTaskReviewedJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedMarkTaskReviewedResponse, error)
 
 	// GetReviewDataWithResponse request
 	GetReviewDataWithResponse(ctx context.Context, params *GetReviewDataParams, reqEditors ...RequestEditorFn) (*ParsedGetReviewDataResponse, error)
@@ -27096,6 +27206,29 @@ func (r SetStateResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListTaskReviewsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListTaskReviewsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListTaskReviewsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListTaskReviewsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedSimilarTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -27487,15 +27620,15 @@ func (r MarkTaskDoneResponse) StatusCode() int {
 	return 0
 }
 
-type MarkTaskReviewedResponse struct {
+type ParsedMarkTaskReviewedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
+	JSON200                       *MarkTaskReviewedResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
-func (r MarkTaskReviewedResponse) Status() string {
+func (r ParsedMarkTaskReviewedResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -27503,7 +27636,7 @@ func (r MarkTaskReviewedResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r MarkTaskReviewedResponse) StatusCode() int {
+func (r ParsedMarkTaskReviewedResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -31002,6 +31135,15 @@ func (c *ClientWithResponses) SetStateWithResponse(ctx context.Context, body Set
 	return ParseSetStateResponse(rsp)
 }
 
+// ListTaskReviewsWithResponse request returning *ParsedListTaskReviewsResponse
+func (c *ClientWithResponses) ListTaskReviewsWithResponse(ctx context.Context, params *ListTaskReviewsParams, reqEditors ...RequestEditorFn) (*ParsedListTaskReviewsResponse, error) {
+	rsp, err := c.ListTaskReviews(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListTaskReviewsResponse(rsp)
+}
+
 // SimilarTasksWithBodyWithResponse request with arbitrary body returning *ParsedSimilarTasksResponse
 func (c *ClientWithResponses) SimilarTasksWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarTasksResponse, error) {
 	rsp, err := c.SimilarTasksWithBody(ctx, contentType, body, reqEditors...)
@@ -31203,21 +31345,21 @@ func (c *ClientWithResponses) MarkTaskDoneWithResponse(ctx context.Context, body
 	return ParseMarkTaskDoneResponse(rsp)
 }
 
-// MarkTaskReviewedWithBodyWithResponse request with arbitrary body returning *MarkTaskReviewedResponse
-func (c *ClientWithResponses) MarkTaskReviewedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkTaskReviewedResponse, error) {
+// MarkTaskReviewedWithBodyWithResponse request with arbitrary body returning *ParsedMarkTaskReviewedResponse
+func (c *ClientWithResponses) MarkTaskReviewedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedMarkTaskReviewedResponse, error) {
 	rsp, err := c.MarkTaskReviewedWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseMarkTaskReviewedResponse(rsp)
+	return ParseParsedMarkTaskReviewedResponse(rsp)
 }
 
-func (c *ClientWithResponses) MarkTaskReviewedWithResponse(ctx context.Context, body MarkTaskReviewedJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkTaskReviewedResponse, error) {
+func (c *ClientWithResponses) MarkTaskReviewedWithResponse(ctx context.Context, body MarkTaskReviewedJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedMarkTaskReviewedResponse, error) {
 	rsp, err := c.MarkTaskReviewed(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseMarkTaskReviewedResponse(rsp)
+	return ParseParsedMarkTaskReviewedResponse(rsp)
 }
 
 // GetReviewDataWithResponse request returning *ParsedGetReviewDataResponse
@@ -37427,6 +37569,39 @@ func ParseSetStateResponse(rsp *http.Response) (*SetStateResponse, error) {
 	return response, nil
 }
 
+// ParseParsedListTaskReviewsResponse parses an HTTP response from a ListTaskReviewsWithResponse call
+func ParseParsedListTaskReviewsResponse(rsp *http.Response) (*ParsedListTaskReviewsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListTaskReviewsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListTaskReviewsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedSimilarTasksResponse parses an HTTP response from a SimilarTasksWithResponse call
 func ParseParsedSimilarTasksResponse(rsp *http.Response) (*ParsedSimilarTasksResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -37988,22 +38163,22 @@ func ParseMarkTaskDoneResponse(rsp *http.Response) (*MarkTaskDoneResponse, error
 	return response, nil
 }
 
-// ParseMarkTaskReviewedResponse parses an HTTP response from a MarkTaskReviewedWithResponse call
-func ParseMarkTaskReviewedResponse(rsp *http.Response) (*MarkTaskReviewedResponse, error) {
+// ParseParsedMarkTaskReviewedResponse parses an HTTP response from a MarkTaskReviewedWithResponse call
+func ParseParsedMarkTaskReviewedResponse(rsp *http.Response) (*ParsedMarkTaskReviewedResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &MarkTaskReviewedResponse{
+	response := &ParsedMarkTaskReviewedResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
+		var dest MarkTaskReviewedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
