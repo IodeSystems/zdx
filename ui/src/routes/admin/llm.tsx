@@ -170,14 +170,6 @@ function ConfigRow({
             ))}
           </Select>
         </FormControl>
-        <TextField
-          label="Type"
-          value={draft.type}
-          onChange={(e) => patch({ type: e.target.value })}
-          size="small"
-          helperText="openai-compatible"
-          sx={{ width: 160 }}
-        />
       </Stack>
 
       <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mt: 2 }}>
@@ -222,7 +214,7 @@ function ConfigRow({
           const v = slotValue(key)
           return (
             <FormControl size="small" fullWidth key={key}>
-              <InputLabel>{label}</InputLabel>
+              <InputLabel shrink>{label}</InputLabel>
               <Select
                 label={label}
                 value={v && modelOptions.includes(v) ? v : v ? '__custom__' : ''}
