@@ -1904,6 +1904,17 @@ export const useTestCodeRefs = (slug: string, testId: number) =>
     enabled: !!slug && testId > 0,
   })
 
+export const useSpecCodeRefs = (slug: string, specId: number) =>
+  useQuery<CodeRefItem[]>({
+    queryKey: ['code-refs', 'spec', slug, specId],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/code-refs/spec', { params: { query: { slug, spec_id: specId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.refs ?? []) as CodeRefItem[]
+    },
+    enabled: !!slug && specId > 0,
+  })
+
 export const useTestHistory = (slug: string, testName: string, enabled: boolean) =>
   useQuery<{ history: TestHistoryItem[] }>({
     queryKey: ['test-history', slug, testName],

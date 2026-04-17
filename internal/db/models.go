@@ -567,6 +567,11 @@ type ZdxSpec struct {
 	ConcernType    string `db:"concern_type" json:"concern_type"`
 }
 
+type ZdxSpecCodeRef struct {
+	SpecID    int32 `db:"spec_id" json:"spec_id"`
+	CodeRefID int32 `db:"code_ref_id" json:"code_ref_id"`
+}
+
 type ZdxSpecIssue struct {
 	SpecID    int32              `db:"spec_id" json:"spec_id"`
 	IssueID   string             `db:"issue_id" json:"issue_id"`

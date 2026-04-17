@@ -340,6 +340,19 @@ type AttachCodeRefToIssueRequest struct {
 	Slug      string  `json:"slug"`
 }
 
+// AttachCodeRefToSpecRequest defines model for Attach-code-ref-to-specRequest.
+type AttachCodeRefToSpecRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string `json:"$schema,omitempty"`
+	FilePath  string  `json:"file_path"`
+	GitHash   *string `json:"git_hash,omitempty"`
+	LineEnd   *int32  `json:"line_end,omitempty"`
+	LineStart *int32  `json:"line_start,omitempty"`
+	Note      *string `json:"note,omitempty"`
+	Slug      string  `json:"slug"`
+	SpecId    int32   `json:"spec_id"`
+}
+
 // AttachCodeRefToTaskRequest defines model for Attach-code-ref-to-taskRequest.
 type AttachCodeRefToTaskRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -824,6 +837,15 @@ type DetachCodeRefFromIssueRequest struct {
 	CodeRefId int32   `json:"code_ref_id"`
 	IssueId   string  `json:"issue_id"`
 	Slug      string  `json:"slug"`
+}
+
+// DetachCodeRefFromSpecRequest defines model for Detach-code-ref-from-specRequest.
+type DetachCodeRefFromSpecRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string `json:"$schema,omitempty"`
+	CodeRefId int32   `json:"code_ref_id"`
+	Slug      string  `json:"slug"`
+	SpecId    int32   `json:"spec_id"`
 }
 
 // DetachCodeRefFromTaskRequest defines model for Detach-code-ref-from-taskRequest.
@@ -1484,6 +1506,13 @@ type ListClaudeSessionsResponse struct {
 
 // ListCodeRefsForIssueResponse defines model for List-code-refs-for-issueResponse.
 type ListCodeRefsForIssueResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string        `json:"$schema,omitempty"`
+	Refs   *[]CodeRefItem `json:"refs"`
+}
+
+// ListCodeRefsForSpecResponse defines model for List-code-refs-for-specResponse.
+type ListCodeRefsForSpecResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string        `json:"$schema,omitempty"`
 	Refs   *[]CodeRefItem `json:"refs"`
@@ -2578,10 +2607,19 @@ type SoloHealthResponse struct {
 // SoloReleaseRequest defines model for Solo-releaseRequest.
 type SoloReleaseRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema  *string `json:"$schema,omitempty"`
-	AgentId string  `json:"agent_id"`
-	Id      int32   `json:"id"`
-	Resolve *bool   `json:"resolve,omitempty"`
+	Schema    *string `json:"$schema,omitempty"`
+	AgentId   string  `json:"agent_id"`
+	Id        int32   `json:"id"`
+	Resolve   *bool   `json:"resolve,omitempty"`
+	SessionId *string `json:"session_id,omitempty"`
+}
+
+// SoloReleaseResponse defines model for Solo-releaseResponse.
+type SoloReleaseResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema          *string `json:"$schema,omitempty"`
+	ChurnDowngraded *bool   `json:"churn_downgraded,omitempty"`
+	Ok              bool    `json:"ok"`
 }
 
 // SoloRenewRequest defines model for Solo-renewRequest.
@@ -3167,6 +3205,12 @@ type GetClaudeSessionTokenUsageByAgentParams struct {
 type ListCodeRefsForIssueParams struct {
 	Slug    string `form:"slug" json:"slug"`
 	IssueId string `form:"issue_id" json:"issue_id"`
+}
+
+// ListCodeRefsForSpecParams defines parameters for ListCodeRefsForSpec.
+type ListCodeRefsForSpecParams struct {
+	Slug   string `form:"slug" json:"slug"`
+	SpecId int32  `form:"spec_id" json:"spec_id"`
 }
 
 // ListCodeRefsForTaskParams defines parameters for ListCodeRefsForTask.
@@ -3814,6 +3858,12 @@ type AttachCodeRefToIssueJSONRequestBody = AttachCodeRefToIssueRequest
 // DetachCodeRefFromIssueJSONRequestBody defines body for DetachCodeRefFromIssue for application/json ContentType.
 type DetachCodeRefFromIssueJSONRequestBody = DetachCodeRefFromIssueRequest
 
+// AttachCodeRefToSpecJSONRequestBody defines body for AttachCodeRefToSpec for application/json ContentType.
+type AttachCodeRefToSpecJSONRequestBody = AttachCodeRefToSpecRequest
+
+// DetachCodeRefFromSpecJSONRequestBody defines body for DetachCodeRefFromSpec for application/json ContentType.
+type DetachCodeRefFromSpecJSONRequestBody = DetachCodeRefFromSpecRequest
+
 // AttachCodeRefToTaskJSONRequestBody defines body for AttachCodeRefToTask for application/json ContentType.
 type AttachCodeRefToTaskJSONRequestBody = AttachCodeRefToTaskRequest
 
@@ -4384,6 +4434,19 @@ type ClientInterface interface {
 	DetachCodeRefFromIssueWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	DetachCodeRefFromIssue(ctx context.Context, body DetachCodeRefFromIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListCodeRefsForSpec request
+	ListCodeRefsForSpec(ctx context.Context, params *ListCodeRefsForSpecParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AttachCodeRefToSpecWithBody request with any body
+	AttachCodeRefToSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AttachCodeRefToSpec(ctx context.Context, body AttachCodeRefToSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DetachCodeRefFromSpecWithBody request with any body
+	DetachCodeRefFromSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DetachCodeRefFromSpec(ctx context.Context, body DetachCodeRefFromSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListCodeRefsForTask request
 	ListCodeRefsForTask(ctx context.Context, params *ListCodeRefsForTaskParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6035,6 +6098,66 @@ func (c *APIClient) DetachCodeRefFromIssueWithBody(ctx context.Context, contentT
 
 func (c *APIClient) DetachCodeRefFromIssue(ctx context.Context, body DetachCodeRefFromIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDetachCodeRefFromIssueRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListCodeRefsForSpec(ctx context.Context, params *ListCodeRefsForSpecParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListCodeRefsForSpecRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AttachCodeRefToSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAttachCodeRefToSpecRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AttachCodeRefToSpec(ctx context.Context, body AttachCodeRefToSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAttachCodeRefToSpecRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) DetachCodeRefFromSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDetachCodeRefFromSpecRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) DetachCodeRefFromSpec(ctx context.Context, body DetachCodeRefFromSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDetachCodeRefFromSpecRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11771,6 +11894,143 @@ func NewDetachCodeRefFromIssueRequestWithBody(server string, contentType string,
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/code-refs/issue/detach")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListCodeRefsForSpecRequest generates requests for ListCodeRefsForSpec
+func NewListCodeRefsForSpecRequest(server string, params *ListCodeRefsForSpecParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/code-refs/spec")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "spec_id", params.SpecId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAttachCodeRefToSpecRequest calls the generic AttachCodeRefToSpec builder with application/json body
+func NewAttachCodeRefToSpecRequest(server string, body AttachCodeRefToSpecJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAttachCodeRefToSpecRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAttachCodeRefToSpecRequestWithBody generates requests for AttachCodeRefToSpec with any type of body
+func NewAttachCodeRefToSpecRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/code-refs/spec/attach")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDetachCodeRefFromSpecRequest calls the generic DetachCodeRefFromSpec builder with application/json body
+func NewDetachCodeRefFromSpecRequest(server string, body DetachCodeRefFromSpecJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDetachCodeRefFromSpecRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDetachCodeRefFromSpecRequestWithBody generates requests for DetachCodeRefFromSpec with any type of body
+func NewDetachCodeRefFromSpecRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/code-refs/spec/detach")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -22204,6 +22464,19 @@ type ClientWithResponsesInterface interface {
 
 	DetachCodeRefFromIssueWithResponse(ctx context.Context, body DetachCodeRefFromIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*DetachCodeRefFromIssueResponse, error)
 
+	// ListCodeRefsForSpecWithResponse request
+	ListCodeRefsForSpecWithResponse(ctx context.Context, params *ListCodeRefsForSpecParams, reqEditors ...RequestEditorFn) (*ParsedListCodeRefsForSpecResponse, error)
+
+	// AttachCodeRefToSpecWithBodyWithResponse request with any body
+	AttachCodeRefToSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AttachCodeRefToSpecResponse, error)
+
+	AttachCodeRefToSpecWithResponse(ctx context.Context, body AttachCodeRefToSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*AttachCodeRefToSpecResponse, error)
+
+	// DetachCodeRefFromSpecWithBodyWithResponse request with any body
+	DetachCodeRefFromSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DetachCodeRefFromSpecResponse, error)
+
+	DetachCodeRefFromSpecWithResponse(ctx context.Context, body DetachCodeRefFromSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*DetachCodeRefFromSpecResponse, error)
+
 	// ListCodeRefsForTaskWithResponse request
 	ListCodeRefsForTaskWithResponse(ctx context.Context, params *ListCodeRefsForTaskParams, reqEditors ...RequestEditorFn) (*ParsedListCodeRefsForTaskResponse, error)
 
@@ -22562,9 +22835,9 @@ type ClientWithResponsesInterface interface {
 	SoloHealthWithResponse(ctx context.Context, params *SoloHealthParams, reqEditors ...RequestEditorFn) (*ParsedSoloHealthResponse, error)
 
 	// SoloReleaseWithBodyWithResponse request with any body
-	SoloReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloReleaseResponse, error)
+	SoloReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSoloReleaseResponse, error)
 
-	SoloReleaseWithResponse(ctx context.Context, body SoloReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloReleaseResponse, error)
+	SoloReleaseWithResponse(ctx context.Context, body SoloReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSoloReleaseResponse, error)
 
 	// SoloRenewWithBodyWithResponse request with any body
 	SoloRenewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloRenewResponse, error)
@@ -24125,6 +24398,75 @@ func (r DetachCodeRefFromIssueResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DetachCodeRefFromIssueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListCodeRefsForSpecResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListCodeRefsForSpecResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListCodeRefsForSpecResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListCodeRefsForSpecResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AttachCodeRefToSpecResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *CodeRefItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AttachCodeRefToSpecResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AttachCodeRefToSpecResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DetachCodeRefFromSpecResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r DetachCodeRefFromSpecResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DetachCodeRefFromSpecResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -26223,15 +26565,15 @@ func (r ParsedSoloHealthResponse) StatusCode() int {
 	return 0
 }
 
-type SoloReleaseResponse struct {
+type ParsedSoloReleaseResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
+	JSON200                       *SoloReleaseResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
-func (r SoloReleaseResponse) Status() string {
+func (r ParsedSoloReleaseResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -26239,7 +26581,7 @@ func (r SoloReleaseResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r SoloReleaseResponse) StatusCode() int {
+func (r ParsedSoloReleaseResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -29078,6 +29420,49 @@ func (c *ClientWithResponses) DetachCodeRefFromIssueWithResponse(ctx context.Con
 	return ParseDetachCodeRefFromIssueResponse(rsp)
 }
 
+// ListCodeRefsForSpecWithResponse request returning *ParsedListCodeRefsForSpecResponse
+func (c *ClientWithResponses) ListCodeRefsForSpecWithResponse(ctx context.Context, params *ListCodeRefsForSpecParams, reqEditors ...RequestEditorFn) (*ParsedListCodeRefsForSpecResponse, error) {
+	rsp, err := c.ListCodeRefsForSpec(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListCodeRefsForSpecResponse(rsp)
+}
+
+// AttachCodeRefToSpecWithBodyWithResponse request with arbitrary body returning *AttachCodeRefToSpecResponse
+func (c *ClientWithResponses) AttachCodeRefToSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AttachCodeRefToSpecResponse, error) {
+	rsp, err := c.AttachCodeRefToSpecWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAttachCodeRefToSpecResponse(rsp)
+}
+
+func (c *ClientWithResponses) AttachCodeRefToSpecWithResponse(ctx context.Context, body AttachCodeRefToSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*AttachCodeRefToSpecResponse, error) {
+	rsp, err := c.AttachCodeRefToSpec(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAttachCodeRefToSpecResponse(rsp)
+}
+
+// DetachCodeRefFromSpecWithBodyWithResponse request with arbitrary body returning *DetachCodeRefFromSpecResponse
+func (c *ClientWithResponses) DetachCodeRefFromSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DetachCodeRefFromSpecResponse, error) {
+	rsp, err := c.DetachCodeRefFromSpecWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDetachCodeRefFromSpecResponse(rsp)
+}
+
+func (c *ClientWithResponses) DetachCodeRefFromSpecWithResponse(ctx context.Context, body DetachCodeRefFromSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*DetachCodeRefFromSpecResponse, error) {
+	rsp, err := c.DetachCodeRefFromSpec(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDetachCodeRefFromSpecResponse(rsp)
+}
+
 // ListCodeRefsForTaskWithResponse request returning *ParsedListCodeRefsForTaskResponse
 func (c *ClientWithResponses) ListCodeRefsForTaskWithResponse(ctx context.Context, params *ListCodeRefsForTaskParams, reqEditors ...RequestEditorFn) (*ParsedListCodeRefsForTaskResponse, error) {
 	rsp, err := c.ListCodeRefsForTask(ctx, params, reqEditors...)
@@ -30233,21 +30618,21 @@ func (c *ClientWithResponses) SoloHealthWithResponse(ctx context.Context, params
 	return ParseParsedSoloHealthResponse(rsp)
 }
 
-// SoloReleaseWithBodyWithResponse request with arbitrary body returning *SoloReleaseResponse
-func (c *ClientWithResponses) SoloReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloReleaseResponse, error) {
+// SoloReleaseWithBodyWithResponse request with arbitrary body returning *ParsedSoloReleaseResponse
+func (c *ClientWithResponses) SoloReleaseWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSoloReleaseResponse, error) {
 	rsp, err := c.SoloReleaseWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseSoloReleaseResponse(rsp)
+	return ParseParsedSoloReleaseResponse(rsp)
 }
 
-func (c *ClientWithResponses) SoloReleaseWithResponse(ctx context.Context, body SoloReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloReleaseResponse, error) {
+func (c *ClientWithResponses) SoloReleaseWithResponse(ctx context.Context, body SoloReleaseJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSoloReleaseResponse, error) {
 	rsp, err := c.SoloRelease(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseSoloReleaseResponse(rsp)
+	return ParseParsedSoloReleaseResponse(rsp)
 }
 
 // SoloRenewWithBodyWithResponse request with arbitrary body returning *SoloRenewResponse
@@ -33170,6 +33555,105 @@ func ParseDetachCodeRefFromIssueResponse(rsp *http.Response) (*DetachCodeRefFrom
 	}
 
 	response := &DetachCodeRefFromIssueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListCodeRefsForSpecResponse parses an HTTP response from a ListCodeRefsForSpecWithResponse call
+func ParseParsedListCodeRefsForSpecResponse(rsp *http.Response) (*ParsedListCodeRefsForSpecResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListCodeRefsForSpecResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListCodeRefsForSpecResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAttachCodeRefToSpecResponse parses an HTTP response from a AttachCodeRefToSpecWithResponse call
+func ParseAttachCodeRefToSpecResponse(rsp *http.Response) (*AttachCodeRefToSpecResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AttachCodeRefToSpecResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest CodeRefItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDetachCodeRefFromSpecResponse parses an HTTP response from a DetachCodeRefFromSpecWithResponse call
+func ParseDetachCodeRefFromSpecResponse(rsp *http.Response) (*DetachCodeRefFromSpecResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DetachCodeRefFromSpecResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -36190,22 +36674,22 @@ func ParseParsedSoloHealthResponse(rsp *http.Response) (*ParsedSoloHealthRespons
 	return response, nil
 }
 
-// ParseSoloReleaseResponse parses an HTTP response from a SoloReleaseWithResponse call
-func ParseSoloReleaseResponse(rsp *http.Response) (*SoloReleaseResponse, error) {
+// ParseParsedSoloReleaseResponse parses an HTTP response from a SoloReleaseWithResponse call
+func ParseParsedSoloReleaseResponse(rsp *http.Response) (*ParsedSoloReleaseResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &SoloReleaseResponse{
+	response := &ParsedSoloReleaseResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
+		var dest SoloReleaseResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

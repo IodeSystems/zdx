@@ -710,6 +710,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/code-refs/spec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-code-refs-for-spec"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/code-refs/spec/attach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["attach-code-ref-to-spec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/code-refs/spec/detach": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["detach-code-ref-from-spec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/code-refs/task": {
         parameters: {
             query?: never;
@@ -4003,6 +4051,24 @@ export interface components {
             note?: string;
             slug: string;
         };
+        "Attach-code-ref-to-specRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Attach-code-ref-to-specRequest.json
+             */
+            readonly $schema?: string;
+            file_path: string;
+            git_hash?: string;
+            /** Format: int32 */
+            line_end?: number;
+            /** Format: int32 */
+            line_start?: number;
+            note?: string;
+            slug: string;
+            /** Format: int32 */
+            spec_id: number;
+        };
         "Attach-code-ref-to-taskRequest": {
             /**
              * Format: uri
@@ -4609,6 +4675,19 @@ export interface components {
             code_ref_id: number;
             issue_id: string;
             slug: string;
+        };
+        "Detach-code-ref-from-specRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Detach-code-ref-from-specRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            code_ref_id: number;
+            slug: string;
+            /** Format: int32 */
+            spec_id: number;
         };
         "Detach-code-ref-from-taskRequest": {
             /**
@@ -5416,6 +5495,15 @@ export interface components {
              * Format: uri
              * @description A URL to the JSON Schema for this object.
              * @example https://example.com/schemas/List-code-refs-for-issueResponse.json
+             */
+            readonly $schema?: string;
+            refs: components["schemas"]["CodeRefItem"][] | null;
+        };
+        "List-code-refs-for-specResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-code-refs-for-specResponse.json
              */
             readonly $schema?: string;
             refs: components["schemas"]["CodeRefItem"][] | null;
@@ -6805,6 +6893,17 @@ export interface components {
             /** Format: int32 */
             id: number;
             resolve?: boolean;
+            session_id?: string;
+        };
+        "Solo-releaseResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-releaseResponse.json
+             */
+            readonly $schema?: string;
+            churn_downgraded?: boolean;
+            ok: boolean;
         };
         "Solo-renewRequest": {
             /**
@@ -9013,6 +9112,104 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Detach-code-ref-from-issueRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-code-refs-for-spec": {
+        parameters: {
+            query: {
+                slug: string;
+                spec_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-code-refs-for-specResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "attach-code-ref-to-spec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Attach-code-ref-to-specRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["CodeRefItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "detach-code-ref-from-spec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Detach-code-ref-from-specRequest"];
             };
         };
         responses: {
@@ -12047,7 +12244,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OKBody"];
+                    "application/json": components["schemas"]["Solo-releaseResponse"];
                 };
             };
             /** @description Error */

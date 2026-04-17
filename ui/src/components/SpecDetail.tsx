@@ -16,6 +16,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import {
   useSpecDetail,
   useSpecTests,
+  useSpecCodeRefs,
   useCreateIssue,
   deferSpec,
   undeferSpec,
@@ -24,6 +25,7 @@ import {
   type SpecTestItem,
 } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { CodeRefs } from './CodeRefs'
 import { SpecDemos } from './DemoPlayer'
 
 function TestStatusIcon({ status }: { status: string }) {
@@ -37,6 +39,7 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
   const qc = useQueryClient()
   const { data, isLoading } = useSpecDetail(specId)
   const { data: tests } = useSpecTests(specId)
+  const { data: codeRefs } = useSpecCodeRefs(slug, specId)
   const [deferOpen, setDeferOpen] = useState(false)
   const [deferReason, setDeferReason] = useState('')
   const [issueOpen, setIssueOpen] = useState(false)
@@ -98,6 +101,8 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
       </Box>
 
       <Typography variant="body1" sx={{ mb: 2 }}>{spec.description}</Typography>
+
+      <CodeRefs refs={codeRefs ?? []} />
 
       {spec.deferred && spec.deferred_reason && (
         <Box sx={{ mb: 2, p: 1.5, bgcolor: 'warning.50', borderRadius: 1, border: 1, borderColor: 'warning.200' }}>

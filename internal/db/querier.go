@@ -25,6 +25,7 @@ type Querier interface {
 	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
 	AttachCodeRefToIssue(ctx context.Context, arg AttachCodeRefToIssueParams) error
+	AttachCodeRefToSpec(ctx context.Context, arg AttachCodeRefToSpecParams) error
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
 	AttachCodeRefToTest(ctx context.Context, arg AttachCodeRefToTestParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
@@ -127,6 +128,7 @@ type Querier interface {
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
 	DenyQuestionProposal(ctx context.Context, arg DenyQuestionProposalParams) (ZdxQuestionProposal, error)
 	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
+	DetachCodeRefFromSpec(ctx context.Context, arg DetachCodeRefFromSpecParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error
 	FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) ([]FlagStaleTasksRow, error)
@@ -215,6 +217,7 @@ type Querier interface {
 	ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error)
 	ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error)
 	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
+	ListCodeRefsBySpec(ctx context.Context, specID int32) ([]ZdxCodeRef, error)
 	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)
 	ListCodeRefsByTest(ctx context.Context, testID int32) ([]ZdxCodeRef, error)
 	ListCommentReactions(ctx context.Context, commentID int32) ([]ZdxCommentReaction, error)

@@ -1592,6 +1592,16 @@ ALTER SEQUENCE public.zdx_slow_queries_id_seq OWNED BY public.zdx_slow_queries.i
 
 
 --
+-- Name: zdx_spec_code_refs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_spec_code_refs (
+    spec_id integer NOT NULL,
+    code_ref_id integer NOT NULL
+);
+
+
+--
 -- Name: zdx_spec_issues; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2948,6 +2958,14 @@ ALTER TABLE ONLY public.zdx_slow_queries
 
 
 --
+-- Name: zdx_spec_code_refs zdx_spec_code_refs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_code_refs
+    ADD CONSTRAINT zdx_spec_code_refs_pkey PRIMARY KEY (spec_id, code_ref_id);
+
+
+--
 -- Name: zdx_spec_issues zdx_spec_issues_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3335,6 +3353,13 @@ CREATE INDEX idx_slow_queries_endpoint ON public.zdx_slow_queries USING btree (e
 --
 
 CREATE INDEX idx_slow_queries_sql_hash ON public.zdx_slow_queries USING btree (sql_hash);
+
+
+--
+-- Name: idx_spec_code_refs_spec; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_spec_code_refs_spec ON public.zdx_spec_code_refs USING btree (spec_id);
 
 
 --
@@ -4080,6 +4105,22 @@ ALTER TABLE ONLY public.zdx_sessions
 
 ALTER TABLE ONLY public.zdx_slow_queries
     ADD CONSTRAINT zdx_slow_queries_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_spec_code_refs zdx_spec_code_refs_code_ref_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_code_refs
+    ADD CONSTRAINT zdx_spec_code_refs_code_ref_id_fkey FOREIGN KEY (code_ref_id) REFERENCES public.zdx_code_refs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_spec_code_refs zdx_spec_code_refs_spec_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_code_refs
+    ADD CONSTRAINT zdx_spec_code_refs_spec_id_fkey FOREIGN KEY (spec_id) REFERENCES public.zdx_specs(id) ON DELETE CASCADE;
 
 
 --
