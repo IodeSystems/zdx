@@ -2,6 +2,7 @@ package cli
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -10,10 +11,19 @@ import (
 	"os"
 
 	"github.com/iodesystems/zdx-go/internal/config"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 // Client talks to a running dx-server instance.
+//
+// Client embeds *dxclient.ClientWithResponses so callers get typed methods
+// for every endpoint (e.g. c.ListFocusesWithResponse). Auth + attribution
+// headers are attached via a RequestEditorFn registered at construction.
+// Use c.CheckStatus(resp.StatusCode(), resp.Body) to translate 4xx into
+// the authHint-enriched error.
 type Client struct {
+	*dxclient.ClientWithResponses
+
 	base      string
 	token     string
 	slug      string
@@ -50,13 +60,17 @@ func DefaultClient() (*Client, error) {
 		tokenFrom = tokenSrcDaemon
 	}
 
-	return &Client{
+	c := &Client{
 		base:      base,
 		token:     token,
 		slug:      slug,
 		tokenFrom: tokenFrom,
 		http:      &http.Client{},
-	}, nil
+	}
+	if err := c.initTyped(); err != nil {
+		return nil, err
+	}
+	return c, nil
 }
 
 // NewClient returns a Client talking to base with the given token. The slug
@@ -64,11 +78,43 @@ func DefaultClient() (*Client, error) {
 // different constructor or fall back to DefaultClient. Used by setup/integrate
 // flows that mint tokens before a project is selected.
 func NewClient(base, token string) *Client {
-	return &Client{
+	c := &Client{
 		base:  base,
 		token: token,
 		http:  &http.Client{},
 	}
+	if err := c.initTyped(); err != nil {
+		// NewClient signature is (base, token) *Client — an init failure here
+		// means a malformed base URL, which is a programmer error at callsites
+		// that mint tokens before a project is selected. Fall back to a
+		// typed-nil embed; untyped Get/Post still work.
+		return c
+	}
+	return c
+}
+
+// initTyped constructs the embedded dxclient.ClientWithResponses and wires
+// the auth + attribution request editor.
+func (c *Client) initTyped() error {
+	tc, err := dxclient.NewClientWithResponses(c.base,
+		dxclient.WithHTTPClient(c.http),
+		dxclient.WithRequestEditorFn(c.authEditor),
+	)
+	if err != nil {
+		return err
+	}
+	c.ClientWithResponses = tc
+	return nil
+}
+
+// authEditor attaches X-Api-Key and agent/session attribution headers to
+// every outbound request made via the typed client.
+func (c *Client) authEditor(_ context.Context, req *http.Request) error {
+	if c.token != "" {
+		req.Header.Set("X-Api-Key", c.token)
+	}
+	attachAttributionHeaders(req)
+	return nil
 }
 
 // resolveRemoteAPIKey mirrors config.RemoteAPIKey but also reports the source.
@@ -153,44 +199,60 @@ func (c *Client) DoJSON(method, path string, body any, out any) error {
 
 func (c *Client) checkResp(resp *http.Response, out any) error {
 	body, _ := io.ReadAll(resp.Body)
-	if resp.StatusCode >= 400 {
-		var e struct {
-			Title  string `json:"title"`
-			Detail string `json:"detail"`
-			Error  string `json:"error"`
-			Errors []struct {
-				Message  string `json:"message"`
-				Location string `json:"location"`
-				Value    any    `json:"value"`
-			} `json:"errors"`
-		}
-		_ = json.Unmarshal(body, &e)
-		msg := e.Title
-		if msg == "" {
-			msg = e.Error
-		}
-		if e.Detail != "" {
-			msg += ": " + e.Detail
-		}
-		for _, ve := range e.Errors {
-			msg += fmt.Sprintf("\n  - %s at %s (value: %v)", ve.Message, ve.Location, ve.Value)
-		}
-		if hint := c.authHint(resp.StatusCode); hint != "" {
-			if msg != "" {
-				msg += "\n" + hint
-			} else {
-				msg = hint
-			}
-		}
-		if msg != "" {
-			return fmt.Errorf("HTTP %d: %s", resp.StatusCode, msg)
-		}
-		return fmt.Errorf("HTTP %d", resp.StatusCode)
+	if err := c.CheckStatus(resp.StatusCode, body); err != nil {
+		return err
 	}
 	if out != nil {
 		return json.Unmarshal(body, out)
 	}
 	return nil
+}
+
+// CheckStatus translates a 4xx/5xx HTTP response into an error matching
+// the existing authHint-enriched format. Returns nil for 2xx/3xx.
+//
+// Callers using the typed dxclient methods invoke this after each request:
+//
+//	resp, err := c.ListFocusesWithResponse(ctx, params)
+//	if err != nil { return err }
+//	if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil { return err }
+//	// use resp.JSON200
+func (c *Client) CheckStatus(statusCode int, body []byte) error {
+	if statusCode < 400 {
+		return nil
+	}
+	var e struct {
+		Title  string `json:"title"`
+		Detail string `json:"detail"`
+		Error  string `json:"error"`
+		Errors []struct {
+			Message  string `json:"message"`
+			Location string `json:"location"`
+			Value    any    `json:"value"`
+		} `json:"errors"`
+	}
+	_ = json.Unmarshal(body, &e)
+	msg := e.Title
+	if msg == "" {
+		msg = e.Error
+	}
+	if e.Detail != "" {
+		msg += ": " + e.Detail
+	}
+	for _, ve := range e.Errors {
+		msg += fmt.Sprintf("\n  - %s at %s (value: %v)", ve.Message, ve.Location, ve.Value)
+	}
+	if hint := c.authHint(statusCode); hint != "" {
+		if msg != "" {
+			msg += "\n" + hint
+		} else {
+			msg = hint
+		}
+	}
+	if msg != "" {
+		return fmt.Errorf("HTTP %d: %s", statusCode, msg)
+	}
+	return fmt.Errorf("HTTP %d", statusCode)
 }
 
 // authHint returns a recovery message for 401/403 naming the credential
