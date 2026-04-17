@@ -531,6 +531,17 @@ type ZdxQuestionProposal struct {
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+type ZdxReservation struct {
+	ID             int64              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	ReleasedAt     pgtype.Timestamptz `db:"released_at" json:"released_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+}
+
 type ZdxRevision struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`

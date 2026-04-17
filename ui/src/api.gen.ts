@@ -2358,6 +2358,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/solo/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["solo-list-reservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/specs/defer": {
         parameters: {
             query?: never;
@@ -6788,6 +6804,16 @@ export interface components {
             sql_hash: string;
             sql_text: string;
         };
+        ReservationItem: {
+            claimed_at: string;
+            claimed_by: string;
+            /** Format: int64 */
+            id: number;
+            lease_expires_at: string;
+            released_at: string;
+            target_id: string;
+            target_type: string;
+        };
         ResolutionCommitItem: {
             /** Format: int32 */
             ord: number;
@@ -7173,6 +7199,15 @@ export interface components {
             readonly $schema?: string;
             tasks: components["schemas"]["AgentTaskItem"][] | null;
             todos: components["schemas"]["TodoItem"][] | null;
+        };
+        "Solo-list-reservationsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-list-reservationsResponse.json
+             */
+            readonly $schema?: string;
+            reservations: components["schemas"]["ReservationItem"][] | null;
         };
         "Solo-releaseRequest": {
             /**
@@ -12907,6 +12942,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "solo-list-reservations": {
+        parameters: {
+            query: {
+                slug: string;
+                limit?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Solo-list-reservationsResponse"];
                 };
             };
             /** @description Error */

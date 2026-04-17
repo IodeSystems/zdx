@@ -268,6 +268,13 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "no tasks available to claim")
 			}
+			_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
+				ProjectID:      t.ProjectID,
+				TargetType:     "task",
+				TargetID:       t.ID,
+				ClaimedBy:      t.ClaimedBy.String,
+				LeaseExpiresAt: t.LeaseExpiresAt,
+			})
 			h.recordStatusChange(ctx, p.ID, "task", t.ID, "ready", "active", in.Body.AgentID)
 			item := AgentTaskItem{
 				ID:             t.ID,
@@ -295,23 +302,32 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 		}) (*struct{}, error) {
 			taskID := in.ID
 			prev := ""
+			var projectID int32
 			if t, gErr := h.Q.GetTask(ctx, taskID); gErr == nil {
 				prev = t.Status
+				projectID = t.ProjectID
 			}
 			if in.Body.AgentID == "" {
 				if err := h.Q.ReleaseTaskAdmin(ctx, taskID); err != nil {
 					return nil, apiErr(500, err.Error())
 				}
 				h.recordTaskStatusChange(ctx, taskID, prev, "ready", "")
-				return &struct{}{}, nil
+			} else {
+				if err := h.Q.ReleaseTask(ctx, db.ReleaseTaskParams{
+					ID:        taskID,
+					ClaimedBy: pgtype.Text{String: in.Body.AgentID, Valid: true},
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				h.recordTaskStatusChange(ctx, taskID, prev, "ready", in.Body.AgentID)
 			}
-			if err := h.Q.ReleaseTask(ctx, db.ReleaseTaskParams{
-				ID:        taskID,
-				ClaimedBy: pgtype.Text{String: in.Body.AgentID, Valid: true},
-			}); err != nil {
-				return nil, apiErr(500, err.Error())
+			if projectID != 0 {
+				_ = h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
+					ProjectID:  projectID,
+					TargetType: "task",
+					TargetID:   taskID,
+				})
 			}
-			h.recordTaskStatusChange(ctx, taskID, prev, "ready", in.Body.AgentID)
 			return &struct{}{}, nil
 		})
 

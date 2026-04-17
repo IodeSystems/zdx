@@ -228,6 +228,16 @@ type OKBody struct {
 	OK bool `json:"ok"`
 }
 
+type ReservationItem struct {
+	ID             int64  `json:"id"`
+	TargetType     string `json:"target_type"`
+	TargetID       string `json:"target_id"`
+	ClaimedBy      string `json:"claimed_by"`
+	ClaimedAt      string `json:"claimed_at"`
+	ReleasedAt     string `json:"released_at"`
+	LeaseExpiresAt string `json:"lease_expires_at"`
+}
+
 type CodeRefItem struct {
 	ID        int32  `json:"id"`
 	FilePath  string `json:"file_path"`

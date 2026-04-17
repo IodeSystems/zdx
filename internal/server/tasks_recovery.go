@@ -28,6 +28,11 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 					prevAgent = r.ClaimedBy.String
 				}
 				handlers.RecordStatusChange(ctx, s.q, r.ProjectID, "task", r.ID, "active", "ready", prevAgent)
+				_ = s.q.ReleaseReservation(ctx, db.ReleaseReservationParams{
+					ProjectID:  r.ProjectID,
+					TargetType: "task",
+					TargetID:   r.ID,
+				})
 			}
 		}
 

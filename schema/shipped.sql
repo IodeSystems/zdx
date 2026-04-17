@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1511,6 +1511,41 @@ ALTER SEQUENCE public.zdx_questions_id_seq OWNED BY public.zdx_questions.id;
 
 
 --
+-- Name: zdx_reservations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_reservations (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    target_type text NOT NULL,
+    target_id text NOT NULL,
+    claimed_by text DEFAULT ''::text NOT NULL,
+    claimed_at timestamp with time zone DEFAULT now() NOT NULL,
+    released_at timestamp with time zone,
+    lease_expires_at timestamp with time zone
+);
+
+
+--
+-- Name: zdx_reservations_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_reservations_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_reservations_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_reservations_id_seq OWNED BY public.zdx_reservations.id;
+
+
+--
 -- Name: zdx_revisions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2402,6 +2437,13 @@ ALTER TABLE ONLY public.zdx_questions ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: zdx_reservations id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_reservations ALTER COLUMN id SET DEFAULT nextval('public.zdx_reservations_id_seq'::regclass);
+
+
+--
 -- Name: zdx_revisions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3008,6 +3050,14 @@ ALTER TABLE ONLY public.zdx_question_proposals
 
 ALTER TABLE ONLY public.zdx_questions
     ADD CONSTRAINT zdx_questions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_reservations zdx_reservations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_reservations
+    ADD CONSTRAINT zdx_reservations_pkey PRIMARY KEY (id);
 
 
 --
@@ -3646,6 +3696,20 @@ CREATE INDEX zdx_log_events_project_created ON public.zdx_log_events USING btree
 
 
 --
+-- Name: zdx_reservations_claimed_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_reservations_claimed_at ON public.zdx_reservations USING btree (project_id, claimed_at DESC);
+
+
+--
+-- Name: zdx_reservations_project_target; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_reservations_project_target ON public.zdx_reservations USING btree (project_id, target_type, target_id);
+
+
+--
 -- Name: zdx_revisions_target; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4204,6 +4268,14 @@ ALTER TABLE ONLY public.zdx_questions
 
 ALTER TABLE ONLY public.zdx_questions
     ADD CONSTRAINT zdx_questions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_reservations zdx_reservations_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_reservations
+    ADD CONSTRAINT zdx_reservations_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

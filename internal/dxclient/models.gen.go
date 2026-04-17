@@ -2403,6 +2403,17 @@ type ReportSlowQueryRequest struct {
 	SqlText     string  `json:"sql_text"`
 }
 
+// ReservationItem defines model for ReservationItem.
+type ReservationItem struct {
+	ClaimedAt      string `json:"claimed_at"`
+	ClaimedBy      string `json:"claimed_by"`
+	Id             int64  `json:"id"`
+	LeaseExpiresAt string `json:"lease_expires_at"`
+	ReleasedAt     string `json:"released_at"`
+	TargetId       string `json:"target_id"`
+	TargetType     string `json:"target_type"`
+}
+
 // ResolutionCommitItem defines model for ResolutionCommitItem.
 type ResolutionCommitItem struct {
 	Ord int32  `json:"ord"`
@@ -2722,6 +2733,13 @@ type SoloListClaimsResponse struct {
 	Schema *string          `json:"$schema,omitempty"`
 	Tasks  *[]AgentTaskItem `json:"tasks"`
 	Todos  *[]TodoItem      `json:"todos"`
+}
+
+// SoloListReservationsResponse defines model for Solo-list-reservationsResponse.
+type SoloListReservationsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string            `json:"$schema,omitempty"`
+	Reservations *[]ReservationItem `json:"reservations"`
 }
 
 // SoloReleaseRequest defines model for Solo-releaseRequest.
@@ -3701,6 +3719,12 @@ type SoloListClaimsParams struct {
 // SoloHealthParams defines parameters for SoloHealth.
 type SoloHealthParams struct {
 	Slug string `form:"slug" json:"slug"`
+}
+
+// SoloListReservationsParams defines parameters for SoloListReservations.
+type SoloListReservationsParams struct {
+	Slug  string `form:"slug" json:"slug"`
+	Limit *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
 // ListSpecsWithoutDemosParams defines parameters for ListSpecsWithoutDemos.
@@ -5028,6 +5052,9 @@ type ClientInterface interface {
 	SoloRenewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SoloRenew(ctx context.Context, body SoloRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SoloListReservations request
+	SoloListReservations(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeferSpecWithBody request with any body
 	DeferSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8175,6 +8202,18 @@ func (c *APIClient) SoloRenewWithBody(ctx context.Context, contentType string, b
 
 func (c *APIClient) SoloRenew(ctx context.Context, body SoloRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSoloRenewRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SoloListReservations(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSoloListReservationsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -18318,6 +18357,67 @@ func NewSoloRenewRequestWithBody(server string, contentType string, body io.Read
 	return req, nil
 }
 
+// NewSoloListReservationsRequest generates requests for SoloListReservations
+func NewSoloListReservationsRequest(server string, params *SoloListReservationsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/solo/reservations")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeferSpecRequest calls the generic DeferSpec builder with application/json body
 func NewDeferSpecRequest(server string, body DeferSpecJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -23852,6 +23952,9 @@ type ClientWithResponsesInterface interface {
 
 	SoloRenewWithResponse(ctx context.Context, body SoloRenewJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloRenewResponse, error)
 
+	// SoloListReservationsWithResponse request
+	SoloListReservationsWithResponse(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListReservationsResponse, error)
+
 	// DeferSpecWithBodyWithResponse request with any body
 	DeferSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeferSpecResponse, error)
 
@@ -27845,6 +27948,29 @@ func (r SoloRenewResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r SoloRenewResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedSoloListReservationsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SoloListReservationsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSoloListReservationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSoloListReservationsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -32027,6 +32153,15 @@ func (c *ClientWithResponses) SoloRenewWithResponse(ctx context.Context, body So
 		return nil, err
 	}
 	return ParseSoloRenewResponse(rsp)
+}
+
+// SoloListReservationsWithResponse request returning *ParsedSoloListReservationsResponse
+func (c *ClientWithResponses) SoloListReservationsWithResponse(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListReservationsResponse, error) {
+	rsp, err := c.SoloListReservations(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSoloListReservationsResponse(rsp)
 }
 
 // DeferSpecWithBodyWithResponse request with arbitrary body returning *DeferSpecResponse
@@ -38432,6 +38567,39 @@ func ParseSoloRenewResponse(rsp *http.Response) (*SoloRenewResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedSoloListReservationsResponse parses an HTTP response from a SoloListReservationsWithResponse call
+func ParseParsedSoloListReservationsResponse(rsp *http.Response) (*ParsedSoloListReservationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSoloListReservationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SoloListReservationsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

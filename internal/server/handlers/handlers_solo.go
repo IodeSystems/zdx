@@ -637,7 +637,15 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}
 
 			// Reclaim expired leases first.
-			_ = h.Q.ReclaimExpiredTodos(ctx, p.ID)
+			if expired, _ := h.Q.ReclaimExpiredTodos(ctx, p.ID); len(expired) > 0 {
+				for _, t := range expired {
+					_ = h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
+						ProjectID:  t.ProjectID,
+						TargetType: "todo",
+						TargetID:   fmt.Sprintf("%d", t.ID),
+					})
+				}
+			}
 
 			// Generate fresh queue and merge into persisted todos (preserving claims).
 			proposed, err := h.generateSoloQueue(ctx, p.ID, "")
@@ -680,6 +688,13 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "no claimable todo items")
 			}
+			_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
+				ProjectID:      row.ProjectID,
+				TargetType:     "todo",
+				TargetID:       fmt.Sprintf("%d", row.ID),
+				ClaimedBy:      row.ClaimedBy,
+				LeaseExpiresAt: row.LeaseExpiresAt,
+			})
 			item := toTodoItemFromClaim(row)
 			return &struct{ Body TodoItem }{Body: item}, nil
 		})
@@ -706,17 +721,15 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 		}, error) {
 			resolve := in.Body.Resolve
 			churnDowngraded := false
-			if resolve && in.Body.SessionID != "" {
-				todo, err := h.Q.GetTodoByID(ctx, in.Body.ID)
-				if err == nil {
-					n, _ := h.Q.CountRevisionsBySession(ctx, db.CountRevisionsBySessionParams{
-						ProjectID: todo.ProjectID,
-						SessionID: in.Body.SessionID,
-					})
-					if n == 0 {
-						resolve = false
-						churnDowngraded = true
-					}
+			todo, _ := h.Q.GetTodoByID(ctx, in.Body.ID)
+			if resolve && in.Body.SessionID != "" && todo.ID != 0 {
+				n, _ := h.Q.CountRevisionsBySession(ctx, db.CountRevisionsBySessionParams{
+					ProjectID: todo.ProjectID,
+					SessionID: in.Body.SessionID,
+				})
+				if n == 0 {
+					resolve = false
+					churnDowngraded = true
 				}
 			}
 			if resolve {
@@ -727,6 +740,13 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				_ = h.Q.ReleaseTodo(ctx, db.ReleaseTodoParams{
 					ID:        in.Body.ID,
 					ClaimedBy: in.Body.AgentID,
+				})
+			}
+			if todo.ID != 0 {
+				_ = h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
+					ProjectID:  todo.ProjectID,
+					TargetType: "todo",
+					TargetID:   fmt.Sprintf("%d", todo.ID),
 				})
 			}
 			return &struct {
@@ -805,6 +825,52 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				Todos []TodoItem      `json:"todos"`
 				Tasks []AgentTaskItem `json:"tasks"`
 			}{Todos: todos, Tasks: tasks}}, nil
+		})
+
+	// GET /api/dx/solo/reservations — list historical + active reservations for a project
+	huma.Register(api, huma.Operation{OperationID: "solo-list-reservations", Method: http.MethodGet, Path: "/api/dx/solo/reservations"},
+		func(ctx context.Context, in *struct {
+			Slug  string `query:"slug" required:"true"`
+			Limit int32  `query:"limit" required:"false"`
+		}) (*struct {
+			Body struct {
+				Reservations []ReservationItem `json:"reservations"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			lim := in.Limit
+			if lim <= 0 {
+				lim = 100
+			}
+			rows, err := h.Q.ListReservations(ctx, db.ListReservationsParams{
+				ProjectID: p.ID,
+				Lim:       lim,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			items := make([]ReservationItem, len(rows))
+			for i, r := range rows {
+				items[i] = ReservationItem{
+					ID:             r.ID,
+					TargetType:     r.TargetType,
+					TargetID:       r.TargetID,
+					ClaimedBy:      r.ClaimedBy,
+					ClaimedAt:      fmtTS(r.ClaimedAt),
+					ReleasedAt:     fmtTS(r.ReleasedAt),
+					LeaseExpiresAt: fmtTS(r.LeaseExpiresAt),
+				}
+			}
+			return &struct {
+				Body struct {
+					Reservations []ReservationItem `json:"reservations"`
+				}
+			}{Body: struct {
+				Reservations []ReservationItem `json:"reservations"`
+			}{Reservations: items}}, nil
 		})
 
 	// POST /api/dx/solo/renew — extend lease on a claimed todo

@@ -208,6 +208,7 @@ type Querier interface {
 	InsertPattern(ctx context.Context, arg InsertPatternParams) (ZdxPattern, error)
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertQuestionProposal(ctx context.Context, arg InsertQuestionProposalParams) (ZdxQuestionProposal, error)
+	InsertReservation(ctx context.Context, arg InsertReservationParams) (ZdxReservation, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
@@ -306,6 +307,8 @@ type Querier interface {
 	ListQuestionProposalsByQuestion(ctx context.Context, arg ListQuestionProposalsByQuestionParams) ([]ZdxQuestionProposal, error)
 	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	ListQuestionsPaginated(ctx context.Context, arg ListQuestionsPaginatedParams) ([]ZdxQuestion, error)
+	// Return all reservations for a project, most recent first.
+	ListReservations(ctx context.Context, arg ListReservationsParams) ([]ZdxReservation, error)
 	ListResolutionCommits(ctx context.Context, resolutionID string) ([]ZdxIssueResolutionCommit, error)
 	ListResolutionsByProject(ctx context.Context, projectID int32) ([]ZdxIssueResolution, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
@@ -375,9 +378,11 @@ type Querier interface {
 	ReadyTask(ctx context.Context, id string) error
 	ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error)
 	ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error)
-	// Clear claims on todos whose leases have expired.
-	ReclaimExpiredTodos(ctx context.Context, projectID int32) error
+	// Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
+	ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]ReclaimExpiredTodosRow, error)
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)
+	// Mark a reservation as released by (project_id, target_type, target_id) where released_at is NULL.
+	ReleaseReservation(ctx context.Context, arg ReleaseReservationParams) error
 	ReleaseTask(ctx context.Context, arg ReleaseTaskParams) error
 	ReleaseTaskAdmin(ctx context.Context, id string) error
 	// Release a claimed todo (agent finished or abandoned).

@@ -1704,69 +1704,41 @@ func todoReleaseRun(cmd *cobra.Command, arg string, force bool) error {
 }
 
 func todoReservationsCmd() *cobra.Command {
-	return &cobra.Command{
+	var limitFlag int32
+	cmd := &cobra.Command{
 		Use:   "reservations",
-		Short: "List all active todo and task claims (unexpired leases)",
-		RunE:  todoReservationsRun,
+		Short: "List reservation history (claimed_at, released_at) for todos and tasks",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return todoReservationsRun(cmd, limitFlag)
+		},
 	}
+	cmd.Flags().Int32Var(&limitFlag, "limit", 50, "max number of reservations to show")
+	return cmd
 }
 
-func todoReservationsRun(cmd *cobra.Command, _ []string) error {
+func todoReservationsRun(cmd *cobra.Command, limit int32) error {
 	c := cli.MustClient()
 	slug := c.SlugOrDie()
 
-	type todoRow struct {
-		ID             int32  `json:"id"`
-		Text           string `json:"text"`
-		Kind           string `json:"kind"`
-		IssueRef       string `json:"issue_ref"`
-		ClaimedBy      string `json:"claimed_by"`
-		LeaseExpiresAt string `json:"lease_expires_at"`
-	}
-	type taskRow struct {
-		ID             string `json:"id"`
-		Text           string `json:"text"`
-		Issue          string `json:"issue"`
-		TaskGroup      string `json:"task_group"`
-		ClaimedBy      string `json:"claimed_by"`
-		LeaseExpiresAt string `json:"lease_expires_at"`
-	}
-	var resp struct {
-		Todos []todoRow `json:"todos"`
-		Tasks []taskRow `json:"tasks"`
-	}
-	if err := c.Get("/api/dx/solo/claims", map[string][]string{"slug": {slug}}, &resp); err != nil {
+	resp, err := c.SoloListReservationsWithResponse(cmd.Context(), &dxclient.SoloListReservationsParams{
+		Slug:  slug,
+		Limit: &limit,
+	})
+	if err != nil {
 		return err
 	}
-
-	if len(resp.Todos) == 0 && len(resp.Tasks) == 0 {
-		fmt.Println("no active reservations")
+	if resp.JSON200 == nil || resp.JSON200.Reservations == nil || len(*resp.JSON200.Reservations) == 0 {
+		fmt.Println("no reservations")
 		return nil
 	}
 
-	if len(resp.Todos) > 0 {
-		fmt.Println("todos:")
-		for _, t := range resp.Todos {
-			ref := t.IssueRef
-			if ref == "" {
-				ref = t.Kind
-			}
-			fmt.Printf("  TODO-%-4d  %-10s  claimed-by=%-12s  expires=%s\n",
-				t.ID, ref, t.ClaimedBy, t.LeaseExpiresAt)
-			fmt.Printf("             %s\n", cli.Truncate(t.Text, 80))
+	for _, r := range *resp.JSON200.Reservations {
+		status := "active"
+		if r.ReleasedAt != "" {
+			status = "released"
 		}
-	}
-	if len(resp.Tasks) > 0 {
-		fmt.Println("tasks:")
-		for _, t := range resp.Tasks {
-			ref := t.Issue
-			if ref == "" {
-				ref = t.TaskGroup
-			}
-			fmt.Printf("  %-12s  %-10s  claimed-by=%-12s  expires=%s\n",
-				t.ID, ref, t.ClaimedBy, t.LeaseExpiresAt)
-			fmt.Printf("             %s\n", cli.Truncate(t.Text, 80))
-		}
+		fmt.Printf("  %-8s  %-5s  %-12s  claimed=%-26s  released=%-26s  %s\n",
+			r.TargetType, r.TargetId, r.ClaimedBy, r.ClaimedAt, r.ReleasedAt, status)
 	}
 	return nil
 }

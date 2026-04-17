@@ -533,7 +533,7 @@ func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredPa
 	return items, nil
 }
 
-const reclaimExpiredTodos = `-- name: ReclaimExpiredTodos :exec
+const reclaimExpiredTodos = `-- name: ReclaimExpiredTodos :many
 UPDATE zdx_todos SET
   claimed_by = '',
   claimed_at = NULL,
@@ -541,12 +541,70 @@ UPDATE zdx_todos SET
 WHERE project_id = $1
   AND claimed_by != ''
   AND lease_expires_at < NOW()
+RETURNING id, project_id, text, key, persona, priority, status,
+          target_type, target_id, kind, issue_ref, blocked,
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 `
 
-// Clear claims on todos whose leases have expired.
-func (q *Queries) ReclaimExpiredTodos(ctx context.Context, projectID int32) error {
-	_, err := q.db.Exec(ctx, reclaimExpiredTodos, projectID)
-	return err
+type ReclaimExpiredTodosRow struct {
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
+}
+
+// Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
+func (q *Queries) ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]ReclaimExpiredTodosRow, error) {
+	rows, err := q.db.Query(ctx, reclaimExpiredTodos, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReclaimExpiredTodosRow
+	for rows.Next() {
+		var i ReclaimExpiredTodosRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Key,
+			&i.Persona,
+			&i.Priority,
+			&i.Status,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Kind,
+			&i.IssueRef,
+			&i.Blocked,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
+			&i.CreatedAt,
+			&i.ResolvedAt,
+			&i.ReopenCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const releaseTodo = `-- name: ReleaseTodo :exec

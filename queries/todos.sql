@@ -126,15 +126,18 @@ UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW(),
   claimed_by = '', claimed_at = NULL, lease_expires_at = NULL
 WHERE id = $1;
 
--- name: ReclaimExpiredTodos :exec
--- Clear claims on todos whose leases have expired.
+-- name: ReclaimExpiredTodos :many
+-- Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
 UPDATE zdx_todos SET
   claimed_by = '',
   claimed_at = NULL,
   lease_expires_at = NULL
 WHERE project_id = $1
   AND claimed_by != ''
-  AND lease_expires_at < NOW();
+  AND lease_expires_at < NOW()
+RETURNING id, project_id, text, key, persona, priority, status,
+          target_type, target_id, kind, issue_ref, blocked,
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
 -- name: ListActiveTodoClaims :many
 -- Return all todos that are currently claimed and whose lease has not expired.
