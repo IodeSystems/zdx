@@ -76,10 +76,32 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "delete-feature", Method: http.MethodDelete, Path: "/api/feature"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ID int32 `json:"id"`
+				Slug  string `json:"slug"`
+				Name  string `json:"name"`
+				Force bool   `json:"force,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
-			if err := h.Q.DeleteFeature(ctx, in.Body.ID); err != nil {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			feat, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Name})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "feature not found: "+in.Body.Name)
+			}
+			specs, _ := h.Q.ListSpecs(ctx, feat.ID)
+			children, _ := h.Q.ListChildFeatures(ctx, pgtype.Int4{Int32: feat.ID, Valid: true})
+			if !in.Body.Force && (len(specs) > 0 || len(children) > 0) {
+				return nil, apiErr(http.StatusBadRequest, fmt.Sprintf(
+					"feature %q has %d spec(s) and %d child feature(s) — pass force=true to cascade (specs will be deleted, children detached)",
+					in.Body.Name, len(specs), len(children)))
+			}
+			for _, child := range children {
+				if err := h.Q.ClearFeatureParent(ctx, child.ID); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+			}
+			if err := h.Q.DeleteFeature(ctx, feat.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil

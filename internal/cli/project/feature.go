@@ -18,6 +18,7 @@ func FeatureCmd() *cobra.Command {
 		featureShowCmd(),
 		featureSetCmd(),
 		featureReviewCmd(),
+		featureRmCmd(),
 	)
 	return cmd
 }
@@ -200,6 +201,34 @@ func featureSetCmd() *cobra.Command {
 	cmd.Flags().StringVar(&targetValue, "target-value", "", "target measurement")
 	cmd.Flags().StringVar(&graphURL, "graph-url", "", "URL to instrumentation graph/dashboard")
 	cmd.Flags().StringVar(&parent, "parent", "", "parent feature name (empty string clears parent)")
+	return cmd
+}
+
+func featureRmCmd() *cobra.Command {
+	var force bool
+	cmd := &cobra.Command{
+		Use:     "rm <name>",
+		Aliases: []string{"remove", "delete"},
+		Short:   "Delete a feature (refuses if it has specs or children unless --force)",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			resp, err := c.DeleteFeatureWithResponse(cmd.Context(), dxclient.DeleteFeatureRequest{
+				Slug:  c.SlugOrDie(),
+				Name:  args[0],
+				Force: &force,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("deleted feature %s\n", args[0])
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&force, "force", false, "cascade: delete specs and detach child features")
 	return cmd
 }
 

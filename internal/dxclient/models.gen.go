@@ -753,7 +753,9 @@ type DeleteDraftTaskRequest struct {
 type DeleteFeatureRequest struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string `json:"$schema,omitempty"`
-	Id     int32   `json:"id"`
+	Force  *bool   `json:"force,omitempty"`
+	Name   string  `json:"name"`
+	Slug   string  `json:"slug"`
 }
 
 // DeleteGoalRequest defines model for Delete-goalRequest.

@@ -4518,8 +4518,9 @@ export interface components {
              * @example https://example.com/schemas/Delete-featureRequest.json
              */
             readonly $schema?: string;
-            /** Format: int32 */
-            id: number;
+            force?: boolean;
+            name: string;
+            slug: string;
         };
         "Delete-goalRequest": {
             /**
