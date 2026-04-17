@@ -601,14 +601,10 @@ func postAgentSessionCreate(rc remoteConfig, sid, issueID, alias, provider, trig
 	// is belt-and-suspenders so a future tag reset doesn't silently break
 	// session recording again.
 	body := dxclient.CreateAgentSessionRequest{
-		Provider:         provider,
-		IssueId:          issueID,
-		Alias:            alias,
-		Trigger:          trigger,
-		Title:            "",
-		AgentId:          "",
-		AgentType:        "",
-		AgentDescription: "",
+		Provider: provider,
+		IssueId:  issueID,
+		Alias:    alias,
+		Trigger:  trigger,
 	}
 	path := fmt.Sprintf("/api/dx/agent/sessions/%s/create?slug=%s",
 		url.PathEscape(sid), url.QueryEscape(rc.slug))

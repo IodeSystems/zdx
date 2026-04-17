@@ -63,7 +63,7 @@ func focusAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			var t clitypes.FocusItem
-			if err := c.Post("/api/dx/focuses/add", dxclient.AddThemeRequest{
+			if err := c.Post("/api/dx/focuses/add", dxclient.AddFocusRequest{
 				Slug:        c.SlugOrDie(),
 				Name:        args[0],
 				Description: desc,
@@ -93,9 +93,9 @@ func focusStatusCmd() *cobra.Command {
 				OK bool `json:"ok"`
 			}
 			// Reuse the old request type — JSON wire format is compatible.
-			if err := c.Post("/api/dx/focuses/status", dxclient.SetThemeStatusRequest{
-				Slug:   c.SlugOrDie(),
-				Theme:  args[0],
+			if err := c.Post("/api/dx/focuses/status", dxclient.SetFocusStatusRequest{
+				Slug:  c.SlugOrDie(),
+				Focus: args[0],
 				Status: args[1],
 			}, &ok); err != nil {
 				return err

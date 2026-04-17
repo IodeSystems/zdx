@@ -55,19 +55,28 @@ func runCheck(root, specPath, configPath string) error {
 	}
 	defer os.RemoveAll(tmp)
 
-	tmpConfigPath := filepath.Join(tmp, "oapi-codegen.yaml")
-	tmpOutPath := filepath.Join(tmp, "models.gen.go")
+	cfgBase := filepath.Base(configPath)
+	tmpConfigPath := filepath.Join(tmp, cfgBase)
+	// Parse the original output path from the config and redirect to tmp.
 	cfgBytes, err := os.ReadFile(configPath)
 	if err != nil {
 		return fmt.Errorf("read config: %w", err)
 	}
+	origOutput := ""
+	for _, line := range bytes.Split(cfgBytes, []byte("\n")) {
+		if rest, ok := bytes.CutPrefix(line, []byte("output:")); ok {
+			origOutput = string(bytes.TrimSpace(rest))
+			break
+		}
+	}
+	if origOutput == "" {
+		return fmt.Errorf("config %s has no output: line", cfgBase)
+	}
+	tmpOutPath := filepath.Join(tmp, filepath.Base(origOutput))
 	patched := bytes.ReplaceAll(cfgBytes,
-		[]byte("output: internal/dxclient/models.gen.go"),
+		[]byte("output: "+origOutput),
 		[]byte("output: "+tmpOutPath),
 	)
-	if !bytes.Contains(patched, []byte("output: "+tmpOutPath)) {
-		return fmt.Errorf("config file does not contain expected output line; update runCheck")
-	}
 	if err := os.WriteFile(tmpConfigPath, patched, 0644); err != nil {
 		return fmt.Errorf("write tmp config: %w", err)
 	}
@@ -76,7 +85,7 @@ func runCheck(root, specPath, configPath string) error {
 		return fmt.Errorf("regenerate: %w", err)
 	}
 
-	committedPath := filepath.Join(root, "internal", "dxclient", "models.gen.go")
+	committedPath := filepath.Join(root, origOutput)
 	committed, err := os.ReadFile(committedPath)
 	if err != nil {
 		return fmt.Errorf("read committed: %w", err)
