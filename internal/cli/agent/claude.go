@@ -440,6 +440,11 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
+	prompt := ""
+	if issueID != "" {
+		prompt = "/work " + issueID
+	}
+
 	adapter := &claudeAdapter{
 		projDir: projDir,
 		chrome:  chrome,
@@ -447,6 +452,7 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 		resumed: resumed,
 		alias:   alias,
 		model:   model,
+		prompt:  prompt,
 		exited:  make(chan struct{}),
 	}
 
@@ -468,7 +474,11 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
-	prompt := fmt.Sprintf("/work\n\nThis session is a continuation of a stalled session. The previous session was automatically terminated because it stopped producing output (likely a stuck tool call). Below is a summary of what it accomplished. Continue the work from where it left off — do NOT repeat already-completed steps.\n\n%s", summary)
+	workCmd := "/work"
+	if issueID != "" {
+		workCmd = "/work " + issueID
+	}
+	prompt := fmt.Sprintf("%s\n\nThis session is a continuation of a stalled session. The previous session was automatically terminated because it stopped producing output (likely a stuck tool call). Below is a summary of what it accomplished. Continue the work from where it left off — do NOT repeat already-completed steps.\n\n%s", workCmd, summary)
 
 	adapter := &claudeAdapter{
 		projDir: projDir,
