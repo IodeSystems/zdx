@@ -22709,7 +22709,7 @@ type ClientWithResponsesInterface interface {
 type ParsedListIntegrationTokensResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListIntegrationTokensResponse
+	JSON200                       *ListIntegrationTokensResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -22732,7 +22732,7 @@ func (r ParsedListIntegrationTokensResponse) StatusCode() int {
 type ParsedCreateIntegrationTokenResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedCreateIntegrationTokenResponse
+	JSON200                       *CreateIntegrationTokenResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -22799,7 +22799,7 @@ func (r RevokeIntegrationTokenResponse) StatusCode() int {
 type ParsedListInvitesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListInvitesResponse
+	JSON200                       *ListInvitesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -22913,7 +22913,7 @@ func (r SetLlmConfigResponse) StatusCode() int {
 type ParsedTestLlmConfigResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedTestLlmConfigResponse
+	JSON200                       *TestLlmConfigResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -22982,7 +22982,7 @@ func (r SetProjectGitConfigResponse) StatusCode() int {
 type ParsedTestProjectGitConfigResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedTestProjectGitConfigResponse
+	JSON200                       *TestProjectGitConfigResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23005,7 +23005,7 @@ func (r ParsedTestProjectGitConfigResponse) StatusCode() int {
 type ParsedSetProjectStageResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedSetProjectStageResponse
+	JSON200                       *SetProjectStageResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23028,7 +23028,7 @@ func (r ParsedSetProjectStageResponse) StatusCode() int {
 type ParsedAdminStatsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedAdminStatsResponse
+	JSON200                       *AdminStatsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23051,7 +23051,7 @@ func (r ParsedAdminStatsResponse) StatusCode() int {
 type ParsedListAdminUsersResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListAdminUsersResponse
+	JSON200                       *ListAdminUsersResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23096,7 +23096,7 @@ func (r UpdateUserRoleResponse) StatusCode() int {
 type ParsedListWsClientsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListWsClientsResponse
+	JSON200                       *ListWsClientsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23119,7 +23119,7 @@ func (r ParsedListWsClientsResponse) StatusCode() int {
 type ParsedWsEchoResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedWsEchoResponse
+	JSON200                       *WsEchoResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23142,7 +23142,7 @@ func (r ParsedWsEchoResponse) StatusCode() int {
 type ParsedListAgentsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListAgentsResponse
+	JSON200                       *ListAgentsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23165,7 +23165,7 @@ func (r ParsedListAgentsResponse) StatusCode() int {
 type ParsedReapAgentsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedReapAgentsResponse
+	JSON200                       *ReapAgentsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23278,7 +23278,7 @@ func (r AgentHeartbeatResponse) StatusCode() int {
 type ParsedListAgentTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListAgentTasksResponse
+	JSON200                       *ListAgentTasksResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23301,7 +23301,7 @@ func (r ParsedListAgentTasksResponse) StatusCode() int {
 type ParsedAuthLoginResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedAuthLoginResponse
+	JSON200                       *AuthLoginResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23324,7 +23324,7 @@ func (r ParsedAuthLoginResponse) StatusCode() int {
 type ParsedAuthRegisterResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedAuthRegisterResponse
+	JSON200                       *AuthRegisterResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23347,7 +23347,7 @@ func (r ParsedAuthRegisterResponse) StatusCode() int {
 type ParsedGetConfigResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetConfigResponse
+	JSON200                       *GetConfigResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23439,7 +23439,7 @@ func (r UpdateConstraintResponse) StatusCode() int {
 type ParsedListConstraintsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListConstraintsResponse
+	JSON200                       *ListConstraintsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23462,7 +23462,7 @@ func (r ParsedListConstraintsResponse) StatusCode() int {
 type ParsedCloseAgentSessionResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedCloseAgentSessionResponse
+	JSON200                       *CloseAgentSessionResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23485,7 +23485,7 @@ func (r ParsedCloseAgentSessionResponse) StatusCode() int {
 type ParsedCreateAgentSessionResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedCreateAgentSessionResponse
+	JSON200                       *CreateAgentSessionResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23554,7 +23554,7 @@ func (r AnswerBlockerQuestionResponse) StatusCode() int {
 type ParsedListBlockerQuestionsByTargetResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListBlockerQuestionsByTargetResponse
+	JSON200                       *ListBlockerQuestionsByTargetResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23577,7 +23577,7 @@ func (r ParsedListBlockerQuestionsByTargetResponse) StatusCode() int {
 type ParsedListBlockerQuestionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListBlockerQuestionsResponse
+	JSON200                       *ListBlockerQuestionsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23600,7 +23600,7 @@ func (r ParsedListBlockerQuestionsResponse) StatusCode() int {
 type ParsedListClaudeSessionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListClaudeSessionsResponse
+	JSON200                       *ListClaudeSessionsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23623,7 +23623,7 @@ func (r ParsedListClaudeSessionsResponse) StatusCode() int {
 type ParsedListChurnSessionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListChurnSessionsResponse
+	JSON200                       *ListChurnSessionsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23669,7 +23669,7 @@ func (r GetClaudeSessionResponse) StatusCode() int {
 type ParsedGetClaudeSessionEventsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetClaudeSessionEventsResponse
+	JSON200                       *GetClaudeSessionEventsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23715,7 +23715,7 @@ func (r ExtractPatternFromSessionResponse) StatusCode() int {
 type ParsedUpdateClaudeSessionSummaryResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedUpdateClaudeSessionSummaryResponse
+	JSON200                       *UpdateClaudeSessionSummaryResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23738,7 +23738,7 @@ func (r ParsedUpdateClaudeSessionSummaryResponse) StatusCode() int {
 type ParsedGetClaudeSessionTokenUsageResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetClaudeSessionTokenUsageResponse
+	JSON200                       *GetClaudeSessionTokenUsageResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23761,7 +23761,7 @@ func (r ParsedGetClaudeSessionTokenUsageResponse) StatusCode() int {
 type ParsedGetClaudeSessionTokenUsageByAgentResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetClaudeSessionTokenUsageByAgentResponse
+	JSON200                       *GetClaudeSessionTokenUsageByAgentResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23807,7 +23807,7 @@ func (r DeleteCodeRefResponse) StatusCode() int {
 type ParsedListCodeRefsForIssueResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCodeRefsForIssueResponse
+	JSON200                       *ListCodeRefsForIssueResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23876,7 +23876,7 @@ func (r DetachCodeRefFromIssueResponse) StatusCode() int {
 type ParsedListCodeRefsForTaskResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCodeRefsForTaskResponse
+	JSON200                       *ListCodeRefsForTaskResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -23945,7 +23945,7 @@ func (r DetachCodeRefFromTaskResponse) StatusCode() int {
 type ParsedListCodeRefsForTestResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCodeRefsForTestResponse
+	JSON200                       *ListCodeRefsForTestResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24060,7 +24060,7 @@ func (r GetCommentResponse) StatusCode() int {
 type ParsedListCommentsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCommentsResponse
+	JSON200                       *ListCommentsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24106,7 +24106,7 @@ func (r MarkCommentsReadResponse) StatusCode() int {
 type ParsedListMyCommentsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListMyCommentsResponse
+	JSON200                       *ListMyCommentsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24129,7 +24129,7 @@ func (r ParsedListMyCommentsResponse) StatusCode() int {
 type ParsedReactToCommentResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedReactToCommentResponse
+	JSON200                       *ReactToCommentResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24152,7 +24152,7 @@ func (r ParsedReactToCommentResponse) StatusCode() int {
 type ParsedCommentStaleUnreadResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedCommentStaleUnreadResponse
+	JSON200                       *CommentStaleUnreadResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24175,7 +24175,7 @@ func (r ParsedCommentStaleUnreadResponse) StatusCode() int {
 type ParsedCommentUnreadCheckResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedCommentUnreadCheckResponse
+	JSON200                       *CommentUnreadCheckResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24198,7 +24198,7 @@ func (r ParsedCommentUnreadCheckResponse) StatusCode() int {
 type ParsedListCountedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCountedResponse
+	JSON200                       *ListCountedResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24221,7 +24221,7 @@ func (r ParsedListCountedResponse) StatusCode() int {
 type ParsedListCountedGroupedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCountedGroupedResponse
+	JSON200                       *ListCountedGroupedResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24244,7 +24244,7 @@ func (r ParsedListCountedGroupedResponse) StatusCode() int {
 type ParsedListCountedTagKeysResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCountedTagKeysResponse
+	JSON200                       *ListCountedTagKeysResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24267,7 +24267,7 @@ func (r ParsedListCountedTagKeysResponse) StatusCode() int {
 type ParsedListCountedTagValuesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCountedTagValuesResponse
+	JSON200                       *ListCountedTagValuesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24290,7 +24290,7 @@ func (r ParsedListCountedTagValuesResponse) StatusCode() int {
 type ParsedListCounterEventsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCounterEventsResponse
+	JSON200                       *ListCounterEventsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24313,7 +24313,7 @@ func (r ParsedListCounterEventsResponse) StatusCode() int {
 type ParsedListCounterEventsGroupedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListCounterEventsGroupedResponse
+	JSON200                       *ListCounterEventsGroupedResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24382,7 +24382,7 @@ func (r DeferDoctorCheckResponse) StatusCode() int {
 type ParsedListDoctorDeferralsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListDoctorDeferralsResponse
+	JSON200                       *ListDoctorDeferralsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24405,7 +24405,7 @@ func (r ParsedListDoctorDeferralsResponse) StatusCode() int {
 type ParsedListErrorEventsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListErrorEventsResponse
+	JSON200                       *ListErrorEventsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24428,7 +24428,7 @@ func (r ParsedListErrorEventsResponse) StatusCode() int {
 type ParsedListErrorEventsGroupedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListErrorEventsGroupedResponse
+	JSON200                       *ListErrorEventsGroupedResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24451,7 +24451,7 @@ func (r ParsedListErrorEventsGroupedResponse) StatusCode() int {
 type ParsedListErrorEventsTagKeysResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListErrorEventsTagKeysResponse
+	JSON200                       *ListErrorEventsTagKeysResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24474,7 +24474,7 @@ func (r ParsedListErrorEventsTagKeysResponse) StatusCode() int {
 type ParsedListErrorEventsTagValuesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListErrorEventsTagValuesResponse
+	JSON200                       *ListErrorEventsTagValuesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24542,7 +24542,7 @@ func (r ClearErrorsResponse) StatusCode() int {
 type ParsedListErrorsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListErrorsResponse
+	JSON200                       *ListErrorsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24680,7 +24680,7 @@ func (r SetFeatureFieldResponse) StatusCode() int {
 type ParsedListStaleFeaturesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListStaleFeaturesResponse
+	JSON200                       *ListStaleFeaturesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24703,7 +24703,7 @@ func (r ParsedListStaleFeaturesResponse) StatusCode() int {
 type ParsedListFocusesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListFocusesResponse
+	JSON200                       *ListFocusesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24818,7 +24818,7 @@ func (r RemoveFocusBlockerResponse) StatusCode() int {
 type ParsedListGitCommitsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListGitCommitsResponse
+	JSON200                       *ListGitCommitsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24841,7 +24841,7 @@ func (r ParsedListGitCommitsResponse) StatusCode() int {
 type ParsedListHistoryResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListHistoryResponse
+	JSON200                       *ListHistoryResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24864,7 +24864,7 @@ func (r ParsedListHistoryResponse) StatusCode() int {
 type ParsedSimilarIssuesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedSimilarIssuesResponse
+	JSON200                       *SimilarIssuesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24910,7 +24910,7 @@ func (r JournalCheckinResponse) StatusCode() int {
 type ParsedJournalEntryResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedJournalEntryResponse
+	JSON200                       *JournalEntryResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24933,7 +24933,7 @@ func (r ParsedJournalEntryResponse) StatusCode() int {
 type ParsedJournalGenerateResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedJournalGenerateResponse
+	JSON200                       *JournalGenerateResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -24979,7 +24979,7 @@ func (r JournalReviewResponse) StatusCode() int {
 type ParsedJournalShowResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedJournalShowResponse
+	JSON200                       *JournalShowResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25002,7 +25002,7 @@ func (r ParsedJournalShowResponse) StatusCode() int {
 type ParsedJournalStateResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedJournalStateResponse
+	JSON200                       *JournalStateResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25025,7 +25025,7 @@ func (r ParsedJournalStateResponse) StatusCode() int {
 type ParsedListLogEventsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListLogEventsResponse
+	JSON200                       *ListLogEventsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25048,7 +25048,7 @@ func (r ParsedListLogEventsResponse) StatusCode() int {
 type ParsedListLogEventsGroupedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListLogEventsGroupedResponse
+	JSON200                       *ListLogEventsGroupedResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25071,7 +25071,7 @@ func (r ParsedListLogEventsGroupedResponse) StatusCode() int {
 type ParsedListLogEventsTagKeysResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListLogEventsTagKeysResponse
+	JSON200                       *ListLogEventsTagKeysResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25094,7 +25094,7 @@ func (r ParsedListLogEventsTagKeysResponse) StatusCode() int {
 type ParsedListLogEventsTagValuesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListLogEventsTagValuesResponse
+	JSON200                       *ListLogEventsTagValuesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25117,7 +25117,7 @@ func (r ParsedListLogEventsTagValuesResponse) StatusCode() int {
 type ParsedNotificationsUnreadCountResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedNotificationsUnreadCountResponse
+	JSON200                       *NotificationsUnreadCountResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25140,7 +25140,7 @@ func (r ParsedNotificationsUnreadCountResponse) StatusCode() int {
 type ParsedListPatternsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListPatternsResponse
+	JSON200                       *ListPatternsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25186,7 +25186,7 @@ func (r AddPatternResponse) StatusCode() int {
 type ParsedDeletePatternResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedDeletePatternResponse
+	JSON200                       *DeletePatternResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25232,7 +25232,7 @@ func (r GetPatternResponse) StatusCode() int {
 type ParsedReindexPatternsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedReindexPatternsResponse
+	JSON200                       *ReindexPatternsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25255,7 +25255,7 @@ func (r ParsedReindexPatternsResponse) StatusCode() int {
 type ParsedSimilarPatternsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedSimilarPatternsResponse
+	JSON200                       *SimilarPatternsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25462,7 +25462,7 @@ func (r UpdatePlanResponse) StatusCode() int {
 type ParsedListPlansResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListPlansResponse
+	JSON200                       *ListPlansResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25485,7 +25485,7 @@ func (r ParsedListPlansResponse) StatusCode() int {
 type ParsedGetProjectInfoResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetProjectInfoResponse
+	JSON200                       *GetProjectInfoResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25554,7 +25554,7 @@ func (r AnswerQuestionResponse) StatusCode() int {
 type ParsedListChildQuestionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListChildQuestionsResponse
+	JSON200                       *ListChildQuestionsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25600,7 +25600,7 @@ func (r GetQuestionResponse) StatusCode() int {
 type ParsedListQuestionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListQuestionsResponse
+	JSON200                       *ListQuestionsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25623,7 +25623,7 @@ func (r ParsedListQuestionsResponse) StatusCode() int {
 type ParsedSimilarQuestionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedSimilarQuestionsResponse
+	JSON200                       *SimilarQuestionsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25646,7 +25646,7 @@ func (r ParsedSimilarQuestionsResponse) StatusCode() int {
 type ParsedListUnansweredQuestionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListUnansweredQuestionsResponse
+	JSON200                       *ListUnansweredQuestionsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25669,7 +25669,7 @@ func (r ParsedListUnansweredQuestionsResponse) StatusCode() int {
 type ParsedAcceptQuestionProposalResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedAcceptQuestionProposalResponse
+	JSON200                       *AcceptQuestionProposalResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25715,7 +25715,7 @@ func (r AddQuestionProposalResponse) StatusCode() int {
 type ParsedListQuestionProposalsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListQuestionProposalsResponse
+	JSON200                       *ListQuestionProposalsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25761,7 +25761,7 @@ func (r DenyQuestionProposalResponse) StatusCode() int {
 type ParsedListRevisionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListRevisionsResponse
+	JSON200                       *ListRevisionsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25784,7 +25784,7 @@ func (r ParsedListRevisionsResponse) StatusCode() int {
 type ParsedListSlowQueriesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListSlowQueriesResponse
+	JSON200                       *ListSlowQueriesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -25922,7 +25922,7 @@ func (r SoloEvaluateResponse) StatusCode() int {
 type ParsedSoloHealthResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedSoloHealthResponse
+	JSON200                       *SoloHealthResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26014,7 +26014,7 @@ func (r DeferSpecResponse) StatusCode() int {
 type ParsedListSpecsWithoutDemosResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListSpecsWithoutDemosResponse
+	JSON200                       *ListSpecsWithoutDemosResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26037,7 +26037,7 @@ func (r ParsedListSpecsWithoutDemosResponse) StatusCode() int {
 type ParsedListSpecDemosResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListSpecDemosResponse
+	JSON200                       *ListSpecDemosResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26060,7 +26060,7 @@ func (r ParsedListSpecDemosResponse) StatusCode() int {
 type ParsedGetSpecResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetSpecResponse
+	JSON200                       *GetSpecResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26129,7 +26129,7 @@ func (r LinkSpecTestResponse) StatusCode() int {
 type ParsedListSpecTestsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListSpecTestsResponse
+	JSON200                       *ListSpecTestsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26152,7 +26152,7 @@ func (r ParsedListSpecTestsResponse) StatusCode() int {
 type ParsedListUncoveredSpecsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListUncoveredSpecsResponse
+	JSON200                       *ListUncoveredSpecsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26267,7 +26267,7 @@ func (r UpdateSpecsResponse) StatusCode() int {
 type ParsedGetStateResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetStateResponse
+	JSON200                       *GetStateResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26313,7 +26313,7 @@ func (r SetStateResponse) StatusCode() int {
 type ParsedSimilarTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedSimilarTasksResponse
+	JSON200                       *SimilarTasksResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26336,7 +26336,7 @@ func (r ParsedSimilarTasksResponse) StatusCode() int {
 type ParsedListStaleTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListStaleTasksResponse
+	JSON200                       *ListStaleTasksResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26359,7 +26359,7 @@ func (r ParsedListStaleTasksResponse) StatusCode() int {
 type ParsedSweepStaleTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedSweepStaleTasksResponse
+	JSON200                       *SweepStaleTasksResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26405,7 +26405,7 @@ func (r SubmitTestResultsResponse) StatusCode() int {
 type ParsedListTestsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTestsResponse
+	JSON200                       *ListTestsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26451,7 +26451,7 @@ func (r GetTestResponse) StatusCode() int {
 type ParsedGetTestHistoryResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetTestHistoryResponse
+	JSON200                       *GetTestHistoryResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26474,7 +26474,7 @@ func (r ParsedGetTestHistoryResponse) StatusCode() int {
 type ParsedListTimedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTimedResponse
+	JSON200                       *ListTimedResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26497,7 +26497,7 @@ func (r ParsedListTimedResponse) StatusCode() int {
 type ParsedListTimedEventsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTimedEventsResponse
+	JSON200                       *ListTimedEventsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26520,7 +26520,7 @@ func (r ParsedListTimedEventsResponse) StatusCode() int {
 type ParsedListTimedEventsGroupedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTimedEventsGroupedResponse
+	JSON200                       *ListTimedEventsGroupedResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26543,7 +26543,7 @@ func (r ParsedListTimedEventsGroupedResponse) StatusCode() int {
 type ParsedListTimedGroupedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTimedGroupedResponse
+	JSON200                       *ListTimedGroupedResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26566,7 +26566,7 @@ func (r ParsedListTimedGroupedResponse) StatusCode() int {
 type ParsedListTimedTagKeysResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTimedTagKeysResponse
+	JSON200                       *ListTimedTagKeysResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26589,7 +26589,7 @@ func (r ParsedListTimedTagKeysResponse) StatusCode() int {
 type ParsedListTimedTagValuesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTimedTagValuesResponse
+	JSON200                       *ListTimedTagValuesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26658,7 +26658,7 @@ func (r AddTaskCommitResponse) StatusCode() int {
 type ParsedGetTaskCommitRefsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetTaskCommitRefsResponse
+	JSON200                       *GetTaskCommitRefsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26727,7 +26727,7 @@ func (r MarkTaskReviewedResponse) StatusCode() int {
 type ParsedGetReviewDataResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedGetReviewDataResponse
+	JSON200                       *GetReviewDataResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26796,7 +26796,7 @@ func (r MarkTaskUndoneResponse) StatusCode() int {
 type ParsedListUnreviewedTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListUnreviewedTasksResponse
+	JSON200                       *ListUnreviewedTasksResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26819,7 +26819,7 @@ func (r ParsedListUnreviewedTasksResponse) StatusCode() int {
 type ParsedAddIssueResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedAddIssueResponse
+	JSON200                       *AddIssueResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26865,7 +26865,7 @@ func (r IssueAddBlockResponse) StatusCode() int {
 type ParsedIssueListBlockersResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedIssueListBlockersResponse
+	JSON200                       *IssueListBlockersResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26957,7 +26957,7 @@ func (r IssueKindResponse) StatusCode() int {
 type ParsedListIssuesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListIssuesResponse
+	JSON200                       *ListIssuesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -26980,7 +26980,7 @@ func (r ParsedListIssuesResponse) StatusCode() int {
 type ParsedReadyIssueResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedReadyIssueResponse
+	JSON200                       *ReadyIssueResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27003,7 +27003,7 @@ func (r ParsedReadyIssueResponse) StatusCode() int {
 type ParsedReconcileBranchResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedReconcileBranchResponse
+	JSON200                       *ReconcileBranchResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27095,7 +27095,7 @@ func (r DeleteIssueResolutionResponse) StatusCode() int {
 type ParsedListIssueResolutionsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListIssueResolutionsResponse
+	JSON200                       *ListIssueResolutionsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27118,7 +27118,7 @@ func (r ParsedListIssueResolutionsResponse) StatusCode() int {
 type ParsedResolveIssueResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedResolveIssueResponse
+	JSON200                       *ResolveIssueResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27141,7 +27141,7 @@ func (r ParsedResolveIssueResponse) StatusCode() int {
 type ParsedSearchIssuesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedSearchIssuesResponse
+	JSON200                       *SearchIssuesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27187,7 +27187,7 @@ func (r IssueSetFeaturesResponse) StatusCode() int {
 type ParsedShowIssueResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedShowIssueResponse
+	JSON200                       *ShowIssueResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27210,7 +27210,7 @@ func (r ParsedShowIssueResponse) StatusCode() int {
 type ParsedListTasksForIssueResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTasksForIssueResponse
+	JSON200                       *ListTasksForIssueResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27256,7 +27256,7 @@ func (r UpdateIssueResponse) StatusCode() int {
 type ParsedListFeaturesTodoResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListFeaturesTodoResponse
+	JSON200                       *ListFeaturesTodoResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27348,7 +27348,7 @@ func (r ReadyTaskResponse) StatusCode() int {
 type ParsedAddTaskResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedAddTaskResponse
+	JSON200                       *AddTaskResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27371,7 +27371,7 @@ func (r ParsedAddTaskResponse) StatusCode() int {
 type ParsedListTodosResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTodosResponse
+	JSON200                       *ListTodosResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27417,7 +27417,7 @@ func (r WriteTodosResponse) StatusCode() int {
 type ParsedListWorklogResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListWorklogResponse
+	JSON200                       *ListWorklogResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27508,7 +27508,7 @@ func (r UpsertFeatureResponse) StatusCode() int {
 type ParsedListFeaturesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListFeaturesResponse
+	JSON200                       *ListFeaturesResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27600,7 +27600,7 @@ func (r UpdateGoalResponse) StatusCode() int {
 type ParsedListGoalsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListGoalsResponse
+	JSON200                       *ListGoalsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27646,7 +27646,7 @@ func (r HealthResponse) StatusCode() int {
 type ParsedIngestCountersResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedIngestCountersResponse
+	JSON200                       *IngestCountersResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27669,7 +27669,7 @@ func (r ParsedIngestCountersResponse) StatusCode() int {
 type ParsedIngestErrorsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedIngestErrorsResponse
+	JSON200                       *IngestErrorsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27692,7 +27692,7 @@ func (r ParsedIngestErrorsResponse) StatusCode() int {
 type ParsedIngestLogsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedIngestLogsResponse
+	JSON200                       *IngestLogsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27737,7 +27737,7 @@ func (r IngestPromResponse) StatusCode() int {
 type ParsedIngestTimingsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedIngestTimingsResponse
+	JSON200                       *IngestTimingsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27829,7 +27829,7 @@ func (r CreateProjectResponse) StatusCode() int {
 type ParsedListProjectsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListProjectsResponse
+	JSON200                       *ListProjectsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27852,7 +27852,7 @@ func (r ParsedListProjectsResponse) StatusCode() int {
 type ParsedSetupBootstrapResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedSetupBootstrapResponse
+	JSON200                       *SetupBootstrapResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27944,7 +27944,7 @@ func (r UpdateTaskStatusResponse) StatusCode() int {
 type ParsedListTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTasksResponse
+	JSON200                       *ListTasksResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -27967,7 +27967,7 @@ func (r ParsedListTasksResponse) StatusCode() int {
 type ParsedListTasksByFeatureResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedListTasksByFeatureResponse
+	JSON200                       *ListTasksByFeatureResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -28013,7 +28013,7 @@ func (r ClaimTaskResponse) StatusCode() int {
 type ParsedReclaimExpiredTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedReclaimExpiredTasksResponse
+	JSON200                       *ReclaimExpiredTasksResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -28080,7 +28080,7 @@ func (r RenewTaskLeaseResponse) StatusCode() int {
 type ParsedWsSignResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ParsedWsSignResponse
+	JSON200                       *WsSignResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -31190,7 +31190,7 @@ func ParseParsedListIntegrationTokensResponse(rsp *http.Response) (*ParsedListIn
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListIntegrationTokensResponse
+		var dest ListIntegrationTokensResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31223,7 +31223,7 @@ func ParseParsedCreateIntegrationTokenResponse(rsp *http.Response) (*ParsedCreat
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedCreateIntegrationTokenResponse
+		var dest CreateIntegrationTokenResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31308,7 +31308,7 @@ func ParseParsedListInvitesResponse(rsp *http.Response) (*ParsedListInvitesRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListInvitesResponse
+		var dest ListInvitesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31466,7 +31466,7 @@ func ParseParsedTestLlmConfigResponse(rsp *http.Response) (*ParsedTestLlmConfigR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedTestLlmConfigResponse
+		var dest TestLlmConfigResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31565,7 +31565,7 @@ func ParseParsedTestProjectGitConfigResponse(rsp *http.Response) (*ParsedTestPro
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedTestProjectGitConfigResponse
+		var dest TestProjectGitConfigResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31598,7 +31598,7 @@ func ParseParsedSetProjectStageResponse(rsp *http.Response) (*ParsedSetProjectSt
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedSetProjectStageResponse
+		var dest SetProjectStageResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31631,7 +31631,7 @@ func ParseParsedAdminStatsResponse(rsp *http.Response) (*ParsedAdminStatsRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedAdminStatsResponse
+		var dest AdminStatsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31664,7 +31664,7 @@ func ParseParsedListAdminUsersResponse(rsp *http.Response) (*ParsedListAdminUser
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListAdminUsersResponse
+		var dest ListAdminUsersResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31723,7 +31723,7 @@ func ParseParsedListWsClientsResponse(rsp *http.Response) (*ParsedListWsClientsR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListWsClientsResponse
+		var dest ListWsClientsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31756,7 +31756,7 @@ func ParseParsedWsEchoResponse(rsp *http.Response) (*ParsedWsEchoResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedWsEchoResponse
+		var dest WsEchoResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31789,7 +31789,7 @@ func ParseParsedListAgentsResponse(rsp *http.Response) (*ParsedListAgentsRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListAgentsResponse
+		var dest ListAgentsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31822,7 +31822,7 @@ func ParseParsedReapAgentsResponse(rsp *http.Response) (*ParsedReapAgentsRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedReapAgentsResponse
+		var dest ReapAgentsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -31973,7 +31973,7 @@ func ParseParsedListAgentTasksResponse(rsp *http.Response) (*ParsedListAgentTask
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListAgentTasksResponse
+		var dest ListAgentTasksResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32006,7 +32006,7 @@ func ParseParsedAuthLoginResponse(rsp *http.Response) (*ParsedAuthLoginResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedAuthLoginResponse
+		var dest AuthLoginResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32039,7 +32039,7 @@ func ParseParsedAuthRegisterResponse(rsp *http.Response) (*ParsedAuthRegisterRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedAuthRegisterResponse
+		var dest AuthRegisterResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32072,7 +32072,7 @@ func ParseParsedGetConfigResponse(rsp *http.Response) (*ParsedGetConfigResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetConfigResponse
+		var dest GetConfigResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32204,7 +32204,7 @@ func ParseParsedListConstraintsResponse(rsp *http.Response) (*ParsedListConstrai
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListConstraintsResponse
+		var dest ListConstraintsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32237,7 +32237,7 @@ func ParseParsedCloseAgentSessionResponse(rsp *http.Response) (*ParsedCloseAgent
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedCloseAgentSessionResponse
+		var dest CloseAgentSessionResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32270,7 +32270,7 @@ func ParseParsedCreateAgentSessionResponse(rsp *http.Response) (*ParsedCreateAge
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedCreateAgentSessionResponse
+		var dest CreateAgentSessionResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32369,7 +32369,7 @@ func ParseParsedListBlockerQuestionsByTargetResponse(rsp *http.Response) (*Parse
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListBlockerQuestionsByTargetResponse
+		var dest ListBlockerQuestionsByTargetResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32402,7 +32402,7 @@ func ParseParsedListBlockerQuestionsResponse(rsp *http.Response) (*ParsedListBlo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListBlockerQuestionsResponse
+		var dest ListBlockerQuestionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32435,7 +32435,7 @@ func ParseParsedListClaudeSessionsResponse(rsp *http.Response) (*ParsedListClaud
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListClaudeSessionsResponse
+		var dest ListClaudeSessionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32468,7 +32468,7 @@ func ParseParsedListChurnSessionsResponse(rsp *http.Response) (*ParsedListChurnS
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListChurnSessionsResponse
+		var dest ListChurnSessionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32534,7 +32534,7 @@ func ParseParsedGetClaudeSessionEventsResponse(rsp *http.Response) (*ParsedGetCl
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetClaudeSessionEventsResponse
+		var dest GetClaudeSessionEventsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32600,7 +32600,7 @@ func ParseParsedUpdateClaudeSessionSummaryResponse(rsp *http.Response) (*ParsedU
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedUpdateClaudeSessionSummaryResponse
+		var dest UpdateClaudeSessionSummaryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32633,7 +32633,7 @@ func ParseParsedGetClaudeSessionTokenUsageResponse(rsp *http.Response) (*ParsedG
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetClaudeSessionTokenUsageResponse
+		var dest GetClaudeSessionTokenUsageResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32666,7 +32666,7 @@ func ParseParsedGetClaudeSessionTokenUsageByAgentResponse(rsp *http.Response) (*
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetClaudeSessionTokenUsageByAgentResponse
+		var dest GetClaudeSessionTokenUsageByAgentResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32732,7 +32732,7 @@ func ParseParsedListCodeRefsForIssueResponse(rsp *http.Response) (*ParsedListCod
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCodeRefsForIssueResponse
+		var dest ListCodeRefsForIssueResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32831,7 +32831,7 @@ func ParseParsedListCodeRefsForTaskResponse(rsp *http.Response) (*ParsedListCode
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCodeRefsForTaskResponse
+		var dest ListCodeRefsForTaskResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -32930,7 +32930,7 @@ func ParseParsedListCodeRefsForTestResponse(rsp *http.Response) (*ParsedListCode
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCodeRefsForTestResponse
+		var dest ListCodeRefsForTestResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33095,7 +33095,7 @@ func ParseParsedListCommentsResponse(rsp *http.Response) (*ParsedListCommentsRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCommentsResponse
+		var dest ListCommentsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33161,7 +33161,7 @@ func ParseParsedListMyCommentsResponse(rsp *http.Response) (*ParsedListMyComment
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListMyCommentsResponse
+		var dest ListMyCommentsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33194,7 +33194,7 @@ func ParseParsedReactToCommentResponse(rsp *http.Response) (*ParsedReactToCommen
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedReactToCommentResponse
+		var dest ReactToCommentResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33227,7 +33227,7 @@ func ParseParsedCommentStaleUnreadResponse(rsp *http.Response) (*ParsedCommentSt
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedCommentStaleUnreadResponse
+		var dest CommentStaleUnreadResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33260,7 +33260,7 @@ func ParseParsedCommentUnreadCheckResponse(rsp *http.Response) (*ParsedCommentUn
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedCommentUnreadCheckResponse
+		var dest CommentUnreadCheckResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33293,7 +33293,7 @@ func ParseParsedListCountedResponse(rsp *http.Response) (*ParsedListCountedRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCountedResponse
+		var dest ListCountedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33326,7 +33326,7 @@ func ParseParsedListCountedGroupedResponse(rsp *http.Response) (*ParsedListCount
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCountedGroupedResponse
+		var dest ListCountedGroupedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33359,7 +33359,7 @@ func ParseParsedListCountedTagKeysResponse(rsp *http.Response) (*ParsedListCount
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCountedTagKeysResponse
+		var dest ListCountedTagKeysResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33392,7 +33392,7 @@ func ParseParsedListCountedTagValuesResponse(rsp *http.Response) (*ParsedListCou
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCountedTagValuesResponse
+		var dest ListCountedTagValuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33425,7 +33425,7 @@ func ParseParsedListCounterEventsResponse(rsp *http.Response) (*ParsedListCounte
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCounterEventsResponse
+		var dest ListCounterEventsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33458,7 +33458,7 @@ func ParseParsedListCounterEventsGroupedResponse(rsp *http.Response) (*ParsedLis
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListCounterEventsGroupedResponse
+		var dest ListCounterEventsGroupedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33557,7 +33557,7 @@ func ParseParsedListDoctorDeferralsResponse(rsp *http.Response) (*ParsedListDoct
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListDoctorDeferralsResponse
+		var dest ListDoctorDeferralsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33590,7 +33590,7 @@ func ParseParsedListErrorEventsResponse(rsp *http.Response) (*ParsedListErrorEve
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListErrorEventsResponse
+		var dest ListErrorEventsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33623,7 +33623,7 @@ func ParseParsedListErrorEventsGroupedResponse(rsp *http.Response) (*ParsedListE
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListErrorEventsGroupedResponse
+		var dest ListErrorEventsGroupedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33656,7 +33656,7 @@ func ParseParsedListErrorEventsTagKeysResponse(rsp *http.Response) (*ParsedListE
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListErrorEventsTagKeysResponse
+		var dest ListErrorEventsTagKeysResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33689,7 +33689,7 @@ func ParseParsedListErrorEventsTagValuesResponse(rsp *http.Response) (*ParsedLis
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListErrorEventsTagValuesResponse
+		var dest ListErrorEventsTagValuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33781,7 +33781,7 @@ func ParseParsedListErrorsResponse(rsp *http.Response) (*ParsedListErrorsRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListErrorsResponse
+		var dest ListErrorsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -33979,7 +33979,7 @@ func ParseParsedListStaleFeaturesResponse(rsp *http.Response) (*ParsedListStaleF
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListStaleFeaturesResponse
+		var dest ListStaleFeaturesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34012,7 +34012,7 @@ func ParseParsedListFocusesResponse(rsp *http.Response) (*ParsedListFocusesRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListFocusesResponse
+		var dest ListFocusesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34177,7 +34177,7 @@ func ParseParsedListGitCommitsResponse(rsp *http.Response) (*ParsedListGitCommit
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListGitCommitsResponse
+		var dest ListGitCommitsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34210,7 +34210,7 @@ func ParseParsedListHistoryResponse(rsp *http.Response) (*ParsedListHistoryRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListHistoryResponse
+		var dest ListHistoryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34243,7 +34243,7 @@ func ParseParsedSimilarIssuesResponse(rsp *http.Response) (*ParsedSimilarIssuesR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedSimilarIssuesResponse
+		var dest SimilarIssuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34309,7 +34309,7 @@ func ParseParsedJournalEntryResponse(rsp *http.Response) (*ParsedJournalEntryRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedJournalEntryResponse
+		var dest JournalEntryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34342,7 +34342,7 @@ func ParseParsedJournalGenerateResponse(rsp *http.Response) (*ParsedJournalGener
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedJournalGenerateResponse
+		var dest JournalGenerateResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34408,7 +34408,7 @@ func ParseParsedJournalShowResponse(rsp *http.Response) (*ParsedJournalShowRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedJournalShowResponse
+		var dest JournalShowResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34441,7 +34441,7 @@ func ParseParsedJournalStateResponse(rsp *http.Response) (*ParsedJournalStateRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedJournalStateResponse
+		var dest JournalStateResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34474,7 +34474,7 @@ func ParseParsedListLogEventsResponse(rsp *http.Response) (*ParsedListLogEventsR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListLogEventsResponse
+		var dest ListLogEventsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34507,7 +34507,7 @@ func ParseParsedListLogEventsGroupedResponse(rsp *http.Response) (*ParsedListLog
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListLogEventsGroupedResponse
+		var dest ListLogEventsGroupedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34540,7 +34540,7 @@ func ParseParsedListLogEventsTagKeysResponse(rsp *http.Response) (*ParsedListLog
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListLogEventsTagKeysResponse
+		var dest ListLogEventsTagKeysResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34573,7 +34573,7 @@ func ParseParsedListLogEventsTagValuesResponse(rsp *http.Response) (*ParsedListL
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListLogEventsTagValuesResponse
+		var dest ListLogEventsTagValuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34606,7 +34606,7 @@ func ParseParsedNotificationsUnreadCountResponse(rsp *http.Response) (*ParsedNot
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedNotificationsUnreadCountResponse
+		var dest NotificationsUnreadCountResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34639,7 +34639,7 @@ func ParseParsedListPatternsResponse(rsp *http.Response) (*ParsedListPatternsRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListPatternsResponse
+		var dest ListPatternsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34705,7 +34705,7 @@ func ParseParsedDeletePatternResponse(rsp *http.Response) (*ParsedDeletePatternR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedDeletePatternResponse
+		var dest DeletePatternResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34771,7 +34771,7 @@ func ParseParsedReindexPatternsResponse(rsp *http.Response) (*ParsedReindexPatte
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedReindexPatternsResponse
+		var dest ReindexPatternsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -34804,7 +34804,7 @@ func ParseParsedSimilarPatternsResponse(rsp *http.Response) (*ParsedSimilarPatte
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedSimilarPatternsResponse
+		var dest SimilarPatternsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35101,7 +35101,7 @@ func ParseParsedListPlansResponse(rsp *http.Response) (*ParsedListPlansResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListPlansResponse
+		var dest ListPlansResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35134,7 +35134,7 @@ func ParseParsedGetProjectInfoResponse(rsp *http.Response) (*ParsedGetProjectInf
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetProjectInfoResponse
+		var dest GetProjectInfoResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35233,7 +35233,7 @@ func ParseParsedListChildQuestionsResponse(rsp *http.Response) (*ParsedListChild
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListChildQuestionsResponse
+		var dest ListChildQuestionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35299,7 +35299,7 @@ func ParseParsedListQuestionsResponse(rsp *http.Response) (*ParsedListQuestionsR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListQuestionsResponse
+		var dest ListQuestionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35332,7 +35332,7 @@ func ParseParsedSimilarQuestionsResponse(rsp *http.Response) (*ParsedSimilarQues
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedSimilarQuestionsResponse
+		var dest SimilarQuestionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35365,7 +35365,7 @@ func ParseParsedListUnansweredQuestionsResponse(rsp *http.Response) (*ParsedList
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListUnansweredQuestionsResponse
+		var dest ListUnansweredQuestionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35398,7 +35398,7 @@ func ParseParsedAcceptQuestionProposalResponse(rsp *http.Response) (*ParsedAccep
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedAcceptQuestionProposalResponse
+		var dest AcceptQuestionProposalResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35464,7 +35464,7 @@ func ParseParsedListQuestionProposalsResponse(rsp *http.Response) (*ParsedListQu
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListQuestionProposalsResponse
+		var dest ListQuestionProposalsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35530,7 +35530,7 @@ func ParseParsedListRevisionsResponse(rsp *http.Response) (*ParsedListRevisionsR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListRevisionsResponse
+		var dest ListRevisionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35563,7 +35563,7 @@ func ParseParsedListSlowQueriesResponse(rsp *http.Response) (*ParsedListSlowQuer
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListSlowQueriesResponse
+		var dest ListSlowQueriesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35761,7 +35761,7 @@ func ParseParsedSoloHealthResponse(rsp *http.Response) (*ParsedSoloHealthRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedSoloHealthResponse
+		var dest SoloHealthResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35893,7 +35893,7 @@ func ParseParsedListSpecsWithoutDemosResponse(rsp *http.Response) (*ParsedListSp
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListSpecsWithoutDemosResponse
+		var dest ListSpecsWithoutDemosResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35926,7 +35926,7 @@ func ParseParsedListSpecDemosResponse(rsp *http.Response) (*ParsedListSpecDemosR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListSpecDemosResponse
+		var dest ListSpecDemosResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -35959,7 +35959,7 @@ func ParseParsedGetSpecResponse(rsp *http.Response) (*ParsedGetSpecResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetSpecResponse
+		var dest GetSpecResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36058,7 +36058,7 @@ func ParseParsedListSpecTestsResponse(rsp *http.Response) (*ParsedListSpecTestsR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListSpecTestsResponse
+		var dest ListSpecTestsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36091,7 +36091,7 @@ func ParseParsedListUncoveredSpecsResponse(rsp *http.Response) (*ParsedListUncov
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListUncoveredSpecsResponse
+		var dest ListUncoveredSpecsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36256,7 +36256,7 @@ func ParseParsedGetStateResponse(rsp *http.Response) (*ParsedGetStateResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetStateResponse
+		var dest GetStateResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36322,7 +36322,7 @@ func ParseParsedSimilarTasksResponse(rsp *http.Response) (*ParsedSimilarTasksRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedSimilarTasksResponse
+		var dest SimilarTasksResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36355,7 +36355,7 @@ func ParseParsedListStaleTasksResponse(rsp *http.Response) (*ParsedListStaleTask
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListStaleTasksResponse
+		var dest ListStaleTasksResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36388,7 +36388,7 @@ func ParseParsedSweepStaleTasksResponse(rsp *http.Response) (*ParsedSweepStaleTa
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedSweepStaleTasksResponse
+		var dest SweepStaleTasksResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36454,7 +36454,7 @@ func ParseParsedListTestsResponse(rsp *http.Response) (*ParsedListTestsResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTestsResponse
+		var dest ListTestsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36520,7 +36520,7 @@ func ParseParsedGetTestHistoryResponse(rsp *http.Response) (*ParsedGetTestHistor
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetTestHistoryResponse
+		var dest GetTestHistoryResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36553,7 +36553,7 @@ func ParseParsedListTimedResponse(rsp *http.Response) (*ParsedListTimedResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTimedResponse
+		var dest ListTimedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36586,7 +36586,7 @@ func ParseParsedListTimedEventsResponse(rsp *http.Response) (*ParsedListTimedEve
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTimedEventsResponse
+		var dest ListTimedEventsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36619,7 +36619,7 @@ func ParseParsedListTimedEventsGroupedResponse(rsp *http.Response) (*ParsedListT
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTimedEventsGroupedResponse
+		var dest ListTimedEventsGroupedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36652,7 +36652,7 @@ func ParseParsedListTimedGroupedResponse(rsp *http.Response) (*ParsedListTimedGr
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTimedGroupedResponse
+		var dest ListTimedGroupedResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36685,7 +36685,7 @@ func ParseParsedListTimedTagKeysResponse(rsp *http.Response) (*ParsedListTimedTa
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTimedTagKeysResponse
+		var dest ListTimedTagKeysResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36718,7 +36718,7 @@ func ParseParsedListTimedTagValuesResponse(rsp *http.Response) (*ParsedListTimed
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTimedTagValuesResponse
+		var dest ListTimedTagValuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36817,7 +36817,7 @@ func ParseParsedGetTaskCommitRefsResponse(rsp *http.Response) (*ParsedGetTaskCom
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetTaskCommitRefsResponse
+		var dest GetTaskCommitRefsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -36916,7 +36916,7 @@ func ParseParsedGetReviewDataResponse(rsp *http.Response) (*ParsedGetReviewDataR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedGetReviewDataResponse
+		var dest GetReviewDataResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37015,7 +37015,7 @@ func ParseParsedListUnreviewedTasksResponse(rsp *http.Response) (*ParsedListUnre
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListUnreviewedTasksResponse
+		var dest ListUnreviewedTasksResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37048,7 +37048,7 @@ func ParseParsedAddIssueResponse(rsp *http.Response) (*ParsedAddIssueResponse, e
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedAddIssueResponse
+		var dest AddIssueResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37114,7 +37114,7 @@ func ParseParsedIssueListBlockersResponse(rsp *http.Response) (*ParsedIssueListB
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedIssueListBlockersResponse
+		var dest IssueListBlockersResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37246,7 +37246,7 @@ func ParseParsedListIssuesResponse(rsp *http.Response) (*ParsedListIssuesRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListIssuesResponse
+		var dest ListIssuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37279,7 +37279,7 @@ func ParseParsedReadyIssueResponse(rsp *http.Response) (*ParsedReadyIssueRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedReadyIssueResponse
+		var dest ReadyIssueResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37312,7 +37312,7 @@ func ParseParsedReconcileBranchResponse(rsp *http.Response) (*ParsedReconcileBra
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedReconcileBranchResponse
+		var dest ReconcileBranchResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37444,7 +37444,7 @@ func ParseParsedListIssueResolutionsResponse(rsp *http.Response) (*ParsedListIss
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListIssueResolutionsResponse
+		var dest ListIssueResolutionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37477,7 +37477,7 @@ func ParseParsedResolveIssueResponse(rsp *http.Response) (*ParsedResolveIssueRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedResolveIssueResponse
+		var dest ResolveIssueResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37510,7 +37510,7 @@ func ParseParsedSearchIssuesResponse(rsp *http.Response) (*ParsedSearchIssuesRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedSearchIssuesResponse
+		var dest SearchIssuesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37576,7 +37576,7 @@ func ParseParsedShowIssueResponse(rsp *http.Response) (*ParsedShowIssueResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedShowIssueResponse
+		var dest ShowIssueResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37609,7 +37609,7 @@ func ParseParsedListTasksForIssueResponse(rsp *http.Response) (*ParsedListTasksF
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTasksForIssueResponse
+		var dest ListTasksForIssueResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37675,7 +37675,7 @@ func ParseParsedListFeaturesTodoResponse(rsp *http.Response) (*ParsedListFeature
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListFeaturesTodoResponse
+		var dest ListFeaturesTodoResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37807,7 +37807,7 @@ func ParseParsedAddTaskResponse(rsp *http.Response) (*ParsedAddTaskResponse, err
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedAddTaskResponse
+		var dest AddTaskResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37840,7 +37840,7 @@ func ParseParsedListTodosResponse(rsp *http.Response) (*ParsedListTodosResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTodosResponse
+		var dest ListTodosResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37906,7 +37906,7 @@ func ParseParsedListWorklogResponse(rsp *http.Response) (*ParsedListWorklogRespo
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListWorklogResponse
+		var dest ListWorklogResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38031,7 +38031,7 @@ func ParseParsedListFeaturesResponse(rsp *http.Response) (*ParsedListFeaturesRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListFeaturesResponse
+		var dest ListFeaturesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38163,7 +38163,7 @@ func ParseParsedListGoalsResponse(rsp *http.Response) (*ParsedListGoalsResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListGoalsResponse
+		var dest ListGoalsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38229,7 +38229,7 @@ func ParseParsedIngestCountersResponse(rsp *http.Response) (*ParsedIngestCounter
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedIngestCountersResponse
+		var dest IngestCountersResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38262,7 +38262,7 @@ func ParseParsedIngestErrorsResponse(rsp *http.Response) (*ParsedIngestErrorsRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedIngestErrorsResponse
+		var dest IngestErrorsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38295,7 +38295,7 @@ func ParseParsedIngestLogsResponse(rsp *http.Response) (*ParsedIngestLogsRespons
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedIngestLogsResponse
+		var dest IngestLogsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38354,7 +38354,7 @@ func ParseParsedIngestTimingsResponse(rsp *http.Response) (*ParsedIngestTimingsR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedIngestTimingsResponse
+		var dest IngestTimingsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38486,7 +38486,7 @@ func ParseParsedListProjectsResponse(rsp *http.Response) (*ParsedListProjectsRes
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListProjectsResponse
+		var dest ListProjectsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38519,7 +38519,7 @@ func ParseParsedSetupBootstrapResponse(rsp *http.Response) (*ParsedSetupBootstra
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedSetupBootstrapResponse
+		var dest SetupBootstrapResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38651,7 +38651,7 @@ func ParseParsedListTasksResponse(rsp *http.Response) (*ParsedListTasksResponse,
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTasksResponse
+		var dest ListTasksResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38684,7 +38684,7 @@ func ParseParsedListTasksByFeatureResponse(rsp *http.Response) (*ParsedListTasks
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedListTasksByFeatureResponse
+		var dest ListTasksByFeatureResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38750,7 +38750,7 @@ func ParseParsedReclaimExpiredTasksResponse(rsp *http.Response) (*ParsedReclaimE
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedReclaimExpiredTasksResponse
+		var dest ReclaimExpiredTasksResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -38835,7 +38835,7 @@ func ParseParsedWsSignResponse(rsp *http.Response) (*ParsedWsSignResponse, error
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ParsedWsSignResponse
+		var dest WsSignResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

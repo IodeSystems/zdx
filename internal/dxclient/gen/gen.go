@@ -157,6 +157,16 @@ func deduplicateResponseTypes(path string) error {
 		src = before + after
 	}
 
+	// Revert over-eager renames: the blanket replace above also rewrote the
+	// wrapper's JSON<N> body-type field and the ParseParsedXxxResponse function's
+	// `var dest XxxResponse` — both of which must point to the body type, not the
+	// wrapper. Without this, json.Unmarshal targets the wrapper (which has no
+	// schema fields) and JSON200 comes back empty.
+	src = regexp.MustCompile(`(?m)^(\s+JSON\d+\s+\*)Parsed(\w+Response)$`).
+		ReplaceAllString(src, "${1}${2}")
+	src = regexp.MustCompile(`(?m)^(\s+var dest )Parsed(\w+Response)$`).
+		ReplaceAllString(src, "${1}${2}")
+
 	return os.WriteFile(path, []byte(src), 0644)
 }
 
