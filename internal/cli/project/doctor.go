@@ -212,7 +212,7 @@ func populateRemoteState(state *doctor.ProjectState) {
 	}
 	if err := c.Get("/api/dx/todo/issue/list", url.Values{"slug": {slug}}, &issueResp); err == nil {
 		for _, iss := range issueResp.Issues {
-			if iss.Priority == "" {
+			if iss.Priority == "" && iss.Status != "closed" {
 				state.UntriagedIssues++
 			}
 		}

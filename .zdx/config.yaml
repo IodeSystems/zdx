@@ -2,6 +2,12 @@ remote:
   url: https://zdx.iodesystems.com
   slug: zdx
 
+agent:
+  llm_provider: claude
+  claude_model: claude-sonnet-4-6
+  max_worktrees: 4
+  lease_minutes: 30
+
 components:
   server:
     build:
