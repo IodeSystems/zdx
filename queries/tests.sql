@@ -89,8 +89,17 @@ SELECT id, test_id, demo_type, artifact_path, file_id, created_at
 FROM zdx_test_demos WHERE test_id = $1 ORDER BY demo_type, artifact_path;
 
 -- name: ListDemosForSpec :many
--- All demo artifacts attached to tests linked to the given spec.
-SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+-- All demo artifacts attached to tests linked to the given spec. file_id falls
+-- back to sibling rows sharing the same (demo_type, artifact_path) — see
+-- GetDemoByID for rationale.
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path,
+       COALESCE(td.file_id, (
+           SELECT sib.file_id FROM zdx_test_demos sib
+           WHERE sib.demo_type = td.demo_type
+             AND sib.artifact_path = td.artifact_path
+             AND sib.file_id IS NOT NULL
+           LIMIT 1
+       )) AS file_id,
        t.component AS test_component, t.name AS test_name
 FROM zdx_test_demos td
 JOIN zdx_spec_tests st ON st.test_id = td.test_id
@@ -99,7 +108,17 @@ WHERE st.spec_id = $1
 ORDER BY td.demo_type, t.name;
 
 -- name: GetDemoByID :one
-SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+-- file_id falls back to any sibling row with the same (demo_type, artifact_path)
+-- that does have a file_id, so legacy rows linked to non-recorder tests still
+-- resolve to the uploaded artifact instead of 404ing on handleServeDemo.
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path,
+       COALESCE(td.file_id, (
+           SELECT sib.file_id FROM zdx_test_demos sib
+           WHERE sib.demo_type = td.demo_type
+             AND sib.artifact_path = td.artifact_path
+             AND sib.file_id IS NOT NULL
+           LIMIT 1
+       )) AS file_id,
        t.component AS test_component, t.name AS test_name,
        t.status AS test_status, t.duration_ms AS test_duration_ms,
        t.project_id AS project_id
@@ -108,8 +127,17 @@ JOIN zdx_tests t ON t.id = td.test_id
 WHERE td.id = $1;
 
 -- name: ListDemos :many
--- All demo artifacts in the project, joined to their owning test.
-SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+-- All demo artifacts in the project, joined to their owning test. file_id falls
+-- back to sibling rows sharing the same (demo_type, artifact_path) — see
+-- GetDemoByID for rationale.
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path,
+       COALESCE(td.file_id, (
+           SELECT sib.file_id FROM zdx_test_demos sib
+           WHERE sib.demo_type = td.demo_type
+             AND sib.artifact_path = td.artifact_path
+             AND sib.file_id IS NOT NULL
+           LIMIT 1
+       )) AS file_id,
        t.component AS test_component, t.name AS test_name,
        t.status AS test_status, t.duration_ms AS test_duration_ms
 FROM zdx_test_demos td

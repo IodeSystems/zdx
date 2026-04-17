@@ -34,7 +34,14 @@ func (q *Queries) DeleteTest(ctx context.Context, id int32) error {
 }
 
 const getDemoByID = `-- name: GetDemoByID :one
-SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path,
+       COALESCE(td.file_id, (
+           SELECT sib.file_id FROM zdx_test_demos sib
+           WHERE sib.demo_type = td.demo_type
+             AND sib.artifact_path = td.artifact_path
+             AND sib.file_id IS NOT NULL
+           LIMIT 1
+       )) AS file_id,
        t.component AS test_component, t.name AS test_name,
        t.status AS test_status, t.duration_ms AS test_duration_ms,
        t.project_id AS project_id
@@ -56,6 +63,9 @@ type GetDemoByIDRow struct {
 	ProjectID      int32       `db:"project_id" json:"project_id"`
 }
 
+// file_id falls back to any sibling row with the same (demo_type, artifact_path)
+// that does have a file_id, so legacy rows linked to non-recorder tests still
+// resolve to the uploaded artifact instead of 404ing on handleServeDemo.
 func (q *Queries) GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, error) {
 	row := q.db.QueryRow(ctx, getDemoByID, id)
 	var i GetDemoByIDRow
@@ -200,7 +210,14 @@ func (q *Queries) LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) erro
 }
 
 const listDemos = `-- name: ListDemos :many
-SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path,
+       COALESCE(td.file_id, (
+           SELECT sib.file_id FROM zdx_test_demos sib
+           WHERE sib.demo_type = td.demo_type
+             AND sib.artifact_path = td.artifact_path
+             AND sib.file_id IS NOT NULL
+           LIMIT 1
+       )) AS file_id,
        t.component AS test_component, t.name AS test_name,
        t.status AS test_status, t.duration_ms AS test_duration_ms
 FROM zdx_test_demos td
@@ -221,7 +238,9 @@ type ListDemosRow struct {
 	TestDurationMs int32       `db:"test_duration_ms" json:"test_duration_ms"`
 }
 
-// All demo artifacts in the project, joined to their owning test.
+// All demo artifacts in the project, joined to their owning test. file_id falls
+// back to sibling rows sharing the same (demo_type, artifact_path) — see
+// GetDemoByID for rationale.
 func (q *Queries) ListDemos(ctx context.Context, projectID int32) ([]ListDemosRow, error) {
 	rows, err := q.db.Query(ctx, listDemos, projectID)
 	if err != nil {
@@ -253,7 +272,14 @@ func (q *Queries) ListDemos(ctx context.Context, projectID int32) ([]ListDemosRo
 }
 
 const listDemosForSpec = `-- name: ListDemosForSpec :many
-SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path,
+       COALESCE(td.file_id, (
+           SELECT sib.file_id FROM zdx_test_demos sib
+           WHERE sib.demo_type = td.demo_type
+             AND sib.artifact_path = td.artifact_path
+             AND sib.file_id IS NOT NULL
+           LIMIT 1
+       )) AS file_id,
        t.component AS test_component, t.name AS test_name
 FROM zdx_test_demos td
 JOIN zdx_spec_tests st ON st.test_id = td.test_id
@@ -272,7 +298,9 @@ type ListDemosForSpecRow struct {
 	TestName      string      `db:"test_name" json:"test_name"`
 }
 
-// All demo artifacts attached to tests linked to the given spec.
+// All demo artifacts attached to tests linked to the given spec. file_id falls
+// back to sibling rows sharing the same (demo_type, artifact_path) — see
+// GetDemoByID for rationale.
 func (q *Queries) ListDemosForSpec(ctx context.Context, specID int32) ([]ListDemosForSpecRow, error) {
 	rows, err := q.db.Query(ctx, listDemosForSpec, specID)
 	if err != nil {

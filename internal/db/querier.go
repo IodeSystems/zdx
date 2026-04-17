@@ -154,6 +154,9 @@ type Querier interface {
 	GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error)
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
+	// file_id falls back to any sibling row with the same (demo_type, artifact_path)
+	// that does have a file_id, so legacy rows linked to non-recorder tests still
+	// resolve to the uploaded artifact instead of 404ing on handleServeDemo.
 	GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, error)
 	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (ZdxEnvironment, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
@@ -253,9 +256,13 @@ type Querier interface {
 	ListCountedPaginated(ctx context.Context, arg ListCountedPaginatedParams) ([]ListCountedPaginatedRow, error)
 	ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error)
 	ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error)
-	// All demo artifacts in the project, joined to their owning test.
+	// All demo artifacts in the project, joined to their owning test. file_id falls
+	// back to sibling rows sharing the same (demo_type, artifact_path) — see
+	// GetDemoByID for rationale.
 	ListDemos(ctx context.Context, projectID int32) ([]ListDemosRow, error)
-	// All demo artifacts attached to tests linked to the given spec.
+	// All demo artifacts attached to tests linked to the given spec. file_id falls
+	// back to sibling rows sharing the same (demo_type, artifact_path) — see
+	// GetDemoByID for rationale.
 	ListDemosForSpec(ctx context.Context, specID int32) ([]ListDemosForSpecRow, error)
 	ListDeploys(ctx context.Context, arg ListDeploysParams) ([]ZdxDeploy, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
