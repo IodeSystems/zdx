@@ -152,22 +152,22 @@ func specListCmd() *cobra.Command {
 
 func specLinkCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "link <spec-id> <test-id>",
-		Short: "Link a test to a spec",
+		Use:   "link <spec-id> <test-id-or-name>",
+		Short: "Link a test to a spec (test-id-or-name: numeric id or exact test name)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			specID, err := strconv.Atoi(args[0])
 			if err != nil {
 				return fmt.Errorf("invalid spec-id: %s", args[0])
 			}
-			testID, err := strconv.Atoi(args[1])
-			if err != nil {
-				return fmt.Errorf("invalid test-id: %s", args[1])
-			}
 			c := cli.MustClient()
+			testID, err := cli.ResolveTestID(cmd.Context(), c, args[1])
+			if err != nil {
+				return err
+			}
 			resp, err := c.LinkSpecTestWithResponse(cmd.Context(), dxclient.LinkSpecTestRequest{
 				SpecId: int32(specID),
-				TestId: int32(testID),
+				TestId: testID,
 			})
 			if err != nil {
 				return err

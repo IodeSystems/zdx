@@ -269,18 +269,18 @@ func refTestAttachCmd() *cobra.Command {
 	var filePath, gitHash, note string
 	var lineStart, lineEnd int32
 	cmd := &cobra.Command{
-		Use:   "test-attach <test-id>",
-		Short: "Attach a code reference to a test",
+		Use:   "test-attach <test-id-or-name>",
+		Short: "Attach a code reference to a test (test-id-or-name: numeric id or exact test name)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			testID, err := strconv.ParseInt(args[0], 10, 32)
+			testID, err := cli.ResolveTestID(cmd.Context(), c, args[0])
 			if err != nil {
-				return fmt.Errorf("invalid test id: %s", args[0])
+				return err
 			}
 			body := dxclient.AttachCodeRefToTestRequest{
 				Slug:     c.SlugOrDie(),
-				TestId:   int32(testID),
+				TestId:   testID,
 				FilePath: filePath,
 			}
 			if gitHash != "" {
@@ -320,18 +320,18 @@ func refTestAttachCmd() *cobra.Command {
 
 func refTestListCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "test-list <test-id>",
-		Short: "List code references attached to a test",
+		Use:   "test-list <test-id-or-name>",
+		Short: "List code references attached to a test (test-id-or-name: numeric id or exact test name)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			testID, err := strconv.ParseInt(args[0], 10, 32)
+			testID, err := cli.ResolveTestID(cmd.Context(), c, args[0])
 			if err != nil {
-				return fmt.Errorf("invalid test id: %s", args[0])
+				return err
 			}
 			resp, err := c.ListCodeRefsForTestWithResponse(cmd.Context(), &dxclient.ListCodeRefsForTestParams{
 				Slug:   c.SlugOrDie(),
-				TestId: int32(testID),
+				TestId: testID,
 			})
 			if err != nil {
 				return err
@@ -353,14 +353,14 @@ func refTestListCmd() *cobra.Command {
 
 func refTestDetachCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "test-detach <test-id> <ref-id>",
-		Short: "Detach a code reference from a test",
+		Use:   "test-detach <test-id-or-name> <ref-id>",
+		Short: "Detach a code reference from a test (test-id-or-name: numeric id or exact test name)",
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			testID, err := strconv.ParseInt(args[0], 10, 32)
+			testID, err := cli.ResolveTestID(cmd.Context(), c, args[0])
 			if err != nil {
-				return fmt.Errorf("invalid test id: %s", args[0])
+				return err
 			}
 			id, err := strconv.ParseInt(args[1], 10, 32)
 			if err != nil {
@@ -368,7 +368,7 @@ func refTestDetachCmd() *cobra.Command {
 			}
 			resp, err := c.DetachCodeRefFromTestWithResponse(cmd.Context(), dxclient.DetachCodeRefFromTestRequest{
 				Slug:      c.SlugOrDie(),
-				TestId:    int32(testID),
+				TestId:    testID,
 				CodeRefId: int32(id),
 			})
 			if err != nil {
