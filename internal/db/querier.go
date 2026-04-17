@@ -310,6 +310,8 @@ type Querier interface {
 	ListQuestionsPaginated(ctx context.Context, arg ListQuestionsPaginatedParams) ([]ZdxQuestion, error)
 	// Return all reservations for a project, most recent first.
 	ListReservations(ctx context.Context, arg ListReservationsParams) ([]ZdxReservation, error)
+	// Return reservations for todos linked to a specific issue, with optional agent session info.
+	ListReservationsByIssue(ctx context.Context, arg ListReservationsByIssueParams) ([]ListReservationsByIssueRow, error)
 	ListResolutionCommits(ctx context.Context, resolutionID string) ([]ZdxIssueResolutionCommit, error)
 	ListResolutionsByProject(ctx context.Context, projectID int32) ([]ZdxIssueResolution, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
