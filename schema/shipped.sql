@@ -1983,7 +1983,8 @@ CREATE TABLE public.zdx_todos (
     blocked boolean DEFAULT false NOT NULL,
     claimed_by text DEFAULT ''::text NOT NULL,
     claimed_at timestamp with time zone,
-    lease_expires_at timestamp with time zone
+    lease_expires_at timestamp with time zone,
+    reopen_count integer DEFAULT 0 NOT NULL
 );
 
 

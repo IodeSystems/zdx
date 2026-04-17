@@ -1,13 +1,13 @@
 -- name: ListTodos :many
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at;
 
 -- name: ListTodosFiltered :many
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
 WHERE project_id = @project_id
   AND (sqlc.narg('blocked')::boolean IS NULL OR blocked = sqlc.narg('blocked')::boolean)
@@ -26,10 +26,12 @@ VALUES (@project_id, @text, @key, @persona, @priority, @status,
         @target_type, @target_id, @kind, @issue_ref, @blocked)
 RETURNING id, project_id, text, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at;
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
 -- name: UpsertTodo :one
 -- Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).
+-- Tracks resolve→open churn: reopen_count increments each time a resolved key is re-emitted.
+-- Auto-blocks at 3+ reopens so agents don't churn indefinitely on an untriageable item.
 INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
                        target_type, target_id, kind, issue_ref, blocked)
 VALUES (@project_id, @text, @key, @persona, @priority, @status,
@@ -43,11 +45,18 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   target_id = EXCLUDED.target_id,
   kind = EXCLUDED.kind,
   issue_ref = EXCLUDED.issue_ref,
-  blocked = EXCLUDED.blocked
+  blocked = CASE
+    WHEN zdx_todos.status = 'resolved' AND zdx_todos.reopen_count + 1 >= 3 THEN true
+    ELSE EXCLUDED.blocked
+  END,
+  reopen_count = CASE
+    WHEN zdx_todos.status = 'resolved' THEN zdx_todos.reopen_count + 1
+    ELSE zdx_todos.reopen_count
+  END
   -- claimed_by, claimed_at, lease_expires_at intentionally NOT updated
 RETURNING id, project_id, text, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at;
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
 -- name: ResolveTodo :exec
 UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW()
@@ -56,8 +65,14 @@ WHERE project_id = $1 AND key = $2;
 -- name: GetTodoByKey :one
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 AND key = $2;
+
+-- name: GetTodoByID :one
+SELECT id, project_id, text, key, persona, priority, status,
+       target_type, target_id, kind, issue_ref, blocked,
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+FROM zdx_todos WHERE id = $1;
 
 -- name: ResolveTodosNotInKeys :exec
 UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW()
@@ -82,7 +97,7 @@ WHERE id = (
 )
 RETURNING id, project_id, text, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at;
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
 -- name: ReleaseTodo :exec
 -- Release a claimed todo (agent finished or abandoned).

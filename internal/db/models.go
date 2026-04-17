@@ -718,6 +718,7 @@ type ZdxTodo struct {
 	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
 	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
 	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
 }
 
 type ZdxUser struct {

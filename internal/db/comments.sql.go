@@ -179,6 +179,25 @@ func (q *Queries) CountRevisions(ctx context.Context, arg CountRevisionsParams) 
 	return count, err
 }
 
+const countRevisionsBySession = `-- name: CountRevisionsBySession :one
+SELECT count(*) FROM zdx_revisions WHERE project_id = $1 AND session_id = $2
+`
+
+type CountRevisionsBySessionParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	SessionID string `db:"session_id" json:"session_id"`
+}
+
+// Count how many revisions were recorded by a given agent session.
+// Used by /api/dx/solo/release to detect sessions that exited cleanly but
+// didn't apply any durable mutation — those release without marking resolved.
+func (q *Queries) CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countRevisionsBySession, arg.ProjectID, arg.SessionID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const countUnreadForRole = `-- name: CountUnreadForRole :one
 SELECT COUNT(*)::int FROM zdx_comments c
 WHERE c.project_id = $1

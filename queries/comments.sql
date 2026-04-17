@@ -169,3 +169,9 @@ LIMIT $4 OFFSET $5;
 SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
 FROM zdx_revisions WHERE target_type = @target_type AND target_id = @target_id
 ORDER BY created_at DESC;
+
+-- name: CountRevisionsBySession :one
+-- Count how many revisions were recorded by a given agent session.
+-- Used by /api/dx/solo/release to detect sessions that exited cleanly but
+-- didn't apply any durable mutation — those release without marking resolved.
+SELECT count(*) FROM zdx_revisions WHERE project_id = $1 AND session_id = $2;

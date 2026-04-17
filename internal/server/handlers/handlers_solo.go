@@ -685,15 +685,41 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 		})
 
 	// POST /api/dx/solo/release — release a claimed todo
+	// When resolve=true and a session_id is provided, the handler verifies the
+	// session actually recorded at least one revision. Sessions that exit cleanly
+	// without applying any durable mutation release without marking resolved —
+	// this prevents UpsertTodo from reopening the same key on the next claim and
+	// burning tokens in a churn loop.
 	huma.Register(api, huma.Operation{OperationID: "solo-release", Method: http.MethodPost, Path: "/api/dx/solo/release"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ID      int32  `json:"id"`
-				AgentID string `json:"agent_id"`
-				Resolve bool   `json:"resolve" required:"false"`
+				ID        int32  `json:"id"`
+				AgentID   string `json:"agent_id"`
+				Resolve   bool   `json:"resolve" required:"false"`
+				SessionID string `json:"session_id" required:"false"`
 			}
-		}) (*struct{ Body OKBody }, error) {
-			if in.Body.Resolve {
+		}) (*struct {
+			Body struct {
+				OK              bool `json:"ok"`
+				ChurnDowngraded bool `json:"churn_downgraded" required:"false"`
+			}
+		}, error) {
+			resolve := in.Body.Resolve
+			churnDowngraded := false
+			if resolve && in.Body.SessionID != "" {
+				todo, err := h.Q.GetTodoByID(ctx, in.Body.ID)
+				if err == nil {
+					n, _ := h.Q.CountRevisionsBySession(ctx, db.CountRevisionsBySessionParams{
+						ProjectID: todo.ProjectID,
+						SessionID: in.Body.SessionID,
+					})
+					if n == 0 {
+						resolve = false
+						churnDowngraded = true
+					}
+				}
+			}
+			if resolve {
 				_ = h.Q.ResolveTodoByID(ctx, in.Body.ID)
 			} else {
 				_ = h.Q.ReleaseTodo(ctx, db.ReleaseTodoParams{
@@ -701,7 +727,15 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 					ClaimedBy: in.Body.AgentID,
 				})
 			}
-			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+			return &struct {
+				Body struct {
+					OK              bool `json:"ok"`
+					ChurnDowngraded bool `json:"churn_downgraded" required:"false"`
+				}
+			}{Body: struct {
+				OK              bool `json:"ok"`
+				ChurnDowngraded bool `json:"churn_downgraded" required:"false"`
+			}{OK: true, ChurnDowngraded: churnDowngraded}}, nil
 		})
 
 	// POST /api/dx/solo/renew — extend lease on a claimed todo

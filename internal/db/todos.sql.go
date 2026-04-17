@@ -28,7 +28,7 @@ WHERE id = (
 )
 RETURNING id, project_id, text, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 `
 
 type ClaimNextTodoParams struct {
@@ -55,6 +55,7 @@ type ClaimNextTodoRow struct {
 	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
 }
 
 // Atomically claim the highest-priority unclaimed open todo for an agent.
@@ -80,6 +81,7 @@ func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (C
 		&i.LeaseExpiresAt,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.ReopenCount,
 	)
 	return i, err
 }
@@ -91,7 +93,7 @@ VALUES ($1, $2, $3, $4, $5, $6,
         $7, $8, $9, $10, $11)
 RETURNING id, project_id, text, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 `
 
 type CreateTodoParams struct {
@@ -126,6 +128,7 @@ type CreateTodoRow struct {
 	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
 }
 
 func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error) {
@@ -161,6 +164,7 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateT
 		&i.LeaseExpiresAt,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.ReopenCount,
 	)
 	return i, err
 }
@@ -190,10 +194,64 @@ func (q *Queries) GetState(ctx context.Context, arg GetStateParams) (string, err
 	return value, err
 }
 
+const getTodoByID = `-- name: GetTodoByID :one
+SELECT id, project_id, text, key, persona, priority, status,
+       target_type, target_id, kind, issue_ref, blocked,
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+FROM zdx_todos WHERE id = $1
+`
+
+type GetTodoByIDRow struct {
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
+}
+
+func (q *Queries) GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, error) {
+	row := q.db.QueryRow(ctx, getTodoByID, id)
+	var i GetTodoByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Text,
+		&i.Key,
+		&i.Persona,
+		&i.Priority,
+		&i.Status,
+		&i.TargetType,
+		&i.TargetID,
+		&i.Kind,
+		&i.IssueRef,
+		&i.Blocked,
+		&i.ClaimedBy,
+		&i.ClaimedAt,
+		&i.LeaseExpiresAt,
+		&i.CreatedAt,
+		&i.ResolvedAt,
+		&i.ReopenCount,
+	)
+	return i, err
+}
+
 const getTodoByKey = `-- name: GetTodoByKey :one
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 AND key = $2
 `
 
@@ -220,6 +278,7 @@ type GetTodoByKeyRow struct {
 	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
 }
 
 func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error) {
@@ -243,6 +302,7 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 		&i.LeaseExpiresAt,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.ReopenCount,
 	)
 	return i, err
 }
@@ -250,7 +310,7 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 const listTodos = `-- name: ListTodos :many
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at
 `
 
@@ -272,6 +332,7 @@ type ListTodosRow struct {
 	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
 }
 
 func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error) {
@@ -301,6 +362,7 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRo
 			&i.LeaseExpiresAt,
 			&i.CreatedAt,
 			&i.ResolvedAt,
+			&i.ReopenCount,
 		); err != nil {
 			return nil, err
 		}
@@ -315,7 +377,7 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRo
 const listTodosFiltered = `-- name: ListTodosFiltered :many
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
 WHERE project_id = $1
   AND ($2::boolean IS NULL OR blocked = $2::boolean)
@@ -351,6 +413,7 @@ type ListTodosFilteredRow struct {
 	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
 }
 
 func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error) {
@@ -386,6 +449,7 @@ func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredPa
 			&i.LeaseExpiresAt,
 			&i.CreatedAt,
 			&i.ResolvedAt,
+			&i.ReopenCount,
 		); err != nil {
 			return nil, err
 		}
@@ -522,11 +586,18 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   target_id = EXCLUDED.target_id,
   kind = EXCLUDED.kind,
   issue_ref = EXCLUDED.issue_ref,
-  blocked = EXCLUDED.blocked
+  blocked = CASE
+    WHEN zdx_todos.status = 'resolved' AND zdx_todos.reopen_count + 1 >= 3 THEN true
+    ELSE EXCLUDED.blocked
+  END,
+  reopen_count = CASE
+    WHEN zdx_todos.status = 'resolved' THEN zdx_todos.reopen_count + 1
+    ELSE zdx_todos.reopen_count
+  END
   -- claimed_by, claimed_at, lease_expires_at intentionally NOT updated
 RETURNING id, project_id, text, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 `
 
 type UpsertTodoParams struct {
@@ -561,9 +632,12 @@ type UpsertTodoRow struct {
 	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
 }
 
 // Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).
+// Tracks resolve→open churn: reopen_count increments each time a resolved key is re-emitted.
+// Auto-blocks at 3+ reopens so agents don't churn indefinitely on an untriageable item.
 func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertTodoRow, error) {
 	row := q.db.QueryRow(ctx, upsertTodo,
 		arg.ProjectID,
@@ -597,6 +671,7 @@ func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertT
 		&i.LeaseExpiresAt,
 		&i.CreatedAt,
 		&i.ResolvedAt,
+		&i.ReopenCount,
 	)
 	return i, err
 }

@@ -60,6 +60,10 @@ type Querier interface {
 	CountQuestionProposalsByQuestion(ctx context.Context, arg CountQuestionProposalsByQuestionParams) (int64, error)
 	CountQuestions(ctx context.Context, projectID int32) (int64, error)
 	CountRevisions(ctx context.Context, arg CountRevisionsParams) (int64, error)
+	// Count how many revisions were recorded by a given agent session.
+	// Used by /api/dx/solo/release to detect sessions that exited cleanly but
+	// didn't apply any durable mutation — those release without marking resolved.
+	CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error)
 	CountSlowQueries(ctx context.Context, projectID pgtype.Int4) (int64, error)
 	CountTasks(ctx context.Context, arg CountTasksParams) (int64, error)
 	CountTasksByFeature(ctx context.Context, arg CountTasksByFeatureParams) (int64, error)
@@ -176,6 +180,7 @@ type Querier interface {
 	GetTaskWithReview(ctx context.Context, id string) (GetTaskWithReviewRow, error)
 	GetTest(ctx context.Context, arg GetTestParams) (GetTestRow, error)
 	GetTestByID(ctx context.Context, arg GetTestByIDParams) (GetTestByIDRow, error)
+	GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, error)
 	GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error)
 	GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (GetUnreviewedJournalEntryRow, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
@@ -408,6 +413,8 @@ type Querier interface {
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error
 	UpsertTimed(ctx context.Context, arg UpsertTimedParams) error
 	// Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).
+	// Tracks resolve→open churn: reopen_count increments each time a resolved key is re-emitted.
+	// Auto-blocks at 3+ reopens so agents don't churn indefinitely on an untriageable item.
 	UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertTodoRow, error)
 }
 

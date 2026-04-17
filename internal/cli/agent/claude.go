@@ -296,7 +296,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 
 		if ctx.Err() != nil {
 			if activeTodo != nil {
-				releaseTodo(rc, activeTodo.ID, agentID, false)
+				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
 			}
 			return nil
 		}
@@ -356,14 +356,19 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		log("SESSION END  session=%s  duration=%s", sid, elapsed.Truncate(time.Second))
 		log("──────────────────────────────────────────────")
 
-		// Release or resolve the claimed todo.
+		// Release or resolve the claimed todo. Server checks the session for
+		// recorded revisions when resolve=true; sessions with zero mutations
+		// are silently downgraded to a plain release to prevent churn.
 		if activeTodo != nil {
 			success := sessionErr == nil
-			releaseTodo(rc, activeTodo.ID, agentID, success)
-			if success {
-				log("todo %d resolved", activeTodo.ID)
-			} else {
+			downgraded := releaseTodo(rc, activeTodo.ID, agentID, sid, success)
+			switch {
+			case !success:
 				log("todo %d released (session failed)", activeTodo.ID)
+			case downgraded:
+				log("todo %d released (session made no mutations — churn guard)", activeTodo.ID)
+			default:
+				log("todo %d resolved", activeTodo.ID)
 			}
 		}
 
@@ -939,19 +944,29 @@ func renewTodoLease(rc remoteConfig, todoID int32, agentID string, leaseMinutes 
 	}
 }
 
-func releaseTodo(rc remoteConfig, todoID int32, agentID string, resolve bool) {
+// releaseTodo posts the release/resolve call and returns whether the server
+// downgraded a resolve to a plain release because the session recorded no
+// mutations (churn guard — see handlers_solo.go).
+func releaseTodo(rc remoteConfig, todoID int32, agentID, sessionID string, resolve bool) bool {
 	body, _ := json.Marshal(map[string]any{
-		"id":       todoID,
-		"agent_id": agentID,
-		"resolve":  resolve,
+		"id":         todoID,
+		"agent_id":   agentID,
+		"resolve":    resolve,
+		"session_id": sessionID,
 	})
 	req, _ := http.NewRequest("POST", rc.url+"/api/dx/solo/release", bytes.NewReader(body))
 	req.Header.Set("X-Api-Key", rc.key)
 	req.Header.Set("Content-Type", "application/json")
 	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
-	if err == nil {
-		resp.Body.Close()
+	if err != nil || resp == nil {
+		return false
 	}
+	defer resp.Body.Close()
+	var r struct {
+		ChurnDowngraded bool `json:"churn_downgraded"`
+	}
+	_ = json.NewDecoder(resp.Body).Decode(&r)
+	return r.ChurnDowngraded
 }
 
 func fileHash(path string) string {
