@@ -24,9 +24,15 @@ import html2canvas from 'html2canvas'
 import { useCreateIssue, useUploadFile, useSimilarIssues, type SimilarIssueItem, type IssueItem } from '../api'
 import { useMatches } from '@tanstack/react-router'
 
+const CAPTURE_IGNORE_CLASS = 'zdx-report-capture-ignore'
+
 async function capturePageScreenshot(): Promise<File | null> {
   try {
-    const canvas = await html2canvas(document.body, { useCORS: true, logging: false })
+    const canvas = await html2canvas(document.body, {
+      useCORS: true,
+      logging: false,
+      ignoreElements: (el) => el.classList?.contains?.(CAPTURE_IGNORE_CLASS) ?? false,
+    })
     return await new Promise<File | null>((resolve) => {
       canvas.toBlob((blob) => {
         if (!blob) { resolve(null); return }
@@ -155,13 +161,14 @@ export function IssueReportFab({ slug }: { slug: string }) {
         color="primary"
         size="medium"
         onClick={handleOpen}
+        className={CAPTURE_IGNORE_CLASS}
         sx={{ position: 'fixed', bottom: 24, right: 24, zIndex: 1200 }}
         aria-label="Report issue"
       >
         <AddIcon />
       </Fab>
 
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
+      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth className={CAPTURE_IGNORE_CLASS}>
         {createdIssue ? (
           <>
             <DialogTitle>Issue Reported</DialogTitle>
