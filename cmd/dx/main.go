@@ -61,6 +61,7 @@ func main() {
 		project.TaskCmd(),
 		project.ReviewCmd(),
 		project.PatternCmd(),
+		project.EnvCmd(),
 		servercmd.IntegrateCmd(),
 		servercmd.LoginCmd(),
 	)

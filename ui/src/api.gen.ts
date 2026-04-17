@@ -2006,6 +2006,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/projects/{slug}/environments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-environments"];
+        put?: never;
+        post: operations["create-environment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/environments/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-environment"];
+        put: operations["update-environment"];
+        post?: never;
+        delete: operations["delete-environment"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/environments/{name}/deploys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-environment-deploys"];
+        put?: never;
+        post: operations["create-environment-deploy"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/qa/add": {
         parameters: {
             query?: never;
@@ -4610,6 +4658,27 @@ export interface components {
             status: string;
             title: string;
         };
+        "Create-environment-deployRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-environment-deployRequest.json
+             */
+            readonly $schema?: string;
+            build_branch?: string;
+            build_sha: string;
+            status?: string;
+        };
+        "Create-environmentRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-environmentRequest.json
+             */
+            readonly $schema?: string;
+            name: string;
+            url?: string;
+        };
         "Create-goalRequest": {
             /**
              * Format: uri
@@ -4832,6 +4901,24 @@ export interface components {
             reason: string;
             slug: string;
         };
+        DeployItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DeployItem.json
+             */
+            readonly $schema?: string;
+            build_branch: string;
+            build_sha: string;
+            deployed_at: string;
+            /** Format: int32 */
+            deployed_by_user_id: number;
+            /** Format: int32 */
+            environment_id: number;
+            /** Format: int32 */
+            id: number;
+            status: string;
+        };
         "Detach-code-ref-from-issueRequest": {
             /**
              * Format: uri
@@ -4899,6 +4986,22 @@ export interface components {
             slug: string;
             title?: string;
             url?: string;
+        };
+        EnvironmentItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/EnvironmentItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            current_build_branch: string;
+            current_build_sha: string;
+            deployed_at: string;
+            /** Format: int32 */
+            id: number;
+            name: string;
+            url: string;
         };
         ErrorDetail: {
             /** @description Where the error occurred, e.g. 'body.items[3].tags' or 'path.thing-id' */
@@ -5797,6 +5900,26 @@ export interface components {
              */
             readonly $schema?: string;
             deferrals: components["schemas"]["DeferralItem"][] | null;
+        };
+        "List-environment-deploysResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-environment-deploysResponse.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["DeployItem"][] | null;
+            /** Format: int64 */
+            total: number;
+        };
+        "List-environmentsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-environmentsResponse.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["EnvironmentItem"][] | null;
         };
         "List-error-events-groupedResponse": {
             /**
@@ -6811,8 +6934,15 @@ export interface components {
             id: number;
             lease_expires_at: string;
             released_at: string;
+            session_alias?: string;
+            session_closed_at?: string;
+            session_header?: string;
+            /** Format: int64 */
+            session_id?: number;
+            session_status?: string;
             target_id: string;
             target_type: string;
+            todo_text?: string;
         };
         ResolutionCommitItem: {
             /** Format: int32 */
@@ -7642,6 +7772,15 @@ export interface components {
             priority: number;
             status: string;
             title: string;
+        };
+        "Update-environmentRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-environmentRequest.json
+             */
+            readonly $schema?: string;
+            url?: string;
         };
         "Update-goalRequest": {
             /**
@@ -12230,6 +12369,243 @@ export interface operations {
             };
         };
     };
+    "list-environments": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-environmentsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-environmentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EnvironmentItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-environmentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-environment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-environment-deploys": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-environment-deploysResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-environment-deploy": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-environment-deployRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DeployItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "add-question": {
         parameters: {
             query?: never;
@@ -12959,6 +13335,7 @@ export interface operations {
         parameters: {
             query: {
                 slug: string;
+                issue_id?: string;
                 limit?: number;
             };
             header?: never;
