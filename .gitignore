@@ -19,6 +19,7 @@ schema/compat-result.txt
 .claude/scheduled_tasks.lock
 ui/tsconfig.tsbuildinfo
 ui/src/api.gen.ts.sha256
+internal/dxclient/openapi.json.sha256
 .idea
 test/e2e/.zdx/
 .vite/

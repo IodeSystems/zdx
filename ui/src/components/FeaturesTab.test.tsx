@@ -37,6 +37,14 @@ function makeFeature(overrides: Partial<FeatureItem> = {}): FeatureItem {
     specs: [],
     what: '',
     why: '',
+    kind: 'direct',
+    baseline_value: '',
+    target_value: '',
+    metric_name: '',
+    metric_unit: '',
+    graph_url: '',
+    goal_id: 0,
+    parent_feature_id: 0,
     ...overrides,
   }
 }

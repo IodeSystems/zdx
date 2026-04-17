@@ -16,8 +16,7 @@ export type SpecItem = components['schemas']['SpecItem']
 export type ProjectItem = components['schemas']['ProjectItem']
 export type MeItem = components['schemas']['MeItem']
 export type OKBody = components['schemas']['OKBody']
-export type ThemeItem = components['schemas']['ThemeItem']
-export type FocusItem = ThemeItem
+export type FocusItem = components['schemas']['FocusItem']
 
 export interface SoloItem {
   id: number
@@ -45,8 +44,12 @@ export interface EvaluateDiff {
 }
 
 // ── fetch utility (used for undocumented endpoints) ────────────────────────────
+// Retained only for endpoints served by raw http.Mux handlers (e.g.
+// /api/dx/demos) that are not registered with huma and therefore have no
+// openapi entry. All other callers should use the typed client from ./client.
+// See IS-275 for the tracker.
 
-export async function apiFetch<T = unknown>(url: string, init?: RequestInit): Promise<T> {
+async function apiFetch<T = unknown>(url: string, init?: RequestInit): Promise<T> { // raw-ok
   const token = getToken()
   const headers = new Headers(init?.headers)
   if (token) headers.set('X-Api-Key', token)
@@ -57,15 +60,6 @@ export async function apiFetch<T = unknown>(url: string, init?: RequestInit): Pr
   }
   if (res.status === 204 || res.headers.get('content-length') === '0') return undefined as T
   return res.json() as Promise<T>
-}
-
-// apiPost serializes body as JSON and sets Content-Type.
-export async function apiPost<T = unknown>(url: string, body: unknown, method = 'POST'): Promise<T> {
-  return apiFetch<T>(url, {
-    method,
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
 }
 
 // ── auth ──────────────────────────────────────────────────────────────────────
@@ -279,8 +273,11 @@ export const useTasks = (slug: string, opts?: { feature?: string; issue?: string
 export const useTask = (slug: string, id: string) =>
   useQuery<TaskItem>({
     queryKey: ['task', slug, id],
-    queryFn: async () =>
-      apiFetch<TaskItem>(`/api/task?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/task', { params: { query: { slug, id } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     enabled: !!slug && !!id,
   })
 
@@ -320,11 +317,11 @@ export const useReleaseTask = () => {
   const qc = useQueryClient()
   return useMutation<void, Error, { slug: string; taskId: string }>({
     mutationFn: async ({ taskId }) => {
-      await apiFetch(`/api/tasks/${encodeURIComponent(taskId)}/release`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ agent_id: '' }),
+      const { error } = await client.POST('/api/tasks/{id}/release', {
+        params: { path: { id: taskId } },
+        body: { agent_id: '' },
       })
+      if (error) throw new Error(JSON.stringify(error))
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['task', v.slug] })
@@ -379,7 +376,13 @@ export const useErrors = (slug: string, limit?: number, offset?: number) =>
 export const useError = (id: string, slug?: string) =>
   useQuery<ErrorReportItem>({
     queryKey: ['error', id, slug],
-    queryFn: () => apiFetch<ErrorReportItem>(`/api/dx/errors/${encodeURIComponent(id)}${slug ? `?slug=${encodeURIComponent(slug)}` : ''}`),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/errors/{id}', {
+        params: { path: { id: Number(id) }, query: slug ? { slug } : {} },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
     enabled: !!id,
   })
 
@@ -387,7 +390,8 @@ export const useClearErrors = (slug: string) => {
   const qc = useQueryClient()
   return useMutation<void, Error, void>({
     mutationFn: async () => {
-      await apiFetch(`/api/dx/errors?slug=${encodeURIComponent(slug)}`, { method: 'DELETE' })
+      const { error } = await client.DELETE('/api/dx/errors', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['errors', slug] }) },
   })
@@ -397,17 +401,16 @@ export const useReportError = (slug: string) => {
   const qc = useQueryClient()
   return useMutation<void, Error, { source: string; errorName: string }>({
     mutationFn: async ({ source, errorName }) => {
-      await apiFetch('/api/dx/errors/report', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
+      const { error } = await client.POST('/api/dx/errors/report', {
+        body: {
           slug,
           source,
           endpoint: window.location.href,
           error_name: errorName,
           stack_trace: `Simulated ${source} error for flow testing`,
-        }),
+        },
       })
+      if (error) throw new Error(JSON.stringify(error))
     },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['errors', slug] }) },
   })
@@ -425,13 +428,12 @@ export const useWorklog = (slug: string, limit?: number, offset?: number) =>
   useQuery<{ entries: WorklogEntry[]; total: number }>({
     queryKey: ['worklog', slug, limit, offset],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      const res = await apiFetch<{ entries: WorklogEntry[]; total: number }>(
-        `/api/dx/worklog?${params}`
-      )
-      return { entries: res.entries ?? [], total: res.total ?? 0 }
+      const query: Record<string, string | number> = { slug }
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      const { data, error } = await client.GET('/api/dx/worklog', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { entries: (data as any)?.entries ?? [], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -441,10 +443,12 @@ export const useWorklog = (slug: string, limit?: number, offset?: number) =>
 export const useSolo = (slug: string, issueFilter?: string) =>
   useQuery<SoloItem[]>({
     queryKey: ['solo', slug, issueFilter],
-    queryFn: () => {
-      const params = new URLSearchParams({ slug })
-      if (issueFilter) params.set('issue', issueFilter)
-      return apiFetch(`/api/dx/solo?${params}`)
+    queryFn: async () => {
+      const query: Record<string, string> = { slug }
+      if (issueFilter) query.issue = issueFilter
+      const { data, error } = await client.GET('/api/dx/solo', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as SoloItem[]
     },
     enabled: !!slug,
   })
@@ -452,11 +456,11 @@ export const useSolo = (slug: string, issueFilter?: string) =>
 export const useEvaluateSolo = () => {
   return useMutation<EvaluateDiff, Error, { slug: string; issue?: string }>({
     mutationFn: async ({ slug, issue }) => {
-      return apiFetch('/api/dx/solo/evaluate', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, issue: issue ?? '' }),
+      const { data, error } = await client.POST('/api/dx/solo/evaluate', {
+        body: { slug, issue: issue ?? '' },
       })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as EvaluateDiff
     },
   })
 }
@@ -465,11 +469,11 @@ export const useApplySolo = () => {
   const qc = useQueryClient()
   return useMutation<{ ok: boolean }, Error, { slug: string; items: SoloItem[] }>({
     mutationFn: async ({ slug, items }) => {
-      return apiFetch('/api/dx/solo/apply', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ slug, items }),
+      const { data, error } = await client.POST('/api/dx/solo/apply', {
+        body: { slug, items } as any,
       })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as { ok: boolean }
     },
     onSuccess: (_, { slug }) => {
       qc.invalidateQueries({ queryKey: ['solo', slug] })
@@ -495,13 +499,12 @@ export const useComments = (slug: string, targetType: string, targetId: string, 
   useQuery<{ comments: CommentItem[]; total: number }>({
     queryKey: ['comments', slug, targetType, targetId, limit, offset],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, target_type: targetType, target_id: targetId, role: 'dev' })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      const res = await apiFetch<{ comments: CommentItem[]; total: number }>(
-        `/api/dx/comment/list?${params}`
-      )
-      return { comments: res.comments ?? [], total: res.total ?? 0 }
+      const query: Record<string, string | number> = { slug, target_type: targetType, target_id: targetId, role: 'dev' }
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      const { data, error } = await client.GET('/api/dx/comment/list', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { comments: (data as any)?.comments ?? [], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug && !!targetType && !!targetId,
   })
@@ -509,12 +512,11 @@ export const useComments = (slug: string, targetType: string, targetId: string, 
 export const useAddComment = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (p: { slug: string; target_type: string; target_id: string; body: string }) =>
-      apiFetch<CommentItem>('/api/dx/comment/add', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(p),
-      }),
+    mutationFn: async (p: { slug: string; target_type: string; target_id: string; body: string }) => {
+      const { data, error } = await client.POST('/api/dx/comment/add', { body: p as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return data as CommentItem
+    },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['comments', vars.slug, vars.target_type, vars.target_id] })
     },
@@ -524,12 +526,11 @@ export const useAddComment = () => {
 export const useMarkCommentsRead = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (p: { slug: string; target_type: string; target_id: string }) =>
-      apiFetch<{ ok: boolean }>('/api/dx/comment/mark-read', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ ...p, role: 'dev' }),
-      }),
+    mutationFn: async (p: { slug: string; target_type: string; target_id: string }) => {
+      const { data, error } = await client.POST('/api/dx/comment/mark-read', { body: { ...p, role: 'dev' } as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as { ok: boolean }
+    },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['comments', vars.slug, vars.target_type, vars.target_id] })
     },
@@ -540,13 +541,12 @@ export const useMyComments = (slug: string, limit?: number, offset?: number) =>
   useQuery<{ comments: CommentItem[]; total: number }>({
     queryKey: ['comments', 'mine', slug, limit, offset],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      const res = await apiFetch<{ comments: CommentItem[]; total: number }>(
-        `/api/dx/comment/mine?${params}`
-      )
-      return { comments: res.comments ?? [], total: res.total ?? 0 }
+      const query: Record<string, string | number> = { slug }
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      const { data, error } = await client.GET('/api/dx/comment/mine', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { comments: (data as any)?.comments ?? [], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -557,10 +557,9 @@ export const useUnreadCount = (slug: string) =>
   useQuery<number>({
     queryKey: ['notifications', 'unread-count', slug],
     queryFn: async () => {
-      const res = await apiFetch<{ count: number }>(
-        `/api/dx/notifications/unread-count?slug=${encodeURIComponent(slug)}`
-      )
-      return res.count
+      const { data, error } = await client.GET('/api/dx/notifications/unread-count', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as any)?.count ?? 0
     },
     enabled: !!slug,
     refetchInterval: 60_000,
@@ -586,9 +585,11 @@ export const useHistory = (targetType: string, targetId: string) =>
   useQuery<{ events: HistoryEvent[] }>({
     queryKey: ['history', targetType, targetId],
     queryFn: async () => {
-      const params = new URLSearchParams({ target_type: targetType, target_id: targetId })
-      const res = await apiFetch<{ events: HistoryEvent[] }>(`/api/dx/history?${params}`)
-      return { events: res.events ?? [] }
+      const { data, error } = await client.GET('/api/dx/history', {
+        params: { query: { target_type: targetType, target_id: targetId } as any },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { events: ((data as any)?.events ?? []) as HistoryEvent[] }
     },
     enabled: !!targetType && !!targetId,
   })
@@ -620,14 +621,13 @@ export const useTimed = (slug: string, limit?: number, offset?: number, tagFilte
   useQuery<{ items: TimedItem[]; total: number }>({
     queryKey: ['timed', slug, limit, offset, tagFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
-      const res = await apiFetch<{ items: TimedItem[]; total: number }>(
-        `/api/dx/timed?${params}`
-      )
-      return { items: res.items ?? [], total: res.total ?? 0 }
+      const query: Record<string, string | number> = { slug }
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      if (tagFilter && Object.keys(tagFilter).length > 0) query.tag_filter = JSON.stringify(tagFilter)
+      const { data, error } = await client.GET('/api/dx/timed', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { items: ((data as any)?.items ?? []) as TimedItem[], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -636,12 +636,11 @@ export const useTimedGrouped = (slug: string, groupBy: string, tagFilter?: Recor
   useQuery<{ items: TimedGroupedItem[] }>({
     queryKey: ['timed-grouped', slug, groupBy, tagFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, group_by: groupBy })
-      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
-      const res = await apiFetch<{ items: TimedGroupedItem[] }>(
-        `/api/dx/timed/grouped?${params}`
-      )
-      return { items: res.items ?? [] }
+      const query: Record<string, string> = { slug, group_by: groupBy }
+      if (tagFilter && Object.keys(tagFilter).length > 0) query.tag_filter = JSON.stringify(tagFilter)
+      const { data, error } = await client.GET('/api/dx/timed/grouped', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { items: ((data as any)?.items ?? []) as TimedGroupedItem[] }
     },
     enabled: !!slug && !!groupBy,
   })
@@ -650,10 +649,9 @@ export const useTimedTagKeys = (slug: string) =>
   useQuery<{ keys: string[] }>({
     queryKey: ['timed-tag-keys', slug],
     queryFn: async () => {
-      const res = await apiFetch<{ keys: string[] }>(
-        `/api/dx/timed/tags/keys?slug=${encodeURIComponent(slug)}`
-      )
-      return { keys: res.keys ?? [] }
+      const { data, error } = await client.GET('/api/dx/timed/tags/keys', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { keys: ((data as any)?.keys ?? []) as string[] }
     },
     enabled: !!slug,
   })
@@ -662,11 +660,9 @@ export const useTimedTagValues = (slug: string, key: string) =>
   useQuery<{ values: string[] }>({
     queryKey: ['timed-tag-values', slug, key],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, key })
-      const res = await apiFetch<{ values: string[] }>(
-        `/api/dx/timed/tags/values?${params}`
-      )
-      return { values: res.values ?? [] }
+      const { data, error } = await client.GET('/api/dx/timed/tags/values', { params: { query: { slug, key } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { values: ((data as any)?.values ?? []) as string[] }
     },
     enabled: !!slug && !!key,
   })
@@ -698,14 +694,13 @@ export const useCounted = (slug: string, limit?: number, offset?: number, tagFil
   useQuery<{ items: CountedItem[]; total: number }>({
     queryKey: ['counted', slug, limit, offset, tagFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
-      const res = await apiFetch<{ items: CountedItem[]; total: number }>(
-        `/api/dx/counted?${params}`
-      )
-      return { items: res.items ?? [], total: res.total ?? 0 }
+      const query: Record<string, string | number> = { slug }
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      if (tagFilter && Object.keys(tagFilter).length > 0) query.tag_filter = JSON.stringify(tagFilter)
+      const { data, error } = await client.GET('/api/dx/counted', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { items: ((data as any)?.items ?? []) as CountedItem[], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -714,12 +709,11 @@ export const useCountedGrouped = (slug: string, groupBy: string, tagFilter?: Rec
   useQuery<{ items: CountedGroupedItem[] }>({
     queryKey: ['counted-grouped', slug, groupBy, tagFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, group_by: groupBy })
-      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
-      const res = await apiFetch<{ items: CountedGroupedItem[] }>(
-        `/api/dx/counted/grouped?${params}`
-      )
-      return { items: res.items ?? [] }
+      const query: Record<string, string> = { slug, group_by: groupBy }
+      if (tagFilter && Object.keys(tagFilter).length > 0) query.tag_filter = JSON.stringify(tagFilter)
+      const { data, error } = await client.GET('/api/dx/counted/grouped', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { items: ((data as any)?.items ?? []) as CountedGroupedItem[] }
     },
     enabled: !!slug && !!groupBy,
   })
@@ -728,10 +722,9 @@ export const useCountedTagKeys = (slug: string) =>
   useQuery<{ keys: string[] }>({
     queryKey: ['counted-tag-keys', slug],
     queryFn: async () => {
-      const res = await apiFetch<{ keys: string[] }>(
-        `/api/dx/counted/tags/keys?slug=${encodeURIComponent(slug)}`
-      )
-      return { keys: res.keys ?? [] }
+      const { data, error } = await client.GET('/api/dx/counted/tags/keys', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { keys: ((data as any)?.keys ?? []) as string[] }
     },
     enabled: !!slug,
   })
@@ -740,11 +733,9 @@ export const useCountedTagValues = (slug: string, key: string) =>
   useQuery<{ values: string[] }>({
     queryKey: ['counted-tag-values', slug, key],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, key })
-      const res = await apiFetch<{ values: string[] }>(
-        `/api/dx/counted/tags/values?${params}`
-      )
-      return { values: res.values ?? [] }
+      const { data, error } = await client.GET('/api/dx/counted/tags/values', { params: { query: { slug, key } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { values: ((data as any)?.values ?? []) as string[] }
     },
     enabled: !!slug && !!key,
   })
@@ -773,14 +764,13 @@ export const useLogEvents = (slug: string, limit?: number, offset?: number, tagF
   useQuery<{ items: LogEventItem[]; total: number }>({
     queryKey: ['log-events', slug, limit, offset, tagFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
-      const res = await apiFetch<{ items: LogEventItem[]; total: number }>(
-        `/api/dx/log-events?${params}`
-      )
-      return { items: res.items ?? [], total: res.total ?? 0 }
+      const query: Record<string, string | number> = { slug }
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      if (tagFilter && Object.keys(tagFilter).length > 0) query.tag_filter = JSON.stringify(tagFilter)
+      const { data, error } = await client.GET('/api/dx/log-events', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { items: ((data as any)?.items ?? []) as LogEventItem[], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -789,12 +779,11 @@ export const useLogEventsGrouped = (slug: string, groupBy: string, tagFilter?: R
   useQuery<{ items: LogEventGroupedItem[] }>({
     queryKey: ['log-events-grouped', slug, groupBy, tagFilter],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, group_by: groupBy })
-      if (tagFilter && Object.keys(tagFilter).length > 0) params.set('tag_filter', JSON.stringify(tagFilter))
-      const res = await apiFetch<{ items: LogEventGroupedItem[] }>(
-        `/api/dx/log-events/grouped?${params}`
-      )
-      return { items: res.items ?? [] }
+      const query: Record<string, string> = { slug, group_by: groupBy }
+      if (tagFilter && Object.keys(tagFilter).length > 0) query.tag_filter = JSON.stringify(tagFilter)
+      const { data, error } = await client.GET('/api/dx/log-events/grouped', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { items: ((data as any)?.items ?? []) as LogEventGroupedItem[] }
     },
     enabled: !!slug && !!groupBy,
   })
@@ -803,10 +792,9 @@ export const useLogEventsTagKeys = (slug: string) =>
   useQuery<{ keys: string[] }>({
     queryKey: ['log-events-tag-keys', slug],
     queryFn: async () => {
-      const res = await apiFetch<{ keys: string[] }>(
-        `/api/dx/log-events/tags/keys?slug=${encodeURIComponent(slug)}`
-      )
-      return { keys: res.keys ?? [] }
+      const { data, error } = await client.GET('/api/dx/log-events/tags/keys', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { keys: ((data as any)?.keys ?? []) as string[] }
     },
     enabled: !!slug,
   })
@@ -815,11 +803,9 @@ export const useLogEventsTagValues = (slug: string, key: string) =>
   useQuery<{ values: string[] }>({
     queryKey: ['log-events-tag-values', slug, key],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, key })
-      const res = await apiFetch<{ values: string[] }>(
-        `/api/dx/log-events/tags/values?${params}`
-      )
-      return { values: res.values ?? [] }
+      const { data, error } = await client.GET('/api/dx/log-events/tags/values', { params: { query: { slug, key } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { values: ((data as any)?.values ?? []) as string[] }
     },
     enabled: !!slug && !!key,
   })
@@ -835,14 +821,22 @@ export interface GitConfig {
 export const useProjectGitConfig = (slug: string) =>
   useQuery<GitConfig>({
     queryKey: ['project-git-config', slug],
-    queryFn: () => apiFetch<GitConfig>(`/api/admin/project-git-config?slug=${encodeURIComponent(slug)}`),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/project-git-config', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as GitConfig
+    },
     enabled: !!slug,
   })
 
 export const useSetProjectGitConfig = () => {
   const qc = useQueryClient()
   return useMutation<GitConfig, Error, { slug: string } & GitConfig>({
-    mutationFn: (body) => apiPost<GitConfig>('/api/admin/project-git-config', body, 'PUT'),
+    mutationFn: async (body) => {
+      const { data, error } = await client.PUT('/api/admin/project-git-config', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as GitConfig
+    },
     onSuccess: (_, vars) => { qc.invalidateQueries({ queryKey: ['project-git-config', vars.slug] }) },
   })
 }
@@ -854,7 +848,11 @@ export interface GitConfigTestResult {
 
 export const useTestProjectGitConfig = () =>
   useMutation<GitConfigTestResult, Error, { slug: string } & GitConfig>({
-    mutationFn: (body) => apiPost<GitConfigTestResult>('/api/admin/project-git-config/test', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/admin/project-git-config/test', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as GitConfigTestResult
+    },
   })
 
 // ── Project stage (admin) ────────────────────────────────────────────────────
@@ -862,7 +860,11 @@ export const useTestProjectGitConfig = () =>
 export const useSetProjectStage = () => {
   const qc = useQueryClient()
   return useMutation<{ stage: string }, Error, { slug: string; stage: string }>({
-    mutationFn: (body) => apiPost<{ stage: string }>('/api/admin/project-stage', body, 'PUT'),
+    mutationFn: async (body) => {
+      const { data, error } = await client.PUT('/api/admin/project-stage', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as { stage: string }
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['projects'] }) },
   })
 }
@@ -879,13 +881,21 @@ export interface LLMConfig {
 export const useLLMConfig = () =>
   useQuery<LLMConfig>({
     queryKey: ['llm-config'],
-    queryFn: () => apiFetch<LLMConfig>('/api/admin/llm-config'),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/llm-config')
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as LLMConfig
+    },
   })
 
 export const useSetLLMConfig = () => {
   const qc = useQueryClient()
   return useMutation<LLMConfig, Error, LLMConfig>({
-    mutationFn: (body) => apiPost<LLMConfig>('/api/admin/llm-config', body, 'PUT'),
+    mutationFn: async (body) => {
+      const { data, error } = await client.PUT('/api/admin/llm-config', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as LLMConfig
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['llm-config'] }) },
   })
 }
@@ -897,7 +907,11 @@ export interface LLMConfigTestResult {
 
 export const useTestLLMConfig = () =>
   useMutation<LLMConfigTestResult, Error, LLMConfig>({
-    mutationFn: (body) => apiPost<LLMConfigTestResult>('/api/admin/llm-config/test', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/admin/llm-config/test', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as LLMConfigTestResult
+    },
   })
 
 // ── Admin stats ──────────────────────────────────────────────────────────────
@@ -911,7 +925,11 @@ export interface AdminStats {
 export const useAdminStats = () =>
   useQuery<AdminStats>({
     queryKey: ['admin-stats'],
-    queryFn: () => apiFetch<AdminStats>('/api/admin/stats'),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/stats')
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as AdminStats
+    },
   })
 
 // ── Users (admin) ────────────────────────────────────────────────────────────
@@ -927,16 +945,23 @@ export interface AdminUserItem {
 export const useAdminUsers = (q?: string) =>
   useQuery<AdminUserItem[]>({
     queryKey: ['admin-users', q ?? ''],
-    queryFn: () => {
-      const params = q ? `?q=${encodeURIComponent(q)}` : ''
-      return apiFetch<{ users: AdminUserItem[] }>(`/api/admin/users${params}`).then(r => r.users ?? [])
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/users', { params: { query: q ? { q } : {} } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.users ?? []) as AdminUserItem[]
     },
   })
 
 export const useUpdateUserRole = () => {
   const qc = useQueryClient()
   return useMutation<void, Error, { id: number; role: string }>({
-    mutationFn: ({ id, role }) => apiPost<void>(`/api/admin/users/${id}/role`, { role }, 'PUT'),
+    mutationFn: async ({ id, role }) => {
+      const { error } = await client.PUT('/api/admin/users/{id}/role', {
+        params: { path: { id } },
+        body: { role },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['admin-users'] }) },
   })
 }
@@ -956,13 +981,21 @@ export interface InviteItem {
 export const useInvites = () =>
   useQuery<InviteItem[]>({
     queryKey: ['invites'],
-    queryFn: () => apiFetch<{ invites: InviteItem[] }>('/api/admin/invites').then(r => r.invites ?? []),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/invites')
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.invites ?? []) as InviteItem[]
+    },
   })
 
 export const useCreateInvite = () => {
   const qc = useQueryClient()
   return useMutation<InviteItem, Error, { email: string }>({
-    mutationFn: (body) => apiPost<InviteItem>('/api/admin/invites', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/admin/invites', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as InviteItem
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['invites'] }) },
   })
 }
@@ -970,7 +1003,10 @@ export const useCreateInvite = () => {
 export const useDeleteInvite = () => {
   const qc = useQueryClient()
   return useMutation<void, Error, number>({
-    mutationFn: (id) => apiFetch<void>(`/api/admin/invites/${id}`, { method: 'DELETE' }),
+    mutationFn: async (id) => {
+      const { error } = await client.DELETE('/api/admin/invites/{id}', { params: { path: { id } } })
+      if (error) throw new Error(JSON.stringify(error))
+    },
     onSuccess: () => { qc.invalidateQueries({ queryKey: ['invites'] }) },
   })
 }
@@ -988,13 +1024,21 @@ export interface WSClientItem {
 export const useWSClients = (refetchInterval = 2000) =>
   useQuery<WSClientItem[]>({
     queryKey: ['admin-ws-clients'],
-    queryFn: () => apiFetch<{ clients: WSClientItem[] }>('/api/admin/ws/clients').then(r => r.clients ?? []),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/ws/clients')
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.clients ?? []) as WSClientItem[]
+    },
     refetchInterval,
   })
 
 export const useWSEcho = () =>
   useMutation<{ sent_at: string }, Error, { channel: string; payload?: string }>({
-    mutationFn: (body) => apiPost<{ sent_at: string }>('/api/admin/ws/echo', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/admin/ws/echo', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as { sent_at: string }
+    },
   })
 
 // ── Issue similarity ──────────────────────────────────────────────────────────
@@ -1010,8 +1054,9 @@ export interface SimilarIssueItem {
 export const useSimilarIssues = () =>
   useMutation<SimilarIssueItem[], Error, { slug: string; text: string; n?: number }>({
     mutationFn: async (body) => {
-      const res = await apiPost<{ issues: SimilarIssueItem[] }>('/api/dx/issues/similar', body)
-      return res.issues ?? []
+      const { data, error } = await client.POST('/api/dx/issues/similar', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.issues ?? []) as SimilarIssueItem[]
     },
   })
 
@@ -1019,10 +1064,9 @@ export const useSearchIssues = (slug: string, q: string, enabled: boolean) =>
   useQuery<IssueItem[]>({
     queryKey: ['issue-search', slug, q],
     queryFn: async () => {
-      const res = await apiFetch<{ issues: IssueItem[] }>(
-        `/api/dx/todo/issue/search?slug=${encodeURIComponent(slug)}&q=${encodeURIComponent(q)}`
-      )
-      return res.issues ?? []
+      const { data, error } = await client.GET('/api/dx/todo/issue/search', { params: { query: { slug, q } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.issues ?? []) as IssueItem[]
     },
     enabled: enabled && !!slug && q.length > 1,
     staleTime: 10_000,
@@ -1044,10 +1088,9 @@ export const useIssueCodeRefs = (slug: string, issueId: string) =>
   useQuery<CodeRefItem[]>({
     queryKey: ['code-refs', 'issue', slug, issueId],
     queryFn: async () => {
-      const res = await apiFetch<{ refs: CodeRefItem[] }>(
-        `/api/dx/code-refs/issue?slug=${encodeURIComponent(slug)}&issue_id=${encodeURIComponent(issueId)}`
-      )
-      return res.refs ?? []
+      const { data, error } = await client.GET('/api/dx/code-refs/issue', { params: { query: { slug, issue_id: issueId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.refs ?? []) as CodeRefItem[]
     },
     enabled: !!slug && !!issueId,
   })
@@ -1074,10 +1117,11 @@ export const useIssueResolutions = (slug: string, issueId: string, branch?: stri
   useQuery<ResolutionItem[]>({
     queryKey: ['issue-resolutions', slug, issueId, branch],
     queryFn: async () => {
-      let url = `/api/dx/todo/issue/resolutions?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(issueId)}`
-      if (branch) url += `&branch=${encodeURIComponent(branch)}`
-      const res = await apiFetch<{ resolutions: ResolutionItem[] }>(url)
-      return res.resolutions ?? []
+      const query: Record<string, string> = { slug, id: issueId }
+      if (branch) query.branch = branch
+      const { data, error } = await client.GET('/api/dx/todo/issue/resolutions', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.resolutions ?? []) as ResolutionItem[]
     },
     enabled: !!slug && !!issueId,
   })
@@ -1086,10 +1130,9 @@ export const useTaskCodeRefs = (slug: string, taskId: string) =>
   useQuery<CodeRefItem[]>({
     queryKey: ['code-refs', 'task', slug, taskId],
     queryFn: async () => {
-      const res = await apiFetch<{ refs: CodeRefItem[] }>(
-        `/api/dx/code-refs/task?slug=${encodeURIComponent(slug)}&task_id=${encodeURIComponent(taskId)}`
-      )
-      return res.refs ?? []
+      const { data, error } = await client.GET('/api/dx/code-refs/task', { params: { query: { slug, task_id: taskId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.refs ?? []) as CodeRefItem[]
     },
     enabled: !!slug && !!taskId,
   })
@@ -1110,8 +1153,9 @@ export const useQuestion = (slug: string, id: number) =>
   useQuery<QuestionItem>({
     queryKey: ['question', slug, id],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, id: String(id) })
-      return apiFetch<QuestionItem>(`/api/dx/qa/get?${params}`)
+      const { data, error } = await client.GET('/api/dx/qa/get', { params: { query: { slug, id } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as QuestionItem
     },
     enabled: !!slug && id > 0,
   })
@@ -1120,13 +1164,12 @@ export const useQuestions = (slug: string, limit?: number, offset?: number) =>
   useQuery<{ questions: QuestionItem[]; total: number }>({
     queryKey: ['questions', slug, limit, offset],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      const res = await apiFetch<{ questions: QuestionItem[]; total: number }>(
-        `/api/dx/qa/list?${params}`
-      )
-      return { questions: res.questions ?? [], total: res.total ?? 0 }
+      const query: Record<string, string | number> = { slug }
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      const { data, error } = await client.GET('/api/dx/qa/list', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { questions: ((data as any)?.questions ?? []) as QuestionItem[], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -1138,7 +1181,11 @@ export const useCreateQuestion = () => {
     Error,
     { slug: string; category: string; question: string; parent_question_id?: number }
   >({
-    mutationFn: (body) => apiPost<QuestionItem>('/api/dx/qa/add', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/qa/add', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as QuestionItem
+    },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['questions', v.slug] }),
   })
 }
@@ -1153,8 +1200,9 @@ export interface SimilarQuestionItem {
 export const useSimilarQuestions = () =>
   useMutation<SimilarQuestionItem[], Error, { slug: string; text: string; n?: number }>({
     mutationFn: async (body) => {
-      const res = await apiPost<{ questions: SimilarQuestionItem[] }>('/api/dx/qa/similar', body)
-      return res.questions ?? []
+      const { data, error } = await client.POST('/api/dx/qa/similar', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.questions ?? []) as SimilarQuestionItem[]
     },
   })
 
@@ -1162,11 +1210,11 @@ export const useChildQuestions = (slug: string, parentQuestionId: number | null)
   useQuery<{ questions: QuestionItem[] }>({
     queryKey: ['child-questions', slug, parentQuestionId],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, parent_question_id: String(parentQuestionId) })
-      const res = await apiFetch<{ questions: QuestionItem[] }>(
-        `/api/dx/qa/children?${params}`
-      )
-      return { questions: res.questions ?? [] }
+      const { data, error } = await client.GET('/api/dx/qa/children', {
+        params: { query: { slug, parent_question_id: parentQuestionId! } as any },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { questions: ((data as any)?.questions ?? []) as QuestionItem[] }
     },
     enabled: !!slug && parentQuestionId != null,
   })
@@ -1190,14 +1238,13 @@ export const useBlockerQuestions = (slug: string, status?: string, limit?: numbe
   useQuery<{ questions: BlockerQuestionItem[]; total: number }>({
     queryKey: ['blocker-questions', slug, status, limit, offset],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (status) params.set('status', status)
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      const res = await apiFetch<{ questions: BlockerQuestionItem[]; total: number }>(
-        `/api/dx/blocker-questions/list?${params}`
-      )
-      return { questions: res.questions ?? [], total: res.total ?? 0 }
+      const query: Record<string, string | number> = { slug }
+      if (status) query.status = status
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      const { data, error } = await client.GET('/api/dx/blocker-questions/list', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { questions: ((data as any)?.questions ?? []) as BlockerQuestionItem[], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -1206,11 +1253,11 @@ export const useBlockerQuestionsByTarget = (slug: string, targetType: string, ta
   useQuery<{ questions: BlockerQuestionItem[] }>({
     queryKey: ['blocker-questions-by-target', slug, targetType, targetId],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, target_type: targetType, target_id: targetId })
-      const res = await apiFetch<{ questions: BlockerQuestionItem[] }>(
-        `/api/dx/blocker-questions/by-target?${params}`
-      )
-      return { questions: res.questions ?? [] }
+      const { data, error } = await client.GET('/api/dx/blocker-questions/by-target', {
+        params: { query: { slug, target_type: targetType, target_id: targetId } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { questions: ((data as any)?.questions ?? []) as BlockerQuestionItem[] }
     },
     enabled: !!slug && !!targetType && !!targetId,
   })
@@ -1222,7 +1269,11 @@ export const useAnswerBlockerQuestion = () => {
     Error,
     { slug: string; id: number; answer: string; answered_by?: string }
   >({
-    mutationFn: (body) => apiPost<BlockerQuestionItem>('/api/dx/blocker-questions/answer', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/blocker-questions/answer', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as BlockerQuestionItem
+    },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['blocker-questions', v.slug] })
       qc.invalidateQueries({ queryKey: ['blocker-questions-by-target', v.slug] })
@@ -1249,11 +1300,11 @@ export const useQuestionProposals = (slug: string, questionId: number, questionT
   useQuery<{ proposals: QuestionProposalItem[] }>({
     queryKey: ['question-proposals', slug, questionId, questionType],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, question_id: String(questionId), question_type: questionType })
-      const res = await apiFetch<{ proposals: QuestionProposalItem[] }>(
-        `/api/dx/question-proposals/by-question?${params}`
-      )
-      return { proposals: res.proposals ?? [] }
+      const { data, error } = await client.GET('/api/dx/question-proposals/by-question', {
+        params: { query: { slug, question_id: questionId, question_type: questionType } as any },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { proposals: ((data as any)?.proposals ?? []) as QuestionProposalItem[] }
     },
     enabled: !!slug && questionId > 0,
   })
@@ -1265,7 +1316,11 @@ export const useAcceptQuestionProposal = () => {
     Error,
     { slug: string; id: number }
   >({
-    mutationFn: (body) => apiPost<{ proposal: QuestionProposalItem; issue: { id: string } }>('/api/dx/question-proposals/accept', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/question-proposals/accept', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as { proposal: QuestionProposalItem; issue: { id: string } }
+    },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['question-proposals', v.slug] })
       qc.invalidateQueries({ queryKey: ['issues', v.slug] })
@@ -1280,7 +1335,11 @@ export const useDenyQuestionProposal = () => {
     Error,
     { slug: string; id: number; reason: string }
   >({
-    mutationFn: (body) => apiPost<QuestionProposalItem>('/api/dx/question-proposals/deny', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/question-proposals/deny', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as QuestionProposalItem
+    },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['question-proposals', v.slug] })
     },
@@ -1301,10 +1360,9 @@ export const useSpecTests = (specId: number, enabled = true) =>
   useQuery<SpecTestItem[]>({
     queryKey: ['spec-tests', specId],
     queryFn: async () => {
-      const res = await apiFetch<{ tests: SpecTestItem[] }>(
-        `/api/dx/specs/tests?spec_id=${specId}`
-      )
-      return res.tests ?? []
+      const { data, error } = await client.GET('/api/dx/specs/tests', { params: { query: { spec_id: specId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.tests ?? []) as SpecTestItem[]
     },
     enabled: enabled && specId > 0,
   })
@@ -1322,10 +1380,9 @@ export const useSpecDemos = (specId: number, enabled = true) =>
   useQuery<SpecDemoItem[]>({
     queryKey: ['spec-demos', specId],
     queryFn: async () => {
-      const res = await apiFetch<{ demos: SpecDemoItem[] }>(
-        `/api/dx/specs/demos?spec_id=${specId}`
-      )
-      return res.demos ?? []
+      const { data, error } = await client.GET('/api/dx/specs/demos', { params: { query: { spec_id: specId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.demos ?? []) as SpecDemoItem[]
     },
     enabled: enabled && specId > 0,
   })
@@ -1346,23 +1403,31 @@ export const useSpecDetail = (specId: number, enabled = true) =>
   useQuery<SpecDetailResult | null>({
     queryKey: ['spec-detail', specId],
     queryFn: async () => {
-      const res = await apiFetch<SpecDetailResult>(
-        `/api/dx/specs/detail?spec_id=${specId}`
-      )
-      return res
+      const { data, error } = await client.GET('/api/dx/specs/detail', { params: { query: { spec_id: specId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as SpecDetailResult
     },
     enabled: enabled && specId > 0,
   })
 
-export const linkSpecIssue = (specId: number, issueId: string) =>
-  apiPost('/api/dx/specs/link-issue', { spec_id: specId, issue_id: issueId })
+export const linkSpecIssue = async (specId: number, issueId: string) => {
+  const { data, error } = await client.POST('/api/dx/specs/link-issue', { body: { spec_id: specId, issue_id: issueId } })
+  if (error) throw new Error(JSON.stringify(error))
+  return data
+}
 
 
-export const deferSpec = (specId: number, reason: string) =>
-  apiPost('/api/dx/specs/defer', { spec_id: specId, reason })
+export const deferSpec = async (specId: number, reason: string) => {
+  const { data, error } = await client.POST('/api/dx/specs/defer', { body: { spec_id: specId, reason } })
+  if (error) throw new Error(JSON.stringify(error))
+  return data
+}
 
-export const undeferSpec = (specId: number) =>
-  apiPost('/api/dx/specs/undefer', { spec_id: specId })
+export const undeferSpec = async (specId: number) => {
+  const { data, error } = await client.POST('/api/dx/specs/undefer', { body: { spec_id: specId } })
+  if (error) throw new Error(JSON.stringify(error))
+  return data
+}
 
 // ── Demos ────────────────────────────────────────────────────────────────
 
@@ -1386,11 +1451,13 @@ export interface CLIDemoData {
   steps: CLIDemoStep[]
 }
 
+// /api/dx/demos is served by a raw http.Mux handler (not huma-registered),
+// so it has no openapi entry. See IS-275 for follow-up to document these.
 export const useDemos = () =>
   useQuery<DemoListItem[]>({
     queryKey: ['demos'],
     queryFn: async () => {
-      const res = await apiFetch<{ demos: DemoListItem[] }>('/api/dx/demos')
+      const res = await apiFetch<{ demos: DemoListItem[] }>('/api/dx/demos') // raw-ok
       return res.demos ?? []
     },
   })
@@ -1398,7 +1465,7 @@ export const useDemos = () =>
 export const useDemoContent = (type: string, name: string) =>
   useQuery<CLIDemoData>({
     queryKey: ['demo', type, name],
-    queryFn: () => apiFetch<CLIDemoData>(`/api/dx/demos/${encodeURIComponent(type)}/${encodeURIComponent(name)}`),
+    queryFn: () => apiFetch<CLIDemoData>(`/api/dx/demos/${encodeURIComponent(type)}/${encodeURIComponent(name)}`), // raw-ok
     enabled: type === 'cli' && !!name,
   })
 
@@ -1435,13 +1502,12 @@ export const useClaudeSessions = (slug: string, limit?: number, offset?: number)
   useQuery<{ sessions: ClaudeSessionItem[]; total: number }>({
     queryKey: ['claude-sessions', slug, limit, offset],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (limit != null) params.set('limit', String(limit))
-      if (offset != null) params.set('offset', String(offset))
-      const res = await apiFetch<{ sessions: ClaudeSessionItem[]; total: number }>(
-        `/api/dx/claude/sessions?${params}`
-      )
-      return { sessions: res.sessions ?? [], total: res.total ?? 0 }
+      const query: Record<string, string | number> = { slug }
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      const { data, error } = await client.GET('/api/dx/claude/sessions', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { sessions: ((data as any)?.sessions ?? []) as ClaudeSessionItem[], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -1450,11 +1516,11 @@ export const useClaudeSessionsByIssue = (slug: string, issueId: string) =>
   useQuery<{ sessions: ClaudeSessionItem[]; total: number }>({
     queryKey: ['claude-sessions', slug, 'issue', issueId],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, issue_id: issueId })
-      const res = await apiFetch<{ sessions: ClaudeSessionItem[]; total: number }>(
-        `/api/dx/claude/sessions?${params}`
-      )
-      return { sessions: res.sessions ?? [], total: res.total ?? 0 }
+      const { data, error } = await client.GET('/api/dx/claude/sessions', {
+        params: { query: { slug, issue_id: issueId } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { sessions: ((data as any)?.sessions ?? []) as ClaudeSessionItem[], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug && !!issueId,
   })
@@ -1463,14 +1529,17 @@ export const useInfiniteClaudeSessionEvents = (slug: string, sessionId: number |
   useInfiniteQuery<{ events: ClaudeEventItem[]; total: number }>({
     queryKey: ['claude-events-infinite', slug, sessionId, pageSize],
     queryFn: async ({ pageParam }) => {
-      const params = new URLSearchParams({
-        slug,
-        limit: String(pageSize),
-        offset: String(pageParam),
+      const { data, error } = await client.GET('/api/dx/claude/sessions/{sessionId}/events', {
+        params: {
+          path: { sessionId: sessionId! },
+          query: { slug, limit: pageSize, offset: pageParam as number },
+        },
       })
-      return apiFetch<{ events: ClaudeEventItem[]; total: number }>(
-        `/api/dx/claude/sessions/${sessionId}/events?${params}`
-      )
+      if (error) throw new Error(JSON.stringify(error))
+      return {
+        events: ((data as any)?.events ?? []) as ClaudeEventItem[],
+        total: (data as any)?.total ?? 0,
+      }
     },
     initialPageParam: 0,
     getNextPageParam: (lastPage, allPages) => {
@@ -1490,20 +1559,26 @@ export interface TokenUsage {
 export const useClaudeSession = (slug: string, sessionId: number | null) =>
   useQuery<ClaudeSessionItem>({
     queryKey: ['claude-session', slug, sessionId],
-    queryFn: () =>
-      apiFetch<ClaudeSessionItem>(
-        `/api/dx/claude/sessions/${sessionId}?slug=${encodeURIComponent(slug)}`
-      ),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/claude/sessions/{sessionId}', {
+        params: { path: { sessionId: sessionId! }, query: { slug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as ClaudeSessionItem
+    },
     enabled: !!slug && sessionId != null,
   })
 
 export const useClaudeSessionTokenUsage = (slug: string, sessionId: number | null) =>
   useQuery<TokenUsage>({
     queryKey: ['claude-token-usage', slug, sessionId],
-    queryFn: () =>
-      apiFetch<TokenUsage>(
-        `/api/dx/claude/sessions/${sessionId}/token-usage?slug=${encodeURIComponent(slug)}`
-      ),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/claude/sessions/{sessionId}/token-usage', {
+        params: { path: { sessionId: sessionId! }, query: { slug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as TokenUsage
+    },
     enabled: !!slug && sessionId != null,
   })
 
@@ -1521,10 +1596,13 @@ export interface AgentTokenUsage {
 export const useClaudeSessionTokenUsageByAgent = (slug: string, sessionId: number | null) =>
   useQuery<{ agents: AgentTokenUsage[] }>({
     queryKey: ['claude-token-usage-by-agent', slug, sessionId],
-    queryFn: () =>
-      apiFetch<{ agents: AgentTokenUsage[] }>(
-        `/api/dx/claude/sessions/${sessionId}/token-usage/by-agent?slug=${encodeURIComponent(slug)}`
-      ),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/claude/sessions/{sessionId}/token-usage/by-agent', {
+        params: { path: { sessionId: sessionId! }, query: { slug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { agents: ((data as any)?.agents ?? []) as AgentTokenUsage[] }
+    },
     enabled: !!slug && sessionId != null,
   })
 
@@ -1532,23 +1610,24 @@ export const useChurnSessions = (slug: string, since?: string) =>
   useQuery<{ sessions: ClaudeSessionItem[]; total: number }>({
     queryKey: ['churn-sessions', slug, since],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (since) params.set('since', since)
-      const res = await apiFetch<{ sessions: ClaudeSessionItem[]; total: number }>(
-        `/api/dx/claude/sessions/churns?${params}`
-      )
-      return { sessions: res.sessions ?? [], total: res.total ?? 0 }
+      const query: Record<string, string> = { slug }
+      if (since) query.since = since
+      const { data, error } = await client.GET('/api/dx/claude/sessions/churns', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { sessions: ((data as any)?.sessions ?? []) as ClaudeSessionItem[], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
 
 export const useExtractPatternFromSession = () =>
   useMutation<PatternItem, Error, { slug: string; sessionId: number }>({
-    mutationFn: ({ slug, sessionId }) =>
-      apiPost<PatternItem>(
-        `/api/dx/claude/sessions/${sessionId}/extract-pattern?slug=${encodeURIComponent(slug)}`,
-        {}
-      ),
+    mutationFn: async ({ slug, sessionId }) => {
+      const { data, error } = await client.POST('/api/dx/claude/sessions/{sessionId}/extract-pattern', {
+        params: { path: { sessionId }, query: { slug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as PatternItem
+    },
   })
 
 // ── Goals & Constraints ──────────────────────────────────────────────────
@@ -1577,8 +1656,9 @@ export const useGoals = (slug: string) =>
   useQuery<GoalItem[]>({
     queryKey: ['goals', slug],
     queryFn: async () => {
-      const data = await apiFetch<{ goals: GoalItem[] }>(`/api/goals?slug=${encodeURIComponent(slug)}`)
-      return data.goals ?? []
+      const { data, error } = await client.GET('/api/goals', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.goals ?? []) as GoalItem[]
     },
     enabled: !!slug,
   })
@@ -1586,8 +1666,11 @@ export const useGoals = (slug: string) =>
 export const useCreateGoal = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { slug: string; title: string; description: string; priority: number; status?: string }) =>
-      apiPost<GoalItem>('/api/goal', body),
+    mutationFn: async (body: { slug: string; title: string; description: string; priority: number; status?: string }) => {
+      const { data, error } = await client.POST('/api/goal', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as GoalItem
+    },
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['goals', vars.slug] }),
   })
 }
@@ -1595,8 +1678,11 @@ export const useCreateGoal = () => {
 export const useUpdateGoal = (slug: string) => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { id: number; title: string; description: string; priority: number; status: string }) =>
-      apiPost<OKBody>('/api/goal', body, 'PUT'),
+    mutationFn: async (body: { id: number; title: string; description: string; priority: number; status: string }) => {
+      const { data, error } = await client.PUT('/api/goal', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as OKBody
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['goals', slug] }),
   })
 }
@@ -1604,7 +1690,11 @@ export const useUpdateGoal = (slug: string) => {
 export const useDeleteGoal = (slug: string) => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => apiPost<OKBody>('/api/goal', { id }, 'DELETE'),
+    mutationFn: async (id: number) => {
+      const { data, error } = await client.DELETE('/api/goal', { body: { id } as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as OKBody
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['goals', slug] }),
   })
 }
@@ -1613,8 +1703,9 @@ export const useConstraints = (slug: string) =>
   useQuery<ConstraintItem[]>({
     queryKey: ['constraints', slug],
     queryFn: async () => {
-      const data = await apiFetch<{ constraints: ConstraintItem[] }>(`/api/constraints?slug=${encodeURIComponent(slug)}`)
-      return data.constraints ?? []
+      const { data, error } = await client.GET('/api/constraints', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.constraints ?? []) as ConstraintItem[]
     },
     enabled: !!slug,
   })
@@ -1622,8 +1713,11 @@ export const useConstraints = (slug: string) =>
 export const useCreateConstraint = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { slug: string; title: string; description: string; priority: number; status?: string }) =>
-      apiPost<ConstraintItem>('/api/constraint', body),
+    mutationFn: async (body: { slug: string; title: string; description: string; priority: number; status?: string }) => {
+      const { data, error } = await client.POST('/api/constraint', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as ConstraintItem
+    },
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['constraints', vars.slug] }),
   })
 }
@@ -1631,8 +1725,11 @@ export const useCreateConstraint = () => {
 export const useUpdateConstraint = (slug: string) => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { id: number; title: string; description: string; priority: number; status: string }) =>
-      apiPost<OKBody>('/api/constraint', body, 'PUT'),
+    mutationFn: async (body: { id: number; title: string; description: string; priority: number; status: string }) => {
+      const { data, error } = await client.PUT('/api/constraint', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as OKBody
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['constraints', slug] }),
   })
 }
@@ -1640,7 +1737,11 @@ export const useUpdateConstraint = (slug: string) => {
 export const useDeleteConstraint = (slug: string) => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (id: number) => apiPost<OKBody>('/api/constraint', { id }, 'DELETE'),
+    mutationFn: async (id: number) => {
+      const { data, error } = await client.DELETE('/api/constraint', { body: { id } as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as OKBody
+    },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['constraints', slug] }),
   })
 }
@@ -1663,10 +1764,9 @@ export const useJournalEntries = (slug: string, role: string) =>
   useQuery<JournalEntryItem[]>({
     queryKey: ['journal', slug, role],
     queryFn: async () => {
-      const data = await apiFetch<{ entries: JournalEntryItem[] }>(
-        `/api/dx/journal/show?slug=${encodeURIComponent(slug)}&role=${encodeURIComponent(role)}`,
-      )
-      return data.entries ?? []
+      const { data, error } = await client.GET('/api/dx/journal/show', { params: { query: { slug, role } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.entries ?? []) as JournalEntryItem[]
     },
     enabled: !!slug && !!role,
   })
@@ -1675,10 +1775,9 @@ export const useJournalEntry = (slug: string, id: string) =>
   useQuery<JournalEntryItem>({
     queryKey: ['journal-entry', slug, id],
     queryFn: async () => {
-      const data = await apiFetch<{ entry: JournalEntryItem }>(
-        `/api/dx/journal/entry?slug=${encodeURIComponent(slug)}&id=${encodeURIComponent(id)}`,
-      )
-      return data.entry
+      const { data, error } = await client.GET('/api/dx/journal/entry', { params: { query: { slug, id: Number(id) } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as any).entry as JournalEntryItem
     },
     enabled: !!slug && !!id,
   })
@@ -1686,8 +1785,11 @@ export const useJournalEntry = (slug: string, id: string) =>
 export const useGenerateJournalEntry = () => {
   const qc = useQueryClient()
   return useMutation({
-    mutationFn: (body: { slug: string; role: string }) =>
-      apiPost<{ entry: JournalEntryItem }>('/api/dx/journal/generate', body),
+    mutationFn: async (body: { slug: string; role: string }) => {
+      const { data, error } = await client.POST('/api/dx/journal/generate', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as { entry: JournalEntryItem }
+    },
     onSuccess: (_, vars) => qc.invalidateQueries({ queryKey: ['journal', vars.slug, vars.role] }),
   })
 }
@@ -1698,8 +1800,9 @@ export const useListFocuses = (slug: string) =>
   useQuery<FocusItem[]>({
     queryKey: ['focuses', slug],
     queryFn: async () => {
-      const res = await apiFetch<{ focuses: FocusItem[] }>(`/api/dx/focuses?slug=${encodeURIComponent(slug)}`)
-      return res.focuses ?? []
+      const { data, error } = await client.GET('/api/dx/focuses', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.focuses ?? []) as FocusItem[]
     },
     enabled: !!slug,
   })
@@ -1709,7 +1812,9 @@ export const useAddFocusBlocker = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, { slug: string; focus: string; issue: string }>({
     mutationFn: async (body) => {
-      return apiPost<OKBody>('/api/dx/focuses/block', body)
+      const { data, error } = await client.POST('/api/dx/focuses/block', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as OKBody
     },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
@@ -1719,7 +1824,9 @@ export const useRemoveFocusBlocker = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, { slug: string; focus: string; issue: string }>({
     mutationFn: async (body) => {
-      return apiPost<OKBody>('/api/dx/focuses/unblock', body)
+      const { data, error } = await client.POST('/api/dx/focuses/unblock', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as OKBody
     },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
@@ -1729,7 +1836,9 @@ export const useAddFocus = () => {
   const qc = useQueryClient()
   return useMutation<FocusItem, Error, { slug: string; name: string; description: string; priority: number; blockers: string }>({
     mutationFn: async (body) => {
-      return apiPost<FocusItem>('/api/dx/focuses/add', body)
+      const { data, error } = await client.POST('/api/dx/focuses/add', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as FocusItem
     },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
@@ -1774,8 +1883,9 @@ export const useTest = (slug: string, testId: number) =>
   useQuery<TestItem>({
     queryKey: ['test', slug, testId],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug, test_id: String(testId) })
-      return apiFetch<TestItem>(`/api/dx/tests/detail?${params}`)
+      const { data, error } = await client.GET('/api/dx/tests/detail', { params: { query: { slug, test_id: testId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as TestItem
     },
     enabled: !!slug && testId > 0,
   })
@@ -1784,10 +1894,9 @@ export const useTestCodeRefs = (slug: string, testId: number) =>
   useQuery<CodeRefItem[]>({
     queryKey: ['code-refs', 'test', slug, testId],
     queryFn: async () => {
-      const res = await apiFetch<{ refs: CodeRefItem[] }>(
-        `/api/dx/code-refs/test?slug=${encodeURIComponent(slug)}&test_id=${testId}`
-      )
-      return res.refs ?? []
+      const { data, error } = await client.GET('/api/dx/code-refs/test', { params: { query: { slug, test_id: testId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.refs ?? []) as CodeRefItem[]
     },
     enabled: !!slug && testId > 0,
   })
@@ -1809,7 +1918,9 @@ export const useSetFocusStatus = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, { slug: string; focus: string; status: string }>({
     mutationFn: async (body) => {
-      return apiPost<OKBody>('/api/dx/focuses/status', body)
+      const { data, error } = await client.POST('/api/dx/focuses/status', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as OKBody
     },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
@@ -1830,9 +1941,11 @@ export const useListPatterns = (slug: string, search?: string) =>
   useQuery<{ patterns: PatternItem[]; total: number }>({
     queryKey: ['patterns', slug, search],
     queryFn: async () => {
-      const params = new URLSearchParams({ slug })
-      if (search) params.set('search', search)
-      return apiFetch(`/api/dx/patterns?${params}`)
+      const query: Record<string, string> = { slug }
+      if (search) query.search = search
+      const { data, error } = await client.GET('/api/dx/patterns', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { patterns: ((data as any)?.patterns ?? []) as PatternItem[], total: (data as any)?.total ?? 0 }
     },
     enabled: !!slug,
   })
@@ -1840,14 +1953,22 @@ export const useListPatterns = (slug: string, search?: string) =>
 export const useGetPattern = (slug: string, id: number) =>
   useQuery<PatternItem>({
     queryKey: ['pattern', slug, id],
-    queryFn: async () => apiFetch(`/api/dx/patterns/get?slug=${encodeURIComponent(slug)}&id=${id}`),
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/patterns/get', { params: { query: { slug, id } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as PatternItem
+    },
     enabled: !!slug && id > 0,
   })
 
 export const useAddPattern = () => {
   const qc = useQueryClient()
   return useMutation<PatternItem, Error, { slug: string; name: string; description: string; code_refs?: { path: string }[] }>({
-    mutationFn: (body) => apiPost('/api/dx/patterns/add', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/patterns/add', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as PatternItem
+    },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['patterns', v.slug] }),
   })
 }
@@ -1855,7 +1976,11 @@ export const useAddPattern = () => {
 export const useDeletePattern = () => {
   const qc = useQueryClient()
   return useMutation<{ ok: boolean }, Error, { slug: string; id: number }>({
-    mutationFn: (body) => apiPost('/api/dx/patterns/delete', body),
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/patterns/delete', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as { ok: boolean }
+    },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['patterns', v.slug] }),
   })
 }

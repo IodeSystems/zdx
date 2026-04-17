@@ -1030,6 +1030,54 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/doctor/classify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["set-classification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/doctor/defer": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["defer-doctor-check"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/doctor/deferrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-doctor-deferrals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/error-events": {
         parameters: {
             query?: never;
@@ -1216,6 +1264,86 @@ export interface paths {
         get: operations["list-stale-features"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/focuses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-focuses"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/focuses/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-focus"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/focuses/block": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-focus-blocker"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/focuses/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["set-focus-status"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/focuses/unblock": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["remove-focus-blocker"];
         delete?: never;
         options?: never;
         head?: never;
@@ -1558,6 +1686,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-plan"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/plan/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/plan/create": {
         parameters: {
             query?: never;
@@ -1568,6 +1728,102 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["create-plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/plan/step/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-plan-step"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/plan/step/ref/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-plan-step-ref"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/plan/step/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["update-plan-step"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/plan/update": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["update-plan"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/plans": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-plans"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/project/info": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-project-info"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -1830,6 +2086,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/solo/claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["solo-claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/solo/evaluate": {
         parameters: {
             query?: never;
@@ -1856,6 +2128,38 @@ export interface paths {
         get: operations["solo-health"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/solo/release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["solo-release"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/solo/renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["solo-renew"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2176,86 +2480,6 @@ export interface paths {
         get: operations["get-test-history"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/themes": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["list-themes"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/themes/add": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["add-theme"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/themes/block": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["add-theme-blocker"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/themes/status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["set-theme-status"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/themes/unblock": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["remove-theme-blocker"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3377,6 +3601,31 @@ export interface components {
             target_id: string;
             target_type: string;
         };
+        "Add-focus-blockerRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-focus-blockerRequest.json
+             */
+            readonly $schema?: string;
+            focus: string;
+            issue: string;
+            slug: string;
+        };
+        "Add-focusRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-focusRequest.json
+             */
+            readonly $schema?: string;
+            blockers: string;
+            description: string;
+            name: string;
+            /** Format: int32 */
+            priority: number;
+            slug: string;
+        };
         "Add-issueRequest": {
             /**
              * Format: uri
@@ -3435,6 +3684,51 @@ export interface components {
             description: string;
             name: string;
             slug: string;
+        };
+        "Add-plan-step-refRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-plan-step-refRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            step_id: number;
+            target_id: string;
+            target_type: string;
+        };
+        "Add-plan-stepRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-plan-stepRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            depends_on?: number;
+            /** Format: int32 */
+            plan_id: number;
+            /** Format: int32 */
+            seq?: number;
+            text: string;
+        };
+        "Add-planRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-planRequest.json
+             */
+            readonly $schema?: string;
+            approach?: string;
+            body?: string;
+            complexity?: string;
+            feature_name?: string;
+            /** Format: int32 */
+            focus_id?: number;
+            issue_id?: string;
+            plan_type?: string;
+            slug: string;
+            title: string;
         };
         "Add-question-proposalRequest": {
             /**
@@ -3526,31 +3820,6 @@ export interface components {
             test_refs: string;
             text: string;
             updated_at: string;
-        };
-        "Add-theme-blockerRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Add-theme-blockerRequest.json
-             */
-            readonly $schema?: string;
-            issue: string;
-            slug: string;
-            theme: string;
-        };
-        "Add-themeRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Add-themeRequest.json
-             */
-            readonly $schema?: string;
-            blockers: string;
-            description: string;
-            name: string;
-            /** Format: int32 */
-            priority: number;
-            slug: string;
         };
         "Admin-statsResponse": {
             /**
@@ -4024,13 +4293,13 @@ export interface components {
              * @example https://example.com/schemas/Create-agent-sessionRequest.json
              */
             readonly $schema?: string;
-            agent_description: string;
-            agent_id: string;
-            agent_type: string;
+            agent_description?: string;
+            agent_id?: string;
+            agent_type?: string;
             alias: string;
             issue_id: string;
             provider: string;
-            title: string;
+            title?: string;
             trigger: string;
         };
         "Create-agent-sessionResponse": {
@@ -4067,6 +4336,8 @@ export interface components {
              */
             readonly $schema?: string;
             description: string;
+            metric_name?: string;
+            metric_unit?: string;
             /** Format: int32 */
             priority: number;
             slug: string;
@@ -4134,6 +4405,17 @@ export interface components {
             name: string;
             slug: string;
         };
+        "Defer-doctor-checkRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Defer-doctor-checkRequest.json
+             */
+            readonly $schema?: string;
+            check_name: string;
+            rung?: string;
+            slug: string;
+        };
         "Defer-specRequest": {
             /**
              * Format: uri
@@ -4144,6 +4426,11 @@ export interface components {
             reason: string;
             /** Format: int32 */
             spec_id: number;
+        };
+        DeferralItem: {
+            check_name: string;
+            deferred_at: string;
+            rung: string;
         };
         "Delete-code-refRequest": {
             /**
@@ -4418,19 +4705,48 @@ export interface components {
              * @example https://example.com/schemas/FeatureItem.json
              */
             readonly $schema?: string;
+            baseline_value: string;
             category: string;
             component: string;
             description: string;
             done_when: string;
+            /** Format: int32 */
+            goal_id: number;
+            graph_url: string;
             has_test_refs: boolean;
             /** Format: int32 */
             id: number;
+            kind: string;
+            metric_name: string;
+            metric_unit: string;
             name: string;
+            /** Format: int32 */
+            parent_feature_id: number;
             plan_status: string;
             plan_type: string;
             specs: components["schemas"]["SpecItem"][] | null;
+            target_value: string;
             what: string;
             why: string;
+        };
+        FocusItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/FocusItem.json
+             */
+            readonly $schema?: string;
+            blockers: string;
+            created_at: string;
+            description: string;
+            ended_at: string;
+            /** Format: int32 */
+            id: number;
+            name: string;
+            /** Format: int32 */
+            priority: number;
+            started_at: string;
+            status: string;
         };
         "Get-claude-session-eventsResponse": {
             /**
@@ -4476,6 +4792,19 @@ export interface components {
              */
             readonly $schema?: string;
             zdx_project_slug: string;
+        };
+        "Get-project-infoResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Get-project-infoResponse.json
+             */
+            readonly $schema?: string;
+            classification: string;
+            /** Format: int32 */
+            id: number;
+            name: string;
+            slug: string;
         };
         "Get-review-dataResponse": {
             /**
@@ -4555,6 +4884,8 @@ export interface components {
             description: string;
             /** Format: int32 */
             id: number;
+            metric_name: string;
+            metric_unit: string;
             /** Format: int32 */
             priority: number;
             status: string;
@@ -5126,6 +5457,15 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        "List-doctor-deferralsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-doctor-deferralsResponse.json
+             */
+            readonly $schema?: string;
+            deferrals: components["schemas"]["DeferralItem"][] | null;
+        };
         "List-error-events-groupedResponse": {
             /**
              * Format: uri
@@ -5192,6 +5532,15 @@ export interface components {
              */
             readonly $schema?: string;
             features: components["schemas"]["FeatureItem"][] | null;
+        };
+        "List-focusesResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-focusesResponse.json
+             */
+            readonly $schema?: string;
+            focuses: components["schemas"]["FocusItem"][] | null;
         };
         "List-git-commitsResponse": {
             /**
@@ -5317,6 +5666,15 @@ export interface components {
             patterns: components["schemas"]["PatternItem"][] | null;
             /** Format: int64 */
             total: number;
+        };
+        "List-plansResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-plansResponse.json
+             */
+            readonly $schema?: string;
+            plans: components["schemas"]["PlanItem"][] | null;
         };
         "List-projectsResponse": {
             /**
@@ -5457,15 +5815,6 @@ export interface components {
             tests: components["schemas"]["TestItem"][] | null;
             /** Format: int64 */
             total: number;
-        };
-        "List-themesResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/List-themesResponse.json
-             */
-            readonly $schema?: string;
-            themes: components["schemas"]["ThemeItem"][] | null;
         };
         "List-timed-events-groupedResponse": {
             /**
@@ -5704,6 +6053,59 @@ export interface components {
             name: string;
             updated_at: string;
         };
+        PlanItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PlanItem.json
+             */
+            readonly $schema?: string;
+            approach: string;
+            body: string;
+            complexity: string;
+            created_at: string;
+            /** Format: int32 */
+            feature_id: number;
+            /** Format: int32 */
+            focus_id: number;
+            /** Format: int32 */
+            id: number;
+            issue_id: string;
+            plan_type: string;
+            /** Format: int32 */
+            project_id: number;
+            status: string;
+            steps?: components["schemas"]["PlanStepItem"][] | null;
+            title: string;
+            updated_at: string;
+        };
+        PlanStepItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PlanStepItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            /** Format: int32 */
+            depends_on: number;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            plan_id: number;
+            refs?: components["schemas"]["PlanStepRefItem"][] | null;
+            /** Format: int32 */
+            seq: number;
+            status: string;
+            text: string;
+            updated_at: string;
+        };
+        PlanStepRefItem: {
+            /** Format: int32 */
+            step_id: number;
+            target_id: string;
+            target_type: string;
+        };
         ProjectItem: {
             /**
              * Format: uri
@@ -5912,16 +6314,16 @@ export interface components {
             readonly $schema?: string;
             agent_id: string;
         };
-        "Remove-theme-blockerRequest": {
+        "Remove-focus-blockerRequest": {
             /**
              * Format: uri
              * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Remove-theme-blockerRequest.json
+             * @example https://example.com/schemas/Remove-focus-blockerRequest.json
              */
             readonly $schema?: string;
+            focus: string;
             issue: string;
             slug: string;
-            theme: string;
         };
         "Renew-task-leaseRequest": {
             /**
@@ -6026,6 +6428,16 @@ export interface components {
             readonly $schema?: string;
             issues: components["schemas"]["IssueItem"][] | null;
         };
+        "Set-classificationRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-classificationRequest.json
+             */
+            readonly $schema?: string;
+            classification: string;
+            slug: string;
+        };
         "Set-feature-fieldRequest": {
             /**
              * Format: uri
@@ -6037,6 +6449,17 @@ export interface components {
             field: string;
             slug: string;
             value: string;
+        };
+        "Set-focus-statusRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-focus-statusRequest.json
+             */
+            readonly $schema?: string;
+            focus: string;
+            slug: string;
+            status: string;
         };
         "Set-project-git-configRequest": {
             /**
@@ -6079,17 +6502,6 @@ export interface components {
             key: string;
             slug: string;
             value: string;
-        };
-        "Set-theme-statusRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Set-theme-statusRequest.json
-             */
-            readonly $schema?: string;
-            slug: string;
-            status: string;
-            theme: string;
         };
         "Setup-bootstrapRequest": {
             /**
@@ -6262,6 +6674,18 @@ export interface components {
             items: components["schemas"]["SoloQueueItem"][] | null;
             slug: string;
         };
+        "Solo-claimRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-claimRequest.json
+             */
+            readonly $schema?: string;
+            agent_id: string;
+            /** Format: int32 */
+            lease_minutes?: number;
+            slug: string;
+        };
         "Solo-evaluateRequest": {
             /**
              * Format: uri
@@ -6287,6 +6711,31 @@ export interface components {
             goal_count: number;
             owner_journal_date: string;
             tech_journal_date: string;
+        };
+        "Solo-releaseRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-releaseRequest.json
+             */
+            readonly $schema?: string;
+            agent_id: string;
+            /** Format: int32 */
+            id: number;
+            resolve?: boolean;
+        };
+        "Solo-renewRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-renewRequest.json
+             */
+            readonly $schema?: string;
+            agent_id: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            lease_minutes?: number;
         };
         SoloQueueItem: {
             blocked: boolean;
@@ -6318,6 +6767,7 @@ export interface components {
             title: string;
         };
         SpecItem: {
+            concern_type: string;
             deferred: boolean;
             deferred_reason: string;
             description: string;
@@ -6482,23 +6932,6 @@ export interface components {
             status: string;
             test_name: string;
         };
-        ThemeItem: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/ThemeItem.json
-             */
-            readonly $schema?: string;
-            blockers: string;
-            created_at: string;
-            description: string;
-            /** Format: int32 */
-            id: number;
-            name: string;
-            /** Format: int32 */
-            priority: number;
-            status: string;
-        };
         TimedEventGroupedItem: {
             /** Format: int32 */
             entry_count: number;
@@ -6552,6 +6985,12 @@ export interface components {
             total_ms: number;
         };
         TodoItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/TodoItem.json
+             */
+            readonly $schema?: string;
             blocked: boolean;
             claimed_at?: string;
             claimed_by?: string;
@@ -6572,13 +7011,13 @@ export interface components {
         };
         TokensStruct: {
             /** Format: int64 */
-            cache_read: number;
+            cache_read?: number;
             /** Format: int64 */
-            cache_write: number;
+            cache_write?: number;
             /** Format: int64 */
-            input: number;
+            input?: number;
             /** Format: int64 */
-            output: number;
+            output?: number;
         };
         "Triage-issueRequest": {
             /**
@@ -6695,6 +7134,8 @@ export interface components {
             description: string;
             /** Format: int32 */
             id: number;
+            metric_name?: string;
+            metric_unit?: string;
             /** Format: int32 */
             priority: number;
             status: string;
@@ -6725,6 +7166,36 @@ export interface components {
             id: number;
             name: string;
             slug: string;
+        };
+        "Update-plan-stepRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-plan-stepRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            depends_on: number;
+            /** Format: int32 */
+            id: number;
+            status: string;
+            text: string;
+        };
+        "Update-planRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-planRequest.json
+             */
+            readonly $schema?: string;
+            approach: string;
+            body: string;
+            complexity: string;
+            /** Format: int32 */
+            id: number;
+            plan_type: string;
+            status: string;
+            title: string;
         };
         "Update-specsRequest": {
             /**
@@ -9148,6 +9619,103 @@ export interface operations {
             };
         };
     };
+    "set-classification": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-classificationRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "defer-doctor-check": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Defer-doctor-checkRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-doctor-deferrals": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-doctor-deferralsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-error-events": {
         parameters: {
             query?: {
@@ -9560,6 +10128,169 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-stale-featuresResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-focuses": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-focusesResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-focus": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-focusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["FocusItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-focus-blocker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-focus-blockerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-focus-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-focus-statusRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "remove-focus-blocker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Remove-focus-blockerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
                 };
             };
             /** @description Error */
@@ -10262,6 +10993,71 @@ export interface operations {
             };
         };
     };
+    "get-plan": {
+        parameters: {
+            query: {
+                slug: string;
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-planRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "create-plan": {
         parameters: {
             query?: never;
@@ -10282,6 +11078,200 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-plan-step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-plan-stepRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["PlanStepItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-plan-step-ref": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-plan-step-refRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-plan-step": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-plan-stepRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-plan": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-planRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-plans": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-plansResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-project-info": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Get-project-infoResponse"];
                 };
             };
             /** @description Error */
@@ -10826,6 +11816,39 @@ export interface operations {
             };
         };
     };
+    "solo-claim": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Solo-claimRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "solo-evaluate": {
         parameters: {
             query?: never;
@@ -10877,6 +11900,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Solo-healthResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "solo-release": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Solo-releaseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "solo-renew": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Solo-renewRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
                 };
             };
             /** @description Error */
@@ -11560,169 +12649,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Get-test-historyResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "list-themes": {
-        parameters: {
-            query: {
-                slug: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["List-themesResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "add-theme": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Add-themeRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["ThemeItem"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "add-theme-blocker": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Add-theme-blockerRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "set-theme-status": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Set-theme-statusRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "remove-theme-blocker": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Remove-theme-blockerRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
                 };
             };
             /** @description Error */
