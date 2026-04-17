@@ -199,10 +199,14 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	}
 
 	// Exclude tracker issues — they are closed by their children, never actionable directly.
+	// Closable trackers (all blockers closed) surface via the [close:tracker] scan below.
+	var trackerIssues []dxclient.IssueItem
 	{
 		var filtered []dxclient.IssueItem
 		for _, iss := range targetIssues {
-			if iss.IssueType != "tracker" {
+			if iss.IssueType == "tracker" {
+				trackerIssues = append(trackerIssues, iss)
+			} else {
 				filtered = append(filtered, iss)
 			}
 		}
@@ -547,6 +551,31 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			fmt.Printf("[owner:demo-gap]  feature %q spec %d (%s) has no demo — write a new demo test OR link an existing one (dx test list --layer=demo → dx spec link %d <test-id>)\n", s.FeatureName, s.Id, s.Description, s.Id)
 			return nil
 		}
+	}
+
+	// 1d. Surface tracker issues that are ready to close (all blockers closed).
+	for _, iss := range trackerIssues {
+		if iss.Status != "open" {
+			continue
+		}
+		if iss.BlockedByDetail == nil || len(*iss.BlockedByDetail) == 0 {
+			continue
+		}
+		allClosed := true
+		for _, b := range *iss.BlockedByDetail {
+			if b.Status != "closed" {
+				allClosed = false
+				break
+			}
+		}
+		if !allClosed {
+			continue
+		}
+		issIDStr := clitypes.IssueIDStr(iss.Id)
+		fmt.Printf("[close:tracker] %s  %s\n", issIDStr, iss.Title)
+		fmt.Println("  All dependency issues are closed — tracker is ready to close.")
+		fmt.Printf("  close: dx issue close %s --reason=done\n", issIDStr)
+		return nil
 	}
 
 	// 2. Find open issue with no pending tasks

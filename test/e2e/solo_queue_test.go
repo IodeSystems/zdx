@@ -136,6 +136,43 @@ func TestQueueKindTriageExcludesTracker(t *testing.T) {
 	requireNoKind(t, items, "triage")
 }
 
+func TestQueueKindCloseTracker(t *testing.T) {
+	d := NewApiDriver(t, "q-close-tracker", "Queue Close Tracker")
+	// Child issue to act as a blocker for the tracker.
+	childID := d.AddIssue("Child work", "first milestone")
+	childRef := fmt.Sprintf("IS-%d", childID)
+
+	// Tracker blocked by the child. Without a closed blocker it should NOT surface.
+	var tracker struct {
+		ID int32 `json:"id"`
+	}
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/issue/add",
+		map[string]any{
+			"slug":       d.Slug,
+			"title":      "Tracker parent",
+			"context":    "umbrella",
+			"issue_type": "tracker",
+			"auto_ready": true,
+			"blocked_by": []string{childRef},
+		}, &tracker))
+
+	items := d.EvaluateQueue("")
+	requireNoKind(t, items, "close:tracker")
+
+	// Closing the blocker should make the tracker closable.
+	d.CloseIssue(childID)
+
+	items = d.EvaluateQueue("")
+	item := requireKind(t, items, "close:tracker")
+	trackerRef := fmt.Sprintf("IS-%d", tracker.ID)
+	if item.TargetType != "issue" {
+		t.Errorf("expected target_type=issue, got %q", item.TargetType)
+	}
+	if item.TargetID != trackerRef {
+		t.Errorf("expected target_id=%s, got %s", trackerRef, item.TargetID)
+	}
+}
+
 func TestQueueKindAdd(t *testing.T) {
 	d := NewApiDriver(t, "q-add", "Queue Add")
 	Given(d).TriagedIssue("Needs decomposition", "no tasks yet", 2).Build()

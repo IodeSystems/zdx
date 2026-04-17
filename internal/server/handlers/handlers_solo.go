@@ -44,11 +44,15 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		issues = filtered
 	}
 
-	// Exclude tracker issues — they are closed by their children, never actionable directly
+	// Exclude tracker issues — they are closed by their children, never actionable directly.
+	// Closable trackers (all blockers closed) still surface via the close:tracker candidate below.
+	var trackerIssues []db.ZdxIssue
 	{
 		var filtered []db.ZdxIssue
 		for _, iss := range issues {
-			if iss.IssueType != "tracker" {
+			if iss.IssueType == "tracker" {
+				trackerIssues = append(trackerIssues, iss)
+			} else {
 				filtered = append(filtered, iss)
 			}
 		}
@@ -357,6 +361,34 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				Persona:    "owner",
 			})
 		}
+	}
+
+	// Tracker issues whose blockers are all closed — ready to close
+	for _, iss := range trackerIssues {
+		blockers, err := h.Q.ListIssueBlockersWithStatus(ctx, iss.ID)
+		if err != nil || len(blockers) == 0 {
+			continue
+		}
+		allClosed := true
+		for _, b := range blockers {
+			if b.Status != "closed" {
+				allClosed = false
+				break
+			}
+		}
+		if !allClosed {
+			continue
+		}
+		candidates = append(candidates, soloCandidate{
+			Key:        fmt.Sprintf("close-tracker-%s", iss.ID),
+			Text:       fmt.Sprintf("Tracker %s: all dependencies closed — ready to close", iss.ID),
+			Kind:       "close:tracker",
+			TargetType: "issue",
+			TargetID:   iss.ID,
+			IssueRef:   iss.ID,
+			Priority:   36,
+			Persona:    "owner",
+		})
 	}
 
 	// Issues with no pending tasks
