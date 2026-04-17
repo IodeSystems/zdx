@@ -90,6 +90,86 @@ func (q *Queries) ListReservations(ctx context.Context, arg ListReservationsPara
 	return items, nil
 }
 
+const listReservationsByIssue = `-- name: ListReservationsByIssue :many
+SELECT
+  r.id,
+  r.target_type,
+  r.target_id,
+  r.claimed_by,
+  r.claimed_at,
+  r.released_at,
+  r.lease_expires_at,
+  t.text AS todo_text,
+  cs.id AS session_id,
+  cs.status AS session_status,
+  cs.closed_at AS session_closed_at,
+  cs.header AS session_header,
+  cs.alias AS session_alias
+FROM zdx_reservations r
+JOIN zdx_todos t ON r.target_type = 'todo' AND r.target_id = t.id::text AND t.project_id = $1
+LEFT JOIN zdx_claude_sessions cs ON cs.todo_id = t.id AND cs.project_id = $1
+WHERE r.project_id = $1
+  AND t.target_type = 'issue'
+  AND t.target_id = $2
+ORDER BY r.claimed_at DESC
+`
+
+type ListReservationsByIssueParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	IssueID   string `db:"issue_id" json:"issue_id"`
+}
+
+type ListReservationsByIssueRow struct {
+	ID              int64              `db:"id" json:"id"`
+	TargetType      string             `db:"target_type" json:"target_type"`
+	TargetID        string             `db:"target_id" json:"target_id"`
+	ClaimedBy       string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt       pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	ReleasedAt      pgtype.Timestamptz `db:"released_at" json:"released_at"`
+	LeaseExpiresAt  pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	TodoText        string             `db:"todo_text" json:"todo_text"`
+	SessionID       pgtype.Int8        `db:"session_id" json:"session_id"`
+	SessionStatus   pgtype.Text        `db:"session_status" json:"session_status"`
+	SessionClosedAt pgtype.Timestamptz `db:"session_closed_at" json:"session_closed_at"`
+	SessionHeader   pgtype.Text        `db:"session_header" json:"session_header"`
+	SessionAlias    pgtype.Text        `db:"session_alias" json:"session_alias"`
+}
+
+// Return reservations for todos linked to a specific issue, with optional agent session info.
+func (q *Queries) ListReservationsByIssue(ctx context.Context, arg ListReservationsByIssueParams) ([]ListReservationsByIssueRow, error) {
+	rows, err := q.db.Query(ctx, listReservationsByIssue, arg.ProjectID, arg.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReservationsByIssueRow
+	for rows.Next() {
+		var i ListReservationsByIssueRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.ReleasedAt,
+			&i.LeaseExpiresAt,
+			&i.TodoText,
+			&i.SessionID,
+			&i.SessionStatus,
+			&i.SessionClosedAt,
+			&i.SessionHeader,
+			&i.SessionAlias,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const releaseReservation = `-- name: ReleaseReservation :exec
 UPDATE zdx_reservations SET released_at = NOW()
 WHERE project_id = $1

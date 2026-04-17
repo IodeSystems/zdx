@@ -828,10 +828,12 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 		})
 
 	// GET /api/dx/solo/reservations — list historical + active reservations for a project
+	// Optional issue_id param filters to reservations whose todo targets that issue.
 	huma.Register(api, huma.Operation{OperationID: "solo-list-reservations", Method: http.MethodGet, Path: "/api/dx/solo/reservations"},
 		func(ctx context.Context, in *struct {
-			Slug  string `query:"slug" required:"true"`
-			Limit int32  `query:"limit" required:"false"`
+			Slug    string `query:"slug" required:"true"`
+			IssueID string `query:"issue_id" required:"false"`
+			Limit   int32  `query:"limit" required:"false"`
 		}) (*struct {
 			Body struct {
 				Reservations []ReservationItem `json:"reservations"`
@@ -841,27 +843,59 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			lim := in.Limit
-			if lim <= 0 {
-				lim = 100
-			}
-			rows, err := h.Q.ListReservations(ctx, db.ListReservationsParams{
-				ProjectID: p.ID,
-				Lim:       lim,
-			})
-			if err != nil {
-				return nil, apiErr(500, err.Error())
-			}
-			items := make([]ReservationItem, len(rows))
-			for i, r := range rows {
-				items[i] = ReservationItem{
-					ID:             r.ID,
-					TargetType:     r.TargetType,
-					TargetID:       r.TargetID,
-					ClaimedBy:      r.ClaimedBy,
-					ClaimedAt:      fmtTS(r.ClaimedAt),
-					ReleasedAt:     fmtTS(r.ReleasedAt),
-					LeaseExpiresAt: fmtTS(r.LeaseExpiresAt),
+			var items []ReservationItem
+			if in.IssueID != "" {
+				rows, err := h.Q.ListReservationsByIssue(ctx, db.ListReservationsByIssueParams{
+					ProjectID: p.ID,
+					IssueID:   in.IssueID,
+				})
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				items = make([]ReservationItem, len(rows))
+				for i, r := range rows {
+					item := ReservationItem{
+						ID:             r.ID,
+						TargetType:     r.TargetType,
+						TargetID:       r.TargetID,
+						ClaimedBy:      r.ClaimedBy,
+						ClaimedAt:      fmtTS(r.ClaimedAt),
+						ReleasedAt:     fmtTS(r.ReleasedAt),
+						LeaseExpiresAt: fmtTS(r.LeaseExpiresAt),
+						TodoText:       r.TodoText,
+					}
+					if r.SessionID.Valid {
+						item.SessionID = r.SessionID.Int64
+						item.SessionStatus = r.SessionStatus.String
+						item.SessionClosedAt = fmtTS(r.SessionClosedAt)
+						item.SessionHeader = r.SessionHeader.String
+						item.SessionAlias = r.SessionAlias.String
+					}
+					items[i] = item
+				}
+			} else {
+				lim := in.Limit
+				if lim <= 0 {
+					lim = 100
+				}
+				rows, err := h.Q.ListReservations(ctx, db.ListReservationsParams{
+					ProjectID: p.ID,
+					Lim:       lim,
+				})
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				items = make([]ReservationItem, len(rows))
+				for i, r := range rows {
+					items[i] = ReservationItem{
+						ID:             r.ID,
+						TargetType:     r.TargetType,
+						TargetID:       r.TargetID,
+						ClaimedBy:      r.ClaimedBy,
+						ClaimedAt:      fmtTS(r.ClaimedAt),
+						ReleasedAt:     fmtTS(r.ReleasedAt),
+						LeaseExpiresAt: fmtTS(r.LeaseExpiresAt),
+					}
 				}
 			}
 			return &struct {

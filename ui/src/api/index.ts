@@ -1711,15 +1711,31 @@ export const useClaudeSessions = (slug: string, limit?: number, offset?: number)
     enabled: !!slug,
   })
 
-export const useClaudeSessionsByIssue = (slug: string, issueId: string) =>
-  useQuery<{ sessions: ClaudeSessionItem[]; total: number }>({
-    queryKey: ['claude-sessions', slug, 'issue', issueId],
+export type ReservationItem = {
+  id: number
+  target_type: string
+  target_id: string
+  claimed_by: string
+  claimed_at: string
+  released_at: string
+  lease_expires_at: string
+  todo_text?: string
+  session_id?: number
+  session_status?: string
+  session_closed_at?: string
+  session_header?: string
+  session_alias?: string
+}
+
+export const useReservationsByIssue = (slug: string, issueId: string) =>
+  useQuery<{ reservations: ReservationItem[] }>({
+    queryKey: ['reservations-by-issue', slug, issueId],
     queryFn: async () => {
-      const { data, error } = await client.GET('/api/dx/claude/sessions', {
-        params: { query: { slug, issue_id: issueId } },
+      const { data, error } = await client.GET('/api/dx/solo/reservations', {
+        params: { query: { slug, issue_id: issueId } as any },
       })
       if (error) throw new Error(JSON.stringify(error))
-      return { sessions: ((data as any)?.sessions ?? []) as ClaudeSessionItem[], total: (data as any)?.total ?? 0 }
+      return { reservations: ((data as any)?.reservations ?? []) as ReservationItem[] }
     },
     enabled: !!slug && !!issueId,
   })

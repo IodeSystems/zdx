@@ -18,3 +18,27 @@ FROM zdx_reservations
 WHERE project_id = @project_id
 ORDER BY claimed_at DESC
 LIMIT @lim;
+
+-- name: ListReservationsByIssue :many
+-- Return reservations for todos linked to a specific issue, with optional agent session info.
+SELECT
+  r.id,
+  r.target_type,
+  r.target_id,
+  r.claimed_by,
+  r.claimed_at,
+  r.released_at,
+  r.lease_expires_at,
+  t.text AS todo_text,
+  cs.id AS session_id,
+  cs.status AS session_status,
+  cs.closed_at AS session_closed_at,
+  cs.header AS session_header,
+  cs.alias AS session_alias
+FROM zdx_reservations r
+JOIN zdx_todos t ON r.target_type = 'todo' AND r.target_id = t.id::text AND t.project_id = @project_id
+LEFT JOIN zdx_claude_sessions cs ON cs.todo_id = t.id AND cs.project_id = @project_id
+WHERE r.project_id = @project_id
+  AND t.target_type = 'issue'
+  AND t.target_id = @issue_id
+ORDER BY r.claimed_at DESC;

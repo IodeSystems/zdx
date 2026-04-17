@@ -229,13 +229,19 @@ type OKBody struct {
 }
 
 type ReservationItem struct {
-	ID             int64  `json:"id"`
-	TargetType     string `json:"target_type"`
-	TargetID       string `json:"target_id"`
-	ClaimedBy      string `json:"claimed_by"`
-	ClaimedAt      string `json:"claimed_at"`
-	ReleasedAt     string `json:"released_at"`
-	LeaseExpiresAt string `json:"lease_expires_at"`
+	ID              int64  `json:"id"`
+	TargetType      string `json:"target_type"`
+	TargetID        string `json:"target_id"`
+	ClaimedBy       string `json:"claimed_by"`
+	ClaimedAt       string `json:"claimed_at"`
+	ReleasedAt      string `json:"released_at"`
+	LeaseExpiresAt  string `json:"lease_expires_at"`
+	TodoText        string `json:"todo_text,omitempty"`
+	SessionID       int64  `json:"session_id,omitempty"`
+	SessionStatus   string `json:"session_status,omitempty"`
+	SessionClosedAt string `json:"session_closed_at,omitempty"`
+	SessionHeader   string `json:"session_header,omitempty"`
+	SessionAlias    string `json:"session_alias,omitempty"`
 }
 
 type CodeRefItem struct {

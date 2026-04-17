@@ -24,7 +24,7 @@ import {
   useListFocuses,
   useAddFocusBlocker,
   useRemoveFocusBlocker,
-  useClaudeSessionsByIssue,
+  useReservationsByIssue,
   type IssueItem,
   type IssueWorkItem,
   type TaskItem,
@@ -74,7 +74,7 @@ export function IssueDetail({
   const { data: allTasks, refetch: refetchTasks } = useTasks(slug, { issue: issueId })
   const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
   const { data: resolutions } = useIssueResolutions(slug, issueId)
-  const { data: sessionsData } = useClaudeSessionsByIssue(slug, issueId)
+  const { data: reservationsData } = useReservationsByIssue(slug, issueId)
   const closeIssue = useCloseIssue()
   const readyIssue = useReadyIssue()
   const router = useRouter()
@@ -374,34 +374,51 @@ export function IssueDetail({
         </Box>
       )}
 
-      {(sessionsData?.sessions ?? []).length > 0 && (
+      {(reservationsData?.reservations ?? []).length > 0 && (
         <Box sx={{ mb: 3 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-            Claude Sessions ({sessionsData!.sessions.length})
+            Reservations ({reservationsData!.reservations.length})
           </Typography>
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {sessionsData!.sessions.map(s => (
-              <Box
-                key={s.id}
-                component={Link as any}
-                to="/project/$slug/agents/$sessionId"
-                params={{ slug, sessionId: String(s.id) }}
-                sx={{ display: 'flex', gap: 1, alignItems: 'center', textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
-              >
-                <Chip
-                  label={s.status || 'pending'}
-                  size="small"
-                  color={s.status === 'ok' ? 'success' : s.status === 'errored' ? 'error' : s.status === 'churn' ? 'warning' : 'default'}
-                  variant="outlined"
-                />
-                <Typography variant="body2" sx={{ flex: 1 }}>
-                  {s.header || s.title || s.session_id.slice(0, 8)}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {new Date(s.created_at).toLocaleString()}
-                </Typography>
-              </Box>
-            ))}
+            {reservationsData!.reservations.map(r => {
+              const isActive = !r.released_at && new Date(r.lease_expires_at) > new Date()
+              const statusLabel = r.released_at ? 'released' : isActive ? 'active' : 'expired'
+              const statusColor = isActive ? 'success' : r.released_at ? 'default' : 'warning'
+              const inner = (
+                <>
+                  <Chip label={statusLabel} size="small" color={statusColor as any} variant="outlined" />
+                  {r.session_id && r.session_status && (
+                    <Chip
+                      label={r.session_status || 'session'}
+                      size="small"
+                      color={r.session_status === 'ok' ? 'success' : r.session_status === 'errored' ? 'error' : r.session_status === 'churn' ? 'warning' : 'default'}
+                      variant="filled"
+                    />
+                  )}
+                  <Typography variant="body2" sx={{ flex: 1 }}>
+                    {r.session_header || r.todo_text || r.claimed_by}
+                  </Typography>
+                  <Typography variant="caption" color="text.secondary">
+                    {new Date(r.claimed_at).toLocaleString()}
+                  </Typography>
+                </>
+              )
+              return r.session_id ? (
+                <Box
+                  key={r.id}
+                  component={Link as any}
+                  to="/project/$slug/agents/$sessionId"
+                  params={{ slug, sessionId: String(r.session_id) }}
+                  sx={{ display: 'flex', gap: 1, alignItems: 'center', textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
+                >
+                  {inner}
+                </Box>
+              ) : (
+                <Box key={r.id} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+                  {inner}
+                </Box>
+              )
+            })}
           </Box>
         </Box>
       )}
