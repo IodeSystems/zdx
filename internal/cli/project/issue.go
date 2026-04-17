@@ -2,7 +2,6 @@ package project
 
 import (
 	"fmt"
-	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -27,55 +26,55 @@ func issueListCmd() *cobra.Command {
 		Short: "List issues",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Issues []clitypes.IssueItem `json:"issues"`
-			}
-			if err := c.Get("/api/dx/todo/issue/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
+			slug := c.SlugOrDie()
+			resp, err := c.ListIssuesWithResponse(cmd.Context(), &dxclient.ListIssuesParams{Slug: slug})
+			if err != nil {
 				return err
 			}
-			if len(resp.Issues) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Issues == nil || len(*resp.JSON200.Issues) == 0 {
 				fmt.Println("no issues")
 				return nil
 			}
+			issues := *resp.JSON200.Issues
 			resolutionCounts := map[int32]int{}
 			if branch != "" {
-				for _, iss := range resp.Issues {
-					var resResp struct {
-						Resolutions []struct {
-							ID       string `json:"id"`
-							Reverted bool   `json:"reverted"`
-						} `json:"resolutions"`
+				for _, iss := range issues {
+					resResp, err := c.ListIssueResolutionsWithResponse(cmd.Context(), &dxclient.ListIssueResolutionsParams{
+						Slug:   slug,
+						Id:     clitypes.IssueIDStr(iss.Id),
+						Branch: &branch,
+					})
+					if err != nil || resResp.JSON200 == nil || resResp.JSON200.Resolutions == nil {
+						continue
 					}
-					_ = c.Get("/api/dx/todo/issue/resolutions", url.Values{
-						"slug":   {c.SlugOrDie()},
-						"id":     {clitypes.IssueIDStr(iss.ID)},
-						"branch": {branch},
-					}, &resResp)
 					active := 0
-					for _, r := range resResp.Resolutions {
+					for _, r := range *resResp.JSON200.Resolutions {
 						if !r.Reverted {
 							active++
 						}
 					}
-					resolutionCounts[iss.ID] = active
+					resolutionCounts[iss.Id] = active
 				}
 			}
-			for _, iss := range resp.Issues {
+			for _, iss := range issues {
 				if status != "" && iss.Status != status {
 					continue
 				}
 				s := iss.Status
-				if len(iss.BlockedBy) > 0 {
-					s += " [blocked:" + strings.Join(iss.BlockedBy, ",") + "]"
+				if iss.BlockedBy != nil && len(*iss.BlockedBy) > 0 {
+					s += " [blocked:" + strings.Join(*iss.BlockedBy, ",") + "]"
 				}
 				if branch != "" {
-					if resolutionCounts[iss.ID] > 0 {
+					if resolutionCounts[iss.Id] > 0 {
 						s += " [resolved]"
 					} else {
 						s += " [unresolved]"
 					}
 				}
-				fmt.Printf("%-8s %-30s %s\n", clitypes.IssueIDStr(iss.ID), s, iss.Title)
+				fmt.Printf("%-8s %-30s %s\n", clitypes.IssueIDStr(iss.Id), s, iss.Title)
 			}
 			return nil
 		},
@@ -116,36 +115,52 @@ func issueAddCmd() *cobra.Command {
 				blockers := strings.Split(blockedBy, ",")
 				body.BlockedBy = &blockers
 			}
-			var resp clitypes.IssueAddResponse
-			if err := c.Post("/api/dx/todo/issue/add", body, &resp); err != nil {
+			resp, err := c.AddIssueWithResponse(cmd.Context(), body)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("%s  %s\n", clitypes.IssueIDStr(resp.ID), resp.Title)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			addResp := resp.JSON200
+			fmt.Printf("%s  %s\n", clitypes.IssueIDStr(addResp.Id), addResp.Title)
 			if parent != "" {
 				parentNum, _ := strconv.ParseInt(parent[3:], 10, 32)
-				if err := c.Post("/api/dx/todo/issue/add-block", dxclient.IssueAddBlockRequest{
+				blkResp, err := c.IssueAddBlockWithResponse(cmd.Context(), dxclient.IssueAddBlockRequest{
 					Slug:      c.SlugOrDie(),
 					Id:        int32(parentNum),
-					BlockedBy: clitypes.IssueIDStr(resp.ID),
-				}, nil); err != nil {
+					BlockedBy: clitypes.IssueIDStr(addResp.Id),
+				})
+				if err != nil {
+					return fmt.Errorf("created issue but failed to add block on parent: %w", err)
+				}
+				if err := c.CheckStatus(blkResp.StatusCode(), blkResp.Body); err != nil {
 					return fmt.Errorf("created issue but failed to add block on parent: %w", err)
 				}
 				fmt.Printf("  → blocks %s\n", parent)
 			}
-			if !autoReady && len(resp.Similar) > 0 {
+			hasSimilar := addResp.Similar != nil && len(*addResp.Similar) > 0
+			if !autoReady && hasSimilar {
 				fmt.Println("\nSimilar issues:")
-				for _, s := range resp.Similar {
-					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.ID, s.Score*100, s.Title, s.Status)
+				for _, s := range *addResp.Similar {
+					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.Id, s.Score*100, s.Title, s.Status)
 				}
 				fmt.Printf("\nIssue created as draft (wip). To promote:\n")
-				fmt.Printf("  dx issue ready %s\n", clitypes.IssueIDStr(resp.ID))
+				fmt.Printf("  dx issue ready %s\n", clitypes.IssueIDStr(addResp.Id))
 				fmt.Printf("To close as duplicate:\n")
-				fmt.Printf("  dx issue close %s --reason=duplicate --duplicate-of=<IS-N>\n", clitypes.IssueIDStr(resp.ID))
+				fmt.Printf("  dx issue close %s --reason=duplicate --duplicate-of=<IS-N>\n", clitypes.IssueIDStr(addResp.Id))
 			} else if !autoReady {
-				if err := c.Post("/api/dx/todo/issue/ready", dxclient.ReadyIssueRequest{
+				rdyResp, err := c.ReadyIssueWithResponse(cmd.Context(), dxclient.ReadyIssueRequest{
 					Slug: c.SlugOrDie(),
-					Id:   resp.ID,
-				}, nil); err != nil {
+					Id:   addResp.Id,
+				})
+				if err != nil {
+					return err
+				}
+				if err := c.CheckStatus(rdyResp.StatusCode(), rdyResp.Body); err != nil {
 					return err
 				}
 				fmt.Println("(auto-promoted to open — no similar issues found)")
@@ -173,10 +188,14 @@ func issueReadyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			n, _ := strconv.ParseInt(args[0][3:], 10, 32)
-			if err := c.Post("/api/dx/todo/issue/ready", dxclient.ReadyIssueRequest{
+			resp, err := c.ReadyIssueWithResponse(cmd.Context(), dxclient.ReadyIssueRequest{
 				Slug: c.SlugOrDie(),
 				Id:   int32(n),
-			}, nil); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("%s promoted to open\n", args[0])
@@ -192,41 +211,35 @@ func issueShowCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Issue clitypes.IssueItem       `json:"issue"`
-				Work  []clitypes.IssueWorkItem `json:"work"`
-			}
-			if err := c.Get("/api/dx/todo/issue/show", url.Values{
-				"slug": {c.SlugOrDie()},
-				"id":   {args[0]},
-			}, &resp); err != nil {
+			slug := c.SlugOrDie()
+			showResp, err := c.ShowIssueWithResponse(cmd.Context(), &dxclient.ShowIssueParams{
+				Slug: slug,
+				Id:   args[0],
+			})
+			if err != nil {
 				return err
 			}
-			cli.PrintIssueItem(resp.Issue)
-
-			var resResp struct {
-				Resolutions []struct {
-					ID             string `json:"id"`
-					BranchOfOrigin string `json:"branch_of_origin"`
-					ResolvedAt     string `json:"resolved_at"`
-					Author         string `json:"author"`
-					Source         string `json:"source"`
-					Reverted       bool   `json:"reverted"`
-					RevertedBy     string `json:"reverted_by"`
-					Commits        []struct {
-						SHA string `json:"sha"`
-					} `json:"commits"`
-				} `json:"resolutions"`
+			if err := c.CheckStatus(showResp.StatusCode(), showResp.Body); err != nil {
+				return err
 			}
-			if err := c.Get("/api/dx/todo/issue/resolutions", url.Values{
-				"slug": {c.SlugOrDie()},
-				"id":   {args[0]},
-			}, &resResp); err == nil && len(resResp.Resolutions) > 0 {
+			if showResp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			cli.PrintIssueItem(cli.IssueToCli(showResp.JSON200.Issue))
+
+			resResp, err := c.ListIssueResolutionsWithResponse(cmd.Context(), &dxclient.ListIssueResolutionsParams{
+				Slug: slug,
+				Id:   args[0],
+			})
+			if err == nil && resResp.JSON200 != nil && resResp.JSON200.Resolutions != nil && len(*resResp.JSON200.Resolutions) > 0 {
 				fmt.Println("\nResolutions:")
-				for _, r := range resResp.Resolutions {
+				for _, r := range *resResp.JSON200.Resolutions {
 					status := r.Source
 					if r.Reverted {
-						revertShort := r.RevertedBy
+						revertShort := ""
+						if r.RevertedBy != nil {
+							revertShort = *r.RevertedBy
+						}
 						if len(revertShort) > 10 {
 							revertShort = revertShort[:10]
 						}
@@ -236,24 +249,26 @@ func issueShowCmd() *cobra.Command {
 					if len(date) >= 10 {
 						date = date[:10]
 					}
-					idShort := r.ID
+					idShort := r.Id
 					if len(idShort) > 8 {
 						idShort = idShort[:8]
 					}
 					fmt.Printf("  %s  %s  %s  [%s]  %s\n", idShort, date, r.BranchOfOrigin, status, r.Author)
-					for _, commit := range r.Commits {
-						sha := commit.SHA
-						if len(sha) > 10 {
-							sha = sha[:10]
+					if r.Commits != nil {
+						for _, commit := range *r.Commits {
+							sha := commit.Sha
+							if len(sha) > 10 {
+								sha = sha[:10]
+							}
+							fmt.Printf("    %s\n", sha)
 						}
-						fmt.Printf("    %s\n", sha)
 					}
 				}
 			}
 
-			if len(resp.Work) > 0 {
+			if showResp.JSON200.Work != nil && len(*showResp.JSON200.Work) > 0 {
 				fmt.Println("\nWork log:")
-				for _, w := range resp.Work {
+				for _, w := range *showResp.JSON200.Work {
 					date := w.CreatedAt
 					if len(date) >= 10 {
 						date = date[:10]
@@ -283,9 +298,6 @@ func issueCloseCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := cli.MustClient()
-			var ok struct {
-				OK bool `json:"ok"`
-			}
 			body := dxclient.CloseIssueRequest{
 				Slug: c.SlugOrDie(),
 				Id:   int32(n),
@@ -296,7 +308,11 @@ func issueCloseCmd() *cobra.Command {
 			if duplicateOf != "" {
 				body.DuplicateOf = &duplicateOf
 			}
-			if err := c.Post("/api/dx/todo/issue/close", body, &ok); err != nil {
+			resp, err := c.CloseIssueWithResponse(cmd.Context(), body)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("%s closed\n", id)
@@ -318,14 +334,15 @@ func issueBlockCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := cli.MustClient()
-			var ok struct {
-				OK bool `json:"ok"`
-			}
-			if err := c.Post("/api/dx/todo/issue/add-block", dxclient.IssueAddBlockRequest{
+			resp, err := c.IssueAddBlockWithResponse(cmd.Context(), dxclient.IssueAddBlockRequest{
 				Slug:      c.SlugOrDie(),
 				Id:        int32(n),
 				BlockedBy: by,
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("%s blocked by %s\n", id, by)
@@ -347,9 +364,6 @@ func issueUnblockCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := cli.MustClient()
-			var ok struct {
-				OK bool `json:"ok"`
-			}
 			body := dxclient.IssueRemoveBlockRequest{
 				Slug: c.SlugOrDie(),
 				Id:   int32(n),
@@ -357,7 +371,11 @@ func issueUnblockCmd() *cobra.Command {
 			if by != "" {
 				body.BlockedBy = &by
 			}
-			if err := c.Post("/api/dx/todo/issue/remove-block", body, &ok); err != nil {
+			resp, err := c.IssueRemoveBlockWithResponse(cmd.Context(), body)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			if by != "" {
@@ -403,10 +421,11 @@ func issueEditCmd() *cobra.Command {
 			if cmd.Flags().Changed("type") {
 				body.IssueType = &issueType
 			}
-			var ok struct {
-				OK bool `json:"ok"`
+			resp, err := c.EditIssueWithResponse(cmd.Context(), body)
+			if err != nil {
+				return err
 			}
-			if err := c.Post("/api/dx/todo/issue/edit", body, &ok); err != nil {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("%s updated\n", id)
@@ -464,25 +483,26 @@ func issueResolveCmd() *cobra.Command {
 			if branch != "" {
 				body.Branch = &branch
 			}
-			var resp struct {
-				Resolution struct {
-					ID             string `json:"id"`
-					BranchOfOrigin string `json:"branch_of_origin"`
-					Commits        []struct {
-						SHA string `json:"sha"`
-					} `json:"commits"`
-				} `json:"resolution"`
-			}
-			if err := c.Post("/api/dx/todo/issue/resolve", body, &resp); err != nil {
+			resp, err := c.ResolveIssueWithResponse(cmd.Context(), body)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("%s resolved (resolution %s)\n", id, resp.Resolution.ID)
-			for _, commit := range resp.Resolution.Commits {
-				sha := commit.SHA
-				if len(sha) > 10 {
-					sha = sha[:10]
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			res := resp.JSON200.Resolution
+			fmt.Printf("%s resolved (resolution %s)\n", id, res.Id)
+			if res.Commits != nil {
+				for _, commit := range *res.Commits {
+					sha := commit.Sha
+					if len(sha) > 10 {
+						sha = sha[:10]
+					}
+					fmt.Printf("  %s\n", sha)
 				}
-				fmt.Printf("  %s\n", sha)
 			}
 			return nil
 		},
@@ -499,51 +519,53 @@ func issueResolutionsCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			params := url.Values{
-				"slug": {c.SlugOrDie()},
-				"id":   {args[0]},
+			params := &dxclient.ListIssueResolutionsParams{
+				Slug: c.SlugOrDie(),
+				Id:   args[0],
 			}
 			if branch != "" {
-				params.Set("branch", branch)
+				params.Branch = &branch
 			}
-			var resp struct {
-				Resolutions []struct {
-					ID             string `json:"id"`
-					BranchOfOrigin string `json:"branch_of_origin"`
-					ResolvedAt     string `json:"resolved_at"`
-					Author         string `json:"author"`
-					Source         string `json:"source"`
-					Reverted       bool   `json:"reverted"`
-					RevertedBy     string `json:"reverted_by"`
-					Commits        []struct {
-						SHA string `json:"sha"`
-						Ord int    `json:"ord"`
-					} `json:"commits"`
-				} `json:"resolutions"`
-			}
-			if err := c.Get("/api/dx/todo/issue/resolutions", params, &resp); err != nil {
+			resp, err := c.ListIssueResolutionsWithResponse(cmd.Context(), params)
+			if err != nil {
 				return err
 			}
-			if len(resp.Resolutions) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Resolutions == nil || len(*resp.JSON200.Resolutions) == 0 {
 				fmt.Println("no resolutions")
 				return nil
 			}
-			for _, r := range resp.Resolutions {
+			for _, r := range *resp.JSON200.Resolutions {
 				status := r.Source
 				if r.Reverted {
-					status = "REVERTED (by " + r.RevertedBy[:10] + ")"
+					revertedBy := ""
+					if r.RevertedBy != nil {
+						revertedBy = *r.RevertedBy
+					}
+					if len(revertedBy) > 10 {
+						revertedBy = revertedBy[:10]
+					}
+					status = "REVERTED (by " + revertedBy + ")"
 				}
 				date := r.ResolvedAt
 				if len(date) >= 10 {
 					date = date[:10]
 				}
-				fmt.Printf("  %s  %s  %s  [%s]  %s\n", r.ID[:8], date, r.BranchOfOrigin, status, r.Author)
-				for _, c := range r.Commits {
-					sha := c.SHA
-					if len(sha) > 10 {
-						sha = sha[:10]
+				idShort := r.Id
+				if len(idShort) > 8 {
+					idShort = idShort[:8]
+				}
+				fmt.Printf("  %s  %s  %s  [%s]  %s\n", idShort, date, r.BranchOfOrigin, status, r.Author)
+				if r.Commits != nil {
+					for _, commit := range *r.Commits {
+						sha := commit.Sha
+						if len(sha) > 10 {
+							sha = sha[:10]
+						}
+						fmt.Printf("    %s\n", sha)
 					}
-					fmt.Printf("    %s\n", sha)
 				}
 			}
 			return nil
@@ -561,30 +583,33 @@ func issueReconcileCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			branch := args[0]
 			c := cli.MustClient()
-			var resp struct {
-				Results []struct {
-					IssueID      string   `json:"issue_id"`
-					ResolutionID string   `json:"resolution_id"`
-					MatchedSHAs  []string `json:"matched_shas"`
-				} `json:"results"`
-			}
-			if err := c.Post("/api/dx/todo/issue/reconcile", dxclient.ReconcileBranchRequest{
+			resp, err := c.ReconcileBranchWithResponse(cmd.Context(), dxclient.ReconcileBranchRequest{
 				Slug:   c.SlugOrDie(),
 				Branch: branch,
-			}, &resp); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Results) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Results == nil || len(*resp.JSON200.Results) == 0 {
 				fmt.Println("no new reconciled resolutions found")
 				return nil
 			}
-			for _, r := range resp.Results {
-				fmt.Printf("  %s → %s", r.IssueID, r.ResolutionID[:8])
-				for _, sha := range r.MatchedSHAs {
-					if len(sha) > 10 {
-						sha = sha[:10]
+			for _, r := range *resp.JSON200.Results {
+				resID := r.ResolutionId
+				if len(resID) > 8 {
+					resID = resID[:8]
+				}
+				fmt.Printf("  %s → %s", r.IssueId, resID)
+				if r.MatchedShas != nil {
+					for _, sha := range *r.MatchedShas {
+						if len(sha) > 10 {
+							sha = sha[:10]
+						}
+						fmt.Printf(" %s", sha)
 					}
-					fmt.Printf(" %s", sha)
 				}
 				fmt.Println()
 			}

@@ -2,27 +2,14 @@ package project
 
 import (
 	"fmt"
-	"net/url"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
-
-type questionProposalItem struct {
-	ID             int32  `json:"id"`
-	QuestionID     int32  `json:"question_id"`
-	QuestionType   string `json:"question_type"`
-	Title          string `json:"title"`
-	Context        string `json:"context"`
-	Status         string `json:"status"`
-	DeniedReason   string `json:"denied_reason"`
-	CreatedIssueID string `json:"created_issue_id"`
-	CreatedAt      string `json:"created_at"`
-	UpdatedAt      string `json:"updated_at"`
-}
 
 func QuestionProposalCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "question-proposal", Short: "Issue proposals attached to questions"}
@@ -38,17 +25,24 @@ func questionProposalAddCmd() *cobra.Command {
 		Short: "Create an issue proposal on a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var p questionProposalItem
-			if err := c.Post("/api/dx/question-proposals/add", dxclient.AddQuestionProposalRequest{
+			resp, err := c.AddQuestionProposalWithResponse(cmd.Context(), dxclient.AddQuestionProposalRequest{
 				Slug:         c.SlugOrDie(),
 				QuestionId:   questionID,
 				QuestionType: questionType,
 				Title:        title,
 				Context:      ctx,
-			}, &p); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("QP-%d  [%s:%d]  %s\n", p.ID, p.QuestionType, p.QuestionID, p.Title)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			p := resp.JSON200
+			fmt.Printf("QP-%d  [%s:%d]  %s\n", p.Id, p.QuestionType, p.QuestionId, p.Title)
 			return nil
 		},
 	}
@@ -69,25 +63,25 @@ func questionProposalListCmd() *cobra.Command {
 		Short: "List proposals for a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Proposals []questionProposalItem `json:"proposals"`
-			}
-			params := url.Values{
-				"slug":          {c.SlugOrDie()},
-				"question_id":   {strconv.Itoa(int(questionID))},
-				"question_type": {questionType},
-			}
-			if err := c.Get("/api/dx/question-proposals/by-question", params, &resp); err != nil {
+			resp, err := c.ListQuestionProposalsWithResponse(cmd.Context(), &dxclient.ListQuestionProposalsParams{
+				Slug:         c.SlugOrDie(),
+				QuestionId:   questionID,
+				QuestionType: questionType,
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Proposals) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Proposals == nil || len(*resp.JSON200.Proposals) == 0 {
 				fmt.Println("no proposals")
 				return nil
 			}
-			for _, p := range resp.Proposals {
-				line := fmt.Sprintf("QP-%-4d %-10s  %s", p.ID, p.Status, p.Title)
-				if p.CreatedIssueID != "" {
-					line += fmt.Sprintf("  → %s", p.CreatedIssueID)
+			for _, p := range *resp.JSON200.Proposals {
+				line := fmt.Sprintf("QP-%-4d %-10s  %s", p.Id, p.Status, p.Title)
+				if p.CreatedIssueId != "" {
+					line += fmt.Sprintf("  → %s", p.CreatedIssueId)
 				}
 				fmt.Println(line)
 			}
@@ -111,19 +105,20 @@ func questionProposalAcceptCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
-			var resp struct {
-				Proposal questionProposalItem `json:"proposal"`
-				Issue    struct {
-					ID string `json:"id"`
-				} `json:"issue"`
-			}
-			if err := c.Post("/api/dx/question-proposals/accept", dxclient.AcceptQuestionProposalRequest{
+			resp, err := c.AcceptQuestionProposalWithResponse(cmd.Context(), dxclient.AcceptQuestionProposalRequest{
 				Slug: c.SlugOrDie(),
 				Id:   int32(id),
-			}, &resp); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("QP-%d  accepted → %s\n", resp.Proposal.ID, resp.Issue.ID)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("QP-%d  accepted → %s\n", resp.JSON200.Proposal.Id, clitypes.IssueIDStr(resp.JSON200.Issue.Id))
 			return nil
 		},
 	}
@@ -142,15 +137,21 @@ func questionProposalDenyCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
-			var p questionProposalItem
-			if err := c.Post("/api/dx/question-proposals/deny", dxclient.DenyQuestionProposalRequest{
+			resp, err := c.DenyQuestionProposalWithResponse(cmd.Context(), dxclient.DenyQuestionProposalRequest{
 				Slug:   c.SlugOrDie(),
 				Id:     int32(id),
 				Reason: reason,
-			}, &p); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("QP-%d  denied\n", p.ID)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("QP-%d  denied\n", resp.JSON200.Id)
 			return nil
 		},
 	}

@@ -3,7 +3,6 @@ package project
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -31,17 +30,6 @@ var (
 	formatMetricsSummary = techmetrics.FormatSummary
 )
 
-type journalEntry struct {
-	Date          string `json:"date"`
-	Baseline      bool   `json:"baseline"`
-	Tldr          string `json:"tldr"`
-	Assessment    string `json:"assessment"`
-	Concerns      string `json:"concerns"`
-	Next          string `json:"next"`
-	ChangelogJSON string `json:"changelog_json"`
-	StateJSON     string `json:"state_json"`
-}
-
 func JournalCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "standup", Aliases: []string{"journal"}, Short: "Owner/tech standup check-ins"}
 	cmd.AddCommand(
@@ -62,12 +50,14 @@ func journalReviewCmd() *cobra.Command {
 		Short: "Acknowledge the latest unreviewed standup entry (clears the solo queue item)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			body := dxclient.JournalReviewRequest{
+			resp, err := c.JournalReviewWithResponse(cmd.Context(), dxclient.JournalReviewRequest{
 				Slug: c.SlugOrDie(),
 				Role: role,
+			})
+			if err != nil {
+				return err
 			}
-			var resp struct{ OK bool }
-			if err := c.Post("/api/dx/journal/review", body, &resp); err != nil {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("ok — %s check-in marked reviewed\n", role)
@@ -109,20 +99,14 @@ func journalCheckinCmd() *cobra.Command {
 
 				var prevDate string
 				var prevStateJSON string
-				params := url.Values{
-					"slug": {c.SlugOrDie()},
-					"role": {"tech"},
-				}
-				var showResp struct {
-					Entries []json.RawMessage `json:"entries"`
-				}
-				_ = c.Get("/api/dx/journal/show", params, &showResp)
-				if len(showResp.Entries) > 0 {
-					var prev journalEntry
-					if json.Unmarshal(showResp.Entries[0], &prev) == nil {
-						prevDate = prev.Date
-						prevStateJSON = prev.StateJSON
-					}
+				showResp, _ := c.JournalShowWithResponse(cmd.Context(), &dxclient.JournalShowParams{
+					Slug: c.SlugOrDie(),
+					Role: "tech",
+				})
+				if showResp != nil && showResp.JSON200 != nil && showResp.JSON200.Entries != nil && len(*showResp.JSON200.Entries) > 0 {
+					prev := (*showResp.JSON200.Entries)[0]
+					prevDate = prev.Date
+					prevStateJSON = prev.StateJson
 				}
 
 				commits, filesChanged := collectGitChurn(root, prevDate)
@@ -147,8 +131,11 @@ func journalCheckinCmd() *cobra.Command {
 				}
 			}
 
-			var resp struct{ OK bool }
-			if err := c.Post("/api/dx/journal/checkin", body, &resp); err != nil {
+			resp, err := c.JournalCheckinWithResponse(cmd.Context(), body)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Println("ok")
@@ -172,21 +159,21 @@ func journalShowCmd() *cobra.Command {
 		Short: "List standup entries",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			params := url.Values{
-				"slug": {c.SlugOrDie()},
-				"role": {role},
-			}
-			var resp struct {
-				Entries []journalEntry `json:"entries"`
-			}
-			if err := c.Get("/api/dx/journal/show", params, &resp); err != nil {
+			resp, err := c.JournalShowWithResponse(cmd.Context(), &dxclient.JournalShowParams{
+				Slug: c.SlugOrDie(),
+				Role: role,
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Entries) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Entries == nil || len(*resp.JSON200.Entries) == 0 {
 				fmt.Println("no entries")
 				return nil
 			}
-			for _, e := range resp.Entries {
+			for _, e := range *resp.JSON200.Entries {
 				tag := ""
 				if e.Baseline {
 					tag = " [baseline]"
@@ -201,11 +188,11 @@ func journalShowCmd() *cobra.Command {
 				if e.Next != "" {
 					fmt.Printf("  next:       %s\n", e.Next)
 				}
-				if e.StateJSON != "" && e.StateJSON != "{}" {
-					if m, ok := parseTechMetrics(e.StateJSON); ok {
+				if e.StateJson != "" && e.StateJson != "{}" {
+					if m, ok := parseTechMetrics(e.StateJson); ok {
 						var deltas []MetricDelta
-						if e.ChangelogJSON != "" && e.ChangelogJSON != "[]" {
-							_ = json.Unmarshal([]byte(e.ChangelogJSON), &deltas)
+						if e.ChangelogJson != "" && e.ChangelogJson != "[]" {
+							_ = json.Unmarshal([]byte(e.ChangelogJson), &deltas)
 						}
 						if len(deltas) == 0 {
 							deltas = computeDeltas(TechMetrics{}, m)
@@ -234,21 +221,21 @@ func journalStateCmd() *cobra.Command {
 		Short: "Show latest standup state snapshot",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			params := url.Values{
-				"slug": {c.SlugOrDie()},
-				"role": {role},
-			}
-			var resp struct {
-				StateJSON string `json:"state_json"`
-			}
-			if err := c.Get("/api/dx/journal/state", params, &resp); err != nil {
+			resp, err := c.JournalStateWithResponse(cmd.Context(), &dxclient.JournalStateParams{
+				Slug: c.SlugOrDie(),
+				Role: role,
+			})
+			if err != nil {
 				return err
 			}
-			if resp.StateJSON == "" {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.StateJson == "" {
 				fmt.Println("no state")
 				return nil
 			}
-			fmt.Println(resp.StateJSON)
+			fmt.Println(resp.JSON200.StateJson)
 			return nil
 		},
 	}
@@ -280,8 +267,11 @@ func journalAddCmd() *cobra.Command {
 			if role != "" {
 				body.ByRole = &role
 			}
-			var resp struct{ OK bool }
-			if err := c.Post("/api/issue-work", body, &resp); err != nil {
+			resp, err := c.AppendIssueWorkWithResponse(cmd.Context(), body)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("ok — work-log entry added to %s\n", issue)
@@ -294,14 +284,6 @@ func journalAddCmd() *cobra.Command {
 	return cmd
 }
 
-type worklogEntry struct {
-	IssueID    string `json:"issue_id"`
-	IssueTitle string `json:"issue_title"`
-	Agent      string `json:"agent"`
-	Note       string `json:"note"`
-	CreatedAt  string `json:"created_at"`
-}
-
 func journalListCmd() *cobra.Command {
 	var issue string
 	cmd := &cobra.Command{
@@ -309,21 +291,23 @@ func journalListCmd() *cobra.Command {
 		Short: "List work-log entries",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			params := url.Values{
-				"slug": {c.SlugOrDie()},
-			}
-			var resp struct {
-				Entries []worklogEntry `json:"entries"`
-				Total   int64          `json:"total"`
-			}
-			if err := c.Get("/api/dx/worklog", params, &resp); err != nil {
+			resp, err := c.ListWorklogWithResponse(cmd.Context(), &dxclient.ListWorklogParams{
+				Slug: c.SlugOrDie(),
+			})
+			if err != nil {
 				return err
 			}
-			entries := resp.Entries
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			var entries []dxclient.Item
+			if resp.JSON200 != nil && resp.JSON200.Entries != nil {
+				entries = *resp.JSON200.Entries
+			}
 			if issue != "" {
-				var filtered []worklogEntry
+				var filtered []dxclient.Item
 				for _, e := range entries {
-					if e.IssueID == issue {
+					if e.IssueId == issue {
 						filtered = append(filtered, e)
 					}
 				}
@@ -340,9 +324,9 @@ func journalListCmd() *cobra.Command {
 				}
 				title := e.IssueTitle
 				if title == "" {
-					title = e.IssueID
+					title = e.IssueId
 				}
-				fmt.Printf("%s  %-8s  %-8s  %s — %s\n", date, e.IssueID, e.Agent, title, e.Note)
+				fmt.Printf("%s  %-8s  %-8s  %s — %s\n", date, e.IssueId, e.Agent, title, e.Note)
 			}
 			return nil
 		},

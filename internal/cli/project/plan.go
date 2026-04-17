@@ -2,45 +2,13 @@ package project
 
 import (
 	"fmt"
-	"net/url"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
-
-type planItem struct {
-	ID         int32          `json:"id"`
-	Title      string         `json:"title"`
-	Body       string         `json:"body"`
-	PlanType   string         `json:"plan_type"`
-	Status     string         `json:"status"`
-	Complexity string         `json:"complexity"`
-	Approach   string         `json:"approach"`
-	FeatureID  int32          `json:"feature_id"`
-	FocusID    int32          `json:"focus_id"`
-	IssueID    string         `json:"issue_id"`
-	CreatedAt  string         `json:"created_at"`
-	UpdatedAt  string         `json:"updated_at"`
-	Steps      []planStepItem `json:"steps"`
-}
-
-type planStepItem struct {
-	ID        int32             `json:"id"`
-	PlanID    int32             `json:"plan_id"`
-	Seq       int32             `json:"seq"`
-	Text      string            `json:"text"`
-	Status    string            `json:"status"`
-	DependsOn int32             `json:"depends_on"`
-	Refs      []planStepRefItem `json:"refs"`
-}
-
-type planStepRefItem struct {
-	StepID     int32  `json:"step_id"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-}
 
 func PlanCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "plan", Short: "Plan management"}
@@ -59,26 +27,27 @@ func planListCmd() *cobra.Command {
 		Short: "List plans",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Plans []planItem `json:"plans"`
-			}
-			if err := c.Get("/api/dx/plans", cli.QuerySlug(c), &resp); err != nil {
+			resp, err := c.ListPlansWithResponse(cmd.Context(), &dxclient.ListPlansParams{Slug: c.SlugOrDie()})
+			if err != nil {
 				return err
 			}
-			if len(resp.Plans) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Plans == nil || len(*resp.JSON200.Plans) == 0 {
 				fmt.Println("no plans")
 				return nil
 			}
-			for _, p := range resp.Plans {
+			for _, p := range *resp.JSON200.Plans {
 				anchor := ""
-				if p.FocusID > 0 {
-					anchor = fmt.Sprintf("  focus:FO-%d", p.FocusID)
-				} else if p.FeatureID > 0 {
-					anchor = fmt.Sprintf("  feature:%d", p.FeatureID)
-				} else if p.IssueID != "" {
-					anchor = fmt.Sprintf("  issue:%s", p.IssueID)
+				if p.FocusId > 0 {
+					anchor = fmt.Sprintf("  focus:FO-%d", p.FocusId)
+				} else if p.FeatureId > 0 {
+					anchor = fmt.Sprintf("  feature:%d", p.FeatureId)
+				} else if p.IssueId != "" {
+					anchor = fmt.Sprintf("  issue:%s", p.IssueId)
 				}
-				fmt.Printf("PL-%-4d %-12s %-10s %s%s\n", p.ID, p.Status, p.PlanType, p.Title, anchor)
+				fmt.Printf("PL-%-4d %-12s %-10s %s%s\n", p.Id, p.Status, p.PlanType, p.Title, anchor)
 			}
 			return nil
 		},
@@ -96,26 +65,37 @@ func planShowCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var p planItem
-			q := url.Values{"slug": {c.SlugOrDie()}, "id": {strconv.Itoa(int(id))}}
-			if err := c.Get("/api/dx/plan", q, &p); err != nil {
+			resp, err := c.GetPlanWithResponse(cmd.Context(), &dxclient.GetPlanParams{
+				Slug: c.SlugOrDie(),
+				Id:   id,
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("PL-%d  %s\n", p.ID, p.Title)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			p := resp.JSON200
+			fmt.Printf("PL-%d  %s\n", p.Id, p.Title)
 			fmt.Printf("Status:  %s   Type: %s\n", p.Status, p.PlanType)
 			if p.Body != "" {
 				fmt.Printf("\n%s\n", p.Body)
 			}
-			if len(p.Steps) > 0 {
-				fmt.Printf("\nSteps (%d):\n", len(p.Steps))
-				for _, s := range p.Steps {
+			if p.Steps != nil && len(*p.Steps) > 0 {
+				fmt.Printf("\nSteps (%d):\n", len(*p.Steps))
+				for _, s := range *p.Steps {
 					dep := ""
 					if s.DependsOn > 0 {
 						dep = fmt.Sprintf("  (after step %d)", s.DependsOn)
 					}
 					refs := ""
-					for _, r := range s.Refs {
-						refs += fmt.Sprintf(" → %s:%s", r.TargetType, r.TargetID)
+					if s.Refs != nil {
+						for _, r := range *s.Refs {
+							refs += fmt.Sprintf(" → %s:%s", r.TargetType, r.TargetId)
+						}
 					}
 					fmt.Printf("  %d. [%-10s] %s%s%s\n", s.Seq, s.Status, s.Text, dep, refs)
 				}
@@ -134,26 +114,36 @@ func planAddCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			req := map[string]any{
-				"slug":      c.SlugOrDie(),
-				"title":     args[0],
-				"body":      body,
-				"plan_type": planType,
+			req := dxclient.AddPlanRequest{
+				Slug:  c.SlugOrDie(),
+				Title: args[0],
+			}
+			if body != "" {
+				req.Body = &body
+			}
+			if planType != "" {
+				req.PlanType = &planType
 			}
 			if featureName != "" {
-				req["feature_name"] = featureName
+				req.FeatureName = &featureName
 			}
 			if focusID > 0 {
-				req["focus_id"] = focusID
+				req.FocusId = &focusID
 			}
 			if issueID != "" {
-				req["issue_id"] = issueID
+				req.IssueId = &issueID
 			}
-			var p planItem
-			if err := c.Post("/api/dx/plan/add", req, &p); err != nil {
+			resp, err := c.AddPlanWithResponse(cmd.Context(), req)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("PL-%d  %s\n", p.ID, p.Title)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("PL-%d  %s\n", resp.JSON200.Id, resp.JSON200.Title)
 			return nil
 		},
 	}
@@ -184,19 +174,25 @@ func planStepAddCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			req := map[string]any{
-				"plan_id": planID,
-				"text":    args[1],
-				"seq":     seq,
+			req := dxclient.AddPlanStepRequest{
+				PlanId: planID,
+				Text:   args[1],
+				Seq:    &seq,
 			}
 			if dependsOn > 0 {
-				req["depends_on"] = dependsOn
+				req.DependsOn = &dependsOn
 			}
-			var s planStepItem
-			if err := c.Post("/api/dx/plan/step/add", req, &s); err != nil {
+			resp, err := c.AddPlanStepWithResponse(cmd.Context(), req)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("step %d added (seq %d)\n", s.ID, s.Seq)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("step %d added (seq %d)\n", resp.JSON200.Id, resp.JSON200.Seq)
 			return nil
 		},
 	}
@@ -218,17 +214,21 @@ func planStepUpdateCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid step id: %s", args[0])
 			}
-			req := map[string]any{"id": int32(stepID)}
+			req := dxclient.UpdatePlanStepRequest{Id: int32(stepID)}
 			if cmd.Flags().Changed("text") {
-				req["text"] = text
+				req.Text = text
 			}
 			if cmd.Flags().Changed("status") {
-				req["status"] = status
+				req.Status = status
 			}
 			if cmd.Flags().Changed("depends-on") {
-				req["depends_on"] = dependsOn
+				req.DependsOn = dependsOn
 			}
-			if err := c.Post("/api/dx/plan/step/update", req, nil); err != nil {
+			resp, err := c.UpdatePlanStepWithResponse(cmd.Context(), req)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("step %d updated\n", stepID)
@@ -252,11 +252,15 @@ func planStepRefAddCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid step id: %s", args[0])
 			}
-			if err := c.Post("/api/dx/plan/step/ref/add", map[string]any{
-				"step_id":     int32(stepID),
-				"target_type": args[1],
-				"target_id":   args[2],
-			}, nil); err != nil {
+			resp, err := c.AddPlanStepRefWithResponse(cmd.Context(), dxclient.AddPlanStepRefRequest{
+				StepId:     int32(stepID),
+				TargetType: args[1],
+				TargetId:   args[2],
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("ref added: step %d → %s:%s\n", stepID, args[1], args[2])

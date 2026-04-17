@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
@@ -24,20 +23,20 @@ func patternListCmd() *cobra.Command {
 		Short: "List patterns",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Patterns []clitypes.PatternItem `json:"patterns"`
-				Total    int64                  `json:"total"`
-			}
-			if err := c.Get("/api/dx/patterns", cli.QuerySlug(c), &resp); err != nil {
+			resp, err := c.ListPatternsWithResponse(cmd.Context(), &dxclient.ListPatternsParams{Slug: c.SlugOrDie()})
+			if err != nil {
 				return err
 			}
-			if len(resp.Patterns) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Patterns == nil || len(*resp.JSON200.Patterns) == 0 {
 				fmt.Println("no patterns")
 				return nil
 			}
-			for _, p := range resp.Patterns {
+			for _, p := range *resp.JSON200.Patterns {
 				refs := countCodeRefs(p.CodeRefs)
-				fmt.Printf("PT-%-4d  %-30s  %d refs  %s\n", p.ID, p.Name, refs, cli.Truncate(p.Description, 60))
+				fmt.Printf("PT-%-4d  %-30s  %d refs  %s\n", p.Id, p.Name, refs, cli.Truncate(p.Description, 60))
 			}
 			return nil
 		},
@@ -60,11 +59,17 @@ func patternAddCmd() *cobra.Command {
 			if codeRefsStr != "" {
 				body.CodeRefs = parseCodeRefs(codeRefsStr)
 			}
-			var p clitypes.PatternItem
-			if err := c.Post("/api/dx/patterns/add", body, &p); err != nil {
+			resp, err := c.AddPatternWithResponse(cmd.Context(), body)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("PT-%d  %s\n", p.ID, p.Name)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("PT-%d  %s\n", resp.JSON200.Id, resp.JSON200.Name)
 			return nil
 		},
 	}
@@ -81,16 +86,23 @@ func patternShowCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			id := parsePatternID(args[0])
-			var p clitypes.PatternItem
-			q := cli.QuerySlug(c)
-			q.Set("id", fmt.Sprintf("%d", id))
-			if err := c.Get("/api/dx/patterns/get", q, &p); err != nil {
+			resp, err := c.GetPatternWithResponse(cmd.Context(), &dxclient.GetPatternParams{
+				Slug: c.SlugOrDie(),
+				Id:   id,
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("PT-%d  %s\n", p.ID, p.Name)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			p := resp.JSON200
+			fmt.Printf("PT-%d  %s\n", p.Id, p.Name)
 			fmt.Printf("  Description: %s\n", p.Description)
-			var refs []map[string]any
-			_ = json.Unmarshal(p.CodeRefs, &refs)
+			refs := decodeCodeRefs(p.CodeRefs)
 			if len(refs) > 0 {
 				fmt.Println("  Code refs:")
 				for _, r := range refs {
@@ -111,13 +123,14 @@ func patternDeleteCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			id := parsePatternID(args[0])
-			var ok struct {
-				OK bool `json:"ok"`
-			}
-			if err := c.Post("/api/dx/patterns/delete", dxclient.DeletePatternRequest{
+			resp, err := c.DeletePatternWithResponse(cmd.Context(), dxclient.DeletePatternRequest{
 				Slug: c.SlugOrDie(),
 				Id:   id,
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("PT-%d deleted\n", id)
@@ -134,26 +147,24 @@ func patternSearchCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Patterns []struct {
-					Pattern clitypes.PatternItem `json:"pattern"`
-					Score   float64              `json:"score"`
-				} `json:"patterns"`
-			}
 			nInt := int64(n)
-			if err := c.Post("/api/dx/patterns/similar", dxclient.SimilarPatternsRequest{
+			resp, err := c.SimilarPatternsWithResponse(cmd.Context(), dxclient.SimilarPatternsRequest{
 				Slug: c.SlugOrDie(),
 				Text: args[0],
 				N:    &nInt,
-			}, &resp); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Patterns) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Patterns == nil || len(*resp.JSON200.Patterns) == 0 {
 				fmt.Println("no matching patterns")
 				return nil
 			}
-			for _, r := range resp.Patterns {
-				fmt.Printf("  %.3f  PT-%-4d  %s\n", r.Score, r.Pattern.ID, r.Pattern.Name)
+			for _, r := range *resp.JSON200.Patterns {
+				fmt.Printf("  %.3f  PT-%-4d  %s\n", r.Score, r.Pattern.Id, r.Pattern.Name)
 			}
 			return nil
 		},
@@ -169,10 +180,31 @@ func parsePatternID(s string) int32 {
 	return id
 }
 
-func countCodeRefs(raw json.RawMessage) int {
-	var refs []any
-	_ = json.Unmarshal(raw, &refs)
-	return len(refs)
+func countCodeRefs(raw interface{}) int {
+	return len(decodeCodeRefs(raw))
+}
+
+func decodeCodeRefs(raw interface{}) []map[string]any {
+	if raw == nil {
+		return nil
+	}
+	if refs, ok := raw.([]any); ok {
+		out := make([]map[string]any, 0, len(refs))
+		for _, r := range refs {
+			if m, ok := r.(map[string]any); ok {
+				out = append(out, m)
+			}
+		}
+		return out
+	}
+	// Fall back to JSON round-trip for other shapes.
+	b, err := json.Marshal(raw)
+	if err != nil {
+		return nil
+	}
+	var refs []map[string]any
+	_ = json.Unmarshal(b, &refs)
+	return refs
 }
 
 func parseCodeRefs(s string) []map[string]string {

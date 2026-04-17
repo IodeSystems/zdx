@@ -2,16 +2,16 @@ package project
 
 import (
 	"bufio"
+	"context"
 	"fmt"
-	"net/url"
 	"os"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/doctor"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func DoctorCmd() *cobra.Command {
@@ -21,14 +21,14 @@ func DoctorCmd() *cobra.Command {
 		Short: "Diagnose project health and propose fixes",
 		Long:  "Doctor checks the project against its maturity vine, auto-fixes what it can, and proposes actions for the rest. Deferred proposals don't nag until the next rung.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDoctor(autoFix)
+			return runDoctor(cmd.Context(), autoFix)
 		},
 	}
 	cmd.Flags().BoolVar(&autoFix, "fix", false, "auto-apply fixable issues without prompting")
 	return cmd
 }
 
-func runDoctor(autoFix bool) error {
+func runDoctor(ctx context.Context, autoFix bool) error {
 	state := &doctor.ProjectState{
 		Deferred: map[string]bool{},
 	}
@@ -38,7 +38,7 @@ func runDoctor(autoFix bool) error {
 
 	// 2. Remote state (if credentials exist)
 	if state.CredentialsExist {
-		populateRemoteState(state)
+		populateRemoteState(ctx, state)
 	}
 
 	// 3. If no classification, ask
@@ -51,10 +51,10 @@ func runDoctor(autoFix bool) error {
 		// Persist to server if connected
 		if state.RemoteReachable {
 			c := cli.MustClient()
-			_ = c.Post("/api/dx/doctor/classify", map[string]any{
-				"slug":           c.SlugOrDie(),
-				"classification": string(class),
-			}, nil)
+			_, _ = c.SetClassificationWithResponse(ctx, dxclient.SetClassificationRequest{
+				Slug:           c.SlugOrDie(),
+				Classification: string(class),
+			})
 		}
 	}
 
@@ -122,11 +122,12 @@ func runDoctor(autoFix bool) error {
 			if line == "y" || line == "yes" {
 				if state.RemoteReachable {
 					c := cli.MustClient()
-					_ = c.Post("/api/dx/doctor/defer", map[string]any{
-						"slug":       c.SlugOrDie(),
-						"check_name": f.Check.Name,
-						"rung":       f.Rung,
-					}, nil)
+					rung := f.Rung
+					_, _ = c.DeferDoctorCheckWithResponse(ctx, dxclient.DeferDoctorCheckRequest{
+						Slug:      c.SlugOrDie(),
+						CheckName: f.Check.Name,
+						Rung:      &rung,
+					})
 				}
 				fmt.Printf("  deferred: %s\n", f.Check.Name)
 			}
@@ -136,7 +137,7 @@ func runDoctor(autoFix bool) error {
 	return nil
 }
 
-func populateRemoteState(state *doctor.ProjectState) {
+func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 	c, err := cli.DefaultClient()
 	if err != nil {
 		return
@@ -144,29 +145,23 @@ func populateRemoteState(state *doctor.ProjectState) {
 	slug := c.SlugOrDie()
 
 	// Health check
-	var health struct {
-		Status string `json:"status"`
+	if hResp, err := c.HealthWithResponse(ctx); err == nil && hResp.JSON200 != nil {
+		if status, ok := (*hResp.JSON200)["status"]; ok && status == "ok" {
+			state.RemoteReachable = true
+		}
 	}
-	if err := c.Get("/api/health", nil, &health); err == nil && health.Status == "ok" {
-		state.RemoteReachable = true
-	} else {
+	if !state.RemoteReachable {
 		return
 	}
 
 	// Classification
-	var proj struct {
-		Classification string `json:"classification"`
-	}
-	if err := c.Get("/api/dx/project/info", url.Values{"slug": {slug}}, &proj); err == nil {
-		state.Classification = doctor.Classification(proj.Classification)
+	if pResp, err := c.GetProjectInfoWithResponse(ctx, &dxclient.GetProjectInfoParams{Slug: slug}); err == nil && pResp.JSON200 != nil {
+		state.Classification = doctor.Classification(pResp.JSON200.Classification)
 	}
 
 	// Goals
-	var goalResp struct {
-		Goals []clitypes.GoalItem `json:"goals"`
-	}
-	if err := c.Get("/api/goals", url.Values{"slug": {slug}}, &goalResp); err == nil {
-		for _, g := range goalResp.Goals {
+	if gResp, err := c.ListGoalsWithResponse(ctx, &dxclient.ListGoalsParams{Slug: slug}); err == nil && gResp.JSON200 != nil && gResp.JSON200.Goals != nil {
+		for _, g := range *gResp.JSON200.Goals {
 			if g.Status == "archived" {
 				continue
 			}
@@ -179,39 +174,35 @@ func populateRemoteState(state *doctor.ProjectState) {
 	}
 
 	// Constraints
-	var conResp struct {
-		Constraints []struct{ ID int32 } `json:"constraints"`
-	}
-	if err := c.Get("/api/constraints", url.Values{"slug": {slug}}, &conResp); err == nil {
-		state.ConstraintCount = len(conResp.Constraints)
+	if cResp, err := c.ListConstraintsWithResponse(ctx, &dxclient.ListConstraintsParams{Slug: slug}); err == nil && cResp.JSON200 != nil && cResp.JSON200.Constraints != nil {
+		state.ConstraintCount = len(*cResp.JSON200.Constraints)
 	}
 
 	// Features
-	var featResp struct {
-		Features []clitypes.FeatureItem `json:"features"`
-	}
-	if err := c.Get("/api/features", url.Values{"slug": {slug}}, &featResp); err == nil {
-		state.FeatureCount = len(featResp.Features)
-		for _, f := range featResp.Features {
-			if len(f.Specs) > 0 {
+	if fResp, err := c.ListFeaturesWithResponse(ctx, &dxclient.ListFeaturesParams{Slug: slug}); err == nil && fResp.JSON200 != nil && fResp.JSON200.Features != nil {
+		feats := *fResp.JSON200.Features
+		state.FeatureCount = len(feats)
+		for _, f := range feats {
+			specCount := 0
+			if f.Specs != nil {
+				specCount = len(*f.Specs)
+			}
+			if specCount > 0 {
 				state.FeaturesWithSpecs++
 			}
-			if f.GoalID > 0 || f.ParentFeatureID > 0 {
+			if f.GoalId > 0 || f.ParentFeatureId > 0 {
 				state.FeaturesAttributed++
 			}
-			state.SpecsTotal += len(f.Specs)
-			if len(f.Specs) > 8 {
+			state.SpecsTotal += specCount
+			if specCount > 8 {
 				state.OverspeccedCount++
 			}
 		}
 	}
 
 	// Untriaged issues
-	var issueResp struct {
-		Issues []clitypes.IssueItem `json:"issues"`
-	}
-	if err := c.Get("/api/dx/todo/issue/list", url.Values{"slug": {slug}}, &issueResp); err == nil {
-		for _, iss := range issueResp.Issues {
+	if iResp, err := c.ListIssuesWithResponse(ctx, &dxclient.ListIssuesParams{Slug: slug}); err == nil && iResp.JSON200 != nil && iResp.JSON200.Issues != nil {
+		for _, iss := range *iResp.JSON200.Issues {
 			if iss.Priority == "" && iss.Status != "closed" {
 				state.UntriagedIssues++
 			}
@@ -219,13 +210,8 @@ func populateRemoteState(state *doctor.ProjectState) {
 	}
 
 	// Deferrals
-	var defResp struct {
-		Deferrals []struct {
-			CheckName string `json:"check_name"`
-		} `json:"deferrals"`
-	}
-	if err := c.Get("/api/dx/doctor/deferrals", url.Values{"slug": {slug}}, &defResp); err == nil {
-		for _, d := range defResp.Deferrals {
+	if dResp, err := c.ListDoctorDeferralsWithResponse(ctx, &dxclient.ListDoctorDeferralsParams{Slug: slug}); err == nil && dResp.JSON200 != nil && dResp.JSON200.Deferrals != nil {
+		for _, d := range *dResp.JSON200.Deferrals {
 			state.Deferred[d.CheckName] = true
 		}
 	}

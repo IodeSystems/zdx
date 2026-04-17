@@ -25,9 +25,13 @@ func taskReadyCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			n, _ := strconv.ParseInt(args[0][3:], 10, 32)
-			if err := c.Post("/api/dx/todo/task/ready", dxclient.ReadyTaskRequest{
+			resp, err := c.ReadyTaskWithResponse(cmd.Context(), dxclient.ReadyTaskRequest{
 				Id: int32(n),
-			}, nil); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("%s promoted to ready\n", args[0])
@@ -50,9 +54,13 @@ func taskDeleteCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid task id %q: %w", args[0], err)
 			}
-			if err := c.Post("/api/dx/todo/task/delete", dxclient.DeleteDraftTaskRequest{
+			resp, err := c.DeleteDraftTaskWithResponse(cmd.Context(), dxclient.DeleteDraftTaskRequest{
 				Id: int32(n),
-			}, nil); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("%s deleted\n", args[0])

@@ -2,13 +2,11 @@ package project
 
 import (
 	"fmt"
-	"net/url"
 	"strconv"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
@@ -25,15 +23,22 @@ func qaAddCmd() *cobra.Command {
 		Short: "Add a question",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var q clitypes.QuestionItem
-			if err := c.Post("/api/dx/qa/add", dxclient.AddQuestionRequest{
+			resp, err := c.AddQuestionWithResponse(cmd.Context(), dxclient.AddQuestionRequest{
 				Slug:     c.SlugOrDie(),
 				Category: category,
 				Question: question,
-			}, &q); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("QA-%d  [%s]  %s\n", q.ID, q.Category, q.Question)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			q := resp.JSON200
+			fmt.Printf("QA-%d  [%s]  %s\n", q.Id, q.Category, q.Question)
 			return nil
 		},
 	}
@@ -55,15 +60,21 @@ func qaAnswerCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
-			var q clitypes.QuestionItem
-			if err := c.Post("/api/dx/qa/answer", dxclient.AnswerQuestionRequest{
+			resp, err := c.AnswerQuestionWithResponse(cmd.Context(), dxclient.AnswerQuestionRequest{
 				Slug:   c.SlugOrDie(),
 				Id:     int32(id),
 				Answer: answer,
-			}, &q); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("QA-%d  answered\n", q.ID)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("QA-%d  answered\n", resp.JSON200.Id)
 			return nil
 		},
 	}
@@ -78,22 +89,23 @@ func qaListCmd() *cobra.Command {
 		Short: "List questions",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Questions []clitypes.QuestionItem `json:"questions"`
-			}
-			if err := c.Get("/api/dx/qa/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
+			resp, err := c.ListQuestionsWithResponse(cmd.Context(), &dxclient.ListQuestionsParams{Slug: c.SlugOrDie()})
+			if err != nil {
 				return err
 			}
-			if len(resp.Questions) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Questions == nil || len(*resp.JSON200.Questions) == 0 {
 				fmt.Println("no questions")
 				return nil
 			}
-			for _, q := range resp.Questions {
+			for _, q := range *resp.JSON200.Questions {
 				answered := "unanswered"
 				if q.Answer != "" {
 					answered = "answered"
 				}
-				fmt.Printf("QA-%-4d [%s] %-10s  %s\n", q.ID, q.Category, answered, q.Question)
+				fmt.Printf("QA-%-4d [%s] %-10s  %s\n", q.Id, q.Category, answered, q.Question)
 			}
 			return nil
 		},

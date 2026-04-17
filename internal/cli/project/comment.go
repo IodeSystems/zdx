@@ -2,7 +2,6 @@ package project
 
 import (
 	"fmt"
-	"net/url"
 	"os"
 	"strconv"
 	"strings"
@@ -10,7 +9,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
@@ -38,25 +36,27 @@ func commentListCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			q := url.Values{
-				"slug":        {c.SlugOrDie()},
-				"target_type": {args[0]},
-				"target_id":   {args[1]},
+			slug := c.SlugOrDie()
+			params := &dxclient.ListCommentsParams{
+				Slug:       &slug,
+				TargetType: &args[0],
+				TargetId:   &args[1],
 			}
 			if role != "" {
-				q.Set("role", role)
+				params.Role = &role
 			}
-			var resp struct {
-				Comments []clitypes.CommentItem `json:"comments"`
-			}
-			if err := c.Get("/api/dx/comment/list", q, &resp); err != nil {
+			resp, err := c.ListCommentsWithResponse(cmd.Context(), params)
+			if err != nil {
 				return err
 			}
-			if len(resp.Comments) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Comments == nil || len(*resp.JSON200.Comments) == 0 {
 				fmt.Println("no comments")
 				return nil
 			}
-			cli.PrintComments(resp.Comments)
+			cli.PrintComments(cli.CommentsToCli(resp.JSON200.Comments))
 			return nil
 		},
 	}
@@ -81,11 +81,17 @@ func commentAddCmd() *cobra.Command {
 			if alias := resolveAuthorAlias(authorAlias); alias != "" {
 				payload.AuthorAlias = &alias
 			}
-			var cm clitypes.CommentItem
-			if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
+			resp, err := c.AddCommentWithResponse(cmd.Context(), payload)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("C-%d added\n", cm.ID)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("C-%d added\n", resp.JSON200.Id)
 			return nil
 		},
 	}
@@ -114,20 +120,26 @@ func commentMarkReadCmd() *cobra.Command {
 						if err != nil {
 							return err
 						}
-						// Resolve comment to its target
-						var cm clitypes.CommentItem
-						if err := c.Get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &cm); err != nil {
+						getResp, err := c.GetCommentWithResponse(cmd.Context(), &dxclient.GetCommentParams{Id: cid})
+						if err != nil {
 							return fmt.Errorf("C-%d: %w", cid, err)
 						}
-						var ok struct {
-							OK bool `json:"ok"`
+						if err := c.CheckStatus(getResp.StatusCode(), getResp.Body); err != nil {
+							return fmt.Errorf("C-%d: %w", cid, err)
 						}
-						if err := c.Post("/api/dx/comment/mark-read", dxclient.MarkCommentsReadRequest{
+						if getResp.JSON200 == nil {
+							return fmt.Errorf("C-%d: not found", cid)
+						}
+						markResp, err := c.MarkCommentsReadWithResponse(cmd.Context(), dxclient.MarkCommentsReadRequest{
 							Slug:       c.SlugOrDie(),
-							TargetType: cm.TargetType,
-							TargetId:   cm.TargetID,
+							TargetType: getResp.JSON200.TargetType,
+							TargetId:   getResp.JSON200.TargetId,
 							Role:       role,
-						}, &ok); err != nil {
+						})
+						if err != nil {
+							return fmt.Errorf("C-%d: %w", cid, err)
+						}
+						if err := c.CheckStatus(markResp.StatusCode(), markResp.Body); err != nil {
 							return fmt.Errorf("C-%d: %w", cid, err)
 						}
 						fmt.Printf("C-%d marked read\n", cid)
@@ -140,15 +152,16 @@ func commentMarkReadCmd() *cobra.Command {
 			if len(args) < 2 {
 				return fmt.Errorf("usage: mark-read <target-type> <target-id> or mark-read C-1,C-2,...")
 			}
-			var ok struct {
-				OK bool `json:"ok"`
-			}
-			if err := c.Post("/api/dx/comment/mark-read", dxclient.MarkCommentsReadRequest{
+			resp, err := c.MarkCommentsReadWithResponse(cmd.Context(), dxclient.MarkCommentsReadRequest{
 				Slug:       c.SlugOrDie(),
 				TargetType: args[0],
 				TargetId:   args[1],
 				Role:       role,
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("marked read\n")
@@ -173,38 +186,52 @@ func commentReplyCmd() *cobra.Command {
 				return err
 			}
 
-			var orig clitypes.CommentItem
-			if err := c.Get("/api/dx/comment/get", url.Values{"id": {strconv.Itoa(int(cid))}}, &orig); err != nil {
+			getResp, err := c.GetCommentWithResponse(cmd.Context(), &dxclient.GetCommentParams{Id: cid})
+			if err != nil {
 				return fmt.Errorf("could not find C-%d: %w", cid, err)
 			}
+			if err := c.CheckStatus(getResp.StatusCode(), getResp.Body); err != nil {
+				return fmt.Errorf("could not find C-%d: %w", cid, err)
+			}
+			if getResp.JSON200 == nil {
+				return fmt.Errorf("could not find C-%d", cid)
+			}
+			orig := getResp.JSON200
 
 			if body != "" {
 				payload := dxclient.AddCommentRequest{
 					Slug:       c.SlugOrDie(),
 					TargetType: orig.TargetType,
-					TargetId:   orig.TargetID,
+					TargetId:   orig.TargetId,
 					Body:       body,
 					ParentId:   &cid,
 				}
 				if alias := resolveAuthorAlias(authorAlias); alias != "" {
 					payload.AuthorAlias = &alias
 				}
-				var cm clitypes.CommentItem
-				if err := c.Post("/api/dx/comment/add", payload, &cm); err != nil {
+				addResp, err := c.AddCommentWithResponse(cmd.Context(), payload)
+				if err != nil {
 					return err
 				}
-				fmt.Printf("C-%d added (reply to C-%d)\n", cm.ID, cid)
+				if err := c.CheckStatus(addResp.StatusCode(), addResp.Body); err != nil {
+					return err
+				}
+				if addResp.JSON200 == nil {
+					return fmt.Errorf("empty response")
+				}
+				fmt.Printf("C-%d added (reply to C-%d)\n", addResp.JSON200.Id, cid)
 			}
 
 			if react != "" {
-				var resp struct {
-					ID int32 `json:"id"`
-				}
-				if err := c.Post("/api/dx/comment/react", dxclient.ReactToCommentRequest{
+				rResp, err := c.ReactToCommentWithResponse(cmd.Context(), dxclient.ReactToCommentRequest{
 					Slug:      c.SlugOrDie(),
 					CommentId: cid,
 					Emoji:     react,
-				}, &resp); err != nil {
+				})
+				if err != nil {
+					return err
+				}
+				if err := c.CheckStatus(rResp.StatusCode(), rResp.Body); err != nil {
 					return err
 				}
 				fmt.Printf("reacted %s to C-%d\n", react, cid)
@@ -233,14 +260,15 @@ func commentReactCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
-			var resp struct {
-				ID int32 `json:"id"`
-			}
-			if err := c.Post("/api/dx/comment/react", dxclient.ReactToCommentRequest{
+			resp, err := c.ReactToCommentWithResponse(cmd.Context(), dxclient.ReactToCommentRequest{
 				Slug:      c.SlugOrDie(),
 				CommentId: cid,
 				Emoji:     args[1],
-			}, &resp); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("reacted %s to C-%d\n", args[1], cid)
@@ -272,26 +300,28 @@ func revisionListCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Revisions []clitypes.RevisionItem `json:"revisions"`
-			}
-			if err := c.Get("/api/dx/revisions", url.Values{
-				"slug":        {c.SlugOrDie()},
-				"target_type": {args[0]},
-				"target_id":   {args[1]},
-			}, &resp); err != nil {
+			slug := c.SlugOrDie()
+			resp, err := c.ListRevisionsWithResponse(cmd.Context(), &dxclient.ListRevisionsParams{
+				Slug:       &slug,
+				TargetType: &args[0],
+				TargetId:   &args[1],
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Revisions) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Revisions == nil || len(*resp.JSON200.Revisions) == 0 {
 				fmt.Println("no revisions")
 				return nil
 			}
-			for _, r := range resp.Revisions {
+			for _, r := range *resp.JSON200.Revisions {
 				date := r.CreatedAt
 				if len(date) >= 10 {
 					date = date[:10]
 				}
-				fmt.Printf("[%s] %s %s: %s → %s (%s)\n", date, r.TargetID, r.Field, r.OldVal, r.NewVal, r.Agent)
+				fmt.Printf("[%s] %s %s: %s → %s (%s)\n", date, r.TargetId, r.Field, r.OldVal, r.NewVal, r.Agent)
 			}
 			return nil
 		},

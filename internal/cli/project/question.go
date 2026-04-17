@@ -2,14 +2,12 @@ package project
 
 import (
 	"fmt"
-	"net/url"
 	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
@@ -42,7 +40,6 @@ func questionAddCmd() *cobra.Command {
 					}
 				}
 			}
-			var q clitypes.BlockerQuestionItem
 			body := dxclient.AddBlockerQuestionRequest{
 				Slug:       c.SlugOrDie(),
 				TargetType: targetType,
@@ -52,10 +49,18 @@ func questionAddCmd() *cobra.Command {
 			if len(choiceList) > 0 {
 				body.Choices = &choiceList
 			}
-			if err := c.Post("/api/dx/blocker-questions/add", body, &q); err != nil {
+			resp, err := c.AddBlockerQuestionWithResponse(cmd.Context(), body)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("BQ-%d  [%s:%s]  %s\n", q.ID, q.TargetType, q.TargetID, q.Context)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			q := resp.JSON200
+			fmt.Printf("BQ-%d  [%s:%s]  %s\n", q.Id, q.TargetType, q.TargetId, q.Context)
 			return nil
 		},
 	}
@@ -82,7 +87,6 @@ func questionAnswerCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid ID: %s", args[0])
 			}
-			var q clitypes.BlockerQuestionItem
 			body := dxclient.AnswerBlockerQuestionRequest{
 				Slug:   c.SlugOrDie(),
 				Id:     int32(id),
@@ -91,10 +95,17 @@ func questionAnswerCmd() *cobra.Command {
 			if answeredBy != "" {
 				body.AnsweredBy = &answeredBy
 			}
-			if err := c.Post("/api/dx/blocker-questions/answer", body, &q); err != nil {
+			resp, err := c.AnswerBlockerQuestionWithResponse(cmd.Context(), body)
+			if err != nil {
 				return err
 			}
-			fmt.Printf("BQ-%d  answered\n", q.ID)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("BQ-%d  answered\n", resp.JSON200.Id)
 			return nil
 		},
 	}
@@ -111,22 +122,23 @@ func questionListCmd() *cobra.Command {
 		Short: "List blocker questions",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Questions []clitypes.BlockerQuestionItem `json:"questions"`
-			}
-			params := url.Values{"slug": {c.SlugOrDie()}}
+			params := &dxclient.ListBlockerQuestionsParams{Slug: c.SlugOrDie()}
 			if status != "" {
-				params.Set("status", status)
+				params.Status = &status
 			}
-			if err := c.Get("/api/dx/blocker-questions/list", params, &resp); err != nil {
+			resp, err := c.ListBlockerQuestionsWithResponse(cmd.Context(), params)
+			if err != nil {
 				return err
 			}
-			if len(resp.Questions) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Questions == nil || len(*resp.JSON200.Questions) == 0 {
 				fmt.Println("no blocker questions")
 				return nil
 			}
-			for _, q := range resp.Questions {
-				fmt.Printf("BQ-%-4d [%s:%s] %-10s  %s\n", q.ID, q.TargetType, q.TargetID, q.Status, q.Context)
+			for _, q := range *resp.JSON200.Questions {
+				fmt.Printf("BQ-%-4d [%s:%s] %-10s  %s\n", q.Id, q.TargetType, q.TargetId, q.Status, q.Context)
 			}
 			return nil
 		},

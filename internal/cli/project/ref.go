@@ -2,7 +2,6 @@ package project
 
 import (
 	"fmt"
-	"net/url"
 	"strconv"
 
 	"github.com/spf13/cobra"
@@ -11,17 +10,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
-type codeRefItem struct {
-	ID        int32  `json:"id"`
-	FilePath  string `json:"file_path"`
-	GitHash   string `json:"git_hash"`
-	LineStart int32  `json:"line_start"`
-	LineEnd   int32  `json:"line_end"`
-	Note      string `json:"note"`
-	CreatedAt string `json:"created_at"`
-}
-
-func printCodeRef(r codeRefItem) {
+func printCodeRef(r dxclient.CodeRefItem) {
 	loc := r.FilePath
 	if r.LineStart > 0 {
 		if r.LineEnd > 0 && r.LineEnd != r.LineStart {
@@ -38,12 +27,11 @@ func printCodeRef(r codeRefItem) {
 	if r.Note != "" {
 		note = "  # " + r.Note
 	}
-	fmt.Printf("[%d] %s%s%s\n", r.ID, loc, func() string {
-		if hash != "" {
-			return " @" + hash
-		}
-		return ""
-	}(), note)
+	hashStr := ""
+	if hash != "" {
+		hashStr = " @" + hash
+	}
+	fmt.Printf("[%d] %s%s%s\n", r.Id, loc, hashStr, note)
 }
 
 func RefCmd() *cobra.Command {
@@ -85,11 +73,17 @@ func refIssueAttachCmd() *cobra.Command {
 			if note != "" {
 				body.Note = &note
 			}
-			var ref codeRefItem
-			if err := c.Post("/api/dx/code-refs/issue/attach", body, &ref); err != nil {
+			resp, err := c.AttachCodeRefToIssueWithResponse(cmd.Context(), body)
+			if err != nil {
 				return err
 			}
-			printCodeRef(ref)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			printCodeRef(*resp.JSON200)
 			return nil
 		},
 	}
@@ -109,20 +103,21 @@ func refIssueListCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Refs []codeRefItem `json:"refs"`
-			}
-			if err := c.Get("/api/dx/code-refs/issue", url.Values{
-				"slug":     {c.SlugOrDie()},
-				"issue_id": {args[0]},
-			}, &resp); err != nil {
+			resp, err := c.ListCodeRefsForIssueWithResponse(cmd.Context(), &dxclient.ListCodeRefsForIssueParams{
+				Slug:    c.SlugOrDie(),
+				IssueId: args[0],
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Refs) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Refs == nil || len(*resp.JSON200.Refs) == 0 {
 				fmt.Println("no code refs")
 				return nil
 			}
-			for _, r := range resp.Refs {
+			for _, r := range *resp.JSON200.Refs {
 				printCodeRef(r)
 			}
 			return nil
@@ -141,14 +136,15 @@ func refIssueDetachCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid ref id: %s", args[1])
 			}
-			var ok struct {
-				OK bool `json:"ok"`
-			}
-			if err := c.Post("/api/dx/code-refs/issue/detach", dxclient.DetachCodeRefFromIssueRequest{
+			resp, err := c.DetachCodeRefFromIssueWithResponse(cmd.Context(), dxclient.DetachCodeRefFromIssueRequest{
 				Slug:      c.SlugOrDie(),
 				IssueId:   args[0],
 				CodeRefId: int32(id),
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Println("detached")
@@ -183,11 +179,17 @@ func refTaskAttachCmd() *cobra.Command {
 			if note != "" {
 				body.Note = &note
 			}
-			var ref codeRefItem
-			if err := c.Post("/api/dx/code-refs/task/attach", body, &ref); err != nil {
+			resp, err := c.AttachCodeRefToTaskWithResponse(cmd.Context(), body)
+			if err != nil {
 				return err
 			}
-			printCodeRef(ref)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			printCodeRef(*resp.JSON200)
 			return nil
 		},
 	}
@@ -207,20 +209,21 @@ func refTaskListCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Refs []codeRefItem `json:"refs"`
-			}
-			if err := c.Get("/api/dx/code-refs/task", url.Values{
-				"slug":    {c.SlugOrDie()},
-				"task_id": {args[0]},
-			}, &resp); err != nil {
+			resp, err := c.ListCodeRefsForTaskWithResponse(cmd.Context(), &dxclient.ListCodeRefsForTaskParams{
+				Slug:   c.SlugOrDie(),
+				TaskId: args[0],
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Refs) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Refs == nil || len(*resp.JSON200.Refs) == 0 {
 				fmt.Println("no code refs")
 				return nil
 			}
-			for _, r := range resp.Refs {
+			for _, r := range *resp.JSON200.Refs {
 				printCodeRef(r)
 			}
 			return nil
@@ -239,14 +242,15 @@ func refTaskDetachCmd() *cobra.Command {
 			if err != nil {
 				return fmt.Errorf("invalid ref id: %s", args[1])
 			}
-			var ok struct {
-				OK bool `json:"ok"`
-			}
-			if err := c.Post("/api/dx/code-refs/task/detach", dxclient.DetachCodeRefFromTaskRequest{
+			resp, err := c.DetachCodeRefFromTaskWithResponse(cmd.Context(), dxclient.DetachCodeRefFromTaskRequest{
 				Slug:      c.SlugOrDie(),
 				TaskId:    args[0],
 				CodeRefId: int32(id),
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Println("detached")

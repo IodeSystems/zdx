@@ -7,7 +7,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
@@ -29,17 +28,18 @@ func featureListCmd() *cobra.Command {
 		Short: "List features",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Features []clitypes.FeatureItem `json:"features"`
-			}
-			if err := c.Get("/api/features", cli.QuerySlug(c), &resp); err != nil {
+			resp, err := c.ListFeaturesWithResponse(cmd.Context(), &dxclient.ListFeaturesParams{Slug: c.SlugOrDie()})
+			if err != nil {
 				return err
 			}
-			if len(resp.Features) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Features == nil || len(*resp.JSON200.Features) == 0 {
 				fmt.Println("no features")
 				return nil
 			}
-			for _, f := range resp.Features {
+			for _, f := range *resp.JSON200.Features {
 				comp := f.Component
 				if comp == "" {
 					comp = "-"
@@ -63,15 +63,21 @@ func featureAddCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var f clitypes.FeatureItem
-			if err := c.Post("/api/feature", dxclient.UpsertFeatureRequest{
+			resp, err := c.UpsertFeatureWithResponse(cmd.Context(), dxclient.UpsertFeatureRequest{
 				Slug:        c.SlugOrDie(),
 				Name:        args[0],
 				Description: desc,
-			}, &f); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("%d  %s\n", f.ID, f.Name)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("%d  %s\n", resp.JSON200.Id, resp.JSON200.Name)
 			return nil
 		},
 	}
@@ -87,23 +93,28 @@ func featureShowCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			// Fetch the full list and find by name (no single-feature GET endpoint yet).
-			var resp struct {
-				Features []clitypes.FeatureItem `json:"features"`
-			}
-			if err := c.Get("/api/features", cli.QuerySlug(c), &resp); err != nil {
+			resp, err := c.ListFeaturesWithResponse(cmd.Context(), &dxclient.ListFeaturesParams{Slug: c.SlugOrDie()})
+			if err != nil {
 				return err
 			}
-			var f *clitypes.FeatureItem
-			for i := range resp.Features {
-				if strings.EqualFold(resp.Features[i].Name, args[0]) {
-					f = &resp.Features[i]
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Features == nil {
+				return fmt.Errorf("feature not found: %s", args[0])
+			}
+			var found *dxclient.FeatureItem
+			feats := *resp.JSON200.Features
+			for i := range feats {
+				if strings.EqualFold(feats[i].Name, args[0]) {
+					found = &feats[i]
 					break
 				}
 			}
-			if f == nil {
+			if found == nil {
 				return fmt.Errorf("feature not found: %s", args[0])
 			}
-			cli.PrintFeatureItem(*f)
+			cli.PrintFeatureItem(cli.FeatureToCli(*found))
 			return nil
 		},
 	}
@@ -140,12 +151,16 @@ func featureSetCmd() *cobra.Command {
 				if !cmd.Flags().Changed(fieldFlag(field)) {
 					continue
 				}
-				if err := c.Post("/api/dx/features/field", dxclient.SetFeatureFieldRequest{
+				resp, err := c.SetFeatureFieldWithResponse(cmd.Context(), dxclient.SetFeatureFieldRequest{
 					Slug:    slug,
 					Feature: name,
 					Field:   field,
 					Value:   value,
-				}, nil); err != nil {
+				})
+				if err != nil {
+					return fmt.Errorf("set %s: %w", field, err)
+				}
+				if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 					return fmt.Errorf("set %s: %w", field, err)
 				}
 				changed = true
@@ -179,13 +194,14 @@ func featureReviewCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var ok struct {
-				OK bool `json:"ok"`
-			}
-			if err := c.Post("/api/dx/feature/review", dxclient.MarkFeatureReviewedRequest{
+			resp, err := c.MarkFeatureReviewedWithResponse(cmd.Context(), dxclient.MarkFeatureReviewedRequest{
 				Slug:    c.SlugOrDie(),
 				Feature: args[0],
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("%s reviewed\n", args[0])

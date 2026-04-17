@@ -33,127 +33,6 @@ const triageGuidance = `  triage checklist:
     solo will block progress on the issue until all questions are answered.
 `
 
-// commentsToCli converts the typed client's CommentItem slice into the
-// clitypes shape consumed by cli.PrintComments. Only the fields the printer
-// reads are populated.
-func commentsToCli(src *[]dxclient.CommentItem) []clitypes.CommentItem {
-	if src == nil {
-		return nil
-	}
-	out := make([]clitypes.CommentItem, 0, len(*src))
-	for _, c := range *src {
-		alias := ""
-		if c.AuthorAlias != nil {
-			alias = *c.AuthorAlias
-		}
-		var parentID *int32
-		if c.ParentId != nil {
-			v := *c.ParentId
-			parentID = &v
-		}
-		var unread *bool
-		if c.Unread != nil {
-			v := *c.Unread
-			unread = &v
-		}
-		out = append(out, clitypes.CommentItem{
-			ID:          c.Id,
-			TargetType:  c.TargetType,
-			TargetID:    c.TargetId,
-			Author:      c.Author,
-			AuthorAlias: alias,
-			Body:        c.Body,
-			CreatedAt:   c.CreatedAt,
-			ParentID:    parentID,
-			Unread:      unread,
-		})
-	}
-	return out
-}
-
-// issueToCli converts a typed IssueItem into the clitypes shape expected by
-// cli.PrintIssueItem.
-func issueToCli(iss dxclient.IssueItem) clitypes.IssueItem {
-	var blocked clitypes.StringOrStrings
-	if iss.BlockedBy != nil {
-		blocked = clitypes.StringOrStrings(*iss.BlockedBy)
-	}
-	return clitypes.IssueItem{
-		ID:        iss.Id,
-		Title:     iss.Title,
-		Status:    iss.Status,
-		Priority:  iss.Priority,
-		Component: iss.Component,
-		BlockedBy: blocked,
-		Context:   iss.Context,
-		IssueType: iss.IssueType,
-		URL:       iss.Url,
-	}
-}
-
-// featureToCli converts a typed FeatureItem into the clitypes shape expected
-// by cli.PrintFeatureItem.
-func featureToCli(f dxclient.FeatureItem) clitypes.FeatureItem {
-	var specs []clitypes.SpecItem
-	if f.Specs != nil {
-		specs = make([]clitypes.SpecItem, 0, len(*f.Specs))
-		for _, s := range *f.Specs {
-			specs = append(specs, clitypes.SpecItem{
-				ID:          s.Id,
-				Description: s.Description,
-				Kind:        s.Kind,
-				ConcernType: s.ConcernType,
-				Deferred:    s.Deferred,
-			})
-		}
-	}
-	return clitypes.FeatureItem{
-		ID:              f.Id,
-		Name:            f.Name,
-		Description:     f.Description,
-		What:            f.What,
-		Why:             f.Why,
-		DoneWhen:        f.DoneWhen,
-		Component:       f.Component,
-		Category:        f.Category,
-		Kind:            f.Kind,
-		GoalID:          f.GoalId,
-		ParentFeatureID: f.ParentFeatureId,
-		MetricName:      f.MetricName,
-		MetricUnit:      f.MetricUnit,
-		BaselineValue:   f.BaselineValue,
-		TargetValue:     f.TargetValue,
-		GraphURL:        f.GraphUrl,
-		PlanType:        f.PlanType,
-		Specs:           specs,
-	}
-}
-
-// taskToCli converts a typed TaskItem into the clitypes shape used by
-// printTasks/printTaskItem.
-func taskToCli(t dxclient.TaskItem) clitypes.TaskItem {
-	var issueID *int32
-	if t.IssueId != nil {
-		v := *t.IssueId
-		issueID = &v
-	}
-	stale := ""
-	if t.StaleSince != nil {
-		stale = *t.StaleSince
-	}
-	return clitypes.TaskItem{
-		ID:         t.Id,
-		Text:       t.Text,
-		Feature:    t.Feature,
-		Status:     t.Status,
-		Reason:     t.Reason,
-		IssueID:    issueID,
-		TaskGroup:  t.TaskGroup,
-		CreatedAt:  t.CreatedAt,
-		StaleSince: stale,
-	}
-}
-
 func printTriageContext(cmd *cobra.Command, c *cli.Client, slug string) {
 	if foResp, err := c.ListFocusesWithResponse(cmd.Context(), &dxclient.ListFocusesParams{Slug: slug}); err == nil &&
 		foResp.JSON200 != nil && foResp.JSON200.Focuses != nil && len(*foResp.JSON200.Focuses) > 0 {
@@ -358,7 +237,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			}
 			fmt.Println()
 			if listResp.JSON200 != nil {
-				cli.PrintComments(commentsToCli(listResp.JSON200.Comments))
+				cli.PrintComments(cli.CommentsToCli(listResp.JSON200.Comments))
 			}
 			_, _ = c.MarkCommentsReadWithResponse(ctx, dxclient.MarkCommentsReadRequest{
 				Slug:       slug,
@@ -409,7 +288,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			}
 			fmt.Println()
 			if listResp.JSON200 != nil {
-				cli.PrintComments(commentsToCli(listResp.JSON200.Comments))
+				cli.PrintComments(cli.CommentsToCli(listResp.JSON200.Comments))
 			}
 			_, _ = c.MarkCommentsReadWithResponse(ctx, dxclient.MarkCommentsReadRequest{
 				Slug:       slug,
@@ -1008,7 +887,7 @@ func todoShowCmd() *cobra.Command {
 				if resp.JSON200 == nil {
 					return fmt.Errorf("empty issue response")
 				}
-				cli.PrintIssueItem(issueToCli(resp.JSON200.Issue))
+				cli.PrintIssueItem(cli.IssueToCli(resp.JSON200.Issue))
 				if resp.JSON200.Work != nil && len(*resp.JSON200.Work) > 0 {
 					fmt.Println("\nWork log:")
 					for _, w := range *resp.JSON200.Work {
@@ -1025,7 +904,7 @@ func todoShowCmd() *cobra.Command {
 				})
 				if err == nil && commResp.JSON200 != nil && commResp.JSON200.Comments != nil && len(*commResp.JSON200.Comments) > 0 {
 					fmt.Println("\nComments:")
-					cli.PrintComments(commentsToCli(commResp.JSON200.Comments))
+					cli.PrintComments(cli.CommentsToCli(commResp.JSON200.Comments))
 				}
 				printSimilarPatterns(cmd, c, slug, resp.JSON200.Issue.Title+" "+resp.JSON200.Issue.Context)
 			case len(id) > 3 && id[:3] == "TK-":
@@ -1041,14 +920,14 @@ func todoShowCmd() *cobra.Command {
 				if resp.JSON200 != nil && resp.JSON200.Tasks != nil {
 					for _, t := range *resp.JSON200.Tasks {
 						if t.Id == taskID {
-							printTaskItem(taskToCli(t))
+							printTaskItem(cli.TaskToCli(t))
 							tt, tid, role := "task", id, "llm"
 							commResp, err := c.ListCommentsWithResponse(ctx, &dxclient.ListCommentsParams{
 								Slug: &slug, TargetType: &tt, TargetId: &tid, Role: &role,
 							})
 							if err == nil && commResp.JSON200 != nil && commResp.JSON200.Comments != nil && len(*commResp.JSON200.Comments) > 0 {
 								fmt.Println("\nComments:")
-								cli.PrintComments(commentsToCli(commResp.JSON200.Comments))
+								cli.PrintComments(cli.CommentsToCli(commResp.JSON200.Comments))
 							}
 							revTT, revTID := "task", id
 							revResp, err := c.ListRevisionsWithResponse(ctx, &dxclient.ListRevisionsParams{
@@ -1081,14 +960,14 @@ func todoShowCmd() *cobra.Command {
 				if featResp.JSON200 != nil && featResp.JSON200.Features != nil {
 					for _, f := range *featResp.JSON200.Features {
 						if f.Name == id {
-							cli.PrintFeatureItem(featureToCli(f))
+							cli.PrintFeatureItem(cli.FeatureToCli(f))
 							tt, tid, role := "feature", f.Name, "llm"
 							commResp, err := c.ListCommentsWithResponse(ctx, &dxclient.ListCommentsParams{
 								Slug: &slug, TargetType: &tt, TargetId: &tid, Role: &role,
 							})
 							if err == nil && commResp.JSON200 != nil && commResp.JSON200.Comments != nil && len(*commResp.JSON200.Comments) > 0 {
 								fmt.Println("\nComments:")
-								cli.PrintComments(commentsToCli(commResp.JSON200.Comments))
+								cli.PrintComments(cli.CommentsToCli(commResp.JSON200.Comments))
 							}
 							revTT, revTID := "feature", f.Name
 							revResp, err := c.ListRevisionsWithResponse(ctx, &dxclient.ListRevisionsParams{

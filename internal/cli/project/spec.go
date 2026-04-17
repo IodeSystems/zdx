@@ -8,7 +8,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
@@ -28,16 +27,17 @@ func specAddCmd() *cobra.Command {
 		Short: "Add a spec statement to a feature",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var ok struct {
-				OK bool `json:"ok"`
-			}
 			// The update-specs endpoint uses field=kind, value=description.
-			if err := c.Post("/api/dx/specs/update", dxclient.UpdateSpecsRequest{
+			resp, err := c.UpdateSpecsWithResponse(cmd.Context(), dxclient.UpdateSpecsRequest{
 				Slug:    c.SlugOrDie(),
 				Feature: feature,
 				Field:   kind,
 				Value:   text,
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("[%s] %s → %s\n", kind, feature, text)
@@ -59,26 +59,30 @@ func specListCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Features []clitypes.FeatureItem `json:"features"`
-			}
-			if err := c.Get("/api/features", cli.QuerySlug(c), &resp); err != nil {
+			resp, err := c.ListFeaturesWithResponse(cmd.Context(), &dxclient.ListFeaturesParams{Slug: c.SlugOrDie()})
+			if err != nil {
 				return err
 			}
-			for _, f := range resp.Features {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Features == nil {
+				return fmt.Errorf("feature not found: %s", args[0])
+			}
+			for _, f := range *resp.JSON200.Features {
 				if !strings.EqualFold(f.Name, args[0]) {
 					continue
 				}
-				if len(f.Specs) == 0 {
+				if f.Specs == nil || len(*f.Specs) == 0 {
 					fmt.Printf("%s: no specs\n", f.Name)
 					return nil
 				}
-				for _, s := range f.Specs {
+				for _, s := range *f.Specs {
 					tag := ""
 					if s.Deferred {
 						tag = " (deferred)"
 					}
-					fmt.Printf("%-4d [%-14s]  %s%s\n", s.ID, s.Kind, s.Description, tag)
+					fmt.Printf("%-4d [%-14s]  %s%s\n", s.Id, s.Kind, s.Description, tag)
 				}
 				return nil
 			}
@@ -102,11 +106,14 @@ func specLinkCmd() *cobra.Command {
 				return fmt.Errorf("invalid test-id: %s", args[1])
 			}
 			c := cli.MustClient()
-			var ok struct{ OK bool }
-			if err := c.Post("/api/dx/specs/link-test", dxclient.LinkSpecTestRequest{
+			resp, err := c.LinkSpecTestWithResponse(cmd.Context(), dxclient.LinkSpecTestRequest{
 				SpecId: int32(specID),
 				TestId: int32(testID),
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("linked spec %d ↔ test %d\n", specID, testID)
@@ -127,11 +134,14 @@ func specDeferCmd() *cobra.Command {
 				return fmt.Errorf("invalid spec-id: %s", args[0])
 			}
 			c := cli.MustClient()
-			var ok struct{ OK bool }
-			if err := c.Post("/api/dx/specs/defer", dxclient.DeferSpecRequest{
+			resp, err := c.DeferSpecWithResponse(cmd.Context(), dxclient.DeferSpecRequest{
 				SpecId: int32(specID),
 				Reason: reason,
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("deferred spec %d\n", specID)
@@ -153,10 +163,13 @@ func specUndeferCmd() *cobra.Command {
 				return fmt.Errorf("invalid spec-id: %s", args[0])
 			}
 			c := cli.MustClient()
-			var ok struct{ OK bool }
-			if err := c.Post("/api/dx/specs/undefer", dxclient.UndeferSpecRequest{
+			resp, err := c.UndeferSpecWithResponse(cmd.Context(), dxclient.UndeferSpecRequest{
 				SpecId: int32(specID),
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("un-deferred spec %d\n", specID)
@@ -180,11 +193,14 @@ func specUnlinkCmd() *cobra.Command {
 				return fmt.Errorf("invalid test-id: %s", args[1])
 			}
 			c := cli.MustClient()
-			var ok struct{ OK bool }
-			if err := c.Post("/api/dx/specs/unlink-test", dxclient.UnlinkSpecTestRequest{
+			resp, err := c.UnlinkSpecTestWithResponse(cmd.Context(), dxclient.UnlinkSpecTestRequest{
 				SpecId: int32(specID),
 				TestId: int32(testID),
-			}, &ok); err != nil {
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
 			fmt.Printf("unlinked spec %d ↔ test %d\n", specID, testID)
