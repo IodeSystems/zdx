@@ -284,7 +284,18 @@ func processAlive(pid int) bool {
 	if err != nil {
 		return false
 	}
-	return proc.Signal(syscall.Signal(0)) == nil
+	if proc.Signal(syscall.Signal(0)) != nil {
+		return false
+	}
+	// On Linux, kill(pid,0) succeeds for zombies too. Check /proc/PID/stat.
+	if b, err := os.ReadFile(fmt.Sprintf("/proc/%d/stat", pid)); err == nil {
+		fields := strings.Fields(string(b))
+		// Field 3 (index 2) is the process state: Z = zombie.
+		if len(fields) >= 3 && fields[2] == "Z" {
+			return false
+		}
+	}
+	return true
 }
 
 // RunDaemon kept for compatibility.
