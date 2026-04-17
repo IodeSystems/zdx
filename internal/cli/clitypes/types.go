@@ -35,15 +35,21 @@ func (s *StringOrStrings) UnmarshalJSON(data []byte) error {
 }
 
 type IssueItem struct {
-	ID        int32           `json:"id"`
-	Title     string          `json:"title"`
-	Status    string          `json:"status"`
-	Priority  string          `json:"priority"`
-	Component string          `json:"component"`
-	BlockedBy StringOrStrings `json:"blocked_by"`
-	Context   string          `json:"context"`
-	IssueType string          `json:"issue_type"`
-	URL       string          `json:"url"`
+	ID              int32             `json:"id"`
+	Title           string            `json:"title"`
+	Status          string            `json:"status"`
+	Priority        string            `json:"priority"`
+	Component       string            `json:"component"`
+	BlockedBy       StringOrStrings   `json:"blocked_by"`
+	BlockedByDetail []IssueBlockerRef `json:"blocked_by_detail,omitempty"`
+	Context         string            `json:"context"`
+	IssueType       string            `json:"issue_type"`
+	URL             string            `json:"url"`
+}
+
+type IssueBlockerRef struct {
+	ID     string `json:"id"`
+	Status string `json:"status"`
 }
 
 type IssueWorkItem struct {

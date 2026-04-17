@@ -95,13 +95,14 @@ type AddIssueRequest struct {
 // AddIssueResponse defines model for Add-issueResponse.
 type AddIssueResponse struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema      *string   `json:"$schema,omitempty"`
-	BlockedBy   *[]string `json:"blocked_by"`
-	Component   string    `json:"component"`
-	Context     string    `json:"context"`
-	CreatedAt   string    `json:"created_at"`
-	DuplicateOf *string   `json:"duplicate_of,omitempty"`
-	Features    string    `json:"features"`
+	Schema          *string            `json:"$schema,omitempty"`
+	BlockedBy       *[]string          `json:"blocked_by"`
+	BlockedByDetail *[]IssueBlockerRef `json:"blocked_by_detail"`
+	Component       string             `json:"component"`
+	Context         string             `json:"context"`
+	CreatedAt       string             `json:"created_at"`
+	DuplicateOf     *string            `json:"duplicate_of,omitempty"`
+	Features        string             `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
 	Id        int32               `json:"id"`
@@ -1304,6 +1305,15 @@ type IssueSetFeaturesRequest struct {
 	Id       int32   `json:"id"`
 }
 
+// IssueBlockerRef defines model for IssueBlockerRef.
+type IssueBlockerRef struct {
+	// Id Blocking issue ID formatted as IS-N
+	Id string `json:"id"`
+
+	// Status Current status of the blocking issue (open, closed, ...)
+	Status string `json:"status"`
+}
+
 // IssueIntIDInput defines model for IssueIntIDInput.
 type IssueIntIDInput struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1313,12 +1323,13 @@ type IssueIntIDInput struct {
 
 // IssueItem defines model for IssueItem.
 type IssueItem struct {
-	BlockedBy   *[]string `json:"blocked_by"`
-	Component   string    `json:"component"`
-	Context     string    `json:"context"`
-	CreatedAt   string    `json:"created_at"`
-	DuplicateOf *string   `json:"duplicate_of,omitempty"`
-	Features    string    `json:"features"`
+	BlockedBy       *[]string          `json:"blocked_by"`
+	BlockedByDetail *[]IssueBlockerRef `json:"blocked_by_detail"`
+	Component       string             `json:"component"`
+	Context         string             `json:"context"`
+	CreatedAt       string             `json:"created_at"`
+	DuplicateOf     *string            `json:"duplicate_of,omitempty"`
+	Features        string             `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
 	Id        int32  `json:"id"`

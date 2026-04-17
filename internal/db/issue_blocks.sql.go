@@ -47,6 +47,38 @@ func (q *Queries) ListIssueBlockers(ctx context.Context, issueID string) ([]stri
 	return items, nil
 }
 
+const listIssueBlockersWithStatus = `-- name: ListIssueBlockersWithStatus :many
+SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status
+FROM zdx_issue_blocks b
+LEFT JOIN zdx_issues i ON i.id = b.blocked_by_id
+WHERE b.issue_id = $1
+`
+
+type ListIssueBlockersWithStatusRow struct {
+	ID     string `db:"id" json:"id"`
+	Status string `db:"status" json:"status"`
+}
+
+func (q *Queries) ListIssueBlockersWithStatus(ctx context.Context, issueID string) ([]ListIssueBlockersWithStatusRow, error) {
+	rows, err := q.db.Query(ctx, listIssueBlockersWithStatus, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIssueBlockersWithStatusRow
+	for rows.Next() {
+		var i ListIssueBlockersWithStatusRow
+		if err := rows.Scan(&i.ID, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIssuesBlockedBy = `-- name: ListIssuesBlockedBy :many
 SELECT issue_id FROM zdx_issue_blocks WHERE blocked_by_id = $1
 `

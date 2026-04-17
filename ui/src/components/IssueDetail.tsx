@@ -170,20 +170,23 @@ export function IssueDetail({
             }
           />
         )}
-        {(((issue.blocked_by ?? []) as unknown) as string[]).map((bid: string) => (
-          <Chip
-            key={bid}
-            label={`blocked by: ${bid}`}
-            size="small"
-            variant="outlined"
-            color="warning"
-            component={Link as any}
-            to="/project/$slug/issues/$id"
-            params={{ slug, id: bid }}
-            clickable
-            sx={{ textDecoration: 'none' }}
-          />
-        ))}
+        {((issue.blocked_by_detail ?? (issue.blocked_by ?? []).map((id: string) => ({ id, status: 'open' }))) as { id: string; status: string }[]).map((b) => {
+          const closed = b.status === 'closed'
+          return (
+            <Chip
+              key={b.id}
+              label={`${closed ? 'depends on' : 'blocked by'}: ${b.id}`}
+              size="small"
+              variant="outlined"
+              color={closed ? 'success' : 'warning'}
+              component={Link as any}
+              to="/project/$slug/issues/$id"
+              params={{ slug, id: b.id }}
+              clickable
+              sx={{ textDecoration: 'none' }}
+            />
+          )
+        })}
         {issue.duplicate_of && (
           <Chip
             label={`duplicate of: ${issue.duplicate_of}`}

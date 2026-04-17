@@ -3,20 +3,26 @@ package handlers
 // ── Response types ─────────────────────────────────────────────────────────
 
 type IssueItem struct {
-	ID          int32    `json:"id" doc:"Server integer ID; CLI formats as IS-N"`
-	Title       string   `json:"title"`
-	Status      string   `json:"status"`
-	Priority    string   `json:"priority"`
-	Component   string   `json:"component"`
-	Features    string   `json:"features"`
-	BlockedBy   []string `json:"blocked_by"`
-	Context     string   `json:"context"`
-	Source      string   `json:"source"`
-	IssueType   string   `json:"issue_type"`
-	DuplicateOf string   `json:"duplicate_of,omitempty"`
-	URL         string   `json:"url"`
-	CreatedAt   string   `json:"created_at"`
-	UpdatedAt   string   `json:"updated_at"`
+	ID              int32             `json:"id" doc:"Server integer ID; CLI formats as IS-N"`
+	Title           string            `json:"title"`
+	Status          string            `json:"status"`
+	Priority        string            `json:"priority"`
+	Component       string            `json:"component"`
+	Features        string            `json:"features"`
+	BlockedBy       []string          `json:"blocked_by"`
+	BlockedByDetail []IssueBlockerRef `json:"blocked_by_detail"`
+	Context         string            `json:"context"`
+	Source          string            `json:"source"`
+	IssueType       string            `json:"issue_type"`
+	DuplicateOf     string            `json:"duplicate_of,omitempty"`
+	URL             string            `json:"url"`
+	CreatedAt       string            `json:"created_at"`
+	UpdatedAt       string            `json:"updated_at"`
+}
+
+type IssueBlockerRef struct {
+	ID     string `json:"id" doc:"Blocking issue ID formatted as IS-N"`
+	Status string `json:"status" doc:"Current status of the blocking issue (open, closed, ...)"`
 }
 
 type TaskItem struct {

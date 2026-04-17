@@ -3766,6 +3766,7 @@ export interface components {
              */
             readonly $schema?: string;
             blocked_by: string[] | null;
+            blocked_by_detail: components["schemas"]["IssueBlockerRef"][] | null;
             component: string;
             context: string;
             created_at: string;
@@ -5266,6 +5267,12 @@ export interface components {
             /** Format: int32 */
             id: number;
         };
+        IssueBlockerRef: {
+            /** @description Blocking issue ID formatted as IS-N */
+            id: string;
+            /** @description Current status of the blocking issue (open, closed, ...) */
+            status: string;
+        };
         IssueIntIDInput: {
             /**
              * Format: uri
@@ -5278,6 +5285,7 @@ export interface components {
         };
         IssueItem: {
             blocked_by: string[] | null;
+            blocked_by_detail: components["schemas"]["IssueBlockerRef"][] | null;
             component: string;
             context: string;
             created_at: string;

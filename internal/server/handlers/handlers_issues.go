@@ -968,26 +968,34 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 
 func toIssueItem(r db.ZdxIssue) IssueItem {
 	return IssueItem{
-		ID:          issueIntID(r.ID),
-		Title:       r.Title,
-		Status:      r.Status,
-		Priority:    r.Priority,
-		Component:   r.Component,
-		Context:     r.Context,
-		IssueType:   r.IssueType,
-		DuplicateOf: r.DuplicateOf,
-		URL:         r.Url,
-		CreatedAt:   fmtTS(r.CreatedAt),
-		UpdatedAt:   fmtTS(r.UpdatedAt),
-		BlockedBy:   []string{},
+		ID:              issueIntID(r.ID),
+		Title:           r.Title,
+		Status:          r.Status,
+		Priority:        r.Priority,
+		Component:       r.Component,
+		Context:         r.Context,
+		IssueType:       r.IssueType,
+		DuplicateOf:     r.DuplicateOf,
+		URL:             r.Url,
+		CreatedAt:       fmtTS(r.CreatedAt),
+		UpdatedAt:       fmtTS(r.UpdatedAt),
+		BlockedBy:       []string{},
+		BlockedByDetail: []IssueBlockerRef{},
 	}
 }
 
 func (h *Handler) toIssueItemWithBlockers(ctx context.Context, r db.ZdxIssue) IssueItem {
 	item := toIssueItem(r)
-	blockers, err := h.Q.ListIssueBlockers(ctx, r.ID)
-	if err == nil && len(blockers) > 0 {
-		item.BlockedBy = blockers
+	rows, err := h.Q.ListIssueBlockersWithStatus(ctx, r.ID)
+	if err == nil && len(rows) > 0 {
+		ids := make([]string, 0, len(rows))
+		detail := make([]IssueBlockerRef, 0, len(rows))
+		for _, b := range rows {
+			ids = append(ids, b.ID)
+			detail = append(detail, IssueBlockerRef{ID: b.ID, Status: b.Status})
+		}
+		item.BlockedBy = ids
+		item.BlockedByDetail = detail
 	}
 	return item
 }

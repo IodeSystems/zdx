@@ -10,5 +10,11 @@ DELETE FROM zdx_issue_blocks WHERE issue_id = $1;
 -- name: ListIssueBlockers :many
 SELECT blocked_by_id FROM zdx_issue_blocks WHERE issue_id = $1;
 
+-- name: ListIssueBlockersWithStatus :many
+SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status
+FROM zdx_issue_blocks b
+LEFT JOIN zdx_issues i ON i.id = b.blocked_by_id
+WHERE b.issue_id = $1;
+
 -- name: ListIssuesBlockedBy :many
 SELECT issue_id FROM zdx_issue_blocks WHERE blocked_by_id = $1;

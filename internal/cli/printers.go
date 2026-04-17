@@ -23,7 +23,22 @@ func PrintIssueItem(iss clitypes.IssueItem) {
 	if iss.URL != "" {
 		fmt.Printf("URL:       %s\n", iss.URL)
 	}
-	if len(iss.BlockedBy) > 0 {
+	if len(iss.BlockedByDetail) > 0 {
+		var open, closed []string
+		for _, b := range iss.BlockedByDetail {
+			if b.Status == "closed" {
+				closed = append(closed, b.ID)
+			} else {
+				open = append(open, b.ID)
+			}
+		}
+		if len(open) > 0 {
+			fmt.Printf("Blocked by: %s\n", strings.Join(open, ", "))
+		}
+		if len(closed) > 0 {
+			fmt.Printf("Depends on: %s\n", strings.Join(closed, ", "))
+		}
+	} else if len(iss.BlockedBy) > 0 {
 		fmt.Printf("Blocked:   %s\n", strings.Join(iss.BlockedBy, ", "))
 	}
 	if iss.Context != "" {

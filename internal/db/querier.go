@@ -254,6 +254,7 @@ type Querier interface {
 	ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error)
 	ListInvites(ctx context.Context) ([]ZdxInvite, error)
 	ListIssueBlockers(ctx context.Context, issueID string) ([]string, error)
+	ListIssueBlockersWithStatus(ctx context.Context, issueID string) ([]ListIssueBlockersWithStatusRow, error)
 	ListIssueGoals(ctx context.Context, issueID string) ([]ListIssueGoalsRow, error)
 	ListIssueResolutions(ctx context.Context, issueID string) ([]ZdxIssueResolution, error)
 	ListIssueSpecs(ctx context.Context, issueID string) ([]ListIssueSpecsRow, error)
