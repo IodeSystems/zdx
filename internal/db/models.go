@@ -8,6 +8,11 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+type SchemaMigration struct {
+	Version int64 `db:"version" json:"version"`
+	Dirty   bool  `db:"dirty" json:"dirty"`
+}
+
 type ZdxAgent struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
@@ -151,6 +156,14 @@ type ZdxDeploy struct {
 	DeployedAt       pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
 	DeployedByUserID pgtype.Int4        `db:"deployed_by_user_id" json:"deployed_by_user_id"`
 	Status           string             `db:"status" json:"status"`
+}
+
+type ZdxDoctorDeferral struct {
+	ID         int32              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	CheckName  string             `db:"check_name" json:"check_name"`
+	Rung       string             `db:"rung" json:"rung"`
+	DeferredAt pgtype.Timestamptz `db:"deferred_at" json:"deferred_at"`
 }
 
 type ZdxEnvironment struct {
@@ -440,14 +453,15 @@ type ZdxPlanStepRef struct {
 }
 
 type ZdxProject struct {
-	ID        int32              `db:"id" json:"id"`
-	Slug      string             `db:"slug" json:"slug"`
-	Name      string             `db:"name" json:"name"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	GitUrl    string             `db:"git_url" json:"git_url"`
-	GitBranch string             `db:"git_branch" json:"git_branch"`
-	GitToken  string             `db:"git_token" json:"git_token"`
-	Stage     string             `db:"stage" json:"stage"`
+	ID             int32              `db:"id" json:"id"`
+	Slug           string             `db:"slug" json:"slug"`
+	Name           string             `db:"name" json:"name"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	GitUrl         string             `db:"git_url" json:"git_url"`
+	GitBranch      string             `db:"git_branch" json:"git_branch"`
+	GitToken       string             `db:"git_token" json:"git_token"`
+	Stage          string             `db:"stage" json:"stage"`
+	Classification string             `db:"classification" json:"classification"`
 }
 
 type ZdxProjectConstraint struct {

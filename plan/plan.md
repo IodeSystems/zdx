@@ -1,99 +1,105 @@
-# Multi-Agent Parallel Workflows
+# Multi-Agent Parallel Workflows + Project Doctor
 
-Goal: enable multiple agents to work concurrently on a project, each in an isolated worktree + docker compose stack, coordinated through reservable todos.
+## Done
 
-## Status
+- [x] SDLC model revamp (073–078): focus, goal metrics, feature hierarchy, plans, spec concern_type
+- [x] Data migration (079): retire features, create goals, attribute
+- [x] Solo queue maturity nudges (quantify-goal, attribute-feature, instrument-feature, decompose-feature)
+- [x] Reservable todos (080): claim/release/renew with FOR UPDATE SKIP LOCKED
+- [x] Agent config in .zdx/config.yaml (AgentConfig struct, compose_file, max_worktrees, llm_provider)
+- [x] Agent loop refactored to claim-based (claim todo → session → renew lease → release)
+- [x] `dx todo take` command
+- [x] Goal/focus realignment (081), issue/task audit, queue clean
+- [x] Ship compat-check fix for renamed tables
 
-SDLC model revamp is complete (migrations 073–080):
-- [x] Focus (was theme), goal metrics, feature hierarchy, plans, spec concern_type
-- [x] Solo queue maturity nudges
-- [x] Reservable todos: claim/release/renew with FOR UPDATE SKIP LOCKED
+## Current: dx doctor
 
-## Remaining work
+Doctor is the project health engine. `dx init` is a thin wrapper over doctor on a fresh project. Doctor diagnoses, fixes, and proposes until the project is healthy or the user defers all recommendations.
 
-### Phase 1: Agent config in .zdx/config.yaml
-
-Add `agent` section to the project config so projects declare their dev environment:
-
-```yaml
-agent:
-  compose_file: docker-compose.agent.yaml   # compose stack for isolated dev services
-  dev_dockerfile: Dockerfile.agent           # dev image with tooling
-  max_worktrees: 4                           # concurrent agent slots
-  llm_provider: claude                       # claude | local | server
-  claude_model: claude-sonnet-4-6            # when provider=claude
-```
-
-- [ ] Add `Agent` struct to `internal/config/config.go`
-- [ ] Update `dx agent start` to read compose_file / dev_dockerfile from config instead of hardcoding
-- [ ] `dx agent` loop uses `max_worktrees` to check slot availability
-
-### Phase 2: Admin LLM config UI
-
-Server already has `zdx_llm_configs` table + admin endpoints:
-- `GET /api/admin/llm-config`
-- `PUT /api/admin/llm-config`
-- `POST /api/admin/llm-config/test`
-
-- [ ] Add admin UI page for LLM provider configuration
-- [ ] Show provider type, URL, model, test-connection button
-- [ ] Surface configured provider in agent start flow
-
-### Phase 3: Agent loop with todo claiming
-
-The `dx agent claude` loop already exists. Extend it to use the new claim system:
+### Model
 
 ```
-loop:
-  1. POST /api/dx/solo/claim → get highest-priority unclaimed todo
-  2. if no todo → sleep, retry
-  3. create worktree + compose stack (if agent.compose_file configured)
-  4. start agent session (claude or local) with claimed todo as prompt
-  5. heartbeat: POST /api/dx/solo/renew every N minutes
-  6. on completion: POST /api/dx/solo/release (resolve=true if success)
-  7. tear down worktree + compose
-  8. goto 1
+dx init    → scaffold .zdx/ → run doctor (first visit)
+dx doctor  → diagnose → fix auto-fixable → propose the rest → loop until healthy or deferred
 ```
 
-- [ ] Refactor `runLoop` in `internal/cli/agent/claude.go` to claim todos instead of using the old solo→issue flow
-- [ ] Add worktree slot check: count active worktrees vs max_worktrees
-- [ ] Pass claimed todo context as agent seed prompt
-- [ ] Wire heartbeat to renew todo lease (not just agent heartbeat)
+**Project classification** — first question doctor asks on a new project:
+- library, tool, service, saas, site
+- Classification shapes the maturity vine (which rungs, which checks)
+- Stored in zdx_projects (new column: classification)
 
-### Phase 4: Docker dev image
+**Maturity vine** — fixed presets shipped in code (not DB):
+- Each classification has ordered rungs (e.g. library: tests → docs → CI → versioning → published)
+- Each rung has checks (automated or manual)
+- Doctor evaluates checks against project state
+- Checks are: auto-fixable / proposable / informational
 
-Projects with agents need a dev machine image for isolation:
+**Check types:**
+- `claude_installed` — is claude CLI in PATH?
+- `docker_available` — is docker running?
+- `local_llm_configured` — is llm_local set in config?
+- `has_goals` — project has ≥1 goal?
+- `goals_quantified` — all goals have metrics?
+- `has_features` — project has ≥1 feature?
+- `features_attributed` — all features have goal_id?
+- `has_specs` — all features have ≥1 spec?
+- `specs_tested` — all non-deferred specs have test refs?
+- `has_ci` — CI pipeline configured?
+- `has_deploy` — deploy pipeline configured?
+- `agent_configured` — agent section in config?
+- etc. (classification-specific checks)
 
-- [ ] Template `Dockerfile.agent` that installs project tooling (go, node, etc.)
-- [ ] Template `docker-compose.agent.yaml` with postgres, valkey, and the dev image
-- [ ] Dev image mounts the worktree as a volume
-- [ ] Non-static ports (docker picks) — discovered via `docker compose port`
-- [ ] `dx agent init` scaffolds the Dockerfile + compose file from project config
-- [ ] Agent binary (dx or zdx-agent) runs inside the container
-- [ ] Claude token exported into container env when provider=claude
+**Deferred proposals:**
+- User can defer any proposal
+- Deferred checks don't nag until the project reaches the next rung where they become blocking
+- Stored as zdx_doctor_deferrals (project_id, check_name, deferred_at, rung)
 
-### Phase 5: Task groups and reservation
+**Solo queue integration:**
+- Doctor findings ARE the maturity nudges
+- Solo reads doctor state, not its own hardcoded checks
+- The existing maturity nudges in handlers_solo.go become doctor checks
 
-Task groups allow an agent to claim a batch of related tasks:
+### Implementation
 
-- [ ] `task_group` field already exists on tasks — wire it into claiming
-- [ ] When an agent claims a todo that references an issue, also claim all ready tasks on that issue
-- [ ] Agent releases all claimed tasks on session close
-- [ ] Prevent double-claiming: task claim checks todo claim ownership
+#### Phase 1: Doctor core + classification
 
-### Phase 6: Coordination and observability
+- [ ] Add `classification` column to zdx_projects (migration 082)
+- [ ] Add `zdx_doctor_deferrals` table (migration 082)
+- [ ] Define maturity vines in code: `internal/doctor/vines.go` — classification → []rung → []check
+- [ ] Implement `internal/doctor/doctor.go` — run checks, return findings (auto-fix / propose / info / deferred)
+- [ ] `dx doctor` CLI command — interactive: show findings, apply fixes, accept/defer proposals
+- [ ] `dx init` calls doctor after scaffolding
 
-- [ ] Agent dashboard in UI: active agents, their worktrees, claimed todos, session status
-- [ ] Conflict detection: warn when two agents touch the same files
-- [ ] Merge queue: agent PRs integrate through the standard review flow
+#### Phase 2: Detection checks
 
----
+- [ ] Claude detection (exec.LookPath)
+- [ ] Docker detection (docker info)
+- [ ] Local LLM detection (config.LLMLocal)
+- [ ] Goal/feature/spec/test checks (query project state via API or DB)
+- [ ] Agent config check (config.Agent)
 
-## Execution order
+#### Phase 3: Solo queue reads doctor
 
-Phase 1 (config) → Phase 3 (loop refactor) are the critical path.
-Phase 2 (admin UI) is independent, can run in parallel.
-Phase 4 (docker) builds on Phase 1 config.
-Phase 5–6 are enhancements after the core loop works.
+- [ ] Replace hardcoded maturity nudges in handlers_solo.go with doctor check evaluation
+- [ ] Doctor findings surface as todo items with appropriate priority
+- [ ] Deferred findings don't surface
 
-**Start with:** Phase 1 (config struct) → Phase 3 (claim-based loop).
+#### Phase 4: Agent readiness (from previous plan)
+
+- [ ] Doctor checks: agent prerequisites met for classification
+  - library: just needs claude or local LLM
+  - service/saas: needs docker for isolation
+- [ ] `dx agent start` consults doctor before launching
+- [ ] `dx agent init` scaffolds Dockerfile + compose from classification template
+- [ ] Single worktree on bare host is safe; multi-worktree warns without compose
+
+### Remaining from previous plan (later)
+
+- [ ] Phase 2 (admin LLM config UI) — IS-232
+- [ ] Phase 4 (docker dev image templates)
+- [ ] Phase 5 (task group reservation)
+- [ ] Phase 6 (coordination + observability)
+
+### Start with
+
+Phase 1: classification column + doctor core + vine definitions → `dx doctor` command.

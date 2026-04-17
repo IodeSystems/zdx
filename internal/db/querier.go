@@ -33,6 +33,7 @@ type Querier interface {
 	// Skips locked rows (concurrent agents get different items).
 	ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error)
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
+	ClearDoctorDeferrals(ctx context.Context, projectID int32) error
 	ClearStaleFlag(ctx context.Context, id string) error
 	CloseClaudeSession(ctx context.Context, id int64) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
@@ -92,6 +93,7 @@ type Querier interface {
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
+	DeferDoctorCheck(ctx context.Context, arg DeferDoctorCheckParams) error
 	DeferSpec(ctx context.Context, arg DeferSpecParams) error
 	DeleteAgent(ctx context.Context, id string) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
@@ -159,6 +161,7 @@ type Querier interface {
 	GetPlanStep(ctx context.Context, id int32) (ZdxPlanStep, error)
 	GetProjectByID(ctx context.Context, id int32) (ZdxProject, error)
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
+	GetProjectClassification(ctx context.Context, id int32) (string, error)
 	GetProjectConstraint(ctx context.Context, id int32) (ZdxProjectConstraint, error)
 	GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error)
 	GetProjectGoal(ctx context.Context, id int32) (GetProjectGoalRow, error)
@@ -220,6 +223,7 @@ type Querier interface {
 	ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error)
 	// All demo artifacts attached to tests linked to the given spec.
 	ListDemosForSpec(ctx context.Context, specID int32) ([]ListDemosForSpecRow, error)
+	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
 	ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error)
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
@@ -360,12 +364,14 @@ type Querier interface {
 	SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
+	SetProjectClassification(ctx context.Context, arg SetProjectClassificationParams) error
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
 	SetProjectStage(ctx context.Context, arg SetProjectStageParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
 	TouchClaudeSession(ctx context.Context, id int64) error
+	UndeferDoctorCheck(ctx context.Context, arg UndeferDoctorCheckParams) error
 	UndeferSpec(ctx context.Context, id int32) error
 	UnlinkGoalIssue(ctx context.Context, arg UnlinkGoalIssueParams) error
 	UnlinkSpecIssue(ctx context.Context, arg UnlinkSpecIssueParams) error

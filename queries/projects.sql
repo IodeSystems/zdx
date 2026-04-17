@@ -1,11 +1,11 @@
 -- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects ORDER BY name;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification FROM zdx_projects ORDER BY name;
 
 -- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE slug = $1;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification FROM zdx_projects WHERE slug = $1;
 
 -- name: GetProjectByID :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE id = $1;
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification FROM zdx_projects WHERE id = $1;
 
 -- name: CreateProject :one
 INSERT INTO zdx_projects (slug, name) VALUES ($1, $2)

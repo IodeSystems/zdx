@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -21,6 +21,16 @@ SET row_security = off;
 SET default_tablespace = '';
 
 SET default_table_access_method = heap;
+
+--
+-- Name: schema_migrations; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.schema_migrations (
+    version bigint NOT NULL,
+    dirty boolean NOT NULL
+);
+
 
 --
 -- Name: zdx_agents; Type: TABLE; Schema: public; Owner: -
@@ -441,6 +451,39 @@ CREATE SEQUENCE public.zdx_deploys_id_seq
 --
 
 ALTER SEQUENCE public.zdx_deploys_id_seq OWNED BY public.zdx_deploys.id;
+
+
+--
+-- Name: zdx_doctor_deferrals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_doctor_deferrals (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    check_name text NOT NULL,
+    rung text DEFAULT ''::text NOT NULL,
+    deferred_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_doctor_deferrals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_doctor_deferrals_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_doctor_deferrals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_doctor_deferrals_id_seq OWNED BY public.zdx_doctor_deferrals.id;
 
 
 --
@@ -1351,7 +1394,8 @@ CREATE TABLE public.zdx_projects (
     git_url text DEFAULT ''::text NOT NULL,
     git_branch text DEFAULT 'main'::text NOT NULL,
     git_token text DEFAULT ''::text NOT NULL,
-    stage text DEFAULT ''::text NOT NULL
+    stage text DEFAULT ''::text NOT NULL,
+    classification text DEFAULT ''::text NOT NULL
 );
 
 
@@ -2119,6 +2163,13 @@ ALTER TABLE ONLY public.zdx_deploys ALTER COLUMN id SET DEFAULT nextval('public.
 
 
 --
+-- Name: zdx_doctor_deferrals id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_doctor_deferrals ALTER COLUMN id SET DEFAULT nextval('public.zdx_doctor_deferrals_id_seq'::regclass);
+
+
+--
 -- Name: zdx_environments id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2378,6 +2429,14 @@ ALTER TABLE ONLY public.zdx_work_log ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: schema_migrations schema_migrations_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.schema_migrations
+    ADD CONSTRAINT schema_migrations_pkey PRIMARY KEY (version);
+
+
+--
 -- Name: zdx_agents zdx_agents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -2503,6 +2562,22 @@ ALTER TABLE ONLY public.zdx_counter_events
 
 ALTER TABLE ONLY public.zdx_deploys
     ADD CONSTRAINT zdx_deploys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_doctor_deferrals zdx_doctor_deferrals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_doctor_deferrals
+    ADD CONSTRAINT zdx_doctor_deferrals_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_doctor_deferrals zdx_doctor_deferrals_project_id_check_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_doctor_deferrals
+    ADD CONSTRAINT zdx_doctor_deferrals_project_id_check_name_key UNIQUE (project_id, check_name);
 
 
 --
@@ -3614,6 +3689,14 @@ ALTER TABLE ONLY public.zdx_deploys
 
 ALTER TABLE ONLY public.zdx_deploys
     ADD CONSTRAINT zdx_deploys_environment_id_fkey FOREIGN KEY (environment_id) REFERENCES public.zdx_environments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_doctor_deferrals zdx_doctor_deferrals_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_doctor_deferrals
+    ADD CONSTRAINT zdx_doctor_deferrals_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
 
 
 --

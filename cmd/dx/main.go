@@ -34,6 +34,7 @@ func main() {
 		project.ThemeCmd(), // legacy alias
 		project.SpecCmd(),
 		project.PlanCmd(),
+		project.DoctorCmd(),
 		devtools.BuildCmd(),
 		devtools.TestCmd(),
 		devtools.LintCmd(),

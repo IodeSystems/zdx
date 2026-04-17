@@ -41,7 +41,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 }
 
 const getProjectByID = `-- name: GetProjectByID :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE id = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification FROM zdx_projects WHERE id = $1
 `
 
 func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, error) {
@@ -56,12 +56,13 @@ func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, err
 		&i.GitBranch,
 		&i.GitToken,
 		&i.Stage,
+		&i.Classification,
 	)
 	return i, err
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects WHERE slug = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification FROM zdx_projects WHERE slug = $1
 `
 
 func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error) {
@@ -76,6 +77,7 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject
 		&i.GitBranch,
 		&i.GitToken,
 		&i.Stage,
+		&i.Classification,
 	)
 	return i, err
 }
@@ -104,7 +106,7 @@ func (q *Queries) GetProjectGitConfig(ctx context.Context, slug string) (GetProj
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage FROM zdx_projects ORDER BY name
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification FROM zdx_projects ORDER BY name
 `
 
 func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
@@ -125,6 +127,7 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 			&i.GitBranch,
 			&i.GitToken,
 			&i.Stage,
+			&i.Classification,
 		); err != nil {
 			return nil, err
 		}
