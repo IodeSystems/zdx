@@ -19,6 +19,7 @@ func ServeCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run backend daemon + vite dev server for local development",
+		Args:  cobra.NoArgs,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			home, _ := os.UserHomeDir()
 			zdxDir := filepath.Join(home, ".zdx")
@@ -69,5 +70,37 @@ func ServeCmd() *cobra.Command {
 	}
 	cmd.Flags().IntVar(&serverPort, "port", 7600, "dx-server port")
 	cmd.Flags().IntVar(&pgPort, "pg-port", 7601, "postgres port")
+	cmd.AddCommand(serveStatusCmd())
 	return cmd
+}
+
+func serveStatusCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "status",
+		Short: "Show status of daemon and vite dev server",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			home, _ := os.UserHomeDir()
+			zdxDir := filepath.Join(home, ".zdx")
+
+			pid := readPidFile(filepath.Join(zdxDir, "daemon.pid"))
+			if pid > 0 && processAlive(pid) {
+				port := strings.TrimSpace(func() string {
+					b, _ := os.ReadFile(filepath.Join(zdxDir, "daemon.port"))
+					return string(b)
+				}())
+				fmt.Printf("daemon:  running  pid=%d  port=%s\n", pid, port)
+			} else {
+				fmt.Println("daemon:  not running")
+			}
+
+			// Check vite dev server.
+			vitePid := readPidFile(filepath.Join(zdxDir, "vite.pid"))
+			if vitePid > 0 && processAlive(vitePid) {
+				fmt.Printf("vite:    running  pid=%d\n", vitePid)
+			} else {
+				fmt.Println("vite:    not running")
+			}
+			return nil
+		},
+	}
 }

@@ -6,6 +6,7 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"net/url"
@@ -360,6 +361,43 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 		}
 		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed, resolvedModel, todoID)
 
+		// ── Stall recovery: transparently restart the session ────────
+		if errors.Is(sessionErr, ErrSessionStalled) && ctx.Err() == nil {
+			stalledSID := sid
+			log("session stalled, attempting resume...")
+
+			// Attempt 1: resume the stalled session via --resume.
+			resumeSID := uuid.New().String()
+			os.WriteFile(stateFile, []byte(issueID+"\n"+resumeSID+"\n"), 0o644)
+			log("forking stalled session: %s → %s", stalledSID, resumeSID)
+
+			resumeStart := time.Now()
+			resumeErr := runSession(ctx, rc, resumeSID, issueID, alias, chrome, stalledSID, true, resolvedModel, todoID)
+
+			if resumeErr != nil && time.Since(resumeStart) < 60*time.Second {
+				// Resume failed fast — likely a context/compaction issue.
+				// Fall back to a fresh session seeded with a transcript summary.
+				log("resume failed quickly (%v), starting fresh session with transcript summary", resumeErr)
+
+				projDir := claudeProjectDir()
+				summary := SummarizeTranscript(
+					filepath.Join(projDir, stalledSID+".jsonl"),
+					filepath.Join(projDir, stalledSID, "subagents"),
+					30, 40,
+				)
+
+				freshSID := uuid.New().String()
+				os.WriteFile(stateFile, []byte(issueID+"\n"+freshSID+"\n"), 0o644)
+				log("fresh session with summary: %s (issue=%s)", freshSID, issueID)
+
+				sessionErr = runSessionWithSummary(ctx, rc, freshSID, issueID, alias, chrome, resolvedModel, todoID, summary)
+				sid = freshSID
+			} else {
+				sessionErr = resumeErr
+				sid = resumeSID
+			}
+		}
+
 		// Stop lease renewal.
 		if leaseCancel != nil {
 			leaseCancel()
@@ -423,6 +461,32 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 	return err
 }
 
+// runSessionWithSummary starts a fresh claude session whose prompt includes
+// a transcript summary from a previous stalled session so the agent can
+// continue the same work without --resume.
+func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, model string, todoID int32, summary string) error {
+	projDir := claudeProjectDir()
+	_ = os.MkdirAll(projDir, 0o755)
+
+	prompt := fmt.Sprintf("/work\n\nThis session is a continuation of a stalled session. The previous session was automatically terminated because it stopped producing output (likely a stuck tool call). Below is a summary of what it accomplished. Continue the work from where it left off — do NOT repeat already-completed steps.\n\n%s", summary)
+
+	adapter := &claudeAdapter{
+		projDir: projDir,
+		chrome:  chrome,
+		alias:   alias,
+		model:   model,
+		prompt:  prompt,
+		exited:  make(chan struct{}),
+	}
+
+	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "claude-cli", todoID)
+	printTokenSummary(
+		filepath.Join(projDir, sid+".jsonl"),
+		filepath.Join(projDir, sid, "subagents"),
+	)
+	return err
+}
+
 // ── Claude AgentAdapter ──────────────────────────────────────────────────
 
 // claudeAdapter implements AgentAdapter against the real `claude` CLI. It
@@ -435,6 +499,7 @@ type claudeAdapter struct {
 	resumed bool
 	alias   string
 	model   string
+	prompt  string // custom prompt; empty = "/work"
 
 	proc       *exec.Cmd
 	exited     chan struct{}
@@ -460,10 +525,14 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 	if a.model != "" {
 		cmdArgs = append(cmdArgs, "--model", a.model)
 	}
+	prompt := a.prompt
+	if prompt == "" {
+		prompt = "/work"
+	}
 	if a.resumed && a.prevSID != "" {
-		cmdArgs = append(cmdArgs, "--resume", a.prevSID, "--fork-session", "--session-id", sid, "-p", "/work")
+		cmdArgs = append(cmdArgs, "--resume", a.prevSID, "--fork-session", "--session-id", sid, "-p", prompt)
 	} else {
-		cmdArgs = append(cmdArgs, "--session-id", sid, "-p", "/work")
+		cmdArgs = append(cmdArgs, "--session-id", sid, "-p", prompt)
 	}
 
 	a.proc = exec.Command(claudePath, cmdArgs...)

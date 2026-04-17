@@ -117,6 +117,17 @@ type agentEventsBatch struct {
 // The remote may be invalid (e.g. dev with no server configured); in that
 // case rendering still runs but no HTTP traffic is sent and no URL is
 // printed.
+// defaultStallTimeout is how long a session can go without producing any
+// transcript event before the watchdog SIGTERMs the agent process. This
+// catches sessions stuck on a hanging tool call (e.g. a command that blocks
+// forever). Set to 0 to disable.
+const defaultStallTimeout = 4 * time.Hour
+
+// ErrSessionStalled is returned by RunLifecycle when the stall watchdog
+// kills the agent process. Callers can check this to decide whether to
+// retry with a resume or summary.
+var ErrSessionStalled = errors.New("session stalled: no transcript activity")
+
 func RunLifecycle(
 	ctx context.Context,
 	adapter AgentAdapter,
@@ -174,16 +185,47 @@ func RunLifecycle(
 		}
 	}
 
-	transcriptPath, err := adapter.Start(ctx, sid, issueID, alias)
+	// Derive a child context the stall watchdog can cancel to SIGTERM the
+	// agent without cancelling the parent loop context.
+	sessionCtx, sessionCancel := context.WithCancel(ctx)
+	defer sessionCancel()
+
+	transcriptPath, err := adapter.Start(sessionCtx, sid, issueID, alias)
 	if err != nil {
 		return 1, fmt.Errorf("adapter.Start: %w", err)
 	}
 
 	flusher := newAgentEventFlusher(rc, sid, state, stateFile)
-	flusher.start(ctx)
+	flusher.start(sessionCtx)
+	// Seed last-event time so the watchdog doesn't fire before any events arrive.
+	flusher.lastEventUnix.Store(time.Now().UnixNano())
 
-	mainCancel := tailTranscript(ctx, transcriptPath, "", "", "", adapter, logF, flusher, state, stateFile)
-	subCancel := watchSubagents(ctx, adapter, sid, logF, flusher, state, stateFile)
+	mainCancel := tailTranscript(sessionCtx, transcriptPath, "", "", "", adapter, logF, flusher, state, stateFile)
+	subCancel := watchSubagents(sessionCtx, adapter, sid, logF, flusher, state, stateFile)
+
+	// Stall watchdog: if no transcript events arrive for defaultStallTimeout,
+	// cancel sessionCtx so the adapter's signal handler SIGTERMs the agent.
+	var stalled atomic.Bool
+	if defaultStallTimeout > 0 {
+		go func() {
+			ticker := time.NewTicker(30 * time.Second)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-sessionCtx.Done():
+					return
+				case <-ticker.C:
+					last := flusher.lastEventUnix.Load()
+					if last > 0 && time.Since(time.Unix(0, last)) > defaultStallTimeout {
+						fmt.Fprintf(os.Stderr, "[lifecycle] stall watchdog: no transcript events for %s, terminating session\n", defaultStallTimeout)
+						stalled.Store(true)
+						sessionCancel()
+						return
+					}
+				}
+			}
+		}()
+	}
 
 	startedAt := time.Now()
 	eventCountAtStart := state.GlobalSeq
@@ -211,6 +253,9 @@ func RunLifecycle(
 	// Successful close — clear the resume state so the next run starts fresh.
 	_ = os.Remove(stateFile)
 
+	if stalled.Load() {
+		return exitCode, ErrSessionStalled
+	}
 	if waitErr != nil {
 		return exitCode, waitErr
 	}
@@ -467,6 +512,10 @@ type agentEventFlusher struct {
 	// stdout heartbeat-dot; RunLifecycle reads it post-Wait to decide
 	// whether to emit a trailing newline that terminates the dots line.
 	sawEvent atomic.Bool
+
+	// lastEventUnix is updated (UnixNano) every time an event is enqueued.
+	// The stall watchdog reads it to detect stuck sessions.
+	lastEventUnix atomic.Int64
 }
 
 type flushOffsetUpdate struct {
@@ -502,6 +551,7 @@ func (f *agentEventFlusher) start(ctx context.Context) {
 }
 
 func (f *agentEventFlusher) enqueue(ev AgentEvent, sourceKey string, offset int64) {
+	f.lastEventUnix.Store(time.Now().UnixNano())
 	f.mu.Lock()
 	f.state.GlobalSeq++
 	seq := f.state.GlobalSeq
