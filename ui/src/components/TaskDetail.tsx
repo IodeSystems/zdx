@@ -270,7 +270,7 @@ export function TaskDetail({
 
       <TaskReviewSection slug={slug} taskId={taskId} />
 
-      <CodeRefs refs={codeRefs ?? []} />
+      <CodeRefs refs={codeRefs ?? []} slug={slug} />
 
       <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
         Created: {new Date(task.created_at).toLocaleString()}

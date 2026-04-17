@@ -343,7 +343,7 @@ export function IssueDetail({
 
       <BlockerQuestionsSection slug={slug} targetType="issue" targetId={issueId} />
 
-      <CodeRefs refs={codeRefs ?? []} />
+      <CodeRefs refs={codeRefs ?? []} slug={slug} />
 
       {(resolutions ?? []).length > 0 && (
         <Box sx={{ mb: 3 }}>

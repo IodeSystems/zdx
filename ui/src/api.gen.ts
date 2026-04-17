@@ -774,6 +774,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/code-refs/snippet": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["read-code-snippet"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/code-refs/spec": {
         parameters: {
             query?: never;
@@ -1686,6 +1702,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/notifications/dismiss-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["notifications-dismiss-all"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/notifications/unread-count": {
         parameters: {
             query?: never;
@@ -1694,6 +1726,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["notifications-unread-count"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/notifications/unread-threads": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["notifications-unread-threads"];
         put?: never;
         post?: never;
         delete?: never;
@@ -6240,6 +6288,13 @@ export interface components {
             readonly $schema?: string;
             clients: components["schemas"]["ClientItem"][] | null;
         };
+        ListUnreadResponseThreadsForUserRow: {
+            last_unread_at: unknown;
+            target_id: string;
+            target_type: string;
+            /** Format: int32 */
+            unread_count: number;
+        };
         LogEventGroupedItem: {
             /** Format: int32 */
             entry_count: number;
@@ -6352,6 +6407,15 @@ export interface components {
             /** Format: int32 */
             spec_id: number;
         };
+        "Notifications-dismiss-allRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Notifications-dismiss-allRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+        };
         "Notifications-unread-countResponse": {
             /**
              * Format: uri
@@ -6361,6 +6425,15 @@ export interface components {
             readonly $schema?: string;
             /** Format: int32 */
             count: number;
+        };
+        "Notifications-unread-threadsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Notifications-unread-threadsResponse.json
+             */
+            readonly $schema?: string;
+            threads: components["schemas"]["ListUnreadResponseThreadsForUserRow"][] | null;
         };
         OKBody: {
             /**
@@ -7025,6 +7098,23 @@ export interface components {
             id: number;
             sql_hash: string;
             sql_text: string;
+        };
+        SnippetResult: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/SnippetResult.json
+             */
+            readonly $schema?: string;
+            content: string;
+            /** Format: int64 */
+            end_line: number;
+            hash_used: string;
+            /** Format: int64 */
+            start_line: number;
+            /** Format: int64 */
+            total_lines: number;
+            truncated: boolean;
         };
         "Solo-applyRequest": {
             /**
@@ -9543,6 +9633,42 @@ export interface operations {
             };
         };
     };
+    "read-code-snippet": {
+        parameters: {
+            query: {
+                slug: string;
+                path: string;
+                hash?: string;
+                start?: number;
+                end?: number;
+                pad?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["SnippetResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-code-refs-for-spec": {
         parameters: {
             query: {
@@ -11450,6 +11576,39 @@ export interface operations {
             };
         };
     };
+    "notifications-dismiss-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Notifications-dismiss-allRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "notifications-unread-count": {
         parameters: {
             query: {
@@ -11468,6 +11627,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Notifications-unread-countResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "notifications-unread-threads": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Notifications-unread-threadsResponse"];
                 };
             };
             /** @description Error */

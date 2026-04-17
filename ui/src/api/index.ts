@@ -1224,6 +1224,37 @@ export const useIssueCodeRefs = (slug: string, issueId: string) =>
     enabled: !!slug && !!issueId,
   })
 
+export interface CodeSnippetResult {
+  content: string
+  start_line: number
+  end_line: number
+  total_lines: number
+  hash_used: string
+  truncated: boolean
+}
+
+export const useCodeSnippet = (
+  slug: string,
+  refId: number,
+  args: { path: string; hash?: string; start?: number; end?: number; pad?: number },
+  enabled: boolean,
+) =>
+  useQuery<CodeSnippetResult>({
+    queryKey: ['code-snippet', slug, refId, args.hash ?? '', args.start ?? 0, args.end ?? 0, args.pad ?? 0],
+    queryFn: async () => {
+      const query: Record<string, string | number> = { slug, path: args.path }
+      if (args.hash) query.hash = args.hash
+      if (args.start) query.start = args.start
+      if (args.end) query.end = args.end
+      if (args.pad !== undefined) query.pad = args.pad
+      const { data, error } = await client.GET('/api/dx/code-refs/snippet', { params: { query: query as any } })
+      if (error) throw new Error((error as any)?.detail || JSON.stringify(error))
+      return data as CodeSnippetResult
+    },
+    enabled: enabled && !!slug && !!args.path,
+    staleTime: 5 * 60_000,
+  })
+
 export interface ResolutionCommitItem {
   sha: string
   ord: number

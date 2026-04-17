@@ -102,7 +102,7 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
 
       <Typography variant="body1" sx={{ mb: 2 }}>{spec.description}</Typography>
 
-      <CodeRefs refs={codeRefs ?? []} />
+      <CodeRefs refs={codeRefs ?? []} slug={slug} />
 
       {spec.deferred && spec.deferred_reason && (
         <Box sx={{ mb: 2, p: 1.5, bgcolor: 'warning.50', borderRadius: 1, border: 1, borderColor: 'warning.200' }}>

@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"context"
+	"errors"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -352,6 +354,56 @@ func (h *Handler) registerCodeRefRoutes(api huma.API) {
 					Refs []CodeRefItem `json:"refs"`
 				}{Refs: out},
 			}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "read-code-snippet", Method: http.MethodGet, Path: "/api/dx/code-refs/snippet"},
+		func(ctx context.Context, in *struct {
+			Slug  string `query:"slug" required:"true"`
+			Path  string `query:"path" required:"true"`
+			Hash  string `query:"hash"`
+			Start int    `query:"start"`
+			End   int    `query:"end"`
+			Pad   int    `query:"pad"`
+		}) (*struct{ Body SnippetResult }, error) {
+			if _, err := getProject(ctx, h.Q, in.Slug); err != nil {
+				return nil, err
+			}
+			if !h.Features.HasProjectGitConfig {
+				return nil, apiErr(http.StatusNotImplemented, "project git config not supported in this build")
+			}
+			row, err := h.Q.GetProjectGitConfig(ctx, in.Slug)
+			if err != nil || row.GitUrl == "" {
+				return nil, apiErr(http.StatusUnprocessableEntity, "git URL not configured for project "+in.Slug)
+			}
+			gitURL := row.GitUrl
+			if row.GitToken != "" && strings.HasPrefix(gitURL, "https://") {
+				gitURL = "https://" + row.GitToken + "@" + strings.TrimPrefix(gitURL, "https://")
+			}
+			branch := row.GitBranch
+			if branch == "" {
+				branch = "main"
+			}
+			dir := h.Reconciler.RepoDir(in.Slug)
+			pad := in.Pad
+			if in.Pad == 0 {
+				pad = 3
+			}
+			res, err := ReadSnippet(dir, gitURL, branch, in.Hash, in.Path, in.Start, in.End, pad)
+			if err != nil {
+				var se *SnippetError
+				if errors.As(err, &se) {
+					switch se.Code {
+					case SnippetErrBadPath:
+						return nil, apiErr(http.StatusBadRequest, se.Msg)
+					case SnippetErrHashMissing, SnippetErrFileMissing:
+						return nil, apiErr(http.StatusNotFound, se.Msg)
+					default:
+						return nil, apiErr(http.StatusInternalServerError, se.Msg)
+					}
+				}
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			return &struct{ Body SnippetResult }{Body: *res}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "delete-code-ref", Method: http.MethodPost, Path: "/api/dx/code-refs/delete"},

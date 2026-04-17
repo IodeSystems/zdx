@@ -2005,6 +2005,14 @@ type ListWsClientsResponse struct {
 	Clients *[]ClientItem `json:"clients"`
 }
 
+// ListUnreadResponseThreadsForUserRow defines model for ListUnreadResponseThreadsForUserRow.
+type ListUnreadResponseThreadsForUserRow struct {
+	LastUnreadAt interface{} `json:"last_unread_at"`
+	TargetId     string      `json:"target_id"`
+	TargetType   string      `json:"target_type"`
+	UnreadCount  int32       `json:"unread_count"`
+}
+
 // LogEventGroupedItem defines model for LogEventGroupedItem.
 type LogEventGroupedItem struct {
 	EntryCount int32  `json:"entry_count"`
@@ -2097,11 +2105,25 @@ type MoveSpecRequest struct {
 	SpecId  int32   `json:"spec_id"`
 }
 
+// NotificationsDismissAllRequest defines model for Notifications-dismiss-allRequest.
+type NotificationsDismissAllRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+}
+
 // NotificationsUnreadCountResponse defines model for Notifications-unread-countResponse.
 type NotificationsUnreadCountResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string `json:"$schema,omitempty"`
 	Count  int32   `json:"count"`
+}
+
+// NotificationsUnreadThreadsResponse defines model for Notifications-unread-threadsResponse.
+type NotificationsUnreadThreadsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string                                `json:"$schema,omitempty"`
+	Threads *[]ListUnreadResponseThreadsForUserRow `json:"threads"`
 }
 
 // OKBody defines model for OKBody.
@@ -2644,6 +2666,18 @@ type SlowQueryItem struct {
 	Id          int64   `json:"id"`
 	SqlHash     string  `json:"sql_hash"`
 	SqlText     string  `json:"sql_text"`
+}
+
+// SnippetResult defines model for SnippetResult.
+type SnippetResult struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string `json:"$schema,omitempty"`
+	Content    string  `json:"content"`
+	EndLine    int64   `json:"end_line"`
+	HashUsed   string  `json:"hash_used"`
+	StartLine  int64   `json:"start_line"`
+	TotalLines int64   `json:"total_lines"`
+	Truncated  bool    `json:"truncated"`
 }
 
 // SoloApplyRequest defines model for Solo-applyRequest.
@@ -3316,6 +3350,16 @@ type ListCodeRefsForIssueParams struct {
 	IssueId string `form:"issue_id" json:"issue_id"`
 }
 
+// ReadCodeSnippetParams defines parameters for ReadCodeSnippet.
+type ReadCodeSnippetParams struct {
+	Slug  string  `form:"slug" json:"slug"`
+	Path  string  `form:"path" json:"path"`
+	Hash  *string `form:"hash,omitempty" json:"hash,omitempty"`
+	Start *int64  `form:"start,omitempty" json:"start,omitempty"`
+	End   *int64  `form:"end,omitempty" json:"end,omitempty"`
+	Pad   *int64  `form:"pad,omitempty" json:"pad,omitempty"`
+}
+
 // ListCodeRefsForSpecParams defines parameters for ListCodeRefsForSpec.
 type ListCodeRefsForSpecParams struct {
 	Slug   string `form:"slug" json:"slug"`
@@ -3551,6 +3595,11 @@ type ListLogEventsTagValuesParams struct {
 
 // NotificationsUnreadCountParams defines parameters for NotificationsUnreadCount.
 type NotificationsUnreadCountParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
+// NotificationsUnreadThreadsParams defines parameters for NotificationsUnreadThreads.
+type NotificationsUnreadThreadsParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
@@ -4052,6 +4101,9 @@ type JournalGenerateJSONRequestBody = JournalGenerateRequest
 
 // JournalReviewJSONRequestBody defines body for JournalReview for application/json ContentType.
 type JournalReviewJSONRequestBody = JournalReviewRequest
+
+// NotificationsDismissAllJSONRequestBody defines body for NotificationsDismissAll for application/json ContentType.
+type NotificationsDismissAllJSONRequestBody = NotificationsDismissAllRequest
 
 // AddPatternJSONRequestBody defines body for AddPattern for application/json ContentType.
 type AddPatternJSONRequestBody = AddPatternRequest
@@ -4583,6 +4635,9 @@ type ClientInterface interface {
 
 	DetachCodeRefFromIssue(ctx context.Context, body DetachCodeRefFromIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ReadCodeSnippet request
+	ReadCodeSnippet(ctx context.Context, params *ReadCodeSnippetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListCodeRefsForSpec request
 	ListCodeRefsForSpec(ctx context.Context, params *ListCodeRefsForSpecParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -4803,8 +4858,16 @@ type ClientInterface interface {
 	// ListLogEventsTagValues request
 	ListLogEventsTagValues(ctx context.Context, params *ListLogEventsTagValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// NotificationsDismissAllWithBody request with any body
+	NotificationsDismissAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	NotificationsDismissAll(ctx context.Context, body NotificationsDismissAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// NotificationsUnreadCount request
 	NotificationsUnreadCount(ctx context.Context, params *NotificationsUnreadCountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// NotificationsUnreadThreads request
+	NotificationsUnreadThreads(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPatterns request
 	ListPatterns(ctx context.Context, params *ListPatternsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6358,6 +6421,18 @@ func (c *APIClient) DetachCodeRefFromIssue(ctx context.Context, body DetachCodeR
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) ReadCodeSnippet(ctx context.Context, params *ReadCodeSnippetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReadCodeSnippetRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListCodeRefsForSpec(ctx context.Context, params *ListCodeRefsForSpecParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListCodeRefsForSpecRequest(c.Server, params)
 	if err != nil {
@@ -7330,8 +7405,44 @@ func (c *APIClient) ListLogEventsTagValues(ctx context.Context, params *ListLogE
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) NotificationsDismissAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewNotificationsDismissAllRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) NotificationsDismissAll(ctx context.Context, body NotificationsDismissAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewNotificationsDismissAllRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) NotificationsUnreadCount(ctx context.Context, params *NotificationsUnreadCountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewNotificationsUnreadCountRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) NotificationsUnreadThreads(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewNotificationsUnreadThreadsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12466,6 +12577,127 @@ func NewDetachCodeRefFromIssueRequestWithBody(server string, contentType string,
 	return req, nil
 }
 
+// NewReadCodeSnippetRequest generates requests for ReadCodeSnippet
+func NewReadCodeSnippetRequest(server string, params *ReadCodeSnippetParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/code-refs/snippet")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "path", params.Path, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Hash != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "hash", *params.Hash, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Start != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "start", *params.Start, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.End != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "end", *params.End, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Pad != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "pad", *params.Pad, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListCodeRefsForSpecRequest generates requests for ListCodeRefsForSpec
 func NewListCodeRefsForSpecRequest(server string, params *ListCodeRefsForSpecParams) (*http.Request, error) {
 	var err error
@@ -15981,6 +16213,46 @@ func NewListLogEventsTagValuesRequest(server string, params *ListLogEventsTagVal
 	return req, nil
 }
 
+// NewNotificationsDismissAllRequest calls the generic NotificationsDismissAll builder with application/json body
+func NewNotificationsDismissAllRequest(server string, body NotificationsDismissAllJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewNotificationsDismissAllRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewNotificationsDismissAllRequestWithBody generates requests for NotificationsDismissAll with any type of body
+func NewNotificationsDismissAllRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/notifications/dismiss-all")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewNotificationsUnreadCountRequest generates requests for NotificationsUnreadCount
 func NewNotificationsUnreadCountRequest(server string, params *NotificationsUnreadCountParams) (*http.Request, error) {
 	var err error
@@ -15991,6 +16263,51 @@ func NewNotificationsUnreadCountRequest(server string, params *NotificationsUnre
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/notifications/unread-count")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewNotificationsUnreadThreadsRequest generates requests for NotificationsUnreadThreads
+func NewNotificationsUnreadThreadsRequest(server string, params *NotificationsUnreadThreadsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/notifications/unread-threads")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -23141,6 +23458,9 @@ type ClientWithResponsesInterface interface {
 
 	DetachCodeRefFromIssueWithResponse(ctx context.Context, body DetachCodeRefFromIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*DetachCodeRefFromIssueResponse, error)
 
+	// ReadCodeSnippetWithResponse request
+	ReadCodeSnippetWithResponse(ctx context.Context, params *ReadCodeSnippetParams, reqEditors ...RequestEditorFn) (*ReadCodeSnippetResponse, error)
+
 	// ListCodeRefsForSpecWithResponse request
 	ListCodeRefsForSpecWithResponse(ctx context.Context, params *ListCodeRefsForSpecParams, reqEditors ...RequestEditorFn) (*ParsedListCodeRefsForSpecResponse, error)
 
@@ -23361,8 +23681,16 @@ type ClientWithResponsesInterface interface {
 	// ListLogEventsTagValuesWithResponse request
 	ListLogEventsTagValuesWithResponse(ctx context.Context, params *ListLogEventsTagValuesParams, reqEditors ...RequestEditorFn) (*ParsedListLogEventsTagValuesResponse, error)
 
+	// NotificationsDismissAllWithBodyWithResponse request with any body
+	NotificationsDismissAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*NotificationsDismissAllResponse, error)
+
+	NotificationsDismissAllWithResponse(ctx context.Context, body NotificationsDismissAllJSONRequestBody, reqEditors ...RequestEditorFn) (*NotificationsDismissAllResponse, error)
+
 	// NotificationsUnreadCountWithResponse request
 	NotificationsUnreadCountWithResponse(ctx context.Context, params *NotificationsUnreadCountParams, reqEditors ...RequestEditorFn) (*ParsedNotificationsUnreadCountResponse, error)
+
+	// NotificationsUnreadThreadsWithResponse request
+	NotificationsUnreadThreadsWithResponse(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*ParsedNotificationsUnreadThreadsResponse, error)
 
 	// ListPatternsWithResponse request
 	ListPatternsWithResponse(ctx context.Context, params *ListPatternsParams, reqEditors ...RequestEditorFn) (*ParsedListPatternsResponse, error)
@@ -25224,6 +25552,29 @@ func (r DetachCodeRefFromIssueResponse) StatusCode() int {
 	return 0
 }
 
+type ReadCodeSnippetResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SnippetResult
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ReadCodeSnippetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReadCodeSnippetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListCodeRefsForSpecResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -26557,6 +26908,29 @@ func (r ParsedListLogEventsTagValuesResponse) StatusCode() int {
 	return 0
 }
 
+type NotificationsDismissAllResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r NotificationsDismissAllResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r NotificationsDismissAllResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedNotificationsUnreadCountResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -26574,6 +26948,29 @@ func (r ParsedNotificationsUnreadCountResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedNotificationsUnreadCountResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedNotificationsUnreadThreadsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *NotificationsUnreadThreadsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedNotificationsUnreadThreadsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedNotificationsUnreadThreadsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -30356,6 +30753,15 @@ func (c *ClientWithResponses) DetachCodeRefFromIssueWithResponse(ctx context.Con
 	return ParseDetachCodeRefFromIssueResponse(rsp)
 }
 
+// ReadCodeSnippetWithResponse request returning *ReadCodeSnippetResponse
+func (c *ClientWithResponses) ReadCodeSnippetWithResponse(ctx context.Context, params *ReadCodeSnippetParams, reqEditors ...RequestEditorFn) (*ReadCodeSnippetResponse, error) {
+	rsp, err := c.ReadCodeSnippet(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReadCodeSnippetResponse(rsp)
+}
+
 // ListCodeRefsForSpecWithResponse request returning *ParsedListCodeRefsForSpecResponse
 func (c *ClientWithResponses) ListCodeRefsForSpecWithResponse(ctx context.Context, params *ListCodeRefsForSpecParams, reqEditors ...RequestEditorFn) (*ParsedListCodeRefsForSpecResponse, error) {
 	rsp, err := c.ListCodeRefsForSpec(ctx, params, reqEditors...)
@@ -31062,6 +31468,23 @@ func (c *ClientWithResponses) ListLogEventsTagValuesWithResponse(ctx context.Con
 	return ParseParsedListLogEventsTagValuesResponse(rsp)
 }
 
+// NotificationsDismissAllWithBodyWithResponse request with arbitrary body returning *NotificationsDismissAllResponse
+func (c *ClientWithResponses) NotificationsDismissAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*NotificationsDismissAllResponse, error) {
+	rsp, err := c.NotificationsDismissAllWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseNotificationsDismissAllResponse(rsp)
+}
+
+func (c *ClientWithResponses) NotificationsDismissAllWithResponse(ctx context.Context, body NotificationsDismissAllJSONRequestBody, reqEditors ...RequestEditorFn) (*NotificationsDismissAllResponse, error) {
+	rsp, err := c.NotificationsDismissAll(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseNotificationsDismissAllResponse(rsp)
+}
+
 // NotificationsUnreadCountWithResponse request returning *ParsedNotificationsUnreadCountResponse
 func (c *ClientWithResponses) NotificationsUnreadCountWithResponse(ctx context.Context, params *NotificationsUnreadCountParams, reqEditors ...RequestEditorFn) (*ParsedNotificationsUnreadCountResponse, error) {
 	rsp, err := c.NotificationsUnreadCount(ctx, params, reqEditors...)
@@ -31069,6 +31492,15 @@ func (c *ClientWithResponses) NotificationsUnreadCountWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseParsedNotificationsUnreadCountResponse(rsp)
+}
+
+// NotificationsUnreadThreadsWithResponse request returning *ParsedNotificationsUnreadThreadsResponse
+func (c *ClientWithResponses) NotificationsUnreadThreadsWithResponse(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*ParsedNotificationsUnreadThreadsResponse, error) {
+	rsp, err := c.NotificationsUnreadThreads(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedNotificationsUnreadThreadsResponse(rsp)
 }
 
 // ListPatternsWithResponse request returning *ParsedListPatternsResponse
@@ -34724,6 +35156,39 @@ func ParseDetachCodeRefFromIssueResponse(rsp *http.Response) (*DetachCodeRefFrom
 	return response, nil
 }
 
+// ParseReadCodeSnippetResponse parses an HTTP response from a ReadCodeSnippetWithResponse call
+func ParseReadCodeSnippetResponse(rsp *http.Response) (*ReadCodeSnippetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReadCodeSnippetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SnippetResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListCodeRefsForSpecResponse parses an HTTP response from a ListCodeRefsForSpecWithResponse call
 func ParseParsedListCodeRefsForSpecResponse(rsp *http.Response) (*ParsedListCodeRefsForSpecResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -36631,6 +37096,39 @@ func ParseParsedListLogEventsTagValuesResponse(rsp *http.Response) (*ParsedListL
 	return response, nil
 }
 
+// ParseNotificationsDismissAllResponse parses an HTTP response from a NotificationsDismissAllWithResponse call
+func ParseNotificationsDismissAllResponse(rsp *http.Response) (*NotificationsDismissAllResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &NotificationsDismissAllResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedNotificationsUnreadCountResponse parses an HTTP response from a NotificationsUnreadCountWithResponse call
 func ParseParsedNotificationsUnreadCountResponse(rsp *http.Response) (*ParsedNotificationsUnreadCountResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -36647,6 +37145,39 @@ func ParseParsedNotificationsUnreadCountResponse(rsp *http.Response) (*ParsedNot
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest NotificationsUnreadCountResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedNotificationsUnreadThreadsResponse parses an HTTP response from a NotificationsUnreadThreadsWithResponse call
+func ParseParsedNotificationsUnreadThreadsResponse(rsp *http.Response) (*ParsedNotificationsUnreadThreadsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedNotificationsUnreadThreadsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest NotificationsUnreadThreadsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

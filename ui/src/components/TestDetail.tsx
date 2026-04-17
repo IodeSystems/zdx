@@ -90,7 +90,7 @@ export function TestDetail({ slug, testId }: { slug: string; testId: number }) {
         )}
       </Box>
 
-      <CodeRefs refs={codeRefs ?? []} />
+      <CodeRefs refs={codeRefs ?? []} slug={slug} />
 
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle2" sx={{ mb: 1, fontWeight: 600 }}>Run History</Typography>
