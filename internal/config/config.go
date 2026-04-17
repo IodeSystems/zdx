@@ -15,6 +15,44 @@ type Config struct {
 	Hooks      Hooks                `yaml:"hooks"`
 	Components map[string]Component `yaml:"components"`
 	LLMLocal   LLMLocal             `yaml:"llm_local"`
+	Agent      AgentConfig          `yaml:"agent"`
+}
+
+// AgentConfig declares how agents run in this project.
+type AgentConfig struct {
+	ComposeFile    string `yaml:"compose_file"`    // docker-compose file for dev services (default: docker-compose.agent.yaml)
+	DevDockerfile  string `yaml:"dev_dockerfile"`  // Dockerfile for the dev image (default: Dockerfile.agent)
+	MaxWorktrees   int    `yaml:"max_worktrees"`   // concurrent agent slots (default: 4)
+	LLMProvider    string `yaml:"llm_provider"`    // claude | local | server (default: claude)
+	ClaudeModel    string `yaml:"claude_model"`    // model when provider=claude (default: claude-sonnet-4-6)
+	LeaseMinutes   int    `yaml:"lease_minutes"`   // todo lease duration in minutes (default: 30)
+}
+
+// ResolvedAgent returns agent config with defaults applied.
+func (c *Config) ResolvedAgent() AgentConfig {
+	var a AgentConfig
+	if c != nil {
+		a = c.Agent
+	}
+	if a.ComposeFile == "" {
+		a.ComposeFile = "docker-compose.agent.yaml"
+	}
+	if a.DevDockerfile == "" {
+		a.DevDockerfile = "Dockerfile.agent"
+	}
+	if a.MaxWorktrees <= 0 {
+		a.MaxWorktrees = 4
+	}
+	if a.LLMProvider == "" {
+		a.LLMProvider = "claude"
+	}
+	if a.ClaudeModel == "" {
+		a.ClaudeModel = "claude-sonnet-4-6"
+	}
+	if a.LeaseMinutes <= 0 {
+		a.LeaseMinutes = 30
+	}
+	return a
 }
 
 // LLMLocal configures the local-LLM provider used by `dx agent local`.

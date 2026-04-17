@@ -202,12 +202,15 @@ func claudeProjectDir() string {
 	return filepath.Join(home, ".claude", "projects", slug)
 }
 
-// runLoop implements the --loop behavior: pick work, run sessions, repeat.
+// runLoop implements the --loop behavior: claim work, run sessions, repeat.
 func runLoop(rc remoteConfig, alias string, chrome bool) error {
 	stateFile := ".zdx/cache/claude-work-state"
 	logFile := ".zdx/logs/claude-work.log"
 	os.MkdirAll(".zdx/logs", 0o755)
 	os.MkdirAll(".zdx/cache", 0o755)
+
+	cfg := config.Load()
+	agentCfg := cfg.ResolvedAgent()
 
 	logf, _ := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	defer logf.Close()
@@ -228,15 +231,17 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 	selfPath, _ := os.Executable()
 	selfHash := fileHash(selfPath)
 
+	agentID := alias
+	if agentID == "" {
+		agentID = "agent-" + shortID()
+	}
+
 	for {
 		if ctx.Err() != nil {
 			return nil
 		}
 
-		// Self-update detection. Skip when either hash is empty: a transient
-		// read error during a deploy (binary briefly unlinked/replaced) is
-		// indistinguishable from a real change, and slicing an empty hash
-		// panics. Retry on the next tick when both reads succeed.
+		// Self-update detection.
 		if h := fileHash(selfPath); h != "" && selfHash != "" && h != selfHash {
 			log("self-update: %s → %s, re-execing", shortHash(selfHash), shortHash(h))
 			if err := selfReexec(selfPath, os.Args); err != nil {
@@ -245,9 +250,10 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		}
 
 		var issueID, sid string
+		var activeTodo *claimedTodo
 		resumed := false
 
-		// Try to resume interrupted session
+		// Try to resume interrupted session.
 		if data, err := os.ReadFile(stateFile); err == nil {
 			lines := strings.Split(strings.TrimSpace(string(data)), "\n")
 			if len(lines) >= 2 && lines[0] != "" {
@@ -266,9 +272,10 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		}
 
 		if !resumed {
-			todo, err := runDxTodoSolo("")
-			if err != nil || todo == "" {
-				log("idle; sleeping 60s")
+			// Claim the next available todo via the API.
+			todo, err := claimNextTodo(rc, agentID, int32(agentCfg.LeaseMinutes))
+			if err != nil || todo == nil {
+				log("idle (no claimable todos); sleeping 60s")
 				select {
 				case <-ctx.Done():
 					return nil
@@ -276,20 +283,25 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 				}
 				continue
 			}
-			log("todo solo:\n%s", todo)
-			issueID = extractIssueID(todo)
+			activeTodo = todo
+			log("claimed todo %d [%s]: %s", todo.ID, todo.Kind, todo.Text)
+
+			// Extract issue ID from the todo's issue_ref or target.
+			issueID = todo.IssueRef
+			if issueID == "" && todo.TargetType == "issue" {
+				issueID = todo.TargetID
+			}
 			sid = uuid.New().String()
 		}
 
-		// Re-check cancellation before the point of no return (SESSION START
-		// line + server-side session create). Without this, a signal that
-		// arrives between solo-pick and session-start still leaves a stray
-		// SESSION START in the log and on the server.
 		if ctx.Err() != nil {
+			if activeTodo != nil {
+				releaseTodo(rc, activeTodo.ID, agentID, false)
+			}
 			return nil
 		}
 
-		// Save state for crash recovery
+		// Save state for crash recovery.
 		os.WriteFile(stateFile, []byte(issueID+"\n"+sid+"\n"), 0o644)
 
 		prevSID := ""
@@ -305,14 +317,55 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		log("──────────────────────────────────────────────")
 		startTime := time.Now()
 
-		if err := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed); err != nil {
-			log("session error: %v", err)
+		// Start a lease renewal goroutine for the active todo.
+		var leaseCancel context.CancelFunc
+		if activeTodo != nil {
+			var leaseCtx context.Context
+			leaseCtx, leaseCancel = context.WithCancel(ctx)
+			go func(todoID int32, renewMin int32) {
+				interval := time.Duration(renewMin/2) * time.Minute
+				if interval < time.Minute {
+					interval = time.Minute
+				}
+				ticker := time.NewTicker(interval)
+				defer ticker.Stop()
+				for {
+					select {
+					case <-leaseCtx.Done():
+						return
+					case <-ticker.C:
+						renewTodoLease(rc, todoID, agentID, renewMin)
+					}
+				}
+			}(activeTodo.ID, int32(agentCfg.LeaseMinutes))
+		}
+
+		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed)
+
+		// Stop lease renewal.
+		if leaseCancel != nil {
+			leaseCancel()
+		}
+
+		if sessionErr != nil {
+			log("session error: %v", sessionErr)
 		}
 
 		elapsed := time.Since(startTime)
 		log("──────────────────────────────────────────────")
 		log("SESSION END  session=%s  duration=%s", sid, elapsed.Truncate(time.Second))
 		log("──────────────────────────────────────────────")
+
+		// Release or resolve the claimed todo.
+		if activeTodo != nil {
+			success := sessionErr == nil
+			releaseTodo(rc, activeTodo.ID, agentID, success)
+			if success {
+				log("todo %d resolved", activeTodo.ID)
+			} else {
+				log("todo %d released (session failed)", activeTodo.ID)
+			}
+		}
 
 		os.Remove(stateFile)
 	}
@@ -831,6 +884,74 @@ func extractIssueID(text string) string {
 		}
 	}
 	return ""
+}
+
+// ── Todo claiming helpers ─────────────────────────────────────────────────
+
+type claimedTodo struct {
+	ID         int32  `json:"id"`
+	Text       string `json:"text"`
+	Key        string `json:"key"`
+	Kind       string `json:"kind"`
+	TargetType string `json:"target_type"`
+	TargetID   string `json:"target_id"`
+	IssueRef   string `json:"issue_ref"`
+	Priority   int32  `json:"priority"`
+	ClaimedBy  string `json:"claimed_by"`
+}
+
+func claimNextTodo(rc remoteConfig, agentID string, leaseMinutes int32) (*claimedTodo, error) {
+	body, _ := json.Marshal(map[string]any{
+		"slug":          rc.slug,
+		"agent_id":      agentID,
+		"lease_minutes": leaseMinutes,
+	})
+	req, _ := http.NewRequest("POST", rc.url+"/api/dx/solo/claim", bytes.NewReader(body))
+	req.Header.Set("X-Api-Key", rc.key)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, fmt.Errorf("claim HTTP %d", resp.StatusCode)
+	}
+	var todo claimedTodo
+	if err := json.NewDecoder(resp.Body).Decode(&todo); err != nil {
+		return nil, err
+	}
+	return &todo, nil
+}
+
+func renewTodoLease(rc remoteConfig, todoID int32, agentID string, leaseMinutes int32) {
+	body, _ := json.Marshal(map[string]any{
+		"id":            todoID,
+		"agent_id":      agentID,
+		"lease_minutes": leaseMinutes,
+	})
+	req, _ := http.NewRequest("POST", rc.url+"/api/dx/solo/renew", bytes.NewReader(body))
+	req.Header.Set("X-Api-Key", rc.key)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	if err == nil {
+		resp.Body.Close()
+	}
+}
+
+func releaseTodo(rc remoteConfig, todoID int32, agentID string, resolve bool) {
+	body, _ := json.Marshal(map[string]any{
+		"id":       todoID,
+		"agent_id": agentID,
+		"resolve":  resolve,
+	})
+	req, _ := http.NewRequest("POST", rc.url+"/api/dx/solo/release", bytes.NewReader(body))
+	req.Header.Set("X-Api-Key", rc.key)
+	req.Header.Set("Content-Type", "application/json")
+	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	if err == nil {
+		resp.Body.Close()
+	}
 }
 
 func fileHash(path string) string {

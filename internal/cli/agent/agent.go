@@ -15,6 +15,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
+	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
@@ -83,6 +84,14 @@ func agentStartCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			slug := c.SlugOrDie()
+			cfg := config.Load()
+			agentCfg := cfg.ResolvedAgent()
+
+			// Check worktree slot availability.
+			activeCount := countActiveWorktrees()
+			if activeCount >= agentCfg.MaxWorktrees {
+				return fmt.Errorf("no worktree slots available (%d/%d active)", activeCount, agentCfg.MaxWorktrees)
+			}
 
 			id := shortID()
 			branchName := "agent/" + id
@@ -110,35 +119,20 @@ func agentStartCmd() *cobra.Command {
 
 			composeProject := "zdx-agent-" + id
 
-			composeContent := `services:
-  postgres:
-    image: postgres:17
-    environment:
-      POSTGRES_DB: zdx
-      POSTGRES_USER: zdx
-      POSTGRES_PASSWORD: zdx
-    ports:
-      - "127.0.0.1::5432"
-    tmpfs:
-      - /var/lib/postgresql/data:exec
-    healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U zdx -d zdx"]
-      interval: 1s
-      timeout: 3s
-      retries: 30
-  valkey:
-    image: valkey/valkey:8
-    ports:
-      - "127.0.0.1::6379"
-    healthcheck:
-      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
-      interval: 1s
-      timeout: 3s
-      retries: 30
-`
+			// Use project-level compose file if it exists, otherwise generate default.
 			composeFile := filepath.Join(wtPath, "docker-compose.agent.yaml")
-			if err := os.WriteFile(composeFile, []byte(composeContent), 0o644); err != nil {
-				return fmt.Errorf("write compose: %w", err)
+			if projectCompose := agentCfg.ComposeFile; projectCompose != "" {
+				if srcData, readErr := os.ReadFile(projectCompose); readErr == nil {
+					// Project provides its own compose file — use it.
+					if writeErr := os.WriteFile(composeFile, srcData, 0o644); writeErr != nil {
+						return fmt.Errorf("write compose: %w", writeErr)
+					}
+				} else {
+					// No project compose file — use built-in default.
+					if writeErr := os.WriteFile(composeFile, []byte(defaultAgentCompose), 0o644); writeErr != nil {
+						return fmt.Errorf("write compose: %w", writeErr)
+					}
+				}
 			}
 
 			out, err = exec.Command("docker", "compose", "-p", composeProject, "-f", composeFile, "up", "-d", "--wait").CombinedOutput()
@@ -433,6 +427,48 @@ func agentReleaseCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+const defaultAgentCompose = `services:
+  postgres:
+    image: postgres:17
+    environment:
+      POSTGRES_DB: zdx
+      POSTGRES_USER: zdx
+      POSTGRES_PASSWORD: zdx
+    ports:
+      - "127.0.0.1::5432"
+    tmpfs:
+      - /var/lib/postgresql/data:exec
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U zdx -d zdx"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+  valkey:
+    image: valkey/valkey:8
+    ports:
+      - "127.0.0.1::6379"
+    healthcheck:
+      test: ["CMD-SHELL", "valkey-cli ping | grep -q PONG"]
+      interval: 1s
+      timeout: 3s
+      retries: 30
+`
+
+// countActiveWorktrees counts git worktrees under agent/.
+func countActiveWorktrees() int {
+	out, err := exec.Command("git", "worktree", "list", "--porcelain").CombinedOutput()
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(line, "worktree ") && strings.Contains(line, "/agent/") {
+			count++
+		}
+	}
+	return count
 }
 
 func discoverComposePort(project, composeFile, service string, containerPort int) (int, error) {
