@@ -50,7 +50,31 @@ func JournalCmd() *cobra.Command {
 		journalStateCmd(),
 		journalAddCmd(),
 		journalListCmd(),
+		journalReviewCmd(),
 	)
+	return cmd
+}
+
+func journalReviewCmd() *cobra.Command {
+	var role string
+	cmd := &cobra.Command{
+		Use:   "review",
+		Short: "Acknowledge the latest unreviewed standup entry (clears the solo queue item)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			body := dxclient.JournalReviewRequest{
+				Slug: c.SlugOrDie(),
+				Role: role,
+			}
+			var resp struct{ OK bool }
+			if err := c.Post("/api/dx/journal/review", body, &resp); err != nil {
+				return err
+			}
+			fmt.Printf("ok — %s check-in marked reviewed\n", role)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&role, "role", "owner", "standup role (owner/tech)")
 	return cmd
 }
 
