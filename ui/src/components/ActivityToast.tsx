@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react'
+import { useState, useCallback, useRef } from 'react'
 import {
   Alert,
   IconButton,
@@ -60,22 +60,20 @@ function eventUrl(slug: string, type: string, payload: Record<string, unknown>):
 
 export function ActivityToast({ slug }: { slug: string }) {
   const [muted, setMuted] = useState(() => localStorage.getItem(STORAGE_KEY) === '1')
+  const mutedRef = useRef(muted)
   const [toasts, setToasts] = useState<Toast[]>([])
   const navigate = useNavigate()
 
   const handleMessage = useCallback((msg: { channel: string; type: string; payload: unknown }) => {
-    setMuted(current => {
-      if (current) return current
-      const payload = (msg.payload ?? {}) as Record<string, unknown>
-      const toast: Toast = {
-        id: `${msg.type}-${Date.now()}-${Math.random()}`,
-        type: msg.type,
-        label: eventLabel(msg.type, payload),
-        url: eventUrl(slug, msg.type, payload),
-      }
-      setToasts(prev => [...prev, toast])
-      return current
-    })
+    if (mutedRef.current) return
+    const payload = (msg.payload ?? {}) as Record<string, unknown>
+    const toast: Toast = {
+      id: `${msg.type}-${Date.now()}-${Math.random()}`,
+      type: msg.type,
+      label: eventLabel(msg.type, payload),
+      url: eventUrl(slug, msg.type, payload),
+    }
+    setToasts(prev => [...prev, toast])
   }, [slug])
 
   useChannel(`project:${slug}:issues`, handleMessage)
@@ -96,6 +94,7 @@ export function ActivityToast({ slug }: { slug: string }) {
   const toggleMute = useCallback(() => {
     setMuted(prev => {
       const next = !prev
+      mutedRef.current = next
       localStorage.setItem(STORAGE_KEY, next ? '1' : '0')
       return next
     })

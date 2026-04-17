@@ -206,7 +206,9 @@ func (s *Server) handleWSSubscribe(w http.ResponseWriter, r *http.Request) {
 	sub := s.broker.Subscribe(channel)
 	defer sub.Close()
 
-	ctx := r.Context()
+	// Server is write-only; CloseRead starts a goroutine to handle control
+	// frames (ping/pong/close) so the connection stays alive.
+	ctx := conn.CloseRead(r.Context())
 	for {
 		select {
 		case <-ctx.Done():
