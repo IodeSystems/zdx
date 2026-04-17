@@ -258,6 +258,8 @@ type Querier interface {
 	ListLogEventsDistinctTagValues(ctx context.Context, arg ListLogEventsDistinctTagValuesParams) ([]interface{}, error)
 	ListLogEventsGrouped(ctx context.Context, arg ListLogEventsGroupedParams) ([]ListLogEventsGroupedRow, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
+	// Ready tasks with no parent issue — invisible to the normal solo queue.
+	ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]ListOrphanReadyTasksRow, error)
 	// Features with more than @threshold non-deferred specs (decomposition signal).
 	ListOverspeccedFeatures(ctx context.Context, arg ListOverspeccedFeaturesParams) ([]ListOverspeccedFeaturesRow, error)
 	ListPatterns(ctx context.Context, projectID int32) ([]ZdxPattern, error)

@@ -420,6 +420,22 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 	}
 
+	// Orphan tasks — ready but no parent issue, invisible to the issue-based loop above.
+	if issueFilter == "" {
+		orphans, _ := h.Q.ListOrphanReadyTasks(ctx, projectID)
+		for _, t := range orphans {
+			candidates = append(candidates, soloCandidate{
+				Key:        fmt.Sprintf("orphan-%s", t.ID),
+				Text:       fmt.Sprintf("Orphan task (no issue): %s", t.Text),
+				Kind:       "owner:orphan-task",
+				TargetType: "task",
+				TargetID:   t.ID,
+				Priority:   42,
+				Persona:    "owner",
+			})
+		}
+	}
+
 	return candidates, nil
 }
 

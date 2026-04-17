@@ -234,3 +234,13 @@ ORDER BY stale_since ASC;
 
 -- name: ClearStaleFlag :exec
 UPDATE zdx_tasks SET stale_since = NULL, updated_at = NOW() WHERE id = $1;
+
+
+-- name: ListOrphanReadyTasks :many
+-- Ready tasks with no parent issue — invisible to the normal solo queue.
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+FROM zdx_tasks
+WHERE project_id = $1
+  AND status = 'ready'
+  AND (issue = '' OR issue IS NULL)
+ORDER BY created_at;

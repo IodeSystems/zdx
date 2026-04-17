@@ -2,14 +2,16 @@ package servercmd
 
 import (
 	"fmt"
-	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
-	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/project"
+	"github.com/iodesystems/zdx-go/internal/config"
 )
 
 func InitCmd() *cobra.Command {
@@ -55,6 +57,14 @@ func InitCmd() *cobra.Command {
 				} else if err := bootstrapOnboardingIssue(c); err != nil {
 					fmt.Fprintf(os.Stderr, "bootstrap: %v\n", err)
 				}
+			}
+
+			// Run doctor to diagnose and guide the project to a working state.
+			fmt.Println("\nrunning project health check...")
+			doctorCmd := project.DoctorCmd()
+			doctorCmd.SetArgs([]string{"--fix"})
+			if err := doctorCmd.Execute(); err != nil {
+				fmt.Fprintf(os.Stderr, "doctor: %v\n", err)
 			}
 
 			return nil
