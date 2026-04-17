@@ -6,6 +6,7 @@ import (
 	"net/http"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
@@ -13,6 +14,8 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
+
+const demoURLTTL = time.Hour
 
 func (h *Handler) registerFeatureRoutes(api huma.API) {
 	type FeaturesOutput = struct {
@@ -418,7 +421,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 					Type:          r.DemoType,
 					TestComponent: r.TestComponent,
 					TestName:      r.TestName,
-					URL:           url,
+					URL:           SignAssetURL(h.WSSecret, url, demoURLTTL),
 					Name:          name,
 				}
 			}

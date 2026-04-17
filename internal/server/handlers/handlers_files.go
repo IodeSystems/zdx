@@ -129,6 +129,7 @@ func (h *Handler) demosDir() string {
 type DemoListItem struct {
 	Type string `json:"type"`
 	Name string `json:"name"`
+	URL  string `json:"url"`
 }
 
 func (h *Handler) handleListDemos(w http.ResponseWriter, r *http.Request) {
@@ -146,7 +147,12 @@ func (h *Handler) handleListDemos(w http.ResponseWriter, r *http.Request) {
 				continue
 			}
 			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-			items = append(items, DemoListItem{Type: subdir, Name: name})
+			path := fmt.Sprintf("/api/dx/demos/%s/%s", subdir, name)
+			items = append(items, DemoListItem{
+				Type: subdir,
+				Name: name,
+				URL:  SignAssetURL(h.WSSecret, path, time.Hour),
+			})
 		}
 	}
 

@@ -298,6 +298,15 @@ var maintenancePage = []byte(`<!doctype html>
 
 // ── Auth middleware ────────────────────────────────────────────────────────
 
+// isSignedAssetPath returns true for asset routes that may be served via signed URL
+// (no X-Api-Key required). Limited to read-only artifact endpoints; everything else
+// must still authenticate.
+func isSignedAssetPath(path string) bool {
+	return strings.HasPrefix(path, "/api/files/") ||
+		strings.HasPrefix(path, "/api/dx/demos/cli/") ||
+		strings.HasPrefix(path, "/api/dx/demos/video/")
+}
+
 // apiKeyMiddleware validates X-Api-Key on /api/* requests, except health, openapi, and setup/bootstrap.
 // Non-/api/ paths (SPA, static assets) pass through without auth.
 func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
@@ -306,6 +315,13 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 		if !strings.HasPrefix(path, "/api/") ||
 			(r.Method == http.MethodGet && (path == "/api/health" || path == "/api/error" || strings.HasPrefix(path, "/openapi"))) ||
 			(r.Method == http.MethodPost && (path == "/api/setup/bootstrap" || path == "/api/auth/login" || path == "/api/auth/register" || path == "/api/dx/errors/report" || path == "/api/ingest/timings")) {
+			next.ServeHTTP(w, r)
+			return
+		}
+		// Signed asset URLs bypass the X-Api-Key requirement so <video src> and bare fetch
+		// can load demo artifacts. Only GETs to whitelisted asset paths are eligible; the
+		// signature is HMAC'd with s.wsSecret and carries an expiry.
+		if r.Method == http.MethodGet && isSignedAssetPath(path) && handlers.VerifyAssetURL(s.wsSecret, r) {
 			next.ServeHTTP(w, r)
 			return
 		}

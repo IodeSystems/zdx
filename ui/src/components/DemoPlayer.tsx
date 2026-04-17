@@ -10,7 +10,6 @@ import {
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
 import {
   useDemos,
-  useDemoContent,
   useSpecDemos,
   type DemoListItem,
   type CLIDemoData,
@@ -55,13 +54,6 @@ function CLIDemoBody({ data }: { data: CLIDemoData }) {
   )
 }
 
-function CLIDemoPlayer({ name }: { name: string }) {
-  const { data, isLoading } = useDemoContent('cli', name)
-  if (isLoading) return <Typography variant="body2" color="text.secondary">Loading...</Typography>
-  if (!data) return null
-  return <CLIDemoBody data={data} />
-}
-
 function CLIDemoPlayerByUrl({ url }: { url: string }) {
   const [data, setData] = useState<CLIDemoData | null>(null)
   const [error, setError] = useState<string | null>(null)
@@ -76,19 +68,6 @@ function CLIDemoPlayerByUrl({ url }: { url: string }) {
   if (error) return <Typography variant="body2" color="error">Failed to load: {error}</Typography>
   if (!data) return <Typography variant="body2" color="text.secondary">Loading...</Typography>
   return <CLIDemoBody data={data} />
-}
-
-function VideoDemoPlayer({ name }: { name: string }) {
-  return (
-    <Box sx={{ maxWidth: 800 }}>
-      <video
-        controls
-        preload="metadata"
-        style={{ width: '100%', borderRadius: 4 }}
-        src={`/api/dx/demos/video/${encodeURIComponent(name)}`}
-      />
-    </Box>
-  )
 }
 
 function VideoDemoPlayerByUrl({ url }: { url: string }) {
@@ -109,7 +88,7 @@ function DemoItem({ demo }: { demo: DemoListItem }) {
         </Box>
       </AccordionSummary>
       <AccordionDetails>
-        {demo.type === 'cli' ? <CLIDemoPlayer name={demo.name} /> : <VideoDemoPlayer name={demo.name} />}
+        {demo.type === 'cli' ? <CLIDemoPlayerByUrl url={demo.url} /> : <VideoDemoPlayerByUrl url={demo.url} />}
       </AccordionDetails>
     </Accordion>
   )

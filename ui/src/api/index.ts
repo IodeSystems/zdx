@@ -1434,6 +1434,7 @@ export const undeferSpec = async (specId: number) => {
 export interface DemoListItem {
   type: 'cli' | 'video'
   name: string
+  url: string
 }
 
 export interface CLIDemoStep {
@@ -1453,6 +1454,8 @@ export interface CLIDemoData {
 
 // /api/dx/demos is served by a raw http.Mux handler (not huma-registered),
 // so it has no openapi entry. See IS-275 for follow-up to document these.
+// Each item carries an HMAC-signed asset URL the browser can hit without X-Api-Key
+// (needed because <video src> can't supply auth headers).
 export const useDemos = () =>
   useQuery<DemoListItem[]>({
     queryKey: ['demos'],
@@ -1460,13 +1463,6 @@ export const useDemos = () =>
       const res = await apiFetch<{ demos: DemoListItem[] }>('/api/dx/demos') // raw-ok
       return res.demos ?? []
     },
-  })
-
-export const useDemoContent = (type: string, name: string) =>
-  useQuery<CLIDemoData>({
-    queryKey: ['demo', type, name],
-    queryFn: () => apiFetch<CLIDemoData>(`/api/dx/demos/${encodeURIComponent(type)}/${encodeURIComponent(name)}`), // raw-ok
-    enabled: type === 'cli' && !!name,
   })
 
 // ── Claude sessions ──────────────────────────────────────────────────────────
