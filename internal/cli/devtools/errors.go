@@ -1,43 +1,13 @@
 package devtools
 
 import (
-	"encoding/json"
 	"fmt"
-	"net/url"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
-
-type errorReportItem struct {
-	ID         int64  `json:"id"`
-	Source     string `json:"source"`
-	Endpoint   string `json:"endpoint"`
-	ErrorName  string `json:"error_name"`
-	StackTrace string `json:"stack_trace"`
-	CreatedAt  string `json:"created_at"`
-}
-
-type slowQueryItem struct {
-	ID          int64  `json:"id"`
-	SqlHash     string `json:"sql_hash"`
-	SqlText     string `json:"sql_text"`
-	Endpoint    string `json:"endpoint"`
-	DurationMs  int32  `json:"duration_ms"`
-	ExplainJson string `json:"explain_json"`
-	CreatedAt   string `json:"created_at"`
-}
-
-type timedItem struct {
-	ID          int64           `json:"id"`
-	Name        string          `json:"name"`
-	DurationMs  int32           `json:"duration_ms"`
-	Source      string          `json:"source"`
-	ContextJson json.RawMessage `json:"context_json"`
-	CreatedAt   string          `json:"created_at"`
-}
 
 func ErrorsCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "errors", Short: "Error and slow query observability"}
@@ -51,17 +21,20 @@ func errorsListCmd() *cobra.Command {
 		Short: "List recent error reports for this project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Errors []errorReportItem `json:"errors"`
-			}
-			if err := c.Get("/api/dx/errors", cli.QuerySlug(c), &resp); err != nil {
+			resp, err := c.ListErrorsWithResponse(cmd.Context(), &dxclient.ListErrorsParams{
+				Slug: c.SlugOrDie(),
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Errors) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Errors == nil || len(*resp.JSON200.Errors) == 0 {
 				fmt.Println("no errors")
 				return nil
 			}
-			for _, e := range resp.Errors {
+			for _, e := range *resp.JSON200.Errors {
 				ts := e.CreatedAt
 				if len(ts) >= 10 {
 					ts = ts[:10]
@@ -80,17 +53,23 @@ func errorsReportCmd() *cobra.Command {
 		Short: "Report an error to this project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp errorReportItem
-			if err := c.Post("/api/dx/errors/report", dxclient.ReportErrorRequest{
+			resp, err := c.ReportErrorWithResponse(cmd.Context(), dxclient.ReportErrorRequest{
 				Slug:       c.SlugOrDie(),
 				Source:     source,
 				Endpoint:   endpoint,
 				ErrorName:  name,
 				StackTrace: stack,
-			}, &resp); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("reported error #%d\n", resp.ID)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("reported error #%d\n", resp.JSON200.Id)
 			return nil
 		},
 	}
@@ -110,17 +89,20 @@ func slowQueriesListCmd() *cobra.Command {
 		Short: "List recent slow queries for this project",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Queries []slowQueryItem `json:"queries"`
-			}
-			if err := c.Get("/api/dx/slow-queries", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
+			resp, err := c.ListSlowQueriesWithResponse(cmd.Context(), &dxclient.ListSlowQueriesParams{
+				Slug: c.SlugOrDie(),
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Queries) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Queries == nil || len(*resp.JSON200.Queries) == 0 {
 				fmt.Println("no slow queries")
 				return nil
 			}
-			for _, q := range resp.Queries {
+			for _, q := range *resp.JSON200.Queries {
 				ts := q.CreatedAt
 				if len(ts) >= 10 {
 					ts = ts[:10]
@@ -144,21 +126,22 @@ func timedListCmd() *cobra.Command {
 		Short: "List slowest-ever operations",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Items []timedItem `json:"items"`
-			}
-			params := url.Values{}
+			params := &dxclient.ListTimedParams{}
 			if slug := c.Slug(); slug != "" {
-				params.Set("slug", slug)
+				params.Slug = &slug
 			}
-			if err := c.Get("/api/dx/timed", params, &resp); err != nil {
+			resp, err := c.ListTimedWithResponse(cmd.Context(), params)
+			if err != nil {
 				return err
 			}
-			if len(resp.Items) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Items == nil || len(*resp.JSON200.Items) == 0 {
 				fmt.Println("no timed records")
 				return nil
 			}
-			for _, t := range resp.Items {
+			for _, t := range *resp.JSON200.Items {
 				ts := t.CreatedAt
 				if len(ts) >= 10 {
 					ts = ts[:10]

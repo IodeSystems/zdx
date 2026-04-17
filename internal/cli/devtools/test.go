@@ -742,10 +742,15 @@ func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta)
 		apiResults = append(apiResults, item)
 	}
 
-	if err := c.Post("/api/dx/test-results/submit", dxclient.SubmitTestResultsRequest{
+	resp, err := c.SubmitTestResultsWithResponse(context.Background(), dxclient.SubmitTestResultsRequest{
 		Slug:    slug,
 		Results: &apiResults,
-	}, nil); err != nil {
+	})
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "[sync] submit failed: %v\n", err)
+		return
+	}
+	if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 		fmt.Fprintf(os.Stderr, "[sync] submit failed: %v\n", err)
 		return
 	}

@@ -9,16 +9,6 @@ import (
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
-type constraintItem struct {
-	ID          int32  `json:"id"`
-	Title       string `json:"title"`
-	Description string `json:"description"`
-	Priority    int32  `json:"priority"`
-	Status      string `json:"status"`
-	CreatedAt   string `json:"created_at"`
-	UpdatedAt   string `json:"updated_at"`
-}
-
 func ConstraintCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "constraint", Short: "Project constraint management"}
 	cmd.AddCommand(
@@ -34,18 +24,21 @@ func constraintListCmd() *cobra.Command {
 		Short: "List project constraints",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Constraints []constraintItem `json:"constraints"`
-			}
-			if err := c.Get("/api/constraints", cli.QuerySlug(c), &resp); err != nil {
+			resp, err := c.ListConstraintsWithResponse(cmd.Context(), &dxclient.ListConstraintsParams{
+				Slug: c.SlugOrDie(),
+			})
+			if err != nil {
 				return err
 			}
-			if len(resp.Constraints) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Constraints == nil || len(*resp.JSON200.Constraints) == 0 {
 				fmt.Println("no constraints")
 				return nil
 			}
-			for _, g := range resp.Constraints {
-				fmt.Printf("%-4d [P%d] %-8s  %s\n", g.ID, g.Priority, g.Status, g.Title)
+			for _, g := range *resp.JSON200.Constraints {
+				fmt.Printf("%-4d [P%d] %-8s  %s\n", g.Id, g.Priority, g.Status, g.Title)
 			}
 			return nil
 		},
@@ -62,17 +55,23 @@ func constraintAddCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var g constraintItem
-			if err := c.Post("/api/constraint", dxclient.CreateConstraintRequest{
+			resp, err := c.CreateConstraintWithResponse(cmd.Context(), dxclient.CreateConstraintRequest{
 				Slug:        c.SlugOrDie(),
 				Title:       args[0],
 				Description: desc,
 				Priority:    priority,
 				Status:      status,
-			}, &g); err != nil {
+			})
+			if err != nil {
 				return err
 			}
-			fmt.Printf("%d  %s\n", g.ID, g.Title)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("%d  %s\n", resp.JSON200.Id, resp.JSON200.Title)
 			return nil
 		},
 	}

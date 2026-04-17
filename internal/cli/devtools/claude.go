@@ -3,10 +3,8 @@ package devtools
 import (
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
-	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -21,21 +19,6 @@ func ClaudeCmd() *cobra.Command {
 	return cmd
 }
 
-type claudeSession struct {
-	ID        int64  `json:"id"`
-	SessionID string `json:"session_id"`
-	Title     string `json:"title"`
-	Header    string `json:"header"`
-	Summary   string `json:"summary"`
-	Status    string `json:"status"`
-}
-
-type claudeEvent struct {
-	Seq       int32           `json:"seq"`
-	EventType string          `json:"event_type"`
-	EventJSON json.RawMessage `json:"event_json"`
-}
-
 func claudeSummarizeCmd() *cobra.Command {
 	var sessionID int64
 	var all bool
@@ -47,23 +30,30 @@ func claudeSummarizeCmd() *cobra.Command {
 			slug := c.SlugOrDie()
 
 			if sessionID > 0 {
-				return summarizeSession(c, slug, sessionID)
+				return summarizeSession(cmd, c, slug, sessionID)
 			}
 
-			var resp struct {
-				Sessions []claudeSession `json:"sessions"`
-			}
-			params := url.Values{"slug": {slug}, "limit": {"100"}}
-			if err := c.Get("/api/dx/claude/sessions", params, &resp); err != nil {
+			limit := int32(100)
+			resp, err := c.ListClaudeSessionsWithResponse(cmd.Context(), &dxclient.ListClaudeSessionsParams{
+				Slug:  slug,
+				Limit: &limit,
+			})
+			if err != nil {
 				return err
 			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Sessions == nil {
+				return nil
+			}
 
-			for _, s := range resp.Sessions {
+			for _, s := range *resp.JSON200.Sessions {
 				if !all && s.Summary != "" {
 					continue
 				}
-				fmt.Fprintf(os.Stderr, "summarizing session %d (%s)...\n", s.ID, s.Title)
-				if err := summarizeSession(c, slug, s.ID); err != nil {
+				fmt.Fprintf(os.Stderr, "summarizing session %d (%s)...\n", s.Id, s.Title)
+				if err := summarizeSession(cmd, c, slug, s.Id); err != nil {
 					fmt.Fprintf(os.Stderr, "  error: %v\n", err)
 				}
 			}
@@ -75,20 +65,26 @@ func claudeSummarizeCmd() *cobra.Command {
 	return cmd
 }
 
-func summarizeSession(c *cli.Client, slug string, sessionID int64) error {
-	params := url.Values{"slug": {slug}, "limit": {"500"}}
-	var resp struct {
-		Events []claudeEvent `json:"events"`
-		Total  int64         `json:"total"`
-	}
-	if err := c.Get("/api/dx/claude/sessions/"+strconv.FormatInt(sessionID, 10)+"/events", params, &resp); err != nil {
+func summarizeSession(cmd *cobra.Command, c *cli.Client, slug string, sessionID int64) error {
+	limit := int32(500)
+	resp, err := c.GetClaudeSessionEventsWithResponse(cmd.Context(), sessionID, &dxclient.GetClaudeSessionEventsParams{
+		Slug:  slug,
+		Limit: &limit,
+	})
+	if err != nil {
 		return fmt.Errorf("fetch events: %w", err)
+	}
+	if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+		return fmt.Errorf("fetch events: %w", err)
+	}
+	if resp.JSON200 == nil || resp.JSON200.Events == nil {
+		return fmt.Errorf("no events")
 	}
 
 	var transcript strings.Builder
-	for _, ev := range resp.Events {
-		var parsed map[string]any
-		if json.Unmarshal(ev.EventJSON, &parsed) != nil {
+	for _, ev := range *resp.JSON200.Events {
+		parsed, ok := ev.EventJson.(map[string]any)
+		if !ok {
 			continue
 		}
 		msg, _ := parsed["message"].(map[string]any)
@@ -151,11 +147,12 @@ Transcript:
 		summary.Status = "ok"
 	}
 
-	patchURL := fmt.Sprintf("/api/dx/claude/sessions/%d/summary?slug=%s", sessionID, url.QueryEscape(slug))
-	var patchResp struct {
-		OK bool `json:"ok"`
+	patchResp, err := c.UpdateClaudeSessionSummaryWithResponse(cmd.Context(), sessionID,
+		&dxclient.UpdateClaudeSessionSummaryParams{Slug: slug}, summary)
+	if err != nil {
+		return fmt.Errorf("patch summary: %w", err)
 	}
-	if err := c.Patch(patchURL, summary, &patchResp); err != nil {
+	if err := c.CheckStatus(patchResp.StatusCode(), patchResp.Body); err != nil {
 		return fmt.Errorf("patch summary: %w", err)
 	}
 
