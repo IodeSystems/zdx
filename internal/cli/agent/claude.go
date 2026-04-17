@@ -29,6 +29,8 @@ func agentClaudeCmd() *cobra.Command {
 	var alias string
 	var issue string
 	var chrome bool
+	var model string
+	var level string
 	cmd := &cobra.Command{
 		Use:   "claude",
 		Short: "Run Claude agent sessions with zdx integration",
@@ -40,21 +42,27 @@ func agentClaudeCmd() *cobra.Command {
 				slug: cfg.RemoteSlug(),
 				key:  config.RemoteAPIKey(),
 			}
+			agentCfg := cfg.ResolvedAgent()
+
+			sel := modelSelector{modelFlag: model, levelFlag: level, agentCfg: agentCfg}
 
 			if loop {
-				return runLoop(rc, alias, chrome)
+				return runLoop(rc, alias, chrome, sel)
 			}
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 			installReleaseOnSignal(rc, alias, "", nil, cancel)
 			sid := uuid.New().String()
-			return runSession(ctx, rc, sid, issue, alias, chrome, "", false)
+			resolved := sel.resolve(rc, 0)
+			return runSession(ctx, rc, sid, issue, alias, chrome, "", false, resolved)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
 	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI")
+	cmd.Flags().StringVar(&model, "model", "", "claude model name (passes through as --model to claude CLI; wins over --level)")
+	cmd.Flags().StringVar(&level, "level", "", "task complexity tier: low|med|high (resolved against admin /llm-config; falls back to sensible defaults)")
 	return cmd
 }
 
@@ -203,7 +211,7 @@ func claudeProjectDir() string {
 }
 
 // runLoop implements the --loop behavior: claim work, run sessions, repeat.
-func runLoop(rc remoteConfig, alias string, chrome bool) error {
+func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) error {
 	stateFile := ".zdx/cache/claude-work-state"
 	logFile := ".zdx/logs/claude-work.log"
 	os.MkdirAll(".zdx/logs", 0o755)
@@ -236,6 +244,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 		agentID = "agent-" + shortID()
 	}
 
+	sessionIdx := 0
 	for {
 		if ctx.Err() != nil {
 			return nil
@@ -340,7 +349,12 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 			}(activeTodo.ID, int32(agentCfg.LeaseMinutes))
 		}
 
-		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed)
+		resolvedModel := sel.resolve(rc, sessionIdx)
+		sessionIdx++
+		if resolvedModel != "" {
+			log("model: %s", resolvedModel)
+		}
+		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed, resolvedModel)
 
 		// Stop lease renewal.
 		if leaseCancel != nil {
@@ -380,7 +394,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool) error {
 // through the provider-agnostic RunLifecycle runner. Event tailing, WS
 // streaming, and close are all owned by the shared runner — this wrapper
 // only constructs a claudeAdapter and prints the post-session token summary.
-func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool) error {
+func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string) error {
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
@@ -390,6 +404,7 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 		prevSID: prevSID,
 		resumed: resumed,
 		alias:   alias,
+		model:   model,
 		exited:  make(chan struct{}),
 	}
 
@@ -415,6 +430,7 @@ type claudeAdapter struct {
 	prevSID string
 	resumed bool
 	alias   string
+	model   string
 
 	proc       *exec.Cmd
 	exited     chan struct{}
@@ -436,6 +452,9 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 	cmdArgs = append(cmdArgs, "--dangerously-skip-permissions")
 	if a.chrome {
 		cmdArgs = append(cmdArgs, "--chrome")
+	}
+	if a.model != "" {
+		cmdArgs = append(cmdArgs, "--model", a.model)
 	}
 	if a.resumed && a.prevSID != "" {
 		cmdArgs = append(cmdArgs, "--resume", a.prevSID, "--fork-session", "--session-id", sid, "-p", "/work")
