@@ -98,6 +98,15 @@ JOIN zdx_tests t ON t.id = td.test_id
 WHERE st.spec_id = $1
 ORDER BY td.demo_type, t.name;
 
+-- name: ListDemos :many
+-- All demo artifacts in the project, joined to their owning test.
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+       t.component AS test_component, t.name AS test_name
+FROM zdx_test_demos td
+JOIN zdx_tests t ON t.id = td.test_id
+WHERE t.project_id = $1
+ORDER BY td.demo_type, t.component, t.name;
+
 -- name: ListSpecsWithoutDemos :many
 -- Specs linked to tests but where none of those tests have demo artifacts.
 -- Non-deferred specs only.

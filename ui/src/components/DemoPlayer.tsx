@@ -79,12 +79,15 @@ function VideoDemoPlayerByUrl({ url }: { url: string }) {
 }
 
 function DemoItem({ demo }: { demo: DemoListItem }) {
+  const label = demo.test_component && demo.test_name
+    ? `${demo.test_component}/${demo.test_name}`
+    : demo.name
   return (
     <Accordion disableGutters variant="outlined" sx={{ '&:before': { display: 'none' } }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
         <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <Chip label={demo.type} size="small" variant="outlined" color={demo.type === 'cli' ? 'info' : 'secondary'} />
-          <Typography variant="body2">{demo.name}</Typography>
+          <Typography variant="body2">{label}</Typography>
         </Box>
       </AccordionSummary>
       <AccordionDetails>
@@ -94,28 +97,38 @@ function DemoItem({ demo }: { demo: DemoListItem }) {
   )
 }
 
-export function DemosSection() {
-  const { data: demos, isLoading } = useDemos()
-  const [expanded, setExpanded] = useState(true)
+export function DemosSection({ slug }: { slug: string }) {
+  const { data: demos, isLoading } = useDemos(slug)
+  const list = demos ?? []
 
-  if (isLoading) return null
-  if (!demos || demos.length === 0) return null
+  if (isLoading) {
+    return <Typography variant="body2" color="text.secondary">Loading...</Typography>
+  }
+  if (list.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        No demos recorded yet. Run <code>dx test --layer demo</code> to record one; uploaded demos appear here automatically.
+      </Typography>
+    )
+  }
+
+  const byType = list.reduce<Record<string, DemoListItem[]>>((acc, d) => {
+    (acc[d.type] ??= []).push(d)
+    return acc
+  }, {})
 
   return (
-    <Box sx={{ mb: 2, mt: 2 }}>
-      <Typography
-        variant="subtitle2"
-        color="text.secondary"
-        sx={{ mb: 1, cursor: 'pointer' }}
-        onClick={() => setExpanded(!expanded)}
-      >
-        Demos ({demos.length}) {expanded ? '▾' : '▸'}
-      </Typography>
-      {expanded && (
-        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {demos.map((d) => <DemoItem key={`${d.type}-${d.name}`} demo={d} />)}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
+      {Object.entries(byType).map(([type, items]) => (
+        <Box key={type}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, textTransform: 'capitalize' }}>
+            {type} ({items.length})
+          </Typography>
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {items.map((d) => <DemoItem key={d.id} demo={d} />)}
+          </Box>
         </Box>
-      )}
+      ))}
     </Box>
   )
 }

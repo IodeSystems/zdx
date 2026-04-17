@@ -211,7 +211,7 @@ export function FeatureDetail({
         </Box>
       )}
 
-      <DemosSection />
+      <DemosSection slug={slug} />
 
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, mt: 2 }}>
         Tasks ({tasks.length})

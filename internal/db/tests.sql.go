@@ -158,6 +158,54 @@ func (q *Queries) LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) erro
 	return err
 }
 
+const listDemos = `-- name: ListDemos :many
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+       t.component AS test_component, t.name AS test_name
+FROM zdx_test_demos td
+JOIN zdx_tests t ON t.id = td.test_id
+WHERE t.project_id = $1
+ORDER BY td.demo_type, t.component, t.name
+`
+
+type ListDemosRow struct {
+	ID            int32       `db:"id" json:"id"`
+	TestID        int32       `db:"test_id" json:"test_id"`
+	DemoType      string      `db:"demo_type" json:"demo_type"`
+	ArtifactPath  string      `db:"artifact_path" json:"artifact_path"`
+	FileID        pgtype.Int4 `db:"file_id" json:"file_id"`
+	TestComponent string      `db:"test_component" json:"test_component"`
+	TestName      string      `db:"test_name" json:"test_name"`
+}
+
+// All demo artifacts in the project, joined to their owning test.
+func (q *Queries) ListDemos(ctx context.Context, projectID int32) ([]ListDemosRow, error) {
+	rows, err := q.db.Query(ctx, listDemos, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDemosRow
+	for rows.Next() {
+		var i ListDemosRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.TestID,
+			&i.DemoType,
+			&i.ArtifactPath,
+			&i.FileID,
+			&i.TestComponent,
+			&i.TestName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDemosForSpec = `-- name: ListDemosForSpec :many
 SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
        t.component AS test_component, t.name AS test_name

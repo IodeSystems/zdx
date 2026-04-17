@@ -3,10 +3,11 @@ import { Box, Typography } from '@mui/material'
 import { DemosSection } from '../../../components/DemoPlayer'
 
 function DemosRoute() {
+  const { slug } = Route.useParams()
   return (
     <Box>
       <Typography variant="h5" sx={{ mb: 2 }}>Demos</Typography>
-      <DemosSection />
+      <DemosSection slug={slug} />
     </Box>
   )
 }

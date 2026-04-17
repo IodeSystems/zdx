@@ -231,6 +231,8 @@ type Querier interface {
 	ListCountedPaginated(ctx context.Context, arg ListCountedPaginatedParams) ([]ListCountedPaginatedRow, error)
 	ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error)
 	ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error)
+	// All demo artifacts in the project, joined to their owning test.
+	ListDemos(ctx context.Context, projectID int32) ([]ListDemosRow, error)
 	// All demo artifacts attached to tests linked to the given spec.
 	ListDemosForSpec(ctx context.Context, specID int32) ([]ListDemosForSpecRow, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)

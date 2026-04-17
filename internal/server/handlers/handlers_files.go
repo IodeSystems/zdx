@@ -127,33 +127,51 @@ func (h *Handler) demosDir() string {
 }
 
 type DemoListItem struct {
-	Type string `json:"type"`
-	Name string `json:"name"`
-	URL  string `json:"url"`
+	ID            int32  `json:"id"`
+	Type          string `json:"type"`
+	Name          string `json:"name"`
+	TestComponent string `json:"test_component"`
+	TestName      string `json:"test_name"`
+	URL           string `json:"url"`
 }
 
+// handleListDemos returns all demos attached to tests in the given project.
+// Prefers /api/files/{id} (file_id set by handleDemoUpload) and falls back to
+// the path-based /api/dx/demos/{type}/{name} route for legacy rows whose
+// artifacts were never uploaded.
 func (h *Handler) handleListDemos(w http.ResponseWriter, r *http.Request) {
-	base := h.demosDir()
-	var items []DemoListItem
-
-	for _, subdir := range []string{"cli", "video"} {
-		dir := filepath.Join(base, subdir)
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
+	slug := r.URL.Query().Get("slug")
+	if slug == "" {
+		http.Error(w, `{"title":"Bad Request","status":400,"detail":"slug query param required"}`, http.StatusBadRequest)
+		return
+	}
+	p, err := h.Q.GetProjectBySlug(r.Context(), slug)
+	if err != nil {
+		http.Error(w, `{"title":"Not Found","status":404,"detail":"project not found"}`, http.StatusNotFound)
+		return
+	}
+	rows, err := h.Q.ListDemos(r.Context(), p.ID)
+	if err != nil {
+		http.Error(w, `{"title":"Internal Server Error","status":500}`, http.StatusInternalServerError)
+		return
+	}
+	items := make([]DemoListItem, 0, len(rows))
+	for _, row := range rows {
+		name := strings.TrimSuffix(filepath.Base(row.ArtifactPath), filepath.Ext(row.ArtifactPath))
+		var assetPath string
+		if row.FileID.Valid {
+			assetPath = fmt.Sprintf("/api/files/%d", row.FileID.Int32)
+		} else {
+			assetPath = fmt.Sprintf("/api/dx/demos/%s/%s", row.DemoType, name)
 		}
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
-			}
-			name := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-			path := fmt.Sprintf("/api/dx/demos/%s/%s", subdir, name)
-			items = append(items, DemoListItem{
-				Type: subdir,
-				Name: name,
-				URL:  SignAssetURL(h.WSSecret, path, time.Hour),
-			})
-		}
+		items = append(items, DemoListItem{
+			ID:            row.ID,
+			Type:          row.DemoType,
+			Name:          name,
+			TestComponent: row.TestComponent,
+			TestName:      row.TestName,
+			URL:           SignAssetURL(h.WSSecret, assetPath, time.Hour),
+		})
 	}
 
 	w.Header().Set("Content-Type", "application/json")

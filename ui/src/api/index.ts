@@ -1456,8 +1456,11 @@ export const undeferSpec = async (specId: number) => {
 // ── Demos ────────────────────────────────────────────────────────────────
 
 export interface DemoListItem {
+  id: number
   type: 'cli' | 'video'
   name: string
+  test_component: string
+  test_name: string
   url: string
 }
 
@@ -1480,11 +1483,12 @@ export interface CLIDemoData {
 // so it has no openapi entry. See IS-275 for follow-up to document these.
 // Each item carries an HMAC-signed asset URL the browser can hit without X-Api-Key
 // (needed because <video src> can't supply auth headers).
-export const useDemos = () =>
+export const useDemos = (slug: string) =>
   useQuery<DemoListItem[]>({
-    queryKey: ['demos'],
+    queryKey: ['demos', slug],
+    enabled: !!slug,
     queryFn: async () => {
-      const res = await apiFetch<{ demos: DemoListItem[] }>('/api/dx/demos') // raw-ok
+      const res = await apiFetch<{ demos: DemoListItem[] }>(`/api/dx/demos?slug=${encodeURIComponent(slug)}`) // raw-ok
       return res.demos ?? []
     },
   })
