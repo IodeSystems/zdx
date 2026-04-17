@@ -51,6 +51,7 @@ type Querier interface {
 	CountCommentsByAuthor(ctx context.Context, arg CountCommentsByAuthorParams) (int64, error)
 	CountCounted(ctx context.Context, arg CountCountedParams) (int64, error)
 	CountCounterEvents(ctx context.Context, arg CountCounterEventsParams) (int64, error)
+	CountDeploys(ctx context.Context, environmentID int32) (int64, error)
 	CountErrorEvents(ctx context.Context, arg CountErrorEventsParams) (int64, error)
 	CountErrorReports(ctx context.Context, projectID pgtype.Int4) (int64, error)
 	CountIssueResolutions(ctx context.Context, issueID string) (int64, error)
@@ -83,6 +84,8 @@ type Querier interface {
 	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
+	CreateDeploy(ctx context.Context, arg CreateDeployParams) (ZdxDeploy, error)
+	CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) (ZdxEnvironment, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateFocus(ctx context.Context, arg CreateFocusParams) (ZdxFocuse, error)
 	CreateIntegrationToken(ctx context.Context, arg CreateIntegrationTokenParams) (CreateIntegrationTokenRow, error)
@@ -109,6 +112,7 @@ type Querier interface {
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
 	DeleteCounterEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteDraftTask(ctx context.Context, id string) (int64, error)
+	DeleteEnvironment(ctx context.Context, arg DeleteEnvironmentParams) error
 	DeleteErrorEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteErrorReports(ctx context.Context, projectID pgtype.Int4) error
 	DeleteFeature(ctx context.Context, id int32) error
@@ -151,6 +155,7 @@ type Querier interface {
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
 	GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, error)
+	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (ZdxEnvironment, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
 	GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (GetFeatureRow, error)
@@ -252,7 +257,9 @@ type Querier interface {
 	ListDemos(ctx context.Context, projectID int32) ([]ListDemosRow, error)
 	// All demo artifacts attached to tests linked to the given spec.
 	ListDemosForSpec(ctx context.Context, specID int32) ([]ListDemosForSpecRow, error)
+	ListDeploys(ctx context.Context, arg ListDeploysParams) ([]ZdxDeploy, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
+	ListEnvironments(ctx context.Context, projectID int32) ([]ZdxEnvironment, error)
 	ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error)
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
@@ -424,6 +431,8 @@ type Querier interface {
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
 	UpdateAgentHeartbeat(ctx context.Context, id string) error
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
+	UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error
+	UpdateEnvironmentDeploy(ctx context.Context, arg UpdateEnvironmentDeployParams) error
 	UpdateFeatureField(ctx context.Context, arg UpdateFeatureFieldParams) error
 	UpdateFeatureGoal(ctx context.Context, arg UpdateFeatureGoalParams) error
 	UpdateFeatureParent(ctx context.Context, arg UpdateFeatureParentParams) error
