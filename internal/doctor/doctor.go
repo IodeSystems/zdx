@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"strings"
 
 	"github.com/iodesystems/zdx-go/internal/config"
 )
@@ -13,7 +14,7 @@ type Finding struct {
 	Check    Check
 	Rung     string
 	Status   FindingStatus
-	Message  string // human-readable detail
+	Message  string       // human-readable detail
 	FixFunc  func() error // non-nil for auto-fixable findings
 	Proposal string       // non-empty for proposable findings
 }
@@ -21,7 +22,7 @@ type Finding struct {
 type FindingStatus int
 
 const (
-	StatusPass     FindingStatus = iota
+	StatusPass FindingStatus = iota
 	StatusFail
 	StatusDeferred
 )
@@ -66,15 +67,20 @@ type ProjectState struct {
 	OverspeccedCount   int
 
 	// Environment detection
-	ClaudeInstalled  bool
-	DockerAvailable  bool
-	AgentConfigSet   bool
+	ClaudeInstalled bool
+	DockerAvailable bool
+	AgentConfigSet  bool
 
 	// Files
-	HasReadme    bool
-	HasLicense   bool
-	HasChangelog bool
+	HasReadme     bool
+	HasLicense    bool
+	HasChangelog  bool
 	HasBuildSteps bool
+
+	// Code quality
+	RawAPICallsGo    int // raw URL callsites in Go CLI
+	RawAPICallsUI    int // raw fetch/post callsites in UI
+	RawAPICallsFiles int // total files with raw callsites
 
 	// Deferred checks (from server)
 	Deferred map[string]bool
@@ -115,11 +121,33 @@ func DetectLocal(state *ProjectState) {
 	state.HasReadme = fileExists("README.md")
 	state.HasLicense = fileExists("LICENSE") || fileExists("LICENSE.md") || fileExists("LICENSE.txt")
 	state.HasChangelog = fileExists("CHANGELOG.md") || fileExists("CHANGELOG")
+
+	// Raw API callsites
+	state.RawAPICallsGo = countRawCallsites("internal/cli/", `c\.Get("/api/\|c\.Post("/api/\|c\.Delete("/api/`, "*.go")
+	state.RawAPICallsUI = countRawCallsites("ui/src/", `apiFetch\|apiPost`, "*.ts") +
+		countRawCallsites("ui/src/", `apiFetch\|apiPost`, "*.tsx")
 }
 
 func fileExists(path string) bool {
 	_, err := os.Stat(path)
 	return err == nil
+}
+
+func countRawCallsites(dir, pattern, glob string) int {
+	cmd := exec.Command("grep", "-rn", pattern, dir, "--include="+glob)
+	out, err := cmd.CombinedOutput()
+	if err != nil {
+		return 0
+	}
+	count := 0
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.TrimSpace(line) != "" &&
+			!strings.Contains(line, "api.gen.ts") &&
+			!strings.Contains(line, "node_modules") {
+			count++
+		}
+	}
+	return count
 }
 
 // Evaluate runs all checks for the project's classification and returns findings.
@@ -309,6 +337,13 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "", nil, ""
 		}
 		return false, "no build steps in config", nil, ""
+
+	case "no_raw_api_calls":
+		total := state.RawAPICallsGo + state.RawAPICallsUI
+		if total == 0 {
+			return true, "all API calls use typed clients", nil, ""
+		}
+		return false, fmt.Sprintf("%d raw API callsites (%d Go CLI, %d UI) — migrate to typed clients", total, state.RawAPICallsGo, state.RawAPICallsUI), nil, ""
 
 	case "has_deploy_config", "has_healthcheck", "has_auth", "has_tenant_isolation":
 		// Placeholder — these require deeper inspection

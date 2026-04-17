@@ -47,9 +47,9 @@ type Rung struct {
 type CheckAction int
 
 const (
-	ActionAutoFix  CheckAction = iota // Doctor can fix this silently
-	ActionPropose                     // Doctor explains the gap and proposes a fix
-	ActionInfo                        // Informational — no action, just status
+	ActionAutoFix CheckAction = iota // Doctor can fix this silently
+	ActionPropose                    // Doctor explains the gap and proposes a fix
+	ActionInfo                       // Informational — no action, just status
 )
 
 // Check is a single health check on a maturity rung.
@@ -118,6 +118,7 @@ func commonVine() []Rung {
 				{"specs_have_tests", "Non-deferred specs have test coverage", ActionInfo},
 				{"goals_quantified", "All goals have metric_name set", ActionPropose},
 				{"no_overspecced_features", "No features with >8 specs (decomposition signal)", ActionPropose},
+				{"no_raw_api_calls", "CLI and UI use typed API clients (no raw URL callsites)", ActionInfo},
 			},
 		},
 		{

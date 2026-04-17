@@ -94,8 +94,8 @@ func focusStatusCmd() *cobra.Command {
 			}
 			// Reuse the old request type — JSON wire format is compatible.
 			if err := c.Post("/api/dx/focuses/status", dxclient.SetFocusStatusRequest{
-				Slug:  c.SlugOrDie(),
-				Focus: args[0],
+				Slug:   c.SlugOrDie(),
+				Focus:  args[0],
 				Status: args[1],
 			}, &ok); err != nil {
 				return err

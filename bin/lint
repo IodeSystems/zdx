@@ -59,6 +59,41 @@ run "sqlc-drift" bash -c '
 
 run "openapi-drift" go run ./cmd/dx-client-gen -check
 
+# ── Advisory checks (reported but don't fail the build) ──────────────────────
+
+run "raw-api-calls" bash -c '
+  TOTAL=0
+  echo "── Go CLI (should use dxclient.APIClient) ──"
+  GO_COUNT=$(grep -rn "c\.Get(\"/api/\|c\.Post(\"/api/\|c\.Delete(\"/api/" internal/cli/ --include="*.go" 2>/dev/null | wc -l)
+  GO_FILES=$(grep -rln "c\.Get(\"/api/\|c\.Post(\"/api/\|c\.Delete(\"/api/" internal/cli/ --include="*.go" 2>/dev/null | wc -l)
+  if [ "$GO_COUNT" -gt 0 ]; then
+    echo "  $GO_COUNT callsites in $GO_FILES files"
+    grep -rln "c\.Get(\"/api/\|c\.Post(\"/api/\|c\.Delete(\"/api/" internal/cli/ --include="*.go" 2>/dev/null | sed "s/^/    /"
+    TOTAL=$((TOTAL + GO_COUNT))
+  else
+    echo "  clean"
+  fi
+  echo ""
+  echo "── UI (should use openapi-fetch typed client) ──"
+  # Detect raw apiFetch/apiPost calls that bypass the generated client
+  UI_COUNT=$(grep -rn "apiFetch\|apiPost" ui/src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "api.gen.ts\|node_modules\|// raw-ok" | wc -l)
+  UI_FILES=$(grep -rln "apiFetch\|apiPost" ui/src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "api.gen.ts\|node_modules" | wc -l)
+  if [ "$UI_COUNT" -gt 0 ]; then
+    echo "  $UI_COUNT callsites in $UI_FILES files"
+    grep -rln "apiFetch\|apiPost" ui/src/ --include="*.ts" --include="*.tsx" 2>/dev/null | grep -v "api.gen.ts\|node_modules" | sed "s/^/    /"
+    TOTAL=$((TOTAL + UI_COUNT))
+  else
+    echo "  clean"
+  fi
+  echo ""
+  echo "total raw API callsites: $TOTAL"
+  if [ "$TOTAL" -gt 0 ]; then
+    exit 1
+  fi
+'
+
+ADVISORY_LABELS=("raw-api-calls")
+
 # ── Wait and report ──────────────────────────────────────────────────────────
 
 for i in "${!PIDS[@]}"; do
@@ -66,11 +101,21 @@ for i in "${!PIDS[@]}"; do
   wait "${PIDS[$i]}"
   RC=$?
   set -e
+  ADVISORY=false
+  for a in "${ADVISORY_LABELS[@]}"; do
+    if [ "${LABELS[$i]}" = "$a" ]; then ADVISORY=true; break; fi
+  done
   if [ $RC -ne 0 ]; then
-    echo ""
-    echo "FAIL: ${LABELS[$i]}"
-    cat "$LOGS_DIR/${LABELS[$i]}.out"
-    FAIL=1
+    if $ADVISORY; then
+      echo ""
+      echo "WARN: ${LABELS[$i]} (advisory, not blocking)"
+      cat "$LOGS_DIR/${LABELS[$i]}.out"
+    else
+      echo ""
+      echo "FAIL: ${LABELS[$i]}"
+      cat "$LOGS_DIR/${LABELS[$i]}.out"
+      FAIL=1
+    fi
   else
     echo "OK:   ${LABELS[$i]}"
   fi
