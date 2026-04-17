@@ -189,12 +189,12 @@ type ZdxErrorEvent struct {
 
 type ZdxErrorReport struct {
 	ID         int64              `db:"id" json:"id"`
+	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
 	Source     string             `db:"source" json:"source"`
 	Endpoint   string             `db:"endpoint" json:"endpoint"`
 	ErrorName  string             `db:"error_name" json:"error_name"`
 	StackTrace string             `db:"stack_trace" json:"stack_trace"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
 }
 
 type ZdxFeature struct {
@@ -555,13 +555,13 @@ type ZdxSession struct {
 
 type ZdxSlowQuery struct {
 	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
 	SqlHash     string             `db:"sql_hash" json:"sql_hash"`
 	SqlText     string             `db:"sql_text" json:"sql_text"`
 	Endpoint    string             `db:"endpoint" json:"endpoint"`
 	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
 	ExplainJson string             `db:"explain_json" json:"explain_json"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
 }
 
 type ZdxSpec struct {
