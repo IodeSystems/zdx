@@ -22,6 +22,7 @@ ui/src/api.gen.ts.sha256
 internal/dxclient/openapi.json.sha256
 .idea
 test/e2e/.zdx/
+test/e2e/uploads/
 .vite/
 .zdx/cache/
 .zdx/demo/

@@ -691,6 +691,11 @@ func writeE2EResults(results []TestResult) {
 }
 
 // syncTestResults submits test results (with demo artifacts) to the server.
+// For each test whose output references a recorded demo file, a second pass
+// uploads the file contents via POST /api/dx/demos/upload so the server can
+// serve it from UploadsDir — the reference-only submit path works in dev (where
+// the recorder and server share a filesystem) but 404s in production because
+// deploy packages don't carry .zdx/demo/.
 func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta) {
 	c, err := cli.DefaultClient()
 	if err != nil {
@@ -703,6 +708,14 @@ func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta)
 	if len(results) == 0 {
 		return
 	}
+
+	type demoUpload struct {
+		component    string
+		testName     string
+		demoType     string
+		artifactPath string
+	}
+	var uploads []demoUpload
 
 	apiResults := make([]dxclient.TestResultInput, 0, len(results))
 	for _, r := range results {
@@ -734,6 +747,12 @@ func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta)
 					DemoType:     m.DemoType,
 					ArtifactPath: m.ArtifactPath,
 				})
+				uploads = append(uploads, demoUpload{
+					component:    comp,
+					testName:     r.Test,
+					demoType:     m.DemoType,
+					artifactPath: m.ArtifactPath,
+				})
 			}
 		}
 		if len(demos) > 0 {
@@ -755,6 +774,46 @@ func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta)
 		return
 	}
 	fmt.Fprintf(os.Stderr, "[sync] %d test result(s) submitted\n", len(apiResults))
+
+	uploaded := 0
+	for _, u := range uploads {
+		if err := uploadDemoArtifact(c, slug, u.component, u.testName, u.demoType, u.artifactPath); err != nil {
+			fmt.Fprintf(os.Stderr, "[sync] demo upload (%s) failed: %v\n", filepath.Base(u.artifactPath), err)
+			continue
+		}
+		uploaded++
+	}
+	if uploaded > 0 {
+		fmt.Fprintf(os.Stderr, "[sync] %d demo artifact(s) uploaded\n", uploaded)
+	}
+}
+
+// uploadDemoArtifact reads a demo file from disk and uploads it to the server,
+// keyed on (test_component, test_name, artifact_path) so that UpsertTestDemo's
+// ON CONFLICT clause updates the file_id of the row that SubmitTestResults
+// just created (rather than inserting a duplicate).
+func uploadDemoArtifact(c *cli.Client, slug, component, testName, demoType, artifactPath string) error {
+	data, err := os.ReadFile(artifactPath)
+	if err != nil {
+		return err
+	}
+	contentType := "application/octet-stream"
+	switch strings.ToLower(filepath.Ext(artifactPath)) {
+	case ".json":
+		contentType = "application/json"
+	case ".webm":
+		contentType = "video/webm"
+	case ".mp4":
+		contentType = "video/mp4"
+	}
+	fields := map[string]string{
+		"slug":           slug,
+		"test_component": component,
+		"test_name":      testName,
+		"demo_type":      demoType,
+		"artifact_path":  artifactPath,
+	}
+	return c.PostMultipart("/api/dx/demos/upload", "file", filepath.Base(artifactPath), contentType, data, fields, nil)
 }
 
 func shellQuote(s string) string {

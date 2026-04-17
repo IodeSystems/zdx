@@ -208,8 +208,23 @@ func (h *Handler) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 	http.ServeFile(w, r, absPath)
 }
 
-// handleDemoUpload accepts multipart/form-data with fields: file, slug, test_name, demo_type.
-// Stores the file via zdx_files and links it to the test via zdx_test_demos.
+// handleDemoUpload accepts multipart/form-data with fields:
+//   - file (required): the demo artifact (cli json / video webm|mp4)
+//   - slug (required)
+//   - test_name (required)
+//   - demo_type (required): "cli" or "video"
+//   - test_component (optional, default "e2e"): component used when looking up
+//     the test row. Recorder tests prefixed "TestDemo" register under component
+//     "demo" (see internal/cli/devtools/test.go), so uploaders from that path
+//     must pass test_component=demo.
+//   - artifact_path (optional): stable key for the UpsertTestDemo ON CONFLICT
+//     clause. When the CLI sync flow has already created a path-only row via
+//     SubmitTestResults, passing the same artifact_path here updates that row's
+//     file_id instead of inserting a duplicate. Defaults to the randomly
+//     generated upload path, preserving pre-existing direct-upload callers.
+//
+// Stores the file under UploadsDir, creates a zdx_files row, and upserts the
+// zdx_test_demos link so /api/dx/specs/demos can return a /api/files/<id> URL.
 func (h *Handler) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 	const maxSize = 50 << 20 // 50 MB for video files
 	if err := r.ParseMultipartForm(maxSize); err != nil {
@@ -220,6 +235,10 @@ func (h *Handler) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 	slug := r.FormValue("slug")
 	testName := r.FormValue("test_name")
 	demoType := r.FormValue("demo_type")
+	testComponent := r.FormValue("test_component")
+	if testComponent == "" {
+		testComponent = "e2e"
+	}
 	if slug == "" || testName == "" || demoType == "" {
 		http.Error(w, `{"title":"Bad Request","status":400,"detail":"slug, test_name, and demo_type are required"}`, http.StatusBadRequest)
 		return
@@ -294,7 +313,7 @@ func (h *Handler) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 
 	test, err := h.Q.GetTest(ctx, db.GetTestParams{
 		ProjectID: p.ID,
-		Component: "e2e",
+		Component: testComponent,
 		Name:      testName,
 	})
 	if err != nil {
@@ -302,10 +321,14 @@ func (h *Handler) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	upsertPath := r.FormValue("artifact_path")
+	if upsertPath == "" {
+		upsertPath = relPath
+	}
 	_, err = h.Q.UpsertTestDemo(ctx, db.UpsertTestDemoParams{
 		TestID:       test.ID,
 		DemoType:     demoType,
-		ArtifactPath: relPath,
+		ArtifactPath: upsertPath,
 		FileID:       pgtype.Int4{Int32: fileRow.ID, Valid: true},
 	})
 	if err != nil {

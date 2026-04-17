@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"mime/multipart"
 	"net/http"
 	"net/url"
 	"os"
@@ -176,6 +177,45 @@ func (c *Client) Patch(path string, body any, out any) error {
 // without a body; callers pass nil body+out.
 func (c *Client) Delete(path string, body any, out any) error {
 	return c.DoJSON("DELETE", path, body, out)
+}
+
+// PostMultipart uploads a file as multipart/form-data. The file bytes are
+// attached under the "file" field with the given Content-Type; all other
+// entries in fields are string form values. Used by the CLI test-sync path to
+// upload demo artifacts (JSON / webm / mp4) to /api/dx/demos/upload.
+func (c *Client) PostMultipart(path string, fileField, filename, fileContentType string, fileBody []byte, fields map[string]string, out any) error {
+	var buf bytes.Buffer
+	mw := multipart.NewWriter(&buf)
+	for k, v := range fields {
+		if err := mw.WriteField(k, v); err != nil {
+			return err
+		}
+	}
+	partHeader := make(map[string][]string)
+	partHeader["Content-Disposition"] = []string{fmt.Sprintf(`form-data; name=%q; filename=%q`, fileField, filename)}
+	partHeader["Content-Type"] = []string{fileContentType}
+	part, err := mw.CreatePart(partHeader)
+	if err != nil {
+		return err
+	}
+	if _, err := part.Write(fileBody); err != nil {
+		return err
+	}
+	if err := mw.Close(); err != nil {
+		return err
+	}
+	req, _ := http.NewRequest("POST", c.base+path, &buf)
+	req.Header.Set("Content-Type", mw.FormDataContentType())
+	if c.token != "" {
+		req.Header.Set("X-Api-Key", c.token)
+	}
+	attachAttributionHeaders(req)
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	return c.checkResp(resp, out)
 }
 
 func (c *Client) DoJSON(method, path string, body any, out any) error {
