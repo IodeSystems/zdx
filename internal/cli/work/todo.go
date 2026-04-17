@@ -67,8 +67,63 @@ func TodoCmd() *cobra.Command {
 		Short: "Workflow queue",
 		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
 	}
-	cmd.AddCommand(todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd())
+	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd())
 	return cmd
+}
+
+func todoTakeCmd() *cobra.Command {
+	var agentIDFlag string
+	var leaseMinutes int32
+	cmd := &cobra.Command{
+		Use:   "take",
+		Short: "Claim next todo item (atomic reservation from server)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return todoTakeRun(agentIDFlag, leaseMinutes)
+		},
+	}
+	cmd.Flags().StringVar(&agentIDFlag, "agent-id", "", "agent ID for claiming")
+	cmd.Flags().Int32Var(&leaseMinutes, "lease-minutes", 30, "lease duration in minutes")
+	return cmd
+}
+
+// todoTakeRun claims the next available todo via the server API.
+func todoTakeRun(agentID string, leaseMinutes int32) error {
+	c := cli.MustClient()
+	slug := c.SlugOrDie()
+	if agentID == "" {
+		agentID = "cli"
+	}
+	if leaseMinutes <= 0 {
+		leaseMinutes = 30
+	}
+	var todo struct {
+		ID         int32  `json:"id"`
+		Text       string `json:"text"`
+		Key        string `json:"key"`
+		Kind       string `json:"kind"`
+		TargetType string `json:"target_type"`
+		TargetID   string `json:"target_id"`
+		IssueRef   string `json:"issue_ref"`
+		Priority   int32  `json:"priority"`
+		ClaimedBy  string `json:"claimed_by"`
+	}
+	if err := c.Post("/api/dx/solo/claim", map[string]any{
+		"slug":          slug,
+		"agent_id":      agentID,
+		"lease_minutes": leaseMinutes,
+	}, &todo); err != nil {
+		fmt.Println("no work available")
+		return nil
+	}
+	fmt.Printf("TODO-%d  [%s] %s\n", todo.ID, todo.Kind, todo.Text)
+	if todo.IssueRef != "" {
+		fmt.Printf("  issue: %s\n", todo.IssueRef)
+	}
+	if todo.TargetType != "" {
+		fmt.Printf("  target: %s:%s\n", todo.TargetType, todo.TargetID)
+	}
+	fmt.Printf("  claimed by: %s  lease: %d min\n", todo.ClaimedBy, leaseMinutes)
+	return nil
 }
 
 // ── solo ──────────────────────────────────────────────────────────────────────

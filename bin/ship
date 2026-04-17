@@ -619,8 +619,11 @@ if [ -f schema/next.sql ]; then
   cp schema/next.sql schema/shipped.sql
   echo "[ship] schema/shipped.sql updated."
 
-  # Validate shipped.sql contains every table from up-migrations (minus dropped tables).
+  # Validate shipped.sql contains every table from up-migrations (minus dropped/renamed tables).
   DROPPED_TABLES=$(grep -hioP 'DROP TABLE\s+(IF EXISTS\s+)?(\K[a-z_]+)' "$MIGRATION_DIR"/*.up.sql 2>/dev/null | sort -u)
+  # Tables renamed via ALTER TABLE ... RENAME TO ... are no longer expected under their old name.
+  RENAMED_TABLES=$(grep -hioP 'ALTER TABLE\s+\K[a-z_]+(?=\s+RENAME TO)' "$MIGRATION_DIR"/*.up.sql 2>/dev/null | sort -u)
+  DROPPED_TABLES=$(printf "%s\n%s" "$DROPPED_TABLES" "$RENAMED_TABLES" | sort -u)
   MISSING=0
   while IFS= read -r tbl; do
     if echo "$DROPPED_TABLES" | grep -qx "$tbl"; then
