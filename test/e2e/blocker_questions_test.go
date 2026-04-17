@@ -100,6 +100,9 @@ func TestBlockerQuestionAnswer(t *testing.T) {
 	if answered.Answer != "Use OAuth2 via Google" {
 		t.Errorf("answer: want expected text, got %q", answered.Answer)
 	}
+	if answered.AnsweredBy != "eng-lead" {
+		t.Errorf("answered_by: want %q got %q", "eng-lead", answered.AnsweredBy)
+	}
 	if answered.AnsweredAt == "" {
 		t.Error("answered_at should be set")
 	}
