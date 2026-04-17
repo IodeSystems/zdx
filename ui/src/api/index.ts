@@ -1610,6 +1610,8 @@ export interface DemoListItem {
   name: string
   test_component: string
   test_name: string
+  test_status: string
+  test_duration_ms: number
   url: string
 }
 
@@ -1639,6 +1641,26 @@ export const useDemos = (slug: string) =>
     queryFn: async () => {
       const res = await apiFetch<{ demos: DemoListItem[] }>(`/api/dx/demos?slug=${encodeURIComponent(slug)}`) // raw-ok
       return res.demos ?? []
+    },
+  })
+
+export interface DemoSpec {
+  id: number
+  description: string
+  kind: string
+  feature_id: number
+}
+
+export interface DemoDetail extends DemoListItem {
+  specs: DemoSpec[]
+}
+
+export const useDemo = (id: number) =>
+  useQuery<DemoDetail>({
+    queryKey: ['demo', id],
+    enabled: !!id,
+    queryFn: async () => {
+      return apiFetch<DemoDetail>(`/api/dx/demos/${id}`) // raw-ok
     },
   })
 

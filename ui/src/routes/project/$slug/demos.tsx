@@ -1,17 +1,9 @@
-import { createFileRoute } from '@tanstack/react-router'
-import { Box, Typography } from '@mui/material'
-import { DemosSection } from '../../../components/DemoPlayer'
+import { createFileRoute, Outlet } from '@tanstack/react-router'
 
-function DemosRoute() {
-  const { slug } = Route.useParams()
-  return (
-    <Box>
-      <Typography variant="h5" sx={{ mb: 2 }}>Demos</Typography>
-      <DemosSection slug={slug} />
-    </Box>
-  )
+function DemosLayout() {
+  return <Outlet />
 }
 
 export const Route = createFileRoute('/project/$slug/demos')({
-  component: DemosRoute,
+  component: DemosLayout,
 })

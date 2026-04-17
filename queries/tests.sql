@@ -98,10 +98,20 @@ JOIN zdx_tests t ON t.id = td.test_id
 WHERE st.spec_id = $1
 ORDER BY td.demo_type, t.name;
 
+-- name: GetDemoByID :one
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+       t.component AS test_component, t.name AS test_name,
+       t.status AS test_status, t.duration_ms AS test_duration_ms,
+       t.project_id AS project_id
+FROM zdx_test_demos td
+JOIN zdx_tests t ON t.id = td.test_id
+WHERE td.id = $1;
+
 -- name: ListDemos :many
 -- All demo artifacts in the project, joined to their owning test.
 SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
-       t.component AS test_component, t.name AS test_name
+       t.component AS test_component, t.name AS test_name,
+       t.status AS test_status, t.duration_ms AS test_duration_ms
 FROM zdx_test_demos td
 JOIN zdx_tests t ON t.id = td.test_id
 WHERE t.project_id = $1

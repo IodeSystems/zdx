@@ -33,6 +33,47 @@ func (q *Queries) DeleteTest(ctx context.Context, id int32) error {
 	return err
 }
 
+const getDemoByID = `-- name: GetDemoByID :one
+SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
+       t.component AS test_component, t.name AS test_name,
+       t.status AS test_status, t.duration_ms AS test_duration_ms,
+       t.project_id AS project_id
+FROM zdx_test_demos td
+JOIN zdx_tests t ON t.id = td.test_id
+WHERE td.id = $1
+`
+
+type GetDemoByIDRow struct {
+	ID             int32       `db:"id" json:"id"`
+	TestID         int32       `db:"test_id" json:"test_id"`
+	DemoType       string      `db:"demo_type" json:"demo_type"`
+	ArtifactPath   string      `db:"artifact_path" json:"artifact_path"`
+	FileID         pgtype.Int4 `db:"file_id" json:"file_id"`
+	TestComponent  string      `db:"test_component" json:"test_component"`
+	TestName       string      `db:"test_name" json:"test_name"`
+	TestStatus     string      `db:"test_status" json:"test_status"`
+	TestDurationMs int32       `db:"test_duration_ms" json:"test_duration_ms"`
+	ProjectID      int32       `db:"project_id" json:"project_id"`
+}
+
+func (q *Queries) GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, error) {
+	row := q.db.QueryRow(ctx, getDemoByID, id)
+	var i GetDemoByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.TestID,
+		&i.DemoType,
+		&i.ArtifactPath,
+		&i.FileID,
+		&i.TestComponent,
+		&i.TestName,
+		&i.TestStatus,
+		&i.TestDurationMs,
+		&i.ProjectID,
+	)
+	return i, err
+}
+
 const getTest = `-- name: GetTest :one
 SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 AND component = $2 AND name = $3
@@ -160,7 +201,8 @@ func (q *Queries) LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) erro
 
 const listDemos = `-- name: ListDemos :many
 SELECT td.id, td.test_id, td.demo_type, td.artifact_path, td.file_id,
-       t.component AS test_component, t.name AS test_name
+       t.component AS test_component, t.name AS test_name,
+       t.status AS test_status, t.duration_ms AS test_duration_ms
 FROM zdx_test_demos td
 JOIN zdx_tests t ON t.id = td.test_id
 WHERE t.project_id = $1
@@ -168,13 +210,15 @@ ORDER BY td.demo_type, t.component, t.name
 `
 
 type ListDemosRow struct {
-	ID            int32       `db:"id" json:"id"`
-	TestID        int32       `db:"test_id" json:"test_id"`
-	DemoType      string      `db:"demo_type" json:"demo_type"`
-	ArtifactPath  string      `db:"artifact_path" json:"artifact_path"`
-	FileID        pgtype.Int4 `db:"file_id" json:"file_id"`
-	TestComponent string      `db:"test_component" json:"test_component"`
-	TestName      string      `db:"test_name" json:"test_name"`
+	ID             int32       `db:"id" json:"id"`
+	TestID         int32       `db:"test_id" json:"test_id"`
+	DemoType       string      `db:"demo_type" json:"demo_type"`
+	ArtifactPath   string      `db:"artifact_path" json:"artifact_path"`
+	FileID         pgtype.Int4 `db:"file_id" json:"file_id"`
+	TestComponent  string      `db:"test_component" json:"test_component"`
+	TestName       string      `db:"test_name" json:"test_name"`
+	TestStatus     string      `db:"test_status" json:"test_status"`
+	TestDurationMs int32       `db:"test_duration_ms" json:"test_duration_ms"`
 }
 
 // All demo artifacts in the project, joined to their owning test.
@@ -195,6 +239,8 @@ func (q *Queries) ListDemos(ctx context.Context, projectID int32) ([]ListDemosRo
 			&i.FileID,
 			&i.TestComponent,
 			&i.TestName,
+			&i.TestStatus,
+			&i.TestDurationMs,
 		); err != nil {
 			return nil, err
 		}

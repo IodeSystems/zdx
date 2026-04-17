@@ -23,6 +23,7 @@ func (h *Handler) registerFileRoutes() {
 	h.Mux.Post("/api/upload", h.handleUpload)
 	h.Mux.Get("/api/files/{id}", h.handleFileServe)
 	h.Mux.Get("/api/dx/demos", h.handleListDemos)
+	h.Mux.Get("/api/dx/demos/{id}", h.handleGetDemo)
 	h.Mux.Get("/api/dx/demos/{type}/{name}", h.handleServeDemo)
 	h.Mux.Post("/api/dx/demos/upload", h.handleDemoUpload)
 }
@@ -127,12 +128,14 @@ func (h *Handler) demosDir() string {
 }
 
 type DemoListItem struct {
-	ID            int32  `json:"id"`
-	Type          string `json:"type"`
-	Name          string `json:"name"`
-	TestComponent string `json:"test_component"`
-	TestName      string `json:"test_name"`
-	URL           string `json:"url"`
+	ID             int32  `json:"id"`
+	Type           string `json:"type"`
+	Name           string `json:"name"`
+	TestComponent  string `json:"test_component"`
+	TestName       string `json:"test_name"`
+	TestStatus     string `json:"test_status"`
+	TestDurationMs int32  `json:"test_duration_ms"`
+	URL            string `json:"url"`
 }
 
 // handleListDemos returns all demos attached to tests in the given project.
@@ -165,12 +168,14 @@ func (h *Handler) handleListDemos(w http.ResponseWriter, r *http.Request) {
 			assetPath = fmt.Sprintf("/api/dx/demos/%s/%s", row.DemoType, name)
 		}
 		items = append(items, DemoListItem{
-			ID:            row.ID,
-			Type:          row.DemoType,
-			Name:          name,
-			TestComponent: row.TestComponent,
-			TestName:      row.TestName,
-			URL:           SignAssetURL(h.WSSecret, assetPath, time.Hour),
+			ID:             row.ID,
+			Type:           row.DemoType,
+			Name:           name,
+			TestComponent:  row.TestComponent,
+			TestName:       row.TestName,
+			TestStatus:     row.TestStatus,
+			TestDurationMs: row.TestDurationMs,
+			URL:            SignAssetURL(h.WSSecret, assetPath, time.Hour),
 		})
 	}
 
@@ -359,4 +364,66 @@ func (h *Handler) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 		"ok":      true,
 		"file_id": fileRow.ID,
 	})
+}
+
+type DemoSpec struct {
+	ID          int32  `json:"id"`
+	Description string `json:"description"`
+	Kind        string `json:"kind"`
+	FeatureID   int32  `json:"feature_id"`
+}
+
+type DemoDetail struct {
+	DemoListItem
+	Specs []DemoSpec `json:"specs"`
+}
+
+func (h *Handler) handleGetDemo(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	row, err := h.Q.GetDemoByID(r.Context(), int32(id))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	name := strings.TrimSuffix(filepath.Base(row.ArtifactPath), filepath.Ext(row.ArtifactPath))
+	var assetPath string
+	if row.FileID.Valid {
+		assetPath = fmt.Sprintf("/api/files/%d", row.FileID.Int32)
+	} else {
+		assetPath = fmt.Sprintf("/api/dx/demos/%s/%s", row.DemoType, name)
+	}
+
+	item := DemoListItem{
+		ID:             row.ID,
+		Type:           row.DemoType,
+		Name:           name,
+		TestComponent:  row.TestComponent,
+		TestName:       row.TestName,
+		TestStatus:     row.TestStatus,
+		TestDurationMs: row.TestDurationMs,
+		URL:            SignAssetURL(h.WSSecret, assetPath, time.Hour),
+	}
+
+	specs, err := h.Q.ListSpecsCoveredByTest(r.Context(), row.TestID)
+	if err != nil {
+		specs = nil
+	}
+	demoSpecs := make([]DemoSpec, 0, len(specs))
+	for _, s := range specs {
+		demoSpecs = append(demoSpecs, DemoSpec{
+			ID:          s.ID,
+			Description: s.Description,
+			Kind:        string(s.Kind),
+			FeatureID:   s.FeatureID,
+		})
+	}
+
+	w.Header().Set("Content-Type", "application/json")
+	_ = json.NewEncoder(w).Encode(DemoDetail{DemoListItem: item, Specs: demoSpecs})
 }

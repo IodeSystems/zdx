@@ -150,6 +150,7 @@ type Querier interface {
 	GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error)
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
+	GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
 	GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (GetFeatureRow, error)

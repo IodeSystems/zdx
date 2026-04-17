@@ -8,6 +8,7 @@ import {
   Typography,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
+import { Link } from '@tanstack/react-router'
 import {
   useDemos,
   useSpecDemos,
@@ -54,7 +55,7 @@ function CLIDemoBody({ data }: { data: CLIDemoData }) {
   )
 }
 
-function CLIDemoPlayerByUrl({ url }: { url: string }) {
+export function CLIDemoPlayerByUrl({ url }: { url: string }) {
   const [data, setData] = useState<CLIDemoData | null>(null)
   const [error, setError] = useState<string | null>(null)
   useEffect(() => {
@@ -70,7 +71,7 @@ function CLIDemoPlayerByUrl({ url }: { url: string }) {
   return <CLIDemoBody data={data} />
 }
 
-function VideoDemoPlayerByUrl({ url }: { url: string }) {
+export function VideoDemoPlayerByUrl({ url }: { url: string }) {
   return (
     <Box sx={{ maxWidth: 800 }}>
       <video controls preload="metadata" style={{ width: '100%', borderRadius: 4 }} src={url} />
@@ -78,16 +79,42 @@ function VideoDemoPlayerByUrl({ url }: { url: string }) {
   )
 }
 
-function DemoItem({ demo }: { demo: DemoListItem }) {
+function statusColor(status: string): 'success' | 'error' | 'default' {
+  if (status === 'pass') return 'success'
+  if (status === 'fail') return 'error'
+  return 'default'
+}
+
+function DemoItem({ demo, slug }: { demo: DemoListItem; slug: string }) {
   const label = demo.test_component && demo.test_name
     ? `${demo.test_component}/${demo.test_name}`
     : demo.name
   return (
     <Accordion disableGutters variant="outlined" sx={{ '&:before': { display: 'none' } }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', flex: 1 }}>
+          <Chip
+            label={demo.test_status || 'unknown'}
+            size="small"
+            color={statusColor(demo.test_status)}
+          />
           <Chip label={demo.type} size="small" variant="outlined" color={demo.type === 'cli' ? 'info' : 'secondary'} />
-          <Typography variant="body2">{label}</Typography>
+          <Typography variant="body2" sx={{ flex: 1 }}>{label}</Typography>
+          {demo.test_duration_ms > 0 && (
+            <Typography variant="caption" color="text.secondary">
+              {demo.test_duration_ms < 1000
+                ? `${demo.test_duration_ms}ms`
+                : `${(demo.test_duration_ms / 1000).toFixed(1)}s`}
+            </Typography>
+          )}
+          <Link
+            to="/project/$slug/demos/$demoId"
+            params={{ slug, demoId: String(demo.id) }}
+            onClick={(e) => e.stopPropagation()}
+            style={{ fontSize: '0.75rem' }}
+          >
+            view
+          </Link>
         </Box>
       </AccordionSummary>
       <AccordionDetails>
@@ -112,23 +139,9 @@ export function DemosSection({ slug }: { slug: string }) {
     )
   }
 
-  const byType = list.reduce<Record<string, DemoListItem[]>>((acc, d) => {
-    (acc[d.type] ??= []).push(d)
-    return acc
-  }, {})
-
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 3 }}>
-      {Object.entries(byType).map(([type, items]) => (
-        <Box key={type}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1, textTransform: 'capitalize' }}>
-            {type} ({items.length})
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {items.map((d) => <DemoItem key={d.id} demo={d} />)}
-          </Box>
-        </Box>
-      ))}
+    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+      {list.map((d) => <DemoItem key={d.id} demo={d} slug={slug} />)}
     </Box>
   )
 }
