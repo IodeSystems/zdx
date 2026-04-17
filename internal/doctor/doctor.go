@@ -71,6 +71,10 @@ type ProjectState struct {
 	DockerAvailable bool
 	AgentConfigSet  bool
 
+	// Agent-session health (from server)
+	StaleAgentSessions        int   // sessions still open beyond the stale threshold
+	StaleAgentSessionsMinutes int32 // threshold used for the check
+
 	// Files
 	HasReadme     bool
 	HasLicense    bool
@@ -312,6 +316,12 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		}
 		return false, "no agent config in .zdx/config.yaml", nil,
 			"Add agent section to .zdx/config.yaml with llm_provider and max_worktrees"
+
+	case "no_stale_agent_sessions":
+		if state.StaleAgentSessions == 0 {
+			return true, "", nil, ""
+		}
+		return false, fmt.Sprintf("%d agent sessions open past %dm idle (server auto-closes as 'orphaned'; inspect the agents UI)", state.StaleAgentSessions, state.StaleAgentSessionsMinutes), nil, ""
 
 	// ── distribution / operations ──
 	case "has_readme":

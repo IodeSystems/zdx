@@ -39,6 +39,7 @@ type Querier interface {
 	ClearStaleFlag(ctx context.Context, id string) error
 	CloseClaudeSession(ctx context.Context, id int64) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
+	CloseStaleClaudeSessions(ctx context.Context, staleMinutes int32) ([]CloseStaleClaudeSessionsRow, error)
 	CountApiKeys(ctx context.Context) (int32, error)
 	CountBlockerQuestions(ctx context.Context, projectID int32) (int64, error)
 	CountChurnSessions(ctx context.Context, arg CountChurnSessionsParams) (int64, error)
@@ -66,6 +67,7 @@ type Querier interface {
 	// didn't apply any durable mutation — those release without marking resolved.
 	CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error)
 	CountSlowQueries(ctx context.Context, projectID pgtype.Int4) (int64, error)
+	CountStaleOpenClaudeSessions(ctx context.Context, arg CountStaleOpenClaudeSessionsParams) (int64, error)
 	CountTasks(ctx context.Context, arg CountTasksParams) (int64, error)
 	CountTasksByFeature(ctx context.Context, arg CountTasksByFeatureParams) (int64, error)
 	CountTasksByIssue(ctx context.Context, arg CountTasksByIssueParams) (int64, error)
@@ -319,6 +321,7 @@ type Querier interface {
 	// Non-deferred specs only.
 	ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error)
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ListStaleFeaturesRow, error)
+	ListStaleOpenClaudeSessions(ctx context.Context, arg ListStaleOpenClaudeSessionsParams) ([]ListStaleOpenClaudeSessionsRow, error)
 	ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error)
 	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
 	// Returns comments that are unread for the given role and older than the given age threshold.

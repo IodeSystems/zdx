@@ -9,6 +9,12 @@ import (
 	"github.com/iodesystems/zdx-go/internal/server/handlers"
 )
 
+// staleAgentSessionMinutes is how long an agent session's updated_at can stall
+// before the sweeper auto-closes it and marks it 'orphaned'. Agent event
+// ingestion touches updated_at on every streamed event, so a 30m silence is a
+// safe "the process died without closing" signal.
+const staleAgentSessionMinutes int32 = 30
+
 func (s *Server) StartTaskRecovery(ctx context.Context) {
 	sweep := func() {
 		reclaimed, err := s.q.ReclaimExpiredTasks(ctx)
@@ -40,6 +46,13 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 			log.Printf("task-recovery: flag stale: %v", err)
 		} else if len(flagged) > 0 {
 			log.Printf("task-recovery: flagged %d stale unclaimed tasks", len(flagged))
+		}
+
+		staleSessions, err := s.q.CloseStaleClaudeSessions(ctx, staleAgentSessionMinutes)
+		if err != nil {
+			log.Printf("task-recovery: close stale agent sessions: %v", err)
+		} else if len(staleSessions) > 0 {
+			log.Printf("task-recovery: closed %d stale agent sessions (updated_at > %dm old)", len(staleSessions), staleAgentSessionMinutes)
 		}
 	}
 

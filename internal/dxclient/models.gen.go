@@ -467,20 +467,24 @@ type ClaudeEventItem struct {
 // ClaudeSessionItem defines model for ClaudeSessionItem.
 type ClaudeSessionItem struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema     *string `json:"$schema,omitempty"`
-	Alias      string  `json:"alias"`
-	ClosedAt   *string `json:"closed_at,omitempty"`
-	CreatedAt  string  `json:"created_at"`
-	EventCount int64   `json:"event_count"`
-	Header     string  `json:"header"`
-	Id         int64   `json:"id"`
-	IssueId    string  `json:"issue_id"`
-	Lifecycle  string  `json:"lifecycle"`
-	SessionId  string  `json:"session_id"`
-	Status     string  `json:"status"`
-	Summary    string  `json:"summary"`
-	Title      string  `json:"title"`
-	UpdatedAt  string  `json:"updated_at"`
+	Schema         *string `json:"$schema,omitempty"`
+	Alias          string  `json:"alias"`
+	ClosedAt       *string `json:"closed_at,omitempty"`
+	CreatedAt      string  `json:"created_at"`
+	EventCount     int64   `json:"event_count"`
+	Header         string  `json:"header"`
+	Id             int64   `json:"id"`
+	IssueId        string  `json:"issue_id"`
+	Lifecycle      string  `json:"lifecycle"`
+	SessionId      string  `json:"session_id"`
+	Status         string  `json:"status"`
+	Summary        string  `json:"summary"`
+	Title          string  `json:"title"`
+	TodoId         *int32  `json:"todo_id,omitempty"`
+	TodoTargetId   *string `json:"todo_target_id,omitempty"`
+	TodoTargetType *string `json:"todo_target_type,omitempty"`
+	TodoText       *string `json:"todo_text,omitempty"`
+	UpdatedAt      string  `json:"updated_at"`
 }
 
 // ClientItem defines model for ClientItem.
@@ -1858,6 +1862,15 @@ type ListStaleFeaturesResponse struct {
 	Features *[]FeatureItem `json:"features"`
 }
 
+// ListStaleOpenClaudeSessionsResponse defines model for List-stale-open-claude-sessionsResponse.
+type ListStaleOpenClaudeSessionsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string              `json:"$schema,omitempty"`
+	Minutes  int32                `json:"minutes"`
+	Sessions *[]ClaudeSessionItem `json:"sessions"`
+	Total    int64                `json:"total"`
+}
+
 // ListStaleTasksResponse defines model for List-stale-tasksResponse.
 type ListStaleTasksResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2669,6 +2682,14 @@ type SoloHealthResponse struct {
 	TechJournalDate  string  `json:"tech_journal_date"`
 }
 
+// SoloListClaimsResponse defines model for Solo-list-claimsResponse.
+type SoloListClaimsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string          `json:"$schema,omitempty"`
+	Tasks  *[]AgentTaskItem `json:"tasks"`
+	Todos  *[]TodoItem      `json:"todos"`
+}
+
 // SoloReleaseRequest defines model for Solo-releaseRequest.
 type SoloReleaseRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3251,6 +3272,12 @@ type ListChurnSessionsParams struct {
 	Since *string `form:"since,omitempty" json:"since,omitempty"`
 }
 
+// ListStaleOpenClaudeSessionsParams defines parameters for ListStaleOpenClaudeSessions.
+type ListStaleOpenClaudeSessionsParams struct {
+	Slug    string `form:"slug" json:"slug"`
+	Minutes *int32 `form:"minutes,omitempty" json:"minutes,omitempty"`
+}
+
 // GetClaudeSessionParams defines parameters for GetClaudeSession.
 type GetClaudeSessionParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -3615,6 +3642,11 @@ type ListSoloQueueParams struct {
 	Issue   *string `form:"issue,omitempty" json:"issue,omitempty"`
 	Blocked *string `form:"blocked,omitempty" json:"blocked,omitempty"`
 	Status  *string `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// SoloListClaimsParams defines parameters for SoloListClaims.
+type SoloListClaimsParams struct {
+	Slug string `form:"slug" json:"slug"`
 }
 
 // SoloHealthParams defines parameters for SoloHealth.
@@ -4510,6 +4542,9 @@ type ClientInterface interface {
 	// ListChurnSessions request
 	ListChurnSessions(ctx context.Context, params *ListChurnSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListStaleOpenClaudeSessions request
+	ListStaleOpenClaudeSessions(ctx context.Context, params *ListStaleOpenClaudeSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetClaudeSession request
 	GetClaudeSession(ctx context.Context, sessionId int64, params *GetClaudeSessionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -4909,6 +4944,9 @@ type ClientInterface interface {
 	SoloClaimWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SoloClaim(ctx context.Context, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SoloListClaims request
+	SoloListClaims(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SoloEvaluateWithBody request with any body
 	SoloEvaluateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6130,6 +6168,18 @@ func (c *APIClient) ListClaudeSessions(ctx context.Context, params *ListClaudeSe
 
 func (c *APIClient) ListChurnSessions(ctx context.Context, params *ListChurnSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListChurnSessionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListStaleOpenClaudeSessions(ctx context.Context, params *ListStaleOpenClaudeSessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListStaleOpenClaudeSessionsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -7918,6 +7968,18 @@ func (c *APIClient) SoloClaimWithBody(ctx context.Context, contentType string, b
 
 func (c *APIClient) SoloClaim(ctx context.Context, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSoloClaimRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SoloListClaims(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSoloListClaimsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -11785,6 +11847,67 @@ func NewListChurnSessionsRequest(server string, params *ListChurnSessionsParams)
 		if params.Since != nil {
 
 			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "since", *params.Since, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListStaleOpenClaudeSessionsRequest generates requests for ListStaleOpenClaudeSessions
+func NewListStaleOpenClaudeSessionsRequest(server string, params *ListStaleOpenClaudeSessionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/claude/sessions/stale")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Minutes != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "minutes", *params.Minutes, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -17668,6 +17791,51 @@ func NewSoloClaimRequestWithBody(server string, contentType string, body io.Read
 	return req, nil
 }
 
+// NewSoloListClaimsRequest generates requests for SoloListClaims
+func NewSoloListClaimsRequest(server string, params *SoloListClaimsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/solo/claims")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewSoloEvaluateRequest calls the generic SoloEvaluate builder with application/json body
 func NewSoloEvaluateRequest(server string, body SoloEvaluateJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -22932,6 +23100,9 @@ type ClientWithResponsesInterface interface {
 	// ListChurnSessionsWithResponse request
 	ListChurnSessionsWithResponse(ctx context.Context, params *ListChurnSessionsParams, reqEditors ...RequestEditorFn) (*ParsedListChurnSessionsResponse, error)
 
+	// ListStaleOpenClaudeSessionsWithResponse request
+	ListStaleOpenClaudeSessionsWithResponse(ctx context.Context, params *ListStaleOpenClaudeSessionsParams, reqEditors ...RequestEditorFn) (*ParsedListStaleOpenClaudeSessionsResponse, error)
+
 	// GetClaudeSessionWithResponse request
 	GetClaudeSessionWithResponse(ctx context.Context, sessionId int64, params *GetClaudeSessionParams, reqEditors ...RequestEditorFn) (*GetClaudeSessionResponse, error)
 
@@ -23331,6 +23502,9 @@ type ClientWithResponsesInterface interface {
 	SoloClaimWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
 
 	SoloClaimWithResponse(ctx context.Context, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
+
+	// SoloListClaimsWithResponse request
+	SoloListClaimsWithResponse(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListClaimsResponse, error)
 
 	// SoloEvaluateWithBodyWithResponse request with any body
 	SoloEvaluateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloEvaluateResponse, error)
@@ -24791,6 +24965,29 @@ func (r ParsedListChurnSessionsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListChurnSessionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListStaleOpenClaudeSessionsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListStaleOpenClaudeSessionsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListStaleOpenClaudeSessionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListStaleOpenClaudeSessionsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -27136,6 +27333,29 @@ func (r SoloClaimResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r SoloClaimResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedSoloListClaimsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SoloListClaimsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSoloListClaimsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSoloListClaimsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -30005,6 +30225,15 @@ func (c *ClientWithResponses) ListChurnSessionsWithResponse(ctx context.Context,
 	return ParseParsedListChurnSessionsResponse(rsp)
 }
 
+// ListStaleOpenClaudeSessionsWithResponse request returning *ParsedListStaleOpenClaudeSessionsResponse
+func (c *ClientWithResponses) ListStaleOpenClaudeSessionsWithResponse(ctx context.Context, params *ListStaleOpenClaudeSessionsParams, reqEditors ...RequestEditorFn) (*ParsedListStaleOpenClaudeSessionsResponse, error) {
+	rsp, err := c.ListStaleOpenClaudeSessions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListStaleOpenClaudeSessionsResponse(rsp)
+}
+
 // GetClaudeSessionWithResponse request returning *GetClaudeSessionResponse
 func (c *ClientWithResponses) GetClaudeSessionWithResponse(ctx context.Context, sessionId int64, params *GetClaudeSessionParams, reqEditors ...RequestEditorFn) (*GetClaudeSessionResponse, error) {
 	rsp, err := c.GetClaudeSession(ctx, sessionId, params, reqEditors...)
@@ -31297,6 +31526,15 @@ func (c *ClientWithResponses) SoloClaimWithResponse(ctx context.Context, body So
 		return nil, err
 	}
 	return ParseSoloClaimResponse(rsp)
+}
+
+// SoloListClaimsWithResponse request returning *ParsedSoloListClaimsResponse
+func (c *ClientWithResponses) SoloListClaimsWithResponse(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListClaimsResponse, error) {
+	rsp, err := c.SoloListClaims(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSoloListClaimsResponse(rsp)
 }
 
 // SoloEvaluateWithBodyWithResponse request with arbitrary body returning *SoloEvaluateResponse
@@ -34106,6 +34344,39 @@ func ParseParsedListChurnSessionsResponse(rsp *http.Response) (*ParsedListChurnS
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListChurnSessionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListStaleOpenClaudeSessionsResponse parses an HTTP response from a ListStaleOpenClaudeSessionsWithResponse call
+func ParseParsedListStaleOpenClaudeSessionsResponse(rsp *http.Response) (*ParsedListStaleOpenClaudeSessionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListStaleOpenClaudeSessionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListStaleOpenClaudeSessionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -37465,6 +37736,39 @@ func ParseSoloClaimResponse(rsp *http.Response) (*SoloClaimResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TodoItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedSoloListClaimsResponse parses an HTTP response from a SoloListClaimsWithResponse call
+func ParseParsedSoloListClaimsResponse(rsp *http.Response) (*ParsedSoloListClaimsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSoloListClaimsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SoloListClaimsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

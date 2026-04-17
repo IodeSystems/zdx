@@ -410,6 +410,48 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 			}{Sessions: out, Total: total}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-stale-open-claude-sessions", Method: http.MethodGet, Path: "/api/dx/claude/sessions/stale"},
+		func(ctx context.Context, in *struct {
+			Slug    string `query:"slug" required:"true"`
+			Minutes int32  `query:"minutes"`
+		}) (*struct {
+			Body struct {
+				Sessions []ClaudeSessionItem `json:"sessions"`
+				Total    int64               `json:"total"`
+				Minutes  int32               `json:"minutes"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			mins := in.Minutes
+			if mins <= 0 {
+				mins = 30
+			}
+			total, _ := h.Q.CountStaleOpenClaudeSessions(ctx, db.CountStaleOpenClaudeSessionsParams{ProjectID: p.ID, StaleMinutes: mins})
+			rows, err := h.Q.ListStaleOpenClaudeSessions(ctx, db.ListStaleOpenClaudeSessionsParams{ProjectID: p.ID, StaleMinutes: mins})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ClaudeSessionItem, len(rows))
+			for i, r := range rows {
+				cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
+				out[i] = ClaudeSessionItem{ID: r.ID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Lifecycle: "active", EventCount: cnt, UpdatedAt: fmtTS(r.UpdatedAt)}
+			}
+			return &struct {
+				Body struct {
+					Sessions []ClaudeSessionItem `json:"sessions"`
+					Total    int64               `json:"total"`
+					Minutes  int32               `json:"minutes"`
+				}
+			}{Body: struct {
+				Sessions []ClaudeSessionItem `json:"sessions"`
+				Total    int64               `json:"total"`
+				Minutes  int32               `json:"minutes"`
+			}{Sessions: out, Total: total, Minutes: mins}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "extract-pattern-from-session", Method: http.MethodPost, Path: "/api/dx/claude/sessions/{sessionId}/extract-pattern"},
 		func(ctx context.Context, in *struct {
 			Slug      string `query:"slug" required:"true"`

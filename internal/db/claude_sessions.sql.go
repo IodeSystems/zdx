@@ -22,6 +22,42 @@ func (q *Queries) CloseClaudeSession(ctx context.Context, id int64) error {
 	return err
 }
 
+const closeStaleClaudeSessions = `-- name: CloseStaleClaudeSessions :many
+UPDATE zdx_claude_sessions
+SET closed_at = NOW(),
+    updated_at = NOW(),
+    status = CASE WHEN status = '' THEN 'orphaned' ELSE status END
+WHERE closed_at IS NULL
+  AND updated_at <= NOW() - make_interval(mins => $1::int)
+RETURNING id, project_id, session_id
+`
+
+type CloseStaleClaudeSessionsRow struct {
+	ID        int64  `db:"id" json:"id"`
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	SessionID string `db:"session_id" json:"session_id"`
+}
+
+func (q *Queries) CloseStaleClaudeSessions(ctx context.Context, staleMinutes int32) ([]CloseStaleClaudeSessionsRow, error) {
+	rows, err := q.db.Query(ctx, closeStaleClaudeSessions, staleMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CloseStaleClaudeSessionsRow
+	for rows.Next() {
+		var i CloseStaleClaudeSessionsRow
+		if err := rows.Scan(&i.ID, &i.ProjectID, &i.SessionID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countChurnSessions = `-- name: CountChurnSessions :one
 SELECT count(*) FROM zdx_claude_sessions
 WHERE project_id = $1 AND status = 'churn'
@@ -73,6 +109,25 @@ type CountClaudeSessionsByIssueParams struct {
 
 func (q *Queries) CountClaudeSessionsByIssue(ctx context.Context, arg CountClaudeSessionsByIssueParams) (int64, error) {
 	row := q.db.QueryRow(ctx, countClaudeSessionsByIssue, arg.ProjectID, arg.IssueID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
+const countStaleOpenClaudeSessions = `-- name: CountStaleOpenClaudeSessions :one
+SELECT count(*) FROM zdx_claude_sessions
+WHERE project_id = $1
+  AND closed_at IS NULL
+  AND updated_at <= NOW() - make_interval(mins => $2::int)
+`
+
+type CountStaleOpenClaudeSessionsParams struct {
+	ProjectID    int32 `db:"project_id" json:"project_id"`
+	StaleMinutes int32 `db:"stale_minutes" json:"stale_minutes"`
+}
+
+func (q *Queries) CountStaleOpenClaudeSessions(ctx context.Context, arg CountStaleOpenClaudeSessionsParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countStaleOpenClaudeSessions, arg.ProjectID, arg.StaleMinutes)
 	var count int64
 	err := row.Scan(&count)
 	return count, err
@@ -719,6 +774,56 @@ func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaud
 			&i.TodoText,
 			&i.TodoTargetType,
 			&i.TodoTargetID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaleOpenClaudeSessions = `-- name: ListStaleOpenClaudeSessions :many
+SELECT id, project_id, session_id, title, alias, updated_at
+FROM zdx_claude_sessions
+WHERE project_id = $1
+  AND closed_at IS NULL
+  AND updated_at <= NOW() - make_interval(mins => $2::int)
+ORDER BY updated_at ASC
+`
+
+type ListStaleOpenClaudeSessionsParams struct {
+	ProjectID    int32 `db:"project_id" json:"project_id"`
+	StaleMinutes int32 `db:"stale_minutes" json:"stale_minutes"`
+}
+
+type ListStaleOpenClaudeSessionsRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+func (q *Queries) ListStaleOpenClaudeSessions(ctx context.Context, arg ListStaleOpenClaudeSessionsParams) ([]ListStaleOpenClaudeSessionsRow, error) {
+	rows, err := q.db.Query(ctx, listStaleOpenClaudeSessions, arg.ProjectID, arg.StaleMinutes)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaleOpenClaudeSessionsRow
+	for rows.Next() {
+		var i ListStaleOpenClaudeSessionsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.SessionID,
+			&i.Title,
+			&i.Alias,
+			&i.UpdatedAt,
 		); err != nil {
 			return nil, err
 		}

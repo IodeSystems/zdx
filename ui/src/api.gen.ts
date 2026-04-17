@@ -598,6 +598,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/claude/sessions/stale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-stale-open-claude-sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/claude/sessions/{sessionId}": {
         parameters: {
             query?: never;
@@ -2208,6 +2224,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["solo-claim"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/solo/claims": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["solo-list-claims"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4291,6 +4323,11 @@ export interface components {
             status: string;
             summary: string;
             title: string;
+            /** Format: int32 */
+            todo_id?: number;
+            todo_target_id?: string;
+            todo_target_type?: string;
+            todo_text?: string;
             updated_at: string;
         };
         ClientItem: {
@@ -6012,6 +6049,19 @@ export interface components {
             readonly $schema?: string;
             features: components["schemas"]["FeatureItem"][] | null;
         };
+        "List-stale-open-claude-sessionsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-stale-open-claude-sessionsResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            minutes: number;
+            sessions: components["schemas"]["ClaudeSessionItem"][] | null;
+            /** Format: int64 */
+            total: number;
+        };
         "List-stale-tasksResponse": {
             /**
              * Format: uri
@@ -7023,6 +7073,16 @@ export interface components {
             goal_count: number;
             owner_journal_date: string;
             tech_journal_date: string;
+        };
+        "Solo-list-claimsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-list-claimsResponse.json
+             */
+            readonly $schema?: string;
+            tasks: components["schemas"]["AgentTaskItem"][] | null;
+            todos: components["schemas"]["TodoItem"][] | null;
         };
         "Solo-releaseRequest": {
             /**
@@ -9103,6 +9163,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-churn-sessionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-stale-open-claude-sessions": {
+        parameters: {
+            query: {
+                slug: string;
+                minutes?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-stale-open-claude-sessionsResponse"];
                 };
             };
             /** @description Error */
@@ -12464,6 +12556,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodoItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "solo-list-claims": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Solo-list-claimsResponse"];
                 };
             };
             /** @description Error */

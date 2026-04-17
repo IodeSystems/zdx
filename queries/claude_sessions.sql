@@ -63,6 +63,29 @@ UPDATE zdx_claude_sessions
 SET closed_at = NOW(), updated_at = NOW()
 WHERE id = $1 AND closed_at IS NULL;
 
+-- name: CloseStaleClaudeSessions :many
+UPDATE zdx_claude_sessions
+SET closed_at = NOW(),
+    updated_at = NOW(),
+    status = CASE WHEN status = '' THEN 'orphaned' ELSE status END
+WHERE closed_at IS NULL
+  AND updated_at <= NOW() - make_interval(mins => @stale_minutes::int)
+RETURNING id, project_id, session_id;
+
+-- name: ListStaleOpenClaudeSessions :many
+SELECT id, project_id, session_id, title, alias, updated_at
+FROM zdx_claude_sessions
+WHERE project_id = $1
+  AND closed_at IS NULL
+  AND updated_at <= NOW() - make_interval(mins => @stale_minutes::int)
+ORDER BY updated_at ASC;
+
+-- name: CountStaleOpenClaudeSessions :one
+SELECT count(*) FROM zdx_claude_sessions
+WHERE project_id = $1
+  AND closed_at IS NULL
+  AND updated_at <= NOW() - make_interval(mins => @stale_minutes::int);
+
 -- name: CreateClaudeEvent :exec
 INSERT INTO zdx_claude_events (session_pk, seq, event_type, event_json, agent_id, is_sidechain, agent_type, agent_description)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8);

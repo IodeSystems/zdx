@@ -209,6 +209,12 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		}
 	}
 
+	// Stale agent sessions (still open past the sweeper's idle threshold)
+	if sResp, err := c.ListStaleOpenClaudeSessionsWithResponse(ctx, &dxclient.ListStaleOpenClaudeSessionsParams{Slug: slug}); err == nil && sResp.JSON200 != nil {
+		state.StaleAgentSessions = int(sResp.JSON200.Total)
+		state.StaleAgentSessionsMinutes = sResp.JSON200.Minutes
+	}
+
 	// Deferrals
 	if dResp, err := c.ListDoctorDeferralsWithResponse(ctx, &dxclient.ListDoctorDeferralsParams{Slug: slug}); err == nil && dResp.JSON200 != nil && dResp.JSON200.Deferrals != nil {
 		for _, d := range *dResp.JSON200.Deferrals {

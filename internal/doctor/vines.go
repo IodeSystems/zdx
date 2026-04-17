@@ -128,6 +128,7 @@ func commonVine() []Rung {
 				{"claude_installed", "Claude CLI is in PATH", ActionInfo},
 				{"docker_available", "Docker daemon is running", ActionInfo},
 				{"agent_config_set", "Agent section in .zdx/config.yaml", ActionPropose},
+				{"no_stale_agent_sessions", "No orphaned agent sessions on the remote", ActionInfo},
 			},
 		},
 	}
