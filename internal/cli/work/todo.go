@@ -63,7 +63,7 @@ func TodoCmd() *cobra.Command {
 		Short: "Workflow queue",
 		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
 	}
-	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd())
+	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd())
 	return cmd
 }
 
@@ -1635,3 +1635,138 @@ func printSimilarPatterns(cmd *cobra.Command, c *cli.Client, slug, text string) 
 
 // RunTodo kept for compatibility.
 func RunTodo(_ []string) {}
+
+// ── reservations ─────────────────────────────────────────────────────────────
+
+// ── release ───────────────────────────────────────────────────────────────────
+
+func todoReleaseCmd() *cobra.Command {
+	var forceFlag bool
+	cmd := &cobra.Command{
+		Use:   "release <TODO-N>",
+		Short: "Release a claimed todo reservation (admin, no agent-id required)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return todoReleaseRun(cmd, args[0], forceFlag)
+		},
+	}
+	cmd.Flags().BoolVar(&forceFlag, "force", false, "release even if the lease is still active")
+	return cmd
+}
+
+func todoReleaseRun(cmd *cobra.Command, arg string, force bool) error {
+	if len(arg) < 6 || arg[:5] != "TODO-" {
+		return fmt.Errorf("expected TODO-N, got %q", arg)
+	}
+	id, err := strconv.ParseInt(arg[5:], 10, 32)
+	if err != nil {
+		return fmt.Errorf("invalid todo id %q: %w", arg, err)
+	}
+	c := cli.MustClient()
+	slug := c.SlugOrDie()
+
+	// Check if the todo is currently claimed (has an unexpired lease).
+	type todoRow struct {
+		ID             int32  `json:"id"`
+		Text           string `json:"text"`
+		ClaimedBy      string `json:"claimed_by"`
+		LeaseExpiresAt string `json:"lease_expires_at"`
+	}
+	var claims struct {
+		Todos []todoRow `json:"todos"`
+	}
+	if err := c.Get("/api/dx/solo/claims", map[string][]string{"slug": {slug}}, &claims); err != nil {
+		return err
+	}
+	for _, t := range claims.Todos {
+		if int64(t.ID) == id {
+			if !force {
+				return fmt.Errorf("TODO-%d has an active lease (claimed-by=%s, expires=%s); use --force to release anyway",
+					t.ID, t.ClaimedBy, t.LeaseExpiresAt)
+			}
+			break
+		}
+	}
+
+	type releaseReq struct {
+		ID      int32  `json:"id"`
+		AgentID string `json:"agent_id"`
+	}
+	type releaseResp struct {
+		OK bool `json:"ok"`
+	}
+	var resp releaseResp
+	if err := c.Post("/api/dx/solo/release", releaseReq{ID: int32(id), AgentID: ""}, &resp); err != nil {
+		return err
+	}
+	fmt.Printf("%s released\n", arg)
+	return nil
+}
+
+func todoReservationsCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "reservations",
+		Short: "List all active todo and task claims (unexpired leases)",
+		RunE:  todoReservationsRun,
+	}
+}
+
+func todoReservationsRun(cmd *cobra.Command, _ []string) error {
+	c := cli.MustClient()
+	slug := c.SlugOrDie()
+
+	type todoRow struct {
+		ID             int32  `json:"id"`
+		Text           string `json:"text"`
+		Kind           string `json:"kind"`
+		IssueRef       string `json:"issue_ref"`
+		ClaimedBy      string `json:"claimed_by"`
+		LeaseExpiresAt string `json:"lease_expires_at"`
+	}
+	type taskRow struct {
+		ID             string `json:"id"`
+		Text           string `json:"text"`
+		Issue          string `json:"issue"`
+		TaskGroup      string `json:"task_group"`
+		ClaimedBy      string `json:"claimed_by"`
+		LeaseExpiresAt string `json:"lease_expires_at"`
+	}
+	var resp struct {
+		Todos []todoRow `json:"todos"`
+		Tasks []taskRow `json:"tasks"`
+	}
+	if err := c.Get("/api/dx/solo/claims", map[string][]string{"slug": {slug}}, &resp); err != nil {
+		return err
+	}
+
+	if len(resp.Todos) == 0 && len(resp.Tasks) == 0 {
+		fmt.Println("no active reservations")
+		return nil
+	}
+
+	if len(resp.Todos) > 0 {
+		fmt.Println("todos:")
+		for _, t := range resp.Todos {
+			ref := t.IssueRef
+			if ref == "" {
+				ref = t.Kind
+			}
+			fmt.Printf("  TODO-%-4d  %-10s  claimed-by=%-12s  expires=%s\n",
+				t.ID, ref, t.ClaimedBy, t.LeaseExpiresAt)
+			fmt.Printf("             %s\n", cli.Truncate(t.Text, 80))
+		}
+	}
+	if len(resp.Tasks) > 0 {
+		fmt.Println("tasks:")
+		for _, t := range resp.Tasks {
+			ref := t.Issue
+			if ref == "" {
+				ref = t.TaskGroup
+			}
+			fmt.Printf("  %-12s  %-10s  claimed-by=%-12s  expires=%s\n",
+				t.ID, ref, t.ClaimedBy, t.LeaseExpiresAt)
+			fmt.Printf("             %s\n", cli.Truncate(t.Text, 80))
+		}
+	}
+	return nil
+}

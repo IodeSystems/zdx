@@ -143,6 +143,15 @@ SET lease_expires_at = NOW() + @lease_duration::interval,
     updated_at = NOW()
 WHERE id = @id AND claimed_by = @agent_id;
 
+-- name: ListActiveTaskClaims :many
+-- Return all tasks that are currently claimed and whose lease has not expired.
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+FROM zdx_tasks
+WHERE project_id = $1
+  AND claimed_by IS NOT NULL
+  AND lease_expires_at > NOW()
+ORDER BY claimed_at DESC;
+
 -- name: ListTasksByAgent :many
 SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
 FROM zdx_tasks

@@ -211,6 +211,10 @@ type Querier interface {
 	LinkGoalIssue(ctx context.Context, arg LinkGoalIssueParams) error
 	LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
+	// Return all tasks that are currently claimed and whose lease has not expired.
+	ListActiveTaskClaims(ctx context.Context, projectID int32) ([]ListActiveTaskClaimsRow, error)
+	// Return all todos that are currently claimed and whose lease has not expired.
+	ListActiveTodoClaims(ctx context.Context, projectID int32) ([]ListActiveTodoClaimsRow, error)
 	ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error)
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
@@ -371,6 +375,8 @@ type Querier interface {
 	ReleaseTaskAdmin(ctx context.Context, id string) error
 	// Release a claimed todo (agent finished or abandoned).
 	ReleaseTodo(ctx context.Context, arg ReleaseTodoParams) error
+	// Admin release: clear the claim unconditionally (no agent_id check).
+	ReleaseTodoAdmin(ctx context.Context, id int32) error
 	RemoveAllIssueBlocks(ctx context.Context, issueID string) error
 	RemoveFeatureMultiplier(ctx context.Context, arg RemoveFeatureMultiplierParams) error
 	RemoveFocusBlocker(ctx context.Context, arg RemoveFocusBlockerParams) error

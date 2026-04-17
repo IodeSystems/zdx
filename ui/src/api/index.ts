@@ -465,6 +465,42 @@ export const useEvaluateSolo = () => {
   })
 }
 
+export interface ActiveClaimsResponse {
+  todos: {
+    id: number
+    text: string
+    key: string
+    kind: string
+    issue_ref: string
+    claimed_by: string
+    claimed_at: string
+    lease_expires_at?: string
+  }[]
+  tasks: {
+    id: string
+    text: string
+    issue: string
+    task_group: string
+    claimed_by: string
+    claimed_at: string
+    lease_expires_at: string
+  }[]
+}
+
+export const useActiveClaims = (slug: string) =>
+  useQuery<ActiveClaimsResponse>({
+    queryKey: ['active-claims', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/solo/claims' as any, {
+        params: { query: { slug } as any },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as ActiveClaimsResponse
+    },
+    enabled: !!slug,
+    refetchInterval: 30_000,
+  })
+
 export const useApplySolo = () => {
   const qc = useQueryClient()
   return useMutation<{ ok: boolean }, Error, { slug: string; items: SoloItem[] }>({

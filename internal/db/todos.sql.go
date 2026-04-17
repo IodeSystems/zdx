@@ -307,6 +307,78 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 	return i, err
 }
 
+const listActiveTodoClaims = `-- name: ListActiveTodoClaims :many
+SELECT id, project_id, text, key, persona, priority, status,
+       target_type, target_id, kind, issue_ref, blocked,
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+FROM zdx_todos
+WHERE project_id = $1
+  AND claimed_by != ''
+  AND lease_expires_at > NOW()
+ORDER BY claimed_at DESC
+`
+
+type ListActiveTodoClaimsRow struct {
+	ID             int32              `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Key            string             `db:"key" json:"key"`
+	Persona        string             `db:"persona" json:"persona"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Status         string             `db:"status" json:"status"`
+	TargetType     string             `db:"target_type" json:"target_type"`
+	TargetID       string             `db:"target_id" json:"target_id"`
+	Kind           string             `db:"kind" json:"kind"`
+	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
+	Blocked        bool               `db:"blocked" json:"blocked"`
+	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
+}
+
+// Return all todos that are currently claimed and whose lease has not expired.
+func (q *Queries) ListActiveTodoClaims(ctx context.Context, projectID int32) ([]ListActiveTodoClaimsRow, error) {
+	rows, err := q.db.Query(ctx, listActiveTodoClaims, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveTodoClaimsRow
+	for rows.Next() {
+		var i ListActiveTodoClaimsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Key,
+			&i.Persona,
+			&i.Priority,
+			&i.Status,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Kind,
+			&i.IssueRef,
+			&i.Blocked,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
+			&i.CreatedAt,
+			&i.ResolvedAt,
+			&i.ReopenCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTodos = `-- name: ListTodos :many
 SELECT id, project_id, text, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
@@ -493,6 +565,20 @@ type ReleaseTodoParams struct {
 // Release a claimed todo (agent finished or abandoned).
 func (q *Queries) ReleaseTodo(ctx context.Context, arg ReleaseTodoParams) error {
 	_, err := q.db.Exec(ctx, releaseTodo, arg.ID, arg.ClaimedBy)
+	return err
+}
+
+const releaseTodoAdmin = `-- name: ReleaseTodoAdmin :exec
+UPDATE zdx_todos SET
+  claimed_by = '',
+  claimed_at = NULL,
+  lease_expires_at = NULL
+WHERE id = $1
+`
+
+// Admin release: clear the claim unconditionally (no agent_id check).
+func (q *Queries) ReleaseTodoAdmin(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, releaseTodoAdmin, id)
 	return err
 }
 

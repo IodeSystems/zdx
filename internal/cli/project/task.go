@@ -14,6 +14,7 @@ func TaskCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "task", Short: "Task management"}
 	cmd.AddCommand(taskReadyCmd())
 	cmd.AddCommand(taskDeleteCmd())
+	cmd.AddCommand(taskReleaseCmd())
 	return cmd
 }
 
@@ -38,6 +39,54 @@ func taskReadyCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func taskReleaseCmd() *cobra.Command {
+	var forceFlag bool
+	cmd := &cobra.Command{
+		Use:   "release <TK-N>",
+		Short: "Release a claimed task reservation (admin, no agent-id required)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return taskReleaseRun(cmd, args[0], forceFlag)
+		},
+	}
+	cmd.Flags().BoolVar(&forceFlag, "force", false, "release even if the lease is still active")
+	return cmd
+}
+
+func taskReleaseRun(cmd *cobra.Command, arg string, force bool) error {
+	if len(arg) < 4 || arg[:3] != "TK-" {
+		return fmt.Errorf("expected TK-N, got %q", arg)
+	}
+	c := cli.MustClient()
+	slug := c.SlugOrDie()
+
+	// Fetch current task state to check for active lease.
+	taskResp, err := c.GetTaskWithResponse(cmd.Context(), &dxclient.GetTaskParams{Slug: slug, Id: arg[3:]})
+	if err != nil {
+		return err
+	}
+	if err := c.CheckStatus(taskResp.StatusCode(), taskResp.Body); err != nil {
+		return err
+	}
+	t := taskResp.JSON200
+	if t != nil && t.ClaimedBy != nil && *t.ClaimedBy != "" && t.LeaseExpiresAt != nil {
+		if !force {
+			return fmt.Errorf("%s has an active lease (claimed-by=%s, expires=%s); use --force to release anyway",
+				arg, *t.ClaimedBy, *t.LeaseExpiresAt)
+		}
+	}
+
+	releaseResp, err := c.ReleaseTaskWithResponse(cmd.Context(), arg[3:], dxclient.ReleaseTaskRequest{AgentId: ""})
+	if err != nil {
+		return err
+	}
+	if err := c.CheckStatus(releaseResp.StatusCode(), releaseResp.Body); err != nil {
+		return err
+	}
+	fmt.Printf("%s released\n", arg)
+	return nil
 }
 
 func taskDeleteCmd() *cobra.Command {

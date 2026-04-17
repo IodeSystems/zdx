@@ -107,6 +107,14 @@ UPDATE zdx_todos SET
   lease_expires_at = NULL
 WHERE id = $1 AND claimed_by = $2;
 
+-- name: ReleaseTodoAdmin :exec
+-- Admin release: clear the claim unconditionally (no agent_id check).
+UPDATE zdx_todos SET
+  claimed_by = '',
+  claimed_at = NULL,
+  lease_expires_at = NULL
+WHERE id = $1;
+
 -- name: RenewTodoLease :exec
 -- Extend the lease on a claimed todo (heartbeat).
 UPDATE zdx_todos SET
@@ -127,6 +135,17 @@ UPDATE zdx_todos SET
 WHERE project_id = $1
   AND claimed_by != ''
   AND lease_expires_at < NOW();
+
+-- name: ListActiveTodoClaims :many
+-- Return all todos that are currently claimed and whose lease has not expired.
+SELECT id, project_id, text, key, persona, priority, status,
+       target_type, target_id, kind, issue_ref, blocked,
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+FROM zdx_todos
+WHERE project_id = $1
+  AND claimed_by != ''
+  AND lease_expires_at > NOW()
+ORDER BY claimed_at DESC;
 
 -- name: GetState :one
 SELECT value FROM zdx_state WHERE project_id = $1 AND key = $2;

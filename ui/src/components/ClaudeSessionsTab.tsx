@@ -31,6 +31,7 @@ import {
   useClaudeSessionTokenUsage,
   useClaudeSessionTokenUsageByAgent,
   useExtractPatternFromSession,
+  useActiveClaims,
   type ClaudeSessionItem,
   type ClaudeEventItem,
   type AgentTokenUsage,
@@ -826,6 +827,47 @@ interface SessionClosedPayload {
   event_count: number
 }
 
+function ActiveReservations({ slug }: { slug: string }) {
+  const { data, isLoading } = useActiveClaims(slug)
+  const todos = data?.todos ?? []
+  const tasks = data?.tasks ?? []
+  if (isLoading || (todos.length === 0 && tasks.length === 0)) return null
+
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+        Active Reservations
+      </Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {todos.map((t) => (
+          <Box key={`todo-${t.id}`} sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 1, py: 0.5, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+            <Chip label="todo" size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'primary.main', color: '#fff' }} />
+            {t.issue_ref && <Chip label={t.issue_ref} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />}
+            <Typography variant="caption" noWrap sx={{ flex: 1 }}>{t.text}</Typography>
+            <Typography variant="caption" color="text.secondary">claimed-by: {t.claimed_by}</Typography>
+            {t.lease_expires_at && (
+              <Typography variant="caption" color="warning.main" title={`expires ${t.lease_expires_at}`}>
+                expires {fmtRelative(t.lease_expires_at)}
+              </Typography>
+            )}
+          </Box>
+        ))}
+        {tasks.map((t) => (
+          <Box key={`task-${t.id}`} sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 1, py: 0.5, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+            <Chip label="task" size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'secondary.main', color: '#fff' }} />
+            {t.issue && <Chip label={t.issue} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />}
+            <Typography variant="caption" noWrap sx={{ flex: 1 }}>{t.text}</Typography>
+            <Typography variant="caption" color="text.secondary">claimed-by: {t.claimed_by}</Typography>
+            <Typography variant="caption" color="warning.main" title={`expires ${t.lease_expires_at}`}>
+              expires {fmtRelative(t.lease_expires_at)}
+            </Typography>
+          </Box>
+        ))}
+      </Box>
+    </Box>
+  )
+}
+
 export function ClaudeSessionsTab({ slug }: { slug: string }) {
   const { data: sessData, isLoading } = useClaudeSessions(slug)
   const fetchedSessions = sessData?.sessions ?? []
@@ -885,6 +927,7 @@ export function ClaudeSessionsTab({ slug }: { slug: string }) {
 
   return (
     <Box>
+      <ActiveReservations slug={slug} />
       <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 2 }}>
         {sessions.length} Claude {sessions.length === 1 ? 'session' : 'sessions'}
       </Typography>

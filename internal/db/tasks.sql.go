@@ -512,6 +512,74 @@ func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWith
 	return i, err
 }
 
+const listActiveTaskClaims = `-- name: ListActiveTaskClaims :many
+SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+FROM zdx_tasks
+WHERE project_id = $1
+  AND claimed_by IS NOT NULL
+  AND lease_expires_at > NOW()
+ORDER BY claimed_at DESC
+`
+
+type ListActiveTaskClaimsRow struct {
+	ID             string             `db:"id" json:"id"`
+	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Text           string             `db:"text" json:"text"`
+	Feature        string             `db:"feature" json:"feature"`
+	Status         string             `db:"status" json:"status"`
+	Reason         string             `db:"reason" json:"reason"`
+	Issue          string             `db:"issue" json:"issue"`
+	Depends        string             `db:"depends" json:"depends"`
+	TestPlan       string             `db:"test_plan" json:"test_plan"`
+	TestRefs       string             `db:"test_refs" json:"test_refs"`
+	TaskGroup      string             `db:"task_group" json:"task_group"`
+	ClaimedBy      pgtype.Text        `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+// Return all tasks that are currently claimed and whose lease has not expired.
+func (q *Queries) ListActiveTaskClaims(ctx context.Context, projectID int32) ([]ListActiveTaskClaimsRow, error) {
+	rows, err := q.db.Query(ctx, listActiveTaskClaims, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListActiveTaskClaimsRow
+	for rows.Next() {
+		var i ListActiveTaskClaimsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.TaskGroup,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.LeaseExpiresAt,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrphanReadyTasks = `-- name: ListOrphanReadyTasks :many
 SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks

@@ -721,6 +721,8 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}
 			if resolve {
 				_ = h.Q.ResolveTodoByID(ctx, in.Body.ID)
+			} else if in.Body.AgentID == "" {
+				_ = h.Q.ReleaseTodoAdmin(ctx, in.Body.ID)
 			} else {
 				_ = h.Q.ReleaseTodo(ctx, db.ReleaseTodoParams{
 					ID:        in.Body.ID,
@@ -736,6 +738,73 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				OK              bool `json:"ok"`
 				ChurnDowngraded bool `json:"churn_downgraded" required:"false"`
 			}{OK: true, ChurnDowngraded: churnDowngraded}}, nil
+		})
+
+	// GET /api/dx/solo/claims — list all active todo + task claims (unexpired leases)
+	huma.Register(api, huma.Operation{OperationID: "solo-list-claims", Method: http.MethodGet, Path: "/api/dx/solo/claims"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct {
+			Body struct {
+				Todos []TodoItem      `json:"todos"`
+				Tasks []AgentTaskItem `json:"tasks"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			todoRows, err := h.Q.ListActiveTodoClaims(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			taskRows, err := h.Q.ListActiveTaskClaims(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			todos := make([]TodoItem, len(todoRows))
+			for i, r := range todoRows {
+				todos[i] = TodoItem{
+					ID:         r.ID,
+					Text:       r.Text,
+					Key:        r.Key,
+					Persona:    r.Persona,
+					Priority:   r.Priority,
+					Status:     r.Status,
+					TargetType: r.TargetType,
+					TargetID:   r.TargetID,
+					Kind:       r.Kind,
+					IssueRef:   r.IssueRef,
+					Blocked:    r.Blocked,
+					ClaimedBy:  r.ClaimedBy,
+					ClaimedAt:  fmtTS(r.ClaimedAt),
+					CreatedAt:  fmtTS(r.CreatedAt),
+					ResolvedAt: fmtTS(r.ResolvedAt),
+				}
+			}
+			tasks := make([]AgentTaskItem, len(taskRows))
+			for i, r := range taskRows {
+				tasks[i] = AgentTaskItem{
+					ID:             r.ID,
+					Text:           r.Text,
+					Feature:        r.Feature,
+					Status:         r.Status,
+					Issue:          r.Issue,
+					TaskGroup:      r.TaskGroup,
+					CreatedAt:      fmtTS(r.CreatedAt),
+					ClaimedAt:      fmtTS(r.ClaimedAt),
+					LeaseExpiresAt: fmtTS(r.LeaseExpiresAt),
+				}
+			}
+			return &struct {
+				Body struct {
+					Todos []TodoItem      `json:"todos"`
+					Tasks []AgentTaskItem `json:"tasks"`
+				}
+			}{Body: struct {
+				Todos []TodoItem      `json:"todos"`
+				Tasks []AgentTaskItem `json:"tasks"`
+			}{Todos: todos, Tasks: tasks}}, nil
 		})
 
 	// POST /api/dx/solo/renew — extend lease on a claimed todo
