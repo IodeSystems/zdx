@@ -135,6 +135,8 @@ type Querier interface {
 	DetachCodeRefFromSpec(ctx context.Context, arg DetachCodeRefFromSpecParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error
+	// Marks all unread response threads as read for the user by upserting comment reads.
+	DismissAllUnreadResponsesForUser(ctx context.Context, arg DismissAllUnreadResponsesForUserParams) error
 	FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) ([]FlagStaleTasksRow, error)
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
@@ -353,6 +355,8 @@ type Querier interface {
 	// Features with no goal and no parent (orphans needing attribution).
 	ListUnattributedFeatures(ctx context.Context, projectID int32) ([]ListUnattributedFeaturesRow, error)
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
+	// Returns distinct threads where the user has commented and others have replied unread.
+	ListUnreadResponseThreadsForUser(ctx context.Context, arg ListUnreadResponseThreadsForUserParams) ([]ListUnreadResponseThreadsForUserRow, error)
 	ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error)
 	ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)

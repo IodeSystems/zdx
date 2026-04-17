@@ -91,6 +91,60 @@ WHERE c.project_id = @project_id
       AND r.last_read_at >= c.created_at
   );
 
+-- name: ListUnreadResponseThreadsForUser :many
+-- Returns distinct threads where the user has commented and others have replied unread.
+SELECT
+  c.target_type,
+  c.target_id,
+  COUNT(*)::int AS unread_count,
+  MAX(c.created_at) AS last_unread_at
+FROM zdx_comments c
+WHERE c.project_id = @project_id
+  AND c.author != @author
+  AND EXISTS (
+    SELECT 1 FROM zdx_comments mine
+    WHERE mine.project_id = c.project_id
+      AND mine.target_type = c.target_type
+      AND mine.target_id = c.target_id
+      AND mine.author = @author
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = @role
+      AND r.last_read_at >= c.created_at
+  )
+GROUP BY c.target_type, c.target_id
+ORDER BY MAX(c.created_at) DESC
+LIMIT 50;
+
+-- name: DismissAllUnreadResponsesForUser :exec
+-- Marks all unread response threads as read for the user by upserting comment reads.
+INSERT INTO zdx_comment_reads (project_id, target_type, target_id, role)
+SELECT DISTINCT c.project_id, c.target_type, c.target_id, @role::text
+FROM zdx_comments c
+WHERE c.project_id = @project_id
+  AND c.author != @author
+  AND EXISTS (
+    SELECT 1 FROM zdx_comments mine
+    WHERE mine.project_id = c.project_id
+      AND mine.target_type = c.target_type
+      AND mine.target_id = c.target_id
+      AND mine.author = @author
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = @role
+      AND r.last_read_at >= c.created_at
+  )
+ON CONFLICT (project_id, target_type, target_id, role)
+DO UPDATE SET last_read_at = NOW();
+
 -- name: ListStaleUnreadComments :many
 -- Returns comments that are unread for the given role and older than the given age threshold.
 SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at, c.parent_id, c.author_alias

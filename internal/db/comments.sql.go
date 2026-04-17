@@ -275,6 +275,43 @@ func (q *Queries) DeleteCommentReaction(ctx context.Context, arg DeleteCommentRe
 	return err
 }
 
+const dismissAllUnreadResponsesForUser = `-- name: DismissAllUnreadResponsesForUser :exec
+INSERT INTO zdx_comment_reads (project_id, target_type, target_id, role)
+SELECT DISTINCT c.project_id, c.target_type, c.target_id, $1::text
+FROM zdx_comments c
+WHERE c.project_id = $2
+  AND c.author != $3
+  AND EXISTS (
+    SELECT 1 FROM zdx_comments mine
+    WHERE mine.project_id = c.project_id
+      AND mine.target_type = c.target_type
+      AND mine.target_id = c.target_id
+      AND mine.author = $3
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = $1
+      AND r.last_read_at >= c.created_at
+  )
+ON CONFLICT (project_id, target_type, target_id, role)
+DO UPDATE SET last_read_at = NOW()
+`
+
+type DismissAllUnreadResponsesForUserParams struct {
+	Role      string `db:"role" json:"role"`
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Author    string `db:"author" json:"author"`
+}
+
+// Marks all unread response threads as read for the user by upserting comment reads.
+func (q *Queries) DismissAllUnreadResponsesForUser(ctx context.Context, arg DismissAllUnreadResponsesForUserParams) error {
+	_, err := q.db.Exec(ctx, dismissAllUnreadResponsesForUser, arg.Role, arg.ProjectID, arg.Author)
+	return err
+}
+
 const getCommentByID = `-- name: GetCommentByID :one
 SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE id = $1
@@ -965,6 +1002,74 @@ func (q *Queries) ListStaleUnreadComments(ctx context.Context, arg ListStaleUnre
 			&i.CreatedAt,
 			&i.ParentID,
 			&i.AuthorAlias,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listUnreadResponseThreadsForUser = `-- name: ListUnreadResponseThreadsForUser :many
+SELECT
+  c.target_type,
+  c.target_id,
+  COUNT(*)::int AS unread_count,
+  MAX(c.created_at) AS last_unread_at
+FROM zdx_comments c
+WHERE c.project_id = $1
+  AND c.author != $2
+  AND EXISTS (
+    SELECT 1 FROM zdx_comments mine
+    WHERE mine.project_id = c.project_id
+      AND mine.target_type = c.target_type
+      AND mine.target_id = c.target_id
+      AND mine.author = $2
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_comment_reads r
+    WHERE r.project_id = c.project_id
+      AND r.target_type = c.target_type
+      AND r.target_id = c.target_id
+      AND r.role = $3
+      AND r.last_read_at >= c.created_at
+  )
+GROUP BY c.target_type, c.target_id
+ORDER BY MAX(c.created_at) DESC
+LIMIT 50
+`
+
+type ListUnreadResponseThreadsForUserParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Author    string `db:"author" json:"author"`
+	Role      string `db:"role" json:"role"`
+}
+
+type ListUnreadResponseThreadsForUserRow struct {
+	TargetType   string      `db:"target_type" json:"target_type"`
+	TargetID     string      `db:"target_id" json:"target_id"`
+	UnreadCount  int32       `db:"unread_count" json:"unread_count"`
+	LastUnreadAt interface{} `db:"last_unread_at" json:"last_unread_at"`
+}
+
+// Returns distinct threads where the user has commented and others have replied unread.
+func (q *Queries) ListUnreadResponseThreadsForUser(ctx context.Context, arg ListUnreadResponseThreadsForUserParams) ([]ListUnreadResponseThreadsForUserRow, error) {
+	rows, err := q.db.Query(ctx, listUnreadResponseThreadsForUser, arg.ProjectID, arg.Author, arg.Role)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListUnreadResponseThreadsForUserRow
+	for rows.Next() {
+		var i ListUnreadResponseThreadsForUserRow
+		if err := rows.Scan(
+			&i.TargetType,
+			&i.TargetID,
+			&i.UnreadCount,
+			&i.LastUnreadAt,
 		); err != nil {
 			return nil, err
 		}

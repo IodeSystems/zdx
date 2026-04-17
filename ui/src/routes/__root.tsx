@@ -50,7 +50,7 @@ import {
 } from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useProjects, useMe, useLogout, useUnreadCount, useZdxConfig } from '../api'
+import { useProjects, useMe, useLogout, useUnreadCount, useUnreadThreads, useDismissAllNotifications, useZdxConfig, type UnreadThread } from '../api'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
 import { IssueReportFab } from '../components/IssueReportFab'
@@ -472,6 +472,13 @@ function AppShell() {
   )
 }
 
+function threadPath(slug: string, t: UnreadThread): string {
+  if (t.target_type === 'issue') return `/project/${slug}/issues/${t.target_id}`
+  if (t.target_type === 'task') return `/project/${slug}/tasks/${t.target_id}`
+  if (t.target_type === 'feature') return `/project/${slug}/features/${t.target_id}`
+  return `/project/${slug}`
+}
+
 function AvatarMenu() {
   const { data: me } = useMe()
   const logout = useLogout()
@@ -479,7 +486,10 @@ function AvatarMenu() {
   const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
   const slug = (projectMatch?.params as { slug?: string })?.slug
   const { data: unread } = useUnreadCount(slug ?? '')
+  const { data: threads } = useUnreadThreads(slug ?? '')
+  const dismissAll = useDismissAllNotifications()
   const [anchorEl, setAnchorEl] = useState<null | HTMLElement>(null)
+  const [notifOpen, setNotifOpen] = useState(false)
 
   if (!me) return null
 
@@ -489,6 +499,8 @@ function AvatarMenu() {
     .join('')
     .toUpperCase()
     .slice(0, 2)
+
+  const hasUnread = (unread ?? 0) > 0
 
   return (
     <>
@@ -507,6 +519,39 @@ function AvatarMenu() {
           </Box>
         </MenuItem>
         <Divider />
+        {slug && hasUnread && (
+          <>
+            <MenuItem onClick={() => setNotifOpen(o => !o)} sx={{ justifyContent: 'space-between' }}>
+              <Typography variant="body2">Notifications ({unread})</Typography>
+              {notifOpen ? <ExpandLessIcon fontSize="small" /> : <ExpandMoreIcon fontSize="small" />}
+            </MenuItem>
+            <Collapse in={notifOpen} timeout="auto">
+              <Box sx={{ maxHeight: 240, overflowY: 'auto', bgcolor: 'action.hover' }}>
+                {(threads ?? []).map(t => (
+                  <MenuItem
+                    key={`${t.target_type}:${t.target_id}`}
+                    component="a"
+                    href={threadPath(slug, t)}
+                    onClick={() => setAnchorEl(null)}
+                    sx={{ pl: 3, display: 'flex', justifyContent: 'space-between', gap: 1 }}
+                  >
+                    <Typography variant="body2" noWrap sx={{ flex: 1 }}>
+                      {t.target_type.charAt(0).toUpperCase() + t.target_type.slice(1)} {t.target_id}
+                    </Typography>
+                    <Badge badgeContent={t.unread_count} color="error" sx={{ mr: 1 }} />
+                  </MenuItem>
+                ))}
+                <MenuItem
+                  onClick={() => { if (slug) dismissAll.mutate(slug) }}
+                  sx={{ pl: 3, color: 'text.secondary', fontSize: '0.8rem' }}
+                >
+                  Dismiss all
+                </MenuItem>
+              </Box>
+            </Collapse>
+            <Divider />
+          </>
+        )}
         {slug && (
           <MenuItem component="a" href={`/project/${slug}/profile`} onClick={() => setAnchorEl(null)}>
             Profile

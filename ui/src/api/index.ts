@@ -608,6 +608,39 @@ export const useUnreadCount = (slug: string) =>
     refetchInterval: 60_000,
   })
 
+export interface UnreadThread {
+  target_type: string
+  target_id: string
+  unread_count: number
+  last_unread_at: string
+}
+
+export const useUnreadThreads = (slug: string) =>
+  useQuery<UnreadThread[]>({
+    queryKey: ['notifications', 'unread-threads', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/notifications/unread-threads' as any, { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as any)?.threads ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useDismissAllNotifications = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (slug: string) => {
+      const { data, error } = await client.POST('/api/dx/notifications/dismiss-all' as any, { body: { slug } as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return data
+    },
+    onSuccess: (_data, slug) => {
+      qc.invalidateQueries({ queryKey: ['notifications', 'unread-count', slug] })
+      qc.invalidateQueries({ queryKey: ['notifications', 'unread-threads', slug] })
+    },
+  })
+}
+
 // ── unified history (status + field revisions) ──────────────────────────────
 
 export interface HistoryEvent {

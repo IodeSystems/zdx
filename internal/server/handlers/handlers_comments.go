@@ -337,6 +337,76 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 			}{Count: count}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "notifications-unread-threads", Method: http.MethodGet, Path: "/api/dx/notifications/unread-threads"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct {
+			Body struct {
+				Threads []db.ListUnreadResponseThreadsForUserRow `json:"threads"`
+			}
+		}, error) {
+			uid := ctxUserIDVal(ctx)
+			if uid == 0 {
+				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
+			}
+			user, err := h.Q.GetUserByID(ctx, uid)
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "user not found")
+			}
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			role := fmt.Sprintf("web:%d", uid)
+			threads, err := h.Q.ListUnreadResponseThreadsForUser(ctx, db.ListUnreadResponseThreadsForUserParams{
+				ProjectID: p.ID,
+				Author:    user.Email,
+				Role:      role,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if threads == nil {
+				threads = []db.ListUnreadResponseThreadsForUserRow{}
+			}
+			return &struct {
+				Body struct {
+					Threads []db.ListUnreadResponseThreadsForUserRow `json:"threads"`
+				}
+			}{Body: struct {
+				Threads []db.ListUnreadResponseThreadsForUserRow `json:"threads"`
+			}{Threads: threads}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "notifications-dismiss-all", Method: http.MethodPost, Path: "/api/dx/notifications/dismiss-all"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			uid := ctxUserIDVal(ctx)
+			if uid == 0 {
+				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
+			}
+			user, err := h.Q.GetUserByID(ctx, uid)
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "user not found")
+			}
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			role := fmt.Sprintf("web:%d", uid)
+			if err := h.Q.DismissAllUnreadResponsesForUser(ctx, db.DismissAllUnreadResponsesForUserParams{
+				ProjectID: p.ID,
+				Author:    user.Email,
+				Role:      role,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "get-comment", Method: http.MethodGet, Path: "/api/dx/comment/get"},
 		func(ctx context.Context, in *struct {
 			ID int32 `query:"id" required:"true"`
