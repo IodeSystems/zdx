@@ -63,20 +63,57 @@ func runMigrate(noGen bool) {
 		log.Fatalf("migrate: read post version: %v", postErr)
 	}
 
+	migrationsApplied := false
 	switch {
 	case postNil:
 		log.Println("migrate: no migrations embedded in this binary")
 	case preNil:
 		log.Printf("migrate: schema initialized at version %d", postVer)
+		migrationsApplied = true
 	case preVer == postVer:
 		log.Printf("migrate: already up-to-date at version %d", postVer)
 	default:
 		log.Printf("migrate: applied migrations %d → %d", preVer, postVer)
+		migrationsApplied = true
+	}
+
+	if migrationsApplied {
+		if err := refreshShippedSQL(dsn); err != nil {
+			log.Printf("migrate: warning: could not refresh schema/shipped.sql: %v", err)
+			log.Println("migrate: sqlc generate may fail — run pg_dump manually:")
+			log.Println("  pg_dump --schema-only --no-owner --no-privileges --exclude-table=schema_migrations $DATABASE_URL > schema/shipped.sql")
+		}
 	}
 
 	if !noGen {
 		runGen()
 	}
+}
+
+func refreshShippedSQL(dsn string) error {
+	pgDump, err := exec.LookPath("pg_dump")
+	if err != nil {
+		return fmt.Errorf("pg_dump not found in PATH")
+	}
+	f, err := os.Create("schema/shipped.sql")
+	if err != nil {
+		return fmt.Errorf("create schema/shipped.sql: %w", err)
+	}
+	defer f.Close()
+	cmd := exec.Command(pgDump,
+		"--schema-only",
+		"--no-owner",
+		"--no-privileges",
+		"--exclude-table=schema_migrations",
+		dsn,
+	)
+	cmd.Stdout = f
+	cmd.Stderr = os.Stderr
+	if err := cmd.Run(); err != nil {
+		return fmt.Errorf("pg_dump: %w", err)
+	}
+	log.Println("migrate: schema/shipped.sql refreshed via pg_dump")
+	return nil
 }
 
 func runGen() {
