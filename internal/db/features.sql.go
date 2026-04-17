@@ -64,6 +64,15 @@ func (q *Queries) AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, e
 	return i, err
 }
 
+const clearFeatureParent = `-- name: ClearFeatureParent :exec
+UPDATE zdx_features SET parent_feature_id = NULL WHERE id = $1
+`
+
+func (q *Queries) ClearFeatureParent(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, clearFeatureParent, id)
+	return err
+}
+
 const deferSpec = `-- name: DeferSpec :exec
 UPDATE zdx_specs SET deferred = true, deferred_reason = $1 WHERE id = $2
 `
@@ -84,6 +93,15 @@ DELETE FROM zdx_features WHERE id = $1
 
 func (q *Queries) DeleteFeature(ctx context.Context, id int32) error {
 	_, err := q.db.Exec(ctx, deleteFeature, id)
+	return err
+}
+
+const deleteSpec = `-- name: DeleteSpec :exec
+DELETE FROM zdx_specs WHERE id = $1
+`
+
+func (q *Queries) DeleteSpec(ctx context.Context, id int32) error {
+	_, err := q.db.Exec(ctx, deleteSpec, id)
 	return err
 }
 
@@ -1006,6 +1024,20 @@ type UpdateSpecConcernTypeParams struct {
 
 func (q *Queries) UpdateSpecConcernType(ctx context.Context, arg UpdateSpecConcernTypeParams) error {
 	_, err := q.db.Exec(ctx, updateSpecConcernType, arg.ConcernType, arg.ID)
+	return err
+}
+
+const updateSpecFeature = `-- name: UpdateSpecFeature :exec
+UPDATE zdx_specs SET feature_id = $1 WHERE id = $2
+`
+
+type UpdateSpecFeatureParams struct {
+	FeatureID int32 `db:"feature_id" json:"feature_id"`
+	ID        int32 `db:"id" json:"id"`
+}
+
+func (q *Queries) UpdateSpecFeature(ctx context.Context, arg UpdateSpecFeatureParams) error {
+	_, err := q.db.Exec(ctx, updateSpecFeature, arg.FeatureID, arg.ID)
 	return err
 }
 

@@ -34,6 +34,7 @@ type Querier interface {
 	ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error)
 	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
 	ClearDoctorDeferrals(ctx context.Context, projectID int32) error
+	ClearFeatureParent(ctx context.Context, id int32) error
 	ClearStaleFlag(ctx context.Context, id string) error
 	CloseClaudeSession(ctx context.Context, id int64) error
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
@@ -113,6 +114,7 @@ type Querier interface {
 	DeletePlanStepRef(ctx context.Context, arg DeletePlanStepRefParams) error
 	DeleteProjectConstraint(ctx context.Context, id int32) error
 	DeleteProjectGoal(ctx context.Context, id int32) error
+	DeleteSpec(ctx context.Context, id int32) error
 	DeleteTask(ctx context.Context, id string) error
 	// Will fail at the DB level (RESTRICT) if spec_tests rows reference this test.
 	// Call ListSpecsCoveredByTest first to surface what breaks.
@@ -393,6 +395,7 @@ type Querier interface {
 	UpdateProjectConstraint(ctx context.Context, arg UpdateProjectConstraintParams) error
 	UpdateProjectGoal(ctx context.Context, arg UpdateProjectGoalParams) error
 	UpdateSpecConcernType(ctx context.Context, arg UpdateSpecConcernTypeParams) error
+	UpdateSpecFeature(ctx context.Context, arg UpdateSpecFeatureParams) error
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error

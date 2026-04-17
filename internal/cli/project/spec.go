@@ -16,8 +16,67 @@ func SpecCmd() *cobra.Command {
 		Use:   "spec",
 		Short: "Feature spec management (BDD statements)",
 	}
-	cmd.AddCommand(specAddCmd(), specListCmd(), specLinkCmd(), specUnlinkCmd(), specDeferCmd(), specUndeferCmd())
+	cmd.AddCommand(specAddCmd(), specListCmd(), specLinkCmd(), specUnlinkCmd(), specDeferCmd(), specUndeferCmd(), specMoveCmd(), specRmCmd())
 	return cmd
+}
+
+func specMoveCmd() *cobra.Command {
+	var feature string
+	cmd := &cobra.Command{
+		Use:   "move <spec-id>",
+		Short: "Move a spec to a different feature (for decomposing over-specced features)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			specID, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid spec-id: %s", args[0])
+			}
+			c := cli.MustClient()
+			resp, err := c.MoveSpecWithResponse(cmd.Context(), dxclient.MoveSpecRequest{
+				Slug:    c.SlugOrDie(),
+				SpecId:  int32(specID),
+				Feature: feature,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("moved spec %d → %s\n", specID, feature)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&feature, "feature", "", "target feature name")
+	cmd.MarkFlagRequired("feature")
+	return cmd
+}
+
+func specRmCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:     "rm <spec-id>",
+		Aliases: []string{"remove", "delete"},
+		Short:   "Delete a spec (cascades to spec↔test and spec↔issue links)",
+		Args:    cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			specID, err := strconv.Atoi(args[0])
+			if err != nil {
+				return fmt.Errorf("invalid spec-id: %s", args[0])
+			}
+			c := cli.MustClient()
+			resp, err := c.DeleteSpecWithResponse(cmd.Context(), dxclient.DeleteSpecRequest{
+				SpecId: int32(specID),
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("deleted spec %d\n", specID)
+			return nil
+		},
+	}
 }
 
 func specAddCmd() *cobra.Command {

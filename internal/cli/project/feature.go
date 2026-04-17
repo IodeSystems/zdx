@@ -123,6 +123,7 @@ func featureShowCmd() *cobra.Command {
 func featureSetCmd() *cobra.Command {
 	var what, why, doneWhen, component, description, category string
 	var kind, metricName, metricUnit, baselineValue, targetValue, graphURL string
+	var parent string
 	cmd := &cobra.Command{
 		Use:   "set <name>",
 		Short: "Set fields on a feature",
@@ -165,8 +166,22 @@ func featureSetCmd() *cobra.Command {
 				}
 				changed = true
 			}
+			if cmd.Flags().Changed("parent") {
+				resp, err := c.SetFeatureParentWithResponse(cmd.Context(), dxclient.SetFeatureParentRequest{
+					Slug:    slug,
+					Feature: name,
+					Parent:  parent,
+				})
+				if err != nil {
+					return fmt.Errorf("set parent: %w", err)
+				}
+				if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+					return fmt.Errorf("set parent: %w", err)
+				}
+				changed = true
+			}
 			if !changed {
-				return fmt.Errorf("no fields specified — use --what, --why, --done-when, --component, --category, --desc, --kind, --metric-name, etc.")
+				return fmt.Errorf("no fields specified — use --what, --why, --done-when, --component, --category, --desc, --kind, --parent, --metric-name, etc.")
 			}
 			fmt.Printf("%s updated\n", name)
 			return nil
@@ -184,6 +199,7 @@ func featureSetCmd() *cobra.Command {
 	cmd.Flags().StringVar(&baselineValue, "baseline-value", "", "baseline measurement")
 	cmd.Flags().StringVar(&targetValue, "target-value", "", "target measurement")
 	cmd.Flags().StringVar(&graphURL, "graph-url", "", "URL to instrumentation graph/dashboard")
+	cmd.Flags().StringVar(&parent, "parent", "", "parent feature name (empty string clears parent)")
 	return cmd
 }
 

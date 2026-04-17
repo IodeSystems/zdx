@@ -1254,6 +1254,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/features/parent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["set-feature-parent"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/features/stale": {
         parameters: {
             query?: never;
@@ -2182,6 +2198,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/specs/delete": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["delete-spec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/specs/demo-gap": {
         parameters: {
             query?: never;
@@ -2256,6 +2288,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["link-spec-test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/move": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["move-spec"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4513,6 +4561,16 @@ export interface components {
             readonly $schema?: string;
             ok: boolean;
         };
+        "Delete-specRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Delete-specRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            spec_id: number;
+        };
         "Delete-taskRequest": {
             /**
              * Format: uri
@@ -6019,6 +6077,18 @@ export interface components {
             name: string;
             role: string;
         };
+        "Move-specRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Move-specRequest.json
+             */
+            readonly $schema?: string;
+            feature: string;
+            slug: string;
+            /** Format: int32 */
+            spec_id: number;
+        };
         "Notifications-unread-countResponse": {
             /**
              * Format: uri
@@ -6449,6 +6519,17 @@ export interface components {
             field: string;
             slug: string;
             value: string;
+        };
+        "Set-feature-parentRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-feature-parentRequest.json
+             */
+            readonly $schema?: string;
+            feature: string;
+            parent: string;
+            slug: string;
         };
         "Set-focus-statusRequest": {
             /**
@@ -10109,6 +10190,39 @@ export interface operations {
             };
         };
     };
+    "set-feature-parent": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-feature-parentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-stale-features": {
         parameters: {
             query: {
@@ -12012,6 +12126,39 @@ export interface operations {
             };
         };
     };
+    "delete-spec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Delete-specRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-specs-without-demos": {
         parameters: {
             query: {
@@ -12148,6 +12295,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Link-spec-testRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "move-spec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Move-specRequest"];
             };
         };
         responses: {

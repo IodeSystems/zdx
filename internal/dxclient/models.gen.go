@@ -786,6 +786,13 @@ type DeletePatternResponse struct {
 	Ok     bool    `json:"ok"`
 }
 
+// DeleteSpecRequest defines model for Delete-specRequest.
+type DeleteSpecRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	SpecId int32   `json:"spec_id"`
+}
+
 // DeleteTaskRequest defines model for Delete-taskRequest.
 type DeleteTaskRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1986,6 +1993,15 @@ type MeItem struct {
 	Role   string  `json:"role"`
 }
 
+// MoveSpecRequest defines model for Move-specRequest.
+type MoveSpecRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	Feature string  `json:"feature"`
+	Slug    string  `json:"slug"`
+	SpecId  int32   `json:"spec_id"`
+}
+
 // NotificationsUnreadCountResponse defines model for Notifications-unread-countResponse.
 type NotificationsUnreadCountResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2333,6 +2349,15 @@ type SetFeatureFieldRequest struct {
 	Field   string  `json:"field"`
 	Slug    string  `json:"slug"`
 	Value   string  `json:"value"`
+}
+
+// SetFeatureParentRequest defines model for Set-feature-parentRequest.
+type SetFeatureParentRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	Feature string  `json:"feature"`
+	Parent  string  `json:"parent"`
+	Slug    string  `json:"slug"`
 }
 
 // SetFocusStatusRequest defines model for Set-focus-statusRequest.
@@ -3823,6 +3848,9 @@ type MarkFeatureReviewedJSONRequestBody = MarkFeatureReviewedRequest
 // SetFeatureFieldJSONRequestBody defines body for SetFeatureField for application/json ContentType.
 type SetFeatureFieldJSONRequestBody = SetFeatureFieldRequest
 
+// SetFeatureParentJSONRequestBody defines body for SetFeatureParent for application/json ContentType.
+type SetFeatureParentJSONRequestBody = SetFeatureParentRequest
+
 // AddFocusJSONRequestBody defines body for AddFocus for application/json ContentType.
 type AddFocusJSONRequestBody = AddFocusRequest
 
@@ -3919,11 +3947,17 @@ type SoloRenewJSONRequestBody = SoloRenewRequest
 // DeferSpecJSONRequestBody defines body for DeferSpec for application/json ContentType.
 type DeferSpecJSONRequestBody = DeferSpecRequest
 
+// DeleteSpecJSONRequestBody defines body for DeleteSpec for application/json ContentType.
+type DeleteSpecJSONRequestBody = DeleteSpecRequest
+
 // LinkSpecIssueJSONRequestBody defines body for LinkSpecIssue for application/json ContentType.
 type LinkSpecIssueJSONRequestBody = LinkSpecIssueRequest
 
 // LinkSpecTestJSONRequestBody defines body for LinkSpecTest for application/json ContentType.
 type LinkSpecTestJSONRequestBody = LinkSpecTestRequest
+
+// MoveSpecJSONRequestBody defines body for MoveSpec for application/json ContentType.
+type MoveSpecJSONRequestBody = MoveSpecRequest
 
 // UndeferSpecJSONRequestBody defines body for UndeferSpec for application/json ContentType.
 type UndeferSpecJSONRequestBody = UndeferSpecRequest
@@ -4478,6 +4512,11 @@ type ClientInterface interface {
 
 	SetFeatureField(ctx context.Context, body SetFeatureFieldJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SetFeatureParentWithBody request with any body
+	SetFeatureParentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetFeatureParent(ctx context.Context, body SetFeatureParentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListStaleFeatures request
 	ListStaleFeatures(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -4716,6 +4755,11 @@ type ClientInterface interface {
 
 	DeferSpec(ctx context.Context, body DeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteSpecWithBody request with any body
+	DeleteSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DeleteSpec(ctx context.Context, body DeleteSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListSpecsWithoutDemos request
 	ListSpecsWithoutDemos(ctx context.Context, params *ListSpecsWithoutDemosParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -4734,6 +4778,11 @@ type ClientInterface interface {
 	LinkSpecTestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	LinkSpecTest(ctx context.Context, body LinkSpecTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MoveSpecWithBody request with any body
+	MoveSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	MoveSpec(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSpecTests request
 	ListSpecTests(ctx context.Context, params *ListSpecTestsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6558,6 +6607,30 @@ func (c *APIClient) SetFeatureField(ctx context.Context, body SetFeatureFieldJSO
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) SetFeatureParentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetFeatureParentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetFeatureParent(ctx context.Context, body SetFeatureParentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetFeatureParentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListStaleFeatures(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListStaleFeaturesRequest(c.Server, params)
 	if err != nil {
@@ -7638,6 +7711,30 @@ func (c *APIClient) DeferSpec(ctx context.Context, body DeferSpecJSONRequestBody
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) DeleteSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSpecRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) DeleteSpec(ctx context.Context, body DeleteSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteSpecRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListSpecsWithoutDemos(ctx context.Context, params *ListSpecsWithoutDemosParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSpecsWithoutDemosRequest(c.Server, params)
 	if err != nil {
@@ -7712,6 +7809,30 @@ func (c *APIClient) LinkSpecTestWithBody(ctx context.Context, contentType string
 
 func (c *APIClient) LinkSpecTest(ctx context.Context, body LinkSpecTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewLinkSpecTestRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) MoveSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMoveSpecRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) MoveSpec(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMoveSpecRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13934,6 +14055,46 @@ func NewSetFeatureFieldRequestWithBody(server string, contentType string, body i
 	return req, nil
 }
 
+// NewSetFeatureParentRequest calls the generic SetFeatureParent builder with application/json body
+func NewSetFeatureParentRequest(server string, body SetFeatureParentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetFeatureParentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetFeatureParentRequestWithBody generates requests for SetFeatureParent with any type of body
+func NewSetFeatureParentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/features/parent")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListStaleFeaturesRequest generates requests for ListStaleFeatures
 func NewListStaleFeaturesRequest(server string, params *ListStaleFeaturesParams) (*http.Request, error) {
 	var err error
@@ -17020,6 +17181,46 @@ func NewDeferSpecRequestWithBody(server string, contentType string, body io.Read
 	return req, nil
 }
 
+// NewDeleteSpecRequest calls the generic DeleteSpec builder with application/json body
+func NewDeleteSpecRequest(server string, body DeleteSpecJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeleteSpecRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDeleteSpecRequestWithBody generates requests for DeleteSpec with any type of body
+func NewDeleteSpecRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/delete")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListSpecsWithoutDemosRequest generates requests for ListSpecsWithoutDemos
 func NewListSpecsWithoutDemosRequest(server string, params *ListSpecsWithoutDemosParams) (*http.Request, error) {
 	var err error
@@ -17216,6 +17417,46 @@ func NewLinkSpecTestRequestWithBody(server string, contentType string, body io.R
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/specs/link-test")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewMoveSpecRequest calls the generic MoveSpec builder with application/json body
+func NewMoveSpecRequest(server string, body MoveSpecJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewMoveSpecRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewMoveSpecRequestWithBody generates requests for MoveSpec with any type of body
+func NewMoveSpecRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/move")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -22090,6 +22331,11 @@ type ClientWithResponsesInterface interface {
 
 	SetFeatureFieldWithResponse(ctx context.Context, body SetFeatureFieldJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFeatureFieldResponse, error)
 
+	// SetFeatureParentWithBodyWithResponse request with any body
+	SetFeatureParentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetFeatureParentResponse, error)
+
+	SetFeatureParentWithResponse(ctx context.Context, body SetFeatureParentJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFeatureParentResponse, error)
+
 	// ListStaleFeaturesWithResponse request
 	ListStaleFeaturesWithResponse(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*ParsedListStaleFeaturesResponse, error)
 
@@ -22328,6 +22574,11 @@ type ClientWithResponsesInterface interface {
 
 	DeferSpecWithResponse(ctx context.Context, body DeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*DeferSpecResponse, error)
 
+	// DeleteSpecWithBodyWithResponse request with any body
+	DeleteSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteSpecResponse, error)
+
+	DeleteSpecWithResponse(ctx context.Context, body DeleteSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteSpecResponse, error)
+
 	// ListSpecsWithoutDemosWithResponse request
 	ListSpecsWithoutDemosWithResponse(ctx context.Context, params *ListSpecsWithoutDemosParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsWithoutDemosResponse, error)
 
@@ -22346,6 +22597,11 @@ type ClientWithResponsesInterface interface {
 	LinkSpecTestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LinkSpecTestResponse, error)
 
 	LinkSpecTestWithResponse(ctx context.Context, body LinkSpecTestJSONRequestBody, reqEditors ...RequestEditorFn) (*LinkSpecTestResponse, error)
+
+	// MoveSpecWithBodyWithResponse request with any body
+	MoveSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MoveSpecResponse, error)
+
+	MoveSpecWithResponse(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*MoveSpecResponse, error)
 
 	// ListSpecTestsWithResponse request
 	ListSpecTestsWithResponse(ctx context.Context, params *ListSpecTestsParams, reqEditors ...RequestEditorFn) (*ParsedListSpecTestsResponse, error)
@@ -24677,6 +24933,29 @@ func (r SetFeatureFieldResponse) StatusCode() int {
 	return 0
 }
 
+type SetFeatureParentResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SetFeatureParentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetFeatureParentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListStaleFeaturesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -26011,6 +26290,29 @@ func (r DeferSpecResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteSpecResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteSpecResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteSpecResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListSpecsWithoutDemosResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -26120,6 +26422,29 @@ func (r LinkSpecTestResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r LinkSpecTestResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type MoveSpecResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r MoveSpecResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MoveSpecResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -29162,6 +29487,23 @@ func (c *ClientWithResponses) SetFeatureFieldWithResponse(ctx context.Context, b
 	return ParseSetFeatureFieldResponse(rsp)
 }
 
+// SetFeatureParentWithBodyWithResponse request with arbitrary body returning *SetFeatureParentResponse
+func (c *ClientWithResponses) SetFeatureParentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetFeatureParentResponse, error) {
+	rsp, err := c.SetFeatureParentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetFeatureParentResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetFeatureParentWithResponse(ctx context.Context, body SetFeatureParentJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFeatureParentResponse, error) {
+	rsp, err := c.SetFeatureParent(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetFeatureParentResponse(rsp)
+}
+
 // ListStaleFeaturesWithResponse request returning *ParsedListStaleFeaturesResponse
 func (c *ClientWithResponses) ListStaleFeaturesWithResponse(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*ParsedListStaleFeaturesResponse, error) {
 	rsp, err := c.ListStaleFeatures(ctx, params, reqEditors...)
@@ -29940,6 +30282,23 @@ func (c *ClientWithResponses) DeferSpecWithResponse(ctx context.Context, body De
 	return ParseDeferSpecResponse(rsp)
 }
 
+// DeleteSpecWithBodyWithResponse request with arbitrary body returning *DeleteSpecResponse
+func (c *ClientWithResponses) DeleteSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteSpecResponse, error) {
+	rsp, err := c.DeleteSpecWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSpecResponse(rsp)
+}
+
+func (c *ClientWithResponses) DeleteSpecWithResponse(ctx context.Context, body DeleteSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*DeleteSpecResponse, error) {
+	rsp, err := c.DeleteSpec(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteSpecResponse(rsp)
+}
+
 // ListSpecsWithoutDemosWithResponse request returning *ParsedListSpecsWithoutDemosResponse
 func (c *ClientWithResponses) ListSpecsWithoutDemosWithResponse(ctx context.Context, params *ListSpecsWithoutDemosParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsWithoutDemosResponse, error) {
 	rsp, err := c.ListSpecsWithoutDemos(ctx, params, reqEditors...)
@@ -29999,6 +30358,23 @@ func (c *ClientWithResponses) LinkSpecTestWithResponse(ctx context.Context, body
 		return nil, err
 	}
 	return ParseLinkSpecTestResponse(rsp)
+}
+
+// MoveSpecWithBodyWithResponse request with arbitrary body returning *MoveSpecResponse
+func (c *ClientWithResponses) MoveSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MoveSpecResponse, error) {
+	rsp, err := c.MoveSpecWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMoveSpecResponse(rsp)
+}
+
+func (c *ClientWithResponses) MoveSpecWithResponse(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*MoveSpecResponse, error) {
+	rsp, err := c.MoveSpec(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMoveSpecResponse(rsp)
 }
 
 // ListSpecTestsWithResponse request returning *ParsedListSpecTestsResponse
@@ -33964,6 +34340,39 @@ func ParseSetFeatureFieldResponse(rsp *http.Response) (*SetFeatureFieldResponse,
 	return response, nil
 }
 
+// ParseSetFeatureParentResponse parses an HTTP response from a SetFeatureParentWithResponse call
+func ParseSetFeatureParentResponse(rsp *http.Response) (*SetFeatureParentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetFeatureParentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListStaleFeaturesResponse parses an HTTP response from a ListStaleFeaturesWithResponse call
 func ParseParsedListStaleFeaturesResponse(rsp *http.Response) (*ParsedListStaleFeaturesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -35878,6 +36287,39 @@ func ParseDeferSpecResponse(rsp *http.Response) (*DeferSpecResponse, error) {
 	return response, nil
 }
 
+// ParseDeleteSpecResponse parses an HTTP response from a DeleteSpecWithResponse call
+func ParseDeleteSpecResponse(rsp *http.Response) (*DeleteSpecResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteSpecResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListSpecsWithoutDemosResponse parses an HTTP response from a ListSpecsWithoutDemosWithResponse call
 func ParseParsedListSpecsWithoutDemosResponse(rsp *http.Response) (*ParsedListSpecsWithoutDemosResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -36019,6 +36461,39 @@ func ParseLinkSpecTestResponse(rsp *http.Response) (*LinkSpecTestResponse, error
 	}
 
 	response := &LinkSpecTestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMoveSpecResponse parses an HTTP response from a MoveSpecWithResponse call
+func ParseMoveSpecResponse(rsp *http.Response) (*MoveSpecResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MoveSpecResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

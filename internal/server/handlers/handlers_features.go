@@ -109,6 +109,93 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "set-feature-parent", Method: http.MethodPost, Path: "/api/dx/features/parent"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				Feature string `json:"feature"`
+				Parent  string `json:"parent"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			child, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "feature not found: "+in.Body.Feature)
+			}
+			if in.Body.Parent == "" {
+				if err := h.Q.ClearFeatureParent(ctx, child.ID); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+			}
+			parent, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Parent})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "parent feature not found: "+in.Body.Parent)
+			}
+			if parent.ID == child.ID {
+				return nil, apiErr(http.StatusBadRequest, "feature cannot be its own parent")
+			}
+			if err := h.Q.UpdateFeatureParent(ctx, db.UpdateFeatureParentParams{
+				ID:              child.ID,
+				ParentFeatureID: pgtype.Int4{Int32: parent.ID, Valid: true},
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "move-spec", Method: http.MethodPost, Path: "/api/dx/specs/move"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				SpecID  int32  `json:"spec_id"`
+				Feature string `json:"feature"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			target, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "target feature not found: "+in.Body.Feature)
+			}
+			spec, err := h.Q.GetSpec(ctx, in.Body.SpecID)
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "spec not found")
+			}
+			// Validate current spec belongs to the same project.
+			curFeat, err := h.Q.GetFeatureByID(ctx, spec.FeatureID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if curFeat.ProjectID != p.ID {
+				return nil, apiErr(http.StatusBadRequest, "spec belongs to a different project")
+			}
+			if err := h.Q.UpdateSpecFeature(ctx, db.UpdateSpecFeatureParams{
+				ID:        in.Body.SpecID,
+				FeatureID: target.ID,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "delete-spec", Method: http.MethodPost, Path: "/api/dx/specs/delete"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SpecID int32 `json:"spec_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := h.Q.DeleteSpec(ctx, in.Body.SpecID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "update-specs", Method: http.MethodPost, Path: "/api/dx/specs/update"},
 		func(ctx context.Context, in *struct {
 			Body struct {

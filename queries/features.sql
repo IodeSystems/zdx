@@ -50,6 +50,9 @@ UPDATE zdx_features SET goal_id = @goal_id WHERE id = @id;
 -- name: UpdateFeatureParent :exec
 UPDATE zdx_features SET parent_feature_id = @parent_feature_id WHERE id = @id;
 
+-- name: ClearFeatureParent :exec
+UPDATE zdx_features SET parent_feature_id = NULL WHERE id = @id;
+
 -- name: DeleteFeature :exec
 DELETE FROM zdx_features WHERE id = $1;
 
@@ -131,6 +134,12 @@ UPDATE zdx_specs SET deferred = false, deferred_reason = '' WHERE id = $1;
 
 -- name: UpdateSpecConcernType :exec
 UPDATE zdx_specs SET concern_type = @concern_type WHERE id = @id;
+
+-- name: UpdateSpecFeature :exec
+UPDATE zdx_specs SET feature_id = @feature_id WHERE id = @id;
+
+-- name: DeleteSpec :exec
+DELETE FROM zdx_specs WHERE id = $1;
 
 -- name: LinkSpecIssue :exec
 INSERT INTO zdx_spec_issues (spec_id, issue_id) VALUES ($1, $2) ON CONFLICT DO NOTHING;
