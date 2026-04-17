@@ -1020,6 +1020,10 @@ CREATE TABLE public.zdx_llm_configs (
     model text DEFAULT ''::text NOT NULL,
     api_key text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
+    agent_type text DEFAULT 'openai'::text NOT NULL,
+    model_low text DEFAULT ''::text NOT NULL,
+    model_medium text DEFAULT ''::text NOT NULL,
+    model_high text DEFAULT ''::text NOT NULL,
     CONSTRAINT zdx_llm_configs_singleton CHECK ((id = true))
 );
 

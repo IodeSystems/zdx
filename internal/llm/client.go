@@ -31,6 +31,49 @@ func New(cfg Config) *Client {
 	}
 }
 
+// ListModels fetches GET <url>/v1/models and returns the model IDs.
+func (c *Client) ListModels(ctx context.Context) ([]string, error) {
+	url := strings.TrimRight(c.cfg.URL, "/") + "/v1/models"
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
+	}
+	if c.cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
+	}
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return nil, fmt.Errorf("llm: list models: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		var errBody struct {
+			Error struct{ Message string } `json:"error"`
+		}
+		_ = json.NewDecoder(resp.Body).Decode(&errBody)
+		return nil, fmt.Errorf("llm: list models %s: %s", resp.Status, errBody.Error.Message)
+	}
+
+	var result struct {
+		Data []struct {
+			ID string `json:"id"`
+		} `json:"data"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
+		return nil, fmt.Errorf("llm: list models decode: %w", err)
+	}
+	ids := make([]string, 0, len(result.Data))
+	for _, m := range result.Data {
+		if m.ID != "" {
+			ids = append(ids, m.ID)
+		}
+	}
+	return ids, nil
+}
+
 // Embed returns a unit-normalizable float32 embedding vector for the given text.
 func (c *Client) Embed(ctx context.Context, text string) ([]float32, error) {
 	url := strings.TrimRight(c.cfg.URL, "/") + "/v1/embeddings"

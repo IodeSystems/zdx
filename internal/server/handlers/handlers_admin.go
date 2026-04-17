@@ -20,10 +20,14 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 	// ── Admin: LLM config ─────────────────────────────────────────────────────
 
 	type LLMConfigBody struct {
-		Type   string `json:"type"`
-		URL    string `json:"url"`
-		Model  string `json:"model"`
-		APIKey string `json:"api_key,omitempty"` // omitted/redacted in GET
+		Type        string `json:"type"`
+		URL         string `json:"url"`
+		Model       string `json:"model"`
+		APIKey      string `json:"api_key,omitempty"` // omitted/redacted in GET
+		AgentType   string `json:"agent_type"`        // openai | local | claude
+		ModelLow    string `json:"model_low"`
+		ModelMedium string `json:"model_medium"`
+		ModelHigh   string `json:"model_high"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "get-llm-config", Method: http.MethodGet, Path: "/api/admin/llm-config"},
@@ -37,9 +41,13 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 				return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{}}, nil
 			}
 			return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{
-				Type:  cfg.Type,
-				URL:   cfg.Url,
-				Model: cfg.Model,
+				Type:        cfg.Type,
+				URL:         cfg.Url,
+				Model:       cfg.Model,
+				AgentType:   cfg.AgentType,
+				ModelLow:    cfg.ModelLow,
+				ModelMedium: cfg.ModelMedium,
+				ModelHigh:   cfg.ModelHigh,
 				// api_key intentionally omitted in response
 			}}, nil
 		})
@@ -49,11 +57,19 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 			if !h.Features.HasLLMConfig {
 				return nil, apiErr(http.StatusServiceUnavailable, "LLM config schema not yet applied — run: dx migrate up")
 			}
+			agentType := in.Body.AgentType
+			if agentType == "" {
+				agentType = "openai"
+			}
 			cfg, err := h.Q.UpsertLLMConfig(ctx, db.UpsertLLMConfigParams{
-				Type:   in.Body.Type,
-				Url:    in.Body.URL,
-				Model:  in.Body.Model,
-				ApiKey: in.Body.APIKey,
+				Type:        in.Body.Type,
+				Url:         in.Body.URL,
+				Model:       in.Body.Model,
+				ApiKey:      in.Body.APIKey,
+				AgentType:   agentType,
+				ModelLow:    in.Body.ModelLow,
+				ModelMedium: in.Body.ModelMedium,
+				ModelHigh:   in.Body.ModelHigh,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -62,10 +78,53 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 			// Bulk-index existing issues now that a new LLM config is set.
 			go h.IngestRegistrar.ReindexAllIssues()
 			return &struct{ Body LLMConfigBody }{Body: LLMConfigBody{
-				Type:  cfg.Type,
-				URL:   cfg.Url,
-				Model: cfg.Model,
+				Type:        cfg.Type,
+				URL:         cfg.Url,
+				Model:       cfg.Model,
+				AgentType:   cfg.AgentType,
+				ModelLow:    cfg.ModelLow,
+				ModelMedium: cfg.ModelMedium,
+				ModelHigh:   cfg.ModelHigh,
 			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-llm-models", Method: http.MethodGet, Path: "/api/admin/llm-config/models"},
+		func(ctx context.Context, in *struct {
+			URL string `query:"url"`
+		}) (*struct {
+			Body struct {
+				Models []string `json:"models"`
+			}
+		}, error) {
+			url := in.URL
+			apiKey := ""
+			ltype := "openai"
+			if h.Features.HasLLMConfig {
+				if cur, err := h.Q.GetLLMConfig(ctx); err == nil {
+					if url == "" {
+						url = cur.Url
+					}
+					apiKey = cur.ApiKey
+					ltype = cur.Type
+				}
+			}
+			if url == "" {
+				return nil, apiErr(http.StatusBadRequest, "no LLM URL configured — set one in admin/llm or pass ?url=")
+			}
+			client := llm.New(llm.Config{Type: ltype, URL: url, APIKey: apiKey})
+			tctx, cancel := context.WithTimeout(ctx, 10*time.Second)
+			defer cancel()
+			models, err := client.ListModels(tctx)
+			if err != nil {
+				return nil, apiErr(http.StatusBadGateway, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Models []string `json:"models"`
+				}
+			}{Body: struct {
+				Models []string `json:"models"`
+			}{Models: models}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "test-llm-config", Method: http.MethodPost, Path: "/api/admin/llm-config/test"},

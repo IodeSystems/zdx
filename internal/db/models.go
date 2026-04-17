@@ -365,12 +365,16 @@ type ZdxJournalEntry struct {
 }
 
 type ZdxLlmConfig struct {
-	ID        bool               `db:"id" json:"id"`
-	Type      string             `db:"type" json:"type"`
-	Url       string             `db:"url" json:"url"`
-	Model     string             `db:"model" json:"model"`
-	ApiKey    string             `db:"api_key" json:"api_key"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID          bool               `db:"id" json:"id"`
+	Type        string             `db:"type" json:"type"`
+	Url         string             `db:"url" json:"url"`
+	Model       string             `db:"model" json:"model"`
+	ApiKey      string             `db:"api_key" json:"api_key"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	AgentType   string             `db:"agent_type" json:"agent_type"`
+	ModelLow    string             `db:"model_low" json:"model_low"`
+	ModelMedium string             `db:"model_medium" json:"model_medium"`
+	ModelHigh   string             `db:"model_high" json:"model_high"`
 }
 
 type ZdxLogEvent struct {

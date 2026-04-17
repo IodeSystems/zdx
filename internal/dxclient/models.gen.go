@@ -1422,11 +1422,15 @@ type JournalEntryItem struct {
 // LLMConfigBody defines model for LLMConfigBody.
 type LLMConfigBody struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	ApiKey *string `json:"api_key,omitempty"`
-	Model  string  `json:"model"`
-	Type   string  `json:"type"`
-	Url    string  `json:"url"`
+	Schema      *string `json:"$schema,omitempty"`
+	AgentType   string  `json:"agent_type"`
+	ApiKey      *string `json:"api_key,omitempty"`
+	Model       string  `json:"model"`
+	ModelHigh   string  `json:"model_high"`
+	ModelLow    string  `json:"model_low"`
+	ModelMedium string  `json:"model_medium"`
+	Type        string  `json:"type"`
+	Url         string  `json:"url"`
 }
 
 // LinkSpecIssueRequest defines model for Link-spec-issueRequest.
@@ -1704,6 +1708,13 @@ type ListIssuesResponse struct {
 	Schema *string      `json:"$schema,omitempty"`
 	Issues *[]IssueItem `json:"issues"`
 	Total  int64        `json:"total"`
+}
+
+// ListLlmModelsResponse defines model for List-llm-modelsResponse.
+type ListLlmModelsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string   `json:"$schema,omitempty"`
+	Models *[]string `json:"models"`
 }
 
 // ListLogEventsGroupedResponse defines model for List-log-events-groupedResponse.
@@ -3110,6 +3121,11 @@ type ListIntegrationTokensParams struct {
 	Slug *string `form:"slug,omitempty" json:"slug,omitempty"`
 }
 
+// ListLlmModelsParams defines parameters for ListLlmModels.
+type ListLlmModelsParams struct {
+	Url *string `form:"url,omitempty" json:"url,omitempty"`
+}
+
 // GetProjectGitConfigParams defines parameters for GetProjectGitConfig.
 type GetProjectGitConfigParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -4267,6 +4283,9 @@ type ClientInterface interface {
 
 	SetLlmConfig(ctx context.Context, body SetLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListLlmModels request
+	ListLlmModels(ctx context.Context, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// TestLlmConfigWithBody request with any body
 	TestLlmConfigWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -5342,6 +5361,18 @@ func (c *APIClient) SetLlmConfigWithBody(ctx context.Context, contentType string
 
 func (c *APIClient) SetLlmConfig(ctx context.Context, body SetLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetLlmConfigRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListLlmModels(ctx context.Context, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLlmModelsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -9921,6 +9952,55 @@ func NewSetLlmConfigRequestWithBody(server string, contentType string, body io.R
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListLlmModelsRequest generates requests for ListLlmModels
+func NewListLlmModelsRequest(server string, params *ListLlmModelsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/llm-config/models")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Url != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "url", *params.Url, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -22296,6 +22376,9 @@ type ClientWithResponsesInterface interface {
 
 	SetLlmConfigWithResponse(ctx context.Context, body SetLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLlmConfigResponse, error)
 
+	// ListLlmModelsWithResponse request
+	ListLlmModelsWithResponse(ctx context.Context, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*ParsedListLlmModelsResponse, error)
+
 	// TestLlmConfigWithBodyWithResponse request with any body
 	TestLlmConfigWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error)
 
@@ -23435,6 +23518,29 @@ func (r SetLlmConfigResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r SetLlmConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListLlmModelsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListLlmModelsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListLlmModelsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListLlmModelsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -28874,6 +28980,15 @@ func (c *ClientWithResponses) SetLlmConfigWithResponse(ctx context.Context, body
 	return ParseSetLlmConfigResponse(rsp)
 }
 
+// ListLlmModelsWithResponse request returning *ParsedListLlmModelsResponse
+func (c *ClientWithResponses) ListLlmModelsWithResponse(ctx context.Context, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*ParsedListLlmModelsResponse, error) {
+	rsp, err := c.ListLlmModels(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListLlmModelsResponse(rsp)
+}
+
 // TestLlmConfigWithBodyWithResponse request with arbitrary body returning *ParsedTestLlmConfigResponse
 func (c *ClientWithResponses) TestLlmConfigWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error) {
 	rsp, err := c.TestLlmConfigWithBody(ctx, contentType, body, reqEditors...)
@@ -32197,6 +32312,39 @@ func ParseSetLlmConfigResponse(rsp *http.Response) (*SetLlmConfigResponse, error
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest LLMConfigBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListLlmModelsResponse parses an HTTP response from a ListLlmModelsWithResponse call
+func ParseParsedListLlmModelsResponse(rsp *http.Response) (*ParsedListLlmModelsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListLlmModelsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListLlmModelsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -7,58 +7,107 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const getLLMConfig = `-- name: GetLLMConfig :one
-SELECT id, type, url, model, api_key, created_at FROM zdx_llm_configs LIMIT 1
+SELECT id, type, url, model, api_key, agent_type, model_low, model_medium, model_high, created_at
+FROM zdx_llm_configs LIMIT 1
 `
 
-func (q *Queries) GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error) {
+type GetLLMConfigRow struct {
+	ID          bool               `db:"id" json:"id"`
+	Type        string             `db:"type" json:"type"`
+	Url         string             `db:"url" json:"url"`
+	Model       string             `db:"model" json:"model"`
+	ApiKey      string             `db:"api_key" json:"api_key"`
+	AgentType   string             `db:"agent_type" json:"agent_type"`
+	ModelLow    string             `db:"model_low" json:"model_low"`
+	ModelMedium string             `db:"model_medium" json:"model_medium"`
+	ModelHigh   string             `db:"model_high" json:"model_high"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetLLMConfig(ctx context.Context) (GetLLMConfigRow, error) {
 	row := q.db.QueryRow(ctx, getLLMConfig)
-	var i ZdxLlmConfig
+	var i GetLLMConfigRow
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
 		&i.Url,
 		&i.Model,
 		&i.ApiKey,
+		&i.AgentType,
+		&i.ModelLow,
+		&i.ModelMedium,
+		&i.ModelHigh,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const upsertLLMConfig = `-- name: UpsertLLMConfig :one
-INSERT INTO zdx_llm_configs (id, type, url, model, api_key)
-VALUES (TRUE, $1, $2, $3, $4)
+INSERT INTO zdx_llm_configs (id, type, url, model, api_key, agent_type, model_low, model_medium, model_high)
+VALUES (TRUE, $1, $2, $3, $4, $5, $6, $7, $8)
 ON CONFLICT (id) DO UPDATE
-SET type    = EXCLUDED.type,
-    url     = EXCLUDED.url,
-    model   = EXCLUDED.model,
-    api_key = EXCLUDED.api_key
-RETURNING id, type, url, model, api_key, created_at
+SET type         = EXCLUDED.type,
+    url          = EXCLUDED.url,
+    model        = EXCLUDED.model,
+    api_key      = EXCLUDED.api_key,
+    agent_type   = EXCLUDED.agent_type,
+    model_low    = EXCLUDED.model_low,
+    model_medium = EXCLUDED.model_medium,
+    model_high   = EXCLUDED.model_high
+RETURNING id, type, url, model, api_key, agent_type, model_low, model_medium, model_high, created_at
 `
 
 type UpsertLLMConfigParams struct {
-	Type   string `db:"type" json:"type"`
-	Url    string `db:"url" json:"url"`
-	Model  string `db:"model" json:"model"`
-	ApiKey string `db:"api_key" json:"api_key"`
+	Type        string `db:"type" json:"type"`
+	Url         string `db:"url" json:"url"`
+	Model       string `db:"model" json:"model"`
+	ApiKey      string `db:"api_key" json:"api_key"`
+	AgentType   string `db:"agent_type" json:"agent_type"`
+	ModelLow    string `db:"model_low" json:"model_low"`
+	ModelMedium string `db:"model_medium" json:"model_medium"`
+	ModelHigh   string `db:"model_high" json:"model_high"`
 }
 
-func (q *Queries) UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (ZdxLlmConfig, error) {
+type UpsertLLMConfigRow struct {
+	ID          bool               `db:"id" json:"id"`
+	Type        string             `db:"type" json:"type"`
+	Url         string             `db:"url" json:"url"`
+	Model       string             `db:"model" json:"model"`
+	ApiKey      string             `db:"api_key" json:"api_key"`
+	AgentType   string             `db:"agent_type" json:"agent_type"`
+	ModelLow    string             `db:"model_low" json:"model_low"`
+	ModelMedium string             `db:"model_medium" json:"model_medium"`
+	ModelHigh   string             `db:"model_high" json:"model_high"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (UpsertLLMConfigRow, error) {
 	row := q.db.QueryRow(ctx, upsertLLMConfig,
 		arg.Type,
 		arg.Url,
 		arg.Model,
 		arg.ApiKey,
+		arg.AgentType,
+		arg.ModelLow,
+		arg.ModelMedium,
+		arg.ModelHigh,
 	)
-	var i ZdxLlmConfig
+	var i UpsertLLMConfigRow
 	err := row.Scan(
 		&i.ID,
 		&i.Type,
 		&i.Url,
 		&i.Model,
 		&i.ApiKey,
+		&i.AgentType,
+		&i.ModelLow,
+		&i.ModelMedium,
+		&i.ModelHigh,
 		&i.CreatedAt,
 	)
 	return i, err

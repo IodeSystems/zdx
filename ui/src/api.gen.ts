@@ -100,6 +100,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/llm-config/models": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-llm-models"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/llm-config/test": {
         parameters: {
             query?: never;
@@ -5384,8 +5400,12 @@ export interface components {
              * @example https://example.com/schemas/LLMConfigBody.json
              */
             readonly $schema?: string;
+            agent_type: string;
             api_key?: string;
             model: string;
+            model_high: string;
+            model_low: string;
+            model_medium: string;
             type: string;
             url: string;
         };
@@ -5753,6 +5773,15 @@ export interface components {
             issues: components["schemas"]["IssueItem"][] | null;
             /** Format: int64 */
             total: number;
+        };
+        "List-llm-modelsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-llm-modelsResponse.json
+             */
+            readonly $schema?: string;
+            models: string[] | null;
         };
         "List-log-events-groupedResponse": {
             /**
@@ -7754,6 +7783,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["LLMConfigBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-llm-models": {
+        parameters: {
+            query?: {
+                url?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-llm-modelsResponse"];
                 };
             };
             /** @description Error */

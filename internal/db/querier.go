@@ -160,7 +160,7 @@ type Querier interface {
 	GetIssueResolution(ctx context.Context, id string) (ZdxIssueResolution, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
 	GetJournalEntryByID(ctx context.Context, arg GetJournalEntryByIDParams) (GetJournalEntryByIDRow, error)
-	GetLLMConfig(ctx context.Context) (ZdxLlmConfig, error)
+	GetLLMConfig(ctx context.Context) (GetLLMConfigRow, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (GetLatestJournalEntryRow, error)
 	GetMaxClaudeEventSeq(ctx context.Context, sessionPk int64) (int32, error)
 	GetPattern(ctx context.Context, arg GetPatternParams) (ZdxPattern, error)
@@ -410,7 +410,7 @@ type Querier interface {
 	UpsertCommentRead(ctx context.Context, arg UpsertCommentReadParams) error
 	UpsertCounted(ctx context.Context, arg UpsertCountedParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (UpsertFeatureRow, error)
-	UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (ZdxLlmConfig, error)
+	UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (UpsertLLMConfigRow, error)
 	UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertTestRow, error)
 	UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (ZdxTestDemo, error)
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error

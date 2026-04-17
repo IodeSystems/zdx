@@ -21,6 +21,7 @@ func agentLocalCmd() *cobra.Command {
 	var alias string
 	var issue string
 	var maxTurns int
+	var complexity string
 	cmd := &cobra.Command{
 		Use:   "local",
 		Short: "Run local-LLM agent sessions with zdx integration",
@@ -31,6 +32,9 @@ project API, the filesystem (read/write/edit/glob/grep/list_dir) and shell
 compatible JSONL to .zdx/agent/local/<sid>.jsonl and streamed to the server
 for the sessions/agents UI.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if !validComplexity(complexity) {
+				return fmt.Errorf("--complexity must be one of low|medium|high (got %q)", complexity)
+			}
 			cfg := config.Load()
 			rc := remoteConfig{
 				url:  cfg.RemoteURL(),
@@ -38,6 +42,7 @@ for the sessions/agents UI.`,
 				key:  config.RemoteAPIKey(),
 			}
 			llmCfg := cfg.ResolvedLLMLocal()
+			llmCfg = applyComplexityModel(cmd.Context(), llmCfg, complexity)
 
 			if loop {
 				return runLocalLoop(cmd.Context(), rc, llmCfg, alias, maxTurns)
@@ -53,7 +58,44 @@ for the sessions/agents UI.`,
 	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 40, "cap on assistant turns per session")
+	cmd.Flags().StringVar(&complexity, "complexity", "medium", "model slot to use: low|medium|high (from server admin/llm config)")
 	return cmd
+}
+
+func validComplexity(c string) bool {
+	switch c {
+	case "low", "medium", "high":
+		return true
+	}
+	return false
+}
+
+// applyComplexityModel overrides llmCfg.Model with the matching slot from the
+// server's zdx_llm_configs (set via admin/llm). On any error or empty slot,
+// the local config's Model is kept so the agent still has a working default.
+func applyComplexityModel(ctx context.Context, llmCfg config.LLMLocal, complexity string) config.LLMLocal {
+	c, err := cli.DefaultClient()
+	if err != nil {
+		return llmCfg
+	}
+	resp, err := c.GetLlmConfigWithResponse(ctx)
+	if err != nil || resp == nil || resp.JSON200 == nil {
+		return llmCfg
+	}
+	body := resp.JSON200
+	var picked string
+	switch complexity {
+	case "low":
+		picked = body.ModelLow
+	case "high":
+		picked = body.ModelHigh
+	default:
+		picked = body.ModelMedium
+	}
+	if picked != "" {
+		llmCfg.Model = picked
+	}
+	return llmCfg
 }
 
 // runLocalSession wraps the local-LLM chat loop in a localAdapter and drives

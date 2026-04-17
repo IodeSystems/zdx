@@ -883,6 +883,10 @@ export interface LLMConfig {
   url: string
   model: string
   api_key?: string
+  agent_type: string
+  model_low: string
+  model_medium: string
+  model_high: string
 }
 
 export const useLLMConfig = () =>
@@ -918,6 +922,19 @@ export const useTestLLMConfig = () =>
       const { data, error } = await client.POST('/api/admin/llm-config/test', { body: body as any })
       if (error) throw new Error(JSON.stringify(error))
       return (data as unknown) as LLMConfigTestResult
+    },
+  })
+
+export const useLLMModels = (url: string, enabled: boolean) =>
+  useQuery<string[]>({
+    queryKey: ['llm-models', url],
+    enabled: enabled && !!url,
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/llm-config/models', {
+        params: { query: { url } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as { models?: string[] | null })?.models ?? []
     },
   })
 
