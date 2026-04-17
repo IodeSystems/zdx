@@ -68,6 +68,17 @@ Solo surfaces unread comments that need a response. After reading the comments:
    `./bin/dx comment mark-read <target-type> <target-id> --role=llm`
 4. Continue the vertical loop — comments are handled inline, not as separate work items.
 
+**Closing a dev task with code refs** — when running `./bin/dx todo dev done TK-N`, attach the files you touched so the
+parent issue records them as `zdx_issue_code_refs`. Pass `--file` once per file (repeatable). Syntax
+`<path>[:start[-end]][@hash]`:
+
+- `--file internal/cli/work/todo.go`                         — whole file, hash = git HEAD
+- `--file internal/cli/work/todo.go:1005`                    — single line
+- `--file internal/cli/work/todo.go:1005-1036`               — line range
+- `--file internal/cli/work/todo.go:1005-1036@abc1234`       — explicit commit
+
+Use when a dev task involves real edits and you want the issue's code-ref trail populated before closing.
+
 **Stale tasks** (when solo emits `[review:stale] TK-N` or `[dev]` with a `⚠ state unknown` warning):
 
 The task was created but never claimed, and enough time has passed that the codebase may have changed.

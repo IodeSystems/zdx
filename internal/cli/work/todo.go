@@ -3,6 +3,7 @@ package work
 import (
 	"fmt"
 	"os"
+	"os/exec"
 	"sort"
 	"strconv"
 	"strings"
@@ -1004,6 +1005,7 @@ func todoDevCmd() *cobra.Command {
 
 func todoDevDoneCmd() *cobra.Command {
 	var testPlan, testRefs string
+	var files []string
 	cmd := &cobra.Command{
 		Use:   "done <TK-N>",
 		Short: "Mark task done",
@@ -1015,7 +1017,34 @@ func todoDevDoneCmd() *cobra.Command {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := cli.MustClient()
-			resp, err := c.MarkTaskDoneWithResponse(cmd.Context(), dxclient.MarkTaskDoneRequest{
+			ctx := cmd.Context()
+			slug := c.SlugOrDie()
+
+			specs := make([]fileSpec, 0, len(files))
+			for _, raw := range files {
+				s, err := parseFileSpec(raw)
+				if err != nil {
+					return fmt.Errorf("--file %q: %w", raw, err)
+				}
+				specs = append(specs, s)
+			}
+
+			var issueRef string
+			if len(specs) > 0 {
+				taskResp, err := c.GetTaskWithResponse(ctx, &dxclient.GetTaskParams{Slug: slug, Id: id})
+				if err != nil {
+					return err
+				}
+				if err := c.CheckStatus(taskResp.StatusCode(), taskResp.Body); err != nil {
+					return err
+				}
+				if taskResp.JSON200 == nil || taskResp.JSON200.IssueId == nil {
+					return fmt.Errorf("task %s has no parent issue — cannot attach code refs", id)
+				}
+				issueRef = clitypes.IssueIDStr(*taskResp.JSON200.IssueId)
+			}
+
+			resp, err := c.MarkTaskDoneWithResponse(ctx, dxclient.MarkTaskDoneRequest{
 				Id:       int32(n),
 				TestPlan: &testPlan,
 				TestRefs: &testRefs,
@@ -1027,12 +1056,115 @@ func todoDevDoneCmd() *cobra.Command {
 				return err
 			}
 			fmt.Printf("%s done\n", id)
+
+			if len(specs) > 0 {
+				head := gitHead()
+				for _, s := range specs {
+					body := dxclient.AttachCodeRefToIssueRequest{
+						Slug:     slug,
+						IssueId:  issueRef,
+						FilePath: s.path,
+					}
+					hash := s.hash
+					if hash == "" {
+						hash = head
+					}
+					if hash != "" {
+						body.GitHash = &hash
+					}
+					if s.lineStart > 0 {
+						body.LineStart = &s.lineStart
+					}
+					if s.lineEnd > 0 {
+						body.LineEnd = &s.lineEnd
+					}
+					aResp, err := c.AttachCodeRefToIssueWithResponse(ctx, body)
+					if err != nil {
+						return fmt.Errorf("attach %s: %w", s.path, err)
+					}
+					if err := c.CheckStatus(aResp.StatusCode(), aResp.Body); err != nil {
+						return fmt.Errorf("attach %s: %w", s.path, err)
+					}
+					if aResp.JSON200 != nil {
+						fmt.Print("  ref ")
+						printCodeRefInline(*aResp.JSON200)
+					}
+				}
+			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&testPlan, "test-plan", "", "test plan description")
 	cmd.Flags().StringVar(&testRefs, "test-refs", "", "test references")
+	cmd.Flags().StringArrayVar(&files, "file", nil, "attach touched file to parent issue as code ref; repeatable; syntax <path>[:start[-end]][@hash] (empty hash → git HEAD)")
 	return cmd
+}
+
+type fileSpec struct {
+	path      string
+	lineStart int32
+	lineEnd   int32
+	hash      string
+}
+
+func parseFileSpec(spec string) (fileSpec, error) {
+	out := fileSpec{}
+	s := strings.TrimSpace(spec)
+	if s == "" {
+		return out, fmt.Errorf("empty spec")
+	}
+	if idx := strings.LastIndex(s, "@"); idx >= 0 {
+		out.hash = s[idx+1:]
+		s = s[:idx]
+	}
+	if idx := strings.LastIndex(s, ":"); idx >= 0 {
+		suffix := s[idx+1:]
+		if dash := strings.Index(suffix, "-"); dash >= 0 {
+			start, errA := strconv.ParseInt(suffix[:dash], 10, 32)
+			end, errB := strconv.ParseInt(suffix[dash+1:], 10, 32)
+			if errA == nil && errB == nil {
+				out.lineStart = int32(start)
+				out.lineEnd = int32(end)
+				s = s[:idx]
+			}
+		} else if n, err := strconv.ParseInt(suffix, 10, 32); err == nil {
+			out.lineStart = int32(n)
+			s = s[:idx]
+		}
+	}
+	if s == "" {
+		return out, fmt.Errorf("empty path")
+	}
+	out.path = s
+	return out, nil
+}
+
+func gitHead() string {
+	out, err := exec.Command("git", "rev-parse", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
+func printCodeRefInline(r dxclient.CodeRefItem) {
+	loc := r.FilePath
+	if r.LineStart > 0 {
+		if r.LineEnd > 0 && r.LineEnd != r.LineStart {
+			loc += fmt.Sprintf(":%d-%d", r.LineStart, r.LineEnd)
+		} else {
+			loc += fmt.Sprintf(":%d", r.LineStart)
+		}
+	}
+	hash := r.GitHash
+	if len(hash) > 8 {
+		hash = hash[:8]
+	}
+	if hash != "" {
+		fmt.Printf("[%d] %s @%s\n", r.Id, loc, hash)
+	} else {
+		fmt.Printf("[%d] %s\n", r.Id, loc)
+	}
 }
 
 func todoDevUndoneCmd() *cobra.Command {
