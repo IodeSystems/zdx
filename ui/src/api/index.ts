@@ -1704,25 +1704,12 @@ export const useListFocuses = (slug: string) =>
     enabled: !!slug,
   })
 
-// Keep old name as alias for consumers that haven't migrated yet
-export const useListThemes = useListFocuses
 
 export const useAddFocusBlocker = () => {
   const qc = useQueryClient()
   return useMutation<OKBody, Error, { slug: string; focus: string; issue: string }>({
     mutationFn: async (body) => {
       return apiPost<OKBody>('/api/dx/focuses/block', body)
-    },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
-  })
-}
-
-// Keep old name as alias
-export const useAddThemeBlocker = () => {
-  const qc = useQueryClient()
-  return useMutation<OKBody, Error, { slug: string; theme: string; issue: string }>({
-    mutationFn: async ({ slug, theme, issue }) => {
-      return apiPost<OKBody>('/api/dx/focuses/block', { slug, focus: theme, issue })
     },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
@@ -1738,17 +1725,6 @@ export const useRemoveFocusBlocker = () => {
   })
 }
 
-// Keep old name as alias
-export const useRemoveThemeBlocker = () => {
-  const qc = useQueryClient()
-  return useMutation<OKBody, Error, { slug: string; theme: string; issue: string }>({
-    mutationFn: async ({ slug, theme, issue }) => {
-      return apiPost<OKBody>('/api/dx/focuses/unblock', { slug, focus: theme, issue })
-    },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
-  })
-}
-
 export const useAddFocus = () => {
   const qc = useQueryClient()
   return useMutation<FocusItem, Error, { slug: string; name: string; description: string; priority: number; blockers: string }>({
@@ -1758,9 +1734,6 @@ export const useAddFocus = () => {
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })
 }
-
-// Keep old name as alias
-export const useAddTheme = useAddFocus
 
 // ── Tests ─────────────────────────────────────────────────────────────────
 
@@ -1837,17 +1810,6 @@ export const useSetFocusStatus = () => {
   return useMutation<OKBody, Error, { slug: string; focus: string; status: string }>({
     mutationFn: async (body) => {
       return apiPost<OKBody>('/api/dx/focuses/status', body)
-    },
-    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
-  })
-}
-
-// Keep old name as alias
-export const useSetThemeStatus = () => {
-  const qc = useQueryClient()
-  return useMutation<OKBody, Error, { slug: string; theme: string; status: string }>({
-    mutationFn: async ({ slug, theme, status }) => {
-      return apiPost<OKBody>('/api/dx/focuses/status', { slug, focus: theme, status })
     },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['focuses', v.slug] }),
   })

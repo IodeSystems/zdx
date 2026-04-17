@@ -318,11 +318,11 @@ func TestQueueEmpty(t *testing.T) {
 	// Filter out maturity nudges and demo-gap since this test
 	// doesn't set up the full goal/feature attribution model.
 	maturityKinds := map[string]bool{
-		"owner:demo-gap":             true,
-		"owner:quantify-goal":        true,
-		"owner:attribute-feature":    true,
-		"tech:instrument-feature":    true,
-		"owner:decompose-feature":    true,
+		"owner:demo-gap":          true,
+		"owner:quantify-goal":     true,
+		"owner:attribute-feature": true,
+		"tech:instrument-feature": true,
+		"owner:decompose-feature": true,
 	}
 	var actionableItems []SoloQueueItem
 	for _, it := range items {

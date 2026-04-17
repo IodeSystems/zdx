@@ -27,13 +27,13 @@ type planItem struct {
 }
 
 type planStepItem struct {
-	ID        int32               `json:"id"`
-	PlanID    int32               `json:"plan_id"`
-	Seq       int32               `json:"seq"`
-	Text      string              `json:"text"`
-	Status    string              `json:"status"`
-	DependsOn int32               `json:"depends_on"`
-	Refs      []planStepRefItem   `json:"refs"`
+	ID        int32             `json:"id"`
+	PlanID    int32             `json:"plan_id"`
+	Seq       int32             `json:"seq"`
+	Text      string            `json:"text"`
+	Status    string            `json:"status"`
+	DependsOn int32             `json:"depends_on"`
+	Refs      []planStepRefItem `json:"refs"`
 }
 
 type planStepRefItem struct {
