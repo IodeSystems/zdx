@@ -495,19 +495,22 @@ export interface CommentItem {
   unread?: boolean
 }
 
-export const useComments = (slug: string, targetType: string, targetId: string, limit?: number, offset?: number) =>
-  useQuery<{ comments: CommentItem[]; total: number }>({
-    queryKey: ['comments', slug, targetType, targetId, limit, offset],
+export const useComments = (slug: string, targetType: string, targetId: string, limit?: number, offset?: number) => {
+  const { data: me } = useMe()
+  const role = me ? `web:${me.id}` : ''
+  return useQuery<{ comments: CommentItem[]; total: number }>({
+    queryKey: ['comments', slug, targetType, targetId, role, limit, offset],
     queryFn: async () => {
-      const query: Record<string, string | number> = { slug, target_type: targetType, target_id: targetId, role: 'dev' }
+      const query: Record<string, string | number> = { slug, target_type: targetType, target_id: targetId, role }
       if (limit != null) query.limit = limit
       if (offset != null) query.offset = offset
       const { data, error } = await client.GET('/api/dx/comment/list', { params: { query: query as any } })
       if (error) throw new Error(JSON.stringify(error))
       return { comments: (data as any)?.comments ?? [], total: (data as any)?.total ?? 0 }
     },
-    enabled: !!slug && !!targetType && !!targetId,
+    enabled: !!slug && !!targetType && !!targetId && !!role,
   })
+}
 
 export const useAddComment = () => {
   const qc = useQueryClient()
@@ -525,14 +528,18 @@ export const useAddComment = () => {
 
 export const useMarkCommentsRead = () => {
   const qc = useQueryClient()
+  const { data: me } = useMe()
   return useMutation({
     mutationFn: async (p: { slug: string; target_type: string; target_id: string }) => {
-      const { data, error } = await client.POST('/api/dx/comment/mark-read', { body: { ...p, role: 'dev' } as any })
+      if (!me) throw new Error('not authenticated')
+      const role = `web:${me.id}`
+      const { data, error } = await client.POST('/api/dx/comment/mark-read', { body: { ...p, role } as any })
       if (error) throw new Error(JSON.stringify(error))
       return (data as unknown) as { ok: boolean }
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['comments', vars.slug, vars.target_type, vars.target_id] })
+      qc.invalidateQueries({ queryKey: ['notifications', 'unread-count', vars.slug] })
     },
   })
 }
