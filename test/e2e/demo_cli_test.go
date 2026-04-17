@@ -19,6 +19,7 @@ type DemoRecorder struct {
 	dxBin string
 	env   []string
 	steps []demoStep
+	refs  []coderef
 }
 
 type demoStep struct {
@@ -98,7 +99,15 @@ func (r *DemoRecorder) Run(args ...string) {
 	}
 }
 
-// Save writes the structured log. Called automatically via t.Cleanup.
+// AddCoderef registers an additional file to attach to the test row post-run.
+// The recorder always includes the CLI test source file itself on Save.
+func (r *DemoRecorder) AddCoderef(ref coderef) {
+	r.refs = append(r.refs, ref)
+}
+
+// Save writes the structured log and emits a coderefs sidecar that dx test's
+// syncTestResults will use to call AttachCodeRefToTest. Called automatically
+// via t.Cleanup.
 func (r *DemoRecorder) Save() {
 	root, _ := findRoot()
 	dir := filepath.Join(root, ".zdx", "demo", "cli")
@@ -118,6 +127,12 @@ func (r *DemoRecorder) Save() {
 		return
 	}
 	r.t.Logf("CLI demo saved → %s", path)
+
+	refs := append([]coderef{{
+		FilePath: "test/e2e/demo_cli_test.go",
+		Note:     "CLI demo source",
+	}}, r.refs...)
+	writeDemoCoderefs(r.t, r.t.Name(), refs)
 }
 
 // ── Demo tests ────────────────────────────────────────────────────────────────

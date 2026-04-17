@@ -919,6 +919,90 @@ func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta)
 	if uploaded > 0 {
 		fmt.Fprintf(os.Stderr, "[sync] %d demo artifact(s) uploaded\n", uploaded)
 	}
+
+	attachDemoCoderefs(c, slug, results)
+}
+
+// attachDemoCoderefs reads sidecar files written by demo tests under
+// .zdx/demo/coderefs/<test-name>.json and calls AttachCodeRefToTest for each
+// entry. Test rows exist at this point because SubmitTestResults above
+// upserted them. Best-effort: per-file errors are logged but do not abort.
+func attachDemoCoderefs(c *cli.Client, slug string, results []testharness.Result) {
+	sidecarDir := filepath.Join(".zdx", "demo", "coderefs")
+	entries, err := os.ReadDir(sidecarDir)
+	if err != nil {
+		return
+	}
+
+	shaByName := make(map[string]string, len(results))
+	for _, r := range results {
+		if r.GitSHA != "" {
+			shaByName[r.Test] = r.GitSHA
+		}
+	}
+
+	ctx := context.Background()
+	attached := 0
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
+			continue
+		}
+		testName := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+		data, err := os.ReadFile(filepath.Join(sidecarDir, e.Name()))
+		if err != nil {
+			continue
+		}
+		var refs []struct {
+			FilePath  string `json:"file_path"`
+			LineStart int32  `json:"line_start,omitempty"`
+			LineEnd   int32  `json:"line_end,omitempty"`
+			Note      string `json:"note,omitempty"`
+		}
+		if err := json.Unmarshal(data, &refs); err != nil || len(refs) == 0 {
+			continue
+		}
+		testID, err := cli.ResolveTestID(ctx, c, testName)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[sync] coderefs: resolve %q: %v\n", testName, err)
+			continue
+		}
+		hash := shaByName[testName]
+		for _, ref := range refs {
+			body := dxclient.AttachCodeRefToTestRequest{
+				Slug:     slug,
+				TestId:   testID,
+				FilePath: ref.FilePath,
+			}
+			if hash != "" {
+				body.GitHash = &hash
+			}
+			if ref.LineStart > 0 {
+				ls := ref.LineStart
+				body.LineStart = &ls
+			}
+			if ref.LineEnd > 0 {
+				le := ref.LineEnd
+				body.LineEnd = &le
+			}
+			if ref.Note != "" {
+				note := ref.Note
+				body.Note = &note
+			}
+			resp, err := c.AttachCodeRefToTestWithResponse(ctx, body)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "[sync] coderefs attach (%s → %s): %v\n", testName, ref.FilePath, err)
+				continue
+			}
+			if resp.StatusCode() >= 400 {
+				fmt.Fprintf(os.Stderr, "[sync] coderefs attach %s → %s: status %d\n", testName, ref.FilePath, resp.StatusCode())
+				continue
+			}
+			attached++
+		}
+	}
+	if attached > 0 {
+		fmt.Fprintf(os.Stderr, "[sync] %d coderef(s) attached to tests\n", attached)
+	}
 }
 
 // uploadDemoArtifact reads a demo file from disk and uploads it to the server,

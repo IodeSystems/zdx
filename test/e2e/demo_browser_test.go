@@ -1,13 +1,45 @@
 package e2e
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
+	"sync"
 	"testing"
 	"time"
 
 	pw "github.com/playwright-community/playwright-go"
 )
+
+// consoleCapture collects console messages from a Playwright Page and
+// flushes them to a .console.log sidecar next to the recorded video.
+type consoleCapture struct {
+	mu    sync.Mutex
+	lines []string
+}
+
+func (c *consoleCapture) handle(msg pw.ConsoleMessage) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.lines = append(c.lines, fmt.Sprintf("%s\t[%s]\t%s",
+		time.Now().UTC().Format(time.RFC3339Nano),
+		strings.ToUpper(msg.Type()),
+		msg.Text(),
+	))
+}
+
+func (c *consoleCapture) flush(path string) error {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	if len(c.lines) == 0 {
+		return nil
+	}
+	if err := os.MkdirAll(filepath.Dir(path), 0755); err != nil {
+		return err
+	}
+	return os.WriteFile(path, []byte(strings.Join(c.lines, "\n")+"\n"), 0644)
+}
 
 func TestDemoBrowser_IssueFlow(t *testing.T) {
 	root, err := findRoot()
@@ -54,6 +86,9 @@ func TestDemoBrowser_IssueFlow(t *testing.T) {
 		t.Fatalf("new page: %v", err)
 	}
 
+	cap := &consoleCapture{}
+	page.OnConsole(cap.handle)
+
 	resp, err := page.Goto(srv.URL+"/api/health", pw.PageGotoOptions{
 		WaitUntil: pw.WaitUntilStateNetworkidle,
 	})
@@ -76,11 +111,13 @@ func TestDemoBrowser_IssueFlow(t *testing.T) {
 		t.Fatalf("read video dir: %v", err)
 	}
 	found := false
+	var webmBase string
 	for _, e := range entries {
 		if filepath.Ext(e.Name()) == ".webm" {
 			info, _ := e.Info()
 			if info != nil && info.Size() > 0 {
 				found = true
+				webmBase = strings.TrimSuffix(e.Name(), ".webm")
 				t.Logf("video captured: %s (%d bytes)", e.Name(), info.Size())
 			}
 		}
@@ -88,4 +125,17 @@ func TestDemoBrowser_IssueFlow(t *testing.T) {
 	if !found {
 		t.Error("no .webm video file found in .zdx/demo/video/")
 	}
+
+	logPath := filepath.Join(videoDir, webmBase+".console.log")
+	if webmBase == "" {
+		logPath = filepath.Join(videoDir, t.Name()+".console.log")
+	}
+	if err := cap.flush(logPath); err != nil {
+		t.Logf("flush console log: %v", err)
+	}
+
+	writeDemoCoderefs(t, t.Name(), []coderef{
+		{FilePath: "test/e2e/demo_browser_test.go", Note: "browser demo source"},
+		{FilePath: "internal/server/handlers/handlers_auth.go", Note: "exercised /api/health handler"},
+	})
 }

@@ -167,6 +167,8 @@ type DemoMeta struct {
 
 // CollectDemoMetadata scans demoDir for CLI and video artifacts produced
 // during the test run (modified after cutoff) and returns metadata entries.
+// Walks recursively so multi-browser tests may group per-user videos under
+// nested directories (e.g. video/multi/alice/<hash>.webm).
 func CollectDemoMetadata(demoDir string, cutoff time.Time) []DemoMeta {
 	var metas []DemoMeta
 	for _, sub := range []struct {
@@ -177,27 +179,24 @@ func CollectDemoMetadata(demoDir string, cutoff time.Time) []DemoMeta {
 		{"video", "video"},
 	} {
 		dir := filepath.Join(demoDir, sub.dir)
-		entries, err := os.ReadDir(dir)
-		if err != nil {
-			continue
-		}
-		for _, e := range entries {
-			if e.IsDir() {
-				continue
+		_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
+			if err != nil || d.IsDir() {
+				return nil
 			}
-			info, err := e.Info()
+			info, err := d.Info()
 			if err != nil || info.ModTime().Before(cutoff) {
-				continue
+				return nil
 			}
-			name := e.Name()
+			name := d.Name()
 			testName := name[:len(name)-len(filepath.Ext(name))]
 			metas = append(metas, DemoMeta{
 				Test:         testName,
 				DemoType:     sub.demoType,
-				ArtifactPath: filepath.Join(demoDir, sub.dir, name),
+				ArtifactPath: path,
 				RecordedAt:   info.ModTime().UTC().Format(time.RFC3339),
 			})
-		}
+			return nil
+		})
 	}
 	return metas
 }
