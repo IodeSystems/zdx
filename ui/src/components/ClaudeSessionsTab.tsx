@@ -2,6 +2,7 @@ import { useState, useRef, useMemo, useEffect, useCallback } from 'react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   Box,
+  Button,
   Chip,
   Collapse,
   Table,
@@ -29,6 +30,7 @@ import {
   useInfiniteClaudeSessionEvents,
   useClaudeSessionTokenUsage,
   useClaudeSessionTokenUsageByAgent,
+  useExtractPatternFromSession,
   type ClaudeSessionItem,
   type ClaudeEventItem,
   type AgentTokenUsage,
@@ -577,6 +579,8 @@ export function SessionDetail({
   const sentinelRef = useRef<HTMLDivElement>(null)
   const containerRef = useRef<HTMLDivElement>(null)
   const [liveEvents, setLiveEvents] = useState<ClaudeEventItem[]>([])
+  const [extractedPatternName, setExtractedPatternName] = useState<string | null>(null)
+  const extractPattern = useExtractPatternFromSession()
 
   const { data: session } = useClaudeSession(slug, sessionId)
   const { data, isLoading, hasNextPage, fetchNextPage, isFetchingNextPage } =
@@ -737,6 +741,31 @@ export function SessionDetail({
           {session.summary && (
             <Typography variant="body2" color="text.secondary" sx={{ whiteSpace: 'pre-wrap', fontSize: '0.85rem' }}>
               {session.summary}
+            </Typography>
+          )}
+        </Box>
+      )}
+      {session?.status === 'churn' && (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
+          {extractedPatternName ? (
+            <Chip label={`Pattern: ${extractedPatternName}`} size="small" color="success" sx={{ fontSize: '0.7rem' }} />
+          ) : (
+            <Button
+              size="small"
+              variant="outlined"
+              color="warning"
+              onClick={async () => {
+                const pattern = await extractPattern.mutateAsync({ slug, sessionId })
+                setExtractedPatternName(pattern.name)
+              }}
+              disabled={extractPattern.isPending}
+            >
+              {extractPattern.isPending ? 'Extracting...' : 'Extract Pattern'}
+            </Button>
+          )}
+          {extractPattern.isError && (
+            <Typography variant="caption" color="error">
+              {extractPattern.error.message}
             </Typography>
           )}
         </Box>
