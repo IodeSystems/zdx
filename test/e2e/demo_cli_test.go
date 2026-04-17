@@ -195,6 +195,13 @@ func TestDemoCLI_BlockerQuestionFlow(t *testing.T) {
 	// Spec 4: question list --status pending → only pending shown
 	rec.Run("question", "list", "--status=pending")
 
+	// Spec 89: solo in global mode excludes BQ-blocked issues from the queue.
+	// Issue title should NOT appear in this output while questions are pending.
+	rec.Run("todo", "solo")
+
+	// Spec 90: solo with --issue=IS-N surfaces the pending question as clarify.
+	rec.Run("todo", "solo", "--issue="+issueID)
+
 	// Spec 2: question answer → status changes to answered
 	if bqID != "" {
 		numID := strings.TrimPrefix(bqID, "BQ-")
