@@ -4,196 +4,441 @@ import {
   Box,
   Button,
   CircularProgress,
+  Divider,
   FormControl,
+  IconButton,
   InputLabel,
   MenuItem,
   Paper,
   Select,
+  Stack,
   TextField,
   Typography,
 } from '@mui/material'
+import { ArrowUpward as ArrowUpwardIcon, ArrowDownward as ArrowDownwardIcon, Delete as DeleteIcon } from '@mui/icons-material'
 import {
-  useLLMConfig,
-  useLLMModels,
-  useSetLLMConfig,
+  useLLMConfigs,
+  useCreateLLMConfig,
+  useUpdateLLMConfig,
+  useDeleteLLMConfig,
+  useReorderLLMConfigs,
   useTestLLMConfig,
+  useLLMModels,
+  type LLMConfigBody,
 } from '../../api'
 
 const AGENT_TYPES = ['openai', 'local', 'claude'] as const
-const COMPLEXITIES = [
+const SLOTS = [
   { key: 'low', label: 'Low' },
   { key: 'medium', label: 'Medium' },
   { key: 'high', label: 'High' },
 ] as const
+type SlotKey = (typeof SLOTS)[number]['key']
 
-function LLMConfigPage() {
-  const { data, isLoading } = useLLMConfig()
-  const setConfig = useSetLLMConfig()
-  const testConfig = useTestLLMConfig()
+const NEW_CONFIG: LLMConfigBody = {
+  name: 'default',
+  priority: 0,
+  type: 'openai',
+  url: '',
+  embedding_model: '',
+  agent_type: 'openai',
+  model_low: '',
+  model_medium: '',
+  model_high: '',
+}
 
-  const [initialized, setInitialized] = useState(false)
-  const [type, setType] = useState('openai')
-  const [agentType, setAgentType] = useState<string>('openai')
-  const [url, setUrl] = useState('')
-  const [model, setModel] = useState('')
-  const [modelLow, setModelLow] = useState('')
-  const [modelMedium, setModelMedium] = useState('')
-  const [modelHigh, setModelHigh] = useState('')
+function ConfigRow({
+  cfg,
+  index,
+  total,
+  onMove,
+}: {
+  cfg: LLMConfigBody
+  index: number
+  total: number
+  onMove: (dir: -1 | 1) => void
+}) {
+  const [draft, setDraft] = useState<LLMConfigBody>(cfg)
   const [apiKey, setApiKey] = useState('')
   const [saved, setSaved] = useState(false)
   const [testResult, setTestResult] = useState<{ ok: boolean; message: string } | null>(null)
-  if (data && !initialized) {
-    setInitialized(true)
-    setType(data.type || 'openai')
-    setAgentType(data.agent_type || 'openai')
-    setUrl(data.url || '')
-    setModel(data.model || '')
-    setModelLow(data.model_low || '')
-    setModelMedium(data.model_medium || '')
-    setModelHigh(data.model_high || '')
+
+  const update = useUpdateLLMConfig()
+  const del = useDeleteLLMConfig()
+  const test = useTestLLMConfig()
+  const models = useLLMModels(cfg.id ?? 0, draft.url, !!draft.url && !!cfg.id)
+
+  const patch = (p: Partial<LLMConfigBody>) => {
+    setDraft({ ...draft, ...p })
+    setSaved(false)
   }
 
-  const models = useLLMModels(url, !!url)
+  const isClaude = draft.agent_type === 'claude'
 
-  const buildBody = () => ({
-    type,
-    url,
-    model,
+  const buildBody = (): LLMConfigBody => ({
+    ...draft,
+    embedding_model: isClaude ? '' : draft.embedding_model,
     api_key: apiKey || undefined,
-    agent_type: agentType,
-    model_low: modelLow,
-    model_medium: modelMedium,
-    model_high: modelHigh,
   })
 
-  const handleSave = () => {
+  const onSave = () => {
     setSaved(false)
-    setConfig.mutate(buildBody() as never, { onSuccess: () => setSaved(true) })
+    update.mutate(
+      { id: cfg.id!, body: buildBody() },
+      {
+        onSuccess: () => {
+          setSaved(true)
+          setApiKey('')
+        },
+      },
+    )
   }
 
-  const handleTest = () => {
+  const onDelete = () => {
+    if (!cfg.id) return
+    if (!confirm(`Delete LLM config "${cfg.name}"?`)) return
+    del.mutate(cfg.id)
+  }
+
+  const onTest = () => {
     setTestResult(null)
-    testConfig.mutate(buildBody() as never, {
-      onSuccess: (res) => setTestResult(res),
-      onError: (err) => setTestResult({ ok: false, message: err.message }),
-    })
+    test.mutate(
+      { id: cfg.id!, body: buildBody() },
+      {
+        onSuccess: (res) => setTestResult(res),
+        onError: (err) => setTestResult({ ok: false, message: err.message }),
+      },
+    )
   }
 
-  if (isLoading) return <CircularProgress sx={{ m: 4 }} />
-
-  const slotSetter = (slot: 'low' | 'medium' | 'high') =>
-    slot === 'low' ? setModelLow : slot === 'medium' ? setModelMedium : setModelHigh
-  const slotValue = (slot: 'low' | 'medium' | 'high') =>
-    slot === 'low' ? modelLow : slot === 'medium' ? modelMedium : modelHigh
+  const slotValue = (slot: SlotKey) =>
+    slot === 'low' ? draft.model_low : slot === 'medium' ? draft.model_medium : draft.model_high
+  const setSlot = (slot: SlotKey, v: string) => {
+    if (slot === 'low') patch({ model_low: v })
+    else if (slot === 'medium') patch({ model_medium: v })
+    else patch({ model_high: v })
+  }
 
   const modelOptions = models.data ?? []
 
   return (
-    <Box sx={{ maxWidth: 480 }}>
-      <Typography variant="h5" sx={{ fontWeight: 600, mb: 3 }}>
-        LLM Config
-      </Typography>
-      <Paper variant="outlined" sx={{ p: 3, display: 'flex', flexDirection: 'column', gap: 2 }}>
-        <FormControl size="small" fullWidth>
-          <InputLabel id="agent-type-label">Agent Type</InputLabel>
+    <Paper variant="outlined" sx={{ p: 2 }}>
+      <Stack direction="row" spacing={1} sx={{ mb: 2, alignItems: 'center' }}>
+        <Stack direction="column">
+          <IconButton size="small" disabled={index === 0} onClick={() => onMove(-1)}>
+            <ArrowUpwardIcon fontSize="small" />
+          </IconButton>
+          <IconButton size="small" disabled={index === total - 1} onClick={() => onMove(1)}>
+            <ArrowDownwardIcon fontSize="small" />
+          </IconButton>
+        </Stack>
+        <Typography variant="subtitle1" sx={{ fontWeight: 600, flex: 1 }}>
+          #{cfg.priority} · {cfg.name}
+          <Typography component="span" variant="caption" color="text.secondary" sx={{ ml: 1 }}>
+            {cfg.agent_type}
+          </Typography>
+        </Typography>
+        <IconButton size="small" color="error" onClick={onDelete} disabled={del.isPending}>
+          <DeleteIcon fontSize="small" />
+        </IconButton>
+      </Stack>
+
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        <TextField
+          label="Name"
+          value={draft.name}
+          onChange={(e) => patch({ name: e.target.value })}
+          size="small"
+          sx={{ flex: 1 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Agent Type</InputLabel>
           <Select
-            labelId="agent-type-label"
             label="Agent Type"
-            value={agentType}
-            onChange={e => setAgentType(e.target.value)}
+            value={draft.agent_type}
+            onChange={(e) =>
+              patch({
+                agent_type: e.target.value,
+                embedding_model: e.target.value === 'claude' ? '' : draft.embedding_model,
+              })
+            }
           >
-            {AGENT_TYPES.map(t => (
-              <MenuItem key={t} value={t}>{t}</MenuItem>
+            {AGENT_TYPES.map((t) => (
+              <MenuItem key={t} value={t}>
+                {t}
+              </MenuItem>
             ))}
           </Select>
         </FormControl>
         <TextField
           label="Type"
-          value={type}
-          onChange={e => setType(e.target.value)}
-          helperText="openai (OpenAI-compatible API)"
+          value={draft.type}
+          onChange={(e) => patch({ type: e.target.value })}
           size="small"
-          fullWidth
+          helperText="openai-compatible"
+          sx={{ width: 160 }}
         />
+      </Stack>
+
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2} sx={{ mt: 2 }}>
         <TextField
           label="URL"
-          value={url}
-          onChange={e => setUrl(e.target.value)}
-          placeholder="http://192.168.1.76:8111"
+          value={draft.url}
+          onChange={(e) => patch({ url: e.target.value })}
           size="small"
-          fullWidth
+          placeholder="http://host:port"
+          sx={{ flex: 1 }}
         />
-        <TextField
-          label="Model (legacy / embeddings)"
-          value={model}
-          onChange={e => setModel(e.target.value)}
-          placeholder="nomic-embed-text"
-          size="small"
-          fullWidth
-        />
-        {COMPLEXITIES.map(({ key, label }) => (
-          <FormControl size="small" fullWidth key={key}>
-            <InputLabel id={`model-${key}-label`}>{label} Model</InputLabel>
-            <Select
-              labelId={`model-${key}-label`}
-              label={`${label} Model`}
-              value={modelOptions.includes(slotValue(key)) ? slotValue(key) : ''}
-              displayEmpty
-              onChange={e => slotSetter(key)(e.target.value)}
-              disabled={!url || models.isLoading}
-            >
-              <MenuItem value="">
-                <em>{models.isError ? `error: ${models.error?.message}` : url ? 'select…' : 'enter URL first'}</em>
-              </MenuItem>
-              {modelOptions.map(m => (
-                <MenuItem key={m} value={m}>{m}</MenuItem>
-              ))}
-              {slotValue(key) && !modelOptions.includes(slotValue(key)) && (
-                <MenuItem value={slotValue(key)}>{slotValue(key)} (saved)</MenuItem>
-              )}
-            </Select>
-          </FormControl>
-        ))}
         <TextField
           label="API Key"
           type="password"
           value={apiKey}
-          onChange={e => setApiKey(e.target.value)}
-          placeholder="Leave blank to keep existing"
+          onChange={(e) => setApiKey(e.target.value)}
           size="small"
-          fullWidth
+          placeholder={cfg.has_api_key ? '(set — leave blank to keep)' : ''}
+          sx={{ flex: 1 }}
         />
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 2, flexWrap: 'wrap' }}>
-          <Button
-            variant="contained"
-            onClick={handleSave}
-            disabled={setConfig.isPending}
+      </Stack>
+
+      <TextField
+        label="Embedding Model"
+        value={isClaude ? '' : draft.embedding_model}
+        onChange={(e) => patch({ embedding_model: e.target.value })}
+        size="small"
+        fullWidth
+        disabled={isClaude}
+        placeholder={isClaude ? 'Not used for Claude' : 'nomic-embed-text'}
+        sx={{ mt: 2 }}
+      />
+
+      <Divider sx={{ my: 2 }}>
+        <Typography variant="caption" color="text.secondary">
+          Level slots — leave blank = none (no override)
+        </Typography>
+      </Divider>
+
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        {SLOTS.map(({ key, label }) => {
+          const v = slotValue(key)
+          return (
+            <FormControl size="small" fullWidth key={key}>
+              <InputLabel>{label}</InputLabel>
+              <Select
+                label={label}
+                value={v && modelOptions.includes(v) ? v : v ? '__custom__' : ''}
+                onChange={(e) => {
+                  const sel = e.target.value
+                  if (sel === '__custom__') return
+                  setSlot(key, sel)
+                }}
+                displayEmpty
+                disabled={!draft.url || models.isLoading}
+              >
+                <MenuItem value="">
+                  <em>none</em>
+                </MenuItem>
+                {modelOptions.map((m) => (
+                  <MenuItem key={m} value={m}>
+                    {m}
+                  </MenuItem>
+                ))}
+                {v && !modelOptions.includes(v) && (
+                  <MenuItem value="__custom__">{v} (saved)</MenuItem>
+                )}
+              </Select>
+            </FormControl>
+          )
+        })}
+      </Stack>
+
+      <Stack direction="row" spacing={2} sx={{ mt: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Button variant="contained" onClick={onSave} disabled={update.isPending}>
+          Save
+        </Button>
+        <Button
+          variant="outlined"
+          onClick={onTest}
+          disabled={test.isPending || !draft.url || isClaude}
+        >
+          {test.isPending ? 'Testing…' : 'Test'}
+        </Button>
+        {saved && (
+          <Typography variant="caption" color="success.main">
+            Saved
+          </Typography>
+        )}
+        {update.isError && (
+          <Typography variant="caption" color="error">
+            {update.error?.message}
+          </Typography>
+        )}
+        {testResult && (
+          <Typography variant="caption" color={testResult.ok ? 'success.main' : 'error'}>
+            {testResult.ok ? testResult.message : `Failed: ${testResult.message}`}
+          </Typography>
+        )}
+        {isClaude && (
+          <Typography variant="caption" color="text.secondary">
+            Test is disabled for Claude (no embedding path).
+          </Typography>
+        )}
+      </Stack>
+    </Paper>
+  )
+}
+
+function NewConfigForm({ onCancel }: { onCancel: () => void }) {
+  const [draft, setDraft] = useState<LLMConfigBody>(NEW_CONFIG)
+  const [apiKey, setApiKey] = useState('')
+  const create = useCreateLLMConfig()
+  const isClaude = draft.agent_type === 'claude'
+
+  const submit = () => {
+    create.mutate(
+      {
+        ...draft,
+        embedding_model: isClaude ? '' : draft.embedding_model,
+        api_key: apiKey || undefined,
+      },
+      { onSuccess: () => onCancel() },
+    )
+  }
+
+  return (
+    <Paper variant="outlined" sx={{ p: 2, borderStyle: 'dashed' }}>
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 2 }}>
+        Add LLM Configuration
+      </Typography>
+      <Stack direction={{ xs: 'column', md: 'row' }} spacing={2}>
+        <TextField
+          label="Name"
+          value={draft.name}
+          onChange={(e) => setDraft({ ...draft, name: e.target.value })}
+          size="small"
+          sx={{ flex: 1 }}
+        />
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Agent Type</InputLabel>
+          <Select
+            label="Agent Type"
+            value={draft.agent_type}
+            onChange={(e) =>
+              setDraft({
+                ...draft,
+                agent_type: e.target.value,
+                embedding_model: e.target.value === 'claude' ? '' : draft.embedding_model,
+              })
+            }
           >
-            Save
+            {AGENT_TYPES.map((t) => (
+              <MenuItem key={t} value={t}>
+                {t}
+              </MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+      </Stack>
+      <TextField
+        label="URL"
+        value={draft.url}
+        onChange={(e) => setDraft({ ...draft, url: e.target.value })}
+        size="small"
+        fullWidth
+        sx={{ mt: 2 }}
+      />
+      <TextField
+        label="API Key"
+        type="password"
+        value={apiKey}
+        onChange={(e) => setApiKey(e.target.value)}
+        size="small"
+        fullWidth
+        sx={{ mt: 2 }}
+      />
+      <TextField
+        label="Embedding Model"
+        value={isClaude ? '' : draft.embedding_model}
+        onChange={(e) => setDraft({ ...draft, embedding_model: e.target.value })}
+        size="small"
+        fullWidth
+        disabled={isClaude}
+        placeholder={isClaude ? 'Not used for Claude' : 'nomic-embed-text'}
+        sx={{ mt: 2 }}
+      />
+      <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+        <Button variant="contained" onClick={submit} disabled={create.isPending}>
+          Create
+        </Button>
+        <Button onClick={onCancel}>Cancel</Button>
+        {create.isError && (
+          <Typography variant="caption" color="error">
+            {create.error?.message}
+          </Typography>
+        )}
+      </Stack>
+    </Paper>
+  )
+}
+
+function LLMConfigPage() {
+  const { data, isLoading } = useLLMConfigs()
+  const reorder = useReorderLLMConfigs()
+  const [adding, setAdding] = useState(false)
+
+  if (isLoading) return <CircularProgress sx={{ m: 4 }} />
+
+  const configs = data ?? []
+
+  const move = (idx: number, dir: -1 | 1) => {
+    const next = [...configs]
+    const target = idx + dir
+    if (target < 0 || target >= next.length) return
+    ;[next[idx], next[target]] = [next[target], next[idx]]
+    reorder.mutate(next.map((c) => c.id!).filter(Boolean))
+  }
+
+  return (
+    <Box sx={{ maxWidth: 880 }}>
+      <Stack direction="row" sx={{ mb: 3, alignItems: 'center' }}>
+        <Typography variant="h5" sx={{ fontWeight: 600, flex: 1 }}>
+          LLM Configurations
+        </Typography>
+        {!adding && (
+          <Button variant="contained" onClick={() => setAdding(true)}>
+            Add Config
           </Button>
-          <Button
-            variant="outlined"
-            onClick={handleTest}
-            disabled={testConfig.isPending || !url}
-          >
-            {testConfig.isPending ? 'Testing…' : 'Test'}
-          </Button>
-          {saved && (
-            <Typography variant="caption" color="success.main">Saved</Typography>
-          )}
-          {setConfig.isError && (
-            <Typography variant="caption" color="error">{setConfig.error?.message}</Typography>
-          )}
-          {testResult && (
-            <Typography
-              variant="caption"
-              color={testResult.ok ? 'success.main' : 'error'}
-            >
-              {testResult.ok ? testResult.message : `Failed: ${testResult.message}`}
+        )}
+      </Stack>
+
+      <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+        Configs are evaluated in priority order. For any requested level
+        (low/medium/high), the first non-empty slot wins — empty slots fall
+        through to the next config, then to defaults. Claude configs don't use
+        the embedding model.
+      </Typography>
+
+      <Stack spacing={2}>
+        {configs.map((c, i) => (
+          <ConfigRow
+            key={c.id}
+            cfg={c}
+            index={i}
+            total={configs.length}
+            onMove={(dir) => move(i, dir)}
+          />
+        ))}
+        {adding && <NewConfigForm onCancel={() => setAdding(false)} />}
+        {configs.length === 0 && !adding && (
+          <Paper variant="outlined" sx={{ p: 4, textAlign: 'center' }}>
+            <Typography color="text.secondary" sx={{ mb: 2 }}>
+              No LLM configurations yet.
             </Typography>
-          )}
-        </Box>
-      </Paper>
+            <Button variant="contained" onClick={() => setAdding(true)}>
+              Add your first config
+            </Button>
+          </Paper>
+        )}
+      </Stack>
     </Box>
   )
 }

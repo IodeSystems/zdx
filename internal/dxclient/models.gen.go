@@ -1433,15 +1433,19 @@ type JournalEntryItem struct {
 // LLMConfigBody defines model for LLMConfigBody.
 type LLMConfigBody struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema      *string `json:"$schema,omitempty"`
-	AgentType   string  `json:"agent_type"`
-	ApiKey      *string `json:"api_key,omitempty"`
-	Model       string  `json:"model"`
-	ModelHigh   string  `json:"model_high"`
-	ModelLow    string  `json:"model_low"`
-	ModelMedium string  `json:"model_medium"`
-	Type        string  `json:"type"`
-	Url         string  `json:"url"`
+	Schema         *string `json:"$schema,omitempty"`
+	AgentType      string  `json:"agent_type"`
+	ApiKey         *string `json:"api_key,omitempty"`
+	EmbeddingModel string  `json:"embedding_model"`
+	HasApiKey      *bool   `json:"has_api_key,omitempty"`
+	Id             *int64  `json:"id,omitempty"`
+	ModelHigh      string  `json:"model_high"`
+	ModelLow       string  `json:"model_low"`
+	ModelMedium    string  `json:"model_medium"`
+	Name           string  `json:"name"`
+	Priority       int32   `json:"priority"`
+	Type           string  `json:"type"`
+	Url            string  `json:"url"`
 }
 
 // LinkSpecIssueRequest defines model for Link-spec-issueRequest.
@@ -1719,6 +1723,13 @@ type ListIssuesResponse struct {
 	Schema *string      `json:"$schema,omitempty"`
 	Issues *[]IssueItem `json:"issues"`
 	Total  int64        `json:"total"`
+}
+
+// ListLlmConfigsResponse defines model for List-llm-configsResponse.
+type ListLlmConfigsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string          `json:"$schema,omitempty"`
+	Configs *[]LLMConfigBody `json:"configs"`
 }
 
 // ListLlmModelsResponse defines model for List-llm-modelsResponse.
@@ -2317,6 +2328,20 @@ type RenewTaskLeaseRequest struct {
 	Schema           *string `json:"$schema,omitempty"`
 	AgentId          string  `json:"agent_id"`
 	LeaseDurationMin int32   `json:"lease_duration_min"`
+}
+
+// ReorderLlmConfigsRequest defines model for Reorder-llm-configsRequest.
+type ReorderLlmConfigsRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string  `json:"$schema,omitempty"`
+	Ids    *[]int64 `json:"ids"`
+}
+
+// ReorderLlmConfigsResponse defines model for Reorder-llm-configsResponse.
+type ReorderLlmConfigsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string          `json:"$schema,omitempty"`
+	Configs *[]LLMConfigBody `json:"configs"`
 }
 
 // ReportErrorRequest defines model for Report-errorRequest.
@@ -3854,8 +3879,14 @@ type CreateIntegrationTokenJSONRequestBody = CreateIntegrationTokenRequest
 // CreateInviteJSONRequestBody defines body for CreateInvite for application/json ContentType.
 type CreateInviteJSONRequestBody = CreateInviteRequest
 
-// SetLlmConfigJSONRequestBody defines body for SetLlmConfig for application/json ContentType.
-type SetLlmConfigJSONRequestBody = LLMConfigBody
+// CreateLlmConfigJSONRequestBody defines body for CreateLlmConfig for application/json ContentType.
+type CreateLlmConfigJSONRequestBody = LLMConfigBody
+
+// ReorderLlmConfigsJSONRequestBody defines body for ReorderLlmConfigs for application/json ContentType.
+type ReorderLlmConfigsJSONRequestBody = ReorderLlmConfigsRequest
+
+// UpdateLlmConfigJSONRequestBody defines body for UpdateLlmConfig for application/json ContentType.
+type UpdateLlmConfigJSONRequestBody = LLMConfigBody
 
 // TestLlmConfigJSONRequestBody defines body for TestLlmConfig for application/json ContentType.
 type TestLlmConfigJSONRequestBody = LLMConfigBody
@@ -4321,21 +4352,37 @@ type ClientInterface interface {
 	// DeleteInvite request
 	DeleteInvite(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListLlmConfigs request
+	ListLlmConfigs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateLlmConfigWithBody request with any body
+	CreateLlmConfigWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateLlmConfig(ctx context.Context, body CreateLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReorderLlmConfigsWithBody request with any body
+	ReorderLlmConfigsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReorderLlmConfigs(ctx context.Context, body ReorderLlmConfigsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteLlmConfig request
+	DeleteLlmConfig(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetLlmConfig request
-	GetLlmConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetLlmConfig(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// SetLlmConfigWithBody request with any body
-	SetLlmConfigWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UpdateLlmConfigWithBody request with any body
+	UpdateLlmConfigWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	SetLlmConfig(ctx context.Context, body SetLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	UpdateLlmConfig(ctx context.Context, id int64, body UpdateLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLlmModels request
-	ListLlmModels(ctx context.Context, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	ListLlmModels(ctx context.Context, id int64, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// TestLlmConfigWithBody request with any body
-	TestLlmConfigWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	TestLlmConfigWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	TestLlmConfig(ctx context.Context, body TestLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	TestLlmConfig(ctx context.Context, id int64, body TestLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetProjectGitConfig request
 	GetProjectGitConfig(ctx context.Context, params *GetProjectGitConfigParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -5384,8 +5431,8 @@ func (c *APIClient) DeleteInvite(ctx context.Context, id int32, reqEditors ...Re
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) GetLlmConfig(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetLlmConfigRequest(c.Server)
+func (c *APIClient) ListLlmConfigs(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLlmConfigsRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -5396,8 +5443,8 @@ func (c *APIClient) GetLlmConfig(ctx context.Context, reqEditors ...RequestEdito
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) SetLlmConfigWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetLlmConfigRequestWithBody(c.Server, contentType, body)
+func (c *APIClient) CreateLlmConfigWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLlmConfigRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5408,8 +5455,8 @@ func (c *APIClient) SetLlmConfigWithBody(ctx context.Context, contentType string
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) SetLlmConfig(ctx context.Context, body SetLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSetLlmConfigRequest(c.Server, body)
+func (c *APIClient) CreateLlmConfig(ctx context.Context, body CreateLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateLlmConfigRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5420,8 +5467,8 @@ func (c *APIClient) SetLlmConfig(ctx context.Context, body SetLlmConfigJSONReque
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) ListLlmModels(ctx context.Context, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewListLlmModelsRequest(c.Server, params)
+func (c *APIClient) ReorderLlmConfigsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReorderLlmConfigsRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5432,8 +5479,8 @@ func (c *APIClient) ListLlmModels(ctx context.Context, params *ListLlmModelsPara
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) TestLlmConfigWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewTestLlmConfigRequestWithBody(c.Server, contentType, body)
+func (c *APIClient) ReorderLlmConfigs(ctx context.Context, body ReorderLlmConfigsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReorderLlmConfigsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -5444,8 +5491,80 @@ func (c *APIClient) TestLlmConfigWithBody(ctx context.Context, contentType strin
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) TestLlmConfig(ctx context.Context, body TestLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewTestLlmConfigRequest(c.Server, body)
+func (c *APIClient) DeleteLlmConfig(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteLlmConfigRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) GetLlmConfig(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetLlmConfigRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateLlmConfigWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLlmConfigRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateLlmConfig(ctx context.Context, id int64, body UpdateLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateLlmConfigRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListLlmModels(ctx context.Context, id int64, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListLlmModelsRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) TestLlmConfigWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestLlmConfigRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) TestLlmConfig(ctx context.Context, id int64, body TestLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewTestLlmConfigRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9950,8 +10069,8 @@ func NewDeleteInviteRequest(server string, id int32) (*http.Request, error) {
 	return req, nil
 }
 
-// NewGetLlmConfigRequest generates requests for GetLlmConfig
-func NewGetLlmConfigRequest(server string) (*http.Request, error) {
+// NewListLlmConfigsRequest generates requests for ListLlmConfigs
+func NewListLlmConfigsRequest(server string) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -9959,7 +10078,7 @@ func NewGetLlmConfigRequest(server string) (*http.Request, error) {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/llm-config")
+	operationPath := fmt.Sprintf("/api/admin/llm-configs")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -9977,19 +10096,19 @@ func NewGetLlmConfigRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
-// NewSetLlmConfigRequest calls the generic SetLlmConfig builder with application/json body
-func NewSetLlmConfigRequest(server string, body SetLlmConfigJSONRequestBody) (*http.Request, error) {
+// NewCreateLlmConfigRequest calls the generic CreateLlmConfig builder with application/json body
+func NewCreateLlmConfigRequest(server string, body CreateLlmConfigJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewSetLlmConfigRequestWithBody(server, "application/json", bodyReader)
+	return NewCreateLlmConfigRequestWithBody(server, "application/json", bodyReader)
 }
 
-// NewSetLlmConfigRequestWithBody generates requests for SetLlmConfig with any type of body
-func NewSetLlmConfigRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewCreateLlmConfigRequestWithBody generates requests for CreateLlmConfig with any type of body
+func NewCreateLlmConfigRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -9997,7 +10116,162 @@ func NewSetLlmConfigRequestWithBody(server string, contentType string, body io.R
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/llm-config")
+	operationPath := fmt.Sprintf("/api/admin/llm-configs")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReorderLlmConfigsRequest calls the generic ReorderLlmConfigs builder with application/json body
+func NewReorderLlmConfigsRequest(server string, body ReorderLlmConfigsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReorderLlmConfigsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewReorderLlmConfigsRequestWithBody generates requests for ReorderLlmConfigs with any type of body
+func NewReorderLlmConfigsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/llm-configs/reorder")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteLlmConfigRequest generates requests for DeleteLlmConfig
+func NewDeleteLlmConfigRequest(server string, id int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/llm-configs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetLlmConfigRequest generates requests for GetLlmConfig
+func NewGetLlmConfigRequest(server string, id int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/llm-configs/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateLlmConfigRequest calls the generic UpdateLlmConfig builder with application/json body
+func NewUpdateLlmConfigRequest(server string, id int64, body UpdateLlmConfigJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateLlmConfigRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateLlmConfigRequestWithBody generates requests for UpdateLlmConfig with any type of body
+func NewUpdateLlmConfigRequestWithBody(server string, id int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/llm-configs/%s", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -10018,15 +10292,22 @@ func NewSetLlmConfigRequestWithBody(server string, contentType string, body io.R
 }
 
 // NewListLlmModelsRequest generates requests for ListLlmModels
-func NewListLlmModelsRequest(server string, params *ListLlmModelsParams) (*http.Request, error) {
+func NewListLlmModelsRequest(server string, id int64, params *ListLlmModelsParams) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/llm-config/models")
+	operationPath := fmt.Sprintf("/api/admin/llm-configs/%s/models", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -10067,26 +10348,33 @@ func NewListLlmModelsRequest(server string, params *ListLlmModelsParams) (*http.
 }
 
 // NewTestLlmConfigRequest calls the generic TestLlmConfig builder with application/json body
-func NewTestLlmConfigRequest(server string, body TestLlmConfigJSONRequestBody) (*http.Request, error) {
+func NewTestLlmConfigRequest(server string, id int64, body TestLlmConfigJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewTestLlmConfigRequestWithBody(server, "application/json", bodyReader)
+	return NewTestLlmConfigRequestWithBody(server, id, "application/json", bodyReader)
 }
 
 // NewTestLlmConfigRequestWithBody generates requests for TestLlmConfig with any type of body
-func NewTestLlmConfigRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewTestLlmConfigRequestWithBody(server string, id int64, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
 
 	serverURL, err := url.Parse(server)
 	if err != nil {
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/admin/llm-config/test")
+	operationPath := fmt.Sprintf("/api/admin/llm-configs/%s/test", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -22486,21 +22774,37 @@ type ClientWithResponsesInterface interface {
 	// DeleteInviteWithResponse request
 	DeleteInviteWithResponse(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*DeleteInviteResponse, error)
 
+	// ListLlmConfigsWithResponse request
+	ListLlmConfigsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListLlmConfigsResponse, error)
+
+	// CreateLlmConfigWithBodyWithResponse request with any body
+	CreateLlmConfigWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLlmConfigResponse, error)
+
+	CreateLlmConfigWithResponse(ctx context.Context, body CreateLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLlmConfigResponse, error)
+
+	// ReorderLlmConfigsWithBodyWithResponse request with any body
+	ReorderLlmConfigsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReorderLlmConfigsResponse, error)
+
+	ReorderLlmConfigsWithResponse(ctx context.Context, body ReorderLlmConfigsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReorderLlmConfigsResponse, error)
+
+	// DeleteLlmConfigWithResponse request
+	DeleteLlmConfigWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*DeleteLlmConfigResponse, error)
+
 	// GetLlmConfigWithResponse request
-	GetLlmConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLlmConfigResponse, error)
+	GetLlmConfigWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetLlmConfigResponse, error)
 
-	// SetLlmConfigWithBodyWithResponse request with any body
-	SetLlmConfigWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLlmConfigResponse, error)
+	// UpdateLlmConfigWithBodyWithResponse request with any body
+	UpdateLlmConfigWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLlmConfigResponse, error)
 
-	SetLlmConfigWithResponse(ctx context.Context, body SetLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLlmConfigResponse, error)
+	UpdateLlmConfigWithResponse(ctx context.Context, id int64, body UpdateLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLlmConfigResponse, error)
 
 	// ListLlmModelsWithResponse request
-	ListLlmModelsWithResponse(ctx context.Context, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*ParsedListLlmModelsResponse, error)
+	ListLlmModelsWithResponse(ctx context.Context, id int64, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*ParsedListLlmModelsResponse, error)
 
 	// TestLlmConfigWithBodyWithResponse request with any body
-	TestLlmConfigWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error)
+	TestLlmConfigWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error)
 
-	TestLlmConfigWithResponse(ctx context.Context, body TestLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error)
+	TestLlmConfigWithResponse(ctx context.Context, id int64, body TestLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error)
 
 	// GetProjectGitConfigWithResponse request
 	GetProjectGitConfigWithResponse(ctx context.Context, params *GetProjectGitConfigParams, reqEditors ...RequestEditorFn) (*GetProjectGitConfigResponse, error)
@@ -23599,6 +23903,97 @@ func (r DeleteInviteResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListLlmConfigsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListLlmConfigsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListLlmConfigsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListLlmConfigsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateLlmConfigResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *LLMConfigBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateLlmConfigResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateLlmConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedReorderLlmConfigsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ReorderLlmConfigsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedReorderLlmConfigsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedReorderLlmConfigsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteLlmConfigResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteLlmConfigResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteLlmConfigResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type GetLlmConfigResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -23622,7 +24017,7 @@ func (r GetLlmConfigResponse) StatusCode() int {
 	return 0
 }
 
-type SetLlmConfigResponse struct {
+type UpdateLlmConfigResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
 	JSON200                       *LLMConfigBody
@@ -23630,7 +24025,7 @@ type SetLlmConfigResponse struct {
 }
 
 // Status returns HTTPResponse.Status
-func (r SetLlmConfigResponse) Status() string {
+func (r UpdateLlmConfigResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -23638,7 +24033,7 @@ func (r SetLlmConfigResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r SetLlmConfigResponse) StatusCode() int {
+func (r UpdateLlmConfigResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -29098,35 +29493,87 @@ func (c *ClientWithResponses) DeleteInviteWithResponse(ctx context.Context, id i
 	return ParseDeleteInviteResponse(rsp)
 }
 
+// ListLlmConfigsWithResponse request returning *ParsedListLlmConfigsResponse
+func (c *ClientWithResponses) ListLlmConfigsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListLlmConfigsResponse, error) {
+	rsp, err := c.ListLlmConfigs(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListLlmConfigsResponse(rsp)
+}
+
+// CreateLlmConfigWithBodyWithResponse request with arbitrary body returning *CreateLlmConfigResponse
+func (c *ClientWithResponses) CreateLlmConfigWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateLlmConfigResponse, error) {
+	rsp, err := c.CreateLlmConfigWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLlmConfigResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateLlmConfigWithResponse(ctx context.Context, body CreateLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateLlmConfigResponse, error) {
+	rsp, err := c.CreateLlmConfig(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateLlmConfigResponse(rsp)
+}
+
+// ReorderLlmConfigsWithBodyWithResponse request with arbitrary body returning *ParsedReorderLlmConfigsResponse
+func (c *ClientWithResponses) ReorderLlmConfigsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReorderLlmConfigsResponse, error) {
+	rsp, err := c.ReorderLlmConfigsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReorderLlmConfigsResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReorderLlmConfigsWithResponse(ctx context.Context, body ReorderLlmConfigsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReorderLlmConfigsResponse, error) {
+	rsp, err := c.ReorderLlmConfigs(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReorderLlmConfigsResponse(rsp)
+}
+
+// DeleteLlmConfigWithResponse request returning *DeleteLlmConfigResponse
+func (c *ClientWithResponses) DeleteLlmConfigWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*DeleteLlmConfigResponse, error) {
+	rsp, err := c.DeleteLlmConfig(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteLlmConfigResponse(rsp)
+}
+
 // GetLlmConfigWithResponse request returning *GetLlmConfigResponse
-func (c *ClientWithResponses) GetLlmConfigWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetLlmConfigResponse, error) {
-	rsp, err := c.GetLlmConfig(ctx, reqEditors...)
+func (c *ClientWithResponses) GetLlmConfigWithResponse(ctx context.Context, id int64, reqEditors ...RequestEditorFn) (*GetLlmConfigResponse, error) {
+	rsp, err := c.GetLlmConfig(ctx, id, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseGetLlmConfigResponse(rsp)
 }
 
-// SetLlmConfigWithBodyWithResponse request with arbitrary body returning *SetLlmConfigResponse
-func (c *ClientWithResponses) SetLlmConfigWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetLlmConfigResponse, error) {
-	rsp, err := c.SetLlmConfigWithBody(ctx, contentType, body, reqEditors...)
+// UpdateLlmConfigWithBodyWithResponse request with arbitrary body returning *UpdateLlmConfigResponse
+func (c *ClientWithResponses) UpdateLlmConfigWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateLlmConfigResponse, error) {
+	rsp, err := c.UpdateLlmConfigWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseSetLlmConfigResponse(rsp)
+	return ParseUpdateLlmConfigResponse(rsp)
 }
 
-func (c *ClientWithResponses) SetLlmConfigWithResponse(ctx context.Context, body SetLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*SetLlmConfigResponse, error) {
-	rsp, err := c.SetLlmConfig(ctx, body, reqEditors...)
+func (c *ClientWithResponses) UpdateLlmConfigWithResponse(ctx context.Context, id int64, body UpdateLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateLlmConfigResponse, error) {
+	rsp, err := c.UpdateLlmConfig(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseSetLlmConfigResponse(rsp)
+	return ParseUpdateLlmConfigResponse(rsp)
 }
 
 // ListLlmModelsWithResponse request returning *ParsedListLlmModelsResponse
-func (c *ClientWithResponses) ListLlmModelsWithResponse(ctx context.Context, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*ParsedListLlmModelsResponse, error) {
-	rsp, err := c.ListLlmModels(ctx, params, reqEditors...)
+func (c *ClientWithResponses) ListLlmModelsWithResponse(ctx context.Context, id int64, params *ListLlmModelsParams, reqEditors ...RequestEditorFn) (*ParsedListLlmModelsResponse, error) {
+	rsp, err := c.ListLlmModels(ctx, id, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -29134,16 +29581,16 @@ func (c *ClientWithResponses) ListLlmModelsWithResponse(ctx context.Context, par
 }
 
 // TestLlmConfigWithBodyWithResponse request with arbitrary body returning *ParsedTestLlmConfigResponse
-func (c *ClientWithResponses) TestLlmConfigWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error) {
-	rsp, err := c.TestLlmConfigWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) TestLlmConfigWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error) {
+	rsp, err := c.TestLlmConfigWithBody(ctx, id, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseParsedTestLlmConfigResponse(rsp)
 }
 
-func (c *ClientWithResponses) TestLlmConfigWithResponse(ctx context.Context, body TestLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error) {
-	rsp, err := c.TestLlmConfig(ctx, body, reqEditors...)
+func (c *ClientWithResponses) TestLlmConfigWithResponse(ctx context.Context, id int64, body TestLlmConfigJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedTestLlmConfigResponse, error) {
+	rsp, err := c.TestLlmConfig(ctx, id, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -32416,6 +32863,131 @@ func ParseDeleteInviteResponse(rsp *http.Response) (*DeleteInviteResponse, error
 	return response, nil
 }
 
+// ParseParsedListLlmConfigsResponse parses an HTTP response from a ListLlmConfigsWithResponse call
+func ParseParsedListLlmConfigsResponse(rsp *http.Response) (*ParsedListLlmConfigsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListLlmConfigsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListLlmConfigsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateLlmConfigResponse parses an HTTP response from a CreateLlmConfigWithResponse call
+func ParseCreateLlmConfigResponse(rsp *http.Response) (*CreateLlmConfigResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateLlmConfigResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LLMConfigBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedReorderLlmConfigsResponse parses an HTTP response from a ReorderLlmConfigsWithResponse call
+func ParseParsedReorderLlmConfigsResponse(rsp *http.Response) (*ParsedReorderLlmConfigsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedReorderLlmConfigsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReorderLlmConfigsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteLlmConfigResponse parses an HTTP response from a DeleteLlmConfigWithResponse call
+func ParseDeleteLlmConfigResponse(rsp *http.Response) (*DeleteLlmConfigResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteLlmConfigResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseGetLlmConfigResponse parses an HTTP response from a GetLlmConfigWithResponse call
 func ParseGetLlmConfigResponse(rsp *http.Response) (*GetLlmConfigResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -32449,15 +33021,15 @@ func ParseGetLlmConfigResponse(rsp *http.Response) (*GetLlmConfigResponse, error
 	return response, nil
 }
 
-// ParseSetLlmConfigResponse parses an HTTP response from a SetLlmConfigWithResponse call
-func ParseSetLlmConfigResponse(rsp *http.Response) (*SetLlmConfigResponse, error) {
+// ParseUpdateLlmConfigResponse parses an HTTP response from a UpdateLlmConfigWithResponse call
+func ParseUpdateLlmConfigResponse(rsp *http.Response) (*UpdateLlmConfigResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &SetLlmConfigResponse{
+	response := &UpdateLlmConfigResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

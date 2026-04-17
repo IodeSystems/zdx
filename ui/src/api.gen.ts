@@ -84,7 +84,39 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/llm-config": {
+    "/api/admin/llm-configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-llm-configs"];
+        put?: never;
+        post: operations["create-llm-config"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/llm-configs/reorder": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reorder-llm-configs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/llm-configs/{id}": {
         parameters: {
             query?: never;
             header?: never;
@@ -92,15 +124,15 @@ export interface paths {
             cookie?: never;
         };
         get: operations["get-llm-config"];
-        put: operations["set-llm-config"];
+        put: operations["update-llm-config"];
         post?: never;
-        delete?: never;
+        delete: operations["delete-llm-config"];
         options?: never;
         head?: never;
         patch?: never;
         trace?: never;
     };
-    "/api/admin/llm-config/models": {
+    "/api/admin/llm-configs/{id}/models": {
         parameters: {
             query?: never;
             header?: never;
@@ -116,7 +148,7 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/admin/llm-config/test": {
+    "/api/admin/llm-configs/{id}/test": {
         parameters: {
             query?: never;
             header?: never;
@@ -5426,10 +5458,16 @@ export interface components {
             readonly $schema?: string;
             agent_type: string;
             api_key?: string;
-            model: string;
+            embedding_model: string;
+            has_api_key?: boolean;
+            /** Format: int64 */
+            id?: number;
             model_high: string;
             model_low: string;
             model_medium: string;
+            name: string;
+            /** Format: int32 */
+            priority: number;
             type: string;
             url: string;
         };
@@ -5797,6 +5835,15 @@ export interface components {
             issues: components["schemas"]["IssueItem"][] | null;
             /** Format: int64 */
             total: number;
+        };
+        "List-llm-configsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-llm-configsResponse.json
+             */
+            readonly $schema?: string;
+            configs: components["schemas"]["LLMConfigBody"][] | null;
         };
         "List-llm-modelsResponse": {
             /**
@@ -6569,6 +6616,24 @@ export interface components {
             agent_id: string;
             /** Format: int32 */
             lease_duration_min: number;
+        };
+        "Reorder-llm-configsRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reorder-llm-configsRequest.json
+             */
+            readonly $schema?: string;
+            ids: number[] | null;
+        };
+        "Reorder-llm-configsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reorder-llm-configsResponse.json
+             */
+            readonly $schema?: string;
+            configs: components["schemas"]["LLMConfigBody"][] | null;
         };
         "Report-errorRequest": {
             /**
@@ -7791,7 +7856,7 @@ export interface operations {
             };
         };
     };
-    "get-llm-config": {
+    "list-llm-configs": {
         parameters: {
             query?: never;
             header?: never;
@@ -7806,7 +7871,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["LLMConfigBody"];
+                    "application/json": components["schemas"]["List-llm-configsResponse"];
                 };
             };
             /** @description Error */
@@ -7820,7 +7885,7 @@ export interface operations {
             };
         };
     };
-    "set-llm-config": {
+    "create-llm-config": {
         parameters: {
             query?: never;
             header?: never;
@@ -7853,13 +7918,143 @@ export interface operations {
             };
         };
     };
+    "reorder-llm-configs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reorder-llm-configsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reorder-llm-configsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-llm-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LLMConfigBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-llm-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["LLMConfigBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["LLMConfigBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-llm-config": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-llm-models": {
         parameters: {
             query?: {
                 url?: string;
             };
             header?: never;
-            path?: never;
+            path: {
+                id: number;
+            };
             cookie?: never;
         };
         requestBody?: never;
@@ -7888,7 +8083,9 @@ export interface operations {
         parameters: {
             query?: never;
             header?: never;
-            path?: never;
+            path: {
+                id: number;
+            };
             cookie?: never;
         };
         requestBody: {

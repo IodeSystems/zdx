@@ -188,12 +188,12 @@ type ZdxErrorEvent struct {
 
 type ZdxErrorReport struct {
 	ID         int64              `db:"id" json:"id"`
-	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
 	Source     string             `db:"source" json:"source"`
 	Endpoint   string             `db:"endpoint" json:"endpoint"`
 	ErrorName  string             `db:"error_name" json:"error_name"`
 	StackTrace string             `db:"stack_trace" json:"stack_trace"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
 }
 
 type ZdxFeature struct {
@@ -365,16 +365,18 @@ type ZdxJournalEntry struct {
 }
 
 type ZdxLlmConfig struct {
-	ID          bool               `db:"id" json:"id"`
-	Type        string             `db:"type" json:"type"`
-	Url         string             `db:"url" json:"url"`
-	Model       string             `db:"model" json:"model"`
-	ApiKey      string             `db:"api_key" json:"api_key"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	AgentType   string             `db:"agent_type" json:"agent_type"`
-	ModelLow    string             `db:"model_low" json:"model_low"`
-	ModelMedium string             `db:"model_medium" json:"model_medium"`
-	ModelHigh   string             `db:"model_high" json:"model_high"`
+	Type           string             `db:"type" json:"type"`
+	Url            string             `db:"url" json:"url"`
+	EmbeddingModel pgtype.Text        `db:"embedding_model" json:"embedding_model"`
+	ApiKey         string             `db:"api_key" json:"api_key"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	AgentType      string             `db:"agent_type" json:"agent_type"`
+	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
+	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
+	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	ID             int64              `db:"id" json:"id"`
+	Name           string             `db:"name" json:"name"`
+	Priority       int32              `db:"priority" json:"priority"`
 }
 
 type ZdxLogEvent struct {
@@ -552,13 +554,13 @@ type ZdxSession struct {
 
 type ZdxSlowQuery struct {
 	ID          int64              `db:"id" json:"id"`
-	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
 	SqlHash     string             `db:"sql_hash" json:"sql_hash"`
 	SqlText     string             `db:"sql_text" json:"sql_text"`
 	Endpoint    string             `db:"endpoint" json:"endpoint"`
 	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
 	ExplainJson string             `db:"explain_json" json:"explain_json"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
 }
 
 type ZdxSpec struct {

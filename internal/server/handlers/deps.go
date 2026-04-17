@@ -4,6 +4,7 @@ import (
 	"context"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/jackc/pgx/v5/pgxpool"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/llm"
@@ -59,6 +60,7 @@ type IngestRegistrar interface {
 }
 
 type Deps struct {
+	Pool            *pgxpool.Pool
 	Q               *db.Queries
 	Features        SchemaFeatures
 	Emb             Embedder

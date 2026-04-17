@@ -11,98 +11,68 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const getLLMConfig = `-- name: GetLLMConfig :one
-SELECT id, type, url, model, api_key, agent_type, model_low, model_medium, model_high, created_at
-FROM zdx_llm_configs LIMIT 1
+const createLLMConfig = `-- name: CreateLLMConfig :one
+INSERT INTO zdx_llm_configs (
+    name, priority, type, url, embedding_model, api_key,
+    agent_type, model_low, model_medium, model_high
+)
+VALUES (
+    $1, $2, $3, $4, $5, $6,
+    $7, $8, $9, $10
+)
+RETURNING id, name, priority, type, url, embedding_model, api_key,
+          agent_type, model_low, model_medium, model_high, created_at
 `
 
-type GetLLMConfigRow struct {
-	ID          bool               `db:"id" json:"id"`
-	Type        string             `db:"type" json:"type"`
-	Url         string             `db:"url" json:"url"`
-	Model       string             `db:"model" json:"model"`
-	ApiKey      string             `db:"api_key" json:"api_key"`
-	AgentType   string             `db:"agent_type" json:"agent_type"`
-	ModelLow    string             `db:"model_low" json:"model_low"`
-	ModelMedium string             `db:"model_medium" json:"model_medium"`
-	ModelHigh   string             `db:"model_high" json:"model_high"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+type CreateLLMConfigParams struct {
+	Name           string      `db:"name" json:"name"`
+	Priority       int32       `db:"priority" json:"priority"`
+	Type           string      `db:"type" json:"type"`
+	Url            string      `db:"url" json:"url"`
+	EmbeddingModel pgtype.Text `db:"embedding_model" json:"embedding_model"`
+	ApiKey         string      `db:"api_key" json:"api_key"`
+	AgentType      string      `db:"agent_type" json:"agent_type"`
+	ModelLow       pgtype.Text `db:"model_low" json:"model_low"`
+	ModelMedium    pgtype.Text `db:"model_medium" json:"model_medium"`
+	ModelHigh      pgtype.Text `db:"model_high" json:"model_high"`
 }
 
-func (q *Queries) GetLLMConfig(ctx context.Context) (GetLLMConfigRow, error) {
-	row := q.db.QueryRow(ctx, getLLMConfig)
-	var i GetLLMConfigRow
-	err := row.Scan(
-		&i.ID,
-		&i.Type,
-		&i.Url,
-		&i.Model,
-		&i.ApiKey,
-		&i.AgentType,
-		&i.ModelLow,
-		&i.ModelMedium,
-		&i.ModelHigh,
-		&i.CreatedAt,
-	)
-	return i, err
+type CreateLLMConfigRow struct {
+	ID             int64              `db:"id" json:"id"`
+	Name           string             `db:"name" json:"name"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Type           string             `db:"type" json:"type"`
+	Url            string             `db:"url" json:"url"`
+	EmbeddingModel pgtype.Text        `db:"embedding_model" json:"embedding_model"`
+	ApiKey         string             `db:"api_key" json:"api_key"`
+	AgentType      string             `db:"agent_type" json:"agent_type"`
+	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
+	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
+	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-const upsertLLMConfig = `-- name: UpsertLLMConfig :one
-INSERT INTO zdx_llm_configs (id, type, url, model, api_key, agent_type, model_low, model_medium, model_high)
-VALUES (TRUE, $1, $2, $3, $4, $5, $6, $7, $8)
-ON CONFLICT (id) DO UPDATE
-SET type         = EXCLUDED.type,
-    url          = EXCLUDED.url,
-    model        = EXCLUDED.model,
-    api_key      = EXCLUDED.api_key,
-    agent_type   = EXCLUDED.agent_type,
-    model_low    = EXCLUDED.model_low,
-    model_medium = EXCLUDED.model_medium,
-    model_high   = EXCLUDED.model_high
-RETURNING id, type, url, model, api_key, agent_type, model_low, model_medium, model_high, created_at
-`
-
-type UpsertLLMConfigParams struct {
-	Type        string `db:"type" json:"type"`
-	Url         string `db:"url" json:"url"`
-	Model       string `db:"model" json:"model"`
-	ApiKey      string `db:"api_key" json:"api_key"`
-	AgentType   string `db:"agent_type" json:"agent_type"`
-	ModelLow    string `db:"model_low" json:"model_low"`
-	ModelMedium string `db:"model_medium" json:"model_medium"`
-	ModelHigh   string `db:"model_high" json:"model_high"`
-}
-
-type UpsertLLMConfigRow struct {
-	ID          bool               `db:"id" json:"id"`
-	Type        string             `db:"type" json:"type"`
-	Url         string             `db:"url" json:"url"`
-	Model       string             `db:"model" json:"model"`
-	ApiKey      string             `db:"api_key" json:"api_key"`
-	AgentType   string             `db:"agent_type" json:"agent_type"`
-	ModelLow    string             `db:"model_low" json:"model_low"`
-	ModelMedium string             `db:"model_medium" json:"model_medium"`
-	ModelHigh   string             `db:"model_high" json:"model_high"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (UpsertLLMConfigRow, error) {
-	row := q.db.QueryRow(ctx, upsertLLMConfig,
+func (q *Queries) CreateLLMConfig(ctx context.Context, arg CreateLLMConfigParams) (CreateLLMConfigRow, error) {
+	row := q.db.QueryRow(ctx, createLLMConfig,
+		arg.Name,
+		arg.Priority,
 		arg.Type,
 		arg.Url,
-		arg.Model,
+		arg.EmbeddingModel,
 		arg.ApiKey,
 		arg.AgentType,
 		arg.ModelLow,
 		arg.ModelMedium,
 		arg.ModelHigh,
 	)
-	var i UpsertLLMConfigRow
+	var i CreateLLMConfigRow
 	err := row.Scan(
 		&i.ID,
+		&i.Name,
+		&i.Priority,
 		&i.Type,
 		&i.Url,
-		&i.Model,
+		&i.EmbeddingModel,
 		&i.ApiKey,
 		&i.AgentType,
 		&i.ModelLow,
@@ -111,4 +81,258 @@ func (q *Queries) UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const deleteLLMConfig = `-- name: DeleteLLMConfig :exec
+DELETE FROM zdx_llm_configs WHERE id = $1
+`
+
+func (q *Queries) DeleteLLMConfig(ctx context.Context, id int64) error {
+	_, err := q.db.Exec(ctx, deleteLLMConfig, id)
+	return err
+}
+
+const getLLMConfigByID = `-- name: GetLLMConfigByID :one
+SELECT id, name, priority, type, url, embedding_model, api_key,
+       agent_type, model_low, model_medium, model_high, created_at
+FROM zdx_llm_configs
+WHERE id = $1
+`
+
+type GetLLMConfigByIDRow struct {
+	ID             int64              `db:"id" json:"id"`
+	Name           string             `db:"name" json:"name"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Type           string             `db:"type" json:"type"`
+	Url            string             `db:"url" json:"url"`
+	EmbeddingModel pgtype.Text        `db:"embedding_model" json:"embedding_model"`
+	ApiKey         string             `db:"api_key" json:"api_key"`
+	AgentType      string             `db:"agent_type" json:"agent_type"`
+	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
+	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
+	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetLLMConfigByID(ctx context.Context, id int64) (GetLLMConfigByIDRow, error) {
+	row := q.db.QueryRow(ctx, getLLMConfigByID, id)
+	var i GetLLMConfigByIDRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Priority,
+		&i.Type,
+		&i.Url,
+		&i.EmbeddingModel,
+		&i.ApiKey,
+		&i.AgentType,
+		&i.ModelLow,
+		&i.ModelMedium,
+		&i.ModelHigh,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const getPrimaryLLMConfigWithEmbedding = `-- name: GetPrimaryLLMConfigWithEmbedding :one
+SELECT id, name, priority, type, url, embedding_model, api_key,
+       agent_type, model_low, model_medium, model_high, created_at
+FROM zdx_llm_configs
+WHERE agent_type <> 'claude'
+  AND embedding_model IS NOT NULL
+  AND embedding_model <> ''
+ORDER BY priority ASC, id ASC
+LIMIT 1
+`
+
+type GetPrimaryLLMConfigWithEmbeddingRow struct {
+	ID             int64              `db:"id" json:"id"`
+	Name           string             `db:"name" json:"name"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Type           string             `db:"type" json:"type"`
+	Url            string             `db:"url" json:"url"`
+	EmbeddingModel pgtype.Text        `db:"embedding_model" json:"embedding_model"`
+	ApiKey         string             `db:"api_key" json:"api_key"`
+	AgentType      string             `db:"agent_type" json:"agent_type"`
+	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
+	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
+	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+// First (lowest-priority) config whose agent_type is not 'claude' and
+// whose embedding_model is set. Used by the server to pick an embedder.
+func (q *Queries) GetPrimaryLLMConfigWithEmbedding(ctx context.Context) (GetPrimaryLLMConfigWithEmbeddingRow, error) {
+	row := q.db.QueryRow(ctx, getPrimaryLLMConfigWithEmbedding)
+	var i GetPrimaryLLMConfigWithEmbeddingRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Priority,
+		&i.Type,
+		&i.Url,
+		&i.EmbeddingModel,
+		&i.ApiKey,
+		&i.AgentType,
+		&i.ModelLow,
+		&i.ModelMedium,
+		&i.ModelHigh,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const listLLMConfigs = `-- name: ListLLMConfigs :many
+SELECT id, name, priority, type, url, embedding_model, api_key,
+       agent_type, model_low, model_medium, model_high, created_at
+FROM zdx_llm_configs
+ORDER BY priority ASC, id ASC
+`
+
+type ListLLMConfigsRow struct {
+	ID             int64              `db:"id" json:"id"`
+	Name           string             `db:"name" json:"name"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Type           string             `db:"type" json:"type"`
+	Url            string             `db:"url" json:"url"`
+	EmbeddingModel pgtype.Text        `db:"embedding_model" json:"embedding_model"`
+	ApiKey         string             `db:"api_key" json:"api_key"`
+	AgentType      string             `db:"agent_type" json:"agent_type"`
+	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
+	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
+	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListLLMConfigs(ctx context.Context) ([]ListLLMConfigsRow, error) {
+	rows, err := q.db.Query(ctx, listLLMConfigs)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListLLMConfigsRow
+	for rows.Next() {
+		var i ListLLMConfigsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Priority,
+			&i.Type,
+			&i.Url,
+			&i.EmbeddingModel,
+			&i.ApiKey,
+			&i.AgentType,
+			&i.ModelLow,
+			&i.ModelMedium,
+			&i.ModelHigh,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const nextLLMConfigPriority = `-- name: NextLLMConfigPriority :one
+SELECT COALESCE(MAX(priority), 0) + 1 AS next_priority FROM zdx_llm_configs
+`
+
+func (q *Queries) NextLLMConfigPriority(ctx context.Context) (int32, error) {
+	row := q.db.QueryRow(ctx, nextLLMConfigPriority)
+	var next_priority int32
+	err := row.Scan(&next_priority)
+	return next_priority, err
+}
+
+const updateLLMConfig = `-- name: UpdateLLMConfig :one
+UPDATE zdx_llm_configs
+SET name            = $1,
+    type            = $2,
+    url             = $3,
+    embedding_model = $4,
+    api_key         = $5,
+    agent_type      = $6,
+    model_low       = $7,
+    model_medium    = $8,
+    model_high      = $9
+WHERE id = $10
+RETURNING id, name, priority, type, url, embedding_model, api_key,
+          agent_type, model_low, model_medium, model_high, created_at
+`
+
+type UpdateLLMConfigParams struct {
+	Name           string      `db:"name" json:"name"`
+	Type           string      `db:"type" json:"type"`
+	Url            string      `db:"url" json:"url"`
+	EmbeddingModel pgtype.Text `db:"embedding_model" json:"embedding_model"`
+	ApiKey         string      `db:"api_key" json:"api_key"`
+	AgentType      string      `db:"agent_type" json:"agent_type"`
+	ModelLow       pgtype.Text `db:"model_low" json:"model_low"`
+	ModelMedium    pgtype.Text `db:"model_medium" json:"model_medium"`
+	ModelHigh      pgtype.Text `db:"model_high" json:"model_high"`
+	ID             int64       `db:"id" json:"id"`
+}
+
+type UpdateLLMConfigRow struct {
+	ID             int64              `db:"id" json:"id"`
+	Name           string             `db:"name" json:"name"`
+	Priority       int32              `db:"priority" json:"priority"`
+	Type           string             `db:"type" json:"type"`
+	Url            string             `db:"url" json:"url"`
+	EmbeddingModel pgtype.Text        `db:"embedding_model" json:"embedding_model"`
+	ApiKey         string             `db:"api_key" json:"api_key"`
+	AgentType      string             `db:"agent_type" json:"agent_type"`
+	ModelLow       pgtype.Text        `db:"model_low" json:"model_low"`
+	ModelMedium    pgtype.Text        `db:"model_medium" json:"model_medium"`
+	ModelHigh      pgtype.Text        `db:"model_high" json:"model_high"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) UpdateLLMConfig(ctx context.Context, arg UpdateLLMConfigParams) (UpdateLLMConfigRow, error) {
+	row := q.db.QueryRow(ctx, updateLLMConfig,
+		arg.Name,
+		arg.Type,
+		arg.Url,
+		arg.EmbeddingModel,
+		arg.ApiKey,
+		arg.AgentType,
+		arg.ModelLow,
+		arg.ModelMedium,
+		arg.ModelHigh,
+		arg.ID,
+	)
+	var i UpdateLLMConfigRow
+	err := row.Scan(
+		&i.ID,
+		&i.Name,
+		&i.Priority,
+		&i.Type,
+		&i.Url,
+		&i.EmbeddingModel,
+		&i.ApiKey,
+		&i.AgentType,
+		&i.ModelLow,
+		&i.ModelMedium,
+		&i.ModelHigh,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const updateLLMConfigPriority = `-- name: UpdateLLMConfigPriority :exec
+UPDATE zdx_llm_configs SET priority = $1 WHERE id = $2
+`
+
+type UpdateLLMConfigPriorityParams struct {
+	Priority int32 `db:"priority" json:"priority"`
+	ID       int64 `db:"id" json:"id"`
+}
+
+func (q *Queries) UpdateLLMConfigPriority(ctx context.Context, arg UpdateLLMConfigPriorityParams) error {
+	_, err := q.db.Exec(ctx, updateLLMConfigPriority, arg.Priority, arg.ID)
+	return err
 }

@@ -52,34 +52,42 @@ func balancedModel(idx int) string {
 	return defaultModelHigh
 }
 
-// resolveLevelModel maps low|med|high to a concrete model name. It first
-// consults the server's admin LLM config; if that fetch fails or the slot is
-// empty, it falls back to defaults (with agentCfg.ClaudeModel overriding the
-// med default so existing config.yaml ClaudeModel keeps working).
+// resolveLevelModel maps low|med|high to a concrete model name. It walks the
+// configured admin LLM configs in priority order and returns the first
+// non-empty slot matching the requested level. If no config provides one, it
+// falls back to defaults (agentCfg.ClaudeModel overrides the med default so
+// existing config.yaml ClaudeModel keeps working).
 func resolveLevelModel(rc remoteConfig, level string, agentCfg config.AgentConfig) string {
-	low, med, high, _ := fetchLLMConfig(rc)
-
-	switch normalizeLevel(level) {
-	case "low":
-		if low != "" {
-			return low
+	lvl := normalizeLevel(level)
+	if lvl == "" {
+		return ""
+	}
+	configs, _ := fetchLLMConfigs(rc)
+	for _, cfg := range configs {
+		var slot string
+		switch lvl {
+		case "low":
+			slot = cfg.ModelLow
+		case "med":
+			slot = cfg.ModelMedium
+		case "high":
+			slot = cfg.ModelHigh
 		}
+		if slot != "" {
+			return slot
+		}
+	}
+	switch lvl {
+	case "low":
 		return defaultModelLow
 	case "med":
-		if med != "" {
-			return med
-		}
 		if agentCfg.ClaudeModel != "" {
 			return agentCfg.ClaudeModel
 		}
 		return defaultModelMed
 	case "high":
-		if high != "" {
-			return high
-		}
 		return defaultModelHigh
 	}
-	// Unknown level — let claude CLI use its own default rather than guess.
 	return ""
 }
 
@@ -97,30 +105,35 @@ func normalizeLevel(s string) string {
 	return ""
 }
 
-// fetchLLMConfig pulls the admin LLM config (model_low/medium/high) over HTTP.
-// Returns empty strings + nil error when the server is unreachable, the call
-// 4xx's, or the body is missing fields — callers fall back to defaults.
-func fetchLLMConfig(rc remoteConfig) (low, med, high string, err error) {
+// llmConfigEntry mirrors the subset of LLMConfigBody the level resolver needs.
+type llmConfigEntry struct {
+	ModelLow    string `json:"model_low"`
+	ModelMedium string `json:"model_medium"`
+	ModelHigh   string `json:"model_high"`
+}
+
+// fetchLLMConfigs pulls the ordered list of admin LLM configs over HTTP.
+// Returns nil + nil error when the server is unreachable, the call 4xx's,
+// or the body is missing — callers fall back to defaults.
+func fetchLLMConfigs(rc remoteConfig) ([]llmConfigEntry, error) {
 	if !rc.valid() {
-		return "", "", "", nil
+		return nil, nil
 	}
-	req, _ := http.NewRequest("GET", rc.url+"/api/admin/llm-config", nil)
+	req, _ := http.NewRequest("GET", rc.url+"/api/admin/llm-configs", nil)
 	req.Header.Set("X-Api-Key", rc.key)
 	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
 	if err != nil {
-		return "", "", "", err
+		return nil, err
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode >= 400 {
-		return "", "", "", nil
+		return nil, nil
 	}
 	var body struct {
-		ModelLow    string `json:"model_low"`
-		ModelMedium string `json:"model_medium"`
-		ModelHigh   string `json:"model_high"`
+		Configs []llmConfigEntry `json:"configs"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
-		return "", "", "", err
+		return nil, err
 	}
-	return body.ModelLow, body.ModelMedium, body.ModelHigh, nil
+	return body.Configs, nil
 }

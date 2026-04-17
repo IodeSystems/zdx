@@ -77,14 +77,18 @@ func TestModelSelectorPrecedence(t *testing.T) {
 // resolveLevelModel must prefer non-empty server slots over local defaults.
 func TestResolveLevelModelUsesServerConfig(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if r.URL.Path != "/api/admin/llm-config" {
+		if r.URL.Path != "/api/admin/llm-configs" {
 			http.NotFound(w, r)
 			return
 		}
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"model_low":    "srv-haiku",
-			"model_medium": "srv-sonnet",
-			"model_high":   "srv-opus",
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"configs": []map[string]string{
+				{
+					"model_low":    "srv-haiku",
+					"model_medium": "srv-sonnet",
+					"model_high":   "srv-opus",
+				},
+			},
 		})
 	}))
 	defer srv.Close()
@@ -107,10 +111,10 @@ func TestResolveLevelModelUsesServerConfig(t *testing.T) {
 // agentCfg.ClaudeModel ahead of the hard-coded default.
 func TestResolveLevelModelFallbackChain(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		_ = json.NewEncoder(w).Encode(map[string]string{
-			"model_low":    "",
-			"model_medium": "",
-			"model_high":   "",
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"configs": []map[string]string{
+				{"model_low": "", "model_medium": "", "model_high": ""},
+			},
 		})
 	}))
 	defer srv.Close()
@@ -128,6 +132,35 @@ func TestResolveLevelModelFallbackChain(t *testing.T) {
 	}
 	if got := resolveLevelModel(rc, "high", config.AgentConfig{}); got != defaultModelHigh {
 		t.Fatalf("high fallback: got %q, want %q", got, defaultModelHigh)
+	}
+}
+
+// The resolver must walk multiple configs in priority order, returning the
+// first non-empty slot for the requested level — empty slots "fall through"
+// to the next config.
+func TestResolveLevelModelWalksPriorityOrder(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		_ = json.NewEncoder(w).Encode(map[string]any{
+			"configs": []map[string]string{
+				// priority 1: only high is set
+				{"model_low": "", "model_medium": "", "model_high": "p1-opus"},
+				// priority 2: low + med set
+				{"model_low": "p2-haiku", "model_medium": "p2-sonnet", "model_high": ""},
+			},
+		})
+	}))
+	defer srv.Close()
+
+	rc := remoteConfig{url: srv.URL, slug: "demo", key: "k"}
+
+	if got := resolveLevelModel(rc, "low", config.AgentConfig{}); got != "p2-haiku" {
+		t.Fatalf("low: got %q, want p2-haiku (falls through to priority-2 config)", got)
+	}
+	if got := resolveLevelModel(rc, "med", config.AgentConfig{}); got != "p2-sonnet" {
+		t.Fatalf("med: got %q, want p2-sonnet", got)
+	}
+	if got := resolveLevelModel(rc, "high", config.AgentConfig{}); got != "p1-opus" {
+		t.Fatalf("high: got %q, want p1-opus (first config wins)", got)
 	}
 }
 

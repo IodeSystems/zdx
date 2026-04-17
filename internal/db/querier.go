@@ -87,6 +87,7 @@ type Querier interface {
 	CreateInvite(ctx context.Context, arg CreateInviteParams) (ZdxInvite, error)
 	CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIssue, error)
 	CreateIssueResolution(ctx context.Context, arg CreateIssueResolutionParams) (ZdxIssueResolution, error)
+	CreateLLMConfig(ctx context.Context, arg CreateLLMConfigParams) (CreateLLMConfigRow, error)
 	CreatePlan(ctx context.Context, arg CreatePlanParams) (CreatePlanRow, error)
 	// ── Plan steps ───────────────────────────────────────────────────────────────
 	CreatePlanStep(ctx context.Context, arg CreatePlanStepParams) (ZdxPlanStep, error)
@@ -112,6 +113,7 @@ type Querier interface {
 	DeleteIntegrationToken(ctx context.Context, id int32) error
 	DeleteInvite(ctx context.Context, id int32) error
 	DeleteIssueResolution(ctx context.Context, id string) error
+	DeleteLLMConfig(ctx context.Context, id int64) error
 	DeleteLogEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeletePattern(ctx context.Context, arg DeletePatternParams) error
 	DeletePlan(ctx context.Context, id int32) error
@@ -145,7 +147,7 @@ type Querier interface {
 	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
-	GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error)
+	GetErrorReportByID(ctx context.Context, id int64) (GetErrorReportByIDRow, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (GetFeatureRow, error)
 	GetFeatureByID(ctx context.Context, id int32) (GetFeatureByIDRow, error)
 	GetFile(ctx context.Context, id int32) (ZdxFile, error)
@@ -160,13 +162,16 @@ type Querier interface {
 	GetIssueResolution(ctx context.Context, id string) (ZdxIssueResolution, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
 	GetJournalEntryByID(ctx context.Context, arg GetJournalEntryByIDParams) (GetJournalEntryByIDRow, error)
-	GetLLMConfig(ctx context.Context) (GetLLMConfigRow, error)
+	GetLLMConfigByID(ctx context.Context, id int64) (GetLLMConfigByIDRow, error)
 	GetLatestJournalEntry(ctx context.Context, arg GetLatestJournalEntryParams) (GetLatestJournalEntryRow, error)
 	GetMaxClaudeEventSeq(ctx context.Context, sessionPk int64) (int32, error)
 	GetPattern(ctx context.Context, arg GetPatternParams) (ZdxPattern, error)
 	GetPlan(ctx context.Context, id int32) (GetPlanRow, error)
 	GetPlanByFeature(ctx context.Context, featureID pgtype.Int4) (GetPlanByFeatureRow, error)
 	GetPlanStep(ctx context.Context, id int32) (ZdxPlanStep, error)
+	// First (lowest-priority) config whose agent_type is not 'claude' and
+	// whose embedding_model is set. Used by the server to pick an embedder.
+	GetPrimaryLLMConfigWithEmbedding(ctx context.Context) (GetPrimaryLLMConfigWithEmbeddingRow, error)
 	GetProjectByID(ctx context.Context, id int32) (ZdxProject, error)
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
 	GetProjectClassification(ctx context.Context, id int32) (string, error)
@@ -193,13 +198,13 @@ type Querier interface {
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
-	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
+	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (InsertErrorReportRow, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (InsertJournalEntryRow, error)
 	InsertLogEvent(ctx context.Context, arg InsertLogEventParams) error
 	InsertPattern(ctx context.Context, arg InsertPatternParams) (ZdxPattern, error)
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertQuestionProposal(ctx context.Context, arg InsertQuestionProposalParams) (ZdxQuestionProposal, error)
-	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
+	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (InsertSlowQueryRow, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
@@ -242,8 +247,8 @@ type Querier interface {
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
 	ListErrorEventsGrouped(ctx context.Context, arg ListErrorEventsGroupedParams) ([]ListErrorEventsGroupedRow, error)
-	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
-	ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ZdxErrorReport, error)
+	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ListErrorReportsRow, error)
+	ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ListErrorReportsPaginatedRow, error)
 	ListFeatureFocuses(ctx context.Context, featureID int32) ([]ListFeatureFocusesRow, error)
 	ListFeatureMultipliers(ctx context.Context, featureID int32) ([]ListFeatureMultipliersRow, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ListFeaturesRow, error)
@@ -268,6 +273,7 @@ type Querier interface {
 	// Returns issues (any status) that have unread comments for the given role.
 	ListIssuesWithUnreadComments(ctx context.Context, arg ListIssuesWithUnreadCommentsParams) ([]ListIssuesWithUnreadCommentsRow, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ListJournalEntriesRow, error)
+	ListLLMConfigs(ctx context.Context) ([]ListLLMConfigsRow, error)
 	ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([]ZdxLogEvent, error)
 	ListLogEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListLogEventsDistinctTagValues(ctx context.Context, arg ListLogEventsDistinctTagValuesParams) ([]interface{}, error)
@@ -297,8 +303,8 @@ type Querier interface {
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
 	ListRevisionsByTarget(ctx context.Context, arg ListRevisionsByTargetParams) ([]ListRevisionsByTargetRow, error)
 	ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ListRevisionsPaginatedRow, error)
-	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
-	ListSlowQueriesPaginated(ctx context.Context, arg ListSlowQueriesPaginatedParams) ([]ZdxSlowQuery, error)
+	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ListSlowQueriesRow, error)
+	ListSlowQueriesPaginated(ctx context.Context, arg ListSlowQueriesPaginatedParams) ([]ListSlowQueriesPaginatedRow, error)
 	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
 	// ── Specs ────────────────────────────────────────────────────────────────────
 	ListSpecs(ctx context.Context, featureID int32) ([]ListSpecsRow, error)
@@ -352,6 +358,7 @@ type Querier interface {
 	MarkTaskReviewed(ctx context.Context, id string) error
 	MarkTaskUndone(ctx context.Context, id string) error
 	NextID(ctx context.Context, kind string) (int32, error)
+	NextLLMConfigPriority(ctx context.Context) (int32, error)
 	ProjectStateSummary(ctx context.Context, projectID int32) (ProjectStateSummaryRow, error)
 	ReadyIssue(ctx context.Context, arg ReadyIssueParams) error
 	ReadyTask(ctx context.Context, id string) error
@@ -402,6 +409,8 @@ type Querier interface {
 	UpdateFocusDates(ctx context.Context, arg UpdateFocusDatesParams) error
 	UpdateFocusStatus(ctx context.Context, arg UpdateFocusStatusParams) error
 	UpdateIssue(ctx context.Context, arg UpdateIssueParams) error
+	UpdateLLMConfig(ctx context.Context, arg UpdateLLMConfigParams) (UpdateLLMConfigRow, error)
+	UpdateLLMConfigPriority(ctx context.Context, arg UpdateLLMConfigPriorityParams) error
 	UpdatePattern(ctx context.Context, arg UpdatePatternParams) (ZdxPattern, error)
 	UpdatePlan(ctx context.Context, arg UpdatePlanParams) error
 	UpdatePlanStep(ctx context.Context, arg UpdatePlanStepParams) error
@@ -416,7 +425,6 @@ type Querier interface {
 	UpsertCommentRead(ctx context.Context, arg UpsertCommentReadParams) error
 	UpsertCounted(ctx context.Context, arg UpsertCountedParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (UpsertFeatureRow, error)
-	UpsertLLMConfig(ctx context.Context, arg UpsertLLMConfigParams) (UpsertLLMConfigRow, error)
 	UpsertTaskReview(ctx context.Context, arg UpsertTaskReviewParams) (ZdxTaskReview, error)
 	UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertTestRow, error)
 	UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (ZdxTestDemo, error)

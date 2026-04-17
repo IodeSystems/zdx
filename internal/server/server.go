@@ -23,6 +23,7 @@ import (
 )
 
 type Server struct {
+	pool           *pgxpool.Pool
 	q              *db.Queries
 	mux            *chi.Mux
 	buildSHA       string
@@ -77,6 +78,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 
 	ctx := context.Background()
 	s := &Server{
+		pool:           pool,
 		q:              db.New(pool),
 		mux:            chi.NewMux(),
 		buildSHA:       buildSHA,
@@ -166,6 +168,7 @@ func spaPath(urlPath, staticDir string) string {
 // satisfies Embedder via the exported Upsert*/TopN*/Complete/Reload methods.
 func (s *Server) buildDeps() *handlers.Deps {
 	return &handlers.Deps{
+		Pool:            s.pool,
 		Q:               s.q,
 		Features:        s.features,
 		Emb:             s.emb,
@@ -190,7 +193,7 @@ func (s *Server) ReloadEmbedder(ctx context.Context) {
 		s.emb.Reload(nil)
 		return
 	}
-	cfg, err := s.q.GetLLMConfig(ctx)
+	cfg, err := s.q.GetPrimaryLLMConfigWithEmbedding(ctx)
 	if err != nil {
 		s.emb.Reload(nil)
 		return
@@ -198,7 +201,7 @@ func (s *Server) ReloadEmbedder(ctx context.Context) {
 	s.emb.Reload(&llm.Config{
 		Type:   cfg.Type,
 		URL:    cfg.Url,
-		Model:  cfg.Model,
+		Model:  cfg.EmbeddingModel.String,
 		APIKey: cfg.ApiKey,
 	})
 }

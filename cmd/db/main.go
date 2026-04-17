@@ -1,6 +1,8 @@
 package main
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"fmt"
 	"log"
@@ -95,11 +97,7 @@ func refreshShippedSQL(dsn string) error {
 	if err != nil {
 		return fmt.Errorf("pg_dump not found in PATH")
 	}
-	f, err := os.Create("schema/shipped.sql")
-	if err != nil {
-		return fmt.Errorf("create schema/shipped.sql: %w", err)
-	}
-	defer f.Close()
+	var buf bytes.Buffer
 	cmd := exec.Command(pgDump,
 		"--schema-only",
 		"--no-owner",
@@ -107,10 +105,32 @@ func refreshShippedSQL(dsn string) error {
 		"--exclude-table=schema_migrations",
 		dsn,
 	)
-	cmd.Stdout = f
+	cmd.Stdout = &buf
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
 		return fmt.Errorf("pg_dump: %w", err)
+	}
+	f, err := os.Create("schema/shipped.sql")
+	if err != nil {
+		return fmt.Errorf("create schema/shipped.sql: %w", err)
+	}
+	defer f.Close()
+	// pg_dump on Postgres 17+ emits \restrict / \unrestrict psql meta-commands
+	// that sqlc cannot parse. Strip any line starting with a backslash — same
+	// filter bin/ship applies to its compat-check pg_dump output.
+	scan := bufio.NewScanner(&buf)
+	scan.Buffer(make([]byte, 1<<20), 1<<24)
+	for scan.Scan() {
+		line := scan.Text()
+		if strings.HasPrefix(line, "\\") {
+			continue
+		}
+		if _, err := fmt.Fprintln(f, line); err != nil {
+			return fmt.Errorf("write shipped.sql: %w", err)
+		}
+	}
+	if err := scan.Err(); err != nil {
+		return fmt.Errorf("scan pg_dump output: %w", err)
 	}
 	log.Println("migrate: schema/shipped.sql refreshed via pg_dump")
 	return nil

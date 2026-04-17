@@ -876,65 +876,101 @@ export const useSetProjectStage = () => {
   })
 }
 
-// ── LLM config (admin) ────────────────────────────────────────────────────────
+// ── LLM configs (admin, multi-row) ────────────────────────────────────────
 
-export interface LLMConfig {
-  type: string
-  url: string
-  model: string
-  api_key?: string
-  agent_type: string
-  model_low: string
-  model_medium: string
-  model_high: string
-}
-
-export const useLLMConfig = () =>
-  useQuery<LLMConfig>({
-    queryKey: ['llm-config'],
-    queryFn: async () => {
-      const { data, error } = await client.GET('/api/admin/llm-config')
-      if (error) throw new Error(JSON.stringify(error))
-      return (data as unknown) as LLMConfig
-    },
-  })
-
-export const useSetLLMConfig = () => {
-  const qc = useQueryClient()
-  return useMutation<LLMConfig, Error, LLMConfig>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.PUT('/api/admin/llm-config', { body: body as any })
-      if (error) throw new Error(JSON.stringify(error))
-      return (data as unknown) as LLMConfig
-    },
-    onSuccess: () => { qc.invalidateQueries({ queryKey: ['llm-config'] }) },
-  })
-}
+export type LLMConfigBody = components['schemas']['LLMConfigBody']
 
 export interface LLMConfigTestResult {
   ok: boolean
   message: string
 }
 
-export const useTestLLMConfig = () =>
-  useMutation<LLMConfigTestResult, Error, LLMConfig>({
-    mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/admin/llm-config/test', { body: body as any })
+export const useLLMConfigs = () =>
+  useQuery<LLMConfigBody[]>({
+    queryKey: ['llm-configs'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/llm-configs')
       if (error) throw new Error(JSON.stringify(error))
-      return (data as unknown) as LLMConfigTestResult
+      return (data?.configs ?? []) as LLMConfigBody[]
     },
   })
 
-export const useLLMModels = (url: string, enabled: boolean) =>
-  useQuery<string[]>({
-    queryKey: ['llm-models', url],
-    enabled: enabled && !!url,
-    queryFn: async () => {
-      const { data, error } = await client.GET('/api/admin/llm-config/models', {
-        params: { query: { url } },
+export const useCreateLLMConfig = () => {
+  const qc = useQueryClient()
+  return useMutation<LLMConfigBody, Error, LLMConfigBody>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/admin/llm-configs', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data as LLMConfigBody
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['llm-configs'] }) },
+  })
+}
+
+export const useUpdateLLMConfig = () => {
+  const qc = useQueryClient()
+  return useMutation<LLMConfigBody, Error, { id: number; body: LLMConfigBody }>({
+    mutationFn: async ({ id, body }) => {
+      const { data, error } = await client.PUT('/api/admin/llm-configs/{id}', {
+        params: { path: { id } },
+        body,
       })
       if (error) throw new Error(JSON.stringify(error))
-      return (data as { models?: string[] | null })?.models ?? []
+      return data as LLMConfigBody
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['llm-configs'] }) },
+  })
+}
+
+export const useDeleteLLMConfig = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, number>({
+    mutationFn: async (id) => {
+      const { error } = await client.DELETE('/api/admin/llm-configs/{id}', {
+        params: { path: { id } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['llm-configs'] }) },
+  })
+}
+
+export const useReorderLLMConfigs = () => {
+  const qc = useQueryClient()
+  return useMutation<LLMConfigBody[], Error, number[]>({
+    mutationFn: async (ids) => {
+      const { data, error } = await client.POST('/api/admin/llm-configs/reorder', {
+        body: { ids },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data?.configs ?? []) as LLMConfigBody[]
+    },
+    onSuccess: () => { qc.invalidateQueries({ queryKey: ['llm-configs'] }) },
+  })
+}
+
+export const useTestLLMConfig = () =>
+  useMutation<LLMConfigTestResult, Error, { id: number; body: LLMConfigBody }>({
+    mutationFn: async ({ id, body }) => {
+      const { data, error } = await client.POST('/api/admin/llm-configs/{id}/test', {
+        params: { path: { id } },
+        body,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data as LLMConfigTestResult
+    },
+  })
+
+export const useLLMModels = (id: number, url: string, enabled: boolean) =>
+  useQuery<string[]>({
+    queryKey: ['llm-models', id, url],
+    enabled: enabled && !!url,
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/admin/llm-configs/{id}/models', {
+        params: { path: { id }, query: { url } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data?.models ?? []) as string[]
     },
   })
 
