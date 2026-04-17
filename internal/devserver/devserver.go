@@ -8,6 +8,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net"
 	"net/http"
 	"os"
@@ -148,8 +149,9 @@ func Start(opts Options) (*Handle, func(), error) {
 	}
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
+		body, _ := io.ReadAll(resp.Body)
 		cleanup()
-		return nil, nil, fmt.Errorf("bootstrap: HTTP %d", resp.StatusCode)
+		return nil, nil, fmt.Errorf("bootstrap: HTTP %d: %s", resp.StatusCode, strings.TrimSpace(string(body)))
 	}
 	var out struct {
 		Token string `json:"token"`
@@ -183,6 +185,15 @@ func setEnv(key, value string) func() {
 
 func startCompose(root, project string) (dsn string, cleanup func(), err error) {
 	composeFile := filepath.Join(root, "docker", "e2e.compose.yaml")
+
+	// Tear down any leftover stack from a previous crashed run so the
+	// ephemeral contract (fresh DB per Start) holds. Without this, a reused
+	// postgres volume keeps the previous bootstrap's api key, and the next
+	// /api/setup/bootstrap returns 409.
+	down := exec.Command("docker", "compose", "-f", composeFile, "-p", project, "down", "-v")
+	down.Stdout = os.Stderr
+	down.Stderr = os.Stderr
+	_ = down.Run()
 
 	up := exec.Command("docker", "compose", "-f", composeFile, "-p", project, "up", "-d", "--wait")
 	up.Stdout = os.Stderr
