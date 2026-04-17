@@ -1,6 +1,6 @@
 ---
 name: work
-description: Work a single issue vertical (owner triage → tech plan → dev done). Pass an issue ID or omit to let solo pick. One vertical per session.
+description: Work a single issue vertical (owner triage → tech plan → dev done). Pass an issue ID or omit to let todo take claim one. One vertical per session.
 disable-model-invocation: true
 argument-hint: "[IS-N]"
 ---
@@ -10,8 +10,9 @@ issue is closed and shipped.**
 
 **Entry:**
 
-- No issue given: run `./bin/dx todo solo` — take whatever it picks. If the pick is a task (TK-N), run
-  `./bin/dx todo show TK-N` to find its parent issue; use that issue for the vertical.
+- No issue given: run `./bin/dx todo take` — atomically claim the next todo item. If the claimed todo targets a task
+  (TK-N), run `./bin/dx todo show TK-N` to find its parent issue; use that issue for the vertical. If the todo targets
+  an issue directly, use that issue.
 - Issue given: proceed directly to the vertical loop.
 
 **Vertical loop** for IS-N:
@@ -34,11 +35,12 @@ dev tasks with task.issue == IS-N.
 
 **Bootstrap** (when solo emits `[bootstrap] <slug>`):
 
-This means the project has zero issues and zero features — it's brand new. Follow the printed guidance:
+This means the project has zero issues and zero features — it's brand new. Run `dx doctor --fix` first to classify
+the project and scaffold it, then follow the printed guidance:
 
 1. **Scan the codebase** thoroughly — read directory trees, entry points, configs, schema, routes, UI structure.
-2. **Create features** for each conceptual capability you discover (e.g. "auth", "api-server", "task-management",
-   "data-pipeline"). Use `dx feature add <name> --desc="..."` for each.
+2. **Create features** for each conceptual capability you discover. Use `dx feature add <name> --desc="..."` for each.
+   Set `--kind=direct` or `--kind=multiplier` and link to a goal with `dx feature set <name> --goal <id>`.
 3. **Create a setup issue** for zdx integration: close-hooks, component config, and verifying the solo cycle.
 4. **Re-run `dx todo solo`** — the normal triage flow will now engage on the setup issue.
 5. Continue the vertical loop from there.
@@ -47,11 +49,10 @@ This means the project has zero issues and zero features — it's brand new. Fol
 
 1. **Verify independently.** Reproduce or read the relevant code/UI before accepting the report at face value.
 2. **Dup-check.** `./bin/dx issue list` and scan open + recent closed issues for similar work. If a close match exists,
-   close the new one as duplicate (`--reason=duplicate`) and reopen the prior issue with the new context if it adds
-   detail.
+   close the new one as duplicate (`--reason=duplicate --duplicate-of=IS-X`).
 3. **Rewrite prescriptively.** Title = intended outcome (not symptom). Context covers: (a) what *should* happen, (b)
    what *did* happen, (c) implementation direction if known.
-4. **Apply** via `./bin/dx todo owner triage IS-N --title=... --context=... --type=<ops|impl> --priority=<1-4>`.
+4. **Apply** via `./bin/dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|ask> --priority=<1-4> --focus=<FO-N> --goal=<G-N>`.
 
 
 **Comments** (when solo emits `[read:comments] IS-N` or `[read:comments] <feature-name>`):
@@ -66,6 +67,7 @@ Solo surfaces unread comments that need a response. After reading the comments:
 3. **Mark read.** Solo marks comments read automatically after showing them, but if you need to manually:
    `./bin/dx comment mark-read <target-type> <target-id> --role=llm`
 4. Continue the vertical loop — comments are handled inline, not as separate work items.
+
 **Stale tasks** (when solo emits `[review:stale] TK-N` or `[dev]` with a `⚠ state unknown` warning):
 
 The task was created but never claimed, and enough time has passed that the codebase may have changed.
@@ -74,6 +76,17 @@ The task was created but never claimed, and enough time has passed that the code
 2. If already implemented: `./bin/dx todo dev done TK-N`
 3. If still needed: proceed with the implementation as normal.
 4. Do not start editing code until you have verified the task is still relevant.
+
+**Orphan tasks** (when solo emits `[owner:orphan-task] TK-N`):
+
+The task has no parent issue — invisible to the normal issue-based workflow.
+
+1. If the task is done or stale: `./bin/dx todo dev done TK-N`
+2. If still needed: file an issue to host it, then link the task.
+
+**Maturity nudges** (when solo emits `[owner:quantify-goal]`, `[owner:attribute-feature]`, `[tech:instrument-feature]`, `[owner:decompose-feature]`):
+
+These are maturity-gradient items — the project is healthy enough to work but could be healthier. Handle them if they're quick (add a metric, link a goal), defer if they require product decisions.
 
 **Blocked issues:** if the vertical is empty because IS-N is blocked by other issues:
 
@@ -107,6 +120,13 @@ prefer." If the answer is discoverable by reading code, schema, data, or docs, d
 When you do file:
 - `./bin/dx question add --target-type=<issue|task|feature> --target-id=<ID> --context="<what you need decided and why you can't decide it yourself>"`
 - Include what you already investigated so the human doesn't retrace your steps.
+
+**Plans** — if a vertical involves complex multi-step work, create a living plan:
+
+- `./bin/dx plan add "<title>" --issue=IS-N` to anchor a plan to the issue
+- `./bin/dx plan step add PL-N "<step description>"` to add ordered steps
+- `./bin/dx plan step update <step-id> --status=done` to track progress
+- If a step spawns new work: `./bin/dx plan step ref <step-id> issue IS-X` to link the discovery
 
 **Done** when the vertical is empty and no unblocked leaf work remains, or when a blocker stops progress. Then stop — do
 not pick up a new issue.
