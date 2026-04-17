@@ -5,7 +5,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"net/url"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -69,22 +68,27 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "issue_list",
 		Description: "List issues, optionally filtered by status",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueListInput) (*mcp.CallToolResult, any, error) {
-		var resp struct {
-			Issues []clitypes.IssueItem `json:"issues"`
-		}
-		if err := c.Get("/api/dx/todo/issue/list", url.Values{"slug": {slug}}, &resp); err != nil {
+		resp, err := c.ListIssuesWithResponse(ctx, &dxclient.ListIssuesParams{Slug: slug})
+		if err != nil {
 			return nil, nil, err
 		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		var issues []dxclient.IssueItem
+		if resp.JSON200 != nil && resp.JSON200.Issues != nil {
+			issues = *resp.JSON200.Issues
+		}
 		if in.Status != "" {
-			var filtered []clitypes.IssueItem
-			for _, iss := range resp.Issues {
+			filtered := issues[:0]
+			for _, iss := range issues {
 				if iss.Status == in.Status {
 					filtered = append(filtered, iss)
 				}
 			}
-			resp.Issues = filtered
+			issues = filtered
 		}
-		return nil, resp, nil
+		return nil, map[string]any{"issues": issues}, nil
 	})
 
 	type issueAddInput struct {
@@ -103,7 +107,6 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if issType == "" {
 			issType = "ops"
 		}
-		var iss clitypes.IssueItem
 		addBody := dxclient.AddIssueRequest{
 			Slug:      slug,
 			IssueType: &issType,
@@ -121,16 +124,24 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 			blockers := []string{in.BlockedBy}
 			addBody.BlockedBy = &blockers
 		}
-		if err := c.Post("/api/dx/todo/issue/add", addBody, &iss); err != nil {
+		addResp, err := c.AddIssueWithResponse(ctx, addBody)
+		if err != nil {
 			return nil, nil, err
 		}
+		if err := c.CheckStatus(addResp.StatusCode(), addResp.Body); err != nil {
+			return nil, nil, err
+		}
+		if addResp.JSON200 == nil {
+			return nil, nil, fmt.Errorf("empty response")
+		}
+		iss := *addResp.JSON200
 		if in.Parent != "" {
 			parentNum, _ := strconv.ParseInt(in.Parent[3:], 10, 32)
-			_ = c.Post("/api/dx/todo/issue/add-block", dxclient.IssueAddBlockRequest{
+			_, _ = c.IssueAddBlockWithResponse(ctx, dxclient.IssueAddBlockRequest{
 				Slug:      slug,
 				Id:        int32(parentNum),
-				BlockedBy: clitypes.IssueIDStr(int32(iss.ID)),
-			}, nil)
+				BlockedBy: clitypes.IssueIDStr(iss.Id),
+			})
 		}
 		return nil, iss, nil
 	})
@@ -142,14 +153,17 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "issue_show",
 		Description: "Show issue detail with work log",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueShowInput) (*mcp.CallToolResult, any, error) {
-		var resp struct {
-			Issue clitypes.IssueItem       `json:"issue"`
-			Work  []clitypes.IssueWorkItem `json:"work"`
-		}
-		if err := c.Get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {in.ID}}, &resp); err != nil {
+		resp, err := c.ShowIssueWithResponse(ctx, &dxclient.ShowIssueParams{Slug: slug, Id: in.ID})
+		if err != nil {
 			return nil, nil, err
 		}
-		return nil, resp, nil
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		if resp.JSON200 == nil {
+			return nil, nil, fmt.Errorf("empty response")
+		}
+		return nil, resp.JSON200, nil
 	})
 
 	type issueCloseInput struct {
@@ -164,9 +178,6 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if err != nil {
 			return nil, nil, err
 		}
-		var ok struct {
-			OK bool `json:"ok"`
-		}
 		closeBody := dxclient.CloseIssueRequest{
 			Slug: slug,
 			Id:   n,
@@ -174,7 +185,11 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if in.Reason != "" {
 			closeBody.Reason = &in.Reason
 		}
-		if err := c.Post("/api/dx/todo/issue/close", closeBody, &ok); err != nil {
+		resp, err := c.CloseIssueWithResponse(ctx, closeBody)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "closed", "id": in.ID}, nil
@@ -219,10 +234,11 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		}
 		// Note: EditIssueRequest has no blocked_by; MCP schema advertises it
 		// but it's ignored. Separate issue_block / issue_unblock tools handle that.
-		var ok struct {
-			OK bool `json:"ok"`
+		resp, err := c.EditIssueWithResponse(ctx, body)
+		if err != nil {
+			return nil, nil, err
 		}
-		if err := c.Post("/api/dx/todo/issue/edit", body, &ok); err != nil {
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "updated", "id": in.ID}, nil
@@ -240,14 +256,15 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if err != nil {
 			return nil, nil, err
 		}
-		var ok struct {
-			OK bool `json:"ok"`
-		}
-		if err := c.Post("/api/dx/todo/issue/add-block", dxclient.IssueAddBlockRequest{
+		resp, err := c.IssueAddBlockWithResponse(ctx, dxclient.IssueAddBlockRequest{
 			Slug:      slug,
 			Id:        n,
 			BlockedBy: in.By,
-		}, &ok); err != nil {
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "blocked", "id": in.ID, "by": in.By}, nil
@@ -265,9 +282,6 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if err != nil {
 			return nil, nil, err
 		}
-		var ok struct {
-			OK bool `json:"ok"`
-		}
 		body := dxclient.IssueRemoveBlockRequest{
 			Slug: slug,
 			Id:   n,
@@ -275,7 +289,11 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if in.By != "" {
 			body.BlockedBy = &in.By
 		}
-		if err := c.Post("/api/dx/todo/issue/remove-block", body, &ok); err != nil {
+		resp, err := c.IssueRemoveBlockWithResponse(ctx, body)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "unblocked", "id": in.ID}, nil
@@ -311,38 +329,47 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		id := in.ID
 		switch {
 		case len(id) > 3 && id[:3] == "IS-":
-			var resp struct {
-				Issue clitypes.IssueItem       `json:"issue"`
-				Work  []clitypes.IssueWorkItem `json:"work"`
-			}
-			if err := c.Get("/api/dx/todo/issue/show", url.Values{"slug": {slug}, "id": {id}}, &resp); err != nil {
+			resp, err := c.ShowIssueWithResponse(ctx, &dxclient.ShowIssueParams{Slug: slug, Id: id})
+			if err != nil {
 				return nil, nil, err
 			}
-			return nil, resp, nil
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return nil, nil, err
+			}
+			if resp.JSON200 == nil {
+				return nil, nil, fmt.Errorf("empty response")
+			}
+			return nil, resp.JSON200, nil
 		case len(id) > 3 && id[:3] == "TK-":
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
-			var taskList struct {
-				Tasks []clitypes.TaskItem `json:"tasks"`
-			}
-			if err := c.Get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
+			resp, err := c.ListTasksWithResponse(ctx, &dxclient.ListTasksParams{Slug: slug})
+			if err != nil {
 				return nil, nil, err
 			}
-			for _, t := range taskList.Tasks {
-				if t.ID == int32(n) {
-					return nil, t, nil
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return nil, nil, err
+			}
+			if resp.JSON200 != nil && resp.JSON200.Tasks != nil {
+				for _, t := range *resp.JSON200.Tasks {
+					if t.Id == int32(n) {
+						return nil, t, nil
+					}
 				}
 			}
 			return nil, nil, fmt.Errorf("task %s not found", id)
 		default:
-			var featList struct {
-				Features []clitypes.FeatureItem `json:"features"`
-			}
-			if err := c.Get("/api/features", url.Values{"slug": {slug}}, &featList); err != nil {
+			resp, err := c.ListFeaturesWithResponse(ctx, &dxclient.ListFeaturesParams{Slug: slug})
+			if err != nil {
 				return nil, nil, err
 			}
-			for _, f := range featList.Features {
-				if f.Name == id {
-					return nil, f, nil
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return nil, nil, err
+			}
+			if resp.JSON200 != nil && resp.JSON200.Features != nil {
+				for _, f := range *resp.JSON200.Features {
+					if f.Name == id {
+						return nil, f, nil
+					}
 				}
 			}
 			return nil, nil, fmt.Errorf("feature %q not found", id)
@@ -357,29 +384,48 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "todo_list",
 		Description: "List tasks, optionally filtered by issue or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoListInput) (*mcp.CallToolResult, any, error) {
-		var taskList struct {
-			Tasks []clitypes.TaskItem `json:"tasks"`
-		}
+		var tasks []dxclient.TaskItem
 		if in.Issue != "" {
-			if err := c.Get("/api/dx/todo/issue/tasks", url.Values{
-				"slug":     {slug},
-				"issue_id": {in.Issue},
-			}, &taskList); err != nil {
+			resp, err := c.ListTasksForIssueWithResponse(ctx, &dxclient.ListTasksForIssueParams{
+				Slug:    slug,
+				IssueId: in.Issue,
+			})
+			if err != nil {
 				return nil, nil, err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return nil, nil, err
+			}
+			if resp.JSON200 != nil && resp.JSON200.Tasks != nil {
+				tasks = *resp.JSON200.Tasks
 			}
 		} else if in.Feature != "" {
-			if err := c.Get("/api/tasks-by-feature", url.Values{
-				"slug":    {slug},
-				"feature": {in.Feature},
-			}, &taskList); err != nil {
+			resp, err := c.ListTasksByFeatureWithResponse(ctx, &dxclient.ListTasksByFeatureParams{
+				Slug:    slug,
+				Feature: in.Feature,
+			})
+			if err != nil {
 				return nil, nil, err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return nil, nil, err
+			}
+			if resp.JSON200 != nil && resp.JSON200.Tasks != nil {
+				tasks = *resp.JSON200.Tasks
 			}
 		} else {
-			if err := c.Get("/api/tasks", url.Values{"slug": {slug}}, &taskList); err != nil {
+			resp, err := c.ListTasksWithResponse(ctx, &dxclient.ListTasksParams{Slug: slug})
+			if err != nil {
 				return nil, nil, err
 			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return nil, nil, err
+			}
+			if resp.JSON200 != nil && resp.JSON200.Tasks != nil {
+				tasks = *resp.JSON200.Tasks
+			}
 		}
-		return nil, taskList, nil
+		return nil, map[string]any{"tasks": tasks}, nil
 	})
 
 	type todoDevDoneInput struct {
@@ -395,9 +441,6 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if err != nil {
 			return nil, nil, err
 		}
-		var ok struct {
-			OK bool `json:"ok"`
-		}
 		doneBody := dxclient.MarkTaskDoneRequest{Id: n}
 		if in.TestPlan != "" {
 			doneBody.TestPlan = &in.TestPlan
@@ -405,7 +448,11 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if in.TestRefs != "" {
 			doneBody.TestRefs = &in.TestRefs
 		}
-		if err := c.Post("/api/dx/todo/dev/done", doneBody, &ok); err != nil {
+		resp, err := c.MarkTaskDoneWithResponse(ctx, doneBody)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "done", "id": in.ID}, nil
@@ -423,9 +470,6 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if err != nil {
 			return nil, nil, err
 		}
-		var ok struct {
-			OK bool `json:"ok"`
-		}
 		startBody := dxclient.UpdateTaskStatusRequest{
 			Id:     n,
 			Status: "active",
@@ -433,7 +477,11 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if in.Reason != "" {
 			startBody.Reason = &in.Reason
 		}
-		if err := c.Put("/api/task-status", startBody, &ok); err != nil {
+		resp, err := c.UpdateTaskStatusWithResponse(ctx, startBody)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]string{"status": "active", "id": in.ID}, nil
@@ -484,10 +532,11 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 			}
 			body.GoalIds = &ids
 		}
-		var ok struct {
-			OK bool `json:"ok"`
+		resp, err := c.TriageIssueWithResponse(ctx, body)
+		if err != nil {
+			return nil, nil, err
 		}
-		if err := c.Post("/api/dx/todo/owner/triage", body, &ok); err != nil {
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 			return nil, nil, err
 		}
 		return nil, map[string]any{"status": "triaged", "id": in.ID, "priority": in.Priority}, nil
@@ -504,7 +553,6 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "todo_tech_add",
 		Description: "Add a task to an issue or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in todoTechAddInput) (*mcp.CallToolResult, any, error) {
-		var resp clitypes.TaskAddResponse
 		addBody := dxclient.AddTaskRequest{
 			Slug: slug,
 			Text: in.Text,
@@ -521,19 +569,27 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if in.Force {
 			addBody.Force = &in.Force
 		}
-		if err := c.Post("/api/dx/todo/tech/add", addBody, &resp); err != nil {
+		resp, err := c.AddTaskWithResponse(ctx, addBody)
+		if err != nil {
 			return nil, nil, err
 		}
-		if resp.DuplicateBlocked {
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		if resp.JSON200 == nil {
+			return nil, nil, fmt.Errorf("empty response")
+		}
+		body := *resp.JSON200
+		if body.DuplicateBlocked != nil && *body.DuplicateBlocked {
 			return nil, map[string]any{
 				"duplicate_blocked": true,
-				"similar":           resp.Similar,
+				"similar":           body.Similar,
 				"message":           "near-duplicate tasks found (>85% similarity); re-run with force=true to override",
 			}, nil
 		}
-		result := map[string]any{"task": resp.TaskItem}
-		if len(resp.Similar) > 0 {
-			result["similar"] = resp.Similar
+		result := map[string]any{"task": body}
+		if body.Similar != nil && len(*body.Similar) > 0 {
+			result["similar"] = body.Similar
 		}
 		return nil, result, nil
 	})
@@ -545,13 +601,18 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "feature_list",
 		Description: "List all features",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in featureListInput) (*mcp.CallToolResult, any, error) {
-		var resp struct {
-			Features []clitypes.FeatureItem `json:"features"`
-		}
-		if err := c.Get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
+		resp, err := c.ListFeaturesWithResponse(ctx, &dxclient.ListFeaturesParams{Slug: slug})
+		if err != nil {
 			return nil, nil, err
 		}
-		return nil, resp, nil
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		var features []dxclient.FeatureItem
+		if resp.JSON200 != nil && resp.JSON200.Features != nil {
+			features = *resp.JSON200.Features
+		}
+		return nil, map[string]any{"features": features}, nil
 	})
 
 	type featureShowInput struct {
@@ -561,15 +622,18 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "feature_show",
 		Description: "Show feature detail with specs",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in featureShowInput) (*mcp.CallToolResult, any, error) {
-		var resp struct {
-			Features []clitypes.FeatureItem `json:"features"`
-		}
-		if err := c.Get("/api/features", url.Values{"slug": {slug}}, &resp); err != nil {
+		resp, err := c.ListFeaturesWithResponse(ctx, &dxclient.ListFeaturesParams{Slug: slug})
+		if err != nil {
 			return nil, nil, err
 		}
-		for _, f := range resp.Features {
-			if f.Name == in.Name {
-				return nil, f, nil
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		if resp.JSON200 != nil && resp.JSON200.Features != nil {
+			for _, f := range *resp.JSON200.Features {
+				if f.Name == in.Name {
+					return nil, f, nil
+				}
 			}
 		}
 		return nil, nil, fmt.Errorf("feature %q not found", in.Name)
@@ -589,21 +653,22 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if n <= 0 {
 			n = 5
 		}
-		var resp struct {
-			Patterns []struct {
-				Pattern clitypes.PatternItem `json:"pattern"`
-				Score   float64              `json:"score"`
-			} `json:"patterns"`
-		}
 		nInt := int64(n)
-		if err := c.Post("/api/dx/patterns/similar", dxclient.SimilarPatternsRequest{
+		resp, err := c.SimilarPatternsWithResponse(ctx, dxclient.SimilarPatternsRequest{
 			Slug: slug,
 			Text: in.Text,
 			N:    &nInt,
-		}, &resp); err != nil {
+		})
+		if err != nil {
 			return nil, nil, err
 		}
-		return nil, resp, nil
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		if resp.JSON200 == nil {
+			return nil, map[string]any{"patterns": nil}, nil
+		}
+		return nil, resp.JSON200, nil
 	})
 
 	type patternRefineInput struct {
@@ -625,11 +690,14 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if len(in.CodeRefs) > 0 {
 			body.CodeRefs = in.CodeRefs
 		}
-		var p clitypes.PatternItem
-		if err := c.Post("/api/dx/patterns/update", body, &p); err != nil {
+		resp, err := c.UpdatePatternWithResponse(ctx, body)
+		if err != nil {
 			return nil, nil, err
 		}
-		return nil, p, nil
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		return nil, resp.JSON200, nil
 	})
 
 	// ── question tools ───────────────────────────────────────────────────────
@@ -646,23 +714,22 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		if n <= 0 {
 			n = 5
 		}
-		var resp struct {
-			Questions []struct {
-				ID       int32   `json:"id"`
-				Question string  `json:"question"`
-				Answer   string  `json:"answer"`
-				Score    float32 `json:"score"`
-			} `json:"questions"`
-		}
 		nInt := int64(n)
-		if err := c.Post("/api/dx/qa/similar", dxclient.SimilarQuestionsRequest{
+		resp, err := c.SimilarQuestionsWithResponse(ctx, dxclient.SimilarQuestionsRequest{
 			Slug: slug,
 			Text: in.Text,
 			N:    &nInt,
-		}, &resp); err != nil {
+		})
+		if err != nil {
 			return nil, nil, err
 		}
-		return nil, resp, nil
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		if resp.JSON200 == nil {
+			return nil, map[string]any{"questions": nil}, nil
+		}
+		return nil, resp.JSON200, nil
 	})
 
 	type questionAddInput struct {
@@ -673,15 +740,18 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "question_add",
 		Description: "Add a new question to the project's Q&A knowledge base",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in questionAddInput) (*mcp.CallToolResult, any, error) {
-		var q clitypes.QuestionItem
-		if err := c.Post("/api/dx/qa/add", dxclient.AddQuestionRequest{
+		resp, err := c.AddQuestionWithResponse(ctx, dxclient.AddQuestionRequest{
 			Slug:     slug,
 			Category: in.Category,
 			Question: in.Question,
-		}, &q); err != nil {
+		})
+		if err != nil {
 			return nil, nil, err
 		}
-		return nil, q, nil
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		return nil, resp.JSON200, nil
 	})
 
 	// ── comment tools ────────────────────────────────────────────────────────
@@ -695,21 +765,26 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "comment_list",
 		Description: "List comments on an issue, task, or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in commentListInput) (*mcp.CallToolResult, any, error) {
-		q := url.Values{
-			"slug":        {slug},
-			"target_type": {in.TargetType},
-			"target_id":   {in.TargetID},
+		params := &dxclient.ListCommentsParams{
+			Slug:       &slug,
+			TargetType: &in.TargetType,
+			TargetId:   &in.TargetID,
 		}
 		if in.Role != "" {
-			q.Set("role", in.Role)
+			params.Role = &in.Role
 		}
-		var resp struct {
-			Comments []clitypes.CommentItem `json:"comments"`
-		}
-		if err := c.Get("/api/dx/comment/list", q, &resp); err != nil {
+		resp, err := c.ListCommentsWithResponse(ctx, params)
+		if err != nil {
 			return nil, nil, err
 		}
-		return nil, resp, nil
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		var comments []dxclient.CommentItem
+		if resp.JSON200 != nil && resp.JSON200.Comments != nil {
+			comments = *resp.JSON200.Comments
+		}
+		return nil, map[string]any{"comments": comments}, nil
 	})
 
 	type commentAddInput struct {
@@ -721,16 +796,19 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		Name:        "comment_add",
 		Description: "Add a comment to an issue, task, or feature",
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in commentAddInput) (*mcp.CallToolResult, any, error) {
-		var cm clitypes.CommentItem
-		if err := c.Post("/api/dx/comment/add", dxclient.AddCommentRequest{
+		resp, err := c.AddCommentWithResponse(ctx, dxclient.AddCommentRequest{
 			Slug:       slug,
 			TargetType: in.TargetType,
 			TargetId:   in.TargetID,
 			Body:       in.Body,
-		}, &cm); err != nil {
+		})
+		if err != nil {
 			return nil, nil, err
 		}
-		return nil, cm, nil
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		return nil, resp.JSON200, nil
 	})
 }
 

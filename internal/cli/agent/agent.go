@@ -4,7 +4,6 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
-	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -14,7 +13,6 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
@@ -154,8 +152,7 @@ func agentStartCmd() *cobra.Command {
 
 			fmt.Printf("compose:  %s (db port %d, valkey port %d)\n", composeProject, dbPort, valkeyPort)
 
-			var agent clitypes.AgentItem
-			if err := c.Post("/api/agents/register", dxclient.RegisterAgentRequest{
+			resp, err := c.RegisterAgentWithResponse(cmd.Context(), dxclient.RegisterAgentRequest{
 				Slug:           slug,
 				Id:             id,
 				SessionId:      sessionID,
@@ -168,10 +165,17 @@ func agentStartCmd() *cobra.Command {
 				ServerPort:     serverPort,
 				DatabaseUrl:    dbURL,
 				ValkeyUrl:      valkeyURL,
-			}, &agent); err != nil {
+			})
+			if err != nil {
 				return fmt.Errorf("register: %w", err)
 			}
-			fmt.Printf("agent:    %s (registered)\n", agent.ID)
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return fmt.Errorf("register: %w", err)
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("register: empty response")
+			}
+			fmt.Printf("agent:    %s (registered)\n", resp.JSON200.Id)
 			return nil
 		},
 	}
@@ -189,29 +193,36 @@ func agentListCmd() *cobra.Command {
 		Short: "List active agents",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Agents []clitypes.AgentItem `json:"agents"`
-			}
-			if err := c.Get("/api/agents/list", url.Values{"slug": {c.SlugOrDie()}}, &resp); err != nil {
+			ctx := cmd.Context()
+			resp, err := c.ListAgentsWithResponse(ctx, &dxclient.ListAgentsParams{Slug: c.SlugOrDie()})
+			if err != nil {
 				return err
 			}
-			if len(resp.Agents) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Agents == nil || len(*resp.JSON200.Agents) == 0 {
 				fmt.Println("no agents")
 				return nil
 			}
-			for _, a := range resp.Agents {
+			for _, a := range *resp.JSON200.Agents {
 				fmt.Printf("%-10s %-8s pid=%-6d port=%-5d %s  %s\n",
-					a.ID, a.Status, a.Pid, a.ServerPort, a.WorktreeBranch, a.LastHeartbeat)
+					a.Id, a.Status, a.Pid, a.ServerPort, a.WorktreeBranch, a.LastHeartbeat)
 				if showTasks {
-					var taskResp struct {
-						Tasks []clitypes.AgentTaskItem `json:"tasks"`
-					}
-					if err := c.Get("/api/agents/"+a.ID+"/tasks", nil, &taskResp); err != nil {
+					taskResp, err := c.ListAgentTasksWithResponse(ctx, a.Id)
+					if err != nil {
 						fmt.Printf("  (tasks error: %v)\n", err)
 						continue
 					}
-					for _, t := range taskResp.Tasks {
-						fmt.Printf("  %-8s %-8s %s\n", t.ID, t.Status, cli.Truncate(t.Text, 60))
+					if err := c.CheckStatus(taskResp.StatusCode(), taskResp.Body); err != nil {
+						fmt.Printf("  (tasks error: %v)\n", err)
+						continue
+					}
+					if taskResp.JSON200 == nil || taskResp.JSON200.Tasks == nil {
+						continue
+					}
+					for _, t := range *taskResp.JSON200.Tasks {
+						fmt.Printf("  %-8s %-8s %s\n", t.Id, t.Status, cli.Truncate(t.Text, 60))
 					}
 				}
 			}
@@ -229,28 +240,47 @@ func agentStopCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
+			ctx := cmd.Context()
 			id := args[0]
 
-			var agent clitypes.AgentItem
-			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
+			agentResp, err := c.GetAgentWithResponse(ctx, id)
+			if err != nil {
 				return fmt.Errorf("get agent: %w", err)
 			}
-
-			var taskResp struct {
-				Tasks []clitypes.AgentTaskItem `json:"tasks"`
+			if err := c.CheckStatus(agentResp.StatusCode(), agentResp.Body); err != nil {
+				return fmt.Errorf("get agent: %w", err)
 			}
-			if err := c.Get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
+			if agentResp.JSON200 == nil {
+				return fmt.Errorf("get agent: empty response")
+			}
+			agent := *agentResp.JSON200
+
+			taskResp, err := c.ListAgentTasksWithResponse(ctx, id)
+			if err != nil {
 				return fmt.Errorf("list tasks: %w", err)
 			}
-			for _, t := range taskResp.Tasks {
-				if err := c.Post("/api/tasks/"+t.ID+"/release", dxclient.ReleaseTaskRequest{AgentId: id}, nil); err != nil {
-					fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.ID, err)
-				} else {
-					fmt.Printf("released task %s\n", t.ID)
+			if err := c.CheckStatus(taskResp.StatusCode(), taskResp.Body); err != nil {
+				return fmt.Errorf("list tasks: %w", err)
+			}
+			if taskResp.JSON200 != nil && taskResp.JSON200.Tasks != nil {
+				for _, t := range *taskResp.JSON200.Tasks {
+					relResp, err := c.ReleaseTaskWithResponse(ctx, t.Id, dxclient.ReleaseTaskRequest{AgentId: id})
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.Id, err)
+						continue
+					}
+					if err := c.CheckStatus(relResp.StatusCode(), relResp.Body); err != nil {
+						fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.Id, err)
+						continue
+					}
+					fmt.Printf("released task %s\n", t.Id)
 				}
 			}
 
-			if err := c.Delete("/api/agents/"+id, nil, nil); err != nil {
+			delResp, err := c.DeleteAgentWithResponse(ctx, id)
+			if err != nil {
+				fmt.Fprintf(os.Stderr, "warn: delete agent: %v\n", err)
+			} else if err := c.CheckStatus(delResp.StatusCode(), delResp.Body); err != nil {
 				fmt.Fprintf(os.Stderr, "warn: delete agent: %v\n", err)
 			} else {
 				fmt.Printf("deleted agent %s\n", id)
@@ -289,18 +319,19 @@ func agentReapCmd() *cobra.Command {
 		Short: "Reap stale agents (heartbeat expired)",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			var resp struct {
-				Reaped []clitypes.AgentItem `json:"reaped"`
-			}
-			if err := c.Post("/api/agents/reap", dxclient.ReapAgentsRequest{ThresholdMinutes: thresholdMin}, &resp); err != nil {
+			resp, err := c.ReapAgentsWithResponse(cmd.Context(), dxclient.ReapAgentsRequest{ThresholdMinutes: thresholdMin})
+			if err != nil {
 				return err
 			}
-			if len(resp.Reaped) == 0 {
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Reaped == nil || len(*resp.JSON200.Reaped) == 0 {
 				fmt.Println("no stale agents")
 				return nil
 			}
-			for _, a := range resp.Reaped {
-				fmt.Printf("reaped %s (pid=%d, last heartbeat %s)\n", a.ID, a.Pid, a.LastHeartbeat)
+			for _, a := range *resp.JSON200.Reaped {
+				fmt.Printf("reaped %s (pid=%d, last heartbeat %s)\n", a.Id, a.Pid, a.LastHeartbeat)
 			}
 			return nil
 		},
@@ -316,13 +347,21 @@ func agentResumeCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
+			ctx := cmd.Context()
 			id := args[0]
 			slug := c.SlugOrDie()
 
-			var agent clitypes.AgentItem
-			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
+			agentResp, err := c.GetAgentWithResponse(ctx, id)
+			if err != nil {
 				return fmt.Errorf("agent %s not found (may have been reaped): %w", id, err)
 			}
+			if err := c.CheckStatus(agentResp.StatusCode(), agentResp.Body); err != nil {
+				return fmt.Errorf("agent %s not found (may have been reaped): %w", id, err)
+			}
+			if agentResp.JSON200 == nil {
+				return fmt.Errorf("agent %s not found", id)
+			}
+			agent := *agentResp.JSON200
 
 			if agent.WorktreePath != "" {
 				if _, err := os.Stat(agent.WorktreePath); err != nil {
@@ -352,11 +391,10 @@ func agentResumeCmd() *cobra.Command {
 				fmt.Printf("ports:    db=%d valkey=%d\n", dbPort, valkeyPort)
 			}
 
-			var updated clitypes.AgentItem
-			if err := c.Post("/api/agents/register", dxclient.RegisterAgentRequest{
+			regResp, err := c.RegisterAgentWithResponse(ctx, dxclient.RegisterAgentRequest{
 				Slug:           slug,
 				Id:             id,
-				SessionId:      agent.SessionID,
+				SessionId:      agent.SessionId,
 				WorktreePath:   agent.WorktreePath,
 				WorktreeBranch: agent.WorktreeBranch,
 				Pid:            int32(os.Getpid()),
@@ -366,7 +404,11 @@ func agentResumeCmd() *cobra.Command {
 				ServerPort:     agent.ServerPort,
 				DatabaseUrl:    agent.DatabaseUrl,
 				ValkeyUrl:      agent.ValkeyUrl,
-			}, &updated); err != nil {
+			})
+			if err != nil {
+				return fmt.Errorf("re-register: %w", err)
+			}
+			if err := c.CheckStatus(regResp.StatusCode(), regResp.Body); err != nil {
 				return fmt.Errorf("re-register: %w", err)
 			}
 			fmt.Printf("resumed agent %s (new pid=%d)\n", id, os.Getpid())
@@ -382,24 +424,40 @@ func agentReleaseCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
+			ctx := cmd.Context()
 			id := args[0]
 
-			var agent clitypes.AgentItem
-			if err := c.Get("/api/agents/"+id, nil, &agent); err != nil {
+			agentResp, err := c.GetAgentWithResponse(ctx, id)
+			if err != nil {
 				return fmt.Errorf("get agent: %w", err)
 			}
-
-			var taskResp struct {
-				Tasks []clitypes.AgentTaskItem `json:"tasks"`
+			if err := c.CheckStatus(agentResp.StatusCode(), agentResp.Body); err != nil {
+				return fmt.Errorf("get agent: %w", err)
 			}
-			if err := c.Get("/api/agents/"+id+"/tasks", nil, &taskResp); err != nil {
+			if agentResp.JSON200 == nil {
+				return fmt.Errorf("get agent: empty response")
+			}
+			agent := *agentResp.JSON200
+
+			taskResp, err := c.ListAgentTasksWithResponse(ctx, id)
+			if err != nil {
 				return fmt.Errorf("list tasks: %w", err)
 			}
-			for _, t := range taskResp.Tasks {
-				if err := c.Post("/api/tasks/"+t.ID+"/release", dxclient.ReleaseTaskRequest{AgentId: id}, nil); err != nil {
-					fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.ID, err)
-				} else {
-					fmt.Printf("released task %s\n", t.ID)
+			if err := c.CheckStatus(taskResp.StatusCode(), taskResp.Body); err != nil {
+				return fmt.Errorf("list tasks: %w", err)
+			}
+			if taskResp.JSON200 != nil && taskResp.JSON200.Tasks != nil {
+				for _, t := range *taskResp.JSON200.Tasks {
+					relResp, err := c.ReleaseTaskWithResponse(ctx, t.Id, dxclient.ReleaseTaskRequest{AgentId: id})
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.Id, err)
+						continue
+					}
+					if err := c.CheckStatus(relResp.StatusCode(), relResp.Body); err != nil {
+						fmt.Fprintf(os.Stderr, "warn: release %s: %v\n", t.Id, err)
+						continue
+					}
+					fmt.Printf("released task %s\n", t.Id)
 				}
 			}
 

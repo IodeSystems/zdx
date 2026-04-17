@@ -1,8 +1,8 @@
 package servercmd
 
 import (
+	"context"
 	"fmt"
-	"net/url"
 	"os"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
@@ -18,45 +18,50 @@ func bootstrapOnboardingIssue(c *cli.Client) error {
 	if slug == "" {
 		return nil
 	}
+	ctx := context.Background()
 
 	// Check if project already has issues.
-	var listing struct {
-		Items []struct{ ID int32 } `json:"items"`
-		Total int                  `json:"total"`
-	}
-	if err := c.Get("/api/dx/todo/issue/list", url.Values{
-		"slug":  {slug},
-		"limit": {"1"},
-	}, &listing); err != nil {
+	var limit int32 = 1
+	listResp, err := c.ListIssuesWithResponse(ctx, &dxclient.ListIssuesParams{
+		Slug:  slug,
+		Limit: &limit,
+	})
+	if err != nil {
 		// Project may not exist yet or endpoint may fail — skip silently.
 		return nil
 	}
-	if listing.Total > 0 {
+	if err := c.CheckStatus(listResp.StatusCode(), listResp.Body); err != nil {
+		return nil
+	}
+	if listResp.JSON200 != nil && listResp.JSON200.Total > 0 {
 		fmt.Println("bootstrap: project already has issues, skipping onboarding setup")
 		return nil
 	}
 
 	// Create onboarding issue.
-	var resp struct {
-		ID    int32  `json:"id"`
-		Title string `json:"title"`
-	}
 	title := "Project onboarding: define goals, architecture, and constraints"
-	ctx := "Bootstrap issue for new project setup. Answer the attached questions to establish project direction so that automated workflows can make informed decisions."
+	issueCtx := "Bootstrap issue for new project setup. Answer the attached questions to establish project direction so that automated workflows can make informed decisions."
 	issueType := "ops"
 	autoReady := true
-	if err := c.Post("/api/dx/todo/issue/add", dxclient.AddIssueRequest{
+	addResp, err := c.AddIssueWithResponse(ctx, dxclient.AddIssueRequest{
 		Slug:      slug,
 		Title:     &title,
-		Context:   &ctx,
+		Context:   &issueCtx,
 		IssueType: &issueType,
 		AutoReady: &autoReady,
-	}, &resp); err != nil {
+	})
+	if err != nil {
 		return fmt.Errorf("create onboarding issue: %w", err)
 	}
+	if err := c.CheckStatus(addResp.StatusCode(), addResp.Body); err != nil {
+		return fmt.Errorf("create onboarding issue: %w", err)
+	}
+	if addResp.JSON200 == nil {
+		return fmt.Errorf("create onboarding issue: empty response")
+	}
 
-	issueID := clitypes.IssueIDStr(resp.ID)
-	fmt.Printf("created %s  %s\n", issueID, resp.Title)
+	issueID := clitypes.IssueIDStr(addResp.JSON200.Id)
+	fmt.Printf("created %s  %s\n", issueID, addResp.JSON200.Title)
 
 	questions := []string{
 		"What are the primary goals and success criteria for this project? Describe what the project should accomplish and how you'll measure success.",
@@ -66,20 +71,24 @@ func bootstrapOnboardingIssue(c *cli.Client) error {
 	}
 
 	for _, q := range questions {
-		var bq struct {
-			ID int32 `json:"id"`
-		}
-		body := dxclient.AddBlockerQuestionRequest{
+		bqResp, err := c.AddBlockerQuestionWithResponse(ctx, dxclient.AddBlockerQuestionRequest{
 			Slug:       slug,
 			TargetType: "issue",
 			TargetId:   issueID,
 			Context:    q,
-		}
-		if err := c.Post("/api/dx/blocker-questions/add", body, &bq); err != nil {
+		})
+		if err != nil {
 			fmt.Fprintf(os.Stderr, "warning: could not create question: %v\n", err)
 			continue
 		}
-		fmt.Printf("  BQ-%d  %s\n", bq.ID, cli.Truncate(q, 70))
+		if err := c.CheckStatus(bqResp.StatusCode(), bqResp.Body); err != nil {
+			fmt.Fprintf(os.Stderr, "warning: could not create question: %v\n", err)
+			continue
+		}
+		if bqResp.JSON200 == nil {
+			continue
+		}
+		fmt.Printf("  BQ-%d  %s\n", bqResp.JSON200.Id, cli.Truncate(q, 70))
 	}
 
 	fmt.Println("\nanswer these questions to get started:")

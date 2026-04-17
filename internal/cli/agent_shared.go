@@ -1,6 +1,9 @@
 package cli
 
-import "time"
+import (
+	"context"
+	"time"
+)
 
 // HeartbeatLoop sends periodic heartbeats to the agent until stop closes.
 func HeartbeatLoop(c *Client, agentID string, interval time.Duration, stop <-chan struct{}) {
@@ -11,7 +14,7 @@ func HeartbeatLoop(c *Client, agentID string, interval time.Duration, stop <-cha
 		case <-stop:
 			return
 		case <-t.C:
-			_ = c.Post("/api/agents/"+agentID+"/heartbeat", nil, nil)
+			_, _ = c.AgentHeartbeatWithResponse(context.Background(), agentID)
 		}
 	}
 }
