@@ -543,7 +543,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		}
 		if demoGapResp.JSON200 != nil && demoGapResp.JSON200.Specs != nil && len(*demoGapResp.JSON200.Specs) > 0 {
 			s := (*demoGapResp.JSON200.Specs)[0]
-			fmt.Printf("[owner:demo-gap]  feature %q spec %d (%s) has no demo recording — run dx test --layer demo\n", s.FeatureName, s.Id, s.Description)
+			fmt.Printf("[owner:demo-gap]  feature %q spec %d (%s) has no demo — write a new demo test OR link an existing one (dx test list --layer=demo → dx spec link %d <test-id>)\n", s.FeatureName, s.Id, s.Description, s.Id)
 			return nil
 		}
 	}

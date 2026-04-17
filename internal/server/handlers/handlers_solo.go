@@ -287,7 +287,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, sp := range demoGaps {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("demo-gap-%d", sp.ID),
-				Text:       fmt.Sprintf("Spec %d (%s) on %q has no demo", sp.ID, sp.Description, sp.FeatureName),
+				Text:       fmt.Sprintf("Spec %d (%s) on %q has no demo — write a new demo test or link an existing one (dx spec link %d <test-id>)", sp.ID, sp.Description, sp.FeatureName, sp.ID),
 				Kind:       "owner:demo-gap",
 				TargetType: "spec",
 				TargetID:   fmt.Sprintf("%d", sp.ID),
