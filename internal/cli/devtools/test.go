@@ -19,6 +19,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/config"
+	"github.com/iodesystems/zdx-go/internal/devserver"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 	"github.com/iodesystems/zdx-go/internal/testharness"
 )
@@ -72,6 +73,8 @@ to target the browser/CLI recording tests.`,
 	cmd.Flags().Bool("coverage", false, "collect Go binary-level coverage (GOCOVERDIR)")
 	cmd.Flags().String("db-url", "", "database URL for e2e adapter (skips docker compose)")
 	cmd.Flags().String("shard", "", "shard N/M across the e2e adapter")
+	cmd.Flags().Bool("no-ephemeral", false, "skip ephemeral devserver bootstrap (use caller's DX_API_URL instead)")
+	cmd.Flags().Bool("ephemeral-per-test", false, "spin a fresh devserver per demo test (coverage accuracy; multiplies wall time)")
 	// Legacy sub-commands kept for compatibility.
 	cmd.AddCommand(testListCmd(), testRunCmd(), testE2ECmd())
 	return cmd
@@ -85,12 +88,43 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 	coverage, _ := cmd.Flags().GetBool("coverage")
 	dbURL, _ := cmd.Flags().GetString("db-url")
 	shard, _ := cmd.Flags().GetString("shard")
+	noEphemeral, _ := cmd.Flags().GetBool("no-ephemeral")
+	ephemeralPerTest, _ := cmd.Flags().GetBool("ephemeral-per-test")
 
 	f := testharness.Filter{
 		Name:      filter,
 		Component: component,
 		Feature:   feature,
 		Layer:     testharness.Layer(layer),
+	}
+
+	// ── Ephemeral devserver bootstrap ─────────────────────────────────────
+	// Spin up an isolated zdx-server (tmpdir UploadsDir + DEMOS_DIR, disposable
+	// DB) once per run so tests don't pollute or depend on the dev server.
+	// The test binary reads DX_API_URL/DX_API_KEY and skips its own setup.
+	// Skipped when no e2e/demo work is in scope (e.g. --component ui), and
+	// deferred entirely when --ephemeral-per-test requests per-test sandboxes.
+	wantsE2E := (f.Component == "" || f.Component == "api" || f.Component == "demo") &&
+		(f.Layer == "" || f.Layer == testharness.LayerIntegration || f.Layer == testharness.LayerDemo)
+	if ephemeralPerTest && f.Layer != testharness.LayerDemo && f.Component != "demo" {
+		return fmt.Errorf("--ephemeral-per-test requires --layer demo or --component demo")
+	}
+	var ephemeralEnv []string
+	ephemeralCleanup := func() {}
+	if wantsE2E && !ephemeralPerTest {
+		env, cleanup, err := maybeBootstrapEphemeral(noEphemeral, dbURL)
+		if err != nil {
+			return err
+		}
+		ephemeralEnv = env
+		ephemeralCleanup = cleanup
+	}
+	defer ephemeralCleanup()
+
+	// Per-test ephemeral mode short-circuits the adapter plumbing: enumerate
+	// TestDemo* names, run each in its own sandbox, concatenate results.
+	if ephemeralPerTest {
+		return runPerTestEphemeral(context.Background(), dbURL, f, coverage)
 	}
 
 	h := testharness.New()
@@ -110,7 +144,7 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 		wantsIntegration := f.Layer == "" || f.Layer == testharness.LayerIntegration
 		if wantsIntegration || wantsDemo {
 			if _, err := os.Stat(testBin); err == nil {
-				env := buildE2EEnv(dbURL)
+				env := append(buildE2EEnv(dbURL), ephemeralEnv...)
 				coverDir := ""
 				if coverage {
 					coverDir = testharness.CoverageDir("api")
@@ -200,6 +234,105 @@ func buildE2EEnv(dbURL string) []string {
 		return []string{"TEST_DATABASE_URL=" + dbURL}
 	}
 	return nil
+}
+
+// runPerTestEphemeral enumerates demo tests and runs each inside its own
+// ephemeral devserver sandbox, so coverage samples stay independent.
+// Expensive by design — opt-in via --ephemeral-per-test.
+func runPerTestEphemeral(ctx context.Context, dbURL string, f testharness.Filter, coverage bool) error {
+	if _, err := os.Stat(testBin); err != nil {
+		return fmt.Errorf("e2e binary not found — run: dx test e2e build")
+	}
+	adapter := &testharness.GoBinAdapter{Bin: testBin, Comp: "api"}
+	names, err := adapter.List(ctx)
+	if err != nil {
+		return fmt.Errorf("list tests: %w", err)
+	}
+	var demos []string
+	for _, n := range names {
+		if !strings.HasPrefix(n, "TestDemo") {
+			continue
+		}
+		if f.Name != "" && !strings.Contains(n, f.Name) {
+			continue
+		}
+		demos = append(demos, n)
+	}
+	if len(demos) == 0 {
+		return fmt.Errorf("no TestDemo* tests matched filter %q", f.Name)
+	}
+
+	var all []testharness.Result
+	for _, test := range demos {
+		fmt.Fprintf(os.Stderr, "[per-test] %s — provisioning fresh devserver\n", test)
+		h, cleanup, err := devserver.Start(devserver.Options{DSN: dbURL})
+		if err != nil {
+			return fmt.Errorf("%s: bootstrap: %w", test, err)
+		}
+		fmt.Fprintf(os.Stderr, "[per-test] %s — url=%s uploads=%s demos=%s\n", test, h.URL, h.UploadsDir, h.DemosDir)
+
+		coverDir := ""
+		if coverage {
+			coverDir = filepath.Join(testharness.CoverageDir("api"), test)
+		}
+		one := &testharness.GoBinAdapter{
+			Bin:    testBin,
+			Comp:   "api",
+			Layer_: []testharness.Layer{testharness.LayerDemo},
+			Env: []string{
+				"DX_API_URL=" + h.URL,
+				"DX_API_KEY=" + h.AdminToken,
+				"UPLOADS_DIR=" + h.UploadsDir,
+				"DEMOS_DIR=" + h.DemosDir,
+				"TEST_DATABASE_URL=" + h.DSN,
+			},
+			CoverDir: coverDir,
+		}
+		results, runErr := one.Run(ctx, testharness.Filter{Name: "^" + test + "$"})
+		cleanup()
+		if runErr != nil {
+			return fmt.Errorf("%s: %w", test, runErr)
+		}
+		all = append(all, results...)
+	}
+
+	branch, sha := gitBranch(), gitSHA()
+	for i := range all {
+		all[i].Branch = branch
+		all[i].GitSHA = sha
+	}
+	testharness.Summary(all)
+	_ = testharness.WriteResults(filepath.Join(".zdx", "test-results.json"), all)
+	if testharness.HasFailure(all) {
+		return fmt.Errorf("tests failed")
+	}
+	return nil
+}
+
+// maybeBootstrapEphemeral spins up an ephemeral devserver by default and
+// returns the env additions to pass through to the e2e binary plus a cleanup.
+// Returns no-op cleanup and nil env when:
+//   - --no-ephemeral is set, or
+//   - the caller already exported DX_API_URL (indicates they're pointing at a
+//     specific server on purpose).
+func maybeBootstrapEphemeral(noEphemeral bool, dbURL string) ([]string, func(), error) {
+	if noEphemeral || os.Getenv("DX_API_URL") != "" {
+		return nil, func() {}, nil
+	}
+	fmt.Fprintln(os.Stderr, "[test] bootstrapping ephemeral devserver (pass --no-ephemeral to disable)")
+	h, cleanup, err := devserver.Start(devserver.Options{DSN: dbURL})
+	if err != nil {
+		return nil, func() {}, fmt.Errorf("ephemeral devserver: %w", err)
+	}
+	fmt.Fprintf(os.Stderr, "[test] devserver ready: %s (uploads=%s demos=%s)\n", h.URL, h.UploadsDir, h.DemosDir)
+	env := []string{
+		"DX_API_URL=" + h.URL,
+		"DX_API_KEY=" + h.AdminToken,
+		"UPLOADS_DIR=" + h.UploadsDir,
+		"DEMOS_DIR=" + h.DemosDir,
+		"TEST_DATABASE_URL=" + h.DSN,
+	}
+	return env, cleanup, nil
 }
 
 func testListCmd() *cobra.Command {

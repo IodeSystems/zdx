@@ -24,6 +24,16 @@ func TestMain(m *testing.M) {
 
 	initDriverMode()
 
+	// When invoked by `dx test`, the outer runner bootstraps an ephemeral
+	// devserver and exports DX_API_URL/DX_API_KEY. Reuse it instead of
+	// double-provisioning postgres + server.
+	if url := os.Getenv("DX_API_URL"); url != "" {
+		srv = &testserver.Handle{URL: url, AdminToken: os.Getenv("DX_API_KEY")}
+		code := m.Run()
+		runExternalAdapters()
+		os.Exit(code)
+	}
+
 	dsn := os.Getenv("TEST_DATABASE_URL")
 	dbCleanup := func() {}
 
