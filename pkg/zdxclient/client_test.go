@@ -99,7 +99,12 @@ func TestOverflowDrops(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	defer c.Close(context.Background())
+	// Use a short deadline: the server blocks forever, so Close would hang
+	// until close(block) fires (a later defer). A 3s deadline prevents
+	// the test from taking 30+ seconds in slow CI environments.
+	closeCtx, closeCancel := context.WithTimeout(context.Background(), 3*time.Second)
+	defer closeCancel()
+	defer c.Close(closeCtx)
 
 	// Pump way more than capacity: buffer (4) + in-flight batch (4) ≈ 8 survive;
 	// the rest must be counted as dropped.
