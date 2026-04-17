@@ -1,0 +1,9 @@
+{
+  "mcpServers": {
+    "zdx": {
+      "type": "stdio",
+      "command": "./bin/dx",
+      "args": ["mcp"]
+    }
+  }
+}
