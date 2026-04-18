@@ -2557,6 +2557,15 @@ type SetFeatureFieldRequest struct {
 	Value   string  `json:"value"`
 }
 
+// SetFeatureGoalRequest defines model for Set-feature-goalRequest.
+type SetFeatureGoalRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	Feature string  `json:"feature"`
+	GoalId  int32   `json:"goal_id"`
+	Slug    string  `json:"slug"`
+}
+
 // SetFeatureParentRequest defines model for Set-feature-parentRequest.
 type SetFeatureParentRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4177,6 +4186,9 @@ type MarkFeatureReviewedJSONRequestBody = MarkFeatureReviewedRequest
 // SetFeatureFieldJSONRequestBody defines body for SetFeatureField for application/json ContentType.
 type SetFeatureFieldJSONRequestBody = SetFeatureFieldRequest
 
+// SetFeatureGoalJSONRequestBody defines body for SetFeatureGoal for application/json ContentType.
+type SetFeatureGoalJSONRequestBody = SetFeatureGoalRequest
+
 // SetFeatureParentJSONRequestBody defines body for SetFeatureParent for application/json ContentType.
 type SetFeatureParentJSONRequestBody = SetFeatureParentRequest
 
@@ -4890,6 +4902,11 @@ type ClientInterface interface {
 	SetFeatureFieldWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SetFeatureField(ctx context.Context, body SetFeatureFieldJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetFeatureGoalWithBody request with any body
+	SetFeatureGoalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetFeatureGoal(ctx context.Context, body SetFeatureGoalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetFeatureParentWithBody request with any body
 	SetFeatureParentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7188,6 +7205,30 @@ func (c *APIClient) SetFeatureFieldWithBody(ctx context.Context, contentType str
 
 func (c *APIClient) SetFeatureField(ctx context.Context, body SetFeatureFieldJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetFeatureFieldRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetFeatureGoalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetFeatureGoalRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetFeatureGoal(ctx context.Context, body SetFeatureGoalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetFeatureGoalRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -15356,6 +15397,46 @@ func NewSetFeatureFieldRequestWithBody(server string, contentType string, body i
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/features/field")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetFeatureGoalRequest calls the generic SetFeatureGoal builder with application/json body
+func NewSetFeatureGoalRequest(server string, body SetFeatureGoalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetFeatureGoalRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetFeatureGoalRequestWithBody generates requests for SetFeatureGoal with any type of body
+func NewSetFeatureGoalRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/features/goal")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -24303,6 +24384,11 @@ type ClientWithResponsesInterface interface {
 
 	SetFeatureFieldWithResponse(ctx context.Context, body SetFeatureFieldJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFeatureFieldResponse, error)
 
+	// SetFeatureGoalWithBodyWithResponse request with any body
+	SetFeatureGoalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetFeatureGoalResponse, error)
+
+	SetFeatureGoalWithResponse(ctx context.Context, body SetFeatureGoalJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFeatureGoalResponse, error)
+
 	// SetFeatureParentWithBodyWithResponse request with any body
 	SetFeatureParentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetFeatureParentResponse, error)
 
@@ -27172,6 +27258,29 @@ func (r SetFeatureFieldResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r SetFeatureFieldResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SetFeatureGoalResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SetFeatureGoalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetFeatureGoalResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -32128,6 +32237,23 @@ func (c *ClientWithResponses) SetFeatureFieldWithResponse(ctx context.Context, b
 		return nil, err
 	}
 	return ParseSetFeatureFieldResponse(rsp)
+}
+
+// SetFeatureGoalWithBodyWithResponse request with arbitrary body returning *SetFeatureGoalResponse
+func (c *ClientWithResponses) SetFeatureGoalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetFeatureGoalResponse, error) {
+	rsp, err := c.SetFeatureGoalWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetFeatureGoalResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetFeatureGoalWithResponse(ctx context.Context, body SetFeatureGoalJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFeatureGoalResponse, error) {
+	rsp, err := c.SetFeatureGoal(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetFeatureGoalResponse(rsp)
 }
 
 // SetFeatureParentWithBodyWithResponse request with arbitrary body returning *SetFeatureParentResponse
@@ -37422,6 +37548,39 @@ func ParseSetFeatureFieldResponse(rsp *http.Response) (*SetFeatureFieldResponse,
 	}
 
 	response := &SetFeatureFieldResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetFeatureGoalResponse parses an HTTP response from a SetFeatureGoalWithResponse call
+func ParseSetFeatureGoalResponse(rsp *http.Response) (*SetFeatureGoalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetFeatureGoalResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

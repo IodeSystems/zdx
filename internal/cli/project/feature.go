@@ -125,6 +125,7 @@ func featureSetCmd() *cobra.Command {
 	var what, why, doneWhen, component, description, category string
 	var kind, metricName, metricUnit, baselineValue, targetValue, graphURL string
 	var parent string
+	var goalID int32
 	cmd := &cobra.Command{
 		Use:   "set <name>",
 		Short: "Set fields on a feature",
@@ -181,8 +182,22 @@ func featureSetCmd() *cobra.Command {
 				}
 				changed = true
 			}
+			if cmd.Flags().Changed("goal") {
+				resp, err := c.SetFeatureGoalWithResponse(cmd.Context(), dxclient.SetFeatureGoalRequest{
+					Slug:    slug,
+					Feature: name,
+					GoalId:  goalID,
+				})
+				if err != nil {
+					return fmt.Errorf("set goal: %w", err)
+				}
+				if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+					return fmt.Errorf("set goal: %w", err)
+				}
+				changed = true
+			}
 			if !changed {
-				return fmt.Errorf("no fields specified — use --what, --why, --done-when, --component, --category, --desc, --kind, --parent, --metric-name, etc.")
+				return fmt.Errorf("no fields specified — use --what, --why, --done-when, --component, --category, --desc, --kind, --parent, --goal, --metric-name, etc.")
 			}
 			fmt.Printf("%s updated\n", name)
 			return nil
@@ -201,6 +216,7 @@ func featureSetCmd() *cobra.Command {
 	cmd.Flags().StringVar(&targetValue, "target-value", "", "target measurement")
 	cmd.Flags().StringVar(&graphURL, "graph-url", "", "URL to instrumentation graph/dashboard")
 	cmd.Flags().StringVar(&parent, "parent", "", "parent feature name (empty string clears parent)")
+	cmd.Flags().Int32Var(&goalID, "goal", 0, "goal ID to attribute this feature to (G-N)")
 	return cmd
 }
 

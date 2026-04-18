@@ -1382,6 +1382,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/features/goal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["set-feature-goal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/features/parent": {
         parameters: {
             query?: never;
@@ -7030,6 +7046,18 @@ export interface components {
             slug: string;
             value: string;
         };
+        "Set-feature-goalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-feature-goalRequest.json
+             */
+            readonly $schema?: string;
+            feature: string;
+            /** Format: int32 */
+            goal_id: number;
+            slug: string;
+        };
         "Set-feature-parentRequest": {
             /**
              * Format: uri
@@ -11073,6 +11101,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Set-feature-fieldRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-feature-goal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-feature-goalRequest"];
             };
         };
         responses: {

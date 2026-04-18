@@ -172,6 +172,31 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "set-feature-goal", Method: http.MethodPost, Path: "/api/dx/features/goal"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				Feature string `json:"feature"`
+				GoalID  int32  `json:"goal_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			feature, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "feature not found: "+in.Body.Feature)
+			}
+			if err := h.Q.UpdateFeatureGoal(ctx, db.UpdateFeatureGoalParams{
+				ID:     feature.ID,
+				GoalID: pgtype.Int4{Int32: in.Body.GoalID, Valid: in.Body.GoalID != 0},
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "move-spec", Method: http.MethodPost, Path: "/api/dx/specs/move"},
 		func(ctx context.Context, in *struct {
 			Body struct {
