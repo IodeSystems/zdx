@@ -246,6 +246,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 	}
 
 	sessionIdx := 0
+	consecutiveChurns := 0
 	for {
 		if ctx.Err() != nil {
 			return nil
@@ -421,14 +422,29 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 			switch {
 			case !success:
 				log("todo %d released (session failed)", activeTodo.ID)
+				consecutiveChurns = 0
 			case downgraded:
-				log("todo %d released (session made no mutations — churn guard)", activeTodo.ID)
+				consecutiveChurns++
+				log("todo %d released (session made no mutations — churn guard, streak %d)", activeTodo.ID, consecutiveChurns)
 			default:
 				log("todo %d resolved", activeTodo.ID)
+				consecutiveChurns = 0
 			}
 		}
 
 		os.Remove(stateFile)
+
+		// Exponential backoff on consecutive churn-guarded releases to prevent
+		// hot loops when the queue keeps serving a todo the agent can't action.
+		if consecutiveChurns >= 3 {
+			backoff := time.Duration(1<<min(consecutiveChurns-3, 6)) * time.Minute // 1m, 2m, 4m … 64m cap
+			log("churn backoff: %d consecutive no-mutation sessions; sleeping %s", consecutiveChurns, backoff.Truncate(time.Second))
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(backoff):
+			}
+		}
 	}
 }
 

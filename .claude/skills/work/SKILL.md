@@ -10,9 +10,14 @@ issue is closed and shipped.**
 
 **Entry:**
 
-- No issue given: run `./bin/dx todo take` — atomically claim the next todo item. If the claimed todo targets a task
-  (TK-N), run `./bin/dx todo show TK-N` to find its parent issue; use that issue for the vertical. If the todo targets
-  an issue directly, use that issue.
+- No issue given: run `./bin/dx todo take` — atomically claim the next todo item.
+  - If `todo take` returns "no work available": stop immediately.
+  - If the claimed todo is a **maturity nudge** (`[owner:attribute-feature]`, `[owner:quantify-goal]`,
+    `[tech:instrument-feature]`, `[owner:decompose-feature]`): handle it directly per the **Maturity nudges** section
+    below — do NOT enter the vertical loop.
+  - If the claimed todo targets a task (TK-N): run `./bin/dx todo show TK-N` to find its parent issue; use that issue
+    for the vertical.
+  - If the claimed todo targets an issue directly: use that issue for the vertical.
 - Issue given: proceed directly to the vertical loop.
 
 **Vertical loop** for IS-N:
@@ -97,7 +102,18 @@ The task has no parent issue — invisible to the normal issue-based workflow.
 
 **Maturity nudges** (when solo emits `[owner:quantify-goal]`, `[owner:attribute-feature]`, `[tech:instrument-feature]`, `[owner:decompose-feature]`):
 
-These are maturity-gradient items — the project is healthy enough to work but could be healthier. Handle them if they're quick (add a metric, link a goal), defer if they require product decisions.
+These are maturity-gradient items — the project is healthy enough to work but could be healthier.
+
+1. **Read the target.** `./bin/dx feature show <name>` or `./bin/dx goal list` to understand the current state.
+2. **If you can resolve it without product judgment** (e.g., the feature obviously belongs to an existing goal, or a
+   parent feature is clear from the name/desc): apply the fix directly.
+   - `[owner:attribute-feature]`: `./bin/dx feature set <name> --goal <G-N>` or `--parent <parent-feature-name>`
+   - `[owner:quantify-goal]`: `./bin/dx goal set <G-N> --metric-name=... --metric-unit=...`
+   - `[owner:decompose-feature]`: create child features and link them
+   - `[tech:instrument-feature]`: add metrics/observability code
+3. **If it requires a product decision** (which goal? what metric? how to decompose?): file a blocker question
+   targeting the feature and stop.
+4. **Stop after handling the nudge.** Do not enter the vertical loop or pick up another item.
 
 **Blocked issues:** if the vertical is empty because IS-N is blocked by other issues:
 

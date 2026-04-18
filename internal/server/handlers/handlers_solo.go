@@ -309,7 +309,11 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, g := range unquantifiedGoals {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("quantify-goal-%d", g.ID),
-				Text:       fmt.Sprintf("Quantify goal %d: %s — add metric_name and metric_unit", g.ID, g.Title),
+				Text: fmt.Sprintf("Quantify goal %d: %s — add metric_name and metric_unit. "+
+					"Investigate the codebase for what this goal measures, then either: "+
+					"(a) `dx goal set %d --metric-name=<name> --metric-unit=<unit>` with a justification, or "+
+					"(b) file a blocker question if the metric requires a product decision.",
+					g.ID, g.Title, g.ID),
 				Kind:       "owner:quantify-goal",
 				TargetType: "goal",
 				TargetID:   fmt.Sprintf("%d", g.ID),
@@ -323,7 +327,11 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, f := range unattributed {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("attribute-feature-%d", f.ID),
-				Text:       fmt.Sprintf("Attribute feature %q to a goal or parent feature", f.Name),
+				Text: fmt.Sprintf("Attribute feature %q to a goal or parent feature. "+
+					"Run `dx feature show %s` and `dx goal list` to understand the feature and available goals, then either: "+
+					"(a) `dx feature set %s --goal <G-N>` or `--parent <parent-feature>` with a justification, or "+
+					"(b) file a blocker question if attribution requires a product decision.",
+					f.Name, f.Name, f.Name),
 				Kind:       "owner:attribute-feature",
 				TargetType: "feature",
 				TargetID:   f.Name,
@@ -337,7 +345,11 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, f := range uninstrumented {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("instrument-feature-%d", f.ID),
-				Text:       fmt.Sprintf("Instrument multiplier feature %q — needs baseline, target, and graph", f.Name),
+				Text: fmt.Sprintf("Instrument multiplier feature %q — needs baseline, target, and graph_url. "+
+					"Investigate the feature's codebase to determine what to measure, then either: "+
+					"(a) add instrumentation code and set baseline/target/graph_url via `dx feature set %s --baseline=<N> --target=<N> --graph-url=<url>`, or "+
+					"(b) file an issue for missing observability infrastructure if instrumentation requires new plumbing.",
+					f.Name, f.Name),
 				Kind:       "tech:instrument-feature",
 				TargetType: "feature",
 				TargetID:   f.Name,
@@ -353,7 +365,11 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, f := range overspecced {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("decompose-feature-%d", f.ID),
-				Text:       fmt.Sprintf("Decompose feature %q — %d specs exceeds threshold (8)", f.Name, f.SpecCount),
+				Text: fmt.Sprintf("Decompose feature %q — %d specs exceeds threshold (8). "+
+					"Run `dx feature show %s` to review specs, then create child features via "+
+					"`dx feature add <child> --parent %s --desc=...` grouping related specs. "+
+					"File a blocker question if the decomposition boundaries require a product decision.",
+					f.Name, f.SpecCount, f.Name, f.Name),
 				Kind:       "owner:decompose-feature",
 				TargetType: "feature",
 				TargetID:   f.Name,
