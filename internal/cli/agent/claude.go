@@ -55,7 +55,7 @@ func agentClaudeCmd() *cobra.Command {
 			installReleaseOnSignal(rc, alias, "", nil, cancel)
 			sid := uuid.New().String()
 			resolved := sel.resolve(rc, 0)
-			return runSession(ctx, rc, sid, issue, alias, chrome, "", false, resolved, 0)
+			return runSession(ctx, rc, sid, issue, alias, chrome, "", false, resolved, 0, nil)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
@@ -360,7 +360,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 		if activeTodo != nil {
 			todoID = activeTodo.ID
 		}
-		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed, resolvedModel, todoID)
+		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed, resolvedModel, todoID, activeTodo)
 
 		// ── Stall recovery: transparently restart the session ────────
 		if errors.Is(sessionErr, ErrSessionStalled) && ctx.Err() == nil {
@@ -373,7 +373,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 			log("forking stalled session: %s → %s", stalledSID, resumeSID)
 
 			resumeStart := time.Now()
-			resumeErr := runSession(ctx, rc, resumeSID, issueID, alias, chrome, stalledSID, true, resolvedModel, todoID)
+			resumeErr := runSession(ctx, rc, resumeSID, issueID, alias, chrome, stalledSID, true, resolvedModel, todoID, activeTodo)
 
 			if resumeErr != nil && time.Since(resumeStart) < 60*time.Second {
 				// Resume failed fast — likely a context/compaction issue.
@@ -391,7 +391,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 				os.WriteFile(stateFile, []byte(issueID+"\n"+freshSID+"\n"), 0o644)
 				log("fresh session with summary: %s (issue=%s)", freshSID, issueID)
 
-				sessionErr = runSessionWithSummary(ctx, rc, freshSID, issueID, alias, chrome, resolvedModel, todoID, summary)
+				sessionErr = runSessionWithSummary(ctx, rc, freshSID, issueID, alias, chrome, resolvedModel, todoID, summary, activeTodo)
 				sid = freshSID
 			} else {
 				sessionErr = resumeErr
@@ -452,13 +452,18 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 // through the provider-agnostic RunLifecycle runner. Event tailing, WS
 // streaming, and close are all owned by the shared runner — this wrapper
 // only constructs a claudeAdapter and prints the post-session token summary.
-func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string, todoID int32) error {
+func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string, todoID int32, todo *claimedTodo) error {
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
 	prompt := ""
 	if issueID != "" {
 		prompt = "/work " + issueID
+	} else if todo != nil {
+		// Non-issue todo (maturity nudge, stale comment, etc.) — pass the
+		// todo text directly so the skill can act on it without re-claiming.
+		prompt = fmt.Sprintf("/work\n\nClaimed todo %d [%s] target=%s:%s\n%s",
+			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
 	}
 
 	adapter := &claudeAdapter{
@@ -486,13 +491,16 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 // runSessionWithSummary starts a fresh claude session whose prompt includes
 // a transcript summary from a previous stalled session so the agent can
 // continue the same work without --resume.
-func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, model string, todoID int32, summary string) error {
+func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, model string, todoID int32, summary string, todo *claimedTodo) error {
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
 	workCmd := "/work"
 	if issueID != "" {
 		workCmd = "/work " + issueID
+	} else if todo != nil {
+		workCmd = fmt.Sprintf("/work\n\nClaimed todo %d [%s] target=%s:%s\n%s",
+			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
 	}
 	prompt := fmt.Sprintf("%s\n\nThis session is a continuation of a stalled session. The previous session was automatically terminated because it stopped producing output (likely a stuck tool call). Below is a summary of what it accomplished. Continue the work from where it left off — do NOT repeat already-completed steps.\n\n%s", workCmd, summary)
 

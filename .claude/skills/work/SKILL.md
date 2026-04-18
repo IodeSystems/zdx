@@ -10,14 +10,17 @@ issue is closed and shipped.**
 
 **Entry:**
 
-- No issue given: run `./bin/dx todo take` — atomically claim the next todo item.
+- No issue given but **todo context provided in the prompt** (e.g. "Claimed todo N [kind] target=type:id"): the agent
+  loop already claimed this todo. Do NOT run `./bin/dx todo take` again — use the provided context directly.
+  - If the todo is a **maturity nudge** (`[owner:attribute-feature]`, `[owner:quantify-goal]`,
+    `[tech:instrument-feature]`, `[owner:decompose-feature]`): handle it per the **Maturity nudges** section below.
+  - If it targets a task (target=task:TK-N): run `./bin/dx todo show TK-N` to find its parent issue; use that for the
+    vertical.
+  - If it targets an issue (target=issue:IS-N): use that issue for the vertical.
+  - For any other kind (`respond:stale`, `close:tracker`, etc.): follow the todo text instructions directly.
+- No issue given and **no todo context**: run `./bin/dx todo take` — atomically claim the next todo item.
   - If `todo take` returns "no work available": stop immediately.
-  - If the claimed todo is a **maturity nudge** (`[owner:attribute-feature]`, `[owner:quantify-goal]`,
-    `[tech:instrument-feature]`, `[owner:decompose-feature]`): handle it directly per the **Maturity nudges** section
-    below — do NOT enter the vertical loop.
-  - If the claimed todo targets a task (TK-N): run `./bin/dx todo show TK-N` to find its parent issue; use that issue
-    for the vertical.
-  - If the claimed todo targets an issue directly: use that issue for the vertical.
+  - Otherwise: follow the same routing logic as above based on the claimed todo's kind and target.
 - Issue given: proceed directly to the vertical loop.
 
 **Vertical loop** for IS-N:
