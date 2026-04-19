@@ -153,7 +153,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			params := db.CreateIssueParams{
 				ID:        id,
 				ProjectID: p.ID,
-				IssueType: "ops",
+				IssueType: "unknown",
 				Status:    status,
 			}
 			if in.Body.Title != nil {

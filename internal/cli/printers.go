@@ -14,7 +14,7 @@ func PrintIssueItem(iss clitypes.IssueItem) {
 	fmt.Printf("Priority:  %s\n", iss.Priority)
 	issType := iss.IssueType
 	if issType == "" {
-		issType = "ops"
+		issType = "unknown"
 	}
 	fmt.Printf("Type:      %s\n", issType)
 	if iss.Component != "" {

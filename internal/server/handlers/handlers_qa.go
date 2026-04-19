@@ -421,7 +421,7 @@ func (h *Handler) registerQARoutes(api huma.API) {
 				ProjectID: p.ID,
 				Title:     proposal.Title,
 				Context:   proposal.Context,
-				IssueType: "ops",
+				IssueType: "unknown",
 				Status:    "open",
 			})
 			if err != nil {

@@ -105,7 +105,7 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueAddInput) (*mcp.CallToolResult, any, error) {
 		issType := in.IssueType
 		if issType == "" {
-			issType = "ops"
+			issType = "unknown"
 		}
 		addBody := dxclient.AddIssueRequest{
 			Slug:      slug,
