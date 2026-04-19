@@ -247,6 +247,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 
 	sessionIdx := 0
 	consecutiveChurns := 0
+	lastChurnTodoID := int32(0)
 	for {
 		if ctx.Err() != nil {
 			return nil
@@ -423,22 +424,31 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 			case !success:
 				log("todo %d released (session failed)", activeTodo.ID)
 				consecutiveChurns = 0
+				lastChurnTodoID = 0
 			case downgraded:
-				consecutiveChurns++
+				// Only count as churn if the same todo keeps coming back.
+				// Different todos churning is normal (e.g. comment-only work
+				// that the server's mutation check doesn't recognize).
+				if activeTodo.ID == lastChurnTodoID {
+					consecutiveChurns++
+				} else {
+					consecutiveChurns = 1
+					lastChurnTodoID = activeTodo.ID
+				}
 				log("todo %d released (session made no mutations — churn guard, streak %d)", activeTodo.ID, consecutiveChurns)
 			default:
 				log("todo %d resolved", activeTodo.ID)
 				consecutiveChurns = 0
+				lastChurnTodoID = 0
 			}
 		}
 
 		os.Remove(stateFile)
 
-		// Exponential backoff on consecutive churn-guarded releases to prevent
-		// hot loops when the queue keeps serving a todo the agent can't action.
+		// Exponential backoff when the same todo keeps getting churn-guarded.
 		if consecutiveChurns >= 3 {
 			backoff := time.Duration(1<<min(consecutiveChurns-3, 6)) * time.Minute // 1m, 2m, 4m … 64m cap
-			log("churn backoff: %d consecutive no-mutation sessions; sleeping %s", consecutiveChurns, backoff.Truncate(time.Second))
+			log("churn backoff: todo %d churned %d times; sleeping %s", lastChurnTodoID, consecutiveChurns, backoff.Truncate(time.Second))
 			select {
 			case <-ctx.Done():
 				return nil
