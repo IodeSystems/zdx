@@ -11,9 +11,21 @@ trap 'rm -rf "$LOGS_DIR"' EXIT
 
 run() {
   local label="$1"; shift
-  "$@" > "$LOGS_DIR/$label.out" 2>&1 &
+  (
+    set +e
+    t0=$(date +%s%N)
+    "$@" > "$LOGS_DIR/$label.out" 2>&1
+    rc=$?
+    t1=$(date +%s%N)
+    awk -v t0="$t0" -v t1="$t1" 'BEGIN { printf "%.1fs", (t1 - t0) / 1e9 }' > "$LOGS_DIR/$label.dur"
+    exit $rc
+  ) &
   PIDS+=($!)
   LABELS+=("$label")
+}
+
+elapsed() {
+  cat "$LOGS_DIR/$1.dur" 2>/dev/null || echo "?"
 }
 
 # ── Parallel lint jobs ────────────────────────────────────────────────────────
@@ -101,23 +113,25 @@ for i in "${!PIDS[@]}"; do
   wait "${PIDS[$i]}"
   RC=$?
   set -e
+  LABEL="${LABELS[$i]}"
+  DUR=$(elapsed "$LABEL")
   ADVISORY=false
   for a in "${ADVISORY_LABELS[@]}"; do
-    if [ "${LABELS[$i]}" = "$a" ]; then ADVISORY=true; break; fi
+    if [ "$LABEL" = "$a" ]; then ADVISORY=true; break; fi
   done
   if [ $RC -ne 0 ]; then
     if $ADVISORY; then
       echo ""
-      echo "WARN: ${LABELS[$i]} (advisory, not blocking)"
-      cat "$LOGS_DIR/${LABELS[$i]}.out"
+      echo "WARN: $LABEL ($DUR, advisory, not blocking)"
+      cat "$LOGS_DIR/$LABEL.out"
     else
       echo ""
-      echo "FAIL: ${LABELS[$i]}"
-      cat "$LOGS_DIR/${LABELS[$i]}.out"
+      echo "FAIL: $LABEL ($DUR)"
+      cat "$LOGS_DIR/$LABEL.out"
       FAIL=1
     fi
   else
-    echo "OK:   ${LABELS[$i]}"
+    echo "OK:   $LABEL ($DUR)"
   fi
 done
 
