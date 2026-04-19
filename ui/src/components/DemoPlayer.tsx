@@ -72,9 +72,34 @@ export function CLIDemoPlayerByUrl({ url }: { url: string }) {
 }
 
 export function VideoDemoPlayerByUrl({ url }: { url: string }) {
+  const [error, setError] = useState<string | null>(null)
   return (
     <Box sx={{ maxWidth: 800 }}>
-      <video controls preload="metadata" style={{ width: '100%', borderRadius: 4 }} src={url} />
+      {error ? (
+        <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, border: 1, borderColor: 'divider' }}>
+          <Typography variant="body2" color="error" sx={{ mb: 1 }}>
+            Video failed to load ({error}). WebM is not supported in Safari — use Chrome or Firefox, or download the file.
+          </Typography>
+          <Typography variant="body2">
+            <a href={url} download style={{ color: 'inherit' }}>Download video</a>
+          </Typography>
+        </Box>
+      ) : (
+        <video
+          controls
+          preload="metadata"
+          style={{ width: '100%', borderRadius: 4 }}
+          src={url}
+          onError={(e) => {
+            const v = e.currentTarget
+            const code = v.error?.code ?? 0
+            const msg: Record<number, string> = {
+              1: 'aborted', 2: 'network error', 3: 'decode error', 4: 'format not supported',
+            }
+            setError(msg[code] ?? `error ${code}`)
+          }}
+        />
+      )}
     </Box>
   )
 }
