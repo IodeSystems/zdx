@@ -411,10 +411,28 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 	}
 
-	// Tracker issues whose blockers are all closed — ready to close
+	// Tracker issues: nudge to decompose if no children, close if all children done
 	for _, iss := range trackerIssues {
 		blockers, err := h.Q.ListIssueBlockersWithStatus(ctx, iss.ID)
-		if err != nil || len(blockers) == 0 {
+		if err != nil {
+			continue
+		}
+		if len(blockers) == 0 {
+			// Tracker has no children — needs decomposition
+			candidates = append(candidates, soloCandidate{
+				Key: fmt.Sprintf("decompose-tracker-%s", iss.ID),
+				Text: fmt.Sprintf("Tracker %s has no child issues — decompose it. "+
+					"Read the tracker context, then create child issues: "+
+					"`dx issue add --title=\"...\" --context=\"...\" --issue-type=impl --parent=%s` "+
+					"for each shippable unit of work.",
+					iss.ID, iss.ID),
+				Kind:       "owner:decompose-tracker",
+				TargetType: "issue",
+				TargetID:   iss.ID,
+				IssueRef:   iss.ID,
+				Priority:   11,
+				Persona:    "owner",
+			})
 			continue
 		}
 		allClosed := true
