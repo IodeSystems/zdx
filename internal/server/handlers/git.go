@@ -132,9 +132,16 @@ func ReadSnippet(dir, gitURL, defaultBranch, hash, path string, start, end, pad 
 	}
 	if hash != "" && !hashExists(dir, hash+"^{commit}") {
 		if gitURL != "" {
+			// Try a targeted fetch first (works on servers with uploadpack.allowAnySHA1InWant).
 			fetch := exec.Command("git", "-C", dir, "fetch", "--no-tags", "origin", hash)
 			fetch.Env = GitEnv()
 			_ = fetch.Run()
+			// GitHub does not support fetching by SHA, so fall back to a full fetch.
+			if !hashExists(dir, hash+"^{commit}") {
+				full := exec.Command("git", "-C", dir, "fetch", "--prune", "origin")
+				full.Env = GitEnv()
+				_ = full.Run()
+			}
 		}
 		if !hashExists(dir, hash+"^{commit}") {
 			return nil, &SnippetError{Code: SnippetErrHashMissing, Msg: "commit " + hash + " not in local checkout"}
