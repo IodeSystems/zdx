@@ -502,6 +502,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			stateJSON := "{}"
 			changelogJSON := "{}"
 
+			var metrics techmetrics.TechMetrics
 			if role == "tech" {
 				row, err := h.Q.GetProjectGitConfig(ctx, in.Body.Slug)
 				if err != nil || row.GitUrl == "" {
@@ -520,7 +521,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					return nil, apiErr(500, "git: "+err.Error())
 				}
 
-				metrics := techmetrics.Collect(dir)
+				metrics = techmetrics.Collect(dir)
 
 				var prevDate string
 				var prevStateJSON string
@@ -545,60 +546,133 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 
 			summary, _ := h.Q.ProjectStateSummary(ctx, p.ID)
 			topIssues, _ := h.Q.TopPriorityOpenIssues(ctx, p.ID)
+			velocity, _ := h.Q.JournalVelocity(ctx, p.ID)
 
 			var churnNote string
+			var churnThemes []string
+			since := pgtype.Timestamptz{Time: time.Now().AddDate(0, 0, -7), Valid: true}
 			if role == "tech" {
-				since := pgtype.Timestamptz{Time: time.Now().AddDate(0, 0, -7), Valid: true}
 				entries, _ := h.Q.ListJournalEntries(ctx, db.ListJournalEntriesParams{ProjectID: p.ID, Role: "tech"})
 				if len(entries) > 0 {
 					if t, err := time.Parse("2006-01-02", entries[0].Date); err == nil {
 						since = pgtype.Timestamptz{Time: t, Valid: true}
 					}
 				}
-				churnCount, _ := h.Q.CountChurnSessions(ctx, db.CountChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
-				if churnCount > 0 {
-					churns, _ := h.Q.ListChurnSessions(ctx, db.ListChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
-					var themes []string
-					for _, c := range churns {
-						if c.Header != "" {
-							themes = append(themes, c.Header)
-						}
+			}
+			churnCount, _ := h.Q.CountChurnSessions(ctx, db.CountChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+			if churnCount > 0 {
+				churns, _ := h.Q.ListChurnSessions(ctx, db.ListChurnSessionsParams{ProjectID: p.ID, CreatedAt: since})
+				for _, c := range churns {
+					if c.Header != "" {
+						churnThemes = append(churnThemes, c.Header)
 					}
-					churnNote = fmt.Sprintf("%d churn session(s) since last checkin.", churnCount)
-					if len(themes) > 0 {
-						limit := len(themes)
-						if limit > 3 {
-							limit = 3
-						}
-						churnNote += " Top themes: " + strings.Join(themes[:limit], "; ")
+				}
+				churnNote = fmt.Sprintf("%d churn session(s) since last check-in.", churnCount)
+				if len(churnThemes) > 0 {
+					limit := len(churnThemes)
+					if limit > 3 {
+						limit = 3
 					}
+					churnNote += " Top themes: " + strings.Join(churnThemes[:limit], "; ")
 				}
 			}
 
-			tldr := fmt.Sprintf("%s check-in: %d open issues, %d WIP, %d closed (30d), %d ready tasks, %d done tasks",
-				role, summary.OpenIssues, summary.WipIssues, summary.RecentlyClosedIssues, summary.PendingTasks, summary.DoneTasks)
+			var tldr, assessment, concerns, next string
 
-			assessment := fmt.Sprintf("Open issues: %d | WIP: %d | Recently closed (30d): %d\nReady tasks: %d | Completed tasks: %d",
-				summary.OpenIssues, summary.WipIssues, summary.RecentlyClosedIssues, summary.PendingTasks, summary.DoneTasks)
-			if churnNote != "" {
-				assessment += "\n\n**Session Health:** " + churnNote
-			}
+			if role == "owner" {
+				goals, _ := h.Q.ListProjectGoals(ctx, p.ID)
 
-			var concerns string
-			if summary.PendingBlockers > 0 {
-				concerns = fmt.Sprintf("%d pending blocker question(s) require human decisions.", summary.PendingBlockers)
-			}
-			if churnNote != "" && concerns != "" {
-				concerns += "\n" + churnNote
-			} else if churnNote != "" {
-				concerns = churnNote
-			}
+				goalsWithMetric := 0
+				for _, g := range goals {
+					if g.MetricName != "" {
+						goalsWithMetric++
+					}
+				}
 
-			var nextItems []string
-			for _, iss := range topIssues {
-				nextItems = append(nextItems, fmt.Sprintf("[P%s] %s (%s)", iss.Priority, iss.Title, iss.ID))
+				tldr = fmt.Sprintf("Owner check-in: %d goal(s) (%d measured), velocity %d/%d closed (7d/30d), %d open issues",
+					len(goals), goalsWithMetric, velocity.Closed7d, velocity.Closed30d, summary.OpenIssues)
+
+				var assessParts []string
+				assessParts = append(assessParts, fmt.Sprintf("**Velocity:** %d closed (7d) · %d closed (14d) · %d closed (30d)",
+					velocity.Closed7d, velocity.Closed14d, velocity.Closed30d))
+				assessParts = append(assessParts, fmt.Sprintf("**Pipeline:** %d open · %d WIP · %d ready tasks",
+					summary.OpenIssues, summary.WipIssues, summary.PendingTasks))
+
+				if len(goals) > 0 {
+					goalLines := []string{"**Goals:**"}
+					for _, g := range goals {
+						line := "- " + g.Title
+						if g.MetricName != "" {
+							line += fmt.Sprintf(" (%s, unit: %s)", g.MetricName, g.MetricUnit)
+						} else {
+							line += " _(no metric defined)_"
+						}
+						goalLines = append(goalLines, line)
+					}
+					assessParts = append(assessParts, strings.Join(goalLines, "\n"))
+				}
+				assessment = strings.Join(assessParts, "\n\n")
+
+				var concernParts []string
+				if summary.PendingBlockers > 0 {
+					concernParts = append(concernParts, fmt.Sprintf("%d pending blocker question(s) require human decisions.", summary.PendingBlockers))
+				}
+				if velocity.FeaturesWithoutGoal > 0 {
+					concernParts = append(concernParts, fmt.Sprintf("%d feature(s) have no goal attribution — value delivery may be unmeasured.", velocity.FeaturesWithoutGoal))
+				}
+				if churnNote != "" {
+					concernParts = append(concernParts, "**Process churn:** "+churnNote)
+				}
+				concerns = strings.Join(concernParts, "\n")
+
+				var nextItems []string
+				nextItems = append(nextItems, fmt.Sprintf("Are we producing value? %d issue(s) closed this week.", velocity.Closed7d))
+				if len(goals) > 0 {
+					unmetered := 0
+					for _, g := range goals {
+						if g.MetricName == "" {
+							unmetered++
+						}
+					}
+					if unmetered > 0 {
+						nextItems = append(nextItems, fmt.Sprintf("Define metrics for %d goal(s) to prove value delivery.", unmetered))
+					}
+				}
+				for _, iss := range topIssues {
+					nextItems = append(nextItems, fmt.Sprintf("[P%s] %s (%s)", iss.Priority, iss.Title, iss.ID))
+				}
+				next = strings.Join(nextItems, "\n")
+
+			} else {
+				// tech role
+				tldr = fmt.Sprintf("Tech check-in: %d commits, %d files changed, %d open issues, %d closed (30d)",
+					metrics.GitCommits, metrics.GitFilesChanged, summary.OpenIssues, velocity.Closed30d)
+
+				var assessParts []string
+				assessParts = append(assessParts, fmt.Sprintf("**Activity:** %d commits · %d files changed since last check-in",
+					metrics.GitCommits, metrics.GitFilesChanged))
+				assessParts = append(assessParts, fmt.Sprintf("**Pipeline:** %d open · %d WIP · %d ready tasks · %d done tasks",
+					summary.OpenIssues, summary.WipIssues, summary.PendingTasks, summary.DoneTasks))
+				if churnNote != "" {
+					assessParts = append(assessParts, "**Session Health:** "+churnNote)
+				}
+				assessment = strings.Join(assessParts, "\n\n")
+
+				var concernParts []string
+				if summary.PendingBlockers > 0 {
+					concernParts = append(concernParts, fmt.Sprintf("%d pending blocker question(s) require human decisions.", summary.PendingBlockers))
+				}
+				if churnNote != "" {
+					concernParts = append(concernParts, "**Process churn:** "+churnNote)
+				}
+				concerns = strings.Join(concernParts, "\n")
+
+				var nextItems []string
+				for _, iss := range topIssues {
+					nextItems = append(nextItems, fmt.Sprintf("[P%s] %s (%s)", iss.Priority, iss.Title, iss.ID))
+				}
+				next = strings.Join(nextItems, "\n")
 			}
-			next := strings.Join(nextItems, "\n")
 
 			inserted, err := h.Q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
 				ProjectID:     p.ID,

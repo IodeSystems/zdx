@@ -21,3 +21,11 @@ FROM zdx_journal_entries WHERE id = $1 AND project_id = $2;
 
 -- name: MarkJournalEntryReviewed :exec
 UPDATE zdx_journal_entries SET needs_review = false WHERE id = $1;
+
+-- name: JournalVelocity :one
+SELECT
+  (SELECT count(*) FROM zdx_issues   i WHERE i.project_id = $1 AND i.status = 'closed' AND i.updated_at > NOW() - INTERVAL '7 days')  AS closed_7d,
+  (SELECT count(*) FROM zdx_issues   i WHERE i.project_id = $1 AND i.status = 'closed' AND i.updated_at > NOW() - INTERVAL '14 days') AS closed_14d,
+  (SELECT count(*) FROM zdx_issues   i WHERE i.project_id = $1 AND i.status = 'closed' AND i.updated_at > NOW() - INTERVAL '30 days') AS closed_30d,
+  (SELECT count(*) FROM zdx_features f WHERE f.project_id = $1 AND f.goal_id IS NULL)                                                  AS features_without_goal,
+  (SELECT count(*) FROM zdx_focuses  fo WHERE fo.project_id = $1 AND fo.status = 'active')                                            AS active_focus_count;

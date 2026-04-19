@@ -219,6 +219,36 @@ func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntry
 	return i, err
 }
 
+const journalVelocity = `-- name: JournalVelocity :one
+SELECT
+  (SELECT count(*) FROM zdx_issues   i WHERE i.project_id = $1 AND i.status = 'closed' AND i.updated_at > NOW() - INTERVAL '7 days')  AS closed_7d,
+  (SELECT count(*) FROM zdx_issues   i WHERE i.project_id = $1 AND i.status = 'closed' AND i.updated_at > NOW() - INTERVAL '14 days') AS closed_14d,
+  (SELECT count(*) FROM zdx_issues   i WHERE i.project_id = $1 AND i.status = 'closed' AND i.updated_at > NOW() - INTERVAL '30 days') AS closed_30d,
+  (SELECT count(*) FROM zdx_features f WHERE f.project_id = $1 AND f.goal_id IS NULL)                                                  AS features_without_goal,
+  (SELECT count(*) FROM zdx_focuses  fo WHERE fo.project_id = $1 AND fo.status = 'active')                                            AS active_focus_count
+`
+
+type JournalVelocityRow struct {
+	Closed7d            int64 `db:"closed_7d" json:"closed_7d"`
+	Closed14d           int64 `db:"closed_14d" json:"closed_14d"`
+	Closed30d           int64 `db:"closed_30d" json:"closed_30d"`
+	FeaturesWithoutGoal int64 `db:"features_without_goal" json:"features_without_goal"`
+	ActiveFocusCount    int64 `db:"active_focus_count" json:"active_focus_count"`
+}
+
+func (q *Queries) JournalVelocity(ctx context.Context, projectID int32) (JournalVelocityRow, error) {
+	row := q.db.QueryRow(ctx, journalVelocity, projectID)
+	var i JournalVelocityRow
+	err := row.Scan(
+		&i.Closed7d,
+		&i.Closed14d,
+		&i.Closed30d,
+		&i.FeaturesWithoutGoal,
+		&i.ActiveFocusCount,
+	)
+	return i, err
+}
+
 const listJournalEntries = `-- name: ListJournalEntries :many
 SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 20
