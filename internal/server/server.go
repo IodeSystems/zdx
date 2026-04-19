@@ -376,7 +376,12 @@ func (s *Server) adminMiddleware(next http.Handler) http.Handler {
 // Runs before any handler or downstream middleware that touches the DB.
 func (s *Server) sourceMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		next.ServeHTTP(w, r.WithContext(handlers.WithSource(r.Context(), r.URL.Path)))
+		rctx := chi.RouteContext(r.Context())
+		source := r.URL.Path
+		if rctx != nil && rctx.RoutePattern() != "" {
+			source = rctx.RoutePattern()
+		}
+		next.ServeHTTP(w, r.WithContext(handlers.WithSource(r.Context(), source)))
 	})
 }
 
@@ -400,10 +405,15 @@ func (s *Server) timingMiddleware(next http.Handler) http.Handler {
 		if durationMs < 10 {
 			return
 		}
+		// Use route template pattern for batching; fall back to literal path.
+		pattern := path
+		if rctx := chi.RouteContext(r.Context()); rctx != nil && rctx.RoutePattern() != "" {
+			pattern = rctx.RoutePattern()
+		}
 		s.sink.send(Timing{
-			Name:       "http:" + r.Method + " " + path,
+			Name:       "http:" + r.Method + " " + pattern,
 			DurationMs: durationMs,
-			Source:     path,
+			Source:     pattern,
 		})
 	})
 }
