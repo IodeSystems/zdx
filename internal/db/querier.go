@@ -191,6 +191,7 @@ type Querier interface {
 	GetProjectConstraint(ctx context.Context, id int32) (ZdxProjectConstraint, error)
 	GetProjectGitConfig(ctx context.Context, slug string) (GetProjectGitConfigRow, error)
 	GetProjectGoal(ctx context.Context, id int32) (GetProjectGoalRow, error)
+	GetProjectProxyConfig(ctx context.Context, slug string) (GetProjectProxyConfigRow, error)
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetQuestionProposal(ctx context.Context, arg GetQuestionProposalParams) (ZdxQuestionProposal, error)
 	GetSpec(ctx context.Context, id int32) (GetSpecRow, error)
@@ -437,6 +438,7 @@ type Querier interface {
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
 	SetProjectClassification(ctx context.Context, arg SetProjectClassificationParams) error
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
+	SetProjectProxyConfig(ctx context.Context, arg SetProjectProxyConfigParams) error
 	SetProjectStage(ctx context.Context, arg SetProjectStageParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)

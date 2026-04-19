@@ -4002,7 +4002,13 @@ export interface components {
              */
             id: number;
             issue_type: string;
+            link_of?: string;
             priority: string;
+            /**
+             * Format: int32
+             * @description Number of times this issue has been reopened — a churn signal for stabilization candidates
+             */
+            reopen_count?: number;
             similar?: components["schemas"]["SimilarIssueItem"][] | null;
             source: string;
             status: string;
@@ -4523,6 +4529,7 @@ export interface components {
             duplicate_of?: string;
             /** Format: int32 */
             id: number;
+            link_of?: string;
             notes?: string;
             reason?: string;
             slug: string;
@@ -5588,7 +5595,13 @@ export interface components {
              */
             id: number;
             issue_type: string;
+            link_of?: string;
             priority: string;
+            /**
+             * Format: int32
+             * @description Number of times this issue has been reopened — a churn signal for stabilization candidates
+             */
+            reopen_count?: number;
             source: string;
             status: string;
             title: string;

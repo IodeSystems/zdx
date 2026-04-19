@@ -105,15 +105,19 @@ type AddIssueResponse struct {
 	Features        string             `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
-	Id        int32               `json:"id"`
-	IssueType string              `json:"issue_type"`
-	Priority  string              `json:"priority"`
-	Similar   *[]SimilarIssueItem `json:"similar,omitempty"`
-	Source    string              `json:"source"`
-	Status    string              `json:"status"`
-	Title     string              `json:"title"`
-	UpdatedAt string              `json:"updated_at"`
-	Url       string              `json:"url"`
+	Id        int32   `json:"id"`
+	IssueType string  `json:"issue_type"`
+	LinkOf    *string `json:"link_of,omitempty"`
+	Priority  string  `json:"priority"`
+
+	// ReopenCount Number of times this issue has been reopened — a churn signal for stabilization candidates
+	ReopenCount *int32              `json:"reopen_count,omitempty"`
+	Similar     *[]SimilarIssueItem `json:"similar,omitempty"`
+	Source      string              `json:"source"`
+	Status      string              `json:"status"`
+	Title       string              `json:"title"`
+	UpdatedAt   string              `json:"updated_at"`
+	Url         string              `json:"url"`
 }
 
 // AddPatternRequest defines model for Add-patternRequest.

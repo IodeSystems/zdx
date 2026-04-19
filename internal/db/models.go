@@ -457,15 +457,18 @@ type ZdxPlanStepRef struct {
 }
 
 type ZdxProject struct {
-	ID             int32              `db:"id" json:"id"`
-	Slug           string             `db:"slug" json:"slug"`
-	Name           string             `db:"name" json:"name"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	GitUrl         string             `db:"git_url" json:"git_url"`
-	GitBranch      string             `db:"git_branch" json:"git_branch"`
-	GitToken       string             `db:"git_token" json:"git_token"`
-	Stage          string             `db:"stage" json:"stage"`
-	Classification string             `db:"classification" json:"classification"`
+	ID                  int32              `db:"id" json:"id"`
+	Slug                string             `db:"slug" json:"slug"`
+	Name                string             `db:"name" json:"name"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	GitUrl              string             `db:"git_url" json:"git_url"`
+	GitBranch           string             `db:"git_branch" json:"git_branch"`
+	GitToken            string             `db:"git_token" json:"git_token"`
+	Stage               string             `db:"stage" json:"stage"`
+	Classification      string             `db:"classification" json:"classification"`
+	UpstreamUrl         string             `db:"upstream_url" json:"upstream_url"`
+	UpstreamCredentials string             `db:"upstream_credentials" json:"upstream_credentials"`
+	GitEnabled          bool               `db:"git_enabled" json:"git_enabled"`
 }
 
 type ZdxProjectConstraint struct {
