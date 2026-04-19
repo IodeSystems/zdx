@@ -1852,6 +1852,13 @@ type ListMaturityItemsResponse struct {
 	Items  *[]MaturityItem `json:"items"`
 }
 
+// ListMaturityQuestionsResponse defines model for List-maturity-questionsResponse.
+type ListMaturityQuestionsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string             `json:"$schema,omitempty"`
+	Questions *[]MaturityQuestion `json:"questions"`
+}
+
 // ListMyCommentsResponse defines model for List-my-commentsResponse.
 type ListMyCommentsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2165,6 +2172,16 @@ type MarkTaskUndoneRequest struct {
 	Id     int32   `json:"id"`
 }
 
+// MaturityAnswer defines model for MaturityAnswer.
+type MaturityAnswer struct {
+	Answer      string `json:"answer"`
+	AnsweredAt  string `json:"answered_at"`
+	AnsweredBy  string `json:"answered_by"`
+	Id          int32  `json:"id"`
+	ProjectId   int32  `json:"project_id"`
+	QuestionKey string `json:"question_key"`
+}
+
 // MaturityItem defines model for MaturityItem.
 type MaturityItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2183,6 +2200,18 @@ type MaturityItem struct {
 	TargetType     string  `json:"target_type"`
 	Title          string  `json:"title"`
 	UpdatedAt      string  `json:"updated_at"`
+}
+
+// MaturityQuestion defines model for MaturityQuestion.
+type MaturityQuestion struct {
+	Answer                    string    `json:"answer"`
+	AnswerType                string    `json:"answer_type"`
+	AnsweredAt                string    `json:"answered_at"`
+	AnsweredBy                string    `json:"answered_by"`
+	ApplicableClassifications *[]string `json:"applicable_classifications"`
+	Key                       string    `json:"key"`
+	PriorityHint              int32     `json:"priority_hint"`
+	Prompt                    string    `json:"prompt"`
 }
 
 // MeItem defines model for MeItem.
@@ -2945,6 +2974,23 @@ type StaleCommentItem struct {
 	ParentId    *int32  `json:"parent_id,omitempty"`
 	TargetId    string  `json:"target_id"`
 	TargetType  string  `json:"target_type"`
+}
+
+// SubmitMaturityAnswerRequest defines model for Submit-maturity-answerRequest.
+type SubmitMaturityAnswerRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	Answer      string  `json:"answer"`
+	AnsweredBy  string  `json:"answered_by"`
+	QuestionKey string  `json:"question_key"`
+}
+
+// SubmitMaturityAnswerResponse defines model for Submit-maturity-answerResponse.
+type SubmitMaturityAnswerResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string         `json:"$schema,omitempty"`
+	Answer MaturityAnswer  `json:"answer"`
+	Items  *[]MaturityItem `json:"items"`
 }
 
 // SubmitTestResultsRequest defines model for Submit-test-resultsRequest.
@@ -3768,10 +3814,20 @@ type ListLogEventsTagValuesParams struct {
 	Key  *string `form:"key,omitempty" json:"key,omitempty"`
 }
 
+// SubmitMaturityAnswerParams defines parameters for SubmitMaturityAnswer.
+type SubmitMaturityAnswerParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
 // ListMaturityItemsParams defines parameters for ListMaturityItems.
 type ListMaturityItemsParams struct {
 	Slug   string  `form:"slug" json:"slug"`
 	Status *string `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ListMaturityQuestionsParams defines parameters for ListMaturityQuestions.
+type ListMaturityQuestionsParams struct {
+	Slug string `form:"slug" json:"slug"`
 }
 
 // NotificationsUnreadCountParams defines parameters for NotificationsUnreadCount.
@@ -4298,6 +4354,9 @@ type JournalGenerateJSONRequestBody = JournalGenerateRequest
 
 // JournalReviewJSONRequestBody defines body for JournalReview for application/json ContentType.
 type JournalReviewJSONRequestBody = JournalReviewRequest
+
+// SubmitMaturityAnswerJSONRequestBody defines body for SubmitMaturityAnswer for application/json ContentType.
+type SubmitMaturityAnswerJSONRequestBody = SubmitMaturityAnswerRequest
 
 // UpdateMaturityItemJSONRequestBody defines body for UpdateMaturityItem for application/json ContentType.
 type UpdateMaturityItemJSONRequestBody = UpdateMaturityItemRequest
@@ -5072,6 +5131,11 @@ type ClientInterface interface {
 	// ListLogEventsTagValues request
 	ListLogEventsTagValues(ctx context.Context, params *ListLogEventsTagValuesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SubmitMaturityAnswerWithBody request with any body
+	SubmitMaturityAnswerWithBody(ctx context.Context, params *SubmitMaturityAnswerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SubmitMaturityAnswer(ctx context.Context, params *SubmitMaturityAnswerParams, body SubmitMaturityAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListMaturityItems request
 	ListMaturityItems(ctx context.Context, params *ListMaturityItemsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -5082,6 +5146,9 @@ type ClientInterface interface {
 	UpdateMaturityItemWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateMaturityItem(ctx context.Context, id string, body UpdateMaturityItemJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListMaturityQuestions request
+	ListMaturityQuestions(ctx context.Context, params *ListMaturityQuestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// NotificationsDismissAllWithBody request with any body
 	NotificationsDismissAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7687,6 +7754,30 @@ func (c *APIClient) ListLogEventsTagValues(ctx context.Context, params *ListLogE
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) SubmitMaturityAnswerWithBody(ctx context.Context, params *SubmitMaturityAnswerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSubmitMaturityAnswerRequestWithBody(c.Server, params, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SubmitMaturityAnswer(ctx context.Context, params *SubmitMaturityAnswerParams, body SubmitMaturityAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSubmitMaturityAnswerRequest(c.Server, params, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListMaturityItems(ctx context.Context, params *ListMaturityItemsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListMaturityItemsRequest(c.Server, params)
 	if err != nil {
@@ -7725,6 +7816,18 @@ func (c *APIClient) UpdateMaturityItemWithBody(ctx context.Context, id string, c
 
 func (c *APIClient) UpdateMaturityItem(ctx context.Context, id string, body UpdateMaturityItemJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateMaturityItemRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListMaturityQuestions(ctx context.Context, params *ListMaturityQuestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMaturityQuestionsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -16727,6 +16830,64 @@ func NewListLogEventsTagValuesRequest(server string, params *ListLogEventsTagVal
 	return req, nil
 }
 
+// NewSubmitMaturityAnswerRequest calls the generic SubmitMaturityAnswer builder with application/json body
+func NewSubmitMaturityAnswerRequest(server string, params *SubmitMaturityAnswerParams, body SubmitMaturityAnswerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSubmitMaturityAnswerRequestWithBody(server, params, "application/json", bodyReader)
+}
+
+// NewSubmitMaturityAnswerRequestWithBody generates requests for SubmitMaturityAnswer with any type of body
+func NewSubmitMaturityAnswerRequestWithBody(server string, params *SubmitMaturityAnswerParams, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/maturity/answers")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListMaturityItemsRequest generates requests for ListMaturityItems
 func NewListMaturityItemsRequest(server string, params *ListMaturityItemsParams) (*http.Request, error) {
 	var err error
@@ -16865,6 +17026,51 @@ func NewUpdateMaturityItemRequestWithBody(server string, id string, contentType 
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListMaturityQuestionsRequest generates requests for ListMaturityQuestions
+func NewListMaturityQuestionsRequest(server string, params *ListMaturityQuestionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/maturity/questions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -24810,6 +25016,11 @@ type ClientWithResponsesInterface interface {
 	// ListLogEventsTagValuesWithResponse request
 	ListLogEventsTagValuesWithResponse(ctx context.Context, params *ListLogEventsTagValuesParams, reqEditors ...RequestEditorFn) (*ParsedListLogEventsTagValuesResponse, error)
 
+	// SubmitMaturityAnswerWithBodyWithResponse request with any body
+	SubmitMaturityAnswerWithBodyWithResponse(ctx context.Context, params *SubmitMaturityAnswerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSubmitMaturityAnswerResponse, error)
+
+	SubmitMaturityAnswerWithResponse(ctx context.Context, params *SubmitMaturityAnswerParams, body SubmitMaturityAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSubmitMaturityAnswerResponse, error)
+
 	// ListMaturityItemsWithResponse request
 	ListMaturityItemsWithResponse(ctx context.Context, params *ListMaturityItemsParams, reqEditors ...RequestEditorFn) (*ParsedListMaturityItemsResponse, error)
 
@@ -24820,6 +25031,9 @@ type ClientWithResponsesInterface interface {
 	UpdateMaturityItemWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateMaturityItemResponse, error)
 
 	UpdateMaturityItemWithResponse(ctx context.Context, id string, body UpdateMaturityItemJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateMaturityItemResponse, error)
+
+	// ListMaturityQuestionsWithResponse request
+	ListMaturityQuestionsWithResponse(ctx context.Context, params *ListMaturityQuestionsParams, reqEditors ...RequestEditorFn) (*ParsedListMaturityQuestionsResponse, error)
 
 	// NotificationsDismissAllWithBodyWithResponse request with any body
 	NotificationsDismissAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*NotificationsDismissAllResponse, error)
@@ -28104,6 +28318,29 @@ func (r ParsedListLogEventsTagValuesResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedSubmitMaturityAnswerResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SubmitMaturityAnswerResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSubmitMaturityAnswerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSubmitMaturityAnswerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListMaturityItemsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -28167,6 +28404,29 @@ func (r UpdateMaturityItemResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateMaturityItemResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListMaturityQuestionsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListMaturityQuestionsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListMaturityQuestionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListMaturityQuestionsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -32957,6 +33217,23 @@ func (c *ClientWithResponses) ListLogEventsTagValuesWithResponse(ctx context.Con
 	return ParseParsedListLogEventsTagValuesResponse(rsp)
 }
 
+// SubmitMaturityAnswerWithBodyWithResponse request with arbitrary body returning *ParsedSubmitMaturityAnswerResponse
+func (c *ClientWithResponses) SubmitMaturityAnswerWithBodyWithResponse(ctx context.Context, params *SubmitMaturityAnswerParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSubmitMaturityAnswerResponse, error) {
+	rsp, err := c.SubmitMaturityAnswerWithBody(ctx, params, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSubmitMaturityAnswerResponse(rsp)
+}
+
+func (c *ClientWithResponses) SubmitMaturityAnswerWithResponse(ctx context.Context, params *SubmitMaturityAnswerParams, body SubmitMaturityAnswerJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSubmitMaturityAnswerResponse, error) {
+	rsp, err := c.SubmitMaturityAnswer(ctx, params, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSubmitMaturityAnswerResponse(rsp)
+}
+
 // ListMaturityItemsWithResponse request returning *ParsedListMaturityItemsResponse
 func (c *ClientWithResponses) ListMaturityItemsWithResponse(ctx context.Context, params *ListMaturityItemsParams, reqEditors ...RequestEditorFn) (*ParsedListMaturityItemsResponse, error) {
 	rsp, err := c.ListMaturityItems(ctx, params, reqEditors...)
@@ -32990,6 +33267,15 @@ func (c *ClientWithResponses) UpdateMaturityItemWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseUpdateMaturityItemResponse(rsp)
+}
+
+// ListMaturityQuestionsWithResponse request returning *ParsedListMaturityQuestionsResponse
+func (c *ClientWithResponses) ListMaturityQuestionsWithResponse(ctx context.Context, params *ListMaturityQuestionsParams, reqEditors ...RequestEditorFn) (*ParsedListMaturityQuestionsResponse, error) {
+	rsp, err := c.ListMaturityQuestions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListMaturityQuestionsResponse(rsp)
 }
 
 // NotificationsDismissAllWithBodyWithResponse request with arbitrary body returning *NotificationsDismissAllResponse
@@ -38758,6 +39044,39 @@ func ParseParsedListLogEventsTagValuesResponse(rsp *http.Response) (*ParsedListL
 	return response, nil
 }
 
+// ParseParsedSubmitMaturityAnswerResponse parses an HTTP response from a SubmitMaturityAnswerWithResponse call
+func ParseParsedSubmitMaturityAnswerResponse(rsp *http.Response) (*ParsedSubmitMaturityAnswerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSubmitMaturityAnswerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SubmitMaturityAnswerResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListMaturityItemsResponse parses an HTTP response from a ListMaturityItemsWithResponse call
 func ParseParsedListMaturityItemsResponse(rsp *http.Response) (*ParsedListMaturityItemsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -38840,6 +39159,39 @@ func ParseUpdateMaturityItemResponse(rsp *http.Response) (*UpdateMaturityItemRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest MaturityItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListMaturityQuestionsResponse parses an HTTP response from a ListMaturityQuestionsWithResponse call
+func ParseParsedListMaturityQuestionsResponse(rsp *http.Response) (*ParsedListMaturityQuestionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListMaturityQuestionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListMaturityQuestionsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

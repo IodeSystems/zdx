@@ -189,12 +189,12 @@ type ZdxErrorEvent struct {
 
 type ZdxErrorReport struct {
 	ID         int64              `db:"id" json:"id"`
-	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
 	Source     string             `db:"source" json:"source"`
 	Endpoint   string             `db:"endpoint" json:"endpoint"`
 	ErrorName  string             `db:"error_name" json:"error_name"`
 	StackTrace string             `db:"stack_trace" json:"stack_trace"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
 }
 
 type ZdxFeature struct {
@@ -394,6 +394,15 @@ type ZdxLogEvent struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxMaturityAnswer struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	QuestionKey string             `db:"question_key" json:"question_key"`
+	Answer      string             `db:"answer" json:"answer"`
+	AnsweredBy  string             `db:"answered_by" json:"answered_by"`
+	AnsweredAt  pgtype.Timestamptz `db:"answered_at" json:"answered_at"`
+}
+
 type ZdxMaturityItem struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
@@ -409,6 +418,14 @@ type ZdxMaturityItem struct {
 	PriorityHint   int32              `db:"priority_hint" json:"priority_hint"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type ZdxMaturityQuestion struct {
+	Key                       string   `db:"key" json:"key"`
+	Prompt                    string   `db:"prompt" json:"prompt"`
+	AnswerType                string   `db:"answer_type" json:"answer_type"`
+	PriorityHint              int32    `db:"priority_hint" json:"priority_hint"`
+	ApplicableClassifications []string `db:"applicable_classifications" json:"applicable_classifications"`
 }
 
 type ZdxOauthIdentity struct {
@@ -588,13 +605,13 @@ type ZdxSession struct {
 
 type ZdxSlowQuery struct {
 	ID          int64              `db:"id" json:"id"`
-	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
 	SqlHash     string             `db:"sql_hash" json:"sql_hash"`
 	SqlText     string             `db:"sql_text" json:"sql_text"`
 	Endpoint    string             `db:"endpoint" json:"endpoint"`
 	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
 	ExplainJson string             `db:"explain_json" json:"explain_json"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
 }
 
 type ZdxSpec struct {

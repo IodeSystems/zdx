@@ -1718,6 +1718,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/maturity/answers": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["submit-maturity-answer"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/maturity/items": {
         parameters: {
             query?: never;
@@ -1748,6 +1764,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["update-maturity-item"];
+        trace?: never;
+    };
+    "/api/dx/maturity/questions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-maturity-questions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
         trace?: never;
     };
     "/api/dx/notifications/dismiss-all": {
@@ -6209,6 +6241,15 @@ export interface components {
             readonly $schema?: string;
             items: components["schemas"]["MaturityItem"][] | null;
         };
+        "List-maturity-questionsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-maturity-questionsResponse.json
+             */
+            readonly $schema?: string;
+            questions: components["schemas"]["MaturityQuestion"][] | null;
+        };
         "List-my-commentsResponse": {
             /**
              * Format: uri
@@ -6612,6 +6653,16 @@ export interface components {
             /** Format: int32 */
             id: number;
         };
+        MaturityAnswer: {
+            answer: string;
+            answered_at: string;
+            answered_by: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            project_id: number;
+            question_key: string;
+        };
         MaturityItem: {
             /**
              * Format: uri
@@ -6637,6 +6688,17 @@ export interface components {
             target_type: string;
             title: string;
             updated_at: string;
+        };
+        MaturityQuestion: {
+            answer: string;
+            answer_type: string;
+            answered_at: string;
+            answered_by: string;
+            applicable_classifications: string[] | null;
+            key: string;
+            /** Format: int32 */
+            priority_hint: number;
+            prompt: string;
         };
         MeItem: {
             /**
@@ -7563,6 +7625,27 @@ export interface components {
             parent_id?: number;
             target_id: string;
             target_type: string;
+        };
+        "Submit-maturity-answerRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Submit-maturity-answerRequest.json
+             */
+            readonly $schema?: string;
+            answer: string;
+            answered_by: string;
+            question_key: string;
+        };
+        "Submit-maturity-answerResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Submit-maturity-answerResponse.json
+             */
+            readonly $schema?: string;
+            answer: components["schemas"]["MaturityAnswer"];
+            items: components["schemas"]["MaturityItem"][] | null;
         };
         "Submit-test-resultsRequest": {
             /**
@@ -11952,6 +12035,41 @@ export interface operations {
             };
         };
     };
+    "submit-maturity-answer": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Submit-maturity-answerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Submit-maturity-answerResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-maturity-items": {
         parameters: {
             query: {
@@ -12037,6 +12155,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["MaturityItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-maturity-questions": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-maturity-questionsResponse"];
                 };
             };
             /** @description Error */
