@@ -45,6 +45,12 @@ LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.issue_id = $2
 ORDER BY s.updated_at DESC;
 
+-- name: ListClaudeSessionsByTodoID :many
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id
+FROM zdx_claude_sessions s
+WHERE s.project_id = $1 AND s.todo_id = $2
+ORDER BY s.updated_at DESC;
+
 -- name: CountClaudeSessionsByIssue :one
 SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1 AND issue_id = $2;
 

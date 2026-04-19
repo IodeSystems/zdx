@@ -207,6 +207,7 @@ type Querier interface {
 	GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (GetUnreviewedJournalEntryRow, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
+	// Excludes agent-authored comments (author_alias != '') so agents don't review their own replies.
 	HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadCommentsForTargetParams) (bool, error)
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
@@ -240,6 +241,7 @@ type Querier interface {
 	ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeEventsPaginatedParams) ([]ZdxClaudeEvent, error)
 	ListClaudeSessions(ctx context.Context, projectID int32) ([]ListClaudeSessionsRow, error)
 	ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error)
+	ListClaudeSessionsByTodoID(ctx context.Context, arg ListClaudeSessionsByTodoIDParams) ([]ListClaudeSessionsByTodoIDRow, error)
 	ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error)
 	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
 	ListCodeRefsBySpec(ctx context.Context, specID int32) ([]ZdxCodeRef, error)
@@ -295,6 +297,7 @@ type Querier interface {
 	ListIssuesBlockedBy(ctx context.Context, blockedByID string) ([]string, error)
 	ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error)
 	// Returns issues (any status) that have unread comments for the given role.
+	// Excludes agent-authored comments (author_alias != '') so agents don't review their own replies.
 	ListIssuesWithUnreadComments(ctx context.Context, arg ListIssuesWithUnreadCommentsParams) ([]ListIssuesWithUnreadCommentsRow, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ListJournalEntriesRow, error)
 	ListLLMConfigs(ctx context.Context) ([]ListLLMConfigsRow, error)
@@ -326,6 +329,9 @@ type Querier interface {
 	ListReservations(ctx context.Context, arg ListReservationsParams) ([]ZdxReservation, error)
 	// Return reservations for todos linked to a specific issue, with optional agent session info.
 	ListReservationsByIssue(ctx context.Context, arg ListReservationsByIssueParams) ([]ListReservationsByIssueRow, error)
+	// Return all reservation history rows for a todo identified by its stable key,
+	// most recent first. Joins in the claude session (if any) that shared the reservation window.
+	ListReservationsByTodoKey(ctx context.Context, arg ListReservationsByTodoKeyParams) ([]ListReservationsByTodoKeyRow, error)
 	ListResolutionCommits(ctx context.Context, resolutionID string) ([]ZdxIssueResolutionCommit, error)
 	ListResolutionsByProject(ctx context.Context, projectID int32) ([]ZdxIssueResolution, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
@@ -347,6 +353,7 @@ type Querier interface {
 	ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error)
 	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
 	// Returns comments that are unread for the given role and older than the given age threshold.
+	// Excludes comments authored by agents (author_alias != '') so agents don't review their own replies.
 	ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error)
 	ListTaskReviews(ctx context.Context, arg ListTaskReviewsParams) ([]ListTaskReviewsRow, error)
 	ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error)

@@ -713,6 +713,68 @@ func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeS
 	return items, nil
 }
 
+const listClaudeSessionsByTodoID = `-- name: ListClaudeSessionsByTodoID :many
+SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id
+FROM zdx_claude_sessions s
+WHERE s.project_id = $1 AND s.todo_id = $2
+ORDER BY s.updated_at DESC
+`
+
+type ListClaudeSessionsByTodoIDParams struct {
+	ProjectID int32       `db:"project_id" json:"project_id"`
+	TodoID    pgtype.Int4 `db:"todo_id" json:"todo_id"`
+}
+
+type ListClaudeSessionsByTodoIDRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	SessionID string             `db:"session_id" json:"session_id"`
+	Title     string             `db:"title" json:"title"`
+	Alias     string             `db:"alias" json:"alias"`
+	Header    string             `db:"header" json:"header"`
+	Summary   string             `db:"summary" json:"summary"`
+	Status    string             `db:"status" json:"status"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt  pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID    pgtype.Int4        `db:"todo_id" json:"todo_id"`
+}
+
+func (q *Queries) ListClaudeSessionsByTodoID(ctx context.Context, arg ListClaudeSessionsByTodoIDParams) ([]ListClaudeSessionsByTodoIDRow, error) {
+	rows, err := q.db.Query(ctx, listClaudeSessionsByTodoID, arg.ProjectID, arg.TodoID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClaudeSessionsByTodoIDRow
+	for rows.Next() {
+		var i ListClaudeSessionsByTodoIDRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.IssueID,
+			&i.SessionID,
+			&i.Title,
+			&i.Alias,
+			&i.Header,
+			&i.Summary,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
+			&i.TodoID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listClaudeSessionsPaginated = `-- name: ListClaudeSessionsPaginated :many
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
        t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id

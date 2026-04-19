@@ -45,6 +45,7 @@ import { Route as ProjectSlugFeaturesIndexRouteImport } from './routes/project/$
 import { Route as ProjectSlugErrorsIndexRouteImport } from './routes/project/$slug/errors/index'
 import { Route as ProjectSlugDemosIndexRouteImport } from './routes/project/$slug/demos/index'
 import { Route as ProjectSlugAgentsIndexRouteImport } from './routes/project/$slug/agents/index'
+import { Route as ProjectSlugTodosKeyRouteImport } from './routes/project/$slug/todos/$key'
 import { Route as ProjectSlugTestsIdRouteImport } from './routes/project/$slug/tests/$id'
 import { Route as ProjectSlugTasksIdRouteImport } from './routes/project/$slug/tasks/$id'
 import { Route as ProjectSlugSpecsSpecIdRouteImport } from './routes/project/$slug/specs/$specId'
@@ -242,6 +243,11 @@ const ProjectSlugAgentsIndexRoute = ProjectSlugAgentsIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProjectSlugAgentsRoute,
 } as any)
+const ProjectSlugTodosKeyRoute = ProjectSlugTodosKeyRouteImport.update({
+  id: '/todos/$key',
+  path: '/todos/$key',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
 const ProjectSlugTestsIdRoute = ProjectSlugTestsIdRouteImport.update({
   id: '/$id',
   path: '/$id',
@@ -342,6 +348,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/specs/$specId': typeof ProjectSlugSpecsSpecIdRoute
   '/project/$slug/tasks/$id': typeof ProjectSlugTasksIdRoute
   '/project/$slug/tests/$id': typeof ProjectSlugTestsIdRoute
+  '/project/$slug/todos/$key': typeof ProjectSlugTodosKeyRoute
   '/project/$slug/agents/': typeof ProjectSlugAgentsIndexRoute
   '/project/$slug/demos/': typeof ProjectSlugDemosIndexRoute
   '/project/$slug/errors/': typeof ProjectSlugErrorsIndexRoute
@@ -383,6 +390,7 @@ export interface FileRoutesByTo {
   '/project/$slug/specs/$specId': typeof ProjectSlugSpecsSpecIdRoute
   '/project/$slug/tasks/$id': typeof ProjectSlugTasksIdRoute
   '/project/$slug/tests/$id': typeof ProjectSlugTestsIdRoute
+  '/project/$slug/todos/$key': typeof ProjectSlugTodosKeyRoute
   '/project/$slug/agents': typeof ProjectSlugAgentsIndexRoute
   '/project/$slug/demos': typeof ProjectSlugDemosIndexRoute
   '/project/$slug/errors': typeof ProjectSlugErrorsIndexRoute
@@ -434,6 +442,7 @@ export interface FileRoutesById {
   '/project/$slug/specs/$specId': typeof ProjectSlugSpecsSpecIdRoute
   '/project/$slug/tasks/$id': typeof ProjectSlugTasksIdRoute
   '/project/$slug/tests/$id': typeof ProjectSlugTestsIdRoute
+  '/project/$slug/todos/$key': typeof ProjectSlugTodosKeyRoute
   '/project/$slug/agents/': typeof ProjectSlugAgentsIndexRoute
   '/project/$slug/demos/': typeof ProjectSlugDemosIndexRoute
   '/project/$slug/errors/': typeof ProjectSlugErrorsIndexRoute
@@ -486,6 +495,7 @@ export interface FileRouteTypes {
     | '/project/$slug/specs/$specId'
     | '/project/$slug/tasks/$id'
     | '/project/$slug/tests/$id'
+    | '/project/$slug/todos/$key'
     | '/project/$slug/agents/'
     | '/project/$slug/demos/'
     | '/project/$slug/errors/'
@@ -527,6 +537,7 @@ export interface FileRouteTypes {
     | '/project/$slug/specs/$specId'
     | '/project/$slug/tasks/$id'
     | '/project/$slug/tests/$id'
+    | '/project/$slug/todos/$key'
     | '/project/$slug/agents'
     | '/project/$slug/demos'
     | '/project/$slug/errors'
@@ -577,6 +588,7 @@ export interface FileRouteTypes {
     | '/project/$slug/specs/$specId'
     | '/project/$slug/tasks/$id'
     | '/project/$slug/tests/$id'
+    | '/project/$slug/todos/$key'
     | '/project/$slug/agents/'
     | '/project/$slug/demos/'
     | '/project/$slug/errors/'
@@ -854,6 +866,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugAgentsIndexRouteImport
       parentRoute: typeof ProjectSlugAgentsRoute
     }
+    '/project/$slug/todos/$key': {
+      id: '/project/$slug/todos/$key'
+      path: '/todos/$key'
+      fullPath: '/project/$slug/todos/$key'
+      preLoaderRoute: typeof ProjectSlugTodosKeyRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
     '/project/$slug/tests/$id': {
       id: '/project/$slug/tests/$id'
       path: '/$id'
@@ -1077,6 +1096,7 @@ interface ProjectSlugRouteChildren {
   ProjectSlugFocusesNameRoute: typeof ProjectSlugFocusesNameRoute
   ProjectSlugQuestionsIdRoute: typeof ProjectSlugQuestionsIdRoute
   ProjectSlugSpecsSpecIdRoute: typeof ProjectSlugSpecsSpecIdRoute
+  ProjectSlugTodosKeyRoute: typeof ProjectSlugTodosKeyRoute
   ProjectSlugErrorsIndexRoute: typeof ProjectSlugErrorsIndexRoute
   ProjectSlugFocusesIndexRoute: typeof ProjectSlugFocusesIndexRoute
   ProjectSlugQuestionsIndexRoute: typeof ProjectSlugQuestionsIndexRoute
@@ -1105,6 +1125,7 @@ const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
   ProjectSlugFocusesNameRoute: ProjectSlugFocusesNameRoute,
   ProjectSlugQuestionsIdRoute: ProjectSlugQuestionsIdRoute,
   ProjectSlugSpecsSpecIdRoute: ProjectSlugSpecsSpecIdRoute,
+  ProjectSlugTodosKeyRoute: ProjectSlugTodosKeyRoute,
   ProjectSlugErrorsIndexRoute: ProjectSlugErrorsIndexRoute,
   ProjectSlugFocusesIndexRoute: ProjectSlugFocusesIndexRoute,
   ProjectSlugQuestionsIndexRoute: ProjectSlugQuestionsIndexRoute,

@@ -453,6 +453,39 @@ export const useSolo = (slug: string, issueFilter?: string) =>
     enabled: !!slug,
   })
 
+export interface TodoSessionItem {
+  id: number
+  session_id: string
+  issue_id?: string
+  title?: string
+  alias?: string
+  header?: string
+  summary?: string
+  status?: string
+  created_at: string
+  updated_at: string
+  closed_at?: string
+}
+
+export interface TodoDetailResponse {
+  todo: SoloItem
+  reservations: ReservationItem[]
+  sessions: TodoSessionItem[]
+}
+
+export const useTodoDetail = (slug: string, key: string) =>
+  useQuery<TodoDetailResponse>({
+    queryKey: ['todo-detail', slug, key],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/projects/{slug}/todos/{key}' as any, {
+        params: { path: { slug, key } } as any,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as TodoDetailResponse
+    },
+    enabled: !!slug && !!key,
+  })
+
 export const useEvaluateSolo = () => {
   return useMutation<EvaluateDiff, Error, { slug: string; issue?: string }>({
     mutationFn: async ({ slug, issue }) => {

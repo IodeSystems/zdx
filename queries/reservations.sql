@@ -19,6 +19,30 @@ WHERE project_id = @project_id
 ORDER BY claimed_at DESC
 LIMIT @lim;
 
+-- name: ListReservationsByTodoKey :many
+-- Return all reservation history rows for a todo identified by its stable key,
+-- most recent first. Joins in the claude session (if any) that shared the reservation window.
+SELECT
+  r.id,
+  r.target_type,
+  r.target_id,
+  r.claimed_by,
+  r.claimed_at,
+  r.released_at,
+  r.lease_expires_at,
+  cs.id AS session_id,
+  cs.status AS session_status,
+  cs.closed_at AS session_closed_at,
+  cs.header AS session_header,
+  cs.alias AS session_alias
+FROM zdx_reservations r
+JOIN zdx_todos t ON r.target_type = 'todo' AND r.target_id = t.id::text
+LEFT JOIN zdx_claude_sessions cs ON cs.todo_id = t.id AND cs.project_id = r.project_id
+WHERE r.project_id = @project_id
+  AND t.project_id = @project_id
+  AND t.key = @key
+ORDER BY r.claimed_at DESC;
+
 -- name: ListReservationsByIssue :many
 -- Return reservations for todos linked to a specific issue, with optional agent session info.
 SELECT

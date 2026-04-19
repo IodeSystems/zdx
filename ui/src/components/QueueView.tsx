@@ -48,6 +48,7 @@ function targetLink(slug: string, targetType: string, targetId: string): { to: s
 
 function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
   const link = targetLink(slug, item.target_type, item.target_id)
+  const todoHref = `/project/${slug}/todos/${encodeURIComponent(item.key)}`
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', py: 0.75, borderBottom: 1, borderColor: 'divider' }}>
       <Chip
@@ -70,7 +71,13 @@ function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
       ) : item.target_id ? (
         <Chip label={item.target_id} size="small" variant="outlined" />
       ) : null}
-      <Typography variant="body2" sx={{ flex: 1 }}>{item.text}</Typography>
+      <Box
+        component="a"
+        href={todoHref}
+        sx={{ flex: 1, textDecoration: 'none', color: 'inherit', '&:hover': { textDecoration: 'underline' } }}
+      >
+        <Typography variant="body2">{item.text}</Typography>
+      </Box>
       {item.issue_ref && item.issue_ref !== item.target_id && (
         <Chip
           label={item.issue_ref}

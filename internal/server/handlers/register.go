@@ -27,6 +27,7 @@ func Register(api huma.API, deps *Deps) {
 	h.registerAgentRoutes(api)
 	h.registerPatternRoutes(api)
 	h.registerSoloRoutes(api)
+	h.registerTodoRoutes(api)
 	h.registerHistoryRoutes(api)
 	h.registerPlanRoutes(api)
 	h.registerDoctorRoutes(api)
