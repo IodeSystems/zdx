@@ -423,6 +423,7 @@ SELECT EXISTS (
   WHERE c.project_id = $1
     AND c.target_type = $2
     AND c.target_id = $3
+    AND c.author_alias = ''
     AND NOT EXISTS (
       SELECT 1 FROM zdx_comment_reads r
       WHERE r.project_id = c.project_id
@@ -441,6 +442,7 @@ type HasUnreadCommentsForTargetParams struct {
 	Role       string `db:"role" json:"role"`
 }
 
+// Excludes agent-authored comments (author_alias != ”) so agents don't review their own replies.
 func (q *Queries) HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadCommentsForTargetParams) (bool, error) {
 	row := q.db.QueryRow(ctx, hasUnreadCommentsForTarget,
 		arg.ProjectID,
@@ -722,6 +724,7 @@ SELECT DISTINCT i.id, i.title, i.status
 FROM zdx_issues i
 JOIN zdx_comments c ON c.project_id = i.project_id AND c.target_type = 'issue' AND c.target_id = i.id
 WHERE i.project_id = $1
+  AND c.author_alias = ''
   AND NOT EXISTS (
     SELECT 1 FROM zdx_comment_reads r
     WHERE r.project_id = c.project_id
@@ -745,6 +748,7 @@ type ListIssuesWithUnreadCommentsRow struct {
 }
 
 // Returns issues (any status) that have unread comments for the given role.
+// Excludes agent-authored comments (author_alias != ”) so agents don't review their own replies.
 func (q *Queries) ListIssuesWithUnreadComments(ctx context.Context, arg ListIssuesWithUnreadCommentsParams) ([]ListIssuesWithUnreadCommentsRow, error) {
 	rows, err := q.db.Query(ctx, listIssuesWithUnreadComments, arg.ProjectID, arg.Role)
 	if err != nil {
@@ -960,6 +964,7 @@ WHERE c.project_id = $1
       AND r.last_read_at >= c.created_at
   )
   AND c.created_at <= NOW() - make_interval(hours => $3::int)
+  AND c.author_alias = ''
 ORDER BY c.created_at
 LIMIT 20
 `
@@ -983,6 +988,7 @@ type ListStaleUnreadCommentsRow struct {
 }
 
 // Returns comments that are unread for the given role and older than the given age threshold.
+// Excludes comments authored by agents (author_alias != ”) so agents don't review their own replies.
 func (q *Queries) ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error) {
 	rows, err := q.db.Query(ctx, listStaleUnreadComments, arg.ProjectID, arg.Role, arg.AgeHours)
 	if err != nil {

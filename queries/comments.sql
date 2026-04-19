@@ -54,11 +54,13 @@ WHERE c.project_id = $1
   );
 
 -- name: HasUnreadCommentsForTarget :one
+-- Excludes agent-authored comments (author_alias != '') so agents don't review their own replies.
 SELECT EXISTS (
   SELECT 1 FROM zdx_comments c
   WHERE c.project_id = @project_id
     AND c.target_type = @target_type
     AND c.target_id = @target_id
+    AND c.author_alias = ''
     AND NOT EXISTS (
       SELECT 1 FROM zdx_comment_reads r
       WHERE r.project_id = c.project_id
@@ -147,6 +149,7 @@ DO UPDATE SET last_read_at = NOW();
 
 -- name: ListStaleUnreadComments :many
 -- Returns comments that are unread for the given role and older than the given age threshold.
+-- Excludes comments authored by agents (author_alias != '') so agents don't review their own replies.
 SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at, c.parent_id, c.author_alias
 FROM zdx_comments c
 WHERE c.project_id = @project_id
@@ -159,15 +162,18 @@ WHERE c.project_id = @project_id
       AND r.last_read_at >= c.created_at
   )
   AND c.created_at <= NOW() - make_interval(hours => @age_hours::int)
+  AND c.author_alias = ''
 ORDER BY c.created_at
 LIMIT 20;
 
 -- name: ListIssuesWithUnreadComments :many
 -- Returns issues (any status) that have unread comments for the given role.
+-- Excludes agent-authored comments (author_alias != '') so agents don't review their own replies.
 SELECT DISTINCT i.id, i.title, i.status
 FROM zdx_issues i
 JOIN zdx_comments c ON c.project_id = i.project_id AND c.target_type = 'issue' AND c.target_id = i.id
 WHERE i.project_id = @project_id
+  AND c.author_alias = ''
   AND NOT EXISTS (
     SELECT 1 FROM zdx_comment_reads r
     WHERE r.project_id = c.project_id

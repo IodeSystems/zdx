@@ -155,18 +155,50 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 	}
 
-	// Stale unread comments
+	// Stale unread comments — batched per target, not per comment.
+	// Key is stable per target so the todo doesn't regenerate as new comments age in.
 	if issueFilter == "" {
 		stale, _ := h.Q.ListStaleUnreadComments(ctx, db.ListStaleUnreadCommentsParams{
 			ProjectID: projectID, Role: "llm", AgeHours: 24,
 		})
+		// Group by target to emit one todo per target with the latest comment ID.
+		type staleTarget struct {
+			targetType    string
+			targetID      string
+			lastCommentID int32
+			count         int
+		}
+		seen := map[string]*staleTarget{}
 		for _, c := range stale {
+			key := c.TargetType + ":" + c.TargetID
+			if t, ok := seen[key]; ok {
+				t.count++
+				if c.ID > t.lastCommentID {
+					t.lastCommentID = c.ID
+				}
+			} else {
+				seen[key] = &staleTarget{
+					targetType:    c.TargetType,
+					targetID:      c.TargetID,
+					lastCommentID: c.ID,
+					count:         1,
+				}
+			}
+		}
+		for _, t := range seen {
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("stale-comment-%d", c.ID),
-				Text:       fmt.Sprintf("Stale unread comment on %s %s", c.TargetType, c.TargetID),
+				Key: fmt.Sprintf("stale-comments-%s-%s", t.targetType, t.targetID),
+				Text: fmt.Sprintf("%d unread comment(s) on %s %s (latest C-%d). "+
+					"Read all unread comments via `dx comment list %s %s`. "+
+					"Respond if needed via `dx comment add %s %s --body=...`. "+
+					"Then mark all read: `dx comment mark-read %s %s --role=llm`.",
+					t.count, t.targetType, t.targetID, t.lastCommentID,
+					t.targetType, t.targetID,
+					t.targetType, t.targetID,
+					t.targetType, t.targetID),
 				Kind:       "respond:stale",
-				TargetType: c.TargetType,
-				TargetID:   c.TargetID,
+				TargetType: t.targetType,
+				TargetID:   t.targetID,
 				Priority:   12,
 				Persona:    "dev",
 			})
