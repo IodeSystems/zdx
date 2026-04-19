@@ -120,6 +120,13 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
         <MarkdownContent slug={slug} variant="body1">{todo.text}</MarkdownContent>
       </Box>
 
+      {todo.instructions && (
+        <Box sx={{ mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>Instructions</Typography>
+          <MarkdownContent slug={slug} variant="body2">{todo.instructions}</MarkdownContent>
+        </Box>
+      )}
+
       <Box sx={{ mb: 3, display: 'flex', gap: 1 }}>
         <Button size="small" variant="outlined" onClick={handleOpenIssue}>
           File issue about this todo

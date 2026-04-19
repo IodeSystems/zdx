@@ -29,6 +29,7 @@ export interface SoloItem {
   priority: number
   blocked: boolean
   persona: string
+  instructions?: string
   claimed_by?: string
   claimed_at?: string
   created_at: string

@@ -30,6 +30,62 @@ type TodoDetailBody struct {
 	Sessions     []TodoSessionItem `json:"sessions"`
 }
 
+func todoInstructions(kind string) string {
+	switch kind {
+	case "triage":
+		return `Triage checklist:
+1. Verify independently — reproduce or read the relevant code before accepting the report.
+2. Dup-check: dx issue list; close duplicates with --reason=duplicate --duplicate-of=IS-X.
+3. Rewrite prescriptively: title = intended outcome; context = should/did/direction.
+4. Apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|ask|tracker> --priority=<1-4> --focus=<FO-N> --goal=<G-N>
+   type guide:
+     ops     = one-time verifiable action (demo/test plan required)
+     impl    = durable code change (resolution link required to close)
+     ask     = investigation/research/justification (no test plan; may spawn follow-up issues)
+     tracker = umbrella issue (closed by its children; solo skips it)
+If the issue is too vague, file clarification questions:
+  dx question add --target-type=issue --target-id=IS-N --context="<question>" --choices="opt1,opt2,..."`
+	case "add":
+		return `Decompose this issue into dev tasks:
+  dx todo tech add --issue=<issue-ref> --title=<outcome> --text=<plan> --reason=<why> --test-plan=<verification>
+Add one task per logical step. Each task should be independently implementable and verifiable.`
+	case "dev":
+		return `Implement the task, then close it:
+  dx todo dev done <task-id> --test-plan="<what was verified>" --file <path>[:start[-end]]
+For impl issues, --file is required so the issue's code-ref trail is populated.
+Claim before starting: dx todo take --agent-id=<id>`
+	case "closable":
+		return `All tasks are done — close the issue:
+  dx issue close <issue-ref> --reason=done`
+	case "close:tracker":
+		return `All dependency issues are closed — close the tracker:
+  dx issue close <issue-ref> --reason=done`
+	case "clarify":
+		return `A blocker question is pending. Answer it, then re-run dx todo solo:
+  dx question answer <QA-N> --answer="<answer>"`
+	case "read:comments":
+		return `Unread comments need a response:
+1. Read the comments and understand the context (question, feedback, or decision).
+2. Reply: dx comment add <type> <id> --body="<reply>"
+3. Solo marks comments read automatically after showing them.`
+	case "respond:stale":
+		return `A comment has gone unanswered for >24 hours. Reply or acknowledge:
+  dx comment add <type> <id> --body="<reply>"`
+	case "answer":
+		return `An unanswered QA question needs a response:
+  dx qa answer <QA-N> --answer="<answer>"`
+	case "review":
+		return `Review the completed task — verify it meets the test plan, then approve or reopen.`
+	case "review:stale":
+		return `This task was created but never claimed. Verify whether the work is still needed:
+1. Read the referenced files to check if the work is already done or superseded.
+2. If already implemented: dx todo dev done <task-id>
+3. If still needed: proceed with implementation.`
+	default:
+		return ""
+	}
+}
+
 func (h *Handler) registerTodoRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "get-todo-detail", Method: http.MethodGet, Path: "/api/dx/projects/{slug}/todos/{key}"},
 		func(ctx context.Context, in *struct {
@@ -45,21 +101,22 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 				return nil, apiErr(http.StatusNotFound, "todo not found: "+in.Key)
 			}
 			todo := TodoItem{
-				ID:         t.ID,
-				Text:       t.Text,
-				Key:        t.Key,
-				Persona:    t.Persona,
-				Priority:   t.Priority,
-				Status:     t.Status,
-				TargetType: t.TargetType,
-				TargetID:   t.TargetID,
-				Kind:       t.Kind,
-				IssueRef:   t.IssueRef,
-				Blocked:    t.Blocked,
-				ClaimedBy:  t.ClaimedBy,
-				ClaimedAt:  fmtTS(t.ClaimedAt),
-				CreatedAt:  fmtTS(t.CreatedAt),
-				ResolvedAt: fmtTS(t.ResolvedAt),
+				ID:           t.ID,
+				Text:         t.Text,
+				Key:          t.Key,
+				Persona:      t.Persona,
+				Priority:     t.Priority,
+				Status:       t.Status,
+				TargetType:   t.TargetType,
+				TargetID:     t.TargetID,
+				Kind:         t.Kind,
+				IssueRef:     t.IssueRef,
+				Blocked:      t.Blocked,
+				Instructions: todoInstructions(t.Kind),
+				ClaimedBy:    t.ClaimedBy,
+				ClaimedAt:    fmtTS(t.ClaimedAt),
+				CreatedAt:    fmtTS(t.CreatedAt),
+				ResolvedAt:   fmtTS(t.ResolvedAt),
 			}
 
 			resRows, err := h.Q.ListReservationsByTodoKey(ctx, db.ListReservationsByTodoKeyParams{

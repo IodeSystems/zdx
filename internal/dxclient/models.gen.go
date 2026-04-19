@@ -3095,22 +3095,23 @@ type TodoDetailBody struct {
 // TodoItem defines model for TodoItem.
 type TodoItem struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema     *string `json:"$schema,omitempty"`
-	Blocked    bool    `json:"blocked"`
-	ClaimedAt  *string `json:"claimed_at,omitempty"`
-	ClaimedBy  *string `json:"claimed_by,omitempty"`
-	CreatedAt  string  `json:"created_at"`
-	Id         int32   `json:"id"`
-	IssueRef   string  `json:"issue_ref"`
-	Key        string  `json:"key"`
-	Kind       string  `json:"kind"`
-	Persona    string  `json:"persona"`
-	Priority   int32   `json:"priority"`
-	ResolvedAt *string `json:"resolved_at,omitempty"`
-	Status     string  `json:"status"`
-	TargetId   string  `json:"target_id"`
-	TargetType string  `json:"target_type"`
-	Text       string  `json:"text"`
+	Schema       *string `json:"$schema,omitempty"`
+	Blocked      bool    `json:"blocked"`
+	ClaimedAt    *string `json:"claimed_at,omitempty"`
+	ClaimedBy    *string `json:"claimed_by,omitempty"`
+	CreatedAt    string  `json:"created_at"`
+	Id           int32   `json:"id"`
+	Instructions *string `json:"instructions,omitempty"`
+	IssueRef     string  `json:"issue_ref"`
+	Key          string  `json:"key"`
+	Kind         string  `json:"kind"`
+	Persona      string  `json:"persona"`
+	Priority     int32   `json:"priority"`
+	ResolvedAt   *string `json:"resolved_at,omitempty"`
+	Status       string  `json:"status"`
+	TargetId     string  `json:"target_id"`
+	TargetType   string  `json:"target_type"`
+	Text         string  `json:"text"`
 }
 
 // TodoSessionItem defines model for TodoSessionItem.
