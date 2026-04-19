@@ -41,7 +41,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 }
 
 const getProjectByID = `-- name: GetProjectByID :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification FROM zdx_projects WHERE id = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled FROM zdx_projects WHERE id = $1
 `
 
 func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, error) {
@@ -57,12 +57,15 @@ func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, err
 		&i.GitToken,
 		&i.Stage,
 		&i.Classification,
+		&i.UpstreamUrl,
+		&i.UpstreamCredentials,
+		&i.GitEnabled,
 	)
 	return i, err
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification FROM zdx_projects WHERE slug = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled FROM zdx_projects WHERE slug = $1
 `
 
 func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error) {
@@ -78,6 +81,9 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject
 		&i.GitToken,
 		&i.Stage,
 		&i.Classification,
+		&i.UpstreamUrl,
+		&i.UpstreamCredentials,
+		&i.GitEnabled,
 	)
 	return i, err
 }
@@ -105,8 +111,31 @@ func (q *Queries) GetProjectGitConfig(ctx context.Context, slug string) (GetProj
 	return i, err
 }
 
+const getProjectProxyConfig = `-- name: GetProjectProxyConfig :one
+SELECT slug, upstream_url, upstream_credentials, git_enabled FROM zdx_projects WHERE slug = $1
+`
+
+type GetProjectProxyConfigRow struct {
+	Slug                string `db:"slug" json:"slug"`
+	UpstreamUrl         string `db:"upstream_url" json:"upstream_url"`
+	UpstreamCredentials string `db:"upstream_credentials" json:"upstream_credentials"`
+	GitEnabled          bool   `db:"git_enabled" json:"git_enabled"`
+}
+
+func (q *Queries) GetProjectProxyConfig(ctx context.Context, slug string) (GetProjectProxyConfigRow, error) {
+	row := q.db.QueryRow(ctx, getProjectProxyConfig, slug)
+	var i GetProjectProxyConfigRow
+	err := row.Scan(
+		&i.Slug,
+		&i.UpstreamUrl,
+		&i.UpstreamCredentials,
+		&i.GitEnabled,
+	)
+	return i, err
+}
+
 const listProjects = `-- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification FROM zdx_projects ORDER BY name
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled FROM zdx_projects ORDER BY name
 `
 
 func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
@@ -128,6 +157,9 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 			&i.GitToken,
 			&i.Stage,
 			&i.Classification,
+			&i.UpstreamUrl,
+			&i.UpstreamCredentials,
+			&i.GitEnabled,
 		); err != nil {
 			return nil, err
 		}
@@ -168,6 +200,27 @@ func (q *Queries) SetProjectGitConfig(ctx context.Context, arg SetProjectGitConf
 		arg.GitUrl,
 		arg.GitBranch,
 		arg.GitToken,
+		arg.Slug,
+	)
+	return err
+}
+
+const setProjectProxyConfig = `-- name: SetProjectProxyConfig :exec
+UPDATE zdx_projects SET upstream_url = $1, upstream_credentials = $2, git_enabled = $3 WHERE slug = $4
+`
+
+type SetProjectProxyConfigParams struct {
+	UpstreamUrl         string `db:"upstream_url" json:"upstream_url"`
+	UpstreamCredentials string `db:"upstream_credentials" json:"upstream_credentials"`
+	GitEnabled          bool   `db:"git_enabled" json:"git_enabled"`
+	Slug                string `db:"slug" json:"slug"`
+}
+
+func (q *Queries) SetProjectProxyConfig(ctx context.Context, arg SetProjectProxyConfigParams) error {
+	_, err := q.db.Exec(ctx, setProjectProxyConfig,
+		arg.UpstreamUrl,
+		arg.UpstreamCredentials,
+		arg.GitEnabled,
 		arg.Slug,
 	)
 	return err

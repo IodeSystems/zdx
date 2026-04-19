@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1413,7 +1413,10 @@ CREATE TABLE public.zdx_projects (
     git_branch text DEFAULT 'main'::text NOT NULL,
     git_token text DEFAULT ''::text NOT NULL,
     stage text DEFAULT ''::text NOT NULL,
-    classification text DEFAULT ''::text NOT NULL
+    classification text DEFAULT ''::text NOT NULL,
+    upstream_url text DEFAULT ''::text NOT NULL,
+    upstream_credentials text DEFAULT ''::text NOT NULL,
+    git_enabled boolean DEFAULT false NOT NULL
 );
 
 
