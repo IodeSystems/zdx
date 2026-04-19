@@ -41,26 +41,7 @@ func (b *ValkeyBroker) Publish(channel string, msg Message) {
 }
 
 func (b *ValkeyBroker) Subscribe(channel string) *Subscription {
-	sub := b.mem.Subscribe(channel)
-
-	ps := b.rdb.Subscribe(b.ctx, "zdx:ws:"+channel)
-	go func() {
-		ch := ps.Channel()
-		for m := range ch {
-			var msg Message
-			if err := json.Unmarshal([]byte(m.Payload), &msg); err != nil {
-				continue
-			}
-			b.mem.Publish(channel, msg)
-		}
-	}()
-
-	origCancel := sub.cancel
-	sub.cancel = func() {
-		origCancel()
-		ps.Close()
-	}
-	return sub
+	return b.mem.Subscribe(channel)
 }
 
 func (b *ValkeyBroker) listen() {

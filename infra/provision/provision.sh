@@ -69,6 +69,20 @@ done
 echo "  Home directories OK."
 
 ########################################################################
+# 3b. Shared secrets (generated once, never overwritten)
+########################################################################
+SECRETS_FILE="$APP_HOME/home/var/secrets.env"
+if [ ! -f "$SECRETS_FILE" ]; then
+  echo "  Generating shared secrets..."
+  WS_SECRET=$(head -c 32 /dev/urandom | base64 | tr -d '+/=' | head -c 44)
+  printf 'ZDX_WS_SECRET=%s\n' "$WS_SECRET" > "$SECRETS_FILE"
+  chown "$APP_USER:$APP_USER" "$SECRETS_FILE"
+  chmod 600 "$SECRETS_FILE"
+fi
+
+echo "  Secrets OK."
+
+########################################################################
 # 4. Docker compose (PG + Valkey)
 ########################################################################
 if [ ! -f "$APP_HOME/docker-compose.yml" ] || \
