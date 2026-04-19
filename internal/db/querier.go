@@ -223,6 +223,7 @@ type Querier interface {
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
+	JournalVelocity(ctx context.Context, projectID int32) (JournalVelocityRow, error)
 	LinkGoalIssue(ctx context.Context, arg LinkGoalIssueParams) error
 	LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
