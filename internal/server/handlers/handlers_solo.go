@@ -308,7 +308,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		})
 		for _, g := range unquantifiedGoals {
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("quantify-goal-%d", g.ID),
+				Key: fmt.Sprintf("quantify-goal-%d", g.ID),
 				Text: fmt.Sprintf("Quantify goal %d: %s — add metric_name and metric_unit. "+
 					"Investigate the codebase for what this goal measures, then either: "+
 					"(a) `dx goal set %d --metric-name=<name> --metric-unit=<unit>` with a justification, or "+
@@ -326,7 +326,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		unattributed, _ := h.Q.ListUnattributedFeatures(ctx, projectID)
 		for _, f := range unattributed {
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("attribute-feature-%d", f.ID),
+				Key: fmt.Sprintf("attribute-feature-%d", f.ID),
 				Text: fmt.Sprintf("Attribute feature %q to a goal or parent feature. "+
 					"Run `dx feature show %s` and `dx goal list` to understand the feature and available goals, then either: "+
 					"(a) `dx feature set %s --goal <G-N>` or `--parent <parent-feature>` with a justification, or "+
@@ -344,7 +344,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		uninstrumented, _ := h.Q.ListFeaturesNeedingInstrumentation(ctx, projectID)
 		for _, f := range uninstrumented {
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("instrument-feature-%d", f.ID),
+				Key: fmt.Sprintf("instrument-feature-%d", f.ID),
 				Text: fmt.Sprintf("Instrument multiplier feature %q — needs baseline, target, and graph_url. "+
 					"Investigate the feature's codebase to determine what to measure, then either: "+
 					"(a) add instrumentation code and set baseline/target/graph_url via `dx feature set %s --baseline=<N> --target=<N> --graph-url=<url>`, or "+
@@ -364,7 +364,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		})
 		for _, f := range overspecced {
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("decompose-feature-%d", f.ID),
+				Key: fmt.Sprintf("decompose-feature-%d", f.ID),
 				Text: fmt.Sprintf("Decompose feature %q — %d specs exceeds threshold (8). "+
 					"Run `dx feature show %s` to review specs, then create child features via "+
 					"`dx feature add <child> --parent %s --desc=...` grouping related specs. "+
