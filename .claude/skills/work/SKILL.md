@@ -23,7 +23,23 @@ issue is closed and shipped.**
   - Otherwise: follow the same routing logic as above based on the claimed todo's kind and target.
 - Issue given: proceed directly to the vertical loop.
 
-**Vertical loop** for IS-N:
+**Tracker issues** (type=tracker):
+
+Trackers are coordination issues that decompose into child issues. They MUST NOT be worked directly or closed without
+child issues. When the vertical reaches a tracker:
+
+1. **Check for existing children.** `./bin/dx issue list` and look for issues that reference IS-N as a parent.
+2. **If no children exist: decompose.** Break the tracker into concrete impl/ops/ask issues:
+   `./bin/dx issue add --title="..." --context="..." --issue-type=impl --parent=IS-N`
+   Each child should be a single vertical — one shippable unit of work.
+3. **Do NOT implement tracker work inline.** The tracker closes automatically when all children close
+   (via `[close:tracker]` in the solo queue). Never `dx issue close` a tracker manually.
+4. **Work child issues.** Pick one child and run its vertical. Stop after one child vertical per session.
+
+If an issue was filed as `impl` but has 3+ distinct pieces (schema + CLI + UI + tests), it should have been a tracker.
+During triage, reclassify: `./bin/dx issue edit IS-N --issue-type=tracker`, then decompose.
+
+**Vertical loop** for IS-N (impl/ops issues only — NOT trackers):
 
 1. `./bin/dx todo solo --issue=IS-N`
 2. Do whatever the pick says (owner triage → tech plan → tech add → dev done)
@@ -60,7 +76,9 @@ the project and scaffold it, then follow the printed guidance:
    close the new one as duplicate (`--reason=duplicate --duplicate-of=IS-X`).
 3. **Rewrite prescriptively.** Title = intended outcome (not symptom). Context covers: (a) what *should* happen, (b)
    what *did* happen, (c) implementation direction if known.
-4. **Apply** via `./bin/dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|ask> --priority=<1-4> --focus=<FO-N> --goal=<G-N>`.
+4. **Scope check.** If the issue requires changes across 3+ distinct areas (e.g., schema + CLI + UI + tests), it should
+   be a tracker, not impl. Set `--type=tracker` and decompose into child issues instead of working it directly.
+5. **Apply** via `./bin/dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|ask|tracker> --priority=<1-4> --focus=<FO-N> --goal=<G-N>`.
 
 
 **Comments** (when solo emits `[read:comments] IS-N` or `[read:comments] <feature-name>`):
