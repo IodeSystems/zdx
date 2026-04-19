@@ -76,16 +76,29 @@ Solo surfaces unread comments that need a response. After reading the comments:
    `./bin/dx comment mark-read <target-type> <target-id> --role=llm`
 4. Continue the vertical loop — comments are handled inline, not as separate work items.
 
-**Closing a dev task with code refs** — when running `./bin/dx todo dev done TK-N`, attach the files you touched so the
-parent issue records them as `zdx_issue_code_refs`. Pass `--file` once per file (repeatable). Syntax
-`<path>[:start[-end]][@hash]`:
+**Task structure** — when running `./bin/dx todo tech add --issue=IS-N`, populate the structured fields so the closer
+has everything they need. Each flag maps to a discrete section in `dx todo show`:
 
-- `--file internal/cli/work/todo.go`                         — whole file, hash = git HEAD
-- `--file internal/cli/work/todo.go:1005`                    — single line
-- `--file internal/cli/work/todo.go:1005-1036`               — line range
-- `--file internal/cli/work/todo.go:1005-1036@abc1234`       — explicit commit
+- `--title="<one-line outcome>"` — short headline; the UI, list rows, and solo `[dev]` messages render this.
+- `--text="<implementation plan>"` — step-by-step plan. What to edit, in what files, in what order. Markdown supported.
+- `--reason="<why now>"` — why this work is needed at this point in the vertical (unblocks X, required for Y).
+- `--test-plan="<how it will be verified>"` — concrete verification. **Required** to close via `dev done`.
 
-Use when a dev task involves real edits and you want the issue's code-ref trail populated before closing.
+If you must pick two: title + test-plan. Title communicates outcome to the vertical owner; test-plan gates closure.
+
+**Closing a dev task** — `./bin/dx todo dev done TK-N` enforces:
+
+1. `--test-plan="..."` (or a non-empty stored `test_plan`) — what was actually verified.
+2. For impl issues, at least one of: `--test-refs="<paths|test names>"` or `--file <path>` — so the verification is
+   traceable. Code-ref files are attached to the parent issue as `zdx_issue_code_refs`. Syntax
+   `<path>[:start[-end]][@hash]`:
+
+   - `--file internal/cli/work/todo.go`                         — whole file, hash = git HEAD
+   - `--file internal/cli/work/todo.go:1005`                    — single line
+   - `--file internal/cli/work/todo.go:1005-1036`               — line range
+   - `--file internal/cli/work/todo.go:1005-1036@abc1234`       — explicit commit
+
+Use `--file` when a dev task involves real edits and you want the issue's code-ref trail populated before closing.
 
 **Stale tasks** (when solo emits `[review:stale] TK-N` or `[dev]` with a `⚠ state unknown` warning):
 

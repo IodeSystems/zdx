@@ -2070,6 +2070,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/projects/{slug}/todos/{key}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-todo-detail"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/qa/add": {
         parameters: {
             query?: never;
@@ -4102,9 +4118,12 @@ export interface components {
             feature?: string;
             force?: boolean;
             issue?: string;
+            reason?: string;
             slug: string;
             task_group?: string;
+            test_plan?: string;
             text: string;
+            title?: string;
         };
         "Add-taskResponse": {
             /**
@@ -4140,6 +4159,7 @@ export interface components {
             test_plan: string;
             test_refs: string;
             text: string;
+            title: string;
             updated_at: string;
         };
         "Admin-statsResponse": {
@@ -4205,6 +4225,7 @@ export interface components {
             status: string;
             task_group: string;
             text: string;
+            title: string;
         };
         AgentTokenUsageRow: {
             agent_description: string;
@@ -7524,6 +7545,7 @@ export interface components {
             test_plan: string;
             test_refs: string;
             text: string;
+            title: string;
             updated_at: string;
         };
         TaskReviewItem: {
@@ -7661,6 +7683,17 @@ export interface components {
             /** Format: int64 */
             total_ms: number;
         };
+        TodoDetailBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/TodoDetailBody.json
+             */
+            readonly $schema?: string;
+            reservations: components["schemas"]["ReservationItem"][] | null;
+            sessions: components["schemas"]["TodoSessionItem"][] | null;
+            todo: components["schemas"]["TodoItem"];
+        };
         TodoItem: {
             /**
              * Format: uri
@@ -7685,6 +7718,20 @@ export interface components {
             target_id: string;
             target_type: string;
             text: string;
+        };
+        TodoSessionItem: {
+            alias?: string;
+            closed_at?: string;
+            created_at: string;
+            header?: string;
+            /** Format: int64 */
+            id: number;
+            issue_id?: string;
+            session_id: string;
+            status?: string;
+            summary?: string;
+            title?: string;
+            updated_at: string;
         };
         TokensStruct: {
             /** Format: int64 */
@@ -12654,6 +12701,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["DeployItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-todo-detail": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoDetailBody"];
                 };
             };
             /** @description Error */

@@ -421,7 +421,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		resp, err := c.ListStaleTasksWithResponse(ctx, params)
 		if err == nil && resp.JSON200 != nil && resp.JSON200.Tasks != nil && len(*resp.JSON200.Tasks) > 0 {
 			t := (*resp.JSON200.Tasks)[0]
-			fmt.Printf("[review:stale] %s  %s\n", clitypes.TaskIDStr(t.Id), t.Text)
+			fmt.Printf("[review:stale] %s  %s\n", clitypes.TaskIDStr(t.Id), taskHeadline(t.Title, t.Text))
 			if t.IssueId != nil {
 				fmt.Printf("  issue: %s\n", clitypes.IssueIDStr(*t.IssueId))
 			}
@@ -614,13 +614,14 @@ Analyze the project to bootstrap its feature catalog and first issue:
 				})
 				if err == nil && unreviewedResp.JSON200 != nil && unreviewedResp.JSON200.Tasks != nil && len(*unreviewedResp.JSON200.Tasks) > 0 {
 					t := (*unreviewedResp.JSON200.Tasks)[0]
-					fmt.Printf("[review]  %s  %s\n", clitypes.TaskIDStr(t.Id), t.Text)
+					fmt.Printf("[review]  %s  %s\n", clitypes.TaskIDStr(t.Id), taskHeadline(t.Title, t.Text))
 					fmt.Printf("  issue: %s\n", issIDStr)
 					return nil
 				}
 				fmt.Printf("[closable] %s  %s\n", issIDStr, iss.Title)
 			} else {
 				fmt.Printf("[add]     %s  %s\n", issIDStr, iss.Title)
+				fmt.Fprintln(os.Stderr, "  hint: dx todo tech add --issue="+issIDStr+" --title=<outcome> --text=<plan> --reason=<why> --test-plan=<verification>")
 			}
 			return nil
 		}
@@ -638,7 +639,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		if err == nil && claimResp.JSON200 != nil {
 			claimed := claimResp.JSON200
 			printStaleWarning(claimed.CreatedAt, claimed.Id)
-			fmt.Printf("[dev]     %s  %s\n", claimed.Id, claimed.Text)
+			fmt.Printf("[dev]     %s  %s\n", claimed.Id, taskHeadline(claimed.Title, claimed.Text))
 			if claimed.Issue != "" {
 				fmt.Printf("  issue: %s\n", claimed.Issue)
 			}
@@ -675,7 +676,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		for _, ft := range fetched {
 			for _, t := range ft.tasks {
 				if t.Status == "active" {
-					fmt.Printf("[dev]     %s  %s\n", clitypes.TaskIDStr(t.Id), t.Text)
+					fmt.Printf("[dev]     %s  %s\n", clitypes.TaskIDStr(t.Id), taskHeadline(t.Title, t.Text))
 					fmt.Printf("  issue: %s\n", clitypes.IssueIDStr(ft.issue.Id))
 					fmt.Fprintln(os.Stderr, "  note: resuming active task. Use --agent-id to claim before starting work.")
 					return nil
@@ -697,7 +698,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			sort.Slice(pending, func(i, j int) bool { return pending[i].Id < pending[j].Id })
 			t := pending[0]
 			printStaleWarning(t.CreatedAt, clitypes.TaskIDStr(t.Id))
-			fmt.Printf("[dev]     %s  %s\n", clitypes.TaskIDStr(t.Id), t.Text)
+			fmt.Printf("[dev]     %s  %s\n", clitypes.TaskIDStr(t.Id), taskHeadline(t.Title, t.Text))
 			fmt.Printf("  issue: %s\n", clitypes.IssueIDStr(ft.issue.Id))
 			fmt.Fprintln(os.Stderr, "  note: task not claimed. Use --agent-id to claim before starting work.")
 			return nil
@@ -888,8 +889,29 @@ func printTasksDx(tasks *[]dxclient.TaskItem) {
 		return
 	}
 	for _, t := range *tasks {
-		fmt.Printf("%-8s %-12s %s\n", clitypes.TaskIDStr(t.Id), t.Status, t.Text)
+		headline := t.Title
+		if headline == "" {
+			headline = truncateLine(t.Text, 80)
+		}
+		fmt.Printf("%-8s %-12s %s\n", clitypes.TaskIDStr(t.Id), t.Status, headline)
 	}
+}
+
+func truncateLine(s string, n int) string {
+	s = strings.ReplaceAll(s, "\n", " ")
+	if len(s) > n {
+		return s[:n-1] + "…"
+	}
+	return s
+}
+
+// taskHeadline returns the title if set, otherwise a truncated single-line
+// rendering of the implementation plan text.
+func taskHeadline(title, text string) string {
+	if title != "" {
+		return title
+	}
+	return truncateLine(text, 80)
 }
 
 // ── show ──────────────────────────────────────────────────────────────────────
@@ -1058,19 +1080,42 @@ func todoDevDoneCmd() *cobra.Command {
 				specs = append(specs, s)
 			}
 
+			taskResp, err := c.GetTaskWithResponse(ctx, &dxclient.GetTaskParams{Slug: slug, Id: id})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(taskResp.StatusCode(), taskResp.Body); err != nil {
+				return err
+			}
+			if taskResp.JSON200 == nil {
+				return fmt.Errorf("task %s not found", id)
+			}
+			task := taskResp.JSON200
+
+			if strings.TrimSpace(testPlan) == "" && strings.TrimSpace(task.TestPlan) == "" {
+				return fmt.Errorf("missing --test-plan: task %s has no stored test plan. Pass --test-plan=\"<how this was verified>\" to close", id)
+			}
+
 			var issueRef string
-			if len(specs) > 0 {
-				taskResp, err := c.GetTaskWithResponse(ctx, &dxclient.GetTaskParams{Slug: slug, Id: id})
+			if task.IssueId != nil {
+				issueRef = clitypes.IssueIDStr(*task.IssueId)
+				issueResp, err := c.ShowIssueWithResponse(ctx, &dxclient.ShowIssueParams{Slug: slug, Id: issueRef})
 				if err != nil {
 					return err
 				}
-				if err := c.CheckStatus(taskResp.StatusCode(), taskResp.Body); err != nil {
+				if err := c.CheckStatus(issueResp.StatusCode(), issueResp.Body); err != nil {
 					return err
 				}
-				if taskResp.JSON200 == nil || taskResp.JSON200.IssueId == nil {
-					return fmt.Errorf("task %s has no parent issue — cannot attach code refs", id)
+				if issueResp.JSON200 != nil && issueResp.JSON200.Issue.IssueType == "impl" {
+					hasRefs := strings.TrimSpace(testRefs) != "" || strings.TrimSpace(task.TestRefs) != "" || len(specs) > 0
+					if !hasRefs {
+						return fmt.Errorf("missing test refs: task %s belongs to impl issue %s. Pass --test-refs=\"<paths or test names>\" or --file <path> so the verification is traceable", id, issueRef)
+					}
 				}
-				issueRef = clitypes.IssueIDStr(*taskResp.JSON200.IssueId)
+			}
+
+			if len(specs) > 0 && issueRef == "" {
+				return fmt.Errorf("task %s has no parent issue — cannot attach code refs", id)
 			}
 
 			resp, err := c.MarkTaskDoneWithResponse(ctx, dxclient.MarkTaskDoneRequest{
@@ -1503,11 +1548,17 @@ func todoTechCmd() *cobra.Command {
 }
 
 func todoTechAddCmd() *cobra.Command {
-	var issue, feature, text, taskGroup string
+	var issue, feature, title, text, reason, testPlan, taskGroup string
 	var autoReady, force bool
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a task",
+		Long: `Add a task with structured fields.
+
+--title       outcome-oriented headline (the WHAT); shown in list views.
+--text        implementation plan (the HOW); concrete steps and file paths.
+--reason      motivation (the WHY); optional but encouraged.
+--test-plan   how the work will be verified; optional but required to close.`,
 		Args: func(cmd *cobra.Command, args []string) error {
 			if len(args) > 0 {
 				return fmt.Errorf("unexpected positional argument %q; use --issue to link to an issue", args[0])
@@ -1520,6 +1571,15 @@ func todoTechAddCmd() *cobra.Command {
 			body := dxclient.AddTaskRequest{
 				Slug: c.SlugOrDie(),
 				Text: text,
+			}
+			if title != "" {
+				body.Title = &title
+			}
+			if reason != "" {
+				body.Reason = &reason
+			}
+			if testPlan != "" {
+				body.TestPlan = &testPlan
 			}
 			if feature != "" {
 				body.Feature = &feature
@@ -1557,7 +1617,11 @@ func todoTechAddCmd() *cobra.Command {
 				fmt.Println("\nTo create anyway, re-run with --force")
 				return fmt.Errorf("duplicate blocked")
 			}
-			fmt.Printf("%s  %s\n", clitypes.TaskIDStr(r.Id), r.Text)
+			headline := r.Title
+			if headline == "" {
+				headline = r.Text
+			}
+			fmt.Printf("%s  %s\n", clitypes.TaskIDStr(r.Id), headline)
 			hasSimilar := r.Similar != nil && len(*r.Similar) > 0
 			if !autoReady && hasSimilar {
 				fmt.Println("\nSimilar tasks:")
@@ -1585,7 +1649,10 @@ func todoTechAddCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&issue, "issue", "", "link to issue (IS-N)")
 	cmd.Flags().StringVar(&feature, "feature", "", "link to feature name")
-	cmd.Flags().StringVar(&text, "text", "", "task description")
+	cmd.Flags().StringVar(&title, "title", "", "outcome-oriented headline (what)")
+	cmd.Flags().StringVar(&text, "text", "", "implementation plan (how)")
+	cmd.Flags().StringVar(&reason, "reason", "", "motivation (why)")
+	cmd.Flags().StringVar(&testPlan, "test-plan", "", "verification plan (required to close)")
 	cmd.Flags().StringVar(&taskGroup, "task-group", "", "logical task group name")
 	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as ready")
 	cmd.Flags().BoolVar(&force, "force", false, "bypass duplicate detection")
@@ -1596,21 +1663,47 @@ func todoTechAddCmd() *cobra.Command {
 // ── printers ──────────────────────────────────────────────────────────────────
 
 func printTaskItem(t clitypes.TaskItem) {
-	fmt.Printf("ID:      %s\n", clitypes.TaskIDStr(t.ID))
-	fmt.Printf("Text:    %s\n", t.Text)
-	fmt.Printf("Status:  %s\n", t.Status)
+	fmt.Printf("ID:       %s\n", clitypes.TaskIDStr(t.ID))
+	if t.Title != "" {
+		fmt.Printf("Title:    %s\n", t.Title)
+	}
+	fmt.Printf("Status:   %s\n", t.Status)
 	if t.IssueID != nil {
-		fmt.Printf("Issue:   %s\n", clitypes.IssueIDStr(*t.IssueID))
+		fmt.Printf("Issue:    %s\n", clitypes.IssueIDStr(*t.IssueID))
 	}
 	if t.Feature != "" {
-		fmt.Printf("Feature: %s\n", t.Feature)
-	}
-	if t.Reason != "" {
-		fmt.Printf("Reason:  %s\n", t.Reason)
+		fmt.Printf("Feature:  %s\n", t.Feature)
 	}
 	if t.TaskGroup != "" {
-		fmt.Printf("Group:   %s\n", t.TaskGroup)
+		fmt.Printf("Group:    %s\n", t.TaskGroup)
 	}
+	if t.Reason != "" {
+		fmt.Printf("\nReason:\n%s\n", indent(t.Reason, "  "))
+	}
+	if t.Text != "" {
+		label := "Implementation Plan"
+		if t.Title == "" {
+			label = "Text"
+		}
+		fmt.Printf("\n%s:\n%s\n", label, indent(t.Text, "  "))
+	}
+	if t.TestPlan != "" {
+		fmt.Printf("\nTest Plan:\n%s\n", indent(t.TestPlan, "  "))
+	}
+	if t.TestRefs != "" {
+		fmt.Printf("\nTest Refs:\n%s\n", indent(t.TestRefs, "  "))
+	}
+}
+
+func indent(s, prefix string) string {
+	if s == "" {
+		return s
+	}
+	lines := strings.Split(s, "\n")
+	for i, l := range lines {
+		lines[i] = prefix + l
+	}
+	return strings.Join(lines, "\n")
 }
 
 // journalOverdue returns true and the role name if either owner or tech journal

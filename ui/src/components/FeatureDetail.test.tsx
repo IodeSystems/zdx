@@ -68,6 +68,7 @@ function makeFeature(overrides: Partial<FeatureItem> = {}): FeatureItem {
 function makeTask(overrides: Partial<TaskItem> = {}): TaskItem {
   return {
     id: 1,
+    title: '',
     text: 'example task',
     status: 'ready',
     feature: 'example-feature',

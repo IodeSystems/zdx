@@ -856,7 +856,7 @@ function ActiveReservations({ slug }: { slug: string }) {
           <Box key={`task-${t.id}`} sx={{ display: 'flex', gap: 1, alignItems: 'center', px: 1, py: 0.5, border: 1, borderColor: 'divider', borderRadius: 1 }}>
             <Chip label="task" size="small" sx={{ height: 18, fontSize: '0.65rem', bgcolor: 'secondary.main', color: '#fff' }} />
             {t.issue && <Chip label={t.issue} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.65rem' }} />}
-            <Typography variant="caption" noWrap sx={{ flex: 1 }}>{t.text}</Typography>
+            <Typography variant="caption" noWrap sx={{ flex: 1 }}>{t.title || t.text}</Typography>
             <Typography variant="caption" color="text.secondary">claimed-by: {t.claimed_by}</Typography>
             <Typography variant="caption" color="warning.main" title={`expires ${t.lease_expires_at}`}>
               expires {fmtRelative(t.lease_expires_at)}

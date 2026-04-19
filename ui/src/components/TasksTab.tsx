@@ -129,7 +129,7 @@ export function TasksTab({
               params={{ slug, id: `TK-${t.id}` }}
               style={{ textDecoration: 'none', color: 'inherit' }}
             >
-              <Typography variant="body2">{t.text}</Typography>
+              <Typography variant="body2">{t.title || t.text}</Typography>
             </Link>
             <Typography variant="caption" color="text.secondary">{t.feature}</Typography>
             {t.task_group && (

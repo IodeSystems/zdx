@@ -638,6 +638,7 @@ type ZdxTask struct {
 	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
 	ReviewedAt     pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 	StaleSince     pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
+	Title          string             `db:"title" json:"title"`
 }
 
 type ZdxTaskCodeRef struct {

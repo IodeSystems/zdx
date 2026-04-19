@@ -85,7 +85,11 @@ Solo checks conditions in this exact order. First match wins.
 
 ### `[add]`
 - **Trigger**: Open triaged issue with no tasks (ready or active). Issue has zero completed tasks.
-- **Agent action**: Decompose the issue into tasks via `dx todo tech add --issue=IS-N --text="..."`.
+- **Agent action**: Decompose the issue into tasks via `dx todo tech add --issue=IS-N` with structured flags:
+  - `--title="<one-line outcome>"` — short headline shown in the UI and solo messages.
+  - `--text="<implementation plan>"` — step-by-step plan; what to change, in what files, in what order.
+  - `--reason="<why now>"` — why this work is needed at this point in the vertical.
+  - `--test-plan="<how it will be verified>"` — concrete verification the closer must satisfy (required on `dev done`).
 - **Advances when**: At least one task exists for the issue.
 
 ### `[closable]`

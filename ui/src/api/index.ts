@@ -511,6 +511,7 @@ export interface ActiveClaimsResponse {
   }[]
   tasks: {
     id: string
+    title: string
     text: string
     issue: string
     task_group: string

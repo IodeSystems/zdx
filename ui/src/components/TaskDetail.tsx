@@ -35,9 +35,10 @@ export function TaskDetail({
 
   useEffect(() => {
     if (!task) return
-    document.title = `${taskId}: ${task.text} | zdx`
+    const headline = task.title || task.text
+    document.title = `${taskId}: ${headline} | zdx`
     return () => { document.title = 'zdx' }
-  }, [taskId, task?.text])
+  }, [taskId, task?.title, task?.text])
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
 
@@ -78,7 +79,7 @@ export function TaskDetail({
       </Button>
 
       <Typography variant="h5" sx={{ mb: 1 }}>
-        {taskId}: {task.text}
+        {taskId}: {task.title || task.text}
       </Typography>
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
@@ -176,6 +177,15 @@ export function TaskDetail({
             {task.claimed_at && ` · since ${new Date(task.claimed_at).toLocaleString()}`}
             {task.lease_expires_at && ` · lease expires ${new Date(task.lease_expires_at).toLocaleString()}`}
           </Typography>
+        </Box>
+      )}
+
+      {task.title && task.text && (
+        <Box sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+            Implementation Plan
+          </Typography>
+          <MarkdownContent slug={slug}>{task.text}</MarkdownContent>
         </Box>
       )}
 

@@ -1,71 +1,71 @@
 -- name: ListTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC;
 
 -- name: CountTasks :one
 SELECT count(*) FROM zdx_tasks
 WHERE project_id = @project_id
   AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%');
+  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%');
 
 -- name: CountClosedTasks :one
 SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND status = 'done';
 
 -- name: ListTasksPaginated :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id
   AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%')
+  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%')
 ORDER BY updated_at DESC
 LIMIT @page_limit OFFSET @page_offset;
 
 -- name: ListTasksByFeature :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC;
 
 -- name: CountTasksByFeature :one
 SELECT count(*) FROM zdx_tasks
 WHERE project_id = @project_id AND feature = @feature
   AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%');
+  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%');
 
 -- name: ListTasksByFeaturePaginated :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id AND feature = @feature
   AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%')
+  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%')
 ORDER BY updated_at DESC
 LIMIT @page_limit OFFSET @page_offset;
 
 -- name: ListTasksByIssue :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC;
 
 -- name: CountTasksByIssue :one
 SELECT count(*) FROM zdx_tasks
 WHERE project_id = @project_id AND issue = @issue
   AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%');
+  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%');
 
 -- name: ListTasksByIssuePaginated :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id AND issue = @issue
   AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%')
+  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%')
 ORDER BY updated_at DESC
 LIMIT @page_limit OFFSET @page_offset;
 
 -- name: GetTask :one
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1;
 
 -- name: CreateTask :one
-INSERT INTO zdx_tasks (id, project_id, text, feature, issue, task_group, status)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at;
+INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at;
 
 -- name: ReadyTask :exec
 UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1 AND status = 'wip';
@@ -89,7 +89,8 @@ DELETE FROM zdx_tasks WHERE id = $1 AND status = 'wip';
 
 -- name: UpdateTaskFields :exec
 UPDATE zdx_tasks
-SET text       = CASE WHEN @field::text = 'text'       THEN @value::text ELSE text       END,
+SET title      = CASE WHEN @field::text = 'title'      THEN @value::text ELSE title      END,
+    text       = CASE WHEN @field::text = 'text'       THEN @value::text ELSE text       END,
     feature    = CASE WHEN @field::text = 'feature'    THEN @value::text ELSE feature    END,
     issue      = CASE WHEN @field::text = 'issue'      THEN @value::text ELSE issue      END,
     depends    = CASE WHEN @field::text = 'depends'    THEN @value::text ELSE depends    END,
@@ -145,7 +146,7 @@ WHERE id = @id AND claimed_by = @agent_id;
 
 -- name: ListActiveTaskClaims :many
 -- Return all tasks that are currently claimed and whose lease has not expired.
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND claimed_by IS NOT NULL
@@ -153,7 +154,7 @@ WHERE project_id = $1
 ORDER BY claimed_at DESC;
 
 -- name: ListTasksByAgent :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE claimed_by = $1
 ORDER BY claimed_at DESC;
@@ -189,23 +190,23 @@ RETURNING t.*;
 UPDATE zdx_tasks SET reviewed_at = NOW(), updated_at = NOW() WHERE id = $1;
 
 -- name: ListUnreviewedDoneTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC;
 
 -- name: ListUnreviewedDoneTasksByIssue :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC;
 
 -- name: GetTaskWithReview :one
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1;
 
 -- name: GetTaskByExactText :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id
   AND text = @text
@@ -225,7 +226,7 @@ WHERE status = 'ready'
 RETURNING id, text, issue;
 
 -- name: ListStaleTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
@@ -233,7 +234,7 @@ WHERE project_id = $1
 ORDER BY stale_since ASC;
 
 -- name: ListStaleTasksByIssue :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
@@ -247,7 +248,7 @@ UPDATE zdx_tasks SET stale_since = NULL, updated_at = NOW() WHERE id = $1;
 
 -- name: ListOrphanReadyTasks :many
 -- Ready tasks with no parent issue — invisible to the normal solo queue.
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND status = 'ready'

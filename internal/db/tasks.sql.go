@@ -24,7 +24,7 @@ FROM zdx_issues i
 WHERE t.issue = i.id
   AND i.status = 'closed'
   AND t.status IN ('ready', 'active', 'wip')
-RETURNING t.id, t.project_id, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.created_at, t.completed_at, t.updated_at, t.task_group, t.claimed_by, t.claimed_at, t.lease_expires_at, t.reviewed_at, t.stale_since
+RETURNING t.id, t.project_id, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.created_at, t.completed_at, t.updated_at, t.task_group, t.claimed_by, t.claimed_at, t.lease_expires_at, t.reviewed_at, t.stale_since, t.title
 `
 
 func (q *Queries) CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error) {
@@ -56,6 +56,7 @@ func (q *Queries) CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error) {
 			&i.LeaseExpiresAt,
 			&i.ReviewedAt,
 			&i.StaleSince,
+			&i.Title,
 		); err != nil {
 			return nil, err
 		}
@@ -85,7 +86,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at, stale_since
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at, stale_since, title
 `
 
 type ClaimTaskParams struct {
@@ -125,6 +126,7 @@ func (q *Queries) ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, 
 		&i.LeaseExpiresAt,
 		&i.ReviewedAt,
 		&i.StaleSince,
+		&i.Title,
 	)
 	return i, err
 }
@@ -153,7 +155,7 @@ const countTasks = `-- name: CountTasks :one
 SELECT count(*) FROM zdx_tasks
 WHERE project_id = $1
   AND ($2::text = '' OR status = $2)
-  AND ($3::text = '' OR text ILIKE '%' || $3 || '%')
+  AND ($3::text = '' OR text ILIKE '%' || $3 || '%' OR title ILIKE '%' || $3 || '%')
 `
 
 type CountTasksParams struct {
@@ -173,7 +175,7 @@ const countTasksByFeature = `-- name: CountTasksByFeature :one
 SELECT count(*) FROM zdx_tasks
 WHERE project_id = $1 AND feature = $2
   AND ($3::text = '' OR status = $3)
-  AND ($4::text = '' OR text ILIKE '%' || $4 || '%')
+  AND ($4::text = '' OR text ILIKE '%' || $4 || '%' OR title ILIKE '%' || $4 || '%')
 `
 
 type CountTasksByFeatureParams struct {
@@ -199,7 +201,7 @@ const countTasksByIssue = `-- name: CountTasksByIssue :one
 SELECT count(*) FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2
   AND ($3::text = '' OR status = $3)
-  AND ($4::text = '' OR text ILIKE '%' || $4 || '%')
+  AND ($4::text = '' OR text ILIKE '%' || $4 || '%' OR title ILIKE '%' || $4 || '%')
 `
 
 type CountTasksByIssueParams struct {
@@ -222,24 +224,28 @@ func (q *Queries) CountTasksByIssue(ctx context.Context, arg CountTasksByIssuePa
 }
 
 const createTask = `-- name: CreateTask :one
-INSERT INTO zdx_tasks (id, project_id, text, feature, issue, task_group, status)
-VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 `
 
 type CreateTaskParams struct {
 	ID        string `db:"id" json:"id"`
 	ProjectID int32  `db:"project_id" json:"project_id"`
+	Title     string `db:"title" json:"title"`
 	Text      string `db:"text" json:"text"`
 	Feature   string `db:"feature" json:"feature"`
 	Issue     string `db:"issue" json:"issue"`
 	TaskGroup string `db:"task_group" json:"task_group"`
 	Status    string `db:"status" json:"status"`
+	Reason    string `db:"reason" json:"reason"`
+	TestPlan  string `db:"test_plan" json:"test_plan"`
 }
 
 type CreateTaskRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -258,16 +264,20 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (CreateT
 	row := q.db.QueryRow(ctx, createTask,
 		arg.ID,
 		arg.ProjectID,
+		arg.Title,
 		arg.Text,
 		arg.Feature,
 		arg.Issue,
 		arg.TaskGroup,
 		arg.Status,
+		arg.Reason,
+		arg.TestPlan,
 	)
 	var i CreateTaskRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
+		&i.Title,
 		&i.Text,
 		&i.Feature,
 		&i.Status,
@@ -349,13 +359,14 @@ func (q *Queries) FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) 
 }
 
 const getTask = `-- name: GetTask :one
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1
 `
 
 type GetTaskRow struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Title          string             `db:"title" json:"title"`
 	Text           string             `db:"text" json:"text"`
 	Feature        string             `db:"feature" json:"feature"`
 	Status         string             `db:"status" json:"status"`
@@ -379,6 +390,7 @@ func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
+		&i.Title,
 		&i.Text,
 		&i.Feature,
 		&i.Status,
@@ -399,7 +411,7 @@ func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
 }
 
 const getTaskByExactText = `-- name: GetTaskByExactText :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND text = $2
@@ -417,6 +429,7 @@ type GetTaskByExactTextParams struct {
 type GetTaskByExactTextRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -443,6 +456,7 @@ func (q *Queries) GetTaskByExactText(ctx context.Context, arg GetTaskByExactText
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -467,13 +481,14 @@ func (q *Queries) GetTaskByExactText(ctx context.Context, arg GetTaskByExactText
 }
 
 const getTaskWithReview = `-- name: GetTaskWithReview :one
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1
 `
 
 type GetTaskWithReviewRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -495,6 +510,7 @@ func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWith
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
+		&i.Title,
 		&i.Text,
 		&i.Feature,
 		&i.Status,
@@ -513,7 +529,7 @@ func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWith
 }
 
 const listActiveTaskClaims = `-- name: ListActiveTaskClaims :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND claimed_by IS NOT NULL
@@ -524,6 +540,7 @@ ORDER BY claimed_at DESC
 type ListActiveTaskClaimsRow struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Title          string             `db:"title" json:"title"`
 	Text           string             `db:"text" json:"text"`
 	Feature        string             `db:"feature" json:"feature"`
 	Status         string             `db:"status" json:"status"`
@@ -554,6 +571,7 @@ func (q *Queries) ListActiveTaskClaims(ctx context.Context, projectID int32) ([]
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -581,7 +599,7 @@ func (q *Queries) ListActiveTaskClaims(ctx context.Context, projectID int32) ([]
 }
 
 const listOrphanReadyTasks = `-- name: ListOrphanReadyTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND status = 'ready'
@@ -592,6 +610,7 @@ ORDER BY created_at
 type ListOrphanReadyTasksRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -619,6 +638,7 @@ func (q *Queries) ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -643,7 +663,7 @@ func (q *Queries) ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]
 }
 
 const listStaleTasks = `-- name: ListStaleTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
@@ -654,6 +674,7 @@ ORDER BY stale_since ASC
 type ListStaleTasksRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -681,6 +702,7 @@ func (q *Queries) ListStaleTasks(ctx context.Context, projectID int32) ([]ListSt
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -706,7 +728,7 @@ func (q *Queries) ListStaleTasks(ctx context.Context, projectID int32) ([]ListSt
 }
 
 const listStaleTasksByIssue = `-- name: ListStaleTasksByIssue :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
@@ -723,6 +745,7 @@ type ListStaleTasksByIssueParams struct {
 type ListStaleTasksByIssueRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -750,6 +773,7 @@ func (q *Queries) ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksB
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -775,13 +799,14 @@ func (q *Queries) ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksB
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC
 `
 
 type ListTasksRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -808,6 +833,7 @@ func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ListTasksRo
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -832,7 +858,7 @@ func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ListTasksRo
 }
 
 const listTasksByAgent = `-- name: ListTasksByAgent :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE claimed_by = $1
 ORDER BY claimed_at DESC
@@ -841,6 +867,7 @@ ORDER BY claimed_at DESC
 type ListTasksByAgentRow struct {
 	ID             string             `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
+	Title          string             `db:"title" json:"title"`
 	Text           string             `db:"text" json:"text"`
 	Feature        string             `db:"feature" json:"feature"`
 	Status         string             `db:"status" json:"status"`
@@ -870,6 +897,7 @@ func (q *Queries) ListTasksByAgent(ctx context.Context, claimedBy pgtype.Text) (
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -897,7 +925,7 @@ func (q *Queries) ListTasksByAgent(ctx context.Context, claimedBy pgtype.Text) (
 }
 
 const listTasksByFeature = `-- name: ListTasksByFeature :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC
 `
 
@@ -909,6 +937,7 @@ type ListTasksByFeatureParams struct {
 type ListTasksByFeatureRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -935,6 +964,7 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -959,11 +989,11 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 }
 
 const listTasksByFeaturePaginated = `-- name: ListTasksByFeaturePaginated :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND feature = $2
   AND ($3::text = '' OR status = $3)
-  AND ($4::text = '' OR text ILIKE '%' || $4 || '%')
+  AND ($4::text = '' OR text ILIKE '%' || $4 || '%' OR title ILIKE '%' || $4 || '%')
 ORDER BY updated_at DESC
 LIMIT $6 OFFSET $5
 `
@@ -980,6 +1010,7 @@ type ListTasksByFeaturePaginatedParams struct {
 type ListTasksByFeaturePaginatedRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -1013,6 +1044,7 @@ func (q *Queries) ListTasksByFeaturePaginated(ctx context.Context, arg ListTasks
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -1037,7 +1069,7 @@ func (q *Queries) ListTasksByFeaturePaginated(ctx context.Context, arg ListTasks
 }
 
 const listTasksByIssue = `-- name: ListTasksByIssue :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC
 `
 
@@ -1049,6 +1081,7 @@ type ListTasksByIssueParams struct {
 type ListTasksByIssueRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -1075,6 +1108,7 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -1099,11 +1133,11 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 }
 
 const listTasksByIssuePaginated = `-- name: ListTasksByIssuePaginated :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2
   AND ($3::text = '' OR status = $3)
-  AND ($4::text = '' OR text ILIKE '%' || $4 || '%')
+  AND ($4::text = '' OR text ILIKE '%' || $4 || '%' OR title ILIKE '%' || $4 || '%')
 ORDER BY updated_at DESC
 LIMIT $6 OFFSET $5
 `
@@ -1120,6 +1154,7 @@ type ListTasksByIssuePaginatedParams struct {
 type ListTasksByIssuePaginatedRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -1153,6 +1188,7 @@ func (q *Queries) ListTasksByIssuePaginated(ctx context.Context, arg ListTasksBy
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -1177,11 +1213,11 @@ func (q *Queries) ListTasksByIssuePaginated(ctx context.Context, arg ListTasksBy
 }
 
 const listTasksPaginated = `-- name: ListTasksPaginated :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND ($2::text = '' OR status = $2)
-  AND ($3::text = '' OR text ILIKE '%' || $3 || '%')
+  AND ($3::text = '' OR text ILIKE '%' || $3 || '%' OR title ILIKE '%' || $3 || '%')
 ORDER BY updated_at DESC
 LIMIT $5 OFFSET $4
 `
@@ -1197,6 +1233,7 @@ type ListTasksPaginatedParams struct {
 type ListTasksPaginatedRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -1229,6 +1266,7 @@ func (q *Queries) ListTasksPaginated(ctx context.Context, arg ListTasksPaginated
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -1253,7 +1291,7 @@ func (q *Queries) ListTasksPaginated(ctx context.Context, arg ListTasksPaginated
 }
 
 const listUnreviewedDoneTasks = `-- name: ListUnreviewedDoneTasks :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC
@@ -1262,6 +1300,7 @@ ORDER BY completed_at ASC
 type ListUnreviewedDoneTasksRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -1289,6 +1328,7 @@ func (q *Queries) ListUnreviewedDoneTasks(ctx context.Context, projectID int32) 
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -1314,7 +1354,7 @@ func (q *Queries) ListUnreviewedDoneTasks(ctx context.Context, projectID int32) 
 }
 
 const listUnreviewedDoneTasksByIssue = `-- name: ListUnreviewedDoneTasksByIssue :many
-SELECT id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC
@@ -1328,6 +1368,7 @@ type ListUnreviewedDoneTasksByIssueParams struct {
 type ListUnreviewedDoneTasksByIssueRow struct {
 	ID          string             `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
 	Text        string             `db:"text" json:"text"`
 	Feature     string             `db:"feature" json:"feature"`
 	Status      string             `db:"status" json:"status"`
@@ -1355,6 +1396,7 @@ func (q *Queries) ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUn
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
+			&i.Title,
 			&i.Text,
 			&i.Feature,
 			&i.Status,
@@ -1433,7 +1475,7 @@ SET claimed_by = NULL,
 WHERE lease_expires_at < NOW()
   AND claimed_by IS NOT NULL
   AND status != 'done'
-RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at, stale_since
+RETURNING id, project_id, text, feature, status, reason, issue, depends, test_plan, test_refs, created_at, completed_at, updated_at, task_group, claimed_by, claimed_at, lease_expires_at, reviewed_at, stale_since, title
 `
 
 func (q *Queries) ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error) {
@@ -1465,6 +1507,7 @@ func (q *Queries) ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error) {
 			&i.LeaseExpiresAt,
 			&i.ReviewedAt,
 			&i.StaleSince,
+			&i.Title,
 		); err != nil {
 			return nil, err
 		}
@@ -1531,7 +1574,8 @@ func (q *Queries) RenewTaskLease(ctx context.Context, arg RenewTaskLeaseParams) 
 
 const updateTaskFields = `-- name: UpdateTaskFields :exec
 UPDATE zdx_tasks
-SET text       = CASE WHEN $1::text = 'text'       THEN $2::text ELSE text       END,
+SET title      = CASE WHEN $1::text = 'title'      THEN $2::text ELSE title      END,
+    text       = CASE WHEN $1::text = 'text'       THEN $2::text ELSE text       END,
     feature    = CASE WHEN $1::text = 'feature'    THEN $2::text ELSE feature    END,
     issue      = CASE WHEN $1::text = 'issue'      THEN $2::text ELSE issue      END,
     depends    = CASE WHEN $1::text = 'depends'    THEN $2::text ELSE depends    END,

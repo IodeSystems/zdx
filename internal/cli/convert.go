@@ -152,12 +152,15 @@ func TaskToCli(t dxclient.TaskItem) clitypes.TaskItem {
 	}
 	return clitypes.TaskItem{
 		ID:         t.Id,
+		Title:      t.Title,
 		Text:       t.Text,
 		Feature:    t.Feature,
 		Status:     t.Status,
 		Reason:     t.Reason,
 		IssueID:    issueID,
 		TaskGroup:  t.TaskGroup,
+		TestPlan:   t.TestPlan,
+		TestRefs:   t.TestRefs,
 		CreatedAt:  t.CreatedAt,
 		StaleSince: stale,
 	}

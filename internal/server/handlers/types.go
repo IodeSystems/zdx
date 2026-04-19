@@ -27,6 +27,7 @@ type IssueBlockerRef struct {
 
 type TaskItem struct {
 	ID             int32  `json:"id" doc:"Server integer ID; CLI formats as TK-N"`
+	Title          string `json:"title"`
 	Text           string `json:"text"`
 	Feature        string `json:"feature"`
 	Status         string `json:"status"`

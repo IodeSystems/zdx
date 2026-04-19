@@ -877,6 +877,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			for i, r := range taskRows {
 				tasks[i] = AgentTaskItem{
 					ID:             r.ID,
+					Title:          r.Title,
 					Text:           r.Text,
 					Feature:        r.Feature,
 					Status:         r.Status,

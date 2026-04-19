@@ -199,9 +199,12 @@ type AddTaskRequest struct {
 	Feature   *string `json:"feature,omitempty"`
 	Force     *bool   `json:"force,omitempty"`
 	Issue     *string `json:"issue,omitempty"`
+	Reason    *string `json:"reason,omitempty"`
 	Slug      string  `json:"slug"`
 	TaskGroup *string `json:"task_group,omitempty"`
+	TestPlan  *string `json:"test_plan,omitempty"`
 	Text      string  `json:"text"`
+	Title     *string `json:"title,omitempty"`
 }
 
 // AddTaskResponse defines model for Add-taskResponse.
@@ -231,6 +234,7 @@ type AddTaskResponse struct {
 	TestPlan       string             `json:"test_plan"`
 	TestRefs       string             `json:"test_refs"`
 	Text           string             `json:"text"`
+	Title          string             `json:"title"`
 	UpdatedAt      string             `json:"updated_at"`
 }
 
@@ -285,6 +289,7 @@ type AgentTaskItem struct {
 	Status         string  `json:"status"`
 	TaskGroup      string  `json:"task_group"`
 	Text           string  `json:"text"`
+	Title          string  `json:"title"`
 }
 
 // AgentTokenUsageRow defines model for AgentTokenUsageRow.
@@ -2953,6 +2958,7 @@ type TaskItem struct {
 	TestPlan       string  `json:"test_plan"`
 	TestRefs       string  `json:"test_refs"`
 	Text           string  `json:"text"`
+	Title          string  `json:"title"`
 	UpdatedAt      string  `json:"updated_at"`
 }
 
@@ -3076,6 +3082,15 @@ type TimedItem struct {
 	TotalMs     int64       `json:"total_ms"`
 }
 
+// TodoDetailBody defines model for TodoDetailBody.
+type TodoDetailBody struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string            `json:"$schema,omitempty"`
+	Reservations *[]ReservationItem `json:"reservations"`
+	Sessions     *[]TodoSessionItem `json:"sessions"`
+	Todo         TodoItem           `json:"todo"`
+}
+
 // TodoItem defines model for TodoItem.
 type TodoItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3095,6 +3110,21 @@ type TodoItem struct {
 	TargetId   string  `json:"target_id"`
 	TargetType string  `json:"target_type"`
 	Text       string  `json:"text"`
+}
+
+// TodoSessionItem defines model for TodoSessionItem.
+type TodoSessionItem struct {
+	Alias     *string `json:"alias,omitempty"`
+	ClosedAt  *string `json:"closed_at,omitempty"`
+	CreatedAt string  `json:"created_at"`
+	Header    *string `json:"header,omitempty"`
+	Id        int64   `json:"id"`
+	IssueId   *string `json:"issue_id,omitempty"`
+	SessionId string  `json:"session_id"`
+	Status    *string `json:"status,omitempty"`
+	Summary   *string `json:"summary,omitempty"`
+	Title     *string `json:"title,omitempty"`
+	UpdatedAt string  `json:"updated_at"`
 }
 
 // TokensStruct defines model for TokensStruct.
@@ -5093,6 +5123,9 @@ type ClientInterface interface {
 	CreateEnvironmentDeployWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateEnvironmentDeploy(ctx context.Context, slug string, name string, body CreateEnvironmentDeployJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetTodoDetail request
+	GetTodoDetail(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AddQuestionWithBody request with any body
 	AddQuestionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8069,6 +8102,18 @@ func (c *APIClient) CreateEnvironmentDeployWithBody(ctx context.Context, slug st
 
 func (c *APIClient) CreateEnvironmentDeploy(ctx context.Context, slug string, name string, body CreateEnvironmentDeployJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateEnvironmentDeployRequest(c.Server, slug, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) GetTodoDetail(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTodoDetailRequest(c.Server, slug, key)
 	if err != nil {
 		return nil, err
 	}
@@ -17800,6 +17845,47 @@ func NewCreateEnvironmentDeployRequestWithBody(server string, slug string, name 
 	return req, nil
 }
 
+// NewGetTodoDetailRequest generates requests for GetTodoDetail
+func NewGetTodoDetailRequest(server string, slug string, key string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/todos/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewAddQuestionRequest calls the generic AddQuestion builder with application/json body
 func NewAddQuestionRequest(server string, body AddQuestionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -24575,6 +24661,9 @@ type ClientWithResponsesInterface interface {
 
 	CreateEnvironmentDeployWithResponse(ctx context.Context, slug string, name string, body CreateEnvironmentDeployJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentDeployResponse, error)
 
+	// GetTodoDetailWithResponse request
+	GetTodoDetailWithResponse(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*GetTodoDetailResponse, error)
+
 	// AddQuestionWithBodyWithResponse request with any body
 	AddQuestionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddQuestionResponse, error)
 
@@ -28339,6 +28428,29 @@ func (r CreateEnvironmentDeployResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateEnvironmentDeployResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetTodoDetailResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *TodoDetailBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTodoDetailResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTodoDetailResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -32860,6 +32972,15 @@ func (c *ClientWithResponses) CreateEnvironmentDeployWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseCreateEnvironmentDeployResponse(rsp)
+}
+
+// GetTodoDetailWithResponse request returning *GetTodoDetailResponse
+func (c *ClientWithResponses) GetTodoDetailWithResponse(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*GetTodoDetailResponse, error) {
+	rsp, err := c.GetTodoDetail(ctx, slug, key, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTodoDetailResponse(rsp)
 }
 
 // AddQuestionWithBodyWithResponse request with arbitrary body returning *AddQuestionResponse
@@ -39106,6 +39227,39 @@ func ParseCreateEnvironmentDeployResponse(rsp *http.Response) (*CreateEnvironmen
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest DeployItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetTodoDetailResponse parses an HTTP response from a GetTodoDetailWithResponse call
+func ParseGetTodoDetailResponse(rsp *http.Response) (*GetTodoDetailResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTodoDetailResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TodoDetailBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

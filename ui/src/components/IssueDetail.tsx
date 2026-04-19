@@ -333,7 +333,7 @@ export function IssueDetail({
               >
                 <Chip label={t.status} size="small" color={t.status === 'done' ? 'success' : 'default'} variant="outlined" />
                 <Typography variant="body2">
-                  TK-{t.id}: [{t.feature}] {t.text}
+                  TK-{t.id}: [{t.feature}] {t.title || t.text}
                 </Typography>
               </Box>
             ))}

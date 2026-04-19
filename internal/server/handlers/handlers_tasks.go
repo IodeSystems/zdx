@@ -44,7 +44,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			}
 			out := make([]TaskItem, len(rows))
 			for i, r := range rows {
-				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
+				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Title: r.Title, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
@@ -70,7 +70,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				return nil, apiErr(404, "task not found")
 			}
 			return &struct{ Body TaskItem }{Body: toTaskItem(db.ZdxTask{
-				ID: row.ID, ProjectID: row.ProjectID, Text: row.Text, Feature: row.Feature,
+				ID: row.ID, ProjectID: row.ProjectID, Title: row.Title, Text: row.Text, Feature: row.Feature,
 				Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends,
 				TestPlan: row.TestPlan, TestRefs: row.TestRefs, TaskGroup: row.TaskGroup,
 				ClaimedBy: row.ClaimedBy, ClaimedAt: row.ClaimedAt, LeaseExpiresAt: row.LeaseExpiresAt,
@@ -99,7 +99,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			}
 			out := make([]TaskItem, len(rows))
 			for i, r := range rows {
-				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
+				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Title: r.Title, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
@@ -128,7 +128,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			}
 			out := make([]TaskItem, len(rows))
 			for i, r := range rows {
-				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
+				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Title: r.Title, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
@@ -141,7 +141,10 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			Body struct {
 				Slug      string  `json:"slug"`
 				Feature   *string `json:"feature,omitempty"`
+				Title     *string `json:"title,omitempty"`
 				Text      string  `json:"text"`
+				Reason    *string `json:"reason,omitempty"`
+				TestPlan  *string `json:"test_plan,omitempty"`
 				Issue     *string `json:"issue,omitempty"`
 				Depends   *string `json:"depends,omitempty"`
 				TaskGroup *string `json:"task_group,omitempty"`
@@ -216,17 +219,20 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			row, err := h.Q.CreateTask(ctx, db.CreateTaskParams{
 				ID:        id,
 				ProjectID: p.ID,
+				Title:     ptrStr(in.Body.Title),
 				Text:      in.Body.Text,
 				Feature:   ptrStr(in.Body.Feature),
 				Issue:     ptrStr(in.Body.Issue),
 				TaskGroup: ptrStr(in.Body.TaskGroup),
 				Status:    status,
+				Reason:    ptrStr(in.Body.Reason),
+				TestPlan:  ptrStr(in.Body.TestPlan),
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			go h.Emb.UpsertTask(context.Background(), p.ID, row.ID, row.Text)
-			item := toTaskItem(db.ZdxTask{ID: row.ID, ProjectID: row.ProjectID, Text: row.Text, Feature: row.Feature, Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends, TestPlan: row.TestPlan, TestRefs: row.TestRefs, CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt, TaskGroup: row.TaskGroup})
+			item := toTaskItem(db.ZdxTask{ID: row.ID, ProjectID: row.ProjectID, Title: row.Title, Text: row.Text, Feature: row.Feature, Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends, TestPlan: row.TestPlan, TestRefs: row.TestRefs, CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt, TaskGroup: row.TaskGroup})
 			return &struct {
 				Body struct {
 					TaskItem
@@ -422,7 +428,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			}
 			out := make([]TaskItem, len(rows))
 			for i, r := range rows {
-				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup, StaleSince: r.StaleSince})
+				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Title: r.Title, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup, StaleSince: r.StaleSince})
 			}
 			return &struct {
 				Body struct {
@@ -611,7 +617,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				}
 			}
 			task := toTaskItem(db.ZdxTask{
-				ID: row.ID, ProjectID: row.ProjectID, Text: row.Text, Feature: row.Feature,
+				ID: row.ID, ProjectID: row.ProjectID, Title: row.Title, Text: row.Text, Feature: row.Feature,
 				Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends,
 				TestPlan: row.TestPlan, TestRefs: row.TestRefs, TaskGroup: row.TaskGroup,
 				CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt,
@@ -752,7 +758,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				}
 				out := make([]TaskItem, len(rows))
 				for i, r := range rows {
-					t := toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
+					t := toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Title: r.Title, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 					t.ReviewedAt = fmtTS(r.ReviewedAt)
 					out[i] = t
 				}
@@ -767,7 +773,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			}
 			out := make([]TaskItem, len(rows))
 			for i, r := range rows {
-				t := toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
+				t := toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Title: r.Title, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 				t.ReviewedAt = fmtTS(r.ReviewedAt)
 				out[i] = t
 			}
@@ -783,6 +789,7 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 func toTaskItem(r db.ZdxTask) TaskItem {
 	t := TaskItem{
 		ID:          taskIntID(r.ID),
+		Title:       r.Title,
 		Text:        r.Text,
 		Feature:     r.Feature,
 		Status:      r.Status,

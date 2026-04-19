@@ -29,6 +29,7 @@ type AgentItem struct {
 
 type AgentTaskItem struct {
 	ID             string `json:"id"`
+	Title          string `json:"title"`
 	Text           string `json:"text"`
 	Feature        string `json:"feature"`
 	Status         string `json:"status"`
@@ -219,6 +220,7 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = AgentTaskItem{
 					ID:             r.ID,
+					Title:          r.Title,
 					Text:           r.Text,
 					Feature:        r.Feature,
 					Status:         r.Status,
@@ -278,6 +280,7 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			h.recordStatusChange(ctx, p.ID, "task", t.ID, "ready", "active", in.Body.AgentID)
 			item := AgentTaskItem{
 				ID:             t.ID,
+				Title:          t.Title,
 				Text:           t.Text,
 				Feature:        t.Feature,
 				Status:         t.Status,

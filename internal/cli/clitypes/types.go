@@ -87,12 +87,15 @@ type TaskAddResponse struct {
 
 type TaskItem struct {
 	ID         int32  `json:"id"`
+	Title      string `json:"title"`
 	Text       string `json:"text"`
 	Feature    string `json:"feature"`
 	Status     string `json:"status"`
 	Reason     string `json:"reason"`
 	IssueID    *int32 `json:"issue_id,omitempty"`
 	TaskGroup  string `json:"task_group"`
+	TestPlan   string `json:"test_plan"`
+	TestRefs   string `json:"test_refs"`
 	CreatedAt  string `json:"created_at"`
 	StaleSince string `json:"stale_since,omitempty"`
 }
