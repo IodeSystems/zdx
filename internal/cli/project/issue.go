@@ -152,6 +152,8 @@ func issueAddCmd() *cobra.Command {
 				fmt.Printf("  dx issue ready %s\n", clitypes.IssueIDStr(addResp.Id))
 				fmt.Printf("To close as duplicate:\n")
 				fmt.Printf("  dx issue close %s --reason=duplicate --duplicate-of=<IS-N>\n", clitypes.IssueIDStr(addResp.Id))
+				fmt.Printf("To close as a narrow-slice link (cascade-close with target; no reopen-cascade):\n")
+				fmt.Printf("  dx issue close %s --reason=link --link-of=<IS-N>\n", clitypes.IssueIDStr(addResp.Id))
 			} else if !autoReady {
 				rdyResp, err := c.ReadyIssueWithResponse(cmd.Context(), dxclient.ReadyIssueRequest{
 					Slug: c.SlugOrDie(),
@@ -284,6 +286,7 @@ func issueShowCmd() *cobra.Command {
 func issueCloseCmd() *cobra.Command {
 	var reason string
 	var duplicateOf string
+	var linkOf string
 	cmd := &cobra.Command{
 		Use:   "close <IS-N>",
 		Short: "Close an issue",
@@ -291,6 +294,12 @@ func issueCloseCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if reason == "duplicate" && duplicateOf == "" {
 				return fmt.Errorf("--duplicate-of is required when --reason=duplicate")
+			}
+			if reason == "link" && linkOf == "" {
+				return fmt.Errorf("--link-of is required when --reason=link")
+			}
+			if duplicateOf != "" && linkOf != "" {
+				return fmt.Errorf("--duplicate-of and --link-of are mutually exclusive")
 			}
 			if err := cli.RunCloseHooks(); err != nil {
 				return err
@@ -308,6 +317,9 @@ func issueCloseCmd() *cobra.Command {
 			if duplicateOf != "" {
 				body.DuplicateOf = &duplicateOf
 			}
+			if linkOf != "" {
+				body.LinkOf = &linkOf
+			}
 			resp, err := c.CloseIssueWithResponse(cmd.Context(), body)
 			if err != nil {
 				return err
@@ -319,8 +331,9 @@ func issueCloseCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&reason, "reason", "", "close reason")
+	cmd.Flags().StringVar(&reason, "reason", "", "close reason (done|duplicate|link|...)")
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
+	cmd.Flags().StringVar(&linkOf, "link-of", "", "issue ID this is a narrow-slice link of (required when --reason=link; cascade-closes with target, no reopen-cascade)")
 	return cmd
 }
 

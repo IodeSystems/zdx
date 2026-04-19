@@ -86,7 +86,7 @@ func IssueToCli(iss dxclient.IssueItem) clitypes.IssueItem {
 			detail = append(detail, clitypes.IssueBlockerRef{ID: b.Id, Status: b.Status})
 		}
 	}
-	return clitypes.IssueItem{
+	out := clitypes.IssueItem{
 		ID:              iss.Id,
 		Title:           iss.Title,
 		Status:          iss.Status,
@@ -98,6 +98,16 @@ func IssueToCli(iss dxclient.IssueItem) clitypes.IssueItem {
 		IssueType:       iss.IssueType,
 		URL:             iss.Url,
 	}
+	if iss.DuplicateOf != nil {
+		out.DuplicateOf = *iss.DuplicateOf
+	}
+	if iss.LinkOf != nil {
+		out.LinkOf = *iss.LinkOf
+	}
+	if iss.ReopenCount != nil {
+		out.ReopenCount = int32(*iss.ReopenCount)
+	}
+	return out
 }
 
 // FeatureToCli converts a typed FeatureItem into the clitypes shape expected

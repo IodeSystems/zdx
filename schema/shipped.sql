@@ -965,7 +965,9 @@ CREATE TABLE public.zdx_issues (
     duplicate_of text DEFAULT ''::text NOT NULL,
     url text DEFAULT ''::text NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    source_error_id bigint
+    source_error_id bigint,
+    link_of text DEFAULT ''::text NOT NULL,
+    reopen_count integer DEFAULT 0 NOT NULL
 );
 
 

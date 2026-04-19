@@ -18,7 +18,10 @@ import (
 
 const triageGuidance = `  triage checklist:
     1. verify independently (reproduce or read the code)
-    2. dup-check: dx issue list; close duplicates with --reason=duplicate
+    2. dup-check: scan the 'similar issues' list above (and dx issue list for wider context).
+       - full duplicate (same bug/ask): dx issue close IS-N --reason=duplicate --duplicate-of=IS-X
+       - narrow slice of a larger issue: dx issue close IS-N --reason=link --link-of=IS-X
+         (cascade-closes when IS-X closes; does NOT cascade-reopen when IS-X reopens.)
     3. rewrite prescriptively: title=intended outcome; context=should/did/direction
     4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|ask|tracker> --priority=<1-4> --focus=<ID> --goal=<ID>
        use the active focuses and goals listed above to classify the issue
@@ -33,6 +36,36 @@ const triageGuidance = `  triage checklist:
       - for multi-stage questions (answer to Q1 changes Q2+), ask only the first stage now; file follow-ups after the answer arrives
     solo will block progress on the issue until all questions are answered.
 `
+
+func printSimilarIssues(cmd *cobra.Command, c *cli.Client, slug string, selfID int32, text string) {
+	if strings.TrimSpace(text) == "" {
+		return
+	}
+	n := int64(5)
+	resp, err := c.SimilarIssuesWithResponse(cmd.Context(), dxclient.SimilarIssuesRequest{
+		Slug: slug,
+		Text: text,
+		N:    &n,
+	})
+	if err != nil || resp.JSON200 == nil || resp.JSON200.Issues == nil {
+		return
+	}
+	selfStr := clitypes.IssueIDStr(selfID)
+	var matches []dxclient.SimilarIssueItem
+	for _, s := range *resp.JSON200.Issues {
+		if s.Id == selfStr {
+			continue
+		}
+		matches = append(matches, s)
+	}
+	if len(matches) == 0 {
+		return
+	}
+	fmt.Println("  similar issues (candidates for dup/link):")
+	for _, s := range matches {
+		fmt.Printf("    %-7s  (%3.0f%%)  [%s]  %s\n", s.Id, s.Score*100, s.Status, s.Title)
+	}
+}
 
 func printTriageContext(cmd *cobra.Command, c *cli.Client, slug string) {
 	if foResp, err := c.ListFocusesWithResponse(cmd.Context(), &dxclient.ListFocusesParams{Slug: slug}); err == nil &&
@@ -494,6 +527,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 				fmt.Printf("\n%s\n", iss.Context)
 			}
 			printTriageContext(cmd, c, slug)
+			printSimilarIssues(cmd, c, slug, iss.Id, iss.Title+" "+iss.Context)
 			fmt.Print(triageGuidance)
 			return nil
 		}

@@ -525,6 +525,7 @@ type CloseIssueRequest struct {
 	Schema      *string `json:"$schema,omitempty"`
 	DuplicateOf *string `json:"duplicate_of,omitempty"`
 	Id          int32   `json:"id"`
+	LinkOf      *string `json:"link_of,omitempty"`
 	Notes       *string `json:"notes,omitempty"`
 	Reason      *string `json:"reason,omitempty"`
 	Slug        string  `json:"slug"`
@@ -1385,14 +1386,18 @@ type IssueItem struct {
 	Features        string             `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
-	Id        int32  `json:"id"`
-	IssueType string `json:"issue_type"`
-	Priority  string `json:"priority"`
-	Source    string `json:"source"`
-	Status    string `json:"status"`
-	Title     string `json:"title"`
-	UpdatedAt string `json:"updated_at"`
-	Url       string `json:"url"`
+	Id        int32   `json:"id"`
+	IssueType string  `json:"issue_type"`
+	LinkOf    *string `json:"link_of,omitempty"`
+	Priority  string  `json:"priority"`
+
+	// ReopenCount Number of times this issue has been reopened — a churn signal for stabilization candidates
+	ReopenCount *int32 `json:"reopen_count,omitempty"`
+	Source      string `json:"source"`
+	Status      string `json:"status"`
+	Title       string `json:"title"`
+	UpdatedAt   string `json:"updated_at"`
+	Url         string `json:"url"`
 }
 
 // IssueWorkItem defines model for IssueWorkItem.

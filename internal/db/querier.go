@@ -170,7 +170,7 @@ type Querier interface {
 	GetInviteByToken(ctx context.Context, token string) (ZdxInvite, error)
 	GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, error)
 	GetIssueByAnyProject(ctx context.Context, id string) (ZdxIssue, error)
-	GetIssueBySourceErrorID(ctx context.Context, arg GetIssueBySourceErrorIDParams) (GetIssueBySourceErrorIDRow, error)
+	GetIssueBySourceErrorID(ctx context.Context, arg GetIssueBySourceErrorIDParams) (ZdxIssue, error)
 	GetIssueFiles(ctx context.Context, issueID string) ([]GetIssueFilesRow, error)
 	GetIssueResolution(ctx context.Context, id string) (ZdxIssueResolution, error)
 	GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueWork, error)
@@ -306,6 +306,9 @@ type Querier interface {
 	ListLogEventsDistinctTagValues(ctx context.Context, arg ListLogEventsDistinctTagValuesParams) ([]interface{}, error)
 	ListLogEventsGrouped(ctx context.Context, arg ListLogEventsGroupedParams) ([]ListLogEventsGroupedRow, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
+	// Open issues whose duplicate_of or link_of targets the given issue. Used to
+	// cascade-close narrow-slice links (and full duplicates) when the target closes.
+	ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIssuesParams) ([]ZdxIssue, error)
 	// Ready tasks with no parent issue — invisible to the normal solo queue.
 	ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]ListOrphanReadyTasksRow, error)
 	// Features with more than @threshold non-deferred specs (decomposition signal).

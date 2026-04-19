@@ -7709,6 +7709,7 @@ export interface components {
             created_at: string;
             /** Format: int32 */
             id: number;
+            instructions?: string;
             issue_ref: string;
             key: string;
             kind: string;

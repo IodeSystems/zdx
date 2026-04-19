@@ -44,6 +44,9 @@ type IssueItem struct {
 	BlockedByDetail []IssueBlockerRef `json:"blocked_by_detail,omitempty"`
 	Context         string            `json:"context"`
 	IssueType       string            `json:"issue_type"`
+	DuplicateOf     string            `json:"duplicate_of,omitempty"`
+	LinkOf          string            `json:"link_of,omitempty"`
+	ReopenCount     int32             `json:"reopen_count,omitempty"`
 	URL             string            `json:"url"`
 }
 

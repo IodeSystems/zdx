@@ -350,6 +350,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				Reason      *string `json:"reason,omitempty"`
 				Notes       *string `json:"notes,omitempty"`
 				DuplicateOf *string `json:"duplicate_of,omitempty"`
+				LinkOf      *string `json:"link_of,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -359,8 +360,15 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			issueID := issueIDFromInt(in.Body.ID)
 			reason := ptrStr(in.Body.Reason)
 			duplicateOf := ptrStr(in.Body.DuplicateOf)
+			linkOf := ptrStr(in.Body.LinkOf)
 			if reason == "duplicate" && duplicateOf == "" {
 				return nil, apiErr(400, "duplicate_of is required when reason is duplicate")
+			}
+			if reason == "link" && linkOf == "" {
+				return nil, apiErr(400, "link_of is required when reason is link")
+			}
+			if duplicateOf != "" && linkOf != "" {
+				return nil, apiErr(400, "duplicate_of and link_of are mutually exclusive")
 			}
 			agent := ""
 			if uid := ctxUserIDVal(ctx); uid != 0 {
@@ -381,7 +389,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if issue, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); gErr == nil {
 				prevStatus = issue.Status
 			}
-			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf}); err != nil {
+			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf, LinkOf: linkOf}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			h.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed")
@@ -394,11 +402,30 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if duplicateOf != "" {
 				note += "duplicate of " + duplicateOf + " "
 			}
+			if linkOf != "" {
+				note += "link of " + linkOf + " "
+			}
 			if notes != "" {
 				note += notes
 			}
 			_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
 			h.Broker.PublishIssue(in.Body.Slug, issueID, "issue.closed", map[string]any{"id": issueID, "reason": reason})
+
+			// Cascade-close on open→closed transition only: close any open issues
+			// that reference this issue via duplicate_of or link_of. Reopen does
+			// not reverse this (see reopen-issue handler).
+			if prevStatus == "open" {
+				linked, lErr := h.Q.ListOpenLinkedIssues(ctx, db.ListOpenLinkedIssuesParams{ProjectID: p.ID, TargetID: issueID})
+				if lErr == nil {
+					for _, li := range linked {
+						_ = h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: li.ID, DuplicateOf: li.DuplicateOf, LinkOf: li.LinkOf})
+						h.recordRevision(ctx, p.ID, "issue", li.ID, "status", "open", "closed")
+						cascadeNote := "[closed:cascade] target " + issueID + " closed"
+						_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: li.ID, Agent: agent, Note: cascadeNote})
+						h.Broker.PublishIssue(in.Body.Slug, li.ID, "issue.closed", map[string]any{"id": li.ID, "reason": "cascade"})
+					}
+				}
+			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -413,6 +440,10 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				prevStatus = issue.Status
 				projectID = issue.ProjectID
 			}
+			// Reopening a target does NOT reopen linked/duplicate issues: a
+			// narrow-slice link may have been fixed independently, or the new
+			// target reopen may describe a different aspect. Closed links stay
+			// closed until explicitly reopened.
 			_ = h.Q.ReopenIssue(ctx, db.ReopenIssueParams{ID: issueID, ProjectID: 0})
 			if projectID != 0 {
 				h.recordRevision(ctx, projectID, "issue", issueID, "status", prevStatus, "open")
@@ -976,6 +1007,8 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		Context:         r.Context,
 		IssueType:       r.IssueType,
 		DuplicateOf:     r.DuplicateOf,
+		LinkOf:          r.LinkOf,
+		ReopenCount:     r.ReopenCount,
 		URL:             r.Url,
 		CreatedAt:       fmtTS(r.CreatedAt),
 		UpdatedAt:       fmtTS(r.UpdatedAt),

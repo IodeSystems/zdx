@@ -23,6 +23,15 @@ func PrintIssueItem(iss clitypes.IssueItem) {
 	if iss.URL != "" {
 		fmt.Printf("URL:       %s\n", iss.URL)
 	}
+	if iss.DuplicateOf != "" {
+		fmt.Printf("Duplicate of: %s\n", iss.DuplicateOf)
+	}
+	if iss.LinkOf != "" {
+		fmt.Printf("Link of:   %s  (cascade-close, no reopen-cascade)\n", iss.LinkOf)
+	}
+	if iss.ReopenCount > 0 {
+		fmt.Printf("Reopens:   %d  (churn signal)\n", iss.ReopenCount)
+	}
 	if len(iss.BlockedByDetail) > 0 {
 		var open, closed []string
 		for _, b := range iss.BlockedByDetail {
