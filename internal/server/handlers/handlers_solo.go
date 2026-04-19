@@ -747,12 +747,14 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			return &struct{ Body TodoItem }{Body: item}, nil
 		})
 
-	// POST /api/dx/solo/release — release a claimed todo
-	// When resolve=true and a session_id is provided, the handler verifies the
-	// session actually recorded at least one revision. Sessions that exit cleanly
-	// without applying any durable mutation release without marking resolved —
-	// this prevents UpsertTodo from reopening the same key on the next claim and
-	// burning tokens in a churn loop.
+	// POST /api/dx/solo/release — release or resolve a claimed todo
+	// When resolve=true the todo is marked resolved. If the queue generator
+	// re-emits the same key, UpsertTodo increments reopen_count and auto-blocks
+	// at 3+ reopens — that's the server-side churn guard.
+	//
+	// Previously this checked CountRevisionsBySession and downgraded resolve→release
+	// for zero-mutation sessions, but that prevented legitimate non-code work
+	// (comments, triage) from resolving and bypassed the reopen_count tracking.
 	huma.Register(api, huma.Operation{OperationID: "solo-release", Method: http.MethodPost, Path: "/api/dx/solo/release"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -768,18 +770,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}
 		}, error) {
 			resolve := in.Body.Resolve
-			churnDowngraded := false
 			todo, _ := h.Q.GetTodoByID(ctx, in.Body.ID)
-			if resolve && in.Body.SessionID != "" && todo.ID != 0 {
-				n, _ := h.Q.CountRevisionsBySession(ctx, db.CountRevisionsBySessionParams{
-					ProjectID: todo.ProjectID,
-					SessionID: in.Body.SessionID,
-				})
-				if n == 0 {
-					resolve = false
-					churnDowngraded = true
-				}
-			}
 			if resolve {
 				_ = h.Q.ResolveTodoByID(ctx, in.Body.ID)
 			} else if in.Body.AgentID == "" {
@@ -805,7 +796,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}{Body: struct {
 				OK              bool `json:"ok"`
 				ChurnDowngraded bool `json:"churn_downgraded" required:"false"`
-			}{OK: true, ChurnDowngraded: churnDowngraded}}, nil
+			}{OK: true}}, nil
 		})
 
 	// GET /api/dx/solo/claims — list all active todo + task claims (unexpired leases)
