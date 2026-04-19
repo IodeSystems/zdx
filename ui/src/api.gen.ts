@@ -1718,6 +1718,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/maturity/items": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-maturity-items"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/maturity/items/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-maturity-item"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update-maturity-item"];
+        trace?: never;
+    };
     "/api/dx/notifications/dismiss-all": {
         parameters: {
             query?: never;
@@ -6168,6 +6200,15 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        "List-maturity-itemsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-maturity-itemsResponse.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["MaturityItem"][] | null;
+        };
         "List-my-commentsResponse": {
             /**
              * Format: uri
@@ -6570,6 +6611,32 @@ export interface components {
             readonly $schema?: string;
             /** Format: int32 */
             id: number;
+        };
+        MaturityItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/MaturityItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            description: string;
+            /** Format: int32 */
+            id: number;
+            justification: string;
+            kind: string;
+            /** Format: int32 */
+            priority_hint: number;
+            /** Format: int32 */
+            project_id: number;
+            snooze_until: string;
+            source_question: string;
+            status: string;
+            /** Format: int32 */
+            target_id: number;
+            target_type: string;
+            title: string;
+            updated_at: string;
         };
         MeItem: {
             /**
@@ -7901,6 +7968,17 @@ export interface components {
             /** Format: int32 */
             id: number;
             value: string;
+        };
+        "Update-maturity-itemRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-maturity-itemRequest.json
+             */
+            readonly $schema?: string;
+            justification?: string;
+            snooze_until?: string;
+            status: string;
         };
         "Update-patternRequest": {
             /**
@@ -11861,6 +11939,104 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-log-events-tag-valuesResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-maturity-items": {
+        parameters: {
+            query: {
+                slug: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-maturity-itemsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-maturity-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaturityItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-maturity-item": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-maturity-itemRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["MaturityItem"];
                 };
             };
             /** @description Error */
