@@ -32,9 +32,15 @@ child issues. When the vertical reaches a tracker:
 2. **If no children exist: decompose.** Break the tracker into concrete impl/ops/ask issues:
    `./bin/dx issue add --title="..." --context="..." --issue-type=impl --parent=IS-N`
    Each child should be a single vertical — one shippable unit of work.
-3. **Do NOT implement tracker work inline.** The tracker closes automatically when all children close
+3. **Review similar issues after each `issue add`.** The response includes similar issues. For each:
+   - **Closed similar**: if it already covers this work, close your new issue as duplicate. If the original was
+     closed prematurely, reopen it instead of creating a new one.
+   - **Open similar**: close yours as duplicate, or keep both if genuinely distinct and add a `blocked_by` link.
+   - **No overlap**: promote with `dx issue ready IS-N`.
+   Do NOT skip this step — duplicate child issues waste entire agent sessions.
+4. **Do NOT implement tracker work inline.** The tracker closes automatically when all children close
    (via `[close:tracker]` in the solo queue). Never `dx issue close` a tracker manually.
-4. **Work child issues.** Pick one child and run its vertical. Stop after one child vertical per session.
+5. **Work child issues.** Pick one child and run its vertical. Stop after one child vertical per session.
 
 If an issue was filed as `impl` but has 3+ distinct pieces (schema + CLI + UI + tests), it should have been a tracker.
 During triage, reclassify: `./bin/dx issue edit IS-N --issue-type=tracker`, then decompose.

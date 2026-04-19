@@ -143,6 +143,19 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 				BlockedBy: clitypes.IssueIDStr(iss.Id),
 			})
 		}
+		// If similar issues were found, add guidance to the response.
+		if iss.Similar != nil && len(*iss.Similar) > 0 {
+			return nil, map[string]any{
+				"issue": iss,
+				"guidance": "SIMILAR ISSUES FOUND — issue created as draft (wip). Review each similar issue before proceeding:\n" +
+					"• If a closed issue covers this work: close this as duplicate (issue_close with reason=duplicate, duplicate_of=IS-N) " +
+					"OR reopen the original if it was closed prematurely.\n" +
+					"• If an open issue overlaps: close this as duplicate, or keep both if genuinely distinct — " +
+					"add a blocked_by link if one depends on the other.\n" +
+					"• If no real overlap: promote with `dx issue ready " + clitypes.IssueIDStr(iss.Id) + "`.\n" +
+					"Do NOT ignore similar issues — duplicates waste agent cycles.",
+			}, nil
+		}
 		return nil, iss, nil
 	})
 
