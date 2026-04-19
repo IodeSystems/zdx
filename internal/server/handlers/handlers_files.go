@@ -116,6 +116,11 @@ func (h *Handler) handleFileServe(w http.ResponseWriter, r *http.Request) {
 	}
 	absPath := filepath.Join(h.UploadsDir, row.Path)
 	w.Header().Set("Content-Type", row.MimeType)
+	// Inline disposition with a real filename so mobile download managers
+	// (Android in particular) save the file with the right extension instead
+	// of guessing .txt from the extensionless URL path.
+	name := fmt.Sprintf("file-%d%s", id, extensionForMimeType(row.MimeType))
+	w.Header().Set("Content-Disposition", contentDispositionInline(name))
 	http.ServeFile(w, r, absPath)
 }
 
@@ -221,17 +226,21 @@ func (h *Handler) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	var dispExt string
 	switch demoType {
 	case "cli":
 		w.Header().Set("Content-Type", "application/json")
+		dispExt = ".json"
 	case "video":
-		ext := filepath.Ext(absPath)
-		if ext == ".webm" {
+		dispExt = filepath.Ext(absPath)
+		if dispExt == ".webm" {
 			w.Header().Set("Content-Type", "video/webm")
 		} else {
 			w.Header().Set("Content-Type", "video/mp4")
 		}
 	}
+	// demoName is validated above to contain no '/' or '..'; safe for filename.
+	w.Header().Set("Content-Disposition", contentDispositionInline(demoName+dispExt))
 	http.ServeFile(w, r, absPath)
 }
 
@@ -464,4 +473,66 @@ func (h *Handler) handleGetDemo(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json")
 	_ = json.NewEncoder(w).Encode(DemoDetail{DemoListItem: item, Specs: demoSpecs})
+}
+
+// extensionForMimeType returns a leading-dot file extension for the given
+// MIME type, or ".bin" when unknown. Used to give asset downloads a real
+// extension so mobile download managers don't fall back to .txt.
+func extensionForMimeType(mimeType string) string {
+	switch strings.ToLower(strings.TrimSpace(strings.SplitN(mimeType, ";", 2)[0])) {
+	case "image/png":
+		return ".png"
+	case "image/jpeg":
+		return ".jpg"
+	case "image/gif":
+		return ".gif"
+	case "image/webp":
+		return ".webp"
+	case "application/json":
+		return ".json"
+	case "video/webm":
+		return ".webm"
+	case "video/mp4":
+		return ".mp4"
+	case "text/plain":
+		return ".txt"
+	}
+	return ".bin"
+}
+
+// contentDispositionInline builds a Content-Disposition: inline header value
+// with both a quoted-string filename and an RFC 5987 filename* parameter.
+// Inline preserves <video src> / <img src> rendering; the filename is only
+// consulted when the user explicitly downloads the asset.
+func contentDispositionInline(name string) string {
+	// Strip characters that don't belong in a quoted filename to keep the
+	// header well-formed across browsers.
+	safe := strings.Map(func(r rune) rune {
+		if r == '"' || r == '\\' || r == '\r' || r == '\n' {
+			return -1
+		}
+		return r
+	}, name)
+	return fmt.Sprintf(`inline; filename=%q; filename*=UTF-8''%s`, safe, urlPathEscape(safe))
+}
+
+// urlPathEscape percent-encodes a filename for the RFC 5987 filename* parameter.
+// We hand-roll a minimal encoder rather than pulling net/url for one call site.
+func urlPathEscape(s string) string {
+	const hex = "0123456789ABCDEF"
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		c := s[i]
+		switch {
+		case 'A' <= c && c <= 'Z', 'a' <= c && c <= 'z', '0' <= c && c <= '9',
+			c == '-', c == '_', c == '.', c == '~':
+			b.WriteByte(c)
+		default:
+			b.WriteByte('%')
+			b.WriteByte(hex[c>>4])
+			b.WriteByte(hex[c&0x0f])
+		}
+	}
+	return b.String()
 }
