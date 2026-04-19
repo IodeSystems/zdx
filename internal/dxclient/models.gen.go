@@ -2866,6 +2866,7 @@ type SpecDemoItem struct {
 	Id            int32  `json:"id"`
 	Name          string `json:"name"`
 	TestComponent string `json:"test_component"`
+	TestId        int32  `json:"test_id"`
 	TestName      string `json:"test_name"`
 	Type          string `json:"type"`
 	Url           string `json:"url"`

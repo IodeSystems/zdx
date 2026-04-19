@@ -24,6 +24,7 @@ func (h *Handler) registerFileRoutes() {
 	h.Mux.Get("/api/files/{id}", h.handleFileServe)
 	h.Mux.Get("/api/dx/demos", h.handleListDemos)
 	h.Mux.Get("/api/dx/demos/{id}", h.handleGetDemo)
+	h.Mux.Get("/api/dx/demos/{id}/console-log", h.handleDemoConsoleLog)
 	h.Mux.Get("/api/dx/demos/{type}/{name}", h.handleServeDemo)
 	h.Mux.Post("/api/dx/demos/upload", h.handleDemoUpload)
 }
@@ -129,6 +130,7 @@ func (h *Handler) demosDir() string {
 
 type DemoListItem struct {
 	ID             int32  `json:"id"`
+	TestID         int32  `json:"test_id"`
 	Type           string `json:"type"`
 	Name           string `json:"name"`
 	TestComponent  string `json:"test_component"`
@@ -136,6 +138,8 @@ type DemoListItem struct {
 	TestStatus     string `json:"test_status"`
 	TestDurationMs int32  `json:"test_duration_ms"`
 	URL            string `json:"url"`
+	RecordedBranch string `json:"recorded_branch,omitempty"`
+	RecordedSha    string `json:"recorded_sha,omitempty"`
 }
 
 // handleListDemos returns all demos attached to tests in the given project.
@@ -229,6 +233,37 @@ func (h *Handler) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 	http.ServeFile(w, r, absPath)
+}
+
+func (h *Handler) handleDemoConsoleLog(w http.ResponseWriter, r *http.Request) {
+	idStr := chi.URLParam(r, "id")
+	id, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+	row, err := h.Q.GetDemoByID(r.Context(), int32(id))
+	if err != nil {
+		http.NotFound(w, r)
+		return
+	}
+
+	base := h.demosDir()
+	noExt := strings.TrimSuffix(row.ArtifactPath, filepath.Ext(row.ArtifactPath))
+	logPath := filepath.Join(base, noExt+".console.log")
+	data, err := os.ReadFile(logPath)
+	if err != nil {
+		if os.IsNotExist(err) {
+			w.Header().Set("Content-Type", "text/plain")
+			w.WriteHeader(http.StatusNoContent)
+			return
+		}
+		http.Error(w, "could not read console log", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "text/plain; charset=utf-8")
+	_, _ = w.Write(data)
 }
 
 // handleDemoUpload accepts multipart/form-data with fields:
@@ -401,6 +436,7 @@ func (h *Handler) handleGetDemo(w http.ResponseWriter, r *http.Request) {
 
 	item := DemoListItem{
 		ID:             row.ID,
+		TestID:         row.TestID,
 		Type:           row.DemoType,
 		Name:           name,
 		TestComponent:  row.TestComponent,
@@ -408,6 +444,8 @@ func (h *Handler) handleGetDemo(w http.ResponseWriter, r *http.Request) {
 		TestStatus:     row.TestStatus,
 		TestDurationMs: row.TestDurationMs,
 		URL:            SignAssetURL(h.WSSecret, assetPath, time.Hour),
+		RecordedBranch: row.RecordedBranch,
+		RecordedSha:    row.RecordedSha,
 	}
 
 	specs, err := h.Q.ListSpecsCoveredByTest(r.Context(), row.TestID)

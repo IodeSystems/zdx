@@ -1640,6 +1640,7 @@ export const undeferSpec = async (specId: number) => {
 
 export interface DemoListItem {
   id: number
+  test_id: number
   type: 'cli' | 'video'
   name: string
   test_component: string
@@ -1647,6 +1648,8 @@ export interface DemoListItem {
   test_status: string
   test_duration_ms: number
   url: string
+  recorded_branch?: string
+  recorded_sha?: string
 }
 
 export interface CLIDemoStep {
@@ -1695,6 +1698,21 @@ export const useDemo = (id: number) =>
     enabled: !!id,
     queryFn: async () => {
       return apiFetch<DemoDetail>(`/api/dx/demos/${id}`) // raw-ok
+    },
+  })
+
+export const useDemoConsoleLog = (id: number) =>
+  useQuery<string | null>({
+    queryKey: ['demo-console-log', id],
+    enabled: !!id,
+    queryFn: async () => {
+      const token = getToken()
+      const headers = new Headers()
+      if (token) headers.set('X-Api-Key', token)
+      const res = await fetch(`/api/dx/demos/${id}/console-log`, { headers })
+      if (res.status === 204 || res.status === 404) return null
+      if (!res.ok) return null
+      return res.text()
     },
   })
 

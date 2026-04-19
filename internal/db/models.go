@@ -189,12 +189,12 @@ type ZdxErrorEvent struct {
 
 type ZdxErrorReport struct {
 	ID         int64              `db:"id" json:"id"`
-	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
 	Source     string             `db:"source" json:"source"`
 	Endpoint   string             `db:"endpoint" json:"endpoint"`
 	ErrorName  string             `db:"error_name" json:"error_name"`
 	StackTrace string             `db:"stack_trace" json:"stack_trace"`
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
 }
 
 type ZdxFeature struct {
@@ -566,13 +566,13 @@ type ZdxSession struct {
 
 type ZdxSlowQuery struct {
 	ID          int64              `db:"id" json:"id"`
-	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
 	SqlHash     string             `db:"sql_hash" json:"sql_hash"`
 	SqlText     string             `db:"sql_text" json:"sql_text"`
 	Endpoint    string             `db:"endpoint" json:"endpoint"`
 	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
 	ExplainJson string             `db:"explain_json" json:"explain_json"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
 }
 
 type ZdxSpec struct {
@@ -676,12 +676,14 @@ type ZdxTestCodeRef struct {
 }
 
 type ZdxTestDemo struct {
-	ID           int32              `db:"id" json:"id"`
-	TestID       int32              `db:"test_id" json:"test_id"`
-	DemoType     string             `db:"demo_type" json:"demo_type"`
-	ArtifactPath string             `db:"artifact_path" json:"artifact_path"`
-	FileID       pgtype.Int4        `db:"file_id" json:"file_id"`
-	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID             int32              `db:"id" json:"id"`
+	TestID         int32              `db:"test_id" json:"test_id"`
+	DemoType       string             `db:"demo_type" json:"demo_type"`
+	ArtifactPath   string             `db:"artifact_path" json:"artifact_path"`
+	FileID         pgtype.Int4        `db:"file_id" json:"file_id"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	RecordedBranch string             `db:"recorded_branch" json:"recorded_branch"`
+	RecordedSha    string             `db:"recorded_sha" json:"recorded_sha"`
 }
 
 type ZdxTestResult struct {

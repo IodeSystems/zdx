@@ -78,14 +78,16 @@ DELETE FROM zdx_spec_tests WHERE spec_id = @spec_id AND test_id = @test_id;
 DELETE FROM zdx_tests WHERE id = $1;
 
 -- name: UpsertTestDemo :one
-INSERT INTO zdx_test_demos (test_id, demo_type, artifact_path, file_id)
-VALUES (@test_id, @demo_type, @artifact_path, @file_id)
+INSERT INTO zdx_test_demos (test_id, demo_type, artifact_path, file_id, recorded_branch, recorded_sha)
+VALUES (@test_id, @demo_type, @artifact_path, @file_id, @recorded_branch, @recorded_sha)
 ON CONFLICT (test_id, demo_type, artifact_path) DO UPDATE
-SET file_id = EXCLUDED.file_id
-RETURNING id, test_id, demo_type, artifact_path, file_id, created_at;
+SET file_id = EXCLUDED.file_id,
+    recorded_branch = EXCLUDED.recorded_branch,
+    recorded_sha = EXCLUDED.recorded_sha
+RETURNING id, test_id, demo_type, artifact_path, file_id, recorded_branch, recorded_sha, created_at;
 
 -- name: ListTestDemos :many
-SELECT id, test_id, demo_type, artifact_path, file_id, created_at
+SELECT id, test_id, demo_type, artifact_path, file_id, recorded_branch, recorded_sha, created_at
 FROM zdx_test_demos WHERE test_id = $1 ORDER BY demo_type, artifact_path;
 
 -- name: ListDemosForSpec :many
@@ -119,6 +121,7 @@ SELECT td.id, td.test_id, td.demo_type, td.artifact_path,
              AND sib.file_id IS NOT NULL
            LIMIT 1
        )) AS file_id,
+       td.recorded_branch, td.recorded_sha,
        t.component AS test_component, t.name AS test_name,
        t.status AS test_status, t.duration_ms AS test_duration_ms,
        t.project_id AS project_id

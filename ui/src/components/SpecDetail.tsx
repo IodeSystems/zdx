@@ -182,7 +182,7 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
         </Box>
       )}
 
-      <SpecDemos specId={specId} />
+      <SpecDemos specId={specId} slug={slug} />
 
       <CommentsAndRevisions slug={slug} targetType="spec" targetId={String(specId)} />
 

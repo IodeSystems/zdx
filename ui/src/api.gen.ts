@@ -7442,6 +7442,8 @@ export interface components {
             id: number;
             name: string;
             test_component: string;
+            /** Format: int32 */
+            test_id: number;
             test_name: string;
             type: string;
             url: string;

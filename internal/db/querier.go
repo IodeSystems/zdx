@@ -160,7 +160,7 @@ type Querier interface {
 	GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, error)
 	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (ZdxEnvironment, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
-	GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error)
+	GetErrorReportByID(ctx context.Context, id int64) (GetErrorReportByIDRow, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (GetFeatureRow, error)
 	GetFeatureByID(ctx context.Context, id int32) (GetFeatureByIDRow, error)
 	GetFile(ctx context.Context, id int32) (ZdxFile, error)
@@ -212,14 +212,14 @@ type Querier interface {
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
-	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
+	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (InsertErrorReportRow, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (InsertJournalEntryRow, error)
 	InsertLogEvent(ctx context.Context, arg InsertLogEventParams) error
 	InsertPattern(ctx context.Context, arg InsertPatternParams) (ZdxPattern, error)
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertQuestionProposal(ctx context.Context, arg InsertQuestionProposalParams) (ZdxQuestionProposal, error)
 	InsertReservation(ctx context.Context, arg InsertReservationParams) (ZdxReservation, error)
-	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
+	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (InsertSlowQueryRow, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
@@ -273,8 +273,8 @@ type Querier interface {
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
 	ListErrorEventsGrouped(ctx context.Context, arg ListErrorEventsGroupedParams) ([]ListErrorEventsGroupedRow, error)
-	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
-	ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ZdxErrorReport, error)
+	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ListErrorReportsRow, error)
+	ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ListErrorReportsPaginatedRow, error)
 	ListFeatureFocuses(ctx context.Context, featureID int32) ([]ListFeatureFocusesRow, error)
 	ListFeatureMultipliers(ctx context.Context, featureID int32) ([]ListFeatureMultipliersRow, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ListFeaturesRow, error)
@@ -337,8 +337,8 @@ type Querier interface {
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
 	ListRevisionsByTarget(ctx context.Context, arg ListRevisionsByTargetParams) ([]ListRevisionsByTargetRow, error)
 	ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ListRevisionsPaginatedRow, error)
-	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
-	ListSlowQueriesPaginated(ctx context.Context, arg ListSlowQueriesPaginatedParams) ([]ZdxSlowQuery, error)
+	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ListSlowQueriesRow, error)
+	ListSlowQueriesPaginated(ctx context.Context, arg ListSlowQueriesPaginatedParams) ([]ListSlowQueriesPaginatedRow, error)
 	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
 	// ── Specs ────────────────────────────────────────────────────────────────────
 	ListSpecs(ctx context.Context, featureID int32) ([]ListSpecsRow, error)
@@ -363,7 +363,7 @@ type Querier interface {
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error)
 	ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ListTasksByIssuePaginatedRow, error)
 	ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ListTasksPaginatedRow, error)
-	ListTestDemos(ctx context.Context, testID int32) ([]ZdxTestDemo, error)
+	ListTestDemos(ctx context.Context, testID int32) ([]ListTestDemosRow, error)
 	ListTestResultHistory(ctx context.Context, arg ListTestResultHistoryParams) ([]ListTestResultHistoryRow, error)
 	ListTests(ctx context.Context, projectID int32) ([]ListTestsRow, error)
 	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ListTestsByLayerRow, error)
@@ -471,7 +471,7 @@ type Querier interface {
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (UpsertFeatureRow, error)
 	UpsertTaskReview(ctx context.Context, arg UpsertTaskReviewParams) (ZdxTaskReview, error)
 	UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertTestRow, error)
-	UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (ZdxTestDemo, error)
+	UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (UpsertTestDemoRow, error)
 	UpsertTestResult(ctx context.Context, arg UpsertTestResultParams) error
 	UpsertTimed(ctx context.Context, arg UpsertTimedParams) error
 	// Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).

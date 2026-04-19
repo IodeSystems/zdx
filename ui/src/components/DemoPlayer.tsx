@@ -171,13 +171,23 @@ export function DemosSection({ slug }: { slug: string }) {
   )
 }
 
-function SpecDemoItemRow({ demo }: { demo: SpecDemoItem }) {
+function SpecDemoItemRow({ demo, slug }: { demo: SpecDemoItem; slug?: string }) {
   return (
     <Accordion disableGutters variant="outlined" sx={{ '&:before': { display: 'none' } }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flex: 1 }}>
           <Chip label={demo.type} size="small" variant="outlined" color={demo.type === 'cli' ? 'info' : 'secondary'} />
           <Typography variant="body2">{demo.test_component}/{demo.test_name}</Typography>
+          {slug && (
+            <Link
+              to="/project/$slug/demos/$demoId"
+              params={{ slug, demoId: String(demo.id) }}
+              style={{ marginLeft: 'auto', fontSize: '0.75rem' }}
+              onClick={(e) => e.stopPropagation()}
+            >
+              details
+            </Link>
+          )}
         </Box>
       </AccordionSummary>
       <AccordionDetails>
@@ -187,7 +197,7 @@ function SpecDemoItemRow({ demo }: { demo: SpecDemoItem }) {
   )
 }
 
-export function SpecDemos({ specId }: { specId: number }) {
+export function SpecDemos({ specId, slug }: { specId: number; slug?: string }) {
   const { data: demos, isLoading } = useSpecDemos(specId)
   const list = demos ?? []
   return (
@@ -203,7 +213,7 @@ export function SpecDemos({ specId }: { specId: number }) {
         </Typography>
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-          {list.map((d) => <SpecDemoItemRow key={d.id} demo={d} />)}
+          {list.map((d) => <SpecDemoItemRow key={d.id} demo={d} slug={slug} />)}
         </Box>
       )}
     </Box>

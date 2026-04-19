@@ -443,6 +443,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				}
 				out[i] = SpecDemoItem{
 					ID:            r.ID,
+					TestID:        r.TestID,
 					Type:          r.DemoType,
 					TestComponent: r.TestComponent,
 					TestName:      r.TestName,

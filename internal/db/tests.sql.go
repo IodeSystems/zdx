@@ -42,6 +42,7 @@ SELECT td.id, td.test_id, td.demo_type, td.artifact_path,
              AND sib.file_id IS NOT NULL
            LIMIT 1
        )) AS file_id,
+       td.recorded_branch, td.recorded_sha,
        t.component AS test_component, t.name AS test_name,
        t.status AS test_status, t.duration_ms AS test_duration_ms,
        t.project_id AS project_id
@@ -56,6 +57,8 @@ type GetDemoByIDRow struct {
 	DemoType       string      `db:"demo_type" json:"demo_type"`
 	ArtifactPath   string      `db:"artifact_path" json:"artifact_path"`
 	FileID         pgtype.Int4 `db:"file_id" json:"file_id"`
+	RecordedBranch string      `db:"recorded_branch" json:"recorded_branch"`
+	RecordedSha    string      `db:"recorded_sha" json:"recorded_sha"`
 	TestComponent  string      `db:"test_component" json:"test_component"`
 	TestName       string      `db:"test_name" json:"test_name"`
 	TestStatus     string      `db:"test_status" json:"test_status"`
@@ -75,6 +78,8 @@ func (q *Queries) GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, er
 		&i.DemoType,
 		&i.ArtifactPath,
 		&i.FileID,
+		&i.RecordedBranch,
+		&i.RecordedSha,
 		&i.TestComponent,
 		&i.TestName,
 		&i.TestStatus,
@@ -419,25 +424,38 @@ func (q *Queries) ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([
 }
 
 const listTestDemos = `-- name: ListTestDemos :many
-SELECT id, test_id, demo_type, artifact_path, file_id, created_at
+SELECT id, test_id, demo_type, artifact_path, file_id, recorded_branch, recorded_sha, created_at
 FROM zdx_test_demos WHERE test_id = $1 ORDER BY demo_type, artifact_path
 `
 
-func (q *Queries) ListTestDemos(ctx context.Context, testID int32) ([]ZdxTestDemo, error) {
+type ListTestDemosRow struct {
+	ID             int32              `db:"id" json:"id"`
+	TestID         int32              `db:"test_id" json:"test_id"`
+	DemoType       string             `db:"demo_type" json:"demo_type"`
+	ArtifactPath   string             `db:"artifact_path" json:"artifact_path"`
+	FileID         pgtype.Int4        `db:"file_id" json:"file_id"`
+	RecordedBranch string             `db:"recorded_branch" json:"recorded_branch"`
+	RecordedSha    string             `db:"recorded_sha" json:"recorded_sha"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListTestDemos(ctx context.Context, testID int32) ([]ListTestDemosRow, error) {
 	rows, err := q.db.Query(ctx, listTestDemos, testID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxTestDemo
+	var items []ListTestDemosRow
 	for rows.Next() {
-		var i ZdxTestDemo
+		var i ListTestDemosRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.TestID,
 			&i.DemoType,
 			&i.ArtifactPath,
 			&i.FileID,
+			&i.RecordedBranch,
+			&i.RecordedSha,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -784,34 +802,53 @@ func (q *Queries) UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertT
 }
 
 const upsertTestDemo = `-- name: UpsertTestDemo :one
-INSERT INTO zdx_test_demos (test_id, demo_type, artifact_path, file_id)
-VALUES ($1, $2, $3, $4)
+INSERT INTO zdx_test_demos (test_id, demo_type, artifact_path, file_id, recorded_branch, recorded_sha)
+VALUES ($1, $2, $3, $4, $5, $6)
 ON CONFLICT (test_id, demo_type, artifact_path) DO UPDATE
-SET file_id = EXCLUDED.file_id
-RETURNING id, test_id, demo_type, artifact_path, file_id, created_at
+SET file_id = EXCLUDED.file_id,
+    recorded_branch = EXCLUDED.recorded_branch,
+    recorded_sha = EXCLUDED.recorded_sha
+RETURNING id, test_id, demo_type, artifact_path, file_id, recorded_branch, recorded_sha, created_at
 `
 
 type UpsertTestDemoParams struct {
-	TestID       int32       `db:"test_id" json:"test_id"`
-	DemoType     string      `db:"demo_type" json:"demo_type"`
-	ArtifactPath string      `db:"artifact_path" json:"artifact_path"`
-	FileID       pgtype.Int4 `db:"file_id" json:"file_id"`
+	TestID         int32       `db:"test_id" json:"test_id"`
+	DemoType       string      `db:"demo_type" json:"demo_type"`
+	ArtifactPath   string      `db:"artifact_path" json:"artifact_path"`
+	FileID         pgtype.Int4 `db:"file_id" json:"file_id"`
+	RecordedBranch string      `db:"recorded_branch" json:"recorded_branch"`
+	RecordedSha    string      `db:"recorded_sha" json:"recorded_sha"`
 }
 
-func (q *Queries) UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (ZdxTestDemo, error) {
+type UpsertTestDemoRow struct {
+	ID             int32              `db:"id" json:"id"`
+	TestID         int32              `db:"test_id" json:"test_id"`
+	DemoType       string             `db:"demo_type" json:"demo_type"`
+	ArtifactPath   string             `db:"artifact_path" json:"artifact_path"`
+	FileID         pgtype.Int4        `db:"file_id" json:"file_id"`
+	RecordedBranch string             `db:"recorded_branch" json:"recorded_branch"`
+	RecordedSha    string             `db:"recorded_sha" json:"recorded_sha"`
+	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (UpsertTestDemoRow, error) {
 	row := q.db.QueryRow(ctx, upsertTestDemo,
 		arg.TestID,
 		arg.DemoType,
 		arg.ArtifactPath,
 		arg.FileID,
+		arg.RecordedBranch,
+		arg.RecordedSha,
 	)
-	var i ZdxTestDemo
+	var i UpsertTestDemoRow
 	err := row.Scan(
 		&i.ID,
 		&i.TestID,
 		&i.DemoType,
 		&i.ArtifactPath,
 		&i.FileID,
+		&i.RecordedBranch,
+		&i.RecordedSha,
 		&i.CreatedAt,
 	)
 	return i, err

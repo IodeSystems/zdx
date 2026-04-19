@@ -1,16 +1,24 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   Box,
+  Button,
   Chip,
   CircularProgress,
   Divider,
   List,
   ListItem,
   ListItemText,
+  Snackbar,
   Typography,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
-import { useDemo } from '../../../../api'
+import { ArrowBack as ArrowBackIcon, Replay as ReplayIcon } from '@mui/icons-material'
+import { useState } from 'react'
+import {
+  useDemo,
+  useDemoConsoleLog,
+  useTestCodeRefs,
+  useCreateIssue,
+} from '../../../../api'
 import { CLIDemoPlayerByUrl, VideoDemoPlayerByUrl } from '../../../../components/DemoPlayer'
 
 function statusColor(status: string): 'success' | 'error' | 'default' {
@@ -22,6 +30,10 @@ function statusColor(status: string): 'success' | 'error' | 'default' {
 function DemoDetailRoute() {
   const { slug, demoId } = Route.useParams()
   const { data: demo, isLoading } = useDemo(Number(demoId))
+  const { data: consoleLogs } = useDemoConsoleLog(Number(demoId))
+  const { data: codeRefs } = useTestCodeRefs(slug, demo?.test_id ?? 0)
+  const createIssue = useCreateIssue()
+  const [toast, setToast] = useState<string | null>(null)
 
   if (isLoading) return <CircularProgress size={24} />
   if (!demo) return <Typography color="error">Demo not found.</Typography>
@@ -29,6 +41,25 @@ function DemoDetailRoute() {
   const label = demo.test_component && demo.test_name
     ? `${demo.test_component}/${demo.test_name}`
     : demo.name
+
+  const handleReRecord = () => {
+    const branchInfo = demo.recorded_branch
+      ? ` (recorded on ${demo.recorded_branch}${demo.recorded_sha ? `@${demo.recorded_sha.slice(0, 7)}` : ''})`
+      : ''
+    createIssue.mutate(
+      {
+        slug,
+        title: `Re-record demo: ${label}${branchInfo}`,
+        context: `Request to re-record the demo for test "${demo.test_name}" in component "${demo.test_component}".${demo.recorded_branch ? `\n\nOriginally recorded on branch: ${demo.recorded_branch}${demo.recorded_sha ? `\nGit SHA: ${demo.recorded_sha}` : ''}` : ''}`,
+        issue_type: 'ops',
+        auto_ready: true,
+      },
+      {
+        onSuccess: (issue) => setToast(`Issue ${issue.id} created`),
+        onError: () => setToast('Failed to create re-record issue'),
+      },
+    )
+  }
 
   return (
     <Box>
@@ -49,6 +80,14 @@ function DemoDetailRoute() {
               ? `${demo.test_duration_ms}ms`
               : `${(demo.test_duration_ms / 1000).toFixed(1)}s`}
           </Typography>
+        )}
+        {demo.recorded_branch && (
+          <Chip
+            label={`${demo.recorded_branch}${demo.recorded_sha ? `@${demo.recorded_sha.slice(0, 7)}` : ''}`}
+            size="small"
+            variant="outlined"
+            color="default"
+          />
         )}
       </Box>
 
@@ -76,6 +115,76 @@ function DemoDetailRoute() {
           </List>
         </>
       )}
+
+      {codeRefs && codeRefs.length > 0 && (
+        <>
+          <Divider sx={{ mb: 2, mt: 2 }} />
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            Code refs ({codeRefs.length})
+          </Typography>
+          <List dense disablePadding>
+            {codeRefs.map((ref) => (
+              <ListItem key={ref.id} disableGutters>
+                <ListItemText
+                  primary={
+                    ref.line_start
+                      ? `${ref.file_path}:${ref.line_start}${ref.line_end && ref.line_end !== ref.line_start ? `-${ref.line_end}` : ''}`
+                      : ref.file_path
+                  }
+                  secondary={ref.note || undefined}
+                  slotProps={{ primary: { sx: { fontFamily: 'monospace', fontSize: '0.8rem' } } }}
+                />
+              </ListItem>
+            ))}
+          </List>
+        </>
+      )}
+
+      {consoleLogs && (
+        <>
+          <Divider sx={{ mb: 2, mt: 2 }} />
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+            Console logs
+          </Typography>
+          <Box
+            component="pre"
+            sx={{
+              fontFamily: 'monospace',
+              fontSize: '0.75rem',
+              bgcolor: 'background.paper',
+              border: '1px solid',
+              borderColor: 'divider',
+              borderRadius: 1,
+              p: 1.5,
+              overflow: 'auto',
+              maxHeight: 300,
+              whiteSpace: 'pre-wrap',
+              wordBreak: 'break-all',
+            }}
+          >
+            {consoleLogs}
+          </Box>
+        </>
+      )}
+
+      <Box sx={{ mt: 3 }}>
+        <Button
+          size="small"
+          variant="outlined"
+          startIcon={<ReplayIcon />}
+          onClick={handleReRecord}
+          disabled={createIssue.isPending}
+        >
+          Request re-record
+        </Button>
+      </Box>
+
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={3000}
+        onClose={() => setToast(null)}
+        message={toast}
+      />
     </Box>
   )
 }

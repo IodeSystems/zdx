@@ -178,10 +178,12 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				if test.ID != 0 {
 					for _, d := range r.DemoArtifacts {
 						_, _ = h.Q.UpsertTestDemo(ctx, db.UpsertTestDemoParams{
-							TestID:       test.ID,
-							DemoType:     d.DemoType,
-							ArtifactPath: d.ArtifactPath,
-							FileID:       pgtype.Int4{},
+							TestID:         test.ID,
+							DemoType:       d.DemoType,
+							ArtifactPath:   d.ArtifactPath,
+							FileID:         pgtype.Int4{},
+							RecordedBranch: r.Branch,
+							RecordedSha:    r.GitSHA,
 						})
 					}
 				}
