@@ -1821,38 +1821,38 @@ func todoReleaseRun(cmd *cobra.Command, arg string, force bool) error {
 	c := cli.MustClient()
 	slug := c.SlugOrDie()
 
-	// Check if the todo is currently claimed (has an unexpired lease).
-	type todoRow struct {
-		ID             int32  `json:"id"`
-		Text           string `json:"text"`
-		ClaimedBy      string `json:"claimed_by"`
-		LeaseExpiresAt string `json:"lease_expires_at"`
-	}
-	var claims struct {
-		Todos []todoRow `json:"todos"`
-	}
-	if err := c.Get("/api/dx/solo/claims", map[string][]string{"slug": {slug}}, &claims); err != nil {
+	claimsResp, err := c.SoloListClaimsWithResponse(cmd.Context(), &dxclient.SoloListClaimsParams{Slug: slug})
+	if err != nil {
 		return err
 	}
-	for _, t := range claims.Todos {
-		if int64(t.ID) == id {
-			if !force {
-				return fmt.Errorf("TODO-%d has an active lease (claimed-by=%s, expires=%s); use --force to release anyway",
-					t.ID, t.ClaimedBy, t.LeaseExpiresAt)
+	if err := c.CheckStatus(claimsResp.StatusCode(), claimsResp.Body); err != nil {
+		return err
+	}
+	if claimsResp.JSON200 != nil && claimsResp.JSON200.Todos != nil {
+		for _, t := range *claimsResp.JSON200.Todos {
+			if int64(t.Id) == id {
+				if !force {
+					claimedBy := ""
+					if t.ClaimedBy != nil {
+						claimedBy = *t.ClaimedBy
+					}
+					claimedAt := ""
+					if t.ClaimedAt != nil {
+						claimedAt = *t.ClaimedAt
+					}
+					return fmt.Errorf("TODO-%d has an active lease (claimed-by=%s, claimed-at=%s); use --force to release anyway",
+						t.Id, claimedBy, claimedAt)
+				}
+				break
 			}
-			break
 		}
 	}
 
-	type releaseReq struct {
-		ID      int32  `json:"id"`
-		AgentID string `json:"agent_id"`
+	releaseResp, err := c.SoloReleaseWithResponse(cmd.Context(), dxclient.SoloReleaseRequest{Id: int32(id), AgentId: ""})
+	if err != nil {
+		return err
 	}
-	type releaseResp struct {
-		OK bool `json:"ok"`
-	}
-	var resp releaseResp
-	if err := c.Post("/api/dx/solo/release", releaseReq{ID: int32(id), AgentID: ""}, &resp); err != nil {
+	if err := c.CheckStatus(releaseResp.StatusCode(), releaseResp.Body); err != nil {
 		return err
 	}
 	fmt.Printf("%s released\n", arg)
