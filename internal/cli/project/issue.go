@@ -15,7 +15,7 @@ import (
 
 func IssueCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "issue", Short: "Issue management"}
-	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueEditCmd(), issueBlockCmd(), issueUnblockCmd(), issueReadyCmd(), issueResolveCmd(), issueResolutionsCmd(), issueReconcileCmd())
+	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueReopenCmd(), issueEditCmd(), issueBlockCmd(), issueUnblockCmd(), issueReadyCmd(), issueResolveCmd(), issueResolutionsCmd(), issueReconcileCmd())
 	return cmd
 }
 
@@ -321,6 +321,31 @@ func issueCloseCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&reason, "reason", "", "close reason")
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
+	return cmd
+}
+
+func issueReopenCmd() *cobra.Command {
+	cmd := &cobra.Command{
+		Use:   "reopen <IS-N>",
+		Short: "Reopen a closed issue",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			id := args[0]
+			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			c := cli.MustClient()
+			resp, err := c.ReopenIssueWithResponse(cmd.Context(), dxclient.IssueIntIDInput{
+				Id: int32(n),
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("%s reopened\n", id)
+			return nil
+		},
+	}
 	return cmd
 }
 
