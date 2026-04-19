@@ -135,6 +135,11 @@ type localAdapter struct {
 func (a *localAdapter) Provider() string { return "local" }
 
 func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (string, error) {
+	// Set author alias so agent-posted comments are tagged and excluded
+	// from unread-comment queries (prevents self-review loops).
+	if alias != "" {
+		os.Setenv("DX_AUTHOR_ALIAS", alias)
+	}
 	c, err := cli.DefaultClient()
 	if err != nil {
 		return "", err

@@ -586,6 +586,7 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 	a.proc.Env = append(os.Environ(),
 		"ZDX_SESSION_ID="+sid,
 		"ZDX_AGENT_ID="+a.alias,
+		"DX_AUTHOR_ALIAS="+a.alias,
 	)
 
 	if err := a.proc.Start(); err != nil {
