@@ -17,7 +17,7 @@ function AdminDashboard() {
   const cards = [
     { label: 'Users', value: stats?.user_count ?? 0, to: '/admin/users' as const },
     { label: 'Invites', value: stats?.invite_count ?? 0, to: '/admin/invites' as const },
-    { label: 'Projects', value: stats?.project_count ?? 0, to: '/' as const },
+    { label: 'Projects', value: stats?.project_count ?? 0, to: '/admin/projects' as const },
     { label: 'WebSocket', value: 'Diag', to: '/admin/websocket' as const },
   ]
 

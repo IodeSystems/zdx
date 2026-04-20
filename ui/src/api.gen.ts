@@ -4861,8 +4861,11 @@ export interface components {
              * @example https://example.com/schemas/Create-projectRequest.json
              */
             readonly $schema?: string;
+            classification?: string;
             name: string;
             slug: string;
+            upstream_credentials?: string;
+            upstream_url?: string;
         };
         "Defer-doctor-checkRequest": {
             /**
@@ -6837,7 +6840,9 @@ export interface components {
              * @example https://example.com/schemas/ProjectItem.json
              */
             readonly $schema?: string;
+            classification?: string;
             created_at: string;
+            git_enabled?: boolean;
             /** Format: int32 */
             id: number;
             name: string;

@@ -156,6 +156,24 @@ export const useProjects = () =>
     },
   })
 
+export const useCreateProject = () => {
+  const qc = useQueryClient()
+  return useMutation<ProjectItem, Error, components['schemas']['Create-projectRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/project', { body })
+      if (error) {
+        const e = error as { detail?: string; title?: string }
+        throw new Error(e.detail ?? e.title ?? JSON.stringify(error))
+      }
+      return data!
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['projects'] })
+      qc.invalidateQueries({ queryKey: ['admin-stats'] })
+    },
+  })
+}
+
 // ── issues ────────────────────────────────────────────────────────────────────
 
 export const useIssues = (slug: string, limit?: number, offset?: number) =>

@@ -14,6 +14,7 @@ import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProjectSlugRouteImport } from './routes/project/$slug'
 import { Route as AdminWebsocketRouteImport } from './routes/admin/websocket'
 import { Route as AdminUsersRouteImport } from './routes/admin/users'
+import { Route as AdminProjectsRouteImport } from './routes/admin/projects'
 import { Route as AdminLlmRouteImport } from './routes/admin/llm'
 import { Route as AdminInvitesRouteImport } from './routes/admin/invites'
 import { Route as ProjectSlugIndexRouteImport } from './routes/project/$slug/index'
@@ -82,6 +83,11 @@ const AdminWebsocketRoute = AdminWebsocketRouteImport.update({
 const AdminUsersRoute = AdminUsersRouteImport.update({
   id: '/admin/users',
   path: '/admin/users',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminProjectsRoute = AdminProjectsRouteImport.update({
+  id: '/admin/projects',
+  path: '/admin/projects',
   getParentRoute: () => rootRouteImport,
 } as any)
 const AdminLlmRoute = AdminLlmRouteImport.update({
@@ -314,6 +320,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/admin/projects': typeof AdminProjectsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/websocket': typeof AdminWebsocketRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
@@ -365,6 +372,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/admin/projects': typeof AdminProjectsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/websocket': typeof AdminWebsocketRoute
   '/admin': typeof AdminIndexRoute
@@ -408,6 +416,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
+  '/admin/projects': typeof AdminProjectsRoute
   '/admin/users': typeof AdminUsersRoute
   '/admin/websocket': typeof AdminWebsocketRoute
   '/project/$slug': typeof ProjectSlugRouteWithChildren
@@ -461,6 +470,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/invites'
     | '/admin/llm'
+    | '/admin/projects'
     | '/admin/users'
     | '/admin/websocket'
     | '/project/$slug'
@@ -512,6 +522,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/invites'
     | '/admin/llm'
+    | '/admin/projects'
     | '/admin/users'
     | '/admin/websocket'
     | '/admin'
@@ -554,6 +565,7 @@ export interface FileRouteTypes {
     | '/'
     | '/admin/invites'
     | '/admin/llm'
+    | '/admin/projects'
     | '/admin/users'
     | '/admin/websocket'
     | '/project/$slug'
@@ -606,6 +618,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   AdminInvitesRoute: typeof AdminInvitesRoute
   AdminLlmRoute: typeof AdminLlmRoute
+  AdminProjectsRoute: typeof AdminProjectsRoute
   AdminUsersRoute: typeof AdminUsersRoute
   AdminWebsocketRoute: typeof AdminWebsocketRoute
   ProjectSlugRoute: typeof ProjectSlugRouteWithChildren
@@ -647,6 +660,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/users'
       fullPath: '/admin/users'
       preLoaderRoute: typeof AdminUsersRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/projects': {
+      id: '/admin/projects'
+      path: '/admin/projects'
+      fullPath: '/admin/projects'
+      preLoaderRoute: typeof AdminProjectsRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/admin/llm': {
@@ -1139,6 +1159,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   AdminInvitesRoute: AdminInvitesRoute,
   AdminLlmRoute: AdminLlmRoute,
+  AdminProjectsRoute: AdminProjectsRoute,
   AdminUsersRoute: AdminUsersRoute,
   AdminWebsocketRoute: AdminWebsocketRoute,
   ProjectSlugRoute: ProjectSlugRouteWithChildren,

@@ -744,9 +744,12 @@ type CreatePlanRequest struct {
 // CreateProjectRequest defines model for Create-projectRequest.
 type CreateProjectRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Name   string  `json:"name"`
-	Slug   string  `json:"slug"`
+	Schema              *string `json:"$schema,omitempty"`
+	Classification      *string `json:"classification,omitempty"`
+	Name                string  `json:"name"`
+	Slug                string  `json:"slug"`
+	UpstreamCredentials *string `json:"upstream_credentials,omitempty"`
+	UpstreamUrl         *string `json:"upstream_url,omitempty"`
 }
 
 // DeferDoctorCheckRequest defines model for Defer-doctor-checkRequest.
@@ -2318,12 +2321,14 @@ type PlanStepRefItem struct {
 // ProjectItem defines model for ProjectItem.
 type ProjectItem struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema    *string `json:"$schema,omitempty"`
-	CreatedAt string  `json:"created_at"`
-	Id        int32   `json:"id"`
-	Name      string  `json:"name"`
-	Slug      string  `json:"slug"`
-	Stage     string  `json:"stage"`
+	Schema         *string `json:"$schema,omitempty"`
+	Classification *string `json:"classification,omitempty"`
+	CreatedAt      string  `json:"created_at"`
+	GitEnabled     *bool   `json:"git_enabled,omitempty"`
+	Id             int32   `json:"id"`
+	Name           string  `json:"name"`
+	Slug           string  `json:"slug"`
+	Stage          string  `json:"stage"`
 }
 
 // QuestionItem defines model for QuestionItem.

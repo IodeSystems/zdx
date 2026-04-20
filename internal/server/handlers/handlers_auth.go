@@ -209,11 +209,13 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 	// ── Projects ─────────────────────────────────────────────────────────────
 
 	type ProjectItem struct {
-		ID        int32  `json:"id"`
-		Slug      string `json:"slug"`
-		Name      string `json:"name"`
-		CreatedAt string `json:"created_at"`
-		Stage     string `json:"stage"`
+		ID             int32  `json:"id"`
+		Slug           string `json:"slug"`
+		Name           string `json:"name"`
+		CreatedAt      string `json:"created_at"`
+		Stage          string `json:"stage"`
+		Classification string `json:"classification,omitempty"`
+		GitEnabled     bool   `json:"git_enabled,omitempty"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-projects", Method: http.MethodGet, Path: "/api/projects"},
@@ -228,7 +230,10 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 			}
 			out := make([]ProjectItem, len(rows))
 			for i, r := range rows {
-				out[i] = ProjectItem{ID: r.ID, Slug: r.Slug, Name: r.Name, CreatedAt: fmtTS(r.CreatedAt), Stage: r.Stage}
+				out[i] = ProjectItem{
+					ID: r.ID, Slug: r.Slug, Name: r.Name, CreatedAt: fmtTS(r.CreatedAt),
+					Stage: r.Stage, Classification: r.Classification, GitEnabled: r.GitEnabled,
+				}
 			}
 			return &struct {
 				Body struct {
@@ -242,14 +247,47 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "create-project", Method: http.MethodPost, Path: "/api/project"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug string `json:"slug"`
-				Name string `json:"name"`
+				Slug                string `json:"slug"`
+				Name                string `json:"name"`
+				Classification      string `json:"classification,omitempty"`
+				UpstreamURL         string `json:"upstream_url,omitempty"`
+				UpstreamCredentials string `json:"upstream_credentials,omitempty"`
 			}
 		}) (*struct{ Body ProjectItem }, error) {
+			if in.Body.Classification != "" {
+				switch in.Body.Classification {
+				case "library", "tool", "service", "saas", "site":
+				default:
+					return nil, apiErr(http.StatusBadRequest, "classification must be one of: library, tool, service, saas, site")
+				}
+			}
 			row, err := h.Q.CreateProject(ctx, db.CreateProjectParams{Slug: in.Body.Slug, Name: in.Body.Name})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body ProjectItem }{Body: ProjectItem{ID: row.ID, Slug: row.Slug, Name: row.Name, CreatedAt: fmtTS(row.CreatedAt)}}, nil
+			if in.Body.Classification != "" {
+				if err := h.Q.SetProjectClassification(ctx, db.SetProjectClassificationParams{
+					ID:             row.ID,
+					Classification: in.Body.Classification,
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+			}
+			gitEnabled := false
+			if in.Body.UpstreamURL != "" {
+				if err := h.Q.SetProjectProxyConfig(ctx, db.SetProjectProxyConfigParams{
+					Slug:                row.Slug,
+					UpstreamUrl:         in.Body.UpstreamURL,
+					UpstreamCredentials: in.Body.UpstreamCredentials,
+					GitEnabled:          true,
+				}); err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				gitEnabled = true
+			}
+			return &struct{ Body ProjectItem }{Body: ProjectItem{
+				ID: row.ID, Slug: row.Slug, Name: row.Name, CreatedAt: fmtTS(row.CreatedAt),
+				Classification: in.Body.Classification, GitEnabled: gitEnabled,
+			}}, nil
 		})
 }
