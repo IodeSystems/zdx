@@ -568,7 +568,16 @@ Analyze the project to bootstrap its feature catalog and first issue:
 	}
 
 	// 1d. Surface tracker issues that are ready to close (all blockers closed).
-	for _, iss := range trackerIssues {
+	// list-issues omits BlockedByDetail; fetch individual details for tracker issues.
+	for i, iss := range trackerIssues {
+		if iss.BlockedByDetail == nil || len(*iss.BlockedByDetail) == 0 {
+			issIDStr := clitypes.IssueIDStr(iss.Id)
+			showResp, err := c.ShowIssueWithResponse(ctx, &dxclient.ShowIssueParams{Slug: slug, Id: issIDStr})
+			if err == nil && showResp.JSON200 != nil {
+				trackerIssues[i] = showResp.JSON200.Issue
+				iss = trackerIssues[i]
+			}
+		}
 		if iss.Status != "open" {
 			continue
 		}
