@@ -14,6 +14,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/config"
+	"github.com/iodesystems/zdx-go/internal/doctor"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
@@ -84,6 +85,23 @@ func agentStartCmd() *cobra.Command {
 			slug := c.SlugOrDie()
 			cfg := config.Load()
 			agentCfg := cfg.ResolvedAgent()
+
+			// Check doctor prerequisites before committing to worktree/compose setup.
+			state := &doctor.ProjectState{}
+			doctor.DetectLocal(state)
+			if pResp, err := c.GetProjectInfoWithResponse(cmd.Context(), &dxclient.GetProjectInfoParams{Slug: slug}); err == nil && pResp.JSON200 != nil {
+				state.Classification = doctor.Classification(pResp.JSON200.Classification)
+			}
+			if agentCfg.LLMProvider == "claude" && !state.ClaudeInstalled {
+				return fmt.Errorf("claude CLI not found in PATH; install it before using the claude agent provider")
+			}
+			needsDocker := state.Classification == doctor.ClassService || state.Classification == doctor.ClassSaaS
+			if !state.DockerAvailable {
+				if needsDocker {
+					return fmt.Errorf("docker daemon is not running; %s projects require docker for agent isolation", state.Classification)
+				}
+				fmt.Fprintf(os.Stderr, "warning: docker not available — compose-based isolation will be unavailable\n")
+			}
 
 			// Check worktree slot availability.
 			activeCount := countActiveWorktrees()
