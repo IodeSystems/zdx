@@ -29,6 +29,7 @@ type Server struct {
 	buildSHA       string
 	zdxProjectSlug string
 	uploadsDir     string
+	reposDir       string
 	slot           string // "current", "next", or "" (dev); controls WS endpoint registration
 	wsSecret       string
 	broker         ws.Broker
@@ -62,6 +63,15 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 			uploadsDir = "uploads"
 		}
 	}
+	reposDir := os.Getenv("ZDX_REPOS_DIR")
+	if reposDir == "" {
+		if zdxHome := os.Getenv("ZDX_HOME"); zdxHome != "" {
+			reposDir = zdxHome + "/data/repos"
+		} else {
+			reposDir = "repos"
+		}
+	}
+
 	vecDir := os.Getenv("VEC_DIR")
 	if vecDir == "" {
 		if zdxHome := os.Getenv("ZDX_HOME"); zdxHome != "" {
@@ -84,6 +94,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 		buildSHA:       buildSHA,
 		zdxProjectSlug: os.Getenv("ZDX_PROJECT_SLUG"),
 		uploadsDir:     uploadsDir,
+		reposDir:       reposDir,
 		slot:           os.Getenv("ZDX_SLOT"),
 		wsSecret:       wsSecret,
 		broker:         ws.NewBroker(os.Getenv("ZDX_VALKEY_ADDR")),
@@ -179,6 +190,7 @@ func (s *Server) buildDeps() *handlers.Deps {
 		BuildSHA:        s.buildSHA,
 		ZDXProjectSlug:  s.zdxProjectSlug,
 		UploadsDir:      s.uploadsDir,
+		ReposDir:        s.reposDir,
 		Slot:            s.slot,
 		WSSecret:        s.wsSecret,
 		Mux:             s.mux,

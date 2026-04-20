@@ -4,6 +4,10 @@ import (
 	"encoding/base64"
 	"io"
 	"net/http"
+	"net/http/cgi"
+	"os"
+	"os/exec"
+	"path/filepath"
 	"strings"
 
 	"github.com/go-chi/chi/v5"
@@ -34,6 +38,8 @@ func extractGitAPIKey(r *http.Request) string {
 	return ""
 }
 
+// gitProxyAuth validates the request and returns routing info.
+// When upstreamURL is empty the caller should use the bare repo path instead.
 func (h *Handler) gitProxyAuth(w http.ResponseWriter, r *http.Request) (slug string, upstreamURL string, upstreamCreds string, ok bool) {
 	slug = chi.URLParam(r, "slug")
 	token := extractGitAPIKey(r)
@@ -98,25 +104,107 @@ func (h *Handler) proxyGitRequest(w http.ResponseWriter, r *http.Request, upstre
 	_, _ = io.Copy(w, resp.Body)
 }
 
+// initBareRepo ensures {reposDir}/{slug}.git exists as a bare git repository.
+func initBareRepo(reposDir, slug string) (string, error) {
+	repoPath := filepath.Join(reposDir, slug+".git")
+	headPath := filepath.Join(repoPath, "HEAD")
+	if _, err := os.Stat(headPath); err == nil {
+		return repoPath, nil
+	}
+	if err := os.MkdirAll(repoPath, 0755); err != nil {
+		return "", err
+	}
+	cmd := exec.Command("git", "init", "--bare", repoPath)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return "", &gitInitError{out: string(out), err: err}
+	}
+	return repoPath, nil
+}
+
+type gitInitError struct {
+	out string
+	err error
+}
+
+func (e *gitInitError) Error() string {
+	return "git init --bare failed: " + e.err.Error() + ": " + e.out
+}
+
+// serveBareGitRequest handles git smart HTTP protocol via git http-backend for
+// a local bare repository. Used when upstream_url is empty.
+func (h *Handler) serveBareGitRequest(w http.ResponseWriter, r *http.Request, slug string) {
+	if _, err := initBareRepo(h.ReposDir, slug); err != nil {
+		http.Error(w, "repo init error: "+err.Error(), http.StatusInternalServerError)
+		return
+	}
+
+	// git http-backend reads PATH_INFO relative to GIT_PROJECT_ROOT.
+	// Strip /git/{slug} prefix so PATH_INFO is e.g. /info/refs or /git-upload-pack.
+	pathInfo := strings.TrimPrefix(r.URL.Path, "/git/"+slug)
+	if pathInfo == "" {
+		pathInfo = "/"
+	}
+
+	gitBin, err := exec.LookPath("git")
+	if err != nil {
+		http.Error(w, "git not found on server", http.StatusInternalServerError)
+		return
+	}
+
+	handler := &cgi.Handler{
+		Path: gitBin,
+		Args: []string{"http-backend"},
+		Env: []string{
+			"GIT_PROJECT_ROOT=" + h.ReposDir,
+			"GIT_HTTP_EXPORT_ALL=1",
+			"REMOTE_ADDR=" + r.RemoteAddr,
+		},
+	}
+
+	// Rewrite the request so the CGI handler sees the correct PATH_INFO:
+	// /{slug}.git/{info/refs|git-upload-pack|git-receive-pack}
+	rewritten := r.Clone(r.Context())
+	rewrittenURL := *r.URL
+	rewrittenURL.Path = "/" + slug + ".git" + pathInfo
+	rewritten.URL = &rewrittenURL
+	// Auth was already validated; remove to avoid leaking the token to git.
+	rewritten.Header = r.Header.Clone()
+	rewritten.Header.Del("Authorization")
+
+	handler.ServeHTTP(w, rewritten)
+}
+
 func (h *Handler) handleGitInfoRefs(w http.ResponseWriter, r *http.Request) {
-	_, upstreamURL, upstreamCreds, ok := h.gitProxyAuth(w, r)
+	slug, upstreamURL, upstreamCreds, ok := h.gitProxyAuth(w, r)
 	if !ok {
+		return
+	}
+	if upstreamURL == "" {
+		h.serveBareGitRequest(w, r, slug)
 		return
 	}
 	h.proxyGitRequest(w, r, upstreamURL, upstreamCreds, "/info/refs")
 }
 
 func (h *Handler) handleGitUploadPack(w http.ResponseWriter, r *http.Request) {
-	_, upstreamURL, upstreamCreds, ok := h.gitProxyAuth(w, r)
+	slug, upstreamURL, upstreamCreds, ok := h.gitProxyAuth(w, r)
 	if !ok {
+		return
+	}
+	if upstreamURL == "" {
+		h.serveBareGitRequest(w, r, slug)
 		return
 	}
 	h.proxyGitRequest(w, r, upstreamURL, upstreamCreds, "/git-upload-pack")
 }
 
 func (h *Handler) handleGitReceivePack(w http.ResponseWriter, r *http.Request) {
-	_, upstreamURL, upstreamCreds, ok := h.gitProxyAuth(w, r)
+	slug, upstreamURL, upstreamCreds, ok := h.gitProxyAuth(w, r)
 	if !ok {
+		return
+	}
+	if upstreamURL == "" {
+		h.serveBareGitRequest(w, r, slug)
 		return
 	}
 	h.proxyGitRequest(w, r, upstreamURL, upstreamCreds, "/git-receive-pack")

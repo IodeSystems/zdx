@@ -71,6 +71,7 @@ type Deps struct {
 	BuildSHA        string
 	ZDXProjectSlug  string
 	UploadsDir      string
+	ReposDir        string
 	Slot            string
 	WSSecret        string
 	Mux             chi.Router
