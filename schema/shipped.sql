@@ -3,8 +3,8 @@
 --
 
 
--- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped from database version 18.3 (Debian 18.3-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -557,12 +557,12 @@ ALTER SEQUENCE public.zdx_error_events_id_seq OWNED BY public.zdx_error_events.i
 
 CREATE TABLE public.zdx_error_reports (
     id bigint NOT NULL,
-    project_id integer,
     source text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     error_name text DEFAULT ''::text NOT NULL,
     stack_trace text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    project_id integer
 );
 
 
@@ -681,8 +681,8 @@ ALTER SEQUENCE public.zdx_files_id_seq OWNED BY public.zdx_files.id;
 --
 
 CREATE TABLE public.zdx_focus_blockers (
-    focus_id integer NOT NULL,
-    issue_id text NOT NULL
+    focus_id integer CONSTRAINT zdx_theme_blockers_theme_id_not_null NOT NULL,
+    issue_id text CONSTRAINT zdx_theme_blockers_issue_id_not_null NOT NULL
 );
 
 
@@ -701,13 +701,13 @@ CREATE TABLE public.zdx_focus_features (
 --
 
 CREATE TABLE public.zdx_focuses (
-    id integer NOT NULL,
-    project_id integer NOT NULL,
-    name text NOT NULL,
-    description text DEFAULT ''::text NOT NULL,
-    priority integer DEFAULT 2 NOT NULL,
-    status text DEFAULT 'active'::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    id integer CONSTRAINT zdx_themes_id_not_null NOT NULL,
+    project_id integer CONSTRAINT zdx_themes_project_id_not_null NOT NULL,
+    name text CONSTRAINT zdx_themes_name_not_null NOT NULL,
+    description text DEFAULT ''::text CONSTRAINT zdx_themes_description_not_null NOT NULL,
+    priority integer DEFAULT 2 CONSTRAINT zdx_themes_priority_not_null NOT NULL,
+    status text DEFAULT 'active'::text CONSTRAINT zdx_themes_status_not_null NOT NULL,
+    created_at timestamp with time zone DEFAULT now() CONSTRAINT zdx_themes_created_at_not_null NOT NULL,
     started_at timestamp with time zone,
     ended_at timestamp with time zone
 );
@@ -748,8 +748,8 @@ CREATE TABLE public.zdx_goal_issues (
 --
 
 CREATE TABLE public.zdx_id_seq (
-    kind text NOT NULL,
-    next_val integer DEFAULT 1 NOT NULL
+    kind text CONSTRAINT zdx_id_seq_kind_not_null1 NOT NULL,
+    next_val integer DEFAULT 1 CONSTRAINT zdx_id_seq_next_val_not_null1 NOT NULL
 );
 
 
@@ -1531,6 +1531,79 @@ ALTER SEQUENCE public.zdx_projects_id_seq OWNED BY public.zdx_projects.id;
 
 
 --
+-- Name: zdx_proposal_versions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_proposal_versions (
+    id integer NOT NULL,
+    proposal_id integer NOT NULL,
+    body text NOT NULL,
+    edited_by text DEFAULT ''::text NOT NULL,
+    edited_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_proposal_versions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_proposal_versions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_proposal_versions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_proposal_versions_id_seq OWNED BY public.zdx_proposal_versions.id;
+
+
+--
+-- Name: zdx_proposals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_proposals (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    title text NOT NULL,
+    body text DEFAULT ''::text NOT NULL,
+    source_type text DEFAULT 'conversation'::text NOT NULL,
+    source_ref text,
+    status text DEFAULT 'proposed'::text NOT NULL,
+    snoozed_until timestamp with time zone,
+    created_by text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    approved_issue_id text
+);
+
+
+--
+-- Name: zdx_proposals_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_proposals_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_proposals_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_proposals_id_seq OWNED BY public.zdx_proposals.id;
+
+
+--
 -- Name: zdx_question_proposals; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -1718,13 +1791,13 @@ ALTER SEQUENCE public.zdx_sessions_id_seq OWNED BY public.zdx_sessions.id;
 
 CREATE TABLE public.zdx_slow_queries (
     id bigint NOT NULL,
-    project_id integer,
     sql_hash text NOT NULL,
     sql_text text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     duration_ms integer NOT NULL,
     explain_json text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    project_id integer
 );
 
 
@@ -2534,6 +2607,20 @@ ALTER TABLE ONLY public.zdx_projects ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: zdx_proposal_versions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposal_versions ALTER COLUMN id SET DEFAULT nextval('public.zdx_proposal_versions_id_seq'::regclass);
+
+
+--
+-- Name: zdx_proposals id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposals ALTER COLUMN id SET DEFAULT nextval('public.zdx_proposals_id_seq'::regclass);
+
+
+--
 -- Name: zdx_question_proposals id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3180,6 +3267,22 @@ ALTER TABLE ONLY public.zdx_projects
 
 
 --
+-- Name: zdx_proposal_versions zdx_proposal_versions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposal_versions
+    ADD CONSTRAINT zdx_proposal_versions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_proposals zdx_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposals
+    ADD CONSTRAINT zdx_proposals_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_question_proposals zdx_question_proposals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3510,6 +3613,13 @@ CREATE INDEX idx_error_reports_created_at ON public.zdx_error_reports USING btre
 
 
 --
+-- Name: idx_error_reports_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_error_reports_project_id ON public.zdx_error_reports USING btree (project_id);
+
+
+--
 -- Name: idx_error_reports_source; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3601,6 +3711,27 @@ CREATE INDEX idx_project_goals_project ON public.zdx_project_goals USING btree (
 
 
 --
+-- Name: idx_proposal_versions_proposal; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposal_versions_proposal ON public.zdx_proposal_versions USING btree (proposal_id, edited_at DESC);
+
+
+--
+-- Name: idx_proposals_project_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposals_project_created ON public.zdx_proposals USING btree (project_id, created_at DESC);
+
+
+--
+-- Name: idx_proposals_project_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_proposals_project_status ON public.zdx_proposals USING btree (project_id, status);
+
+
+--
 -- Name: idx_question_proposals_question; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -3640,6 +3771,13 @@ CREATE INDEX idx_slow_queries_created_at ON public.zdx_slow_queries USING btree 
 --
 
 CREATE INDEX idx_slow_queries_endpoint ON public.zdx_slow_queries USING btree (endpoint);
+
+
+--
+-- Name: idx_slow_queries_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_slow_queries_project_id ON public.zdx_slow_queries USING btree (project_id);
 
 
 --
@@ -4432,6 +4570,30 @@ ALTER TABLE ONLY public.zdx_project_permissions
 
 ALTER TABLE ONLY public.zdx_project_permissions
     ADD CONSTRAINT zdx_project_permissions_user_id_fkey FOREIGN KEY (user_id) REFERENCES public.zdx_users(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_proposal_versions zdx_proposal_versions_proposal_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposal_versions
+    ADD CONSTRAINT zdx_proposal_versions_proposal_id_fkey FOREIGN KEY (proposal_id) REFERENCES public.zdx_proposals(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_proposals zdx_proposals_approved_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposals
+    ADD CONSTRAINT zdx_proposals_approved_issue_id_fkey FOREIGN KEY (approved_issue_id) REFERENCES public.zdx_issues(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zdx_proposals zdx_proposals_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_proposals
+    ADD CONSTRAINT zdx_proposals_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
