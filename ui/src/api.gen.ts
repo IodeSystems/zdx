@@ -4550,7 +4550,7 @@ export interface components {
             updated_at: string;
         };
         ClientItem: {
-            channel: string;
+            channels: string[] | null;
             connected_at: string;
             /** Format: int64 */
             id: number;

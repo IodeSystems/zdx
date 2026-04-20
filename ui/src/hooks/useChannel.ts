@@ -5,17 +5,32 @@ type MessageHandler = (msg: { channel: string; type: string; payload: unknown })
 
 const RECONNECT_DELAY = 2000
 
-type ChannelSocket = {
-  socket: WebSocket | null
+type OutgoingMessage =
+  | { type: 'subscribe'; token: string }
+  | { type: 'unsubscribe'; channel: string }
+  | { type: 'ping' }
+
+type IncomingMessage =
+  | { type: 'subscribed'; channel: string }
+  | { type: 'unsubscribed'; channel: string }
+  | { type: 'message'; channel: string; event: string; payload: unknown }
+  | { type: 'error'; message: string }
+  | { type: 'pong' }
+
+type ChannelState = {
   handlers: Set<MessageHandler>
-  reconnectTimer: ReturnType<typeof setTimeout> | null
+  subscribed: boolean
 }
 
-const channels = new Map<string, ChannelSocket>()
+const channels = new Map<string, ChannelState>()
 
-function getWsUrl(token: string): string {
+let socket: WebSocket | null = null
+let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+let pending: OutgoingMessage[] = []
+
+function getWsUrl(): string {
   const proto = location.protocol === 'https:' ? 'wss:' : 'ws:'
-  return `${proto}//${location.host}/api/ws/subscribe?token=${encodeURIComponent(token)}`
+  return `${proto}//${location.host}/ws`
 }
 
 async function signChannel(channel: string): Promise<string> {
@@ -28,45 +43,105 @@ async function signChannel(channel: string): Promise<string> {
   })
   if (!res.ok) throw new Error(`sign failed: ${res.status}`)
   const data = await res.json()
-  return data.token
+  return data.token as string
 }
 
-function connectChannel(channel: string) {
-  const entry = channels.get(channel)
-  if (!entry || entry.handlers.size === 0) return
-  if (entry.socket && (entry.socket.readyState === WebSocket.OPEN || entry.socket.readyState === WebSocket.CONNECTING)) return
+function sendOrQueue(msg: OutgoingMessage) {
+  if (socket && socket.readyState === WebSocket.OPEN) {
+    socket.send(JSON.stringify(msg))
+  } else {
+    pending.push(msg)
+    ensureConnected()
+  }
+}
 
-  signChannel(channel).then(token => {
-    const currentEntry = channels.get(channel)
-    if (!currentEntry || currentEntry.handlers.size === 0) return
+function ensureConnected() {
+  if (socket && (socket.readyState === WebSocket.OPEN || socket.readyState === WebSocket.CONNECTING)) return
+  if (channels.size === 0 && pending.length === 0) return
 
-    const ws = new WebSocket(getWsUrl(token))
-    currentEntry.socket = ws
+  const ws = new WebSocket(getWsUrl())
+  socket = ws
 
-    ws.onmessage = (ev) => {
-      try {
-        const msg = JSON.parse(ev.data)
-        const e = channels.get(channel)
-        if (e) e.handlers.forEach(h => h(msg))
-      } catch { /* ignore malformed */ }
+  ws.onopen = () => {
+    // Flush queued messages first.
+    const queued = pending
+    pending = []
+    for (const m of queued) ws.send(JSON.stringify(m))
+    // Re-subscribe any channels that think they have handlers but are not
+    // marked subscribed (fresh connection after a drop).
+    for (const [channel, state] of channels) {
+      if (state.handlers.size === 0) continue
+      if (state.subscribed) continue
+      signChannel(channel)
+        .then(token => {
+          if (socket === ws && ws.readyState === WebSocket.OPEN) {
+            ws.send(JSON.stringify({ type: 'subscribe', token }))
+          }
+        })
+        .catch(() => {})
     }
+  }
 
-    ws.onclose = () => {
-      const e = channels.get(channel)
-      if (e) {
-        e.socket = null
-        if (e.handlers.size > 0 && !e.reconnectTimer) {
-          e.reconnectTimer = setTimeout(() => {
-            const e2 = channels.get(channel)
-            if (e2) {
-              e2.reconnectTimer = null
-              if (e2.handlers.size > 0) connectChannel(channel)
-            }
-          }, RECONNECT_DELAY)
-        }
+  ws.onmessage = (ev) => {
+    let msg: IncomingMessage
+    try {
+      msg = JSON.parse(ev.data)
+    } catch {
+      return
+    }
+    switch (msg.type) {
+      case 'message': {
+        const state = channels.get(msg.channel)
+        if (!state) return
+        const relay = { channel: msg.channel, type: msg.event, payload: msg.payload }
+        state.handlers.forEach(h => h(relay))
+        return
       }
+      case 'subscribed': {
+        const state = channels.get(msg.channel)
+        if (state) state.subscribed = true
+        return
+      }
+      case 'unsubscribed': {
+        const state = channels.get(msg.channel)
+        if (state) state.subscribed = false
+        return
+      }
+      case 'error':
+        console.warn('[ws] server error:', msg.message)
+        return
+      case 'pong':
+        return
     }
-  }).catch(() => {})
+  }
+
+  const onClose = () => {
+    if (socket !== ws) return
+    socket = null
+    for (const state of channels.values()) state.subscribed = false
+    if (channels.size > 0 && !reconnectTimer) {
+      reconnectTimer = setTimeout(() => {
+        reconnectTimer = null
+        ensureConnected()
+      }, RECONNECT_DELAY)
+    }
+  }
+  ws.onclose = onClose
+  ws.onerror = onClose
+}
+
+function subscribeChannel(channel: string) {
+  signChannel(channel)
+    .then(token => {
+      const state = channels.get(channel)
+      if (!state || state.handlers.size === 0) return
+      sendOrQueue({ type: 'subscribe', token })
+    })
+    .catch(() => {})
+}
+
+function unsubscribeChannel(channel: string) {
+  sendOrQueue({ type: 'unsubscribe', channel })
 }
 
 export function useChannel(channel: string | null, onMessage: MessageHandler) {
@@ -82,25 +157,33 @@ export function useChannel(channel: string | null, onMessage: MessageHandler) {
   useEffect(() => {
     if (!channel) return
 
-    if (!channels.has(channel)) {
-      channels.set(channel, { socket: null, handlers: new Set(), reconnectTimer: null })
+    let state = channels.get(channel)
+    const isFirst = !state || state.handlers.size === 0
+    if (!state) {
+      state = { handlers: new Set(), subscribed: false }
+      channels.set(channel, state)
     }
-    const entry = channels.get(channel)!
-    entry.handlers.add(stableHandler)
-    connectChannel(channel)
+    state.handlers.add(stableHandler)
+
+    if (isFirst) {
+      ensureConnected()
+      subscribeChannel(channel)
+    }
 
     return () => {
-      const e = channels.get(channel)
-      if (e) {
-        e.handlers.delete(stableHandler)
-        if (e.handlers.size === 0) {
-          if (e.reconnectTimer) {
-            clearTimeout(e.reconnectTimer)
-            e.reconnectTimer = null
+      const s = channels.get(channel)
+      if (!s) return
+      s.handlers.delete(stableHandler)
+      if (s.handlers.size === 0) {
+        if (s.subscribed) unsubscribeChannel(channel)
+        channels.delete(channel)
+        if (channels.size === 0 && socket) {
+          socket.close()
+          socket = null
+          if (reconnectTimer) {
+            clearTimeout(reconnectTimer)
+            reconnectTimer = null
           }
-          e.socket?.close()
-          e.socket = null
-          channels.delete(channel)
         }
       }
     }

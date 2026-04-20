@@ -7,6 +7,7 @@ import (
 	"log"
 	"net/http"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -78,7 +79,10 @@ func (s *Server) registerWSRoutes(api huma.API) {
 		}{Token: token}}, nil
 	})
 
-	s.mux.HandleFunc("/api/ws/subscribe", s.handleWSSubscribe)
+	// Single multiplexed websocket endpoint. Lives outside /api/ so it bypasses
+	// the API-key middleware — auth happens inside the protocol via signed
+	// subscribe tokens.
+	s.mux.HandleFunc("/ws", s.handleWS)
 
 	s.registerAdminWSDiagnostics(api)
 }
@@ -88,11 +92,11 @@ func (s *Server) registerWSRoutes(api huma.API) {
 // /api/admin/ so they inherit the admin-role middleware.
 func (s *Server) registerAdminWSDiagnostics(api huma.API) {
 	type ClientItem struct {
-		ID          int64  `json:"id"`
-		Channel     string `json:"channel"`
-		UserID      int64  `json:"user_id"`
-		RemoteAddr  string `json:"remote_addr"`
-		ConnectedAt string `json:"connected_at"`
+		ID          int64    `json:"id"`
+		Channels    []string `json:"channels"`
+		UserID      int64    `json:"user_id"`
+		RemoteAddr  string   `json:"remote_addr"`
+		ConnectedAt string   `json:"connected_at"`
 	}
 
 	huma.Register(api, huma.Operation{
@@ -108,9 +112,11 @@ func (s *Server) registerAdminWSDiagnostics(api huma.API) {
 		s.wsClientsMu.Lock()
 		items := make([]ClientItem, 0, len(s.wsClients))
 		for _, c := range s.wsClients {
+			channels := append([]string(nil), c.Channels...)
+			sort.Strings(channels)
 			items = append(items, ClientItem{
 				ID:          c.ID,
-				Channel:     c.Channel,
+				Channels:    channels,
 				UserID:      c.UserID,
 				RemoteAddr:  c.RemoteAddr,
 				ConnectedAt: c.ConnectedAt.Format(time.RFC3339),
@@ -157,14 +163,13 @@ func (s *Server) registerAdminWSDiagnostics(api huma.API) {
 	})
 }
 
-func (s *Server) registerWSClient(channel string, userID int64, remoteAddr string) int64 {
+func (s *Server) registerWSClient(userID int64, remoteAddr string) int64 {
 	s.wsClientsMu.Lock()
 	defer s.wsClientsMu.Unlock()
 	s.wsClientSeq++
 	id := s.wsClientSeq
 	s.wsClients[id] = &wsClientEntry{
 		ID:          id,
-		Channel:     channel,
 		UserID:      userID,
 		RemoteAddr:  remoteAddr,
 		ConnectedAt: time.Now().UTC(),
@@ -178,19 +183,35 @@ func (s *Server) unregisterWSClient(id int64) {
 	s.wsClientsMu.Unlock()
 }
 
-func (s *Server) handleWSSubscribe(w http.ResponseWriter, r *http.Request) {
-	token := r.URL.Query().Get("token")
-	if token == "" {
-		http.Error(w, "missing token", http.StatusBadRequest)
-		return
+func (s *Server) updateWSClientChannels(id int64, channels []string) {
+	s.wsClientsMu.Lock()
+	if c, ok := s.wsClients[id]; ok {
+		c.Channels = channels
 	}
+	s.wsClientsMu.Unlock()
+}
 
-	channel, userID, err := ws.VerifyToken(s.wsSecret, token)
-	if err != nil {
-		http.Error(w, "invalid token: "+err.Error(), http.StatusForbidden)
-		return
-	}
+// clientMsg is the incoming JSON envelope on the multiplexed /ws connection.
+type clientMsg struct {
+	Type    string `json:"type"`
+	Token   string `json:"token,omitempty"`
+	Channel string `json:"channel,omitempty"`
+}
 
+// serverMsg is the outgoing JSON envelope to the websocket client.
+type serverMsg struct {
+	Type    string `json:"type"`
+	Channel string `json:"channel,omitempty"`
+	Event   string `json:"event,omitempty"`
+	Payload any    `json:"payload,omitempty"`
+	Message string `json:"message,omitempty"`
+}
+
+// handleWS is the single multiplexed websocket endpoint at /ws. Clients open
+// one persistent connection, then send {"type":"subscribe","token":...} messages
+// to attach to broker channels. Each channel subscription is relayed over the
+// same connection as {"type":"message","channel":...,"event":...,"payload":...}.
+func (s *Server) handleWS(w http.ResponseWriter, r *http.Request) {
 	conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 		InsecureSkipVerify: true,
 	})
@@ -200,32 +221,142 @@ func (s *Server) handleWSSubscribe(w http.ResponseWriter, r *http.Request) {
 	}
 	defer conn.CloseNow()
 
-	clientID := s.registerWSClient(channel, userID, r.RemoteAddr)
+	clientID := s.registerWSClient(0, r.RemoteAddr)
 	defer s.unregisterWSClient(clientID)
 
-	sub := s.broker.Subscribe(channel)
-	defer sub.Close()
+	ctx, cancel := context.WithCancel(r.Context())
+	defer cancel()
 
-	// Server is write-only; CloseRead starts a goroutine to handle control
-	// frames (ping/pong/close) so the connection stays alive.
-	ctx := conn.CloseRead(r.Context())
+	// Serialize writes to the single websocket connection across the read
+	// loop and every per-subscription relay goroutine.
+	var writeMu sync.Mutex
+	writeJSON := func(msg serverMsg) error {
+		data, err := json.Marshal(msg)
+		if err != nil {
+			return err
+		}
+		writeMu.Lock()
+		defer writeMu.Unlock()
+		return conn.Write(ctx, websocket.MessageText, data)
+	}
+
+	// Active channel subscriptions for this client.
+	var subsMu sync.Mutex
+	subs := make(map[string]*ws.Subscription)
+	var userID int64
+
+	snapshotChannels := func() []string {
+		subsMu.Lock()
+		defer subsMu.Unlock()
+		out := make([]string, 0, len(subs))
+		for ch := range subs {
+			out = append(out, ch)
+		}
+		return out
+	}
+
+	closeAllSubs := func() {
+		subsMu.Lock()
+		defer subsMu.Unlock()
+		for _, sub := range subs {
+			sub.Close()
+		}
+		subs = map[string]*ws.Subscription{}
+	}
+	defer closeAllSubs()
+
 	for {
-		select {
-		case <-ctx.Done():
-			conn.Close(websocket.StatusNormalClosure, "")
+		msgType, data, err := conn.Read(ctx)
+		if err != nil {
 			return
-		case msg, ok := <-sub.C:
-			if !ok {
-				conn.Close(websocket.StatusNormalClosure, "")
-				return
-			}
-			data, err := json.Marshal(msg)
-			if err != nil {
+		}
+		if msgType != websocket.MessageText {
+			continue
+		}
+
+		var in clientMsg
+		if err := json.Unmarshal(data, &in); err != nil {
+			_ = writeJSON(serverMsg{Type: "error", Message: "malformed message"})
+			continue
+		}
+
+		switch in.Type {
+		case "subscribe":
+			if in.Token == "" {
+				_ = writeJSON(serverMsg{Type: "error", Message: "missing token"})
 				continue
 			}
-			if err := conn.Write(ctx, websocket.MessageText, data); err != nil {
-				return
+			channel, tokUserID, verr := ws.VerifyToken(s.wsSecret, in.Token)
+			if verr != nil {
+				_ = writeJSON(serverMsg{Type: "error", Message: "invalid token: " + verr.Error()})
+				continue
 			}
+			// First successful subscribe defines the user for this connection.
+			if userID == 0 {
+				userID = tokUserID
+				s.wsClientsMu.Lock()
+				if c, ok := s.wsClients[clientID]; ok {
+					c.UserID = tokUserID
+				}
+				s.wsClientsMu.Unlock()
+			}
+
+			subsMu.Lock()
+			if _, already := subs[channel]; already {
+				subsMu.Unlock()
+				_ = writeJSON(serverMsg{Type: "subscribed", Channel: channel})
+				continue
+			}
+			sub := s.broker.Subscribe(channel)
+			subs[channel] = sub
+			subsMu.Unlock()
+
+			s.updateWSClientChannels(clientID, snapshotChannels())
+			_ = writeJSON(serverMsg{Type: "subscribed", Channel: channel})
+
+			go func(ch string, sub *ws.Subscription) {
+				for {
+					select {
+					case <-ctx.Done():
+						return
+					case msg, ok := <-sub.C:
+						if !ok {
+							return
+						}
+						if err := writeJSON(serverMsg{
+							Type:    "message",
+							Channel: ch,
+							Event:   msg.Type,
+							Payload: msg.Payload,
+						}); err != nil {
+							return
+						}
+					}
+				}
+			}(channel, sub)
+
+		case "unsubscribe":
+			if in.Channel == "" {
+				_ = writeJSON(serverMsg{Type: "error", Message: "missing channel"})
+				continue
+			}
+			subsMu.Lock()
+			sub, ok := subs[in.Channel]
+			if ok {
+				delete(subs, in.Channel)
+			}
+			subsMu.Unlock()
+			if ok {
+				sub.Close()
+			}
+			s.updateWSClientChannels(clientID, snapshotChannels())
+			_ = writeJSON(serverMsg{Type: "unsubscribed", Channel: in.Channel})
+
+		case "ping":
+			_ = writeJSON(serverMsg{Type: "pong"})
+
+		default:
+			_ = writeJSON(serverMsg{Type: "error", Message: "unknown type: " + in.Type})
 		}
 	}
 }

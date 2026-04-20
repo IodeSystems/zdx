@@ -1197,7 +1197,7 @@ export const useDeleteInvite = () => {
 
 export interface WSClientItem {
   id: number
-  channel: string
+  channels: string[]
   user_id: number
   remote_addr: string
   connected_at: string

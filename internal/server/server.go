@@ -45,10 +45,12 @@ type Server struct {
 	wsClientSeq int64
 }
 
-// wsClientEntry tracks a single live WebSocket subscriber for admin diagnostics.
+// wsClientEntry tracks a single live WebSocket connection for admin diagnostics.
+// A client may hold multiple channel subscriptions on the single multiplexed
+// connection.
 type wsClientEntry struct {
 	ID          int64
-	Channel     string
+	Channels    []string
 	UserID      int64
 	RemoteAddr  string
 	ConnectedAt time.Time
@@ -451,7 +453,7 @@ func (w *statusCapture) WriteHeader(code int) {
 // the self-integration zdxclient so server errors appear on the errors page.
 func (s *Server) errorMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		if !strings.HasPrefix(r.URL.Path, "/api/") || r.URL.Path == "/api/ws/subscribe" {
+		if !strings.HasPrefix(r.URL.Path, "/api/") {
 			next.ServeHTTP(w, r)
 			return
 		}

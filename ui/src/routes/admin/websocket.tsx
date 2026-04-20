@@ -123,7 +123,7 @@ function WebSocketDiagnostics() {
             <TableHead>
               <TableRow>
                 <TableCell>ID</TableCell>
-                <TableCell>Channel</TableCell>
+                <TableCell>Channels</TableCell>
                 <TableCell>User</TableCell>
                 <TableCell>Remote</TableCell>
                 <TableCell>Connected</TableCell>
@@ -133,7 +133,15 @@ function WebSocketDiagnostics() {
               {clients.map((c) => (
                 <TableRow key={c.id}>
                   <TableCell>{c.id}</TableCell>
-                  <TableCell><code>{c.channel}</code></TableCell>
+                  <TableCell>
+                    {c.channels && c.channels.length > 0 ? (
+                      c.channels.map((ch) => (
+                        <div key={ch}><code>{ch}</code></div>
+                      ))
+                    ) : (
+                      <em>(none)</em>
+                    )}
+                  </TableCell>
                   <TableCell>{c.user_id || '—'}</TableCell>
                   <TableCell>{c.remote_addr}</TableCell>
                   <TableCell>{new Date(c.connected_at).toLocaleTimeString()}</TableCell>

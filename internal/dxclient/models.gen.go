@@ -498,11 +498,11 @@ type ClaudeSessionItem struct {
 
 // ClientItem defines model for ClientItem.
 type ClientItem struct {
-	Channel     string `json:"channel"`
-	ConnectedAt string `json:"connected_at"`
-	Id          int64  `json:"id"`
-	RemoteAddr  string `json:"remote_addr"`
-	UserId      int64  `json:"user_id"`
+	Channels    *[]string `json:"channels"`
+	ConnectedAt string    `json:"connected_at"`
+	Id          int64     `json:"id"`
+	RemoteAddr  string    `json:"remote_addr"`
+	UserId      int64     `json:"user_id"`
 }
 
 // CloseAgentSessionRequest defines model for Close-agent-sessionRequest.
