@@ -658,26 +658,23 @@ type ZdxState struct {
 }
 
 type ZdxTask struct {
-	ID             string             `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
-	Text           string             `db:"text" json:"text"`
-	Feature        string             `db:"feature" json:"feature"`
-	Status         string             `db:"status" json:"status"`
-	Reason         string             `db:"reason" json:"reason"`
-	Issue          string             `db:"issue" json:"issue"`
-	Depends        string             `db:"depends" json:"depends"`
-	TestPlan       string             `db:"test_plan" json:"test_plan"`
-	TestRefs       string             `db:"test_refs" json:"test_refs"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	TaskGroup      string             `db:"task_group" json:"task_group"`
-	ClaimedBy      pgtype.Text        `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	ReviewedAt     pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
-	StaleSince     pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
-	Title          string             `db:"title" json:"title"`
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	ReviewedAt  pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	StaleSince  pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
+	Title       string             `db:"title" json:"title"`
 }
 
 type ZdxTaskCodeRef struct {

@@ -29,11 +29,13 @@ type Querier interface {
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
 	AttachCodeRefToTest(ctx context.Context, arg AttachCodeRefToTestParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
-	CancelOrphanedTasks(ctx context.Context) ([]ZdxTask, error)
+	CancelOrphanedTasks(ctx context.Context) ([]CancelOrphanedTasksRow, error)
 	// Atomically claim the highest-priority unclaimed open todo for an agent.
 	// Skips locked rows (concurrent agents get different items).
 	ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error)
-	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ZdxTask, error)
+	// Atomically mark a ready, unclaimed task as active. The caller must
+	// separately INSERT a zdx_reservations row to record who claimed it.
+	ClaimTask(ctx context.Context, arg ClaimTaskParams) (ClaimTaskRow, error)
 	ClearDoctorDeferrals(ctx context.Context, projectID int32) error
 	ClearFeatureParent(ctx context.Context, id int32) error
 	ClearStaleFlag(ctx context.Context, id string) error
@@ -233,7 +235,7 @@ type Querier interface {
 	LinkGoalIssue(ctx context.Context, arg LinkGoalIssueParams) error
 	LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
-	// Return all tasks that are currently claimed and whose lease has not expired.
+	// Return tasks that currently have an unexpired, unreleased reservation.
 	ListActiveTaskClaims(ctx context.Context, projectID int32) ([]ListActiveTaskClaimsRow, error)
 	// Return all todos that are currently claimed and whose lease has not expired.
 	ListActiveTodoClaims(ctx context.Context, projectID int32) ([]ListActiveTodoClaimsRow, error)
@@ -365,7 +367,7 @@ type Querier interface {
 	ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error)
 	ListTaskReviews(ctx context.Context, arg ListTaskReviewsParams) ([]ListTaskReviewsRow, error)
 	ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error)
-	ListTasksByAgent(ctx context.Context, claimedBy pgtype.Text) ([]ListTasksByAgentRow, error)
+	ListTasksByAgent(ctx context.Context, claimedBy string) ([]ListTasksByAgentRow, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error)
 	ListTasksByFeaturePaginated(ctx context.Context, arg ListTasksByFeaturePaginatedParams) ([]ListTasksByFeaturePaginatedRow, error)
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error)
@@ -407,13 +409,14 @@ type Querier interface {
 	ReadyIssue(ctx context.Context, arg ReadyIssueParams) error
 	ReadyTask(ctx context.Context, id string) error
 	ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error)
-	ReclaimExpiredTasks(ctx context.Context) ([]ZdxTask, error)
+	// Reset tasks that are marked active but have no live reservation.
+	ReclaimExpiredTasks(ctx context.Context) ([]ReclaimExpiredTasksRow, error)
 	// Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
 	ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]ReclaimExpiredTodosRow, error)
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)
 	// Mark a reservation as released by (project_id, target_type, target_id) where released_at is NULL.
 	ReleaseReservation(ctx context.Context, arg ReleaseReservationParams) error
-	ReleaseTask(ctx context.Context, arg ReleaseTaskParams) error
+	ReleaseTask(ctx context.Context, id string) error
 	ReleaseTaskAdmin(ctx context.Context, id string) error
 	// Release a claimed todo (agent finished or abandoned).
 	ReleaseTodo(ctx context.Context, arg ReleaseTodoParams) error
@@ -424,7 +427,8 @@ type Querier interface {
 	RemoveFocusBlocker(ctx context.Context, arg RemoveFocusBlockerParams) error
 	RemoveFocusFeature(ctx context.Context, arg RemoveFocusFeatureParams) error
 	RemoveIssueBlock(ctx context.Context, arg RemoveIssueBlockParams) error
-	RenewTaskLease(ctx context.Context, arg RenewTaskLeaseParams) error
+	// Extend the lease on the active reservation for a task claimed by a specific agent.
+	RenewTaskReservation(ctx context.Context, arg RenewTaskReservationParams) error
 	// Extend the lease on a claimed todo (heartbeat).
 	RenewTodoLease(ctx context.Context, arg RenewTodoLeaseParams) error
 	ReopenIssue(ctx context.Context, arg ReopenIssueParams) error

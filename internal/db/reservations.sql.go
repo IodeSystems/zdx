@@ -267,3 +267,24 @@ func (q *Queries) ReleaseReservation(ctx context.Context, arg ReleaseReservation
 	_, err := q.db.Exec(ctx, releaseReservation, arg.ProjectID, arg.TargetType, arg.TargetID)
 	return err
 }
+
+const renewTaskReservation = `-- name: RenewTaskReservation :exec
+UPDATE zdx_reservations
+SET lease_expires_at = NOW() + $1::interval
+WHERE target_type = 'task'
+  AND target_id = $2
+  AND claimed_by = $3
+  AND released_at IS NULL
+`
+
+type RenewTaskReservationParams struct {
+	LeaseDuration pgtype.Interval `db:"lease_duration" json:"lease_duration"`
+	TargetID      string          `db:"target_id" json:"target_id"`
+	ClaimedBy     string          `db:"claimed_by" json:"claimed_by"`
+}
+
+// Extend the lease on the active reservation for a task claimed by a specific agent.
+func (q *Queries) RenewTaskReservation(ctx context.Context, arg RenewTaskReservationParams) error {
+	_, err := q.db.Exec(ctx, renewTaskReservation, arg.LeaseDuration, arg.TargetID, arg.ClaimedBy)
+	return err
+}

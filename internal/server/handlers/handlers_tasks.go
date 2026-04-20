@@ -73,7 +73,6 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				ID: row.ID, ProjectID: row.ProjectID, Title: row.Title, Text: row.Text, Feature: row.Feature,
 				Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends,
 				TestPlan: row.TestPlan, TestRefs: row.TestRefs, TaskGroup: row.TaskGroup,
-				ClaimedBy: row.ClaimedBy, ClaimedAt: row.ClaimedAt, LeaseExpiresAt: row.LeaseExpiresAt,
 				CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt,
 			})}, nil
 		})
@@ -814,15 +813,6 @@ func toTaskItem(r db.ZdxTask) TaskItem {
 	}
 	if r.StaleSince.Valid {
 		t.StaleSince = fmtTS(r.StaleSince)
-	}
-	if r.ClaimedBy.Valid {
-		t.ClaimedBy = r.ClaimedBy.String
-	}
-	if r.ClaimedAt.Valid {
-		t.ClaimedAt = fmtTS(r.ClaimedAt)
-	}
-	if r.LeaseExpiresAt.Valid {
-		t.LeaseExpiresAt = fmtTS(r.LeaseExpiresAt)
 	}
 	return t
 }

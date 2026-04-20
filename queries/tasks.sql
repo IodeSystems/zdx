@@ -59,7 +59,7 @@ ORDER BY updated_at DESC
 LIMIT @page_limit OFFSET @page_offset;
 
 -- name: GetTask :one
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1;
 
 -- name: CreateTask :one
@@ -101,90 +101,83 @@ SET title      = CASE WHEN @field::text = 'title'      THEN @value::text ELSE ti
 WHERE id = @id;
 
 -- name: ClaimTask :one
+-- Atomically mark a ready, unclaimed task as active. The caller must
+-- separately INSERT a zdx_reservations row to record who claimed it.
 UPDATE zdx_tasks
-SET claimed_by = @agent_id,
-    claimed_at = NOW(),
-    lease_expires_at = NOW() + @lease_duration::interval,
-    status = 'active',
+SET status = 'active',
     updated_at = NOW()
 WHERE id = (
     SELECT t.id FROM zdx_tasks t
     WHERE t.project_id = @project_id
       AND t.status = 'ready'
       AND t.task_group = @task_group
-      AND (t.claimed_by IS NULL OR t.lease_expires_at < NOW())
+      AND NOT EXISTS (
+        SELECT 1 FROM zdx_reservations r
+        WHERE r.target_type = 'task'
+          AND r.target_id = t.id
+          AND r.released_at IS NULL
+          AND r.lease_expires_at > NOW()
+      )
       AND (@issue::text = '' OR t.issue = @issue)
     ORDER BY t.created_at ASC
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING *;
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at;
 
 -- name: ReleaseTask :exec
-UPDATE zdx_tasks
-SET claimed_by = NULL,
-    claimed_at = NULL,
-    lease_expires_at = NULL,
-    status = 'ready',
-    updated_at = NOW()
-WHERE id = $1 AND claimed_by = $2;
+UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1;
 
 -- name: ReleaseTaskAdmin :exec
-UPDATE zdx_tasks
-SET claimed_by = NULL,
-    claimed_at = NULL,
-    lease_expires_at = NULL,
-    status = 'ready',
-    updated_at = NOW()
-WHERE id = $1;
-
--- name: RenewTaskLease :exec
-UPDATE zdx_tasks
-SET lease_expires_at = NOW() + @lease_duration::interval,
-    updated_at = NOW()
-WHERE id = @id AND claimed_by = @agent_id;
+UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1;
 
 -- name: ListActiveTaskClaims :many
--- Return all tasks that are currently claimed and whose lease has not expired.
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
-FROM zdx_tasks
-WHERE project_id = $1
-  AND claimed_by IS NOT NULL
-  AND lease_expires_at > NOW()
-ORDER BY claimed_at DESC;
+-- Return tasks that currently have an unexpired, unreleased reservation.
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at,
+       r.claimed_by, r.claimed_at, r.lease_expires_at
+FROM zdx_tasks t
+JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
+WHERE t.project_id = $1
+  AND r.released_at IS NULL
+  AND r.lease_expires_at > NOW()
+ORDER BY r.claimed_at DESC;
 
 -- name: ListTasksByAgent :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, claimed_by, claimed_at, lease_expires_at, created_at, completed_at, updated_at
-FROM zdx_tasks
-WHERE claimed_by = $1
-ORDER BY claimed_at DESC;
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at,
+       r.claimed_by, r.claimed_at, r.lease_expires_at
+FROM zdx_tasks t
+JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
+WHERE r.claimed_by = $1
+  AND r.released_at IS NULL
+ORDER BY r.claimed_at DESC;
 
 -- name: ReclaimExpiredTasks :many
+-- Reset tasks that are marked active but have no live reservation.
 UPDATE zdx_tasks
-SET claimed_by = NULL,
-    claimed_at = NULL,
-    lease_expires_at = NULL,
-    status = 'ready',
+SET status = 'ready',
     updated_at = NOW()
-WHERE lease_expires_at < NOW()
-  AND claimed_by IS NOT NULL
+WHERE status = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_reservations r
+    WHERE r.target_type = 'task'
+      AND r.target_id = zdx_tasks.id
+      AND r.released_at IS NULL
+      AND r.lease_expires_at > NOW()
+  )
   AND status != 'done'
-RETURNING *;
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at;
 
 -- name: CancelOrphanedTasks :many
 UPDATE zdx_tasks t
 SET status = 'done',
     reason = 'parent-closed',
     completed_at = NOW(),
-    claimed_by = NULL,
-    claimed_at = NULL,
-    lease_expires_at = NULL,
     updated_at = NOW()
 FROM zdx_issues i
 WHERE t.issue = i.id
   AND i.status = 'closed'
   AND t.status IN ('ready', 'active', 'wip')
-RETURNING t.*;
+RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at;
 
 -- name: MarkTaskReviewed :exec
 UPDATE zdx_tasks SET reviewed_at = NOW(), updated_at = NOW() WHERE id = $1;
@@ -219,7 +212,13 @@ UPDATE zdx_tasks
 SET stale_since = NOW(),
     updated_at = NOW()
 WHERE status = 'ready'
-  AND claimed_by IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_reservations r
+    WHERE r.target_type = 'task'
+      AND r.target_id = zdx_tasks.id
+      AND r.released_at IS NULL
+      AND r.lease_expires_at > NOW()
+  )
   AND stale_since IS NULL
   AND created_at <= NOW() - make_interval(days => @stale_days::int)
   AND (@project_id::int = 0 OR project_id = @project_id)

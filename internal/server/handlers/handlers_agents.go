@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -212,7 +213,7 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 				Tasks []AgentTaskItem `json:"tasks"`
 			}
 		}, error) {
-			rows, err := h.Q.ListTasksByAgent(ctx, pgtype.Text{String: in.ID, Valid: true})
+			rows, err := h.Q.ListTasksByAgent(ctx, in.ID)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -259,23 +260,21 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			if dur <= 0 {
 				dur = 30
 			}
-			interval := pgtype.Interval{Microseconds: int64(dur) * 60 * 1_000_000, Valid: true}
+			leaseExpiry := pgtype.Timestamptz{Time: time.Now().Add(time.Duration(dur) * time.Minute), Valid: true}
 			t, err := h.Q.ClaimTask(ctx, db.ClaimTaskParams{
-				AgentID:       pgtype.Text{String: in.Body.AgentID, Valid: true},
-				LeaseDuration: interval,
-				ProjectID:     p.ID,
-				TaskGroup:     in.Body.TaskGroup,
-				Issue:         in.Body.Issue,
+				ProjectID: p.ID,
+				TaskGroup: in.Body.TaskGroup,
+				Issue:     in.Body.Issue,
 			})
 			if err != nil {
 				return nil, apiErr(404, "no tasks available to claim")
 			}
-			_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
+			res, _ := h.Q.InsertReservation(ctx, db.InsertReservationParams{
 				ProjectID:      t.ProjectID,
 				TargetType:     "task",
 				TargetID:       t.ID,
-				ClaimedBy:      t.ClaimedBy.String,
-				LeaseExpiresAt: t.LeaseExpiresAt,
+				ClaimedBy:      in.Body.AgentID,
+				LeaseExpiresAt: leaseExpiry,
 			})
 			h.recordStatusChange(ctx, p.ID, "task", t.ID, "ready", "active", in.Body.AgentID)
 			item := AgentTaskItem{
@@ -287,8 +286,8 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 				Issue:          t.Issue,
 				TaskGroup:      t.TaskGroup,
 				CreatedAt:      fmtTS(t.CreatedAt),
-				ClaimedAt:      fmtTS(t.ClaimedAt),
-				LeaseExpiresAt: fmtTS(t.LeaseExpiresAt),
+				ClaimedAt:      fmtTS(res.ClaimedAt),
+				LeaseExpiresAt: fmtTS(res.LeaseExpiresAt),
 			}
 			return &struct{ Body AgentTaskItem }{Body: item}, nil
 		})
@@ -310,20 +309,10 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 				prev = t.Status
 				projectID = t.ProjectID
 			}
-			if in.Body.AgentID == "" {
-				if err := h.Q.ReleaseTaskAdmin(ctx, taskID); err != nil {
-					return nil, apiErr(500, err.Error())
-				}
-				h.recordTaskStatusChange(ctx, taskID, prev, "ready", "")
-			} else {
-				if err := h.Q.ReleaseTask(ctx, db.ReleaseTaskParams{
-					ID:        taskID,
-					ClaimedBy: pgtype.Text{String: in.Body.AgentID, Valid: true},
-				}); err != nil {
-					return nil, apiErr(500, err.Error())
-				}
-				h.recordTaskStatusChange(ctx, taskID, prev, "ready", in.Body.AgentID)
+			if err := h.Q.ReleaseTask(ctx, taskID); err != nil {
+				return nil, apiErr(500, err.Error())
 			}
+			h.recordTaskStatusChange(ctx, taskID, prev, "ready", in.Body.AgentID)
 			if projectID != 0 {
 				_ = h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
 					ProjectID:  projectID,
@@ -348,10 +337,10 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 				dur = 30
 			}
 			interval := pgtype.Interval{Microseconds: int64(dur) * 60 * 1_000_000, Valid: true}
-			if err := h.Q.RenewTaskLease(ctx, db.RenewTaskLeaseParams{
+			if err := h.Q.RenewTaskReservation(ctx, db.RenewTaskReservationParams{
 				LeaseDuration: interval,
-				ID:            in.ID,
-				AgentID:       pgtype.Text{String: in.Body.AgentID, Valid: true},
+				TargetID:      in.ID,
+				ClaimedBy:     in.Body.AgentID,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -370,11 +359,7 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			for _, r := range rows {
-				prevAgent := ""
-				if r.ClaimedBy.Valid {
-					prevAgent = r.ClaimedBy.String
-				}
-				h.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "active", "ready", prevAgent)
+				h.recordStatusChange(ctx, r.ProjectID, "task", r.ID, "active", "ready", "")
 			}
 			return &struct {
 				Body struct {

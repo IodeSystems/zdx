@@ -43,6 +43,15 @@ WHERE r.project_id = @project_id
   AND t.key = @key
 ORDER BY r.claimed_at DESC;
 
+-- name: RenewTaskReservation :exec
+-- Extend the lease on the active reservation for a task claimed by a specific agent.
+UPDATE zdx_reservations
+SET lease_expires_at = NOW() + @lease_duration::interval
+WHERE target_type = 'task'
+  AND target_id = @target_id
+  AND claimed_by = @claimed_by
+  AND released_at IS NULL;
+
 -- name: ListReservationsByIssue :many
 -- Return reservations for todos linked to a specific issue, with optional agent session info.
 SELECT

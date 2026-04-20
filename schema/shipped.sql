@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1926,9 +1926,6 @@ CREATE TABLE public.zdx_tasks (
     completed_at timestamp with time zone,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     task_group text DEFAULT ''::text NOT NULL,
-    claimed_by text,
-    claimed_at timestamp with time zone,
-    lease_expires_at timestamp with time zone,
     reviewed_at timestamp with time zone,
     stale_since timestamp with time zone,
     title text DEFAULT ''::text NOT NULL
@@ -4601,14 +4598,6 @@ ALTER TABLE ONLY public.zdx_task_reviews
 
 ALTER TABLE ONLY public.zdx_task_reviews
     ADD CONSTRAINT zdx_task_reviews_task_id_fkey FOREIGN KEY (task_id) REFERENCES public.zdx_tasks(id) ON DELETE CASCADE;
-
-
---
--- Name: zdx_tasks zdx_tasks_claimed_by_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_tasks
-    ADD CONSTRAINT zdx_tasks_claimed_by_fkey FOREIGN KEY (claimed_by) REFERENCES public.zdx_agents(id);
 
 
 --

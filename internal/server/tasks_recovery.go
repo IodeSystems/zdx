@@ -23,11 +23,7 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 		} else if len(reclaimed) > 0 {
 			log.Printf("task-recovery: reclaimed %d expired-lease tasks", len(reclaimed))
 			for _, r := range reclaimed {
-				prevAgent := ""
-				if r.ClaimedBy.Valid {
-					prevAgent = r.ClaimedBy.String
-				}
-				handlers.RecordStatusChange(ctx, s.q, r.ProjectID, "task", r.ID, "active", "ready", prevAgent)
+				handlers.RecordStatusChange(ctx, s.q, r.ProjectID, "task", r.ID, "active", "ready", "")
 				_ = s.q.ReleaseReservation(ctx, db.ReleaseReservationParams{
 					ProjectID:  r.ProjectID,
 					TargetType: "task",
