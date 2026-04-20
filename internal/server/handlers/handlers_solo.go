@@ -12,6 +12,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/maturity"
+	"github.com/iodesystems/zdx-go/internal/workflowhints"
 )
 
 type soloCandidate struct {
@@ -189,15 +190,8 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 		for _, t := range seen {
 			candidates = append(candidates, soloCandidate{
-				Key: fmt.Sprintf("stale-comments-%s-%s", t.targetType, t.targetID),
-				Text: fmt.Sprintf("%d unread comment(s) on %s %s (latest C-%d). "+
-					"Read all unread comments via `dx comment list %s %s`. "+
-					"Respond if needed via `dx comment add %s %s --body=...`. "+
-					"Then mark all read: `dx comment mark-read %s %s --role=llm`.",
-					t.count, t.targetType, t.targetID, t.lastCommentID,
-					t.targetType, t.targetID,
-					t.targetType, t.targetID,
-					t.targetType, t.targetID),
+				Key:        fmt.Sprintf("stale-comments-%s-%s", t.targetType, t.targetID),
+				Text:       workflowhints.StaleCommentsText(t.count, t.targetType, t.targetID, t.lastCommentID),
 				Kind:       "respond:stale",
 				TargetType: t.targetType,
 				TargetID:   t.targetID,
@@ -325,7 +319,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, sp := range demoGaps {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("demo-gap-%d", sp.ID),
-				Text:       fmt.Sprintf("Spec %d (%s) on %q has no demo — write a new demo test or link an existing one (dx spec link %d <test-id>)", sp.ID, sp.Description, sp.FeatureName, sp.ID),
+				Text:       workflowhints.DemoGapText(sp.ID, sp.Description, sp.FeatureName),
 				Kind:       "owner:demo-gap",
 				TargetType: "spec",
 				TargetID:   fmt.Sprintf("%d", sp.ID),
@@ -383,12 +377,8 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		if len(blockers) == 0 {
 			// Tracker has no children — needs decomposition
 			candidates = append(candidates, soloCandidate{
-				Key: fmt.Sprintf("decompose-tracker-%s", iss.ID),
-				Text: fmt.Sprintf("Tracker %s has no child issues — decompose it. "+
-					"Read the tracker context, then create child issues: "+
-					"`dx issue add --title=\"...\" --context=\"...\" --issue-type=impl --parent=%s` "+
-					"for each shippable unit of work.",
-					iss.ID, iss.ID),
+				Key:        fmt.Sprintf("decompose-tracker-%s", iss.ID),
+				Text:       workflowhints.DecomposeTrackerText(iss.ID),
 				Kind:       "owner:decompose-tracker",
 				TargetType: "issue",
 				TargetID:   iss.ID,
@@ -410,7 +400,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 		candidates = append(candidates, soloCandidate{
 			Key:        fmt.Sprintf("close-tracker-%s", iss.ID),
-			Text:       fmt.Sprintf("Tracker %s: all dependencies closed — ready to close", iss.ID),
+			Text:       workflowhints.CloseTrackerText(iss.ID),
 			Kind:       "close:tracker",
 			TargetType: "issue",
 			TargetID:   iss.ID,

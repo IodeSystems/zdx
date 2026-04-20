@@ -14,28 +14,8 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
+	"github.com/iodesystems/zdx-go/internal/workflowhints"
 )
-
-const triageGuidance = `  triage checklist:
-    1. verify independently (reproduce or read the code)
-    2. dup-check: scan the 'similar issues' list above (and dx issue list for wider context).
-       - full duplicate (same bug/ask): dx issue close IS-N --reason=duplicate --duplicate-of=IS-X
-       - narrow slice of a larger issue: dx issue close IS-N --reason=link --link-of=IS-X
-         (cascade-closes when IS-X closes; does NOT cascade-reopen when IS-X reopens.)
-    3. rewrite prescriptively: title=intended outcome; context=should/did/direction
-    4. apply: dx todo owner triage IS-N --title=... --context=... --type=<ops|impl|ask|tracker> --priority=<1-4> --focus=<ID> --goal=<ID>
-       use the active focuses and goals listed above to classify the issue
-       type guide:
-         ops    = one-time verifiable action (demo/test plan required)
-         impl   = durable code change (resolution link required to close)
-         ask    = investigation/research/justification (no test plan; may spawn follow-up issues)
-         tracker = umbrella issue (closed by its children; solo skips it)
-    if the issue is too vague to triage, create clarification questions instead:
-      dx question add --target-type=issue --target-id=IS-N --context="<question>" --choices="opt1,opt2,..."
-      - prefer --choices when the question has enumerable options; do not embed numbered/lettered lists in freeform --context
-      - for multi-stage questions (answer to Q1 changes Q2+), ask only the first stage now; file follow-ups after the answer arrives
-    solo will block progress on the issue until all questions are answered.
-`
 
 func printSimilarIssues(cmd *cobra.Command, c *cli.Client, slug string, selfID int32, text string) {
 	if strings.TrimSpace(text) == "" {
@@ -528,7 +508,7 @@ Analyze the project to bootstrap its feature catalog and first issue:
 			}
 			printTriageContext(cmd, c, slug)
 			printSimilarIssues(cmd, c, slug, iss.Id, iss.Title+" "+iss.Context)
-			fmt.Print(triageGuidance)
+			fmt.Print(workflowhints.TriageChecklist)
 			return nil
 		}
 	}
@@ -1127,7 +1107,7 @@ func todoDevDoneCmd() *cobra.Command {
 			task := taskResp.JSON200
 
 			if strings.TrimSpace(testPlan) == "" && strings.TrimSpace(task.TestPlan) == "" {
-				return fmt.Errorf("missing --test-plan: task %s has no stored test plan. Pass --test-plan=\"<how this was verified>\" to close", id)
+				return workflowhints.MissingTestPlanError(id)
 			}
 
 			var issueRef string
@@ -1143,7 +1123,7 @@ func todoDevDoneCmd() *cobra.Command {
 				if issueResp.JSON200 != nil && issueResp.JSON200.Issue.IssueType == "impl" {
 					hasRefs := strings.TrimSpace(testRefs) != "" || strings.TrimSpace(task.TestRefs) != "" || len(specs) > 0
 					if !hasRefs {
-						return fmt.Errorf("missing test refs: task %s belongs to impl issue %s. Pass --test-refs=\"<paths or test names>\" or --file <path> so the verification is traceable", id, issueRef)
+						return workflowhints.MissingTestRefsError(id, issueRef)
 					}
 				}
 			}

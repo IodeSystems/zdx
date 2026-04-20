@@ -11,6 +11,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/clitypes"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
+	"github.com/iodesystems/zdx-go/internal/workflowhints"
 )
 
 func IssueCmd() *cobra.Command {
@@ -148,12 +149,7 @@ func issueAddCmd() *cobra.Command {
 				for _, s := range *addResp.Similar {
 					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.Id, s.Score*100, s.Title, s.Status)
 				}
-				fmt.Printf("\nIssue created as draft (wip). To promote:\n")
-				fmt.Printf("  dx issue ready %s\n", clitypes.IssueIDStr(addResp.Id))
-				fmt.Printf("To close as duplicate:\n")
-				fmt.Printf("  dx issue close %s --reason=duplicate --duplicate-of=<IS-N>\n", clitypes.IssueIDStr(addResp.Id))
-				fmt.Printf("To close as a narrow-slice link (cascade-close with target; no reopen-cascade):\n")
-				fmt.Printf("  dx issue close %s --reason=link --link-of=<IS-N>\n", clitypes.IssueIDStr(addResp.Id))
+				fmt.Print(workflowhints.SimilarIssuesCLIMessage(clitypes.IssueIDStr(addResp.Id)))
 			} else if !autoReady {
 				rdyResp, err := c.ReadyIssueWithResponse(cmd.Context(), dxclient.ReadyIssueRequest{
 					Slug: c.SlugOrDie(),
