@@ -35,4 +35,5 @@ func Register(api huma.API, deps *Deps) {
 	h.registerMaturityQuestionRoutes(api)
 	h.registerEnvironmentRoutes(api)
 	h.registerFileRoutes()
+	h.registerGitProxyRoutes()
 }
