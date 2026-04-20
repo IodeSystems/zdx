@@ -150,6 +150,8 @@ type Querier interface {
 	// Flip snoozed items whose snooze_until has passed back to 'open' so they
 	// resurface in the solo queue.
 	FlipExpiredMaturityItems(ctx context.Context, projectID int32) error
+	// Return the active (unreleased, unexpired) reservation for a specific issue, if any.
+	GetActiveIssueReservation(ctx context.Context, arg GetActiveIssueReservationParams) (ZdxReservation, error)
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
@@ -438,6 +440,8 @@ type Querier interface {
 	RemoveFocusFeature(ctx context.Context, arg RemoveFocusFeatureParams) error
 	RemoveIssueBlock(ctx context.Context, arg RemoveIssueBlockParams) error
 	RemoveSpecDeferral(ctx context.Context, arg RemoveSpecDeferralParams) error
+	// Extend the lease on the active reservation for an issue.
+	RenewIssueReservation(ctx context.Context, arg RenewIssueReservationParams) error
 	// Extend the lease on the active reservation for a task claimed by a specific agent.
 	RenewTaskReservation(ctx context.Context, arg RenewTaskReservationParams) error
 	// Extend the lease on a claimed todo (heartbeat).

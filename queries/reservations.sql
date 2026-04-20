@@ -52,6 +52,28 @@ WHERE target_type = 'task'
   AND claimed_by = @claimed_by
   AND released_at IS NULL;
 
+-- name: GetActiveIssueReservation :one
+-- Return the active (unreleased, unexpired) reservation for a specific issue, if any.
+SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
+FROM zdx_reservations
+WHERE project_id = @project_id
+  AND target_type = 'issue'
+  AND target_id = @target_id
+  AND released_at IS NULL
+  AND lease_expires_at > NOW()
+ORDER BY claimed_at DESC
+LIMIT 1;
+
+-- name: RenewIssueReservation :exec
+-- Extend the lease on the active reservation for an issue.
+UPDATE zdx_reservations
+SET lease_expires_at = NOW() + @lease_duration::interval
+WHERE project_id = @project_id
+  AND target_type = 'issue'
+  AND target_id = @target_id
+  AND claimed_by = @claimed_by
+  AND released_at IS NULL;
+
 -- name: ListReservationsByIssue :many
 -- Return reservations for todos linked to a specific issue, with optional agent session info.
 SELECT

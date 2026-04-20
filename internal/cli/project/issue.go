@@ -2,6 +2,7 @@ package project
 
 import (
 	"fmt"
+	"os"
 	"os/exec"
 	"strconv"
 	"strings"
@@ -16,7 +17,7 @@ import (
 
 func IssueCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "issue", Short: "Issue management"}
-	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueReopenCmd(), issueEditCmd(), issueBlockCmd(), issueUnblockCmd(), issueReadyCmd(), issueResolveCmd(), issueResolutionsCmd(), issueReconcileCmd())
+	cmd.AddCommand(issueListCmd(), issueAddCmd(), issueShowCmd(), issueCloseCmd(), issueReopenCmd(), issueEditCmd(), issueBlockCmd(), issueUnblockCmd(), issueReadyCmd(), issueResolveCmd(), issueResolutionsCmd(), issueReconcileCmd(), issueClaimCmd(), issueReleaseCmd())
 	return cmd
 }
 
@@ -647,6 +648,66 @@ func issueReconcileCmd() *cobra.Command {
 				}
 				fmt.Println()
 			}
+			return nil
+		},
+	}
+}
+
+func issueClaimCmd() *cobra.Command {
+	var as string
+	var leaseDuration int32
+	cmd := &cobra.Command{
+		Use:   "claim <IS-N>",
+		Short: "Claim an issue reservation for exclusive work",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+			claimedBy := as
+			if claimedBy == "" {
+				claimedBy = os.Getenv("DX_AUTHOR_ALIAS")
+			}
+			if claimedBy == "" {
+				claimedBy = "agent"
+			}
+			resp, err := c.ClaimIssueWithResponse(cmd.Context(), slug, args[0], dxclient.ClaimIssueJSONRequestBody{
+				ClaimedBy:        claimedBy,
+				LeaseDurationMin: leaseDuration,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Printf("%s claimed by %s (expires %s)\n", args[0], resp.JSON200.ClaimedBy, resp.JSON200.LeaseExpiresAt)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&as, "as", "", "agent alias; falls back to $DX_AUTHOR_ALIAS")
+	cmd.Flags().Int32Var(&leaseDuration, "lease-minutes", 30, "lease duration in minutes")
+	return cmd
+}
+
+func issueReleaseCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "release <IS-N>",
+		Short: "Release the active reservation on an issue",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+			resp, err := c.ReleaseIssueWithResponse(cmd.Context(), slug, args[0])
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("%s released\n", args[0])
 			return nil
 		},
 	}

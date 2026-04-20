@@ -11,6 +11,40 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const getActiveIssueReservation = `-- name: GetActiveIssueReservation :one
+SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
+FROM zdx_reservations
+WHERE project_id = $1
+  AND target_type = 'issue'
+  AND target_id = $2
+  AND released_at IS NULL
+  AND lease_expires_at > NOW()
+ORDER BY claimed_at DESC
+LIMIT 1
+`
+
+type GetActiveIssueReservationParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	TargetID  string `db:"target_id" json:"target_id"`
+}
+
+// Return the active (unreleased, unexpired) reservation for a specific issue, if any.
+func (q *Queries) GetActiveIssueReservation(ctx context.Context, arg GetActiveIssueReservationParams) (ZdxReservation, error) {
+	row := q.db.QueryRow(ctx, getActiveIssueReservation, arg.ProjectID, arg.TargetID)
+	var i ZdxReservation
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.ClaimedBy,
+		&i.ClaimedAt,
+		&i.ReleasedAt,
+		&i.LeaseExpiresAt,
+	)
+	return i, err
+}
+
 const insertReservation = `-- name: InsertReservation :one
 INSERT INTO zdx_reservations (project_id, target_type, target_id, claimed_by, claimed_at, lease_expires_at)
 VALUES ($1, $2, $3, $4, NOW(), $5)
@@ -265,6 +299,34 @@ type ReleaseReservationParams struct {
 // Mark a reservation as released by (project_id, target_type, target_id) where released_at is NULL.
 func (q *Queries) ReleaseReservation(ctx context.Context, arg ReleaseReservationParams) error {
 	_, err := q.db.Exec(ctx, releaseReservation, arg.ProjectID, arg.TargetType, arg.TargetID)
+	return err
+}
+
+const renewIssueReservation = `-- name: RenewIssueReservation :exec
+UPDATE zdx_reservations
+SET lease_expires_at = NOW() + $1::interval
+WHERE project_id = $2
+  AND target_type = 'issue'
+  AND target_id = $3
+  AND claimed_by = $4
+  AND released_at IS NULL
+`
+
+type RenewIssueReservationParams struct {
+	LeaseDuration pgtype.Interval `db:"lease_duration" json:"lease_duration"`
+	ProjectID     int32           `db:"project_id" json:"project_id"`
+	TargetID      string          `db:"target_id" json:"target_id"`
+	ClaimedBy     string          `db:"claimed_by" json:"claimed_by"`
+}
+
+// Extend the lease on the active reservation for an issue.
+func (q *Queries) RenewIssueReservation(ctx context.Context, arg RenewIssueReservationParams) error {
+	_, err := q.db.Exec(ctx, renewIssueReservation,
+		arg.LeaseDuration,
+		arg.ProjectID,
+		arg.TargetID,
+		arg.ClaimedBy,
+	)
 	return err
 }
 

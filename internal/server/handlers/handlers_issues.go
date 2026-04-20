@@ -963,6 +963,102 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "claim-issue", Method: http.MethodPost, Path: "/api/dx/projects/{slug}/issues/{id}/claim"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			ID   string `path:"id" required:"true"`
+			Body struct {
+				ClaimedBy        string `json:"claimed_by" required:"true"`
+				LeaseDurationMin int32  `json:"lease_duration_min"`
+			}
+		}) (*struct {
+			Body ReservationItem
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			existing, err := h.Q.GetActiveIssueReservation(ctx, db.GetActiveIssueReservationParams{
+				ProjectID: p.ID,
+				TargetID:  in.ID,
+			})
+			if err == nil {
+				return nil, huma.Error409Conflict("issue already claimed by " + existing.ClaimedBy)
+			}
+			dur := in.Body.LeaseDurationMin
+			if dur <= 0 {
+				dur = 30
+			}
+			leaseExpiry := pgtype.Timestamptz{Time: time.Now().Add(time.Duration(dur) * time.Minute), Valid: true}
+			res, err := h.Q.InsertReservation(ctx, db.InsertReservationParams{
+				ProjectID:      p.ID,
+				TargetType:     "issue",
+				TargetID:       in.ID,
+				ClaimedBy:      in.Body.ClaimedBy,
+				LeaseExpiresAt: leaseExpiry,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body ReservationItem }{Body: ReservationItem{
+				ID:             res.ID,
+				TargetType:     res.TargetType,
+				TargetID:       res.TargetID,
+				ClaimedBy:      res.ClaimedBy,
+				ClaimedAt:      fmtTS(res.ClaimedAt),
+				ReleasedAt:     fmtTS(res.ReleasedAt),
+				LeaseExpiresAt: fmtTS(res.LeaseExpiresAt),
+			}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "release-issue", Method: http.MethodPost, Path: "/api/dx/projects/{slug}/issues/{id}/release"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			ID   string `path:"id" required:"true"`
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
+				ProjectID:  p.ID,
+				TargetType: "issue",
+				TargetID:   in.ID,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "renew-issue-lease", Method: http.MethodPost, Path: "/api/dx/projects/{slug}/issues/{id}/renew"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			ID   string `path:"id" required:"true"`
+			Body struct {
+				ClaimedBy        string `json:"claimed_by" required:"true"`
+				LeaseDurationMin int32  `json:"lease_duration_min"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			dur := in.Body.LeaseDurationMin
+			if dur <= 0 {
+				dur = 30
+			}
+			interval := pgtype.Interval{Microseconds: int64(dur) * 60 * 1_000_000, Valid: true}
+			if err := h.Q.RenewIssueReservation(ctx, db.RenewIssueReservationParams{
+				LeaseDuration: interval,
+				ProjectID:     p.ID,
+				TargetID:      in.ID,
+				ClaimedBy:     in.Body.ClaimedBy,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "reconcile-branch", Method: http.MethodPost, Path: "/api/dx/todo/issue/reconcile"},
 		func(ctx context.Context, in *struct {
 			Body struct {

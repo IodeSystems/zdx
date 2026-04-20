@@ -449,6 +449,14 @@ type BlockerQuestionItem struct {
 	TargetType string    `json:"target_type"`
 }
 
+// ClaimIssueRequest defines model for Claim-issueRequest.
+type ClaimIssueRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string `json:"$schema,omitempty"`
+	ClaimedBy        string  `json:"claimed_by"`
+	LeaseDurationMin int32   `json:"lease_duration_min"`
+}
+
 // ClaimTaskRequest defines model for Claim-taskRequest.
 type ClaimTaskRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2491,6 +2499,14 @@ type RemoveFocusBlockerRequest struct {
 	Slug   string  `json:"slug"`
 }
 
+// RenewIssueLeaseRequest defines model for Renew-issue-leaseRequest.
+type RenewIssueLeaseRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string `json:"$schema,omitempty"`
+	ClaimedBy        string  `json:"claimed_by"`
+	LeaseDurationMin int32   `json:"lease_duration_min"`
+}
+
 // RenewTaskLeaseRequest defines model for Renew-task-leaseRequest.
 type RenewTaskLeaseRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2538,6 +2554,8 @@ type ReportSlowQueryRequest struct {
 
 // ReservationItem defines model for ReservationItem.
 type ReservationItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema          *string `json:"$schema,omitempty"`
 	ClaimedAt       string  `json:"claimed_at"`
 	ClaimedBy       string  `json:"claimed_by"`
 	Id              int64   `json:"id"`
@@ -4414,6 +4432,12 @@ type UpdateEnvironmentJSONRequestBody = UpdateEnvironmentRequest
 // CreateEnvironmentDeployJSONRequestBody defines body for CreateEnvironmentDeploy for application/json ContentType.
 type CreateEnvironmentDeployJSONRequestBody = CreateEnvironmentDeployRequest
 
+// ClaimIssueJSONRequestBody defines body for ClaimIssue for application/json ContentType.
+type ClaimIssueJSONRequestBody = ClaimIssueRequest
+
+// RenewIssueLeaseJSONRequestBody defines body for RenewIssueLease for application/json ContentType.
+type RenewIssueLeaseJSONRequestBody = RenewIssueLeaseRequest
+
 // AddQuestionJSONRequestBody defines body for AddQuestion for application/json ContentType.
 type AddQuestionJSONRequestBody = AddQuestionRequest
 
@@ -5265,6 +5289,19 @@ type ClientInterface interface {
 	CreateEnvironmentDeployWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateEnvironmentDeploy(ctx context.Context, slug string, name string, body CreateEnvironmentDeployJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ClaimIssueWithBody request with any body
+	ClaimIssueWithBody(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ClaimIssue(ctx context.Context, slug string, id string, body ClaimIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReleaseIssue request
+	ReleaseIssue(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RenewIssueLeaseWithBody request with any body
+	RenewIssueLeaseWithBody(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RenewIssueLease(ctx context.Context, slug string, id string, body RenewIssueLeaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetTodoDetail request
 	GetTodoDetail(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8328,6 +8365,66 @@ func (c *APIClient) CreateEnvironmentDeployWithBody(ctx context.Context, slug st
 
 func (c *APIClient) CreateEnvironmentDeploy(ctx context.Context, slug string, name string, body CreateEnvironmentDeployJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateEnvironmentDeployRequest(c.Server, slug, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ClaimIssueWithBody(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClaimIssueRequestWithBody(c.Server, slug, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ClaimIssue(ctx context.Context, slug string, id string, body ClaimIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewClaimIssueRequest(c.Server, slug, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReleaseIssue(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReleaseIssueRequest(c.Server, slug, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) RenewIssueLeaseWithBody(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenewIssueLeaseRequestWithBody(c.Server, slug, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) RenewIssueLease(ctx context.Context, slug string, id string, body RenewIssueLeaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRenewIssueLeaseRequest(c.Server, slug, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18316,6 +18413,155 @@ func NewCreateEnvironmentDeployRequestWithBody(server string, slug string, name 
 	return req, nil
 }
 
+// NewClaimIssueRequest calls the generic ClaimIssue builder with application/json body
+func NewClaimIssueRequest(server string, slug string, id string, body ClaimIssueJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewClaimIssueRequestWithBody(server, slug, id, "application/json", bodyReader)
+}
+
+// NewClaimIssueRequestWithBody generates requests for ClaimIssue with any type of body
+func NewClaimIssueRequestWithBody(server string, slug string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/issues/%s/claim", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReleaseIssueRequest generates requests for ReleaseIssue
+func NewReleaseIssueRequest(server string, slug string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/issues/%s/release", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewRenewIssueLeaseRequest calls the generic RenewIssueLease builder with application/json body
+func NewRenewIssueLeaseRequest(server string, slug string, id string, body RenewIssueLeaseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRenewIssueLeaseRequestWithBody(server, slug, id, "application/json", bodyReader)
+}
+
+// NewRenewIssueLeaseRequestWithBody generates requests for RenewIssueLease with any type of body
+func NewRenewIssueLeaseRequestWithBody(server string, slug string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/issues/%s/renew", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewGetTodoDetailRequest generates requests for GetTodoDetail
 func NewGetTodoDetailRequest(server string, slug string, key string) (*http.Request, error) {
 	var err error
@@ -25151,6 +25397,19 @@ type ClientWithResponsesInterface interface {
 
 	CreateEnvironmentDeployWithResponse(ctx context.Context, slug string, name string, body CreateEnvironmentDeployJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentDeployResponse, error)
 
+	// ClaimIssueWithBodyWithResponse request with any body
+	ClaimIssueWithBodyWithResponse(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimIssueResponse, error)
+
+	ClaimIssueWithResponse(ctx context.Context, slug string, id string, body ClaimIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimIssueResponse, error)
+
+	// ReleaseIssueWithResponse request
+	ReleaseIssueWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ReleaseIssueResponse, error)
+
+	// RenewIssueLeaseWithBodyWithResponse request with any body
+	RenewIssueLeaseWithBodyWithResponse(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenewIssueLeaseResponse, error)
+
+	RenewIssueLeaseWithResponse(ctx context.Context, slug string, id string, body RenewIssueLeaseJSONRequestBody, reqEditors ...RequestEditorFn) (*RenewIssueLeaseResponse, error)
+
 	// GetTodoDetailWithResponse request
 	GetTodoDetailWithResponse(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*GetTodoDetailResponse, error)
 
@@ -29033,6 +29292,75 @@ func (r CreateEnvironmentDeployResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateEnvironmentDeployResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ClaimIssueResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ReservationItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ClaimIssueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ClaimIssueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ReleaseIssueResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ReleaseIssueResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReleaseIssueResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RenewIssueLeaseResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r RenewIssueLeaseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RenewIssueLeaseResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -33638,6 +33966,49 @@ func (c *ClientWithResponses) CreateEnvironmentDeployWithResponse(ctx context.Co
 		return nil, err
 	}
 	return ParseCreateEnvironmentDeployResponse(rsp)
+}
+
+// ClaimIssueWithBodyWithResponse request with arbitrary body returning *ClaimIssueResponse
+func (c *ClientWithResponses) ClaimIssueWithBodyWithResponse(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimIssueResponse, error) {
+	rsp, err := c.ClaimIssueWithBody(ctx, slug, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClaimIssueResponse(rsp)
+}
+
+func (c *ClientWithResponses) ClaimIssueWithResponse(ctx context.Context, slug string, id string, body ClaimIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*ClaimIssueResponse, error) {
+	rsp, err := c.ClaimIssue(ctx, slug, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseClaimIssueResponse(rsp)
+}
+
+// ReleaseIssueWithResponse request returning *ReleaseIssueResponse
+func (c *ClientWithResponses) ReleaseIssueWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ReleaseIssueResponse, error) {
+	rsp, err := c.ReleaseIssue(ctx, slug, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReleaseIssueResponse(rsp)
+}
+
+// RenewIssueLeaseWithBodyWithResponse request with arbitrary body returning *RenewIssueLeaseResponse
+func (c *ClientWithResponses) RenewIssueLeaseWithBodyWithResponse(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RenewIssueLeaseResponse, error) {
+	rsp, err := c.RenewIssueLeaseWithBody(ctx, slug, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenewIssueLeaseResponse(rsp)
+}
+
+func (c *ClientWithResponses) RenewIssueLeaseWithResponse(ctx context.Context, slug string, id string, body RenewIssueLeaseJSONRequestBody, reqEditors ...RequestEditorFn) (*RenewIssueLeaseResponse, error) {
+	rsp, err := c.RenewIssueLease(ctx, slug, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRenewIssueLeaseResponse(rsp)
 }
 
 // GetTodoDetailWithResponse request returning *GetTodoDetailResponse
@@ -40058,6 +40429,105 @@ func ParseCreateEnvironmentDeployResponse(rsp *http.Response) (*CreateEnvironmen
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest DeployItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseClaimIssueResponse parses an HTTP response from a ClaimIssueWithResponse call
+func ParseClaimIssueResponse(rsp *http.Response) (*ClaimIssueResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ClaimIssueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReservationItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReleaseIssueResponse parses an HTTP response from a ReleaseIssueWithResponse call
+func ParseReleaseIssueResponse(rsp *http.Response) (*ReleaseIssueResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReleaseIssueResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRenewIssueLeaseResponse parses an HTTP response from a RenewIssueLeaseWithResponse call
+func ParseRenewIssueLeaseResponse(rsp *http.Response) (*RenewIssueLeaseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RenewIssueLeaseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
