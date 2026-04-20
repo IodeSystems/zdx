@@ -21,6 +21,8 @@ export type FocusItem = components['schemas']['FocusItem']
 export interface SoloItem {
   id: number
   text: string
+  title?: string
+  description?: string
   key: string
   kind: string
   target_type: string

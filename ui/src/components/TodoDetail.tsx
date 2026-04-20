@@ -52,7 +52,8 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
   const link = targetLink(slug, todo.target_type, todo.target_id)
 
   const handleOpenIssue = () => {
-    setIssueContext(`Reported against todo ${todo.key}\n\nTodo text:\n${todo.text}\n\nWhat is ambiguous or unclear: `)
+    const headline = todo.title ? `${todo.title}\n\n` : ''
+    setIssueContext(`Reported against todo ${todo.key}\n\n${headline}Todo text:\n${todo.text}\n\nWhat is ambiguous or unclear: `)
     setCreatedIssueId(null)
     setIssueOpen(true)
   }
@@ -80,7 +81,8 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
         Back
       </Button>
 
-      <Typography variant="h5" sx={{ mb: 1 }}>Todo {todo.key}</Typography>
+      <Typography variant="overline" color="text.secondary">Todo {todo.key}</Typography>
+      <Typography variant="h5" sx={{ mb: 1 }}>{todo.title || todo.text}</Typography>
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, flexWrap: 'wrap', alignItems: 'center' }}>
         <Chip label={todo.kind} size="small" color={KIND_COLORS[todo.kind] || 'default'} variant="outlined" />
@@ -116,14 +118,21 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
         )}
       </Box>
 
-      <Box sx={{ mb: 3, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
-        <MarkdownContent slug={slug} variant="body1">{todo.text}</MarkdownContent>
-      </Box>
+      {todo.description && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>Description</Typography>
+          <MarkdownContent slug={slug} variant="body1">{todo.description}</MarkdownContent>
+        </Box>
+      )}
 
-      {todo.instructions && (
+      {todo.instructions ? (
         <Box sx={{ mb: 3, p: 2, bgcolor: 'action.hover', borderRadius: 1 }}>
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>Instructions</Typography>
           <MarkdownContent slug={slug} variant="body2">{todo.instructions}</MarkdownContent>
+        </Box>
+      ) : (
+        <Box sx={{ mb: 3, p: 2, border: 1, borderColor: 'divider', borderRadius: 1 }}>
+          <MarkdownContent slug={slug} variant="body1">{todo.text}</MarkdownContent>
         </Box>
       )}
 

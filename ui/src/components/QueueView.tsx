@@ -74,9 +74,16 @@ function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
       <Box
         component="a"
         href={todoHref}
-        sx={{ flex: 1, textDecoration: 'none', color: 'inherit', '&:hover': { textDecoration: 'underline' } }}
+        sx={{ flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0, '&:hover .todo-title': { textDecoration: 'underline' } }}
       >
-        <Typography variant="body2">{item.text}</Typography>
+        <Typography variant="body2" className="todo-title" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {item.title || item.text}
+        </Typography>
+        {item.description && (
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+            {item.description}
+          </Typography>
+        )}
       </Box>
       {item.issue_ref && item.issue_ref !== item.target_id && (
         <Chip
@@ -122,7 +129,7 @@ function EvaluateDialog({ open, diff, onClose, onApply, applying }: {
                   {diff.added.map(a => (
                     <ListItem key={a.key} disablePadding sx={{ py: 0.25 }}>
                       <Chip label={a.kind} size="small" sx={{ mr: 1 }} color={KIND_COLORS[a.kind] || 'default'} />
-                      <ListItemText primary={a.text} secondary={a.target_id} />
+                      <ListItemText primary={a.title || a.text} secondary={a.target_id} />
                     </ListItem>
                   ))}
                 </List>
@@ -137,7 +144,7 @@ function EvaluateDialog({ open, diff, onClose, onApply, applying }: {
                   {diff.removed.map(r => (
                     <ListItem key={r.key} disablePadding sx={{ py: 0.25 }}>
                       <Chip label={r.kind} size="small" sx={{ mr: 1 }} variant="outlined" />
-                      <ListItemText primary={r.text} secondary={r.target_id} />
+                      <ListItemText primary={r.title || r.text} secondary={r.target_id} />
                     </ListItem>
                   ))}
                 </List>
@@ -152,7 +159,7 @@ function EvaluateDialog({ open, diff, onClose, onApply, applying }: {
                   {diff.changed.map(ch => (
                     <ListItem key={ch.after.key} disablePadding sx={{ py: 0.25 }}>
                       <Chip label={ch.after.kind} size="small" sx={{ mr: 1 }} color="warning" />
-                      <ListItemText primary={ch.after.text} secondary={`priority: ${ch.before.priority} → ${ch.after.priority}`} />
+                      <ListItemText primary={ch.after.title || ch.after.text} secondary={`priority: ${ch.before.priority} → ${ch.after.priority}`} />
                     </ListItem>
                   ))}
                 </List>
