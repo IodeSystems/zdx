@@ -340,10 +340,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 
 		openItems, _ := h.Q.ListOpenMaturityItems(ctx, projectID)
 		for _, it := range openItems {
-			text := it.Title
-			if it.Description != "" {
-				text = it.Title + " — " + it.Description
-			}
+			text := workflowhints.MaturityTextForKind(it.Kind, it.Title, it.Description)
 			targetType := it.TargetType
 			if targetType == "" {
 				targetType = "project"
