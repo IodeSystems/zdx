@@ -20,11 +20,10 @@ import {
   useReadyIssue,
   useSearchIssues,
   useIssueCodeRefs,
-  useIssueResolutions,
   useListFocuses,
   useAddFocusBlocker,
   useRemoveFocusBlocker,
-  useReservationsByIssue,
+  useAddComment,
   type IssueItem,
   type IssueWorkItem,
   type TaskItem,
@@ -32,10 +31,9 @@ import {
 } from '../api'
 import { useChannel } from '../hooks/useChannel'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
-import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { CodeRefs } from './CodeRefs'
 import { MarkdownContent } from './MarkdownContent'
-import { EditHistory } from './EditHistory'
+import { UnifiedTimeline } from './UnifiedTimeline'
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -73,8 +71,6 @@ export function IssueDetail({
   const { data, isLoading, refetch } = useIssue(slug, issueId)
   const { data: allTasks, refetch: refetchTasks } = useTasks(slug, { issue: issueId })
   const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
-  const { data: resolutions } = useIssueResolutions(slug, issueId)
-  const { data: reservationsData } = useReservationsByIssue(slug, issueId)
   const closeIssue = useCloseIssue()
   const readyIssue = useReadyIssue()
   const router = useRouter()
@@ -87,6 +83,8 @@ export function IssueDetail({
   const addFocusBlocker = useAddFocusBlocker()
   const removeFocusBlocker = useRemoveFocusBlocker()
   const [focusInput, setFocusInput] = useState('')
+  const addComment = useAddComment()
+  const [commentBody, setCommentBody] = useState('')
 
   const onWsMessage = useCallback(() => {
     refetch()
@@ -345,111 +343,38 @@ export function IssueDetail({
 
       <CodeRefs refs={codeRefs ?? []} slug={slug} />
 
-      {(resolutions ?? []).length > 0 && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            Resolutions ({resolutions!.length})
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {resolutions!.map(r => (
-              <Box key={r.id} sx={{ borderLeft: 2, borderColor: r.reverted ? 'error.main' : 'success.main', pl: 1.5 }}>
-                <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
-                  <Chip label={r.source} size="small" variant="outlined" />
-                  {r.branch_of_origin && <Chip label={r.branch_of_origin} size="small" variant="outlined" color="info" />}
-                  {r.reverted && <Chip label={`reverted by ${r.reverted_by?.slice(0, 10)}`} size="small" color="error" />}
-                  <Typography variant="caption" color="text.secondary">
-                    {new Date(r.resolved_at).toLocaleString()} — {r.author}
-                  </Typography>
-                </Box>
-                <Box sx={{ mt: 0.5 }}>
-                  {r.commits.map(c => (
-                    <Typography key={c.sha} variant="body2" sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
-                      {c.sha.slice(0, 10)}
-                    </Typography>
-                  ))}
-                </Box>
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      )}
-
-      {(reservationsData?.reservations ?? []).length > 0 && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-            Reservations ({reservationsData!.reservations.length})
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {reservationsData!.reservations.map(r => {
-              const isActive = !r.released_at && new Date(r.lease_expires_at) > new Date()
-              const statusLabel = r.released_at ? 'released' : isActive ? 'active' : 'expired'
-              const statusColor = isActive ? 'success' : r.released_at ? 'default' : 'warning'
-              const inner = (
-                <>
-                  <Chip label={statusLabel} size="small" color={statusColor as any} variant="outlined" />
-                  {r.session_id && r.session_status && (
-                    <Chip
-                      label={r.session_status || 'session'}
-                      size="small"
-                      color={r.session_status === 'ok' ? 'success' : r.session_status === 'errored' ? 'error' : r.session_status === 'churn' ? 'warning' : 'default'}
-                      variant="filled"
-                    />
-                  )}
-                  <Typography variant="body2" sx={{ flex: 1 }}>
-                    {r.session_header || r.todo_text || r.claimed_by}
-                  </Typography>
-                  <Typography variant="caption" color="text.secondary">
-                    {new Date(r.claimed_at).toLocaleString()}
-                  </Typography>
-                </>
-              )
-              return r.session_id ? (
-                <Box
-                  key={r.id}
-                  component={Link as any}
-                  to="/project/$slug/agents/$sessionId"
-                  params={{ slug, sessionId: String(r.session_id) }}
-                  sx={{ display: 'flex', gap: 1, alignItems: 'center', textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
-                >
-                  {inner}
-                </Box>
-              ) : (
-                <Box key={r.id} sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
-                  {inner}
-                </Box>
-              )
-            })}
-          </Box>
-        </Box>
-      )}
-
-      {workEntries.length > 0 && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            Work Log ({workEntries.length})
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-            {workEntries.map((e, i) => (
-              <Box key={i} sx={{ borderLeft: 2, borderColor: 'divider', pl: 1.5 }}>
-                <Typography variant="caption" color="text.secondary">
-                  {new Date(e.created_at).toLocaleString()} — {e.agent}
-                </Typography>
-                {e.note && (
-                  <Typography variant="body2">{e.note}</Typography>
-                )}
-              </Box>
-            ))}
-          </Box>
-        </Box>
-      )}
-
-      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 3 }}>
+      <Typography variant="caption" color="text.disabled" sx={{ display: 'block', mt: 3, mb: 2 }}>
         Created: {new Date(issue.created_at).toLocaleString()}
       </Typography>
 
-      <EditHistory slug={slug} targetType="issue" targetId={issueId} />
+      <Box sx={{ mb: 3 }}>
+        <TextField
+          fullWidth
+          multiline
+          rows={2}
+          size="small"
+          placeholder="Add a comment…"
+          value={commentBody}
+          onChange={e => setCommentBody(e.target.value)}
+        />
+        <Button
+          size="small"
+          variant="contained"
+          disabled={!commentBody.trim() || addComment.isPending}
+          onClick={() => {
+            if (!commentBody.trim()) return
+            addComment.mutate(
+              { slug, target_type: 'issue', target_id: issueId, body: commentBody.trim() },
+              { onSuccess: () => setCommentBody('') },
+            )
+          }}
+          sx={{ mt: 1 }}
+        >
+          Comment
+        </Button>
+      </Box>
 
-      <CommentsAndRevisions slug={slug} targetType="issue" targetId={issueId} />
+      <UnifiedTimeline slug={slug} issueId={issueId} workEntries={workEntries} />
     </Box>
   )
 }
