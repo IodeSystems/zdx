@@ -426,6 +426,9 @@ type Querier interface {
 	// Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
 	ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]ReclaimExpiredTodosRow, error)
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)
+	// Batch release every reservation whose lease has expired and is not yet released.
+	// Covers todo, task, and issue target types in a single pass.
+	ReleaseExpiredReservations(ctx context.Context) ([]ReleaseExpiredReservationsRow, error)
 	// Mark a reservation as released by (project_id, target_type, target_id) where released_at is NULL.
 	ReleaseReservation(ctx context.Context, arg ReleaseReservationParams) error
 	ReleaseTask(ctx context.Context, id string) error

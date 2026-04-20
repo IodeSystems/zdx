@@ -74,6 +74,15 @@ WHERE project_id = @project_id
   AND claimed_by = @claimed_by
   AND released_at IS NULL;
 
+-- name: ReleaseExpiredReservations :many
+-- Batch release every reservation whose lease has expired and is not yet released.
+-- Covers todo, task, and issue target types in a single pass.
+UPDATE zdx_reservations
+SET released_at = NOW()
+WHERE lease_expires_at < NOW()
+  AND released_at IS NULL
+RETURNING id, project_id, target_type, target_id, claimed_by;
+
 -- name: ListReservationsByIssue :many
 -- Return reservations for todos linked to a specific issue, with optional agent session info.
 SELECT

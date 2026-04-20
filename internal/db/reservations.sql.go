@@ -282,6 +282,50 @@ func (q *Queries) ListReservationsByTodoKey(ctx context.Context, arg ListReserva
 	return items, nil
 }
 
+const releaseExpiredReservations = `-- name: ReleaseExpiredReservations :many
+UPDATE zdx_reservations
+SET released_at = NOW()
+WHERE lease_expires_at < NOW()
+  AND released_at IS NULL
+RETURNING id, project_id, target_type, target_id, claimed_by
+`
+
+type ReleaseExpiredReservationsRow struct {
+	ID         int64  `db:"id" json:"id"`
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+	ClaimedBy  string `db:"claimed_by" json:"claimed_by"`
+}
+
+// Batch release every reservation whose lease has expired and is not yet released.
+// Covers todo, task, and issue target types in a single pass.
+func (q *Queries) ReleaseExpiredReservations(ctx context.Context) ([]ReleaseExpiredReservationsRow, error) {
+	rows, err := q.db.Query(ctx, releaseExpiredReservations)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ReleaseExpiredReservationsRow
+	for rows.Next() {
+		var i ReleaseExpiredReservationsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.ClaimedBy,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const releaseReservation = `-- name: ReleaseReservation :exec
 UPDATE zdx_reservations SET released_at = NOW()
 WHERE project_id = $1

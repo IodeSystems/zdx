@@ -17,6 +17,18 @@ const staleAgentSessionMinutes int32 = 30
 
 func (s *Server) StartTaskRecovery(ctx context.Context) {
 	sweep := func() {
+		released, err := s.q.ReleaseExpiredReservations(ctx)
+		if err != nil {
+			log.Printf("task-recovery: release expired reservations: %v", err)
+		} else if len(released) > 0 {
+			byType := map[string]int{}
+			for _, r := range released {
+				byType[r.TargetType]++
+			}
+			log.Printf("task-recovery: released %d expired reservations (todo=%d, task=%d, issue=%d)",
+				len(released), byType["todo"], byType["task"], byType["issue"])
+		}
+
 		reclaimed, err := s.q.ReclaimExpiredTasks(ctx)
 		if err != nil {
 			log.Printf("task-recovery: reclaim expired: %v", err)
@@ -24,11 +36,6 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 			log.Printf("task-recovery: reclaimed %d expired-lease tasks", len(reclaimed))
 			for _, r := range reclaimed {
 				handlers.RecordStatusChange(ctx, s.q, r.ProjectID, "task", r.ID, "active", "ready", "")
-				_ = s.q.ReleaseReservation(ctx, db.ReleaseReservationParams{
-					ProjectID:  r.ProjectID,
-					TargetType: "task",
-					TargetID:   r.ID,
-				})
 			}
 		}
 
