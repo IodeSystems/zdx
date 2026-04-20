@@ -7,6 +7,7 @@ import (
 	"strings"
 
 	"github.com/iodesystems/zdx-go/internal/config"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 // Finding is the result of running one check.
@@ -85,6 +86,10 @@ type ProjectState struct {
 	RawAPICallsGo    int // raw URL callsites in Go CLI
 	RawAPICallsUI    int // raw fetch/post callsites in UI
 	RawAPICallsFiles int // total files with raw callsites
+
+	// Maturity questionnaire (from server)
+	MaturityQuestions []dxclient.MaturityQuestion
+	MaturityItems     []dxclient.MaturityItem
 
 	// Deferred checks (from server)
 	Deferred map[string]bool

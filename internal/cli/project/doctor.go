@@ -16,19 +16,21 @@ import (
 
 func DoctorCmd() *cobra.Command {
 	var autoFix bool
+	var reQuestionnaire bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose project health and propose fixes",
 		Long:  "Doctor checks the project against its maturity vine, auto-fixes what it can, and proposes actions for the rest. Deferred proposals don't nag until the next rung.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDoctor(cmd.Context(), autoFix)
+			return runDoctor(cmd.Context(), autoFix, reQuestionnaire)
 		},
 	}
 	cmd.Flags().BoolVar(&autoFix, "fix", false, "auto-apply fixable issues without prompting")
+	cmd.Flags().BoolVar(&reQuestionnaire, "re-questionnaire", false, "re-prompt already-answered maturity questions")
 	return cmd
 }
 
-func runDoctor(ctx context.Context, autoFix bool) error {
+func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool) error {
 	state := &doctor.ProjectState{
 		Deferred: map[string]bool{},
 	}
@@ -58,11 +60,65 @@ func runDoctor(ctx context.Context, autoFix bool) error {
 		}
 	}
 
-	// 4. Run checks
+	// 4. Walk unanswered maturity questions
+	if state.RemoteReachable && len(state.MaturityQuestions) > 0 {
+		c := cli.MustClient()
+		slug := c.SlugOrDie()
+		reader := bufio.NewReader(os.Stdin)
+		classification := string(state.Classification)
+		for _, q := range state.MaturityQuestions {
+			if !reQuestionnaire && q.Answer != "" {
+				continue
+			}
+			// Check applicable classifications
+			applicable := false
+			if q.ApplicableClassifications != nil {
+				for _, ac := range *q.ApplicableClassifications {
+					if ac == classification {
+						applicable = true
+						break
+					}
+				}
+			} else {
+				applicable = true
+			}
+			if !applicable {
+				continue
+			}
+			fmt.Printf("\nMaturity question: %s [yes/no/skip]: ", q.Prompt)
+			line, _ := reader.ReadString('\n')
+			line = strings.TrimSpace(strings.ToLower(line))
+			if line == "skip" || line == "s" {
+				continue
+			}
+			answer := ""
+			switch line {
+			case "yes", "y":
+				answer = "yes"
+			case "no", "n":
+				answer = "no"
+			default:
+				continue
+			}
+			if _, err := c.SubmitMaturityAnswerWithResponse(ctx, &dxclient.SubmitMaturityAnswerParams{Slug: slug}, dxclient.SubmitMaturityAnswerRequest{
+				QuestionKey: q.Key,
+				Answer:      answer,
+				AnsweredBy:  "owner",
+			}); err != nil {
+				fmt.Printf("  warning: failed to submit answer: %v\n", err)
+			}
+		}
+		// Reload items after answering
+		if iResp, err := c.ListMaturityItemsWithResponse(ctx, &dxclient.ListMaturityItemsParams{Slug: slug}); err == nil && iResp.JSON200 != nil && iResp.JSON200.Items != nil {
+			state.MaturityItems = *iResp.JSON200.Items
+		}
+	}
+
+	// 5. Run checks
 	findings := doctor.Evaluate(state)
 	sum := doctor.Summarize(findings)
 
-	// 5. Print findings by rung
+	// 6. Print findings by rung
 	currentRung := ""
 	for _, f := range findings {
 		if f.Rung != currentRung {
@@ -101,11 +157,47 @@ func runDoctor(ctx context.Context, autoFix bool) error {
 		}
 	}
 
-	// 6. Summary
+	// 7. Summary
 	fmt.Printf("\n%d checks: %d passed, %d failed (%d auto-fixable, %d proposals), %d deferred\n",
 		sum.Total, sum.Passed, sum.Failed, sum.AutoFix, sum.Propose, sum.Deferred)
 
-	// 7. Interactive defer prompt for remaining failures
+	// 8. Stamped maturity items report
+	if len(state.MaturityItems) > 0 {
+		counts := map[string]int{}
+		for _, item := range state.MaturityItems {
+			counts[item.Status]++
+		}
+		fmt.Printf("\n── Stamped maturity items ──\n")
+		for _, item := range state.MaturityItems {
+			if item.Status == "open" {
+				priority := ""
+				switch item.PriorityHint {
+				case 1:
+					priority = " [critical]"
+				case 2:
+					priority = " [high]"
+				case 3:
+					priority = " [medium]"
+				case 4:
+					priority = " [low]"
+				}
+				fmt.Printf("  ○  %s%s\n", item.Title, priority)
+			}
+		}
+		if n := counts["done"]; n > 0 {
+			fmt.Printf("  ✓  %d done\n", n)
+		}
+		if n := counts["dismissed"]; n > 0 {
+			fmt.Printf("  —  %d dismissed\n", n)
+		}
+		if n := counts["snoozed"]; n > 0 {
+			fmt.Printf("  ⊘  %d snoozed\n", n)
+		}
+		open := counts["open"]
+		fmt.Printf("  %d open, %d done, %d dismissed, %d snoozed\n", open, counts["done"], counts["dismissed"], counts["snoozed"])
+	}
+
+	// 9. Interactive defer prompt for remaining failures
 	if sum.Failed > 0 && !autoFix {
 		reader := bufio.NewReader(os.Stdin)
 		for i := range findings {
@@ -220,6 +312,16 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		for _, d := range *dResp.JSON200.Deferrals {
 			state.Deferred[d.CheckName] = true
 		}
+	}
+
+	// Maturity questions (with current answer state)
+	if qResp, err := c.ListMaturityQuestionsWithResponse(ctx, &dxclient.ListMaturityQuestionsParams{Slug: slug}); err == nil && qResp.JSON200 != nil && qResp.JSON200.Questions != nil {
+		state.MaturityQuestions = *qResp.JSON200.Questions
+	}
+
+	// Stamped maturity items
+	if iResp, err := c.ListMaturityItemsWithResponse(ctx, &dxclient.ListMaturityItemsParams{Slug: slug}); err == nil && iResp.JSON200 != nil && iResp.JSON200.Items != nil {
+		state.MaturityItems = *iResp.JSON200.Items
 	}
 }
 
