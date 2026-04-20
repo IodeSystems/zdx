@@ -118,10 +118,16 @@ type agentEventsBatch struct {
 // case rendering still runs but no HTTP traffic is sent and no URL is
 // printed.
 // defaultStallTimeout is how long a session can go without producing any
-// transcript event before the watchdog SIGTERMs the agent process. This
+// transcript event before the watchdog SIGTERMs the agent process. Common
+// cause: a background task (Monitor, run_in_background) completes but its
+// tail -f reader hangs, leaving the session silently blocked. 15 minutes
+// is well above any legitimate operation (bin/ship ~2m, test suites ~3m)
+// while catching stuck sessions before they burn hours of lease time.
+// Previously 4 hours — reduced after observing agents stuck for 30+ min
+// on completed background tasks.
 // catches sessions stuck on a hanging tool call (e.g. a command that blocks
 // forever). Set to 0 to disable.
-const defaultStallTimeout = 4 * time.Hour
+const defaultStallTimeout = 15 * time.Minute
 
 // ErrSessionStalled is returned by RunLifecycle when the stall watchdog
 // kills the agent process. Callers can check this to decide whether to
