@@ -255,12 +255,35 @@ function NavGroupList({ currentSlug, activePath, isQueueActive, onNavigate }: {
   )
 }
 
-function SectionNav({ onNavigate }: { onNavigate?: () => void }) {
+function DrawerNav({ onNavigate }: { onNavigate?: () => void }) {
+  const { data: projects } = useProjects()
+  const { data: me } = useMe()
   const matches = useMatches()
   const projectMatch = matches.find(m => (m.params as Record<string, string>).slug)
   const currentSlug = (projectMatch?.params as { slug?: string })?.slug
-  const { component, setComponent } = useComponentFilter()
+  const lastPath = matches[matches.length - 1]?.pathname ?? ''
   const lastRouteId = (matches[matches.length - 1]?.routeId as string) || ''
+  const isAdminActive = lastPath.startsWith('/admin')
+  const { component, setComponent } = useComponentFilter()
+
+  // User's manual expand/collapse choices (null = user collapsed explicitly)
+  const [manualProject, setManualProject] = useState<string | null | undefined>(undefined)
+  const [adminManualExpanded, setAdminManualExpanded] = useState(false)
+
+  const projectList = projects ?? []
+
+  const isProjectExpanded = (slug: string) => {
+    // Route controls expansion when viewing a project
+    if (currentSlug) return currentSlug === slug
+    // User's explicit choice takes precedence
+    if (manualProject !== undefined) return manualProject === slug
+    // Auto-expand if there's only one project
+    if (projectList.length === 1) return projectList[0].slug === slug
+    return false
+  }
+
+  const adminExpanded = isAdminActive || adminManualExpanded
+
   const isQueueActive = lastRouteId === '/project/$slug/queue'
   const activePath = (() => {
     const prefix = '/project/$slug/'
@@ -268,98 +291,142 @@ function SectionNav({ onNavigate }: { onNavigate?: () => void }) {
     return lastRouteId.slice(prefix.length)
   })()
 
-  if (!currentSlug) return null
-
   return (
     <>
       <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
         <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Component
-        </Typography>
-        <TextField
-          select
-          size="small"
-          value={component}
-          onChange={e => setComponent(e.target.value)}
-          slotProps={{ select: { native: true } }}
-          sx={{ mt: 0.5, width: '100%', '& .MuiInputBase-input': { py: 0.5, fontSize: '0.85rem' } }}
-        >
-          <option value="">All</option>
-          <option value="server">server</option>
-        </TextField>
-      </Box>
-      <NavGroupList currentSlug={currentSlug} activePath={activePath} isQueueActive={isQueueActive} onNavigate={onNavigate} />
-    </>
-  )
-}
-
-function HomeNav({ onNavigate }: { onNavigate?: () => void }) {
-  const matches = useMatches()
-  const lastPath = matches[matches.length - 1]?.pathname ?? ''
-  const isHomeActive = lastPath === '/'
-  const isAdminActive = lastPath.startsWith('/admin')
-
-  return (
-    <>
-      <Box sx={{ px: 2, py: 1.5, borderBottom: 1, borderColor: 'divider' }}>
-        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textTransform: 'uppercase', letterSpacing: 0.5 }}>
-          Home
+          Projects
         </Typography>
       </Box>
-      <List dense>
+      <List dense sx={{ overflowY: 'auto' }}>
+        {projectList.length === 0 && me?.role === 'admin' && (
+          <ListItemButton
+            component={Link as any}
+            to="/"
+            onClick={onNavigate}
+          >
+            <ListItemIcon sx={{ minWidth: 36 }}>
+              <HomeIcon fontSize="small" />
+            </ListItemIcon>
+            <ListItemText primary="New Project" />
+          </ListItemButton>
+        )}
+        {projectList.map(p => {
+          const isExpanded = isProjectExpanded(p.slug)
+          const isCurrentProject = currentSlug === p.slug
+          return (
+            <Box key={p.slug}>
+              <ListItemButton
+                selected={isCurrentProject && !isAdminActive}
+                component={Link as any}
+                to="/project/$slug"
+                params={{ slug: p.slug }}
+                onClick={() => {
+                  setManualProject(p.slug)
+                  setAdminManualExpanded(false)
+                  onNavigate?.()
+                }}
+              >
+                <ListItemIcon sx={{ minWidth: 36 }}>
+                  <HomeIcon fontSize="small" />
+                </ListItemIcon>
+                <ListItemText primary={p.name} />
+                <IconButton
+                  size="small"
+                  onClick={e => {
+                    e.preventDefault()
+                    e.stopPropagation()
+                    setManualProject(isExpanded ? null : p.slug)
+                  }}
+                  sx={{ p: 0.25 }}
+                >
+                  {isExpanded ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
+                </IconButton>
+              </ListItemButton>
+              <Collapse in={isExpanded}>
+                {isCurrentProject && (
+                  <Box sx={{ px: 2, py: 1, borderBottom: 1, borderColor: 'divider' }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', textTransform: 'uppercase', letterSpacing: 0.5 }}>
+                      Component
+                    </Typography>
+                    <TextField
+                      select
+                      size="small"
+                      value={component}
+                      onChange={e => setComponent(e.target.value)}
+                      slotProps={{ select: { native: true } }}
+                      sx={{ mt: 0.5, width: '100%', '& .MuiInputBase-input': { py: 0.5, fontSize: '0.85rem' } }}
+                    >
+                      <option value="">All</option>
+                      <option value="server">server</option>
+                    </TextField>
+                  </Box>
+                )}
+                <NavGroupList
+                  currentSlug={p.slug}
+                  activePath={isCurrentProject ? activePath : ''}
+                  isQueueActive={isCurrentProject && isQueueActive}
+                  onNavigate={onNavigate}
+                />
+              </Collapse>
+            </Box>
+          )
+        })}
+        <Divider sx={{ my: 0.5 }} />
         <ListItemButton
-          selected={isHomeActive}
-          component={Link as any}
-          to="/"
-          onClick={onNavigate}
-        >
-          <ListItemIcon sx={{ minWidth: 36 }}>
-            <HomeIcon fontSize="small" />
-          </ListItemIcon>
-          <ListItemText primary="Projects" />
-        </ListItemButton>
-        <ListItemButton
-          selected={lastPath === '/admin'}
+          selected={isAdminActive}
           component={Link as any}
           to={'/admin' as any}
-          onClick={onNavigate}
+          onClick={() => {
+            setAdminManualExpanded(prev => !prev)
+            setManualProject(null)
+            onNavigate?.()
+          }}
         >
           <ListItemIcon sx={{ minWidth: 36 }}>
             <SettingsIcon fontSize="small" />
           </ListItemIcon>
           <ListItemText primary="Admin" />
+          {adminExpanded ? <ExpandLessIcon sx={{ fontSize: 16 }} /> : <ExpandMoreIcon sx={{ fontSize: 16 }} />}
         </ListItemButton>
-        {isAdminActive && (
-          <>
-            <ListItemButton
-              selected={lastPath === '/admin/users'}
-              component={Link as any}
-              to={'/admin/users' as any}
-              onClick={onNavigate}
-              sx={{ pl: 5 }}
-            >
-              <ListItemText primary="Users" />
-            </ListItemButton>
-            <ListItemButton
-              selected={lastPath === '/admin/invites'}
-              component={Link as any}
-              to={'/admin/invites' as any}
-              onClick={onNavigate}
-              sx={{ pl: 5 }}
-            >
-              <ListItemText primary="Invites" />
-            </ListItemButton>
-            <ListItemButton
-              selected={lastPath === '/admin/llm'}
-              component={Link as any}
-              to="/admin/llm"
-              onClick={onNavigate}
-              sx={{ pl: 5 }}
-            >
-              <ListItemText primary="LLM" />
-            </ListItemButton>
-          </>
-        )}
+        <Collapse in={adminExpanded}>
+          <ListItemButton
+            selected={lastPath === '/admin/users'}
+            component={Link as any}
+            to={'/admin/users' as any}
+            onClick={onNavigate}
+            sx={{ pl: 5 }}
+          >
+            <ListItemText primary="Users" />
+          </ListItemButton>
+          <ListItemButton
+            selected={lastPath === '/admin/invites'}
+            component={Link as any}
+            to={'/admin/invites' as any}
+            onClick={onNavigate}
+            sx={{ pl: 5 }}
+          >
+            <ListItemText primary="Invites" />
+          </ListItemButton>
+          <ListItemButton
+            selected={lastPath === '/admin/llm'}
+            component={Link as any}
+            to="/admin/llm"
+            onClick={onNavigate}
+            sx={{ pl: 5 }}
+          >
+            <ListItemText primary="LLM" />
+          </ListItemButton>
+          <ListItemButton
+            selected={lastPath === '/admin/websocket'}
+            component={Link as any}
+            to={'/admin/websocket' as any}
+            onClick={onNavigate}
+            sx={{ pl: 5 }}
+          >
+            <ListItemText primary="WebSocket" />
+          </ListItemButton>
+        </Collapse>
       </List>
     </>
   )
@@ -388,8 +455,7 @@ function AppShell() {
   const drawerContent = (
     <>
       {!isMobile && <Toolbar variant="dense" />}
-      <SectionNav onNavigate={handleNavigate} />
-      <HomeNav onNavigate={handleNavigate} />
+      <DrawerNav onNavigate={handleNavigate} />
     </>
   )
 

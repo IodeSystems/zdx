@@ -1,4 +1,4 @@
-import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   Box,
   Card,
@@ -6,20 +6,10 @@ import {
   CardContent,
   Typography,
 } from '@mui/material'
-import { useEffect } from 'react'
 import { useProjects } from '../api'
 
 function HomePage() {
   const { data } = useProjects()
-  const navigate = useNavigate()
-
-  useEffect(() => {
-    if (data?.length === 1) {
-      navigate({ to: '/project/$slug', params: { slug: data[0].slug } })
-    }
-  }, [data, navigate])
-
-  if (data?.length === 1) return null
 
   return (
     <Box>
