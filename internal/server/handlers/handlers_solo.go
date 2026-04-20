@@ -111,7 +111,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 		candidates = append(candidates, soloCandidate{
 			Key:        fmt.Sprintf("comment-issue-%s", ui.ID),
-			Text:       fmt.Sprintf("Unread comments on %s: %s", ui.ID, ui.Title),
+			Text:       workflowhints.UnreadCommentsText(ui.ID, ui.Title),
 			Kind:       "read:comments",
 			TargetType: "issue",
 			TargetID:   ui.ID,
@@ -131,7 +131,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if hasUnread {
 				candidates = append(candidates, soloCandidate{
 					Key:        fmt.Sprintf("comment-feature-%s", f.Name),
-					Text:       fmt.Sprintf("Unread comments on feature %q", f.Name),
+					Text:       workflowhints.UnreadFeatureCommentsText(f.Name),
 					Kind:       "read:comments",
 					TargetType: "feature",
 					TargetID:   f.Name,
@@ -206,14 +206,14 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		goalCount, _ := h.Q.CountProjectGoals(ctx, projectID)
 		if goalCount == 0 {
 			candidates = append(candidates, soloCandidate{
-				Key: "health-goals", Text: "Project has no goals defined",
+				Key: "health-goals", Text: workflowhints.NoGoalsText(),
 				Kind: "owner:goals", TargetType: "project", Priority: 15, Persona: "owner",
 			})
 		}
 		constraintCount, _ := h.Q.CountProjectConstraints(ctx, projectID)
 		if constraintCount == 0 {
 			candidates = append(candidates, soloCandidate{
-				Key: "health-constraints", Text: "Project has no constraints defined",
+				Key: "health-constraints", Text: workflowhints.NoConstraintsText(),
 				Kind: "owner:constraints", TargetType: "project", Priority: 15, Persona: "owner",
 			})
 		}
@@ -231,7 +231,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if ownerDate != "" {
 				if t, err := time.Parse("2006-01-02", ownerDate); err == nil && now.Sub(t) > 7*24*time.Hour {
 					candidates = append(candidates, soloCandidate{
-						Key: "health-owner-standup", Text: "Owner standup check-in overdue",
+						Key: "health-owner-standup", Text: workflowhints.StandupOverdueText("owner"),
 						Kind: "owner:standup", TargetType: "project", Priority: 18, Persona: "owner",
 					})
 				}
@@ -239,7 +239,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if techDate != "" {
 				if t, err := time.Parse("2006-01-02", techDate); err == nil && now.Sub(t) > 7*24*time.Hour {
 					candidates = append(candidates, soloCandidate{
-						Key: "health-tech-standup", Text: "Tech standup check-in overdue",
+						Key: "health-tech-standup", Text: workflowhints.StandupOverdueText("tech"),
 						Kind: "tech:standup", TargetType: "project", Priority: 18, Persona: "tech",
 					})
 				}
@@ -249,7 +249,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, r := range []string{"owner", "tech"} {
 			if _, err := h.Q.GetUnreviewedJournalEntry(ctx, db.GetUnreviewedJournalEntryParams{ProjectID: projectID, Role: r}); err == nil {
 				candidates = append(candidates, soloCandidate{
-					Key: fmt.Sprintf("journal-review-%s", r), Text: fmt.Sprintf("Review generated %s check-in", r),
+					Key: fmt.Sprintf("journal-review-%s", r), Text: workflowhints.JournalReviewText(r),
 					Kind: r + ":journal-review", TargetType: "project", Priority: 20, Persona: r,
 				})
 			}
@@ -261,7 +261,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		if iss.Priority == "" {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("triage-%s", iss.ID),
-				Text:       fmt.Sprintf("Triage: %s", iss.Title),
+				Text:       workflowhints.TriageText(iss.ID, iss.Title),
 				Kind:       "triage",
 				TargetType: "issue",
 				TargetID:   iss.ID,
@@ -279,7 +279,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if len(specs) == 0 {
 				candidates = append(candidates, soloCandidate{
 					Key:        fmt.Sprintf("spec-missing-%s", f.Name),
-					Text:       fmt.Sprintf("Feature %q has no specs", f.Name),
+					Text:       workflowhints.NoSpecsText(f.Name),
 					Kind:       "owner:spec",
 					TargetType: "feature",
 					TargetID:   f.Name,
@@ -293,7 +293,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, f := range staleFeatures {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("review-feature-%s", f.Name),
-				Text:       fmt.Sprintf("Feature %q not reviewed in >30 days", f.Name),
+				Text:       workflowhints.StaleFeatureText(f.Name),
 				Kind:       "owner:review",
 				TargetType: "feature",
 				TargetID:   f.Name,
@@ -306,7 +306,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, sp := range uncoveredSpecs {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("test-ref-%d", sp.ID),
-				Text:       fmt.Sprintf("Spec %d (%s) on %q has no test refs", sp.ID, sp.Description, sp.FeatureName),
+				Text:       workflowhints.NoTestRefsText(sp.ID, sp.Description, sp.FeatureName),
 				Kind:       "tech:test-ref",
 				TargetType: "spec",
 				TargetID:   fmt.Sprintf("%d", sp.ID),
@@ -429,7 +429,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if len(tasks) > 0 && allDone {
 				candidates = append(candidates, soloCandidate{
 					Key:        fmt.Sprintf("closable-%s", iss.ID),
-					Text:       fmt.Sprintf("All tasks done: %s", iss.Title),
+					Text:       workflowhints.ClosableIssueText(iss.ID, iss.Title),
 					Kind:       "closable",
 					TargetType: "issue",
 					TargetID:   iss.ID,
@@ -440,7 +440,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			} else if len(tasks) == 0 {
 				candidates = append(candidates, soloCandidate{
 					Key:        fmt.Sprintf("add-%s", iss.ID),
-					Text:       fmt.Sprintf("Decompose: %s", iss.Title),
+					Text:       workflowhints.DecomposeIssueText(iss.ID, iss.Title),
 					Kind:       "add",
 					TargetType: "issue",
 					TargetID:   iss.ID,
@@ -459,7 +459,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if t.Status == "ready" {
 				candidates = append(candidates, soloCandidate{
 					Key:        fmt.Sprintf("dev-%s", t.ID),
-					Text:       t.Text,
+					Text:       workflowhints.DevTaskText(t.ID, t.Title, iss.ID),
 					Kind:       "dev",
 					TargetType: "task",
 					TargetID:   t.ID,
@@ -477,7 +477,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, t := range orphans {
 			candidates = append(candidates, soloCandidate{
 				Key:        fmt.Sprintf("orphan-%s", t.ID),
-				Text:       fmt.Sprintf("Orphan task (no issue): %s", t.Text),
+				Text:       workflowhints.OrphanTaskText(t.ID, t.Title),
 				Kind:       "owner:orphan-task",
 				TargetType: "task",
 				TargetID:   t.ID,

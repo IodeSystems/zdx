@@ -119,3 +119,169 @@ func MissingTestRefsError(taskID, issueRef string) error {
 		taskID, issueRef,
 	)
 }
+
+// ── Solo queue candidate text ──────────────────────────────────────────────
+// Each function returns the full agent-actionable text for a solo candidate.
+// The text should be self-contained: an agent reading ONLY this text should
+// know exactly what to do without consulting any skill file.
+
+// UnreadCommentsText builds text for unread comments on an issue.
+func UnreadCommentsText(issueID, title string) string {
+	return fmt.Sprintf(
+		"Unread comments on %s: %s. "+
+			"Read all comments via `dx comment list issue %s`. "+
+			"Respond to questions/feedback via `dx comment add issue %s --body=\"...\"`. "+
+			"Then mark all read: `dx comment mark-read issue %s --role=llm`.",
+		issueID, title, issueID, issueID, issueID,
+	)
+}
+
+// UnreadFeatureCommentsText builds text for unread comments on a feature.
+func UnreadFeatureCommentsText(featureName string) string {
+	return fmt.Sprintf(
+		"Unread comments on feature %q. "+
+			"Read all comments via `dx comment list feature %s`. "+
+			"Respond to questions/feedback via `dx comment add feature %s --body=\"...\"`. "+
+			"Then mark all read: `dx comment mark-read feature %s --role=llm`.",
+		featureName, featureName, featureName, featureName,
+	)
+}
+
+// NoGoalsText builds text for a project with no goals.
+func NoGoalsText() string {
+	return "Project has no goals defined. " +
+		"Goals anchor features to measurable outcomes. " +
+		"Run `dx goal add \"<goal title>\"` for each top-level objective. " +
+		"Optionally add metrics: `dx goal set <G-N> --metric-name=<name> --metric-unit=<unit>`."
+}
+
+// NoConstraintsText builds text for a project with no constraints.
+func NoConstraintsText() string {
+	return "Project has no constraints defined. " +
+		"Constraints capture non-negotiable boundaries (latency budgets, compliance requirements, etc.). " +
+		"Run `dx constraint add \"<constraint>\"` for each."
+}
+
+// StandupOverdueText builds text for an overdue standup check-in.
+func StandupOverdueText(role string) string {
+	return fmt.Sprintf(
+		"%s standup check-in overdue. "+
+			"Gather project data and produce a stakeholder-facing report. "+
+			"Data sources: `dx issue list`, `dx feature list`, `dx goal list`, `dx focus list`, recent `git log`. "+
+			"Submit via `dx journal checkin --%s`. "+
+			"The report should cover: progress since last standup, current state (open/blocked items), "+
+			"risks & attention areas, and near-term plan. Quantitative where possible.",
+		capitalize(role), role,
+	)
+}
+
+// JournalReviewText builds text for reviewing a generated journal check-in.
+func JournalReviewText(role string) string {
+	return fmt.Sprintf(
+		"Review generated %s check-in. "+
+			"Read the latest journal entry via `dx journal show`. "+
+			"Verify the data is accurate and the assessment is fair. "+
+			"If corrections are needed, submit an updated check-in via `dx journal checkin --%s`.",
+		role, role,
+	)
+}
+
+// TriageText builds text for an untriaged issue.
+func TriageText(issueID, title string) string {
+	return fmt.Sprintf(
+		"Triage %s: %s. "+
+			"Steps: (1) Read comments via `dx comment list issue %s` — respond to any unread. "+
+			"(2) Verify independently — reproduce or read the relevant code. "+
+			"(3) Dup-check — `dx issue list` for similar open/closed issues. "+
+			"(4) Scope check — if 3+ distinct areas, set type=tracker not impl. "+
+			"(5) Rewrite prescriptively — title=intended outcome, context=should/did/direction. "+
+			"(6) Apply: `dx todo owner triage %s --title=\"...\" --context=\"...\" --type=<ops|impl|ask|tracker> --priority=<1-4> --focus=<FO-N> --goal=<G-N>`.",
+		issueID, title, issueID, issueID,
+	)
+}
+
+// NoSpecsText builds text for a feature with no specs.
+func NoSpecsText(featureName string) string {
+	return fmt.Sprintf(
+		"Feature %q has no specs. "+
+			"Specs define concerns (functional, latency, security, ux, compatibility) on a feature. "+
+			"Run `dx feature show %s` to understand the feature, then add specs: "+
+			"`dx spec add %s --kind=must --concern-type=functional --desc=\"...\"` for each concern.",
+		featureName, featureName, featureName,
+	)
+}
+
+// StaleFeatureText builds text for a feature not reviewed in >30 days.
+func StaleFeatureText(featureName string) string {
+	return fmt.Sprintf(
+		"Feature %q not reviewed in >30 days. "+
+			"Run `dx feature show %s` to review current state: specs, test coverage, linked issues. "+
+			"Update if needed via `dx feature set %s --desc=\"...\"`. "+
+			"Mark reviewed: `dx feature review %s`.",
+		featureName, featureName, featureName, featureName,
+	)
+}
+
+// NoTestRefsText builds text for a spec with no test coverage.
+func NoTestRefsText(specID int32, description, featureName string) string {
+	return fmt.Sprintf(
+		"Spec %d (%s) on feature %q has no test refs. "+
+			"Either write a test that covers this spec and link it: `dx spec link %d <test-id>`, "+
+			"or file a task to add coverage: `dx todo tech add --title=\"Test spec %d\" --text=\"...\" --test-plan=\"...\"`.",
+		specID, description, featureName, specID, specID,
+	)
+}
+
+// ClosableIssueText builds text for an issue with all tasks done.
+func ClosableIssueText(issueID, title string) string {
+	return fmt.Sprintf(
+		"All tasks done on %s: %s. "+
+			"Verify the work is complete, then close: `dx issue close %s --reason=done`. "+
+			"If anything is missing, add a new task instead of leaving the issue open.",
+		issueID, title, issueID,
+	)
+}
+
+// DecomposeIssueText builds text for an issue with no tasks.
+func DecomposeIssueText(issueID, title string) string {
+	return fmt.Sprintf(
+		"Decompose %s: %s. "+
+			"Read the issue context, then create tasks: "+
+			"`dx todo tech add --issue=%s --title=\"<outcome>\" --text=\"<implementation plan>\" --reason=\"<why>\" --test-plan=\"<verification>\"`. "+
+			"Each task should be a single shippable unit. Populate all structured fields.",
+		issueID, title, issueID,
+	)
+}
+
+// DevTaskText builds text for a ready development task.
+func DevTaskText(taskID, title, issueRef string) string {
+	text := fmt.Sprintf(
+		"Implement %s: %s. "+
+			"Read the task's implementation plan via `dx todo show %s`. "+
+			"Do the work, then close: `dx todo dev done %s --test-plan=\"<how it was verified>\"",
+		taskID, title, taskID, taskID,
+	)
+	if issueRef != "" {
+		text += fmt.Sprintf(" --file <test-file-path>` (impl issue %s requires test refs).", issueRef)
+	} else {
+		text += "`."
+	}
+	return text
+}
+
+// OrphanTaskText builds text for a task with no parent issue.
+func OrphanTaskText(taskID, title string) string {
+	return fmt.Sprintf(
+		"Orphan task %s (no parent issue): %s. "+
+			"Check if the work is already done or stale — if so, close: `dx todo dev done %s`. "+
+			"If still needed, file an issue to host it: `dx issue add --title=\"...\"`, then link.",
+		taskID, title, taskID,
+	)
+}
+
+func capitalize(s string) string {
+	if s == "" {
+		return s
+	}
+	return string(s[0]-32) + s[1:]
+}
