@@ -2938,6 +2938,7 @@ type SoloRenewRequest struct {
 // SoloQueueItem defines model for SoloQueueItem.
 type SoloQueueItem struct {
 	Blocked         bool    `json:"blocked"`
+	Description     *string `json:"description,omitempty"`
 	IssueRef        string  `json:"issue_ref"`
 	Key             string  `json:"key"`
 	Kind            string  `json:"kind"`
@@ -2948,6 +2949,7 @@ type SoloQueueItem struct {
 	TargetId        string  `json:"target_id"`
 	TargetType      string  `json:"target_type"`
 	Text            string  `json:"text"`
+	Title           *string `json:"title,omitempty"`
 }
 
 // SpecDemoItem defines model for SpecDemoItem.
@@ -3215,6 +3217,7 @@ type TodoItem struct {
 	ClaimedAt       *string `json:"claimed_at,omitempty"`
 	ClaimedBy       *string `json:"claimed_by,omitempty"`
 	CreatedAt       string  `json:"created_at"`
+	Description     *string `json:"description,omitempty"`
 	Id              int32   `json:"id"`
 	Instructions    *string `json:"instructions,omitempty"`
 	IssueRef        string  `json:"issue_ref"`
@@ -3229,6 +3232,7 @@ type TodoItem struct {
 	TargetId        string  `json:"target_id"`
 	TargetType      string  `json:"target_type"`
 	Text            string  `json:"text"`
+	Title           *string `json:"title,omitempty"`
 }
 
 // TodoSessionItem defines model for TodoSessionItem.
@@ -3451,17 +3455,19 @@ type WriteTodosRequest struct {
 
 // WriteTodoInput defines model for WriteTodoInput.
 type WriteTodoInput struct {
-	Blocked    bool    `json:"blocked"`
-	ClaimedBy  *string `json:"claimed_by,omitempty"`
-	IssueRef   string  `json:"issue_ref"`
-	Key        string  `json:"key"`
-	Kind       string  `json:"kind"`
-	Persona    string  `json:"persona"`
-	Priority   int32   `json:"priority"`
-	Status     string  `json:"status"`
-	TargetId   string  `json:"target_id"`
-	TargetType string  `json:"target_type"`
-	Text       string  `json:"text"`
+	Blocked     bool    `json:"blocked"`
+	ClaimedBy   *string `json:"claimed_by,omitempty"`
+	Description *string `json:"description,omitempty"`
+	IssueRef    string  `json:"issue_ref"`
+	Key         string  `json:"key"`
+	Kind        string  `json:"kind"`
+	Persona     string  `json:"persona"`
+	Priority    int32   `json:"priority"`
+	Status      string  `json:"status"`
+	TargetId    string  `json:"target_id"`
+	TargetType  string  `json:"target_type"`
+	Text        string  `json:"text"`
+	Title       *string `json:"title,omitempty"`
 }
 
 // WsEchoRequest defines model for Ws-echoRequest.

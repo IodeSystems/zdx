@@ -940,6 +940,8 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				todos[i] = TodoItem{
 					ID:              r.ID,
 					Text:            r.Text,
+					Title:           r.Title,
+					Description:     r.Description,
 					Key:             r.Key,
 					Persona:         r.Persona,
 					Priority:        r.Priority,
@@ -1088,6 +1090,8 @@ func toTodoItemFromClaim(r db.ClaimNextTodoRow) TodoItem {
 	return TodoItem{
 		ID:              r.ID,
 		Text:            r.Text,
+		Title:           r.Title,
+		Description:     r.Description,
 		Key:             r.Key,
 		Persona:         r.Persona,
 		Priority:        r.Priority,
@@ -1109,6 +1113,8 @@ func toTodoItemFromFiltered(r db.ListTodosFilteredRow) TodoItem {
 	return TodoItem{
 		ID:              r.ID,
 		Text:            r.Text,
+		Title:           r.Title,
+		Description:     r.Description,
 		Key:             r.Key,
 		Persona:         r.Persona,
 		Priority:        r.Priority,

@@ -103,6 +103,8 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 			todo := TodoItem{
 				ID:           t.ID,
 				Text:         t.Text,
+				Title:        t.Title,
+				Description:  t.Description,
 				Key:          t.Key,
 				Persona:      t.Persona,
 				Priority:     t.Priority,

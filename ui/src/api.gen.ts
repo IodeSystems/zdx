@@ -3126,6 +3126,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/todo/dev/start": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["start-task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/todo/dev/unblock": {
         parameters: {
             query?: never;
@@ -7649,6 +7665,7 @@ export interface components {
         };
         SoloQueueItem: {
             blocked: boolean;
+            description?: string;
             issue_ref: string;
             key: string;
             kind: string;
@@ -7660,6 +7677,7 @@ export interface components {
             target_id: string;
             target_type: string;
             text: string;
+            title?: string;
         };
         SpecDemoItem: {
             /** Format: int32 */
@@ -7707,6 +7725,19 @@ export interface components {
             parent_id?: number;
             target_id: string;
             target_type: string;
+        };
+        "Start-taskRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Start-taskRequest.json
+             */
+            readonly $schema?: string;
+            claimed_by?: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            lease_duration_min?: number;
         };
         "Submit-maturity-answerRequest": {
             /**
@@ -7952,6 +7983,7 @@ export interface components {
             claimed_at?: string;
             claimed_by?: string;
             created_at: string;
+            description?: string;
             /** Format: int32 */
             id: number;
             instructions?: string;
@@ -7968,6 +8000,7 @@ export interface components {
             target_id: string;
             target_type: string;
             text: string;
+            title?: string;
         };
         TodoSessionItem: {
             alias?: string;
@@ -8248,6 +8281,7 @@ export interface components {
         WriteTodoInput: {
             blocked: boolean;
             claimed_by?: string;
+            description?: string;
             issue_ref: string;
             key: string;
             kind: string;
@@ -8258,6 +8292,7 @@ export interface components {
             target_id: string;
             target_type: string;
             text: string;
+            title?: string;
         };
         "Ws-echoRequest": {
             /**
@@ -15197,6 +15232,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Get-review-dataResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "start-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Start-taskRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
                 };
             };
             /** @description Error */

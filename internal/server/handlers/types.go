@@ -140,6 +140,8 @@ type FocusItem struct {
 type TodoItem struct {
 	ID              int32  `json:"id"`
 	Text            string `json:"text"`
+	Title           string `json:"title,omitempty"`
+	Description     string `json:"description,omitempty"`
 	Key             string `json:"key"`
 	Persona         string `json:"persona"`
 	Priority        int32  `json:"priority"`

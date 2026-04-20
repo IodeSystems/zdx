@@ -798,6 +798,8 @@ func toTodoItemFromRow(r db.ListTodosRow) TodoItem {
 	return TodoItem{
 		ID:              r.ID,
 		Text:            r.Text,
+		Title:           r.Title,
+		Description:     r.Description,
 		Key:             r.Key,
 		Persona:         r.Persona,
 		Priority:        r.Priority,
