@@ -923,18 +923,61 @@ func syncTestResults(results []testharness.Result, metas []testharness.DemoMeta)
 		fmt.Fprintf(os.Stderr, "[sync] %d demo artifact(s) uploaded\n", uploaded)
 	}
 
-	attachDemoCoderefs(c, slug, results)
+	seen := make(map[string]bool)
+	total := 0
+	total += attachCodeRefsFromSidecars(c, slug, results, filepath.Join(".zdx", "demo", "coderefs"), seen)
+	total += attachCodeRefsFromSidecars(c, slug, results, filepath.Join(".zdx", "coderefs"), seen)
+	if total > 0 {
+		fmt.Fprintf(os.Stderr, "[sync] %d coderef(s) attached to tests\n", total)
+	}
 }
 
-// attachDemoCoderefs reads sidecar files written by demo tests under
-// .zdx/demo/coderefs/<test-name>.json and calls AttachCodeRefToTest for each
-// entry. Test rows exist at this point because SubmitTestResults above
-// upserted them. Best-effort: per-file errors are logged but do not abort.
-func attachDemoCoderefs(c *cli.Client, slug string, results []testharness.Result) {
-	sidecarDir := filepath.Join(".zdx", "demo", "coderefs")
+type codeRefSidecar struct {
+	FilePath  string `json:"file_path"`
+	LineStart int32  `json:"line_start,omitempty"`
+	LineEnd   int32  `json:"line_end,omitempty"`
+	Note      string `json:"note,omitempty"`
+}
+
+// readCodeRefSidecars reads every *.json file in sidecarDir and returns a map
+// keyed by test name (filename without .json). Non-JSON entries and subdirs
+// are skipped. Missing dir returns (nil, nil).
+func readCodeRefSidecars(sidecarDir string) (map[string][]codeRefSidecar, error) {
 	entries, err := os.ReadDir(sidecarDir)
 	if err != nil {
-		return
+		if os.IsNotExist(err) {
+			return nil, nil
+		}
+		return nil, err
+	}
+	out := make(map[string][]codeRefSidecar)
+	for _, e := range entries {
+		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
+			continue
+		}
+		testName := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
+		data, err := os.ReadFile(filepath.Join(sidecarDir, e.Name()))
+		if err != nil {
+			continue
+		}
+		var refs []codeRefSidecar
+		if err := json.Unmarshal(data, &refs); err != nil || len(refs) == 0 {
+			continue
+		}
+		out[testName] = refs
+	}
+	return out, nil
+}
+
+// attachCodeRefsFromSidecars reads sidecar files in sidecarDir and calls
+// AttachCodeRefToTest for each entry. Test rows exist at this point because
+// SubmitTestResults upserted them. Test names already present in seen are
+// skipped so the same test isn't re-attached from multiple sidecar dirs.
+// Best-effort: per-file errors are logged but do not abort.
+func attachCodeRefsFromSidecars(c *cli.Client, slug string, results []testharness.Result, sidecarDir string, seen map[string]bool) int {
+	sidecars, err := readCodeRefSidecars(sidecarDir)
+	if err != nil || len(sidecars) == 0 {
+		return 0
 	}
 
 	shaByName := make(map[string]string, len(results))
@@ -946,24 +989,11 @@ func attachDemoCoderefs(c *cli.Client, slug string, results []testharness.Result
 
 	ctx := context.Background()
 	attached := 0
-	for _, e := range entries {
-		if e.IsDir() || filepath.Ext(e.Name()) != ".json" {
+	for testName, refs := range sidecars {
+		if seen[testName] {
 			continue
 		}
-		testName := strings.TrimSuffix(e.Name(), filepath.Ext(e.Name()))
-		data, err := os.ReadFile(filepath.Join(sidecarDir, e.Name()))
-		if err != nil {
-			continue
-		}
-		var refs []struct {
-			FilePath  string `json:"file_path"`
-			LineStart int32  `json:"line_start,omitempty"`
-			LineEnd   int32  `json:"line_end,omitempty"`
-			Note      string `json:"note,omitempty"`
-		}
-		if err := json.Unmarshal(data, &refs); err != nil || len(refs) == 0 {
-			continue
-		}
+		seen[testName] = true
 		testID, err := cli.ResolveTestID(ctx, c, testName)
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "[sync] coderefs: resolve %q: %v\n", testName, err)
@@ -1003,9 +1033,7 @@ func attachDemoCoderefs(c *cli.Client, slug string, results []testharness.Result
 			attached++
 		}
 	}
-	if attached > 0 {
-		fmt.Fprintf(os.Stderr, "[sync] %d coderef(s) attached to tests\n", attached)
-	}
+	return attached
 }
 
 // uploadDemoArtifact reads a demo file from disk and uploads it to the server,
