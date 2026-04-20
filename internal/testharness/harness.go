@@ -32,12 +32,66 @@ const (
 	LayerDemo        Layer = "demo"        // records video/CLI log; mocks only 3rd parties
 )
 
+// Driver selects which backend a BDD scenario runs against.
+type Driver string
+
+const (
+	DriverAPI Driver = "api" // fast programmatic driver (default)
+	DriverUI  Driver = "ui"  // full browser/UI driver
+)
+
+// DriverSet is a bitmask of drivers a step supports.
+type DriverSet uint8
+
+const (
+	NeedsAPI DriverSet = 1 << iota // step can run against the API driver
+	NeedsUI                        // step requires a UI driver
+)
+
+// StepDriver is implemented by BDD steps that declare which drivers they support.
+type StepDriver interface {
+	Capability() DriverSet
+}
+
+// ScenarioBuilder wires BDD given/when/then steps to the appropriate driver.
+// Given-steps always resolve to the API driver; when/then steps use the
+// configured driver.
+type ScenarioBuilder struct {
+	driver Driver
+}
+
+// NewScenarioBuilder returns a builder for the driver specified in f.
+// If f.Driver is empty, DriverAPI is used.
+func NewScenarioBuilder(f Filter) *ScenarioBuilder {
+	d := f.Driver
+	if d == "" {
+		d = DriverAPI
+	}
+	return &ScenarioBuilder{driver: d}
+}
+
+// Given always resolves to the API driver regardless of the selected driver.
+func (b *ScenarioBuilder) Given(step StepDriver) Driver {
+	return DriverAPI
+}
+
+// When resolves to the configured driver.
+func (b *ScenarioBuilder) When(step StepDriver) Driver {
+	return b.driver
+}
+
+// Then resolves to the configured driver.
+func (b *ScenarioBuilder) Then(step StepDriver) Driver {
+	return b.driver
+}
+
 // Filter scopes which tests to run. Empty fields match everything.
 type Filter struct {
 	Name      string // substring / regex applied to test names
 	Component string // e.g. "ui", "api", "cli"
 	Feature   string // feature name token in test name
 	Layer     Layer  // empty = all layers
+	Driver    Driver // api | ui; empty defaults to api
 }
 
 // FilterFromEnv builds a Filter from the DX_TEST_* environment variables.
@@ -46,6 +100,7 @@ func FilterFromEnv() Filter {
 		Component: os.Getenv("DX_TEST_COMPONENT"),
 		Feature:   os.Getenv("DX_TEST_FEATURE"),
 		Layer:     Layer(os.Getenv("DX_TEST_LAYER")),
+		Driver:    Driver(os.Getenv("DX_TEST_DRIVER")),
 	}
 }
 

@@ -70,6 +70,7 @@ to target the browser/CLI recording tests.`,
 	cmd.Flags().String("component", "", "run only this component (e.g. ui, api)")
 	cmd.Flags().String("feature", "", "run only tests whose name contains this feature token")
 	cmd.Flags().String("layer", "", "unit | integration | demo")
+	cmd.Flags().String("driver", "", "api | ui — selects BDD step driver (default: api)")
 	cmd.Flags().Bool("coverage", false, "collect Go binary-level coverage (GOCOVERDIR)")
 	cmd.Flags().String("db-url", "", "database URL for e2e adapter (skips docker compose)")
 	cmd.Flags().String("shard", "", "shard N/M across the e2e adapter")
@@ -85,6 +86,7 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 	component, _ := cmd.Flags().GetString("component")
 	feature, _ := cmd.Flags().GetString("feature")
 	layer, _ := cmd.Flags().GetString("layer")
+	driver, _ := cmd.Flags().GetString("driver")
 	coverage, _ := cmd.Flags().GetBool("coverage")
 	dbURL, _ := cmd.Flags().GetString("db-url")
 	shard, _ := cmd.Flags().GetString("shard")
@@ -96,6 +98,7 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 		Component: component,
 		Feature:   feature,
 		Layer:     testharness.Layer(layer),
+		Driver:    testharness.Driver(driver),
 	}
 
 	// ── Ephemeral devserver bootstrap ─────────────────────────────────────
