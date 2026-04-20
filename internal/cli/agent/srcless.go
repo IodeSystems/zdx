@@ -138,6 +138,49 @@ func pushSessionBranch(worktreePath, branch string) (skipped bool, err error) {
 	return false, nil
 }
 
+// ensureProjectInit checks whether projectPath has a `remote:` section in
+// .zdx/config.yaml. If not, it runs `dx init --url=<remoteURL> --slug=<slug>`
+// from projectPath (inheriting env + injecting apiKey as DX_REMOTE_API_KEY),
+// then stages and commits any new scaffold files (.zdx/config.yaml, .gitignore,
+// CLAUDE.md) and pushes to origin/main. Idempotent: already-configured repos
+// are skipped immediately.
+func ensureProjectInit(projectPath, slug, remoteURL, apiKey, dxPath string) error {
+	cfgPath := filepath.Join(projectPath, ".zdx", "config.yaml")
+	if data, err := os.ReadFile(cfgPath); err == nil && strings.Contains(string(data), "remote:") {
+		return nil
+	}
+
+	cmd := exec.Command(dxPath, "init", "--url="+remoteURL, "--slug="+slug)
+	cmd.Dir = projectPath
+	cmd.Env = append(os.Environ(), "DX_REMOTE_API_KEY="+apiKey)
+	if out, err := cmd.CombinedOutput(); err != nil {
+		return fmt.Errorf("dx init: %s: %w", strings.TrimSpace(string(out)), err)
+	}
+
+	// Stage scaffold files; non-existent paths are silently skipped.
+	for _, f := range []string{".zdx/config.yaml", ".gitignore", "CLAUDE.md"} {
+		_ = exec.Command("git", "-C", projectPath, "add", "--", f).Run()
+	}
+
+	// Nothing staged → nothing to push.
+	if exec.Command("git", "-C", projectPath, "diff", "--cached", "--quiet").Run() == nil {
+		return nil
+	}
+
+	out, err := exec.Command("git", "-C", projectPath,
+		"-c", "user.email=dx-agent@zdx",
+		"-c", "user.name=dx-agent",
+		"commit", "-m", "chore: scaffold zdx project via dx init").CombinedOutput()
+	if err != nil {
+		return fmt.Errorf("git commit scaffold: %s: %w", strings.TrimSpace(string(out)), err)
+	}
+
+	if out, err = exec.Command("git", "-C", projectPath, "push", "origin", "HEAD:main").CombinedOutput(); err != nil {
+		return fmt.Errorf("git push scaffold: %s: %w", strings.TrimSpace(string(out)), err)
+	}
+	return nil
+}
+
 // gcStaleWorktrees walks ${workDir}/*/worktrees/* and removes entries whose
 // mtime is older than maxAge. Returns the list of removed worktree paths so
 // the caller can log them. Errors are logged via the logf callback (may be

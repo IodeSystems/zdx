@@ -400,6 +400,12 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 				continue
 			}
 			srclessProjectPath = pp
+			if ierr := ensureProjectInit(pp, activeTodo.ProjectSlug, rc.url, rc.key, selfPath); ierr != nil {
+				log("srcless: init %s failed: %v", activeTodo.ProjectSlug, ierr)
+				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
+				os.Remove(stateFile)
+				continue
+			}
 			wt, br, err := createSessionWorktree(pp, workDir, activeTodo.ProjectSlug, sid)
 			if err != nil {
 				log("srcless: worktree for %s failed: %v", activeTodo.ProjectSlug, err)

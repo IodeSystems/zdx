@@ -115,6 +115,90 @@ func TestCreateSessionWorktree(t *testing.T) {
 	}
 }
 
+func TestEnsureProjectInit_AlreadyConfigured(t *testing.T) {
+	remoteBase, _ := fakeRemote(t, "p3")
+	workDir := t.TempDir()
+	pp, err := ensureProjectClone(workDir, "p3", remoteBase)
+	if err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+
+	// Write a config with a remote section so ensureProjectInit should skip.
+	cfg := filepath.Join(pp, ".zdx", "config.yaml")
+	if err := os.MkdirAll(filepath.Dir(cfg), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(cfg, []byte("remote:\n  url: https://zdx.example.com\n  slug: p3\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// dxPath is irrelevant — should not be called.
+	if err := ensureProjectInit(pp, "p3", "https://zdx.example.com", "key", "/nonexistent/dx"); err != nil {
+		t.Fatalf("expected skip, got error: %v", err)
+	}
+}
+
+func TestEnsureProjectInit_FreshClone(t *testing.T) {
+	remoteBase, _ := fakeRemote(t, "p4")
+	workDir := t.TempDir()
+	pp, err := ensureProjectClone(workDir, "p4", remoteBase)
+	if err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+
+	// Build a fake dx script that writes a minimal config with remote section.
+	fakeDir := t.TempDir()
+	fakeDx := filepath.Join(fakeDir, "dx")
+	script := `#!/bin/sh
+# fake dx init: parse --url and --slug, write .zdx/config.yaml
+url=""
+slug=""
+for arg in "$@"; do
+  case "$arg" in
+    --url=*) url="${arg#--url=}" ;;
+    --slug=*) slug="${arg#--slug=}" ;;
+  esac
+done
+if [ "$1" = "init" ]; then
+  mkdir -p .zdx
+  printf "remote:\n  url: %s\n  slug: %s\n" "$url" "$slug" > .zdx/config.yaml
+  touch CLAUDE.md
+fi
+`
+	if err := os.WriteFile(fakeDx, []byte(script), 0o755); err != nil {
+		t.Fatal(err)
+	}
+
+	if err := ensureProjectInit(pp, "p4", "https://zdx.example.com", "testkey", fakeDx); err != nil {
+		t.Fatalf("ensureProjectInit: %v", err)
+	}
+
+	// Verify config was written and committed to origin.
+	cfgPath := filepath.Join(pp, ".zdx", "config.yaml")
+	data, err := os.ReadFile(cfgPath)
+	if err != nil {
+		t.Fatalf("config not written: %v", err)
+	}
+	if !strings.Contains(string(data), "remote:") {
+		t.Fatalf("config missing remote section: %s", data)
+	}
+
+	// Verify the commit landed on origin (bare repo has the commit).
+	bareRepo := strings.TrimPrefix(remoteBase, "file://") + "/git/p4"
+	out, err := exec.Command("git", "-C", bareRepo, "log", "--oneline", "-1").CombinedOutput()
+	if err != nil {
+		t.Fatalf("git log on bare: %v", err)
+	}
+	if !strings.Contains(string(out), "scaffold zdx project") {
+		t.Fatalf("scaffold commit not found on origin: %s", out)
+	}
+
+	// Second call should be a no-op (idempotent).
+	if err := ensureProjectInit(pp, "p4", "https://zdx.example.com", "testkey", "/nonexistent/dx"); err != nil {
+		t.Fatalf("second call should skip, got: %v", err)
+	}
+}
+
 func TestGcStaleWorktrees(t *testing.T) {
 	workDir := t.TempDir()
 	fresh := filepath.Join(workDir, "p", "worktrees", "fresh")
