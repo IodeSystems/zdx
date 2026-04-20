@@ -115,7 +115,11 @@ func todoTakeRun(cmd *cobra.Command, agentID string, leaseMinutes int32) error {
 		return nil
 	}
 	todo := resp.JSON200
-	fmt.Printf("TODO-%d  [%s] %s\n", todo.Id, todo.Kind, todo.Text)
+	title := todo.Text
+	if todo.Title != nil && *todo.Title != "" {
+		title = *todo.Title
+	}
+	fmt.Printf("TODO-%d  [%s] %s\n", todo.Id, todo.Kind, title)
 	if todo.IssueRef != "" {
 		fmt.Printf("  issue: %s\n", todo.IssueRef)
 	}
@@ -127,6 +131,12 @@ func todoTakeRun(cmd *cobra.Command, agentID string, leaseMinutes int32) error {
 		claimedBy = *todo.ClaimedBy
 	}
 	fmt.Printf("  claimed by: %s  lease: %d min\n", claimedBy, leaseMinutes)
+	if todo.Description != nil && *todo.Description != "" {
+		fmt.Printf("\nDescription:\n%s\n", *todo.Description)
+	}
+	if todo.Instructions != nil && *todo.Instructions != "" {
+		fmt.Printf("\nInstructions:\n%s\n", *todo.Instructions)
+	}
 	return nil
 }
 
@@ -800,19 +810,23 @@ func soloEvaluateRun(cmd *cobra.Command, showDiff bool, apply bool) error {
 	if len(added) > 0 {
 		fmt.Printf("+ %d new:\n", len(added))
 		for _, a := range added {
-			fmt.Printf("  + [%s] %s  %s\n", a.Kind, a.TargetId, a.Text)
+			fmt.Printf("  + [%s] %s  %s\n", a.Kind, a.TargetId, soloItemTitle(a))
 		}
 	}
 	if len(removed) > 0 {
 		fmt.Printf("- %d removed:\n", len(removed))
 		for _, r := range removed {
-			fmt.Printf("  - [%s] %s\n", r.Kind, r.Text)
+			title := r.Text
+			if r.Title != nil && *r.Title != "" {
+				title = *r.Title
+			}
+			fmt.Printf("  - [%s] %s\n", r.Kind, truncateLine(title, 80))
 		}
 	}
 	if len(changed) > 0 {
 		fmt.Printf("~ %d changed:\n", len(changed))
 		for _, ch := range changed {
-			fmt.Printf("  ~ [%s] %s\n", ch.After.Kind, ch.After.Text)
+			fmt.Printf("  ~ [%s] %s\n", ch.After.Kind, soloItemTitle(ch.After))
 		}
 	}
 
@@ -937,6 +951,13 @@ func taskHeadline(title, text string) string {
 	return truncateLine(text, 80)
 }
 
+func soloItemTitle(item soloQueueItem) string {
+	if item.Title != nil && *item.Title != "" {
+		return *item.Title
+	}
+	return truncateLine(item.Text, 80)
+}
+
 // ── show ──────────────────────────────────────────────────────────────────────
 
 func todoShowCmd() *cobra.Command {
@@ -996,6 +1017,15 @@ func todoShowCmd() *cobra.Command {
 					for _, t := range *resp.JSON200.Tasks {
 						if t.Id == taskID {
 							printTaskItem(cli.TaskToCli(t))
+							if todoResp, err := c.GetTodoDetailWithResponse(ctx, slug, id); err == nil && todoResp.JSON200 != nil {
+								td := todoResp.JSON200.Todo
+								if td.Description != nil && *td.Description != "" {
+									fmt.Printf("\nContext:\n%s\n", indent(*td.Description, "  "))
+								}
+								if td.Instructions != nil && *td.Instructions != "" {
+									fmt.Printf("\nInstructions:\n%s\n", indent(*td.Instructions, "  "))
+								}
+							}
 							tt, tid, role := "task", id, "llm"
 							commResp, err := c.ListCommentsWithResponse(ctx, &dxclient.ListCommentsParams{
 								Slug: &slug, TargetType: &tt, TargetId: &tid, Role: &role,
