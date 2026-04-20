@@ -164,6 +164,108 @@ func Load() *Config {
 	return &cfg
 }
 
+// GlobalConfig mirrors the ~/.zdx/config.yaml schema for srcless (multi-project) agent operation.
+type GlobalConfig struct {
+	Remote GlobalRemote      `yaml:"remote"`
+	Agent  GlobalAgentConfig `yaml:"agent"`
+}
+
+// GlobalRemote holds the remote URL and API key for srcless agents.
+type GlobalRemote struct {
+	URL    string `yaml:"url"`
+	APIKey string `yaml:"api_key"`
+}
+
+// GlobalAgentConfig holds agent settings for srcless operation.
+type GlobalAgentConfig struct {
+	WorkDir      string `yaml:"work_dir"`
+	ClaudeModel  string `yaml:"claude_model"`
+	MaxWorktrees int    `yaml:"max_worktrees"`
+	LeaseMinutes int    `yaml:"lease_minutes"`
+}
+
+// LoadGlobal reads ~/.zdx/config.yaml. Returns nil if not found or unreadable.
+func LoadGlobal() *GlobalConfig {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return nil
+	}
+	data, err := os.ReadFile(filepath.Join(home, ".zdx", "config.yaml"))
+	if err != nil {
+		return nil
+	}
+	var cfg GlobalConfig
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil
+	}
+	return &cfg
+}
+
+// WriteGlobal writes cfg to ~/.zdx/config.yaml, creating the directory if needed.
+func WriteGlobal(cfg *GlobalConfig) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(home, ".zdx")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	data, err := yaml.Marshal(cfg)
+	if err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "config.yaml"), data, 0o600)
+}
+
+// GlobalRemoteAPIKey returns the API key from env, then ~/.zdx/credentials.
+func GlobalRemoteAPIKey() string {
+	if v := os.Getenv("DX_REMOTE_API_KEY"); v != "" {
+		return v
+	}
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return ""
+	}
+	b, err := os.ReadFile(filepath.Join(home, ".zdx", "credentials"))
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(b))
+}
+
+// WriteGlobalCredentials writes the API key to ~/.zdx/credentials.
+func WriteGlobalCredentials(apiKey string) error {
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return err
+	}
+	dir := filepath.Join(home, ".zdx")
+	if err := os.MkdirAll(dir, 0o700); err != nil {
+		return err
+	}
+	return os.WriteFile(filepath.Join(dir, "credentials"), []byte(apiKey+"\n"), 0o600)
+}
+
+// ResolvedGlobalAgent returns GlobalAgentConfig with defaults applied.
+func (c *GlobalConfig) ResolvedGlobalAgent() GlobalAgentConfig {
+	a := c.Agent
+	if a.WorkDir == "" {
+		home, _ := os.UserHomeDir()
+		a.WorkDir = filepath.Join(home, ".zdx", "projects")
+	}
+	if a.ClaudeModel == "" {
+		a.ClaudeModel = "claude-sonnet-4-6"
+	}
+	if a.MaxWorktrees <= 0 {
+		a.MaxWorktrees = 4
+	}
+	if a.LeaseMinutes <= 0 {
+		a.LeaseMinutes = 30
+	}
+	return a
+}
+
 // RemoteURL returns the configured remote URL (env overrides config).
 func (c *Config) RemoteURL() string {
 	if v := os.Getenv("DX_REMOTE_URL"); v != "" {

@@ -38,12 +38,29 @@ func agentClaudeCmd() *cobra.Command {
 		Long:  "Launch Claude CLI sessions with automatic session streaming, subagent discovery, and token usage tracking.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			cfg := config.Load()
-			rc := remoteConfig{
-				url:  cfg.RemoteURL(),
-				slug: cfg.RemoteSlug(),
-				key:  config.RemoteAPIKey(),
+			var rc remoteConfig
+			var agentCfg config.AgentConfig
+			if cfg != nil {
+				rc = remoteConfig{
+					url:  cfg.RemoteURL(),
+					slug: cfg.RemoteSlug(),
+					key:  config.RemoteAPIKey(),
+				}
+				agentCfg = cfg.ResolvedAgent()
+			} else if globalCfg := config.LoadGlobal(); globalCfg != nil {
+				fmt.Fprintln(os.Stderr, "srcless mode: using ~/.zdx/config.yaml (no project config found)")
+				ga := globalCfg.ResolvedGlobalAgent()
+				rc = remoteConfig{
+					url: globalCfg.Remote.URL,
+					key: config.GlobalRemoteAPIKey(),
+					// slug intentionally empty — per-project slug routing handled by IS-353
+				}
+				agentCfg = config.AgentConfig{
+					ClaudeModel:  ga.ClaudeModel,
+					MaxWorktrees: ga.MaxWorktrees,
+					LeaseMinutes: ga.LeaseMinutes,
+				}
 			}
-			agentCfg := cfg.ResolvedAgent()
 
 			sel := modelSelector{modelFlag: model, levelFlag: level, agentCfg: agentCfg}
 
