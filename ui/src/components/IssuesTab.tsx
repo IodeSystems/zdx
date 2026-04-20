@@ -239,9 +239,16 @@ function IssueSearch({ slug }: { slug: string }) {
   )
 }
 
-export function IssuesTab({ slug }: { slug: string }) {
+export function IssuesTab({
+  slug,
+  statusFilter,
+  onStatusFilter,
+}: {
+  slug: string
+  statusFilter: string | null
+  onStatusFilter: (status: string | null) => void
+}) {
   const { component } = useComponentFilter()
-  const [statusFilter, setStatusFilter] = useState<string | null>(null)
   const { offset, loadMore, pageSize } = useLoadMore()
   const { data, isLoading } = useIssues(slug, pageSize, offset)
 
@@ -262,7 +269,7 @@ export function IssuesTab({ slug }: { slug: string }) {
   }, {} as Record<string, number>)
 
   function toggleFilter(status: string) {
-    setStatusFilter(prev => prev === status ? null : status)
+    onStatusFilter(statusFilter === status ? null : status)
   }
 
   return (
@@ -292,7 +299,7 @@ export function IssuesTab({ slug }: { slug: string }) {
               label="clear"
               size="small"
               variant="outlined"
-              onClick={() => setStatusFilter(null)}
+              onClick={() => onStatusFilter(null)}
               sx={{ cursor: 'pointer' }}
             />
           )}
