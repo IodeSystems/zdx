@@ -279,6 +279,50 @@ func TestDemoCLI_JournalFlow(t *testing.T) {
 	}
 }
 
+// TestDemoCLI_TodoItemFields is the demo for spec 102: a todo item surfaced
+// by the queue carries the owner tier, target entity reference, priority, and
+// suggested CLI action — enough for the caller to act without further discovery.
+// The demo seeds items across tiers (owner triage, tech add, dev task) so the
+// queue output visibly spans all tiers, then claims one to show the structured
+// take response including target_type/target_id and the claiming agent's lease.
+func TestDemoCLI_TodoItemFields(t *testing.T) {
+	rec := newRecorder(t, "todo-item-fields", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	// Tier 1 (owner): an untriaged issue surfaces as [owner:triage].
+	rec.Run("issue", "add", "--title=Needs owner triage", "--auto-ready")
+
+	// Tier 2 (tech): a triaged-but-undecomposed issue surfaces as [tech:add].
+	rec.Run("issue", "add", "--title=Needs tech decomposition", "--auto-ready")
+	techIssueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if techIssueID != "" {
+		rec.Run("todo", "owner", "triage", techIssueID, "--priority=2")
+	}
+
+	// Tier 3 (dev): a task under a triaged issue surfaces as [dev].
+	rec.Run("issue", "add", "--title=Has a pending dev task", "--auto-ready")
+	devIssueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if devIssueID != "" {
+		rec.Run("todo", "owner", "triage", devIssueID, "--priority=3")
+		rec.Run("todo", "tech", "add", "--issue="+devIssueID, "--text=Implement the behavior")
+	}
+
+	// Queue view: each line carries the tier ([owner:*]/[tech:*]/[dev]) and the
+	// target reference (IS-N / TK-N) so the caller can dispatch directly.
+	rec.Run("todo", "solo")
+
+	// Claim view: take returns a structured item with kind (tier:action),
+	// target_type:target_id, issue_ref, and the claiming agent's lease — the
+	// caller can act on the response without another round-trip.
+	rec.Run("todo", "take", "--agent-id=demo-fields", "--lease-minutes=5")
+
+	for _, s := range rec.steps {
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
 // extractFirstBQID pulls the first BQ-N token from output.
 func extractFirstBQID(output string) string {
 	for _, word := range strings.Fields(output) {
