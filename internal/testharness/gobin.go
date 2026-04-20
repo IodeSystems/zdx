@@ -81,7 +81,7 @@ func (a *GoBinAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
 		return nil, fmt.Errorf("stdout pipe: %w", err)
 	}
 
-	jsonCmd := exec.CommandContext(ctx, "go", "tool", "test2json")
+	jsonCmd := exec.CommandContext(ctx, "go", "tool", "test2json", "-t")
 	jsonCmd.Stdin = testOut
 
 	var jsonBuf bytes.Buffer
