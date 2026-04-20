@@ -7575,6 +7575,7 @@ export interface components {
             /** Format: int32 */
             priority: number;
             status: string;
+            suggested_action?: string;
             target_id: string;
             target_type: string;
             text: string;
@@ -7881,6 +7882,7 @@ export interface components {
             priority: number;
             resolved_at?: string;
             status: string;
+            suggested_action?: string;
             target_id: string;
             target_type: string;
             text: string;
