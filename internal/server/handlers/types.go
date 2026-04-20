@@ -332,17 +332,19 @@ type StaleCommentItem struct {
 }
 
 type WriteTodoInput struct {
-	Text       string `json:"text"`
-	Key        string `json:"key"`
-	Persona    string `json:"persona"`
-	Priority   int32  `json:"priority"`
-	Status     string `json:"status"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	Kind       string `json:"kind"`
-	IssueRef   string `json:"issue_ref"`
-	Blocked    bool   `json:"blocked"`
-	ClaimedBy  string `json:"claimed_by,omitempty"`
+	Title       string `json:"title,omitempty"`
+	Description string `json:"description,omitempty"`
+	Text        string `json:"text"`
+	Key         string `json:"key"`
+	Persona     string `json:"persona"`
+	Priority    int32  `json:"priority"`
+	Status      string `json:"status"`
+	TargetType  string `json:"target_type"`
+	TargetID    string `json:"target_id"`
+	Kind        string `json:"kind"`
+	IssueRef    string `json:"issue_ref"`
+	Blocked     bool   `json:"blocked"`
+	ClaimedBy   string `json:"claimed_by,omitempty"`
 }
 
 type DemoArtifactRef struct {

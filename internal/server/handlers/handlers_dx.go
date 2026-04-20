@@ -114,17 +114,19 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					status = "open"
 				}
 				_, err := h.Q.CreateTodo(ctx, db.CreateTodoParams{
-					ProjectID:  p.ID,
-					Text:       t.Text,
-					Key:        t.Key,
-					Persona:    t.Persona,
-					Priority:   t.Priority,
-					Status:     status,
-					TargetType: t.TargetType,
-					TargetID:   t.TargetID,
-					Kind:       t.Kind,
-					IssueRef:   t.IssueRef,
-					Blocked:    t.Blocked,
+					ProjectID:   p.ID,
+					Title:       t.Title,
+					Description: t.Description,
+					Text:        t.Text,
+					Key:         t.Key,
+					Persona:     t.Persona,
+					Priority:    t.Priority,
+					Status:      status,
+					TargetType:  t.TargetType,
+					TargetID:    t.TargetID,
+					Kind:        t.Kind,
+					IssueRef:    t.IssueRef,
+					Blocked:     t.Blocked,
 				})
 				if err != nil {
 					return nil, apiErr(500, err.Error())

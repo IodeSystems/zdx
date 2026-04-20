@@ -16,15 +16,17 @@ import (
 )
 
 type soloCandidate struct {
-	Key        string
-	Text       string
-	Kind       string
-	TargetType string
-	TargetID   string
-	IssueRef   string
-	Priority   int32
-	Blocked    bool
-	Persona    string
+	Key         string
+	Title       string
+	Description string
+	Text        string
+	Kind        string
+	TargetType  string
+	TargetID    string
+	IssueRef    string
+	Priority    int32
+	Blocked     bool
+	Persona     string
 }
 
 func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueFilter string) ([]soloCandidate, error) {
@@ -71,15 +73,17 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				if iss.ID == q.TargetID {
 					if issueFilter != "" {
 						candidates = append(candidates, soloCandidate{
-							Key:        fmt.Sprintf("bq-%d", q.ID),
-							Text:       q.Context,
-							Kind:       "clarify",
-							TargetType: "blocker_question",
-							TargetID:   fmt.Sprintf("BQ-%d", q.ID),
-							IssueRef:   iss.ID,
-							Priority:   5,
-							Blocked:    true,
-							Persona:    "owner",
+							Key:         fmt.Sprintf("bq-%d", q.ID),
+							Title:       fmt.Sprintf("Answer BQ-%d on %s", q.ID, iss.ID),
+							Description: q.Context,
+							Text:        q.Context,
+							Kind:        "clarify",
+							TargetType:  "blocker_question",
+							TargetID:    fmt.Sprintf("BQ-%d", q.ID),
+							IssueRef:    iss.ID,
+							Priority:    5,
+							Blocked:     true,
+							Persona:     "owner",
 						})
 					} else {
 						bqBlocked[q.TargetID] = true
@@ -109,15 +113,18 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		if issueFilter != "" && ui.ID != issueFilter {
 			continue
 		}
+		h := workflowhints.UnreadCommentsText(ui.ID, ui.Title)
 		candidates = append(candidates, soloCandidate{
-			Key:        fmt.Sprintf("comment-issue-%s", ui.ID),
-			Text:       workflowhints.UnreadCommentsText(ui.ID, ui.Title),
-			Kind:       "read:comments",
-			TargetType: "issue",
-			TargetID:   ui.ID,
-			IssueRef:   ui.ID,
-			Priority:   5,
-			Persona:    "dev",
+			Key:         fmt.Sprintf("comment-issue-%s", ui.ID),
+			Title:       h.Title,
+			Description: h.Description,
+			Text:        h.Instructions,
+			Kind:        "read:comments",
+			TargetType:  "issue",
+			TargetID:    ui.ID,
+			IssueRef:    ui.ID,
+			Priority:    5,
+			Persona:     "dev",
 		})
 	}
 
@@ -129,14 +136,17 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				ProjectID: projectID, TargetType: "feature", TargetID: f.Name, Role: "llm",
 			})
 			if hasUnread {
+				h := workflowhints.UnreadFeatureCommentsText(f.Name)
 				candidates = append(candidates, soloCandidate{
-					Key:        fmt.Sprintf("comment-feature-%s", f.Name),
-					Text:       workflowhints.UnreadFeatureCommentsText(f.Name),
-					Kind:       "read:comments",
-					TargetType: "feature",
-					TargetID:   f.Name,
-					Priority:   8,
-					Persona:    "dev",
+					Key:         fmt.Sprintf("comment-feature-%s", f.Name),
+					Title:       h.Title,
+					Description: h.Description,
+					Text:        h.Instructions,
+					Kind:        "read:comments",
+					TargetType:  "feature",
+					TargetID:    f.Name,
+					Priority:    8,
+					Persona:     "dev",
 				})
 			}
 		}
@@ -147,13 +157,15 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		unanswered, _ := h.Q.ListUnansweredQuestions(ctx, projectID)
 		for _, q := range unanswered {
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("qa-%d", q.ID),
-				Text:       q.Question,
-				Kind:       "answer",
-				TargetType: "question",
-				TargetID:   fmt.Sprintf("QA-%d", q.ID),
-				Priority:   10,
-				Persona:    "dev",
+				Key:         fmt.Sprintf("qa-%d", q.ID),
+				Title:       fmt.Sprintf("Answer QA-%d", q.ID),
+				Description: q.Question,
+				Text:        q.Question,
+				Kind:        "answer",
+				TargetType:  "question",
+				TargetID:    fmt.Sprintf("QA-%d", q.ID),
+				Priority:    10,
+				Persona:     "dev",
 			})
 		}
 	}
@@ -189,14 +201,17 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			}
 		}
 		for _, t := range seen {
+			h := workflowhints.StaleCommentsText(t.count, t.targetType, t.targetID, t.lastCommentID)
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("stale-comments-%s-%s", t.targetType, t.targetID),
-				Text:       workflowhints.StaleCommentsText(t.count, t.targetType, t.targetID, t.lastCommentID),
-				Kind:       "respond:stale",
-				TargetType: t.targetType,
-				TargetID:   t.targetID,
-				Priority:   12,
-				Persona:    "dev",
+				Key:         fmt.Sprintf("stale-comments-%s-%s", t.targetType, t.targetID),
+				Title:       h.Title,
+				Description: h.Description,
+				Text:        h.Instructions,
+				Kind:        "respond:stale",
+				TargetType:  t.targetType,
+				TargetID:    t.targetID,
+				Priority:    12,
+				Persona:     "dev",
 			})
 		}
 	}
@@ -205,15 +220,17 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	if issueFilter == "" {
 		goalCount, _ := h.Q.CountProjectGoals(ctx, projectID)
 		if goalCount == 0 {
+			gh := workflowhints.NoGoalsText()
 			candidates = append(candidates, soloCandidate{
-				Key: "health-goals", Text: workflowhints.NoGoalsText(),
+				Key: "health-goals", Title: gh.Title, Description: gh.Description, Text: gh.Instructions,
 				Kind: "owner:goals", TargetType: "project", Priority: 15, Persona: "owner",
 			})
 		}
 		constraintCount, _ := h.Q.CountProjectConstraints(ctx, projectID)
 		if constraintCount == 0 {
+			ch := workflowhints.NoConstraintsText()
 			candidates = append(candidates, soloCandidate{
-				Key: "health-constraints", Text: workflowhints.NoConstraintsText(),
+				Key: "health-constraints", Title: ch.Title, Description: ch.Description, Text: ch.Instructions,
 				Kind: "owner:constraints", TargetType: "project", Priority: 15, Persona: "owner",
 			})
 		}
@@ -230,16 +247,18 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			now := time.Now()
 			if ownerDate != "" {
 				if t, err := time.Parse("2006-01-02", ownerDate); err == nil && now.Sub(t) > 7*24*time.Hour {
+					oh := workflowhints.StandupOverdueText("owner")
 					candidates = append(candidates, soloCandidate{
-						Key: "health-owner-standup", Text: workflowhints.StandupOverdueText("owner"),
+						Key: "health-owner-standup", Title: oh.Title, Description: oh.Description, Text: oh.Instructions,
 						Kind: "owner:standup", TargetType: "project", Priority: 18, Persona: "owner",
 					})
 				}
 			}
 			if techDate != "" {
 				if t, err := time.Parse("2006-01-02", techDate); err == nil && now.Sub(t) > 7*24*time.Hour {
+					th := workflowhints.StandupOverdueText("tech")
 					candidates = append(candidates, soloCandidate{
-						Key: "health-tech-standup", Text: workflowhints.StandupOverdueText("tech"),
+						Key: "health-tech-standup", Title: th.Title, Description: th.Description, Text: th.Instructions,
 						Kind: "tech:standup", TargetType: "project", Priority: 18, Persona: "tech",
 					})
 				}
@@ -248,8 +267,9 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 
 		for _, r := range []string{"owner", "tech"} {
 			if _, err := h.Q.GetUnreviewedJournalEntry(ctx, db.GetUnreviewedJournalEntryParams{ProjectID: projectID, Role: r}); err == nil {
+				jh := workflowhints.JournalReviewText(r)
 				candidates = append(candidates, soloCandidate{
-					Key: fmt.Sprintf("journal-review-%s", r), Text: workflowhints.JournalReviewText(r),
+					Key: fmt.Sprintf("journal-review-%s", r), Title: jh.Title, Description: jh.Description, Text: jh.Instructions,
 					Kind: r + ":journal-review", TargetType: "project", Priority: 20, Persona: r,
 				})
 			}
@@ -259,15 +279,18 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	// Untriaged issues (no priority)
 	for _, iss := range issues {
 		if iss.Priority == "" {
+			th := workflowhints.TriageText(iss.ID, iss.Title)
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("triage-%s", iss.ID),
-				Text:       workflowhints.TriageText(iss.ID, iss.Title),
-				Kind:       "triage",
-				TargetType: "issue",
-				TargetID:   iss.ID,
-				IssueRef:   iss.ID,
-				Priority:   20,
-				Persona:    "owner",
+				Key:         fmt.Sprintf("triage-%s", iss.ID),
+				Title:       th.Title,
+				Description: th.Description,
+				Text:        th.Instructions,
+				Kind:        "triage",
+				TargetType:  "issue",
+				TargetID:    iss.ID,
+				IssueRef:    iss.ID,
+				Priority:    20,
+				Persona:     "owner",
 			})
 		}
 	}
@@ -277,54 +300,66 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, f := range features {
 			specs, _ := h.Q.ListSpecs(ctx, f.ID)
 			if len(specs) == 0 {
+				sh := workflowhints.NoSpecsText(f.Name)
 				candidates = append(candidates, soloCandidate{
-					Key:        fmt.Sprintf("spec-missing-%s", f.Name),
-					Text:       workflowhints.NoSpecsText(f.Name),
-					Kind:       "owner:spec",
-					TargetType: "feature",
-					TargetID:   f.Name,
-					Priority:   25,
-					Persona:    "owner",
+					Key:         fmt.Sprintf("spec-missing-%s", f.Name),
+					Title:       sh.Title,
+					Description: sh.Description,
+					Text:        sh.Instructions,
+					Kind:        "owner:spec",
+					TargetType:  "feature",
+					TargetID:    f.Name,
+					Priority:    25,
+					Persona:     "owner",
 				})
 			}
 		}
 
 		staleFeatures, _ := h.Q.ListStaleFeatures(ctx, db.ListStaleFeaturesParams{ProjectID: projectID, StaleDays: 30})
 		for _, f := range staleFeatures {
+			sfh := workflowhints.StaleFeatureText(f.Name)
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("review-feature-%s", f.Name),
-				Text:       workflowhints.StaleFeatureText(f.Name),
-				Kind:       "owner:review",
-				TargetType: "feature",
-				TargetID:   f.Name,
-				Priority:   28,
-				Persona:    "owner",
+				Key:         fmt.Sprintf("review-feature-%s", f.Name),
+				Title:       sfh.Title,
+				Description: sfh.Description,
+				Text:        sfh.Instructions,
+				Kind:        "owner:review",
+				TargetType:  "feature",
+				TargetID:    f.Name,
+				Priority:    28,
+				Persona:     "owner",
 			})
 		}
 
 		uncoveredSpecs, _ := h.Q.ListUncoveredSpecs(ctx, projectID)
 		for _, sp := range uncoveredSpecs {
+			nth := workflowhints.NoTestRefsText(sp.ID, sp.Description, sp.FeatureName)
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("test-ref-%d", sp.ID),
-				Text:       workflowhints.NoTestRefsText(sp.ID, sp.Description, sp.FeatureName),
-				Kind:       "tech:test-ref",
-				TargetType: "spec",
-				TargetID:   fmt.Sprintf("%d", sp.ID),
-				Priority:   30,
-				Persona:    "tech",
+				Key:         fmt.Sprintf("test-ref-%d", sp.ID),
+				Title:       nth.Title,
+				Description: nth.Description,
+				Text:        nth.Instructions,
+				Kind:        "tech:test-ref",
+				TargetType:  "spec",
+				TargetID:    fmt.Sprintf("%d", sp.ID),
+				Priority:    30,
+				Persona:     "tech",
 			})
 		}
 
 		demoGaps, _ := h.Q.ListSpecsWithoutDemos(ctx, projectID)
 		for _, sp := range demoGaps {
+			dh := workflowhints.DemoGapText(sp.ID, sp.Description, sp.FeatureName)
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("demo-gap-%d", sp.ID),
-				Text:       workflowhints.DemoGapText(sp.ID, sp.Description, sp.FeatureName),
-				Kind:       "owner:demo-gap",
-				TargetType: "spec",
-				TargetID:   fmt.Sprintf("%d", sp.ID),
-				Priority:   32,
-				Persona:    "owner",
+				Key:         fmt.Sprintf("demo-gap-%d", sp.ID),
+				Title:       dh.Title,
+				Description: dh.Description,
+				Text:        dh.Instructions,
+				Kind:        "owner:demo-gap",
+				TargetType:  "spec",
+				TargetID:    fmt.Sprintf("%d", sp.ID),
+				Priority:    32,
+				Persona:     "owner",
 			})
 		}
 
@@ -340,7 +375,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 
 		openItems, _ := h.Q.ListOpenMaturityItems(ctx, projectID)
 		for _, it := range openItems {
-			text := workflowhints.MaturityTextForKind(it.Kind, it.Title, it.Description)
+			mh := workflowhints.MaturityTextForKind(it.Kind, it.Title, it.Description)
 			targetType := it.TargetType
 			if targetType == "" {
 				targetType = "project"
@@ -354,13 +389,15 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				persona = "tech"
 			}
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("maturity-%d", it.ID),
-				Text:       text,
-				Kind:       it.Kind,
-				TargetType: targetType,
-				TargetID:   targetID,
-				Priority:   it.PriorityHint,
-				Persona:    persona,
+				Key:         fmt.Sprintf("maturity-%d", it.ID),
+				Title:       mh.Title,
+				Description: mh.Description,
+				Text:        mh.Instructions,
+				Kind:        it.Kind,
+				TargetType:  targetType,
+				TargetID:    targetID,
+				Priority:    it.PriorityHint,
+				Persona:     persona,
 			})
 		}
 	}
@@ -373,15 +410,18 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 		if len(blockers) == 0 {
 			// Tracker has no children — needs decomposition
+			dth := workflowhints.DecomposeTrackerText(iss.ID)
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("decompose-tracker-%s", iss.ID),
-				Text:       workflowhints.DecomposeTrackerText(iss.ID),
-				Kind:       "owner:decompose-tracker",
-				TargetType: "issue",
-				TargetID:   iss.ID,
-				IssueRef:   iss.ID,
-				Priority:   11,
-				Persona:    "owner",
+				Key:         fmt.Sprintf("decompose-tracker-%s", iss.ID),
+				Title:       dth.Title,
+				Description: dth.Description,
+				Text:        dth.Instructions,
+				Kind:        "owner:decompose-tracker",
+				TargetType:  "issue",
+				TargetID:    iss.ID,
+				IssueRef:    iss.ID,
+				Priority:    11,
+				Persona:     "owner",
 			})
 			continue
 		}
@@ -395,15 +435,18 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		if !allClosed {
 			continue
 		}
+		cth := workflowhints.CloseTrackerText(iss.ID)
 		candidates = append(candidates, soloCandidate{
-			Key:        fmt.Sprintf("close-tracker-%s", iss.ID),
-			Text:       workflowhints.CloseTrackerText(iss.ID),
-			Kind:       "close:tracker",
-			TargetType: "issue",
-			TargetID:   iss.ID,
-			IssueRef:   iss.ID,
-			Priority:   36,
-			Persona:    "owner",
+			Key:         fmt.Sprintf("close-tracker-%s", iss.ID),
+			Title:       cth.Title,
+			Description: cth.Description,
+			Text:        cth.Instructions,
+			Kind:        "close:tracker",
+			TargetType:  "issue",
+			TargetID:    iss.ID,
+			IssueRef:    iss.ID,
+			Priority:    36,
+			Persona:     "owner",
 		})
 	}
 
@@ -424,26 +467,32 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 		if !hasPending {
 			if len(tasks) > 0 && allDone {
+				clh := workflowhints.ClosableIssueText(iss.ID, iss.Title)
 				candidates = append(candidates, soloCandidate{
-					Key:        fmt.Sprintf("closable-%s", iss.ID),
-					Text:       workflowhints.ClosableIssueText(iss.ID, iss.Title),
-					Kind:       "closable",
-					TargetType: "issue",
-					TargetID:   iss.ID,
-					IssueRef:   iss.ID,
-					Priority:   35,
-					Persona:    "dev",
+					Key:         fmt.Sprintf("closable-%s", iss.ID),
+					Title:       clh.Title,
+					Description: clh.Description,
+					Text:        clh.Instructions,
+					Kind:        "closable",
+					TargetType:  "issue",
+					TargetID:    iss.ID,
+					IssueRef:    iss.ID,
+					Priority:    35,
+					Persona:     "dev",
 				})
 			} else if len(tasks) == 0 {
+				dih := workflowhints.DecomposeIssueText(iss.ID, iss.Title)
 				candidates = append(candidates, soloCandidate{
-					Key:        fmt.Sprintf("add-%s", iss.ID),
-					Text:       workflowhints.DecomposeIssueText(iss.ID, iss.Title),
-					Kind:       "add",
-					TargetType: "issue",
-					TargetID:   iss.ID,
-					IssueRef:   iss.ID,
-					Priority:   38,
-					Persona:    "dev",
+					Key:         fmt.Sprintf("add-%s", iss.ID),
+					Title:       dih.Title,
+					Description: dih.Description,
+					Text:        dih.Instructions,
+					Kind:        "add",
+					TargetType:  "issue",
+					TargetID:    iss.ID,
+					IssueRef:    iss.ID,
+					Priority:    38,
+					Persona:     "dev",
 				})
 			}
 		}
@@ -454,15 +503,18 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		tasks, _ := h.Q.ListTasksByIssue(ctx, db.ListTasksByIssueParams{ProjectID: projectID, Issue: iss.ID})
 		for _, t := range tasks {
 			if t.Status == "ready" {
+				dth := workflowhints.DevTaskText(t.ID, t.Title, iss.ID)
 				candidates = append(candidates, soloCandidate{
-					Key:        fmt.Sprintf("dev-%s", t.ID),
-					Text:       workflowhints.DevTaskText(t.ID, t.Title, iss.ID),
-					Kind:       "dev",
-					TargetType: "task",
-					TargetID:   t.ID,
-					IssueRef:   iss.ID,
-					Priority:   40,
-					Persona:    "dev",
+					Key:         fmt.Sprintf("dev-%s", t.ID),
+					Title:       dth.Title,
+					Description: dth.Description,
+					Text:        dth.Instructions,
+					Kind:        "dev",
+					TargetType:  "task",
+					TargetID:    t.ID,
+					IssueRef:    iss.ID,
+					Priority:    40,
+					Persona:     "dev",
 				})
 			}
 		}
@@ -472,14 +524,17 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	if issueFilter == "" {
 		orphans, _ := h.Q.ListOrphanReadyTasks(ctx, projectID)
 		for _, t := range orphans {
+			oth := workflowhints.OrphanTaskText(t.ID, t.Title)
 			candidates = append(candidates, soloCandidate{
-				Key:        fmt.Sprintf("orphan-%s", t.ID),
-				Text:       workflowhints.OrphanTaskText(t.ID, t.Title),
-				Kind:       "owner:orphan-task",
-				TargetType: "task",
-				TargetID:   t.ID,
-				Priority:   42,
-				Persona:    "owner",
+				Key:         fmt.Sprintf("orphan-%s", t.ID),
+				Title:       oth.Title,
+				Description: oth.Description,
+				Text:        oth.Instructions,
+				Kind:        "owner:orphan-task",
+				TargetType:  "task",
+				TargetID:    t.ID,
+				Priority:    42,
+				Persona:     "owner",
 			})
 		}
 	}
@@ -489,6 +544,8 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 
 type SoloQueueItem struct {
 	Key             string `json:"key"`
+	Title           string `json:"title,omitempty"`
+	Description     string `json:"description,omitempty"`
 	Text            string `json:"text"`
 	Kind            string `json:"kind"`
 	TargetType      string `json:"target_type"`
@@ -649,7 +706,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			for _, c := range proposed {
 				proposedKeys[c.Key] = true
 				item := SoloQueueItem{
-					Key: c.Key, Text: c.Text, Kind: c.Kind,
+					Key: c.Key, Title: c.Title, Description: c.Description, Text: c.Text, Kind: c.Kind,
 					TargetType: c.TargetType, TargetID: c.TargetID,
 					IssueRef: c.IssueRef, Priority: c.Priority,
 					Blocked: c.Blocked, Persona: c.Persona, Status: "open",
@@ -693,17 +750,19 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			for _, item := range in.Body.Items {
 				keys = append(keys, item.Key)
 				_, err := h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
-					ProjectID:  p.ID,
-					Text:       item.Text,
-					Key:        item.Key,
-					Persona:    item.Persona,
-					Priority:   item.Priority,
-					Status:     "open",
-					TargetType: item.TargetType,
-					TargetID:   item.TargetID,
-					Kind:       item.Kind,
-					IssueRef:   item.IssueRef,
-					Blocked:    item.Blocked,
+					ProjectID:   p.ID,
+					Title:       item.Title,
+					Description: item.Description,
+					Text:        item.Text,
+					Key:         item.Key,
+					Persona:     item.Persona,
+					Priority:    item.Priority,
+					Status:      "open",
+					TargetType:  item.TargetType,
+					TargetID:    item.TargetID,
+					Kind:        item.Kind,
+					IssueRef:    item.IssueRef,
+					Blocked:     item.Blocked,
 				})
 				if err != nil {
 					return nil, apiErr(500, err.Error())
@@ -756,17 +815,19 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			for _, c := range proposed {
 				keys = append(keys, c.Key)
 				_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
-					ProjectID:  p.ID,
-					Text:       c.Text,
-					Key:        c.Key,
-					Persona:    c.Persona,
-					Priority:   c.Priority,
-					Status:     "open",
-					TargetType: c.TargetType,
-					TargetID:   c.TargetID,
-					Kind:       c.Kind,
-					IssueRef:   c.IssueRef,
-					Blocked:    c.Blocked,
+					ProjectID:   p.ID,
+					Title:       c.Title,
+					Description: c.Description,
+					Text:        c.Text,
+					Key:         c.Key,
+					Persona:     c.Persona,
+					Priority:    c.Priority,
+					Status:      "open",
+					TargetType:  c.TargetType,
+					TargetID:    c.TargetID,
+					Kind:        c.Kind,
+					IssueRef:    c.IssueRef,
+					Blocked:     c.Blocked,
 				})
 			}
 			if len(keys) > 0 {
