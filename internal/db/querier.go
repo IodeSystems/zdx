@@ -142,6 +142,9 @@ type Querier interface {
 	// Marks all unread response threads as read for the user by upserting comment reads.
 	DismissAllUnreadResponsesForUser(ctx context.Context, arg DismissAllUnreadResponsesForUserParams) error
 	FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) ([]FlagStaleTasksRow, error)
+	// Flip snoozed items whose snooze_until has passed back to 'open' so they
+	// resurface in the solo queue.
+	FlipExpiredMaturityItems(ctx context.Context, projectID int32) error
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
 	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
@@ -283,13 +286,9 @@ type Querier interface {
 	ListFeatureMultipliers(ctx context.Context, featureID int32) ([]ListFeatureMultipliersRow, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ListFeaturesRow, error)
 	ListFeaturesByGoal(ctx context.Context, goalID pgtype.Int4) ([]ListFeaturesByGoalRow, error)
-	// Multiplier features missing baseline/target/graph.
-	ListFeaturesNeedingInstrumentation(ctx context.Context, projectID int32) ([]ListFeaturesNeedingInstrumentationRow, error)
 	ListFocusFeatures(ctx context.Context, focusID int32) ([]ListFocusFeaturesRow, error)
 	ListFocuses(ctx context.Context, projectID int32) ([]ListFocusesRow, error)
 	ListGoalIssues(ctx context.Context, goalID int32) ([]string, error)
-	// Active goals with no metric defined, created more than @age_days ago.
-	ListGoalsNeedingMetrics(ctx context.Context, arg ListGoalsNeedingMetricsParams) ([]ListGoalsNeedingMetricsRow, error)
 	ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error)
 	ListInvites(ctx context.Context) ([]ZdxInvite, error)
 	ListIssueBlockers(ctx context.Context, issueID string) ([]string, error)
@@ -316,10 +315,9 @@ type Querier interface {
 	// Open issues whose duplicate_of or link_of targets the given issue. Used to
 	// cascade-close narrow-slice links (and full duplicates) when the target closes.
 	ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIssuesParams) ([]ZdxIssue, error)
+	ListOpenMaturityItems(ctx context.Context, projectID int32) ([]ZdxMaturityItem, error)
 	// Ready tasks with no parent issue — invisible to the normal solo queue.
 	ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]ListOrphanReadyTasksRow, error)
-	// Features with more than @threshold non-deferred specs (decomposition signal).
-	ListOverspeccedFeatures(ctx context.Context, arg ListOverspeccedFeaturesParams) ([]ListOverspeccedFeaturesRow, error)
 	ListPatterns(ctx context.Context, projectID int32) ([]ZdxPattern, error)
 	ListPatternsPaginated(ctx context.Context, arg ListPatternsPaginatedParams) ([]ZdxPattern, error)
 	ListPendingBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
@@ -389,8 +387,6 @@ type Querier interface {
 	ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error)
 	ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error)
 	ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
-	// Features with no goal and no parent (orphans needing attribution).
-	ListUnattributedFeatures(ctx context.Context, projectID int32) ([]ListUnattributedFeaturesRow, error)
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
 	// Returns distinct threads where the user has commented and others have replied unread.
 	ListUnreadResponseThreadsForUser(ctx context.Context, arg ListUnreadResponseThreadsForUserParams) ([]ListUnreadResponseThreadsForUserRow, error)

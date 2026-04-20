@@ -11,6 +11,24 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const flipExpiredMaturityItems = `-- name: FlipExpiredMaturityItems :exec
+UPDATE zdx_maturity_items
+SET status = 'open',
+    snooze_until = NULL,
+    updated_at = now()
+WHERE project_id = $1
+  AND status = 'snoozed'
+  AND snooze_until IS NOT NULL
+  AND snooze_until < now()
+`
+
+// Flip snoozed items whose snooze_until has passed back to 'open' so they
+// resurface in the solo queue.
+func (q *Queries) FlipExpiredMaturityItems(ctx context.Context, projectID int32) error {
+	_, err := q.db.Exec(ctx, flipExpiredMaturityItems, projectID)
+	return err
+}
+
 const getMaturityItem = `-- name: GetMaturityItem :one
 SELECT id, project_id, kind, target_type, target_id, title, description,
        status, justification, snooze_until, source_question, priority_hint,
@@ -58,6 +76,50 @@ type ListMaturityItemsParams struct {
 
 func (q *Queries) ListMaturityItems(ctx context.Context, arg ListMaturityItemsParams) ([]ZdxMaturityItem, error) {
 	rows, err := q.db.Query(ctx, listMaturityItems, arg.ProjectID, arg.StatusFilter)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxMaturityItem
+	for rows.Next() {
+		var i ZdxMaturityItem
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Kind,
+			&i.TargetType,
+			&i.TargetID,
+			&i.Title,
+			&i.Description,
+			&i.Status,
+			&i.Justification,
+			&i.SnoozeUntil,
+			&i.SourceQuestion,
+			&i.PriorityHint,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listOpenMaturityItems = `-- name: ListOpenMaturityItems :many
+SELECT id, project_id, kind, target_type, target_id, title, description,
+       status, justification, snooze_until, source_question, priority_hint,
+       created_at, updated_at
+FROM zdx_maturity_items
+WHERE project_id = $1 AND status = 'open'
+ORDER BY priority_hint, created_at, id
+`
+
+func (q *Queries) ListOpenMaturityItems(ctx context.Context, projectID int32) ([]ZdxMaturityItem, error) {
+	rows, err := q.db.Query(ctx, listOpenMaturityItems, projectID)
 	if err != nil {
 		return nil, err
 	}

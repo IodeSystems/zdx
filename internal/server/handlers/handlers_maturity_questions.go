@@ -119,8 +119,8 @@ func (h *Handler) registerMaturityQuestionRoutes(api huma.API) {
 			}
 		}) (*struct {
 			Body struct {
-				Answer MaturityAnswer  `json:"answer"`
-				Items  []MaturityItem  `json:"items"`
+				Answer MaturityAnswer `json:"answer"`
+				Items  []MaturityItem `json:"items"`
 			}
 		}, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)

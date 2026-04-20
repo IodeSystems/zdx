@@ -4,12 +4,14 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/maturity"
 )
 
 type soloCandidate struct {
@@ -332,81 +334,42 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			})
 		}
 
-		// ── Maturity nudges ──────────────────────────────────────────────
-
-		// Goals without metrics (active > 14 days)
-		unquantifiedGoals, _ := h.Q.ListGoalsNeedingMetrics(ctx, db.ListGoalsNeedingMetricsParams{
-			ProjectID: projectID, AgeDays: 14,
-		})
-		for _, g := range unquantifiedGoals {
-			candidates = append(candidates, soloCandidate{
-				Key: fmt.Sprintf("quantify-goal-%d", g.ID),
-				Text: fmt.Sprintf("Quantify goal %d: %s — add metric_name and metric_unit. "+
-					"Investigate the codebase for what this goal measures, then either: "+
-					"(a) `dx goal set %d --metric-name=<name> --metric-unit=<unit>` with a justification, or "+
-					"(b) file a blocker question if the metric requires a product decision.",
-					g.ID, g.Title, g.ID),
-				Kind:       "owner:quantify-goal",
-				TargetType: "goal",
-				TargetID:   fmt.Sprintf("%d", g.ID),
-				Priority:   33,
-				Persona:    "owner",
-			})
+		// ── Maturity nudges (stamped items) ─────────────────────────────
+		// Source of truth is zdx_maturity_items, populated by the
+		// questionnaire engine (IS-358). Ensure baseline items exist on
+		// first contact for pre-questionnaire projects, then surface every
+		// open item — including snoozed items whose snooze_until has passed.
+		if hasAnswers, err := maturity.HasAnyAnswers(ctx, h.Q, projectID); err == nil && !hasAnswers {
+			_, _ = maturity.StampBaseline(ctx, h.Q, projectID)
 		}
+		_ = h.Q.FlipExpiredMaturityItems(ctx, projectID)
 
-		// Features with no goal and no parent (unattributed)
-		unattributed, _ := h.Q.ListUnattributedFeatures(ctx, projectID)
-		for _, f := range unattributed {
+		openItems, _ := h.Q.ListOpenMaturityItems(ctx, projectID)
+		for _, it := range openItems {
+			text := it.Title
+			if it.Description != "" {
+				text = it.Title + " — " + it.Description
+			}
+			targetType := it.TargetType
+			if targetType == "" {
+				targetType = "project"
+			}
+			targetID := ""
+			if it.TargetID.Valid {
+				targetID = fmt.Sprintf("%d", it.TargetID.Int32)
+			}
+			persona := "owner"
+			if strings.HasPrefix(it.Kind, "tech:") {
+				persona = "tech"
+			}
 			candidates = append(candidates, soloCandidate{
-				Key: fmt.Sprintf("attribute-feature-%d", f.ID),
-				Text: fmt.Sprintf("Attribute feature %q to a goal or parent feature. "+
-					"Run `dx feature show %s` and `dx goal list` to understand the feature and available goals, then either: "+
-					"(a) `dx feature set %s --goal <G-N>` or `--parent <parent-feature>` with a justification, or "+
-					"(b) file a blocker question if attribution requires a product decision.",
-					f.Name, f.Name, f.Name),
-				Kind:       "owner:attribute-feature",
-				TargetType: "feature",
-				TargetID:   f.Name,
-				Priority:   34,
-				Persona:    "owner",
-			})
-		}
-
-		// Multiplier features missing instrumentation
-		uninstrumented, _ := h.Q.ListFeaturesNeedingInstrumentation(ctx, projectID)
-		for _, f := range uninstrumented {
-			candidates = append(candidates, soloCandidate{
-				Key: fmt.Sprintf("instrument-feature-%d", f.ID),
-				Text: fmt.Sprintf("Instrument multiplier feature %q — needs baseline, target, and graph_url. "+
-					"Investigate the feature's codebase to determine what to measure, then either: "+
-					"(a) add instrumentation code and set baseline/target/graph_url via `dx feature set %s --baseline=<N> --target=<N> --graph-url=<url>`, or "+
-					"(b) file an issue for missing observability infrastructure if instrumentation requires new plumbing.",
-					f.Name, f.Name),
-				Kind:       "tech:instrument-feature",
-				TargetType: "feature",
-				TargetID:   f.Name,
-				Priority:   34,
-				Persona:    "tech",
-			})
-		}
-
-		// Over-specced features (decomposition signal)
-		overspecced, _ := h.Q.ListOverspeccedFeatures(ctx, db.ListOverspeccedFeaturesParams{
-			ProjectID: projectID, Threshold: 8,
-		})
-		for _, f := range overspecced {
-			candidates = append(candidates, soloCandidate{
-				Key: fmt.Sprintf("decompose-feature-%d", f.ID),
-				Text: fmt.Sprintf("Decompose feature %q — %d specs exceeds threshold (8). "+
-					"Run `dx feature show %s` to review specs, then create child features via "+
-					"`dx feature add <child> --parent %s --desc=...` grouping related specs. "+
-					"File a blocker question if the decomposition boundaries require a product decision.",
-					f.Name, f.SpecCount, f.Name, f.Name),
-				Kind:       "owner:decompose-feature",
-				TargetType: "feature",
-				TargetID:   f.Name,
-				Priority:   35,
-				Persona:    "owner",
+				Key:        fmt.Sprintf("maturity-%d", it.ID),
+				Text:       text,
+				Kind:       it.Kind,
+				TargetType: targetType,
+				TargetID:   targetID,
+				Priority:   it.PriorityHint,
+				Persona:    persona,
 			})
 		}
 	}

@@ -7,6 +7,26 @@ WHERE project_id = $1
   AND (sqlc.arg(status_filter)::text = '' OR status = sqlc.arg(status_filter)::text)
 ORDER BY priority_hint, created_at, id;
 
+-- name: ListOpenMaturityItems :many
+SELECT id, project_id, kind, target_type, target_id, title, description,
+       status, justification, snooze_until, source_question, priority_hint,
+       created_at, updated_at
+FROM zdx_maturity_items
+WHERE project_id = $1 AND status = 'open'
+ORDER BY priority_hint, created_at, id;
+
+-- name: FlipExpiredMaturityItems :exec
+-- Flip snoozed items whose snooze_until has passed back to 'open' so they
+-- resurface in the solo queue.
+UPDATE zdx_maturity_items
+SET status = 'open',
+    snooze_until = NULL,
+    updated_at = now()
+WHERE project_id = $1
+  AND status = 'snoozed'
+  AND snooze_until IS NOT NULL
+  AND snooze_until < now();
+
 -- name: GetMaturityItem :one
 SELECT id, project_id, kind, target_type, target_id, title, description,
        status, justification, snooze_until, source_question, priority_hint,

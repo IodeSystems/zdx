@@ -61,25 +61,6 @@ SELECT id, project_id, name, description, kind, goal_id, component
 FROM zdx_features WHERE parent_feature_id = $1
 ORDER BY name;
 
--- name: ListUnattributedFeatures :many
--- Features with no goal and no parent (orphans needing attribution).
-SELECT id, project_id, name, description, kind, component
-FROM zdx_features
-WHERE project_id = $1
-  AND goal_id IS NULL
-  AND parent_feature_id IS NULL
-ORDER BY name;
-
--- name: ListFeaturesNeedingInstrumentation :many
--- Multiplier features missing baseline/target/graph.
-SELECT id, project_id, name, description, component,
-       metric_name, metric_unit, baseline_value, target_value, graph_url
-FROM zdx_features
-WHERE project_id = $1
-  AND kind = 'multiplier'
-  AND (baseline_value = '' OR target_value = '' OR graph_url = '')
-ORDER BY name;
-
 -- name: AddFeatureMultiplier :exec
 INSERT INTO zdx_feature_multipliers (feature_id, multiplies_feature_id)
 VALUES ($1, $2) ON CONFLICT DO NOTHING;
@@ -176,13 +157,3 @@ ORDER BY last_reviewed_at NULLS FIRST, name;
 -- name: AddSpec :one
 INSERT INTO zdx_specs (feature_id, description, kind, concern_type) VALUES ($1, $2, $3, $4)
 RETURNING id, feature_id, description, kind, concern_type;
-
--- name: ListOverspeccedFeatures :many
--- Features with more than @threshold non-deferred specs (decomposition signal).
-SELECT f.id, f.project_id, f.name, f.description, f.component, count(s.id)::int AS spec_count
-FROM zdx_features f
-JOIN zdx_specs s ON s.feature_id = f.id AND s.deferred = false
-WHERE f.project_id = @project_id
-GROUP BY f.id
-HAVING count(s.id) > @threshold
-ORDER BY count(s.id) DESC;

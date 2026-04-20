@@ -10,6 +10,7 @@ schema/next.sql
 schema/compat-result.txt
 .zdx/credentials
 .zdx/ingest-token
+data/
 .zdx/context
 .zdx/smoke.json
 .zdx/test-index.json

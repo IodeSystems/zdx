@@ -460,61 +460,6 @@ func (q *Queries) ListFeaturesByGoal(ctx context.Context, goalID pgtype.Int4) ([
 	return items, nil
 }
 
-const listFeaturesNeedingInstrumentation = `-- name: ListFeaturesNeedingInstrumentation :many
-SELECT id, project_id, name, description, component,
-       metric_name, metric_unit, baseline_value, target_value, graph_url
-FROM zdx_features
-WHERE project_id = $1
-  AND kind = 'multiplier'
-  AND (baseline_value = '' OR target_value = '' OR graph_url = '')
-ORDER BY name
-`
-
-type ListFeaturesNeedingInstrumentationRow struct {
-	ID            int32  `db:"id" json:"id"`
-	ProjectID     int32  `db:"project_id" json:"project_id"`
-	Name          string `db:"name" json:"name"`
-	Description   string `db:"description" json:"description"`
-	Component     string `db:"component" json:"component"`
-	MetricName    string `db:"metric_name" json:"metric_name"`
-	MetricUnit    string `db:"metric_unit" json:"metric_unit"`
-	BaselineValue string `db:"baseline_value" json:"baseline_value"`
-	TargetValue   string `db:"target_value" json:"target_value"`
-	GraphUrl      string `db:"graph_url" json:"graph_url"`
-}
-
-// Multiplier features missing baseline/target/graph.
-func (q *Queries) ListFeaturesNeedingInstrumentation(ctx context.Context, projectID int32) ([]ListFeaturesNeedingInstrumentationRow, error) {
-	rows, err := q.db.Query(ctx, listFeaturesNeedingInstrumentation, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListFeaturesNeedingInstrumentationRow
-	for rows.Next() {
-		var i ListFeaturesNeedingInstrumentationRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Name,
-			&i.Description,
-			&i.Component,
-			&i.MetricName,
-			&i.MetricUnit,
-			&i.BaselineValue,
-			&i.TargetValue,
-			&i.GraphUrl,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listIssueSpecs = `-- name: ListIssueSpecs :many
 SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type, s.deferred
 FROM zdx_spec_issues si
@@ -548,58 +493,6 @@ func (q *Queries) ListIssueSpecs(ctx context.Context, issueID string) ([]ListIss
 			&i.Kind,
 			&i.ConcernType,
 			&i.Deferred,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listOverspeccedFeatures = `-- name: ListOverspeccedFeatures :many
-SELECT f.id, f.project_id, f.name, f.description, f.component, count(s.id)::int AS spec_count
-FROM zdx_features f
-JOIN zdx_specs s ON s.feature_id = f.id AND s.deferred = false
-WHERE f.project_id = $1
-GROUP BY f.id
-HAVING count(s.id) > $2
-ORDER BY count(s.id) DESC
-`
-
-type ListOverspeccedFeaturesParams struct {
-	ProjectID int32 `db:"project_id" json:"project_id"`
-	Threshold int32 `db:"threshold" json:"threshold"`
-}
-
-type ListOverspeccedFeaturesRow struct {
-	ID          int32  `db:"id" json:"id"`
-	ProjectID   int32  `db:"project_id" json:"project_id"`
-	Name        string `db:"name" json:"name"`
-	Description string `db:"description" json:"description"`
-	Component   string `db:"component" json:"component"`
-	SpecCount   int32  `db:"spec_count" json:"spec_count"`
-}
-
-// Features with more than @threshold non-deferred specs (decomposition signal).
-func (q *Queries) ListOverspeccedFeatures(ctx context.Context, arg ListOverspeccedFeaturesParams) ([]ListOverspeccedFeaturesRow, error) {
-	rows, err := q.db.Query(ctx, listOverspeccedFeatures, arg.ProjectID, arg.Threshold)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListOverspeccedFeaturesRow
-	for rows.Next() {
-		var i ListOverspeccedFeaturesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Name,
-			&i.Description,
-			&i.Component,
-			&i.SpecCount,
 		); err != nil {
 			return nil, err
 		}
@@ -795,52 +688,6 @@ func (q *Queries) ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesPa
 			&i.GoalID,
 			&i.ParentFeatureID,
 			&i.LastReviewedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listUnattributedFeatures = `-- name: ListUnattributedFeatures :many
-SELECT id, project_id, name, description, kind, component
-FROM zdx_features
-WHERE project_id = $1
-  AND goal_id IS NULL
-  AND parent_feature_id IS NULL
-ORDER BY name
-`
-
-type ListUnattributedFeaturesRow struct {
-	ID          int32  `db:"id" json:"id"`
-	ProjectID   int32  `db:"project_id" json:"project_id"`
-	Name        string `db:"name" json:"name"`
-	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	Component   string `db:"component" json:"component"`
-}
-
-// Features with no goal and no parent (orphans needing attribution).
-func (q *Queries) ListUnattributedFeatures(ctx context.Context, projectID int32) ([]ListUnattributedFeaturesRow, error) {
-	rows, err := q.db.Query(ctx, listUnattributedFeatures, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListUnattributedFeaturesRow
-	for rows.Next() {
-		var i ListUnattributedFeaturesRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Name,
-			&i.Description,
-			&i.Kind,
-			&i.Component,
 		); err != nil {
 			return nil, err
 		}
