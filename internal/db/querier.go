@@ -21,6 +21,7 @@ type Querier interface {
 	AddResolutionCommit(ctx context.Context, arg AddResolutionCommitParams) error
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, error)
+	AddSpecDeferral(ctx context.Context, arg AddSpecDeferralParams) error
 	AnswerBlockerQuestion(ctx context.Context, arg AnswerBlockerQuestionParams) error
 	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
@@ -234,6 +235,7 @@ type Querier interface {
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
+	IsSpecDeferred(ctx context.Context, specID int32) (bool, error)
 	JournalVelocity(ctx context.Context, projectID int32) (JournalVelocityRow, error)
 	LinkGoalIssue(ctx context.Context, arg LinkGoalIssueParams) error
 	LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) error
@@ -270,6 +272,7 @@ type Querier interface {
 	ListCountedPaginated(ctx context.Context, arg ListCountedPaginatedParams) ([]ListCountedPaginatedRow, error)
 	ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error)
 	ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error)
+	ListDeferredSpecs(ctx context.Context) ([]ListDeferredSpecsRow, error)
 	// All demo artifacts in the project, joined to their owning test. file_id falls
 	// back to sibling rows sharing the same (demo_type, artifact_path) — see
 	// GetDemoByID for rationale.
@@ -354,12 +357,14 @@ type Querier interface {
 	ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ListRevisionsPaginatedRow, error)
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	ListSlowQueriesPaginated(ctx context.Context, arg ListSlowQueriesPaginatedParams) ([]ZdxSlowQuery, error)
+	ListSpecDeferrals(ctx context.Context, specID int32) ([]ListSpecDeferralsRow, error)
 	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
 	// ── Specs ────────────────────────────────────────────────────────────────────
 	ListSpecs(ctx context.Context, featureID int32) ([]ListSpecsRow, error)
 	// Used to show what breaks if a test is deleted.
 	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ListSpecsCoveredByTestRow, error)
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ListSpecsForProjectRow, error)
+	ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ListSpecsWithAllBlockersClosedRow, error)
 	// Specs linked to tests but where none of those tests have demo artifacts.
 	// Non-deferred specs only.
 	ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error)
@@ -432,6 +437,7 @@ type Querier interface {
 	RemoveFocusBlocker(ctx context.Context, arg RemoveFocusBlockerParams) error
 	RemoveFocusFeature(ctx context.Context, arg RemoveFocusFeatureParams) error
 	RemoveIssueBlock(ctx context.Context, arg RemoveIssueBlockParams) error
+	RemoveSpecDeferral(ctx context.Context, arg RemoveSpecDeferralParams) error
 	// Extend the lease on the active reservation for a task claimed by a specific agent.
 	RenewTaskReservation(ctx context.Context, arg RenewTaskReservationParams) error
 	// Extend the lease on a claimed todo (heartbeat).

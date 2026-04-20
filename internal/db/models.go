@@ -652,6 +652,13 @@ type ZdxSpecCodeRef struct {
 	CodeRefID int32 `db:"code_ref_id" json:"code_ref_id"`
 }
 
+type ZdxSpecDeferral struct {
+	SpecID    int32              `db:"spec_id" json:"spec_id"`
+	IssueID   string             `db:"issue_id" json:"issue_id"`
+	Note      string             `db:"note" json:"note"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxSpecIssue struct {
 	SpecID    int32              `db:"spec_id" json:"spec_id"`
 	IssueID   string             `db:"issue_id" json:"issue_id"`

@@ -1831,6 +1831,18 @@ CREATE TABLE public.zdx_spec_code_refs (
 
 
 --
+-- Name: zdx_spec_deferrals; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_spec_deferrals (
+    spec_id integer NOT NULL,
+    issue_id text NOT NULL,
+    note text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
 -- Name: zdx_spec_issues; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3347,6 +3359,14 @@ ALTER TABLE ONLY public.zdx_spec_code_refs
 
 
 --
+-- Name: zdx_spec_deferrals zdx_spec_deferrals_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_deferrals
+    ADD CONSTRAINT zdx_spec_deferrals_pkey PRIMARY KEY (spec_id, issue_id);
+
+
+--
 -- Name: zdx_spec_issues zdx_spec_issues_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3778,6 +3798,13 @@ CREATE INDEX idx_slow_queries_sql_hash ON public.zdx_slow_queries USING btree (s
 --
 
 CREATE INDEX idx_spec_code_refs_spec ON public.zdx_spec_code_refs USING btree (spec_id);
+
+
+--
+-- Name: idx_spec_deferrals_issue; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_spec_deferrals_issue ON public.zdx_spec_deferrals USING btree (issue_id);
 
 
 --
@@ -4652,6 +4679,22 @@ ALTER TABLE ONLY public.zdx_spec_code_refs
 
 ALTER TABLE ONLY public.zdx_spec_code_refs
     ADD CONSTRAINT zdx_spec_code_refs_spec_id_fkey FOREIGN KEY (spec_id) REFERENCES public.zdx_specs(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_spec_deferrals zdx_spec_deferrals_issue_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_deferrals
+    ADD CONSTRAINT zdx_spec_deferrals_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_spec_deferrals zdx_spec_deferrals_spec_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_spec_deferrals
+    ADD CONSTRAINT zdx_spec_deferrals_spec_id_fkey FOREIGN KEY (spec_id) REFERENCES public.zdx_specs(id) ON DELETE CASCADE;
 
 
 --
