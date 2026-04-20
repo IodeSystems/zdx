@@ -9,6 +9,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/agent"
 	"github.com/iodesystems/zdx-go/internal/cli/configcmd"
+	"github.com/iodesystems/zdx-go/internal/cli/credentialhelper"
 	"github.com/iodesystems/zdx-go/internal/cli/devtools"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/cli/project"
@@ -67,6 +68,7 @@ func main() {
 		servercmd.IntegrateCmd(),
 		servercmd.LoginCmd(),
 		configcmd.ConfigCmd(),
+		credentialhelper.CredentialHelperCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
