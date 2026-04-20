@@ -67,6 +67,11 @@ func EnsureRepo(dir, gitURL, branch string) error {
 		if out, err := cmd.CombinedOutput(); err != nil {
 			return fmt.Errorf("git fetch: %w\n%s", err, out)
 		}
+		cmd2 := exec.Command("git", "-C", dir, "reset", "--hard", "origin/"+branch)
+		cmd2.Env = GitEnv()
+		if out, err := cmd2.CombinedOutput(); err != nil {
+			return fmt.Errorf("git reset: %w\n%s", err, out)
+		}
 		return nil
 	}
 	if err := os.MkdirAll(filepath.Dir(dir), 0700); err != nil {
