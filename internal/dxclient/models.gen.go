@@ -3000,6 +3000,15 @@ type StaleCommentItem struct {
 	TargetType  string  `json:"target_type"`
 }
 
+// StartTaskRequest defines model for Start-taskRequest.
+type StartTaskRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string `json:"$schema,omitempty"`
+	ClaimedBy        *string `json:"claimed_by,omitempty"`
+	Id               int32   `json:"id"`
+	LeaseDurationMin *int32  `json:"lease_duration_min,omitempty"`
+}
+
 // SubmitMaturityAnswerRequest defines model for Submit-maturity-answerRequest.
 type SubmitMaturityAnswerRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4525,6 +4534,9 @@ type MarkTaskDoneJSONRequestBody = MarkTaskDoneRequest
 // MarkTaskReviewedJSONRequestBody defines body for MarkTaskReviewed for application/json ContentType.
 type MarkTaskReviewedJSONRequestBody = MarkTaskReviewedRequest
 
+// StartTaskJSONRequestBody defines body for StartTask for application/json ContentType.
+type StartTaskJSONRequestBody = StartTaskRequest
+
 // UnblockTaskJSONRequestBody defines body for UnblockTask for application/json ContentType.
 type UnblockTaskJSONRequestBody = UnblockTaskRequest
 
@@ -5540,6 +5552,11 @@ type ClientInterface interface {
 
 	// GetReviewData request
 	GetReviewData(ctx context.Context, params *GetReviewDataParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// StartTaskWithBody request with any body
+	StartTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	StartTask(ctx context.Context, body StartTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UnblockTaskWithBody request with any body
 	UnblockTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9493,6 +9510,30 @@ func (c *APIClient) MarkTaskReviewed(ctx context.Context, body MarkTaskReviewedJ
 
 func (c *APIClient) GetReviewData(ctx context.Context, params *GetReviewDataParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetReviewDataRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) StartTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartTaskRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) StartTask(ctx context.Context, body StartTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewStartTaskRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -21881,6 +21922,46 @@ func NewGetReviewDataRequest(server string, params *GetReviewDataParams) (*http.
 	return req, nil
 }
 
+// NewStartTaskRequest calls the generic StartTask builder with application/json body
+func NewStartTaskRequest(server string, body StartTaskJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewStartTaskRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewStartTaskRequestWithBody generates requests for StartTask with any type of body
+func NewStartTaskRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/todo/dev/start")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewUnblockTaskRequest calls the generic UnblockTask builder with application/json body
 func NewUnblockTaskRequest(server string, body UnblockTaskJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -25647,6 +25728,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetReviewDataWithResponse request
 	GetReviewDataWithResponse(ctx context.Context, params *GetReviewDataParams, reqEditors ...RequestEditorFn) (*ParsedGetReviewDataResponse, error)
+
+	// StartTaskWithBodyWithResponse request with any body
+	StartTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartTaskResponse, error)
+
+	StartTaskWithResponse(ctx context.Context, body StartTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*StartTaskResponse, error)
 
 	// UnblockTaskWithBodyWithResponse request with any body
 	UnblockTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UnblockTaskResponse, error)
@@ -30747,6 +30833,29 @@ func (r ParsedGetReviewDataResponse) StatusCode() int {
 	return 0
 }
 
+type StartTaskResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r StartTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r StartTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type UnblockTaskResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -34781,6 +34890,23 @@ func (c *ClientWithResponses) GetReviewDataWithResponse(ctx context.Context, par
 		return nil, err
 	}
 	return ParseParsedGetReviewDataResponse(rsp)
+}
+
+// StartTaskWithBodyWithResponse request with arbitrary body returning *StartTaskResponse
+func (c *ClientWithResponses) StartTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*StartTaskResponse, error) {
+	rsp, err := c.StartTaskWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartTaskResponse(rsp)
+}
+
+func (c *ClientWithResponses) StartTaskWithResponse(ctx context.Context, body StartTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*StartTaskResponse, error) {
+	rsp, err := c.StartTask(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseStartTaskResponse(rsp)
 }
 
 // UnblockTaskWithBodyWithResponse request with arbitrary body returning *UnblockTaskResponse
@@ -42508,6 +42634,39 @@ func ParseParsedGetReviewDataResponse(rsp *http.Response) (*ParsedGetReviewDataR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest GetReviewDataResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseStartTaskResponse parses an HTTP response from a StartTaskWithResponse call
+func ParseStartTaskResponse(rsp *http.Response) (*StartTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &StartTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

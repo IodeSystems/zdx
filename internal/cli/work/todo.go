@@ -1287,20 +1287,19 @@ func todoDevUndoneCmd() *cobra.Command {
 }
 
 func todoDevStartCmd() *cobra.Command {
-	var reason string
 	cmd := &cobra.Command{
 		Use:   "start <TK-N>",
-		Short: "Mark task in-progress",
+		Short: "Mark task in-progress and create a reservation",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := cli.MustClient()
-			resp, err := c.UpdateTaskStatusWithResponse(cmd.Context(), dxclient.UpdateTaskStatusRequest{
-				Id:     int32(n),
-				Status: "active",
-				Reason: &reason,
-			})
+			req := dxclient.StartTaskRequest{Id: int32(n)}
+			if alias := os.Getenv("DX_AUTHOR_ALIAS"); alias != "" {
+				req.ClaimedBy = &alias
+			}
+			resp, err := c.StartTaskWithResponse(cmd.Context(), req)
 			if err != nil {
 				return err
 			}
@@ -1311,7 +1310,6 @@ func todoDevStartCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&reason, "reason", "", "notes")
 	return cmd
 }
 

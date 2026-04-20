@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -245,6 +246,42 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			}{TaskItem: item, Similar: similar}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "start-task", Method: http.MethodPost, Path: "/api/dx/todo/dev/start"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID               int32  `json:"id"`
+				ClaimedBy        string `json:"claimed_by,omitempty"`
+				LeaseDurationMin int32  `json:"lease_duration_min,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			id := taskIDFromInt(in.Body.ID)
+			t, err := h.Q.GetTask(ctx, id)
+			if err != nil {
+				return nil, apiErr(404, "task not found")
+			}
+			prev := t.Status
+			if err := h.Q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
+				ID:     id,
+				Status: "active",
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			dur := in.Body.LeaseDurationMin
+			if dur <= 0 {
+				dur = 30
+			}
+			leaseExpiry := pgtype.Timestamptz{Time: time.Now().Add(time.Duration(dur) * time.Minute), Valid: true}
+			_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
+				ProjectID:      t.ProjectID,
+				TargetType:     "task",
+				TargetID:       id,
+				ClaimedBy:      in.Body.ClaimedBy,
+				LeaseExpiresAt: leaseExpiry,
+			})
+			h.recordTaskStatusChange(ctx, id, prev, "active", in.Body.ClaimedBy)
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "mark-task-done", Method: http.MethodPost, Path: "/api/dx/todo/dev/done"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -270,6 +307,13 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				TestRefs: newTestRefs,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+			if haveOld && oldTask.ProjectID != 0 {
+				_ = h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
+					ProjectID:  oldTask.ProjectID,
+					TargetType: "task",
+					TargetID:   id,
+				})
 			}
 			h.recordTaskStatusChange(ctx, id, prev, "done", "")
 			if haveOld {
