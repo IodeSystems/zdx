@@ -8,16 +8,19 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   TextField,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material'
 import { useCallback, useEffect, useState } from 'react'
 import {
   useIssue,
   useTasks,
   useCloseIssue,
   useReadyIssue,
+  useEditIssue,
   useSearchIssues,
   useIssueCodeRefs,
   useListFocuses,
@@ -73,8 +76,14 @@ export function IssueDetail({
   const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
   const closeIssue = useCloseIssue()
   const readyIssue = useReadyIssue()
+  const editIssue = useEditIssue()
   const router = useRouter()
   const [closeOpen, setCloseOpen] = useState(false)
+  const [editingTitle, setEditingTitle] = useState(false)
+  const [editTitle, setEditTitle] = useState('')
+  const [editingContext, setEditingContext] = useState(false)
+  const [editContext, setEditContext] = useState('')
+  const [previewContext, setPreviewContext] = useState(false)
   const [closeReason, setCloseReason] = useState('')
   const [duplicateOf, setDuplicateOf] = useState<IssueItem | null>(null)
   const [dupSearch, setDupSearch] = useState('')
@@ -137,9 +146,44 @@ export function IssueDetail({
         Back
       </Button>
 
-      <Typography variant="h5" sx={{ mb: 1 }}>
-        {issueId}: {displayTitle}
-      </Typography>
+      {editingTitle ? (
+        <TextField
+          fullWidth
+          size="small"
+          autoFocus
+          value={editTitle}
+          onChange={e => setEditTitle(e.target.value)}
+          onBlur={() => {
+            setEditingTitle(false)
+            if (editTitle.trim() && editTitle !== issue.title) {
+              editIssue.mutate({ slug, id: issue.id, title: editTitle.trim() })
+            }
+          }}
+          onKeyDown={e => {
+            if (e.key === 'Enter') { (e.target as HTMLInputElement).blur() }
+            if (e.key === 'Escape') { setEditingTitle(false); setEditTitle(issue.title ?? '') }
+          }}
+          sx={{ mb: 1 }}
+          slotProps={{ input: { style: { fontSize: '1.5rem', fontWeight: 400 } } }}
+        />
+      ) : (
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 1 }}>
+          <Typography
+            variant="h5"
+            sx={issue.status === 'wip' ? { cursor: 'pointer', '&:hover': { opacity: 0.7 } } : undefined}
+            onClick={issue.status === 'wip' ? () => { setEditTitle(issue.title ?? ''); setEditingTitle(true) } : undefined}
+          >
+            {issueId}: {displayTitle}
+          </Typography>
+          {issue.status !== 'wip' && ['open', 'triaged', 'in-progress'].includes(issue.status) && (
+            <Tooltip title="Edit title (live issue)">
+              <IconButton size="small" onClick={() => { setEditTitle(issue.title ?? ''); setEditingTitle(true) }}>
+                <EditIcon fontSize="inherit" />
+              </IconButton>
+            </Tooltip>
+          )}
+        </Box>
+      )}
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
         <Chip
@@ -306,14 +350,76 @@ export function IssueDetail({
         </DialogActions>
       </Dialog>
 
-      {issue.context && (
-        <Box sx={{ mb: 3 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+      <Box sx={{ mb: 3 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+          <Typography variant="subtitle2" color="text.secondary">
             Context
           </Typography>
-          <MarkdownContent slug={slug}>{issue.context}</MarkdownContent>
+          {!editingContext && issue.status !== 'wip' && ['open', 'triaged', 'in-progress'].includes(issue.status) && (
+            <Tooltip title="Edit context (live issue)">
+              <IconButton size="small" onClick={() => { setEditContext(issue.context ?? ''); setPreviewContext(false); setEditingContext(true) }}>
+                <EditIcon fontSize="inherit" />
+              </IconButton>
+            </Tooltip>
+          )}
         </Box>
-      )}
+        {editingContext ? (
+          <Box>
+            {editingContext && issue.status !== 'wip' && (
+              <Chip label="live issue" size="small" color="warning" variant="outlined" sx={{ mb: 1 }} />
+            )}
+            <Box sx={{ display: 'flex', gap: 1, mb: 1 }}>
+              <Button size="small" variant={previewContext ? 'outlined' : 'contained'} onClick={() => setPreviewContext(false)}>Edit</Button>
+              <Button size="small" variant={previewContext ? 'contained' : 'outlined'} onClick={() => setPreviewContext(true)}>Preview</Button>
+            </Box>
+            {previewContext ? (
+              <MarkdownContent slug={slug}>{editContext}</MarkdownContent>
+            ) : (
+              <TextField
+                fullWidth
+                multiline
+                minRows={6}
+                size="small"
+                autoFocus
+                value={editContext}
+                onChange={e => setEditContext(e.target.value)}
+              />
+            )}
+            <Box sx={{ display: 'flex', gap: 1, mt: 1 }}>
+              <Button
+                size="small"
+                variant="contained"
+                disabled={editIssue.isPending}
+                onClick={() => {
+                  editIssue.mutate({ slug, id: issue.id, context: editContext }, { onSuccess: () => setEditingContext(false) })
+                }}
+              >
+                Save
+              </Button>
+              <Button size="small" onClick={() => setEditingContext(false)}>Cancel</Button>
+            </Box>
+          </Box>
+        ) : (
+          issue.context ? (
+            <Box
+              sx={issue.status === 'wip' ? { cursor: 'pointer', '&:hover': { opacity: 0.7 } } : undefined}
+              onClick={issue.status === 'wip' ? () => { setEditContext(issue.context ?? ''); setPreviewContext(false); setEditingContext(true) } : undefined}
+            >
+              <MarkdownContent slug={slug}>{issue.context}</MarkdownContent>
+            </Box>
+          ) : (
+            issue.status === 'wip' && (
+              <Typography
+                color="text.disabled"
+                sx={{ cursor: 'pointer', fontStyle: 'italic' }}
+                onClick={() => { setEditContext(''); setPreviewContext(false); setEditingContext(true) }}
+              >
+                Click to add context…
+              </Typography>
+            )
+          )
+        )}
+      </Box>
 
       {linkedTasks.length > 0 && (
         <Box sx={{ mb: 3 }}>

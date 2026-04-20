@@ -260,6 +260,21 @@ export const useReadyIssue = () => {
   })
 }
 
+export const useEditIssue = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, components['schemas']['Edit-issueRequest']>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/todo/issue/edit', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['issues', v.slug] })
+      qc.invalidateQueries({ queryKey: ['issue'] })
+    },
+  })
+}
+
 // ── tasks ─────────────────────────────────────────────────────────────────────
 
 export const useTasks = (slug: string, opts?: { feature?: string; issue?: string; status?: string; search?: string }, limit?: number, offset?: number) =>
