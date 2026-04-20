@@ -83,6 +83,11 @@ func scaffoldZdx() error {
 	if err := os.MkdirAll(".zdx", 0755); err != nil {
 		return err
 	}
+	if _, err := os.Stat(".git"); err == nil {
+		if _, cfgErr := os.Stat(".zdx/config.yaml"); os.IsNotExist(cfgErr) {
+			fmt.Println("tip: this directory has a git repo — use Admin UI > Projects > Add Existing to bind it to zdx.")
+		}
+	}
 	if _, err := os.Stat(".zdx/config.yaml"); os.IsNotExist(err) {
 		const skeleton = `# zdx project configuration
 

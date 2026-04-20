@@ -13,12 +13,14 @@ import {
   Paper,
   Select,
   Stack,
+  Tab,
   Table,
   TableBody,
   TableCell,
   TableContainer,
   TableHead,
   TableRow,
+  Tabs,
   TextField,
   Typography,
   FormHelperText,
@@ -37,9 +39,14 @@ function slugify(input: string): string {
     .replace(/^-+|-+$/g, '')
 }
 
+function repoBasename(url: string): string {
+  return url.replace(/\.git$/, '').split('/').filter(Boolean).pop() ?? ''
+}
+
 function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => void }) {
   const create = useCreateProject()
   const navigate = useNavigate()
+  const [tab, setTab] = useState<0 | 1>(0)
   const [name, setName] = useState('')
   const [slug, setSlug] = useState('')
   const [slugTouched, setSlugTouched] = useState(false)
@@ -47,7 +54,10 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [upstreamURL, setUpstreamURL] = useState('')
   const [upstreamCredentials, setUpstreamCredentials] = useState('')
 
+  const isBindMode = tab === 1
+
   const reset = () => {
+    setTab(0)
     setName('')
     setSlug('')
     setSlugTouched(false)
@@ -68,8 +78,17 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
     if (!slugTouched) setSlug(slugify(v))
   }
 
+  const handleUpstreamURLChange = (v: string) => {
+    setUpstreamURL(v)
+    const base = repoBasename(v)
+    if (base) {
+      setName(base)
+      setSlug(slugify(base))
+    }
+  }
+
   const canSubmit =
-    name.trim() !== '' &&
+    (isBindMode ? upstreamURL.trim() !== '' : name.trim() !== '') &&
     slug.trim() !== '' &&
     classification !== '' &&
     !create.isPending
@@ -79,7 +98,7 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
     create.mutate(
       {
         slug: slug.trim(),
-        name: name.trim(),
+        name: (isBindMode && !name.trim() ? repoBasename(upstreamURL) : name).trim() || slug.trim(),
         classification,
         ...(upstreamURL.trim() ? { upstream_url: upstreamURL.trim() } : {}),
         ...(upstreamCredentials.trim() ? { upstream_credentials: upstreamCredentials.trim() } : {}),
@@ -96,18 +115,37 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
 
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-      <DialogTitle>Create Project</DialogTitle>
+      <DialogTitle sx={{ pb: 0 }}>
+        <Tabs value={tab} onChange={(_, v) => { setTab(v as 0 | 1); create.reset() }} sx={{ mb: 1 }}>
+          <Tab label="New Project" />
+          <Tab label="Add Existing" />
+        </Tabs>
+      </DialogTitle>
       <DialogContent>
         <Stack spacing={2} sx={{ mt: 1 }}>
-          <TextField
-            label="Name"
-            value={name}
-            onChange={(e) => handleNameChange(e.target.value)}
-            required
-            autoFocus
-            size="small"
-            fullWidth
-          />
+          {isBindMode ? (
+            <TextField
+              label="GitHub URL"
+              value={upstreamURL}
+              onChange={(e) => handleUpstreamURLChange(e.target.value)}
+              placeholder="https://github.com/owner/repo.git"
+              required
+              autoFocus
+              size="small"
+              fullWidth
+              helperText="Bind this repo to zdx and enable git proxy for srcless agents"
+            />
+          ) : (
+            <TextField
+              label="Name"
+              value={name}
+              onChange={(e) => handleNameChange(e.target.value)}
+              required
+              autoFocus
+              size="small"
+              fullWidth
+            />
+          )}
           <TextField
             label="Slug"
             value={slug}
@@ -134,15 +172,17 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
             </Select>
             <FormHelperText>Shapes the maturity vine and doctor checks</FormHelperText>
           </FormControl>
-          <TextField
-            label="GitHub URL (optional)"
-            value={upstreamURL}
-            onChange={(e) => setUpstreamURL(e.target.value)}
-            placeholder="https://github.com/owner/repo.git"
-            size="small"
-            fullWidth
-            helperText="Provide to enable git proxy for srcless agents"
-          />
+          {!isBindMode && (
+            <TextField
+              label="GitHub URL (optional)"
+              value={upstreamURL}
+              onChange={(e) => setUpstreamURL(e.target.value)}
+              placeholder="https://github.com/owner/repo.git"
+              size="small"
+              fullWidth
+              helperText="Provide to enable git proxy for srcless agents"
+            />
+          )}
           <TextField
             label="GitHub PAT (optional)"
             type="password"
@@ -163,7 +203,7 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
       <DialogActions>
         <Button onClick={handleClose} disabled={create.isPending}>Cancel</Button>
         <Button variant="contained" onClick={handleSubmit} disabled={!canSubmit}>
-          {create.isPending ? 'Creating…' : 'Create'}
+          {create.isPending ? (isBindMode ? 'Binding…' : 'Creating…') : (isBindMode ? 'Bind Repo' : 'Create')}
         </Button>
       </DialogActions>
     </Dialog>
