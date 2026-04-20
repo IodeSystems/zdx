@@ -7885,6 +7885,7 @@ export interface components {
             persona: string;
             /** Format: int32 */
             priority: number;
+            project_slug?: string;
             resolved_at?: string;
             status: string;
             suggested_action?: string;

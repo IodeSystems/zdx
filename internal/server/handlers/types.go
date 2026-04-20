@@ -148,6 +148,7 @@ type TodoItem struct {
 	TargetID        string `json:"target_id"`
 	Kind            string `json:"kind"`
 	IssueRef        string `json:"issue_ref"`
+	ProjectSlug     string `json:"project_slug,omitempty"`
 	Blocked         bool   `json:"blocked"`
 	Instructions    string `json:"instructions,omitempty"`
 	SuggestedAction string `json:"suggested_action,omitempty"`

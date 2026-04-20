@@ -3195,6 +3195,7 @@ type TodoItem struct {
 	Kind            string  `json:"kind"`
 	Persona         string  `json:"persona"`
 	Priority        int32   `json:"priority"`
+	ProjectSlug     *string `json:"project_slug,omitempty"`
 	ResolvedAt      *string `json:"resolved_at,omitempty"`
 	Status          string  `json:"status"`
 	SuggestedAction *string `json:"suggested_action,omitempty"`

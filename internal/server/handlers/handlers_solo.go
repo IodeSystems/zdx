@@ -799,6 +799,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				LeaseExpiresAt: row.LeaseExpiresAt,
 			})
 			item := toTodoItemFromClaim(row)
+			item.ProjectSlug = p.Slug
 			return &struct{ Body TodoItem }{Body: item}, nil
 		})
 

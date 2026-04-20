@@ -16,6 +16,7 @@ type TodoItem struct {
 	TargetType      string `json:"target_type"`
 	TargetID        string `json:"target_id"`
 	IssueRef        string `json:"issue_ref"`
+	ProjectSlug     string `json:"project_slug"`
 	SuggestedAction string `json:"suggested_action"`
 	ClaimedBy       string `json:"claimed_by"`
 }
@@ -52,6 +53,9 @@ func TestTodoTakeDelegatesToServerQueue(t *testing.T) {
 	}
 	if item.ClaimedBy != "test-agent" {
 		t.Errorf("expected claimed_by=test-agent, got %q", item.ClaimedBy)
+	}
+	if item.ProjectSlug != d.Slug {
+		t.Errorf("expected project_slug=%q, got %q", d.Slug, item.ProjectSlug)
 	}
 }
 
