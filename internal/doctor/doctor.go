@@ -77,10 +77,12 @@ type ProjectState struct {
 	StaleAgentSessionsMinutes int32 // threshold used for the check
 
 	// Files
-	HasReadme     bool
-	HasLicense    bool
-	HasChangelog  bool
-	HasBuildSteps bool
+	HasReadme        bool
+	HasLicense       bool
+	HasChangelog     bool
+	HasBuildSteps    bool
+	HasDevDockerfile bool
+	HasDevCompose    bool
 
 	// Code quality
 	RawAPICallsGo    int // raw URL callsites in Go CLI
@@ -135,6 +137,8 @@ func DetectLocal(state *ProjectState) {
 	state.HasReadme = fileExists("README.md")
 	state.HasLicense = fileExists("LICENSE") || fileExists("LICENSE.md") || fileExists("LICENSE.txt")
 	state.HasChangelog = fileExists("CHANGELOG.md") || fileExists("CHANGELOG")
+	state.HasDevDockerfile = fileExists("dev.Dockerfile") || fileExists("Dockerfile.dev")
+	state.HasDevCompose = fileExists("docker-compose.dev.yml") || fileExists("docker-compose.dev.yaml")
 
 	// Raw API callsites
 	state.RawAPICallsGo = countRawCallsites("internal/cli/", `c\.Get("/api/\|c\.Post("/api/\|c\.Delete("/api/`, "*.go")
@@ -341,6 +345,17 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "", nil, ""
 		}
 		return false, fmt.Sprintf("%d agent sessions open past %dm idle (server auto-closes as 'orphaned'; inspect the agents UI)", state.StaleAgentSessions, state.StaleAgentSessionsMinutes), nil, ""
+
+	case "dev_container_defined":
+		switch {
+		case state.HasDevDockerfile && state.HasDevCompose:
+			return true, "dev.Dockerfile + docker-compose.dev.yml found", nil, ""
+		case state.HasDevDockerfile:
+			return true, "dev.Dockerfile found (no docker-compose.dev.yml — single-process dev env)", nil, ""
+		default:
+			return false, "no dev container files found", nil,
+				"Run `dx doctor --fix` to scaffold dev.Dockerfile and docker-compose.dev.yml for reproducible, isolated dev environments and parallel agent runs"
+		}
 
 	// ── distribution / operations ──
 	case "has_readme":
