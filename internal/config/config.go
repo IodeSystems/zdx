@@ -184,6 +184,14 @@ type GlobalAgentConfig struct {
 	LeaseMinutes int    `yaml:"lease_minutes"`
 }
 
+// IsSrcless returns true when the agent is running outside any project
+// checkout: no .zdx/config.yaml in cwd but ~/.zdx/config.yaml exists.
+// Srcless agents resolve per-todo project slugs at claim time and clone
+// each project on demand (see internal/cli/agent/srcless.go).
+func IsSrcless() bool {
+	return Load() == nil && LoadGlobal() != nil
+}
+
 // LoadGlobal reads ~/.zdx/config.yaml. Returns nil if not found or unreadable.
 func LoadGlobal() *GlobalConfig {
 	home, err := os.UserHomeDir()

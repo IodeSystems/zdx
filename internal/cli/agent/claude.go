@@ -40,6 +40,8 @@ func agentClaudeCmd() *cobra.Command {
 			cfg := config.Load()
 			var rc remoteConfig
 			var agentCfg config.AgentConfig
+			var srcless bool
+			var workDir string
 			if cfg != nil {
 				rc = remoteConfig{
 					url:  cfg.RemoteURL(),
@@ -49,11 +51,13 @@ func agentClaudeCmd() *cobra.Command {
 				agentCfg = cfg.ResolvedAgent()
 			} else if globalCfg := config.LoadGlobal(); globalCfg != nil {
 				fmt.Fprintln(os.Stderr, "srcless mode: using ~/.zdx/config.yaml (no project config found)")
+				srcless = true
 				ga := globalCfg.ResolvedGlobalAgent()
+				workDir = ga.WorkDir
 				rc = remoteConfig{
 					url: globalCfg.Remote.URL,
 					key: config.GlobalRemoteAPIKey(),
-					// slug intentionally empty — per-project slug routing handled by IS-353
+					// slug intentionally empty — per-project slug comes from each claimed todo.
 				}
 				agentCfg = config.AgentConfig{
 					ClaudeModel:  ga.ClaudeModel,
@@ -65,7 +69,7 @@ func agentClaudeCmd() *cobra.Command {
 			sel := modelSelector{modelFlag: model, levelFlag: level, agentCfg: agentCfg}
 
 			if loop {
-				return runLoop(rc, alias, chrome, sel)
+				return runLoop(rc, alias, chrome, sel, srcless, workDir)
 			}
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
@@ -229,14 +233,42 @@ func claudeProjectDir() string {
 }
 
 // runLoop implements the --loop behavior: claim work, run sessions, repeat.
-func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) error {
+//
+// In srcless mode (no project config in cwd, global ~/.zdx/config.yaml present)
+// each claimed todo carries a project_slug; the loop ensures a persistent main
+// clone exists at ${workDir}/${slug}/main and creates a per-session worktree
+// to run the session in. workDir is empty when srcless is false.
+func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcless bool, workDir string) error {
+	// In srcless mode the cwd is the agent home; .zdx state lives next to the
+	// global config (the cwd has no project to attach state to).
 	stateFile := ".zdx/cache/claude-work-state"
 	logFile := ".zdx/logs/claude-work.log"
-	os.MkdirAll(".zdx/logs", 0o755)
-	os.MkdirAll(".zdx/cache", 0o755)
+	if srcless {
+		home, _ := os.UserHomeDir()
+		base := filepath.Join(home, ".zdx")
+		stateFile = filepath.Join(base, "cache", "claude-work-state")
+		logFile = filepath.Join(base, "logs", "claude-work.log")
+		os.MkdirAll(filepath.Join(base, "logs"), 0o755)
+		os.MkdirAll(filepath.Join(base, "cache"), 0o755)
+	} else {
+		os.MkdirAll(".zdx/logs", 0o755)
+		os.MkdirAll(".zdx/cache", 0o755)
+	}
 
 	cfg := config.Load()
-	agentCfg := cfg.ResolvedAgent()
+	var agentCfg config.AgentConfig
+	if cfg != nil {
+		agentCfg = cfg.ResolvedAgent()
+	} else if gc := config.LoadGlobal(); gc != nil {
+		ga := gc.ResolvedGlobalAgent()
+		agentCfg = config.AgentConfig{
+			ClaudeModel:  ga.ClaudeModel,
+			MaxWorktrees: ga.MaxWorktrees,
+			LeaseMinutes: ga.LeaseMinutes,
+		}
+	} else {
+		agentCfg = (&config.Config{}).ResolvedAgent()
+	}
 
 	logf, _ := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
 	defer logf.Close()
@@ -260,6 +292,19 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 	agentID := alias
 	if agentID == "" {
 		agentID = "agent-" + shortID()
+	}
+
+	// Capture the loop's original cwd so per-session chdir into a srcless
+	// worktree can be reverted before the next iteration.
+	homeCwd, _ := os.Getwd()
+
+	// Startup GC: drop srcless worktrees older than 2× lease (no live agent
+	// could legitimately still be using them).
+	if srcless && workDir != "" {
+		maxAge := time.Duration(2*agentCfg.LeaseMinutes) * time.Minute
+		if removed := gcStaleWorktrees(workDir, maxAge, log); len(removed) > 0 {
+			log("gc: pruned %d stale srcless worktree(s)", len(removed))
+		}
 	}
 
 	sessionIdx := 0
@@ -339,6 +384,39 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 			sid = uuid.New().String()
 			os.WriteFile(stateFile, []byte(issueID+"\n"+sid+"\n"), 0o644)
 			log("forking session: %s → %s", prevSID, sid)
+		}
+
+		// Srcless: clone (idempotent) + create per-session worktree, chdir
+		// in so runSession launches Claude rooted at the project. Any error
+		// here releases the claim and continues — better to skip a bad
+		// project than to wedge the loop.
+		var srclessProjectPath, srclessWorktreePath, srclessBranch string
+		if srcless && activeTodo != nil && activeTodo.ProjectSlug != "" {
+			pp, err := ensureProjectClone(workDir, activeTodo.ProjectSlug, rc.url)
+			if err != nil {
+				log("srcless: clone %s failed: %v", activeTodo.ProjectSlug, err)
+				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
+				os.Remove(stateFile)
+				continue
+			}
+			srclessProjectPath = pp
+			wt, br, err := createSessionWorktree(pp, workDir, activeTodo.ProjectSlug, sid)
+			if err != nil {
+				log("srcless: worktree for %s failed: %v", activeTodo.ProjectSlug, err)
+				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
+				os.Remove(stateFile)
+				continue
+			}
+			srclessWorktreePath = wt
+			srclessBranch = br
+			if err := os.Chdir(wt); err != nil {
+				log("srcless: chdir %s failed: %v", wt, err)
+				_ = removeSessionWorktree(pp, wt, br)
+				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
+				os.Remove(stateFile)
+				continue
+			}
+			log("srcless: project=%s worktree=%s branch=%s", activeTodo.ProjectSlug, wt, br)
 		}
 
 		log("──────────────────────────────────────────────")
@@ -461,6 +539,29 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector) erro
 		}
 
 		os.Remove(stateFile)
+
+		// Srcless cleanup: push the session branch (success only) and tear
+		// down the worktree before chdir'ing back. We always restore homeCwd
+		// so the next iteration's stateFile / GC reads are stable.
+		if srclessWorktreePath != "" {
+			if sessionErr == nil {
+				skipped, perr := pushSessionBranch(srclessWorktreePath, srclessBranch)
+				switch {
+				case perr != nil:
+					log("srcless: push %s failed: %v", srclessBranch, perr)
+				case skipped:
+					log("srcless: %s had no commits to push", srclessBranch)
+				default:
+					log("srcless: pushed %s", srclessBranch)
+				}
+			}
+			if rerr := removeSessionWorktree(srclessProjectPath, srclessWorktreePath, srclessBranch); rerr != nil {
+				log("srcless: worktree teardown: %v", rerr)
+			}
+			if homeCwd != "" {
+				_ = os.Chdir(homeCwd)
+			}
+		}
 
 		// Exponential backoff when the same todo keeps getting churn-guarded.
 		if consecutiveChurns >= 3 {
@@ -1048,15 +1149,16 @@ func extractIssueID(text string) string {
 // ── Todo claiming helpers ─────────────────────────────────────────────────
 
 type claimedTodo struct {
-	ID         int32  `json:"id"`
-	Text       string `json:"text"`
-	Key        string `json:"key"`
-	Kind       string `json:"kind"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	IssueRef   string `json:"issue_ref"`
-	Priority   int32  `json:"priority"`
-	ClaimedBy  string `json:"claimed_by"`
+	ID          int32  `json:"id"`
+	Text        string `json:"text"`
+	Key         string `json:"key"`
+	Kind        string `json:"kind"`
+	TargetType  string `json:"target_type"`
+	TargetID    string `json:"target_id"`
+	IssueRef    string `json:"issue_ref"`
+	Priority    int32  `json:"priority"`
+	ClaimedBy   string `json:"claimed_by"`
+	ProjectSlug string `json:"project_slug,omitempty"`
 }
 
 func claimNextTodo(rc remoteConfig, agentID string, leaseMinutes int32) (*claimedTodo, error) {
