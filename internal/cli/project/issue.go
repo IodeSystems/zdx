@@ -298,12 +298,25 @@ func issueCloseCmd() *cobra.Command {
 			if duplicateOf != "" && linkOf != "" {
 				return fmt.Errorf("--duplicate-of and --link-of are mutually exclusive")
 			}
-			if err := cli.RunCloseHooks(); err != nil {
-				return err
-			}
 			id := args[0]
 			n, _ := strconv.ParseInt(id[3:], 10, 32)
 			c := cli.MustClient()
+
+			// Test gate: run targeted tests before closing as "done".
+			// Skip for non-work reasons (duplicate/link/wontfix) and for
+			// tracker/ops issues that don't have code-level tests.
+			skipReasons := map[string]bool{"duplicate": true, "link": true, "wontfix": true}
+			if !skipReasons[reason] {
+				showResp, err := c.ShowIssueWithResponse(cmd.Context(), &dxclient.ShowIssueParams{Slug: c.SlugOrDie(), Id: id})
+				if err == nil && showResp.JSON200 != nil {
+					issueType := showResp.JSON200.Issue.IssueType
+					if issueType != "tracker" && issueType != "ops" {
+						if err := runIssueTestGate(cmd, c, id); err != nil {
+							return err
+						}
+					}
+				}
+			}
 			body := dxclient.CloseIssueRequest{
 				Slug: c.SlugOrDie(),
 				Id:   int32(n),
@@ -332,6 +345,53 @@ func issueCloseCmd() *cobra.Command {
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
 	cmd.Flags().StringVar(&linkOf, "link-of", "", "issue ID this is a narrow-slice link of (required when --reason=link; cascade-closes with target, no reopen-cascade)")
 	return cmd
+}
+
+// runIssueTestGate collects features from the issue's tasks and runs dx test
+// --feature=<name> for each. Returns an error if any test suite fails.
+// Warns (non-fatal) if no features are linked.
+func runIssueTestGate(cmd *cobra.Command, c *cli.Client, issueID string) error {
+	tasksResp, err := c.ListTasksForIssueWithResponse(cmd.Context(), &dxclient.ListTasksForIssueParams{
+		Slug:    c.SlugOrDie(),
+		IssueId: issueID,
+	})
+	if err != nil || tasksResp.JSON200 == nil || tasksResp.JSON200.Tasks == nil {
+		fmt.Fprintf(os.Stderr, "[warn] could not fetch tasks for %s — skipping test gate\n", issueID)
+		return nil
+	}
+
+	seen := map[string]bool{}
+	for _, task := range *tasksResp.JSON200.Tasks {
+		if task.Feature != "" {
+			seen[task.Feature] = true
+		}
+	}
+
+	if len(seen) == 0 {
+		fmt.Fprintf(os.Stderr, "[warn] %s has no features linked to its tasks — skipping test gate (maturity gap)\n", issueID)
+		return nil
+	}
+
+	exe, err := os.Executable()
+	if err != nil {
+		return fmt.Errorf("cannot determine executable path for test gate: %w", err)
+	}
+
+	var failed []string
+	for feature := range seen {
+		fmt.Printf("[test] feature %q\n", feature)
+		tc := exec.Command(exe, "test", "--feature="+feature)
+		tc.Stdout = os.Stdout
+		tc.Stderr = os.Stderr
+		if err := tc.Run(); err != nil {
+			failed = append(failed, feature)
+		}
+	}
+
+	if len(failed) > 0 {
+		return fmt.Errorf("tests failed for features: %s\n  fix failures or file a task to track them, then retry close", strings.Join(failed, ", "))
+	}
+	return nil
 }
 
 func issueReopenCmd() *cobra.Command {
