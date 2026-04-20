@@ -87,6 +87,11 @@ type ProjectState struct {
 	RawAPICallsUI    int // raw fetch/post callsites in UI
 	RawAPICallsFiles int // total files with raw callsites
 
+	// Layered BDD test architecture
+	UXSpecCount          int  // specs with concern_type=ux
+	DemoTestResultsExist bool // at least one demo-layer test result recorded
+	UsesStepDriver       bool // codebase has StepDriver usage in test files
+
 	// Maturity questionnaire (from server)
 	MaturityQuestions []dxclient.MaturityQuestion
 	MaturityItems     []dxclient.MaturityItem
@@ -135,6 +140,15 @@ func DetectLocal(state *ProjectState) {
 	state.RawAPICallsGo = countRawCallsites("internal/cli/", `c\.Get("/api/\|c\.Post("/api/\|c\.Delete("/api/`, "*.go")
 	state.RawAPICallsUI = countRawCallsites("ui/src/", `apiFetch\|apiPost`, "*.ts") +
 		countRawCallsites("ui/src/", `apiFetch\|apiPost`, "*.tsx")
+
+	// StepDriver adoption
+	state.UsesStepDriver = codebaseUsesStepDriver()
+}
+
+func codebaseUsesStepDriver() bool {
+	cmd := exec.Command("grep", "-r", "--include=*_test.go", "-l", "StepDriver", ".")
+	out, err := cmd.Output()
+	return err == nil && strings.TrimSpace(string(out)) != ""
 }
 
 func fileExists(path string) bool {
@@ -359,6 +373,24 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "all API calls use typed clients", nil, ""
 		}
 		return false, fmt.Sprintf("%d raw API callsites (%d Go CLI, %d UI) — migrate to typed clients", total, state.RawAPICallsGo, state.RawAPICallsUI), nil, ""
+
+	case "layered-bdd-tests":
+		// Only applicable to service/saas/site with 5+ UX specs and recorded demo tests
+		c := state.Classification
+		if c != ClassService && c != ClassSaaS && c != ClassSite {
+			return true, "not applicable for this classification", nil, ""
+		}
+		if state.UXSpecCount < 5 {
+			return true, fmt.Sprintf("%d UX specs (need 5+)", state.UXSpecCount), nil, ""
+		}
+		if !state.DemoTestResultsExist {
+			return true, "no demo-layer test results recorded yet", nil, ""
+		}
+		if state.UsesStepDriver {
+			return true, "StepDriver pattern already in use", nil, ""
+		}
+		return false, fmt.Sprintf("%d UX specs and demo tests present, but no StepDriver pattern in test files", state.UXSpecCount), nil,
+			"Adopt layered BDD test architecture: extract step interfaces with `Capability() DriverSet`, wire `given` steps to API driver always, route `when/then` to the selected driver. See `dx pattern show layered-bdd-tests` for the reference pattern."
 
 	case "has_deploy_config", "has_healthcheck", "has_auth", "has_tenant_isolation":
 		// Placeholder — these require deeper inspection

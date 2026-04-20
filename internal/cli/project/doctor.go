@@ -278,6 +278,11 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 			specCount := 0
 			if f.Specs != nil {
 				specCount = len(*f.Specs)
+				for _, spec := range *f.Specs {
+					if spec.ConcernType == "ux" {
+						state.UXSpecCount++
+					}
+				}
 			}
 			if specCount > 0 {
 				state.FeaturesWithSpecs++
@@ -288,6 +293,16 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 			state.SpecsTotal += specCount
 			if specCount > 8 {
 				state.OverspeccedCount++
+			}
+		}
+	}
+
+	// Demo test results
+	if tResp, err := c.ListTestsWithResponse(ctx, &dxclient.ListTestsParams{Slug: slug}); err == nil && tResp.JSON200 != nil && tResp.JSON200.Tests != nil {
+		for _, t := range *tResp.JSON200.Tests {
+			if t.Layer == "demo" {
+				state.DemoTestResultsExist = true
+				break
 			}
 		}
 	}
