@@ -8,13 +8,16 @@ import (
 
 // TodoItem mirrors the server response shape for solo/claim.
 type TodoItem struct {
-	ID         int32  `json:"id"`
-	Kind       string `json:"kind"`
-	Text       string `json:"text"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	IssueRef   string `json:"issue_ref"`
-	ClaimedBy  string `json:"claimed_by"`
+	ID              int32  `json:"id"`
+	Kind            string `json:"kind"`
+	Text            string `json:"text"`
+	Persona         string `json:"persona"`
+	Priority        int32  `json:"priority"`
+	TargetType      string `json:"target_type"`
+	TargetID        string `json:"target_id"`
+	IssueRef        string `json:"issue_ref"`
+	SuggestedAction string `json:"suggested_action"`
+	ClaimedBy       string `json:"claimed_by"`
 }
 
 func soloClaimNext(t *testing.T, slug, agentID string) (TodoItem, int) {
@@ -172,4 +175,110 @@ func TestTodoSoloApplyPersistsServerSide(t *testing.T) {
 	}
 
 	_ = sc
+}
+
+// TestSharedTodoQueueSemantics is the demo for spec 101: given both humans
+// (dx todo solo) and agents (dx todo take) consuming the queue, both callers
+// operate on the same persisted todo records with no separate agent-only queue.
+// The test verifies:
+//  1. Human evaluate+apply and agent claim both write/read the same zdx_todos rows.
+//  2. An item claimed by an agent is visible to a subsequent human evaluate as
+//     Unchanged (still open in DB), not Added (which would mean a separate set).
+//  3. Once all items are claimed, subsequent claim calls return 404.
+func TestSharedTodoQueueSemantics(t *testing.T) {
+	d := NewApiDriver(t, "td-shared", "Shared Todo Queue Semantics")
+	Given(d).
+		Goal("Test goal").
+		Constraint("No breaking changes").
+		Issue("Shared queue test issue", "verify shared records").
+		Build()
+
+	// Step 1: Human evaluates the queue.
+	humanItems := d.EvaluateQueue("")
+	if len(humanItems) == 0 {
+		t.Fatal("expected at least one item from human evaluate")
+	}
+
+	// Step 2: Human applies — persists the queue server-side.
+	soloApply(t, d.Slug, humanItems)
+
+	// Step 3: Agent claims the next item.
+	claimed, status := soloClaimNext(t, d.Slug, "agent-shared")
+	if status != http.StatusOK {
+		t.Fatalf("agent claim: want 200, got %d", status)
+	}
+	if claimed.Kind == "" {
+		t.Fatal("claimed todo has empty Kind")
+	}
+
+	// The claimed item must correspond to one of the items the human evaluated —
+	// same key signals same persisted row, no separate agent-only queue.
+	foundInHuman := false
+	for _, it := range humanItems {
+		if it.TargetType == claimed.TargetType && it.TargetID == claimed.TargetID && it.Kind == claimed.Kind {
+			foundInHuman = true
+			break
+		}
+	}
+	if !foundInHuman {
+		t.Errorf("agent claimed %q (target_type=%s target_id=%s) which was not in the human evaluate set — separate queues detected",
+			claimed.Kind, claimed.TargetType, claimed.TargetID)
+	}
+
+	// Step 4: Human re-evaluates. The claimed item is still open in the DB
+	// (claim does not change status), so it must appear in Unchanged, not Added.
+	var reEvalResp struct {
+		Added     []SoloQueueItem `json:"added"`
+		Unchanged []SoloQueueItem `json:"unchanged"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/evaluate",
+		map[string]any{"slug": d.Slug, "issue": ""}, &reEvalResp))
+
+	if len(reEvalResp.Added) != 0 {
+		t.Errorf("after agent claim, human re-evaluate shows %d Added items — expected 0 (all rows persisted)",
+			len(reEvalResp.Added))
+	}
+
+	// Step 5: Exhaust the queue; subsequent claims must return 404.
+	for i := 0; i < 20; i++ {
+		_, s := soloClaimNext(t, d.Slug, fmt.Sprintf("agent-exhaust-%d", i))
+		if s == http.StatusNotFound {
+			return
+		}
+	}
+	t.Error("expected queue exhaustion (404) after all items claimed, but never reached it")
+}
+
+// TestClaimedTodoItemCarriesRequiredFields verifies spec 102:
+// a claimed todo item carries owner tier (persona), target entity reference
+// (target_type + target_id), priority, and suggested CLI action.
+func TestClaimedTodoItemCarriesRequiredFields(t *testing.T) {
+	d := NewApiDriver(t, "td-fields", "Todo Item Fields")
+	Given(d).
+		Goal("Test goal").
+		Constraint("Test constraint").
+		Feature("td-fields-feat", "feature for fields test").
+		Spec("td-fields-feat", "must", "fields test spec").
+		Build()
+
+	item, status := soloClaimNext(t, d.Slug, "test-agent")
+	if status != http.StatusOK {
+		t.Fatalf("solo/claim: want 200, got %d", status)
+	}
+
+	if item.Persona == "" {
+		t.Error("claimed todo missing persona (owner tier)")
+	}
+	if item.TargetType == "" {
+		t.Error("claimed todo missing target_type (entity reference)")
+	}
+	if item.TargetID == "" {
+		t.Error("claimed todo missing target_id (entity reference)")
+	}
+	if item.Priority == 0 {
+		t.Error("claimed todo missing priority")
+	}
+	if item.SuggestedAction == "" {
+		t.Errorf("claimed todo missing suggested_action for kind=%q target_type=%q target_id=%q", item.Kind, item.TargetType, item.TargetID)
+	}
 }

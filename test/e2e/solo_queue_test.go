@@ -136,6 +136,31 @@ func TestQueueKindTriageExcludesTracker(t *testing.T) {
 	requireNoKind(t, items, "triage")
 }
 
+// TestQueueTrackerExcludedFromAllRegularItems verifies spec 82: given a tracker-type issue,
+// when solo evaluates the queue, the tracker is excluded from all regular queue items
+// (triage, add, dev, closable) because tracker issues are closed by their children, not worked directly.
+func TestQueueTrackerExcludedFromAllRegularItems(t *testing.T) {
+	d := NewApiDriver(t, "q-tracker-excl", "Queue Tracker Excluded")
+
+	// Create a tracker issue with auto_ready so it would otherwise be triaged and appear as
+	// "add" (no tasks), "dev" (with tasks), or "closable" (all tasks done) for a normal issue.
+	var tracker struct {
+		ID int32 `json:"id"`
+	}
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/issue/add",
+		map[string]any{"slug": d.Slug, "title": "Tracker umbrella", "context": "test", "issue_type": "tracker", "auto_ready": true}, &tracker))
+
+	trackerRef := fmt.Sprintf("IS-%d", tracker.ID)
+	regularKinds := map[string]bool{"triage": true, "add": true, "dev": true, "closable": true}
+
+	items := d.EvaluateQueue("")
+	for _, it := range items {
+		if (it.TargetID == trackerRef || it.IssueRef == trackerRef) && regularKinds[it.Kind] {
+			t.Errorf("tracker issue %s should not appear as %q in queue", trackerRef, it.Kind)
+		}
+	}
+}
+
 func TestQueueKindCloseTracker(t *testing.T) {
 	d := NewApiDriver(t, "q-close-tracker", "Queue Close Tracker")
 	// Child issue to act as a blocker for the tracker.
@@ -372,6 +397,8 @@ func TestQueueEmpty(t *testing.T) {
 	}
 }
 
+// TestQueueBQBlockedGlobal verifies spec 64: given an issue blocked by a pending blocker question,
+// when solo is run in global mode, that issue's items are excluded from the queue.
 func TestQueueBQBlockedGlobal(t *testing.T) {
 	d := NewApiDriver(t, "q-bq-global", "Queue BQ Global")
 	sc := Given(d).TriagedIssue("BQ blocked", "test", 2).Build()
@@ -387,6 +414,198 @@ func TestQueueBQBlockedGlobal(t *testing.T) {
 			t.Errorf("BQ-blocked issue should not surface %q in global mode", it.Kind)
 		}
 	}
+}
+
+// TestQueueStrictPriorityOrder verifies spec 62: when multiple queue categories are present,
+// items are returned in strict priority order: comments < questions < triage < specs < closable < decomposition < tasks.
+func TestQueueStrictPriorityOrder(t *testing.T) {
+	d := NewApiDriver(t, "q-strict-order", "Queue Strict Priority Order")
+
+	// Health prereqs suppress owner:goals / owner:constraints noise.
+	Given(d).HealthPrereqs("2026-04-14").Build()
+
+	// comments (priority 5): unread comment on any issue
+	sc := Given(d).TriagedIssue("Commented issue", "has comment", 2).Build()
+	commentIssueRef := fmt.Sprintf("IS-%d", sc.Issues[0])
+	d.AddComment("issue", commentIssueRef, "Please review this")
+
+	// questions (priority 10): unanswered QA question
+	d.AddQuestion("arch", "Which approach should we use?")
+
+	// triage (priority 20): untriaged issue
+	Given(d).Issue("Untriaged bug", "needs triage").Build()
+
+	// specs (priority 25): feature with no specs
+	d.AddFeature("unspecced-feature", "Feature lacking specs")
+
+	// closable (priority 35): triaged issue with all tasks done
+	sc2 := Given(d).
+		TriagedIssue("All done", "ready to close", 2).
+		Task(0, "Finished task").
+		Build()
+	d.MarkTaskDone(sc2.Tasks[0])
+
+	// decomposition/add (priority 38): triaged issue with no tasks
+	Given(d).TriagedIssue("Needs decomposition", "no tasks yet", 2).Build()
+
+	// tasks/dev (priority 40): triaged issue with a pending task
+	Given(d).
+		TriagedIssue("Dev work", "has tasks", 2).
+		Task(0, "Write the code").
+		Build()
+
+	items := d.EvaluateQueue("")
+
+	type kindPrio struct {
+		kind  string
+		prio  int32
+		found bool
+	}
+	categories := []kindPrio{
+		{kind: "read:comments"},
+		{kind: "answer"},
+		{kind: "triage"},
+		{kind: "owner:spec"},
+		{kind: "closable"},
+		{kind: "add"},
+		{kind: "dev"},
+	}
+	for i, cat := range categories {
+		item := findKind(items, cat.kind)
+		if item == nil {
+			t.Errorf("expected kind %q in queue, got kinds: %v", cat.kind, kindsOf(items))
+			continue
+		}
+		categories[i].prio = item.Priority
+		categories[i].found = true
+	}
+
+	for i := 1; i < len(categories); i++ {
+		prev, cur := categories[i-1], categories[i]
+		if !prev.found || !cur.found {
+			continue
+		}
+		if prev.prio >= cur.prio {
+			t.Errorf("priority order violation: %q (priority %d) should be < %q (priority %d)",
+				prev.kind, prev.prio, cur.kind, cur.prio)
+		}
+	}
+}
+
+// TestQueueIssueScoped verifies spec 63: when solo is run with --issue=IS-N,
+// only items scoped to that issue are returned (triage, decomposition, tasks, closable).
+func TestQueueIssueScoped(t *testing.T) {
+	d := NewApiDriver(t, "q-issue-scoped", "Queue Issue Scoped")
+
+	// Four issues, one per scoped kind.
+	sc := Given(d).
+		HealthPrereqs("2026-04-14").
+		Issue("Untriaged bug", "needs triage").                 // idx 0 → triage
+		TriagedIssue("Needs decomposition", "no tasks yet", 2). // idx 1 → add
+		TriagedIssue("Dev work", "has tasks", 2).               // idx 2 → dev
+		Task(2, "Write the code").                              // task for idx 2
+		TriagedIssue("Ready to close", "all done", 2).          // idx 3 → closable
+		Task(3, "Only task").
+		Build()
+
+	closableTaskID := sc.Tasks[1]
+	d.MarkTaskDone(closableTaskID)
+
+	cases := []struct {
+		idx      int
+		wantKind string
+	}{
+		{0, "triage"},
+		{1, "add"},
+		{2, "dev"},
+		{3, "closable"},
+	}
+
+	for _, tc := range cases {
+		target := fmt.Sprintf("IS-%d", sc.Issues[tc.idx])
+		items := d.EvaluateQueue(target)
+
+		found := false
+		for _, it := range items {
+			if it.IssueRef != "" && it.IssueRef != target {
+				t.Errorf("scope %s: item for other issue leaked: kind=%s issue_ref=%s",
+					target, it.Kind, it.IssueRef)
+			}
+			if it.Kind == tc.wantKind && (it.IssueRef == target || it.TargetID == target) {
+				found = true
+			}
+		}
+		if !found {
+			t.Errorf("scope %s: expected kind %q for this issue, got kinds: %v",
+				target, tc.wantKind, kindsOf(items))
+		}
+	}
+}
+
+// TestQueueUnifiedMixedSources is the demo for spec 99: given a project with all six
+// signal source types present simultaneously, dx todo solo returns a single unified queue
+// ordered by priority tier.
+func TestQueueUnifiedMixedSources(t *testing.T) {
+	d := NewApiDriver(t, "q-unified", "Queue Unified Mixed Sources")
+
+	// Suppress health noise so the queue reflects only the signal sources under test.
+	Given(d).HealthPrereqs("2026-04-14").Build()
+
+	// Signal 1: unread comment → read:comments (priority 5)
+	sc := Given(d).TriagedIssue("Commented issue", "has unread comment", 2).Build()
+	commentIssueRef := fmt.Sprintf("IS-%d", sc.Issues[0])
+	d.AddComment("issue", commentIssueRef, "Please review this change")
+
+	// Signal 2: untriaged issue → triage (priority 20)
+	Given(d).Issue("Untriaged bug", "needs triage decision").Build()
+
+	// Signal 3: decomposition gap — triaged, no tasks → add (priority 38)
+	Given(d).TriagedIssue("Needs tasks", "no tasks yet", 2).Build()
+
+	// Signal 4: pending task → dev (priority 40)
+	Given(d).
+		TriagedIssue("Active work", "has a pending task", 2).
+		Task(0, "Implement the feature").
+		Build()
+
+	// Signal 5: closable — triaged, all tasks done → closable (priority 35)
+	sc2 := Given(d).
+		TriagedIssue("Ready to close", "all tasks done", 2).
+		Task(0, "Finished work").
+		Build()
+	d.MarkTaskDone(sc2.Tasks[0])
+
+	// Signal 6: blocker question → clarify (priority 5, surfaces in issue-scoped mode)
+	sc3 := Given(d).TriagedIssue("BQ blocked issue", "pending decision", 2).Build()
+	bqIssueRef := fmt.Sprintf("IS-%d", sc3.Issues[0])
+	d.AddBlockerQuestion("issue", bqIssueRef, "Which approach should we use?")
+
+	// Global evaluate: five of the six signal sources appear in one unified ordered queue.
+	items := d.EvaluateQueue("")
+
+	wantGlobal := []string{"read:comments", "triage", "closable", "add", "dev"}
+	for _, kind := range wantGlobal {
+		requireKind(t, items, kind)
+	}
+
+	// Unified queue must be sorted in non-decreasing priority order.
+	for i := 1; i < len(items); i++ {
+		if items[i].Priority < items[i-1].Priority {
+			t.Errorf("priority order violated at index %d: %q (priority %d) follows %q (priority %d)",
+				i, items[i].Kind, items[i].Priority, items[i-1].Kind, items[i-1].Priority)
+		}
+	}
+
+	// BQ integration: the blocked issue's tasks are suppressed in global mode.
+	for _, it := range items {
+		if it.IssueRef == bqIssueRef && (it.Kind == "add" || it.Kind == "dev" || it.Kind == "closable") {
+			t.Errorf("BQ-blocked issue %s should not surface %q in global queue", bqIssueRef, it.Kind)
+		}
+	}
+
+	// Issue-scoped: blocker question surfaces as clarify for the specific blocked issue.
+	scopedItems := d.EvaluateQueue(bqIssueRef)
+	requireKind(t, scopedItems, "clarify")
 }
 
 func kindsOf(items []SoloQueueItem) []string {

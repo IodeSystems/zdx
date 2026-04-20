@@ -491,16 +491,67 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 }
 
 type SoloQueueItem struct {
-	Key        string `json:"key"`
-	Text       string `json:"text"`
-	Kind       string `json:"kind"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	IssueRef   string `json:"issue_ref"`
-	Priority   int32  `json:"priority"`
-	Blocked    bool   `json:"blocked"`
-	Persona    string `json:"persona"`
-	Status     string `json:"status"`
+	Key             string `json:"key"`
+	Text            string `json:"text"`
+	Kind            string `json:"kind"`
+	TargetType      string `json:"target_type"`
+	TargetID        string `json:"target_id"`
+	IssueRef        string `json:"issue_ref"`
+	Priority        int32  `json:"priority"`
+	Blocked         bool   `json:"blocked"`
+	Persona         string `json:"persona"`
+	Status          string `json:"status"`
+	SuggestedAction string `json:"suggested_action,omitempty"`
+}
+
+// suggestedActionForKind returns a ready-to-run CLI command for the given queue item
+// so the caller can act without further discovery.
+func suggestedActionForKind(kind, targetType, targetID string) string {
+	switch kind {
+	case "triage":
+		return "dx todo owner triage " + targetID + " --priority=<1-4> --type=<ops|impl|ask|tracker>"
+	case "add":
+		return "dx todo tech add --issue=" + targetID + " --title=<outcome> --text=<plan> --test-plan=<verification>"
+	case "dev":
+		return "dx todo dev start " + targetID
+	case "closable":
+		return "dx issue close " + targetID + " --reason=done"
+	case "close:tracker":
+		return "dx issue close " + targetID + " --reason=done"
+	case "owner:decompose-tracker":
+		return "dx issue add --title=<subtask> --type=impl"
+	case "owner:spec":
+		return "dx feature spec add " + targetID
+	case "owner:review":
+		return "dx feature review " + targetID
+	case "tech:test-ref":
+		return "dx spec link " + targetID + " <test-id>"
+	case "owner:demo-gap":
+		return "dx spec link " + targetID + " <test-id>"
+	case "clarify":
+		return "dx question answer " + targetID + " --answer=\"...\""
+	case "answer":
+		return "dx qa answer " + targetID + " --answer=\"...\""
+	case "read:comments":
+		return "dx comment mark-read " + targetType + " " + targetID + " --role=llm"
+	case "respond:stale":
+		return "dx comment mark-read " + targetType + " " + targetID + " --role=llm"
+	case "owner:goals":
+		return "dx goal add <title>"
+	case "owner:constraints":
+		return "dx constraint add <title>"
+	case "owner:standup":
+		return "dx standup checkin --owner"
+	case "tech:standup":
+		return "dx standup checkin --tech"
+	case "owner:orphan-task":
+		return "dx issue add --title=<issue> && dx todo tech add --issue=<IS-N>"
+	}
+	if strings.HasSuffix(kind, ":journal-review") {
+		role := strings.TrimSuffix(kind, ":journal-review")
+		return "dx standup checkin --" + role
+	}
+	return ""
 }
 
 type EvaluateChange struct {
@@ -605,6 +656,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 					TargetType: c.TargetType, TargetID: c.TargetID,
 					IssueRef: c.IssueRef, Priority: c.Priority,
 					Blocked: c.Blocked, Persona: c.Persona, Status: "open",
+					SuggestedAction: suggestedActionForKind(c.Kind, c.TargetType, c.TargetID),
 				}
 				if existing, ok := currentByKey[c.Key]; ok {
 					if existing.Priority != c.Priority || existing.Text != c.Text || existing.Blocked != c.Blocked {
@@ -827,21 +879,22 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			todos := make([]TodoItem, len(todoRows))
 			for i, r := range todoRows {
 				todos[i] = TodoItem{
-					ID:         r.ID,
-					Text:       r.Text,
-					Key:        r.Key,
-					Persona:    r.Persona,
-					Priority:   r.Priority,
-					Status:     r.Status,
-					TargetType: r.TargetType,
-					TargetID:   r.TargetID,
-					Kind:       r.Kind,
-					IssueRef:   r.IssueRef,
-					Blocked:    r.Blocked,
-					ClaimedBy:  r.ClaimedBy,
-					ClaimedAt:  fmtTS(r.ClaimedAt),
-					CreatedAt:  fmtTS(r.CreatedAt),
-					ResolvedAt: fmtTS(r.ResolvedAt),
+					ID:              r.ID,
+					Text:            r.Text,
+					Key:             r.Key,
+					Persona:         r.Persona,
+					Priority:        r.Priority,
+					Status:          r.Status,
+					TargetType:      r.TargetType,
+					TargetID:        r.TargetID,
+					Kind:            r.Kind,
+					IssueRef:        r.IssueRef,
+					Blocked:         r.Blocked,
+					SuggestedAction: suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
+					ClaimedBy:       r.ClaimedBy,
+					ClaimedAt:       fmtTS(r.ClaimedAt),
+					CreatedAt:       fmtTS(r.CreatedAt),
+					ResolvedAt:      fmtTS(r.ResolvedAt),
 				}
 			}
 			tasks := make([]AgentTaskItem, len(taskRows))
@@ -974,40 +1027,42 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 
 func toTodoItemFromClaim(r db.ClaimNextTodoRow) TodoItem {
 	return TodoItem{
-		ID:         r.ID,
-		Text:       r.Text,
-		Key:        r.Key,
-		Persona:    r.Persona,
-		Priority:   r.Priority,
-		Status:     r.Status,
-		TargetType: r.TargetType,
-		TargetID:   r.TargetID,
-		Kind:       r.Kind,
-		IssueRef:   r.IssueRef,
-		Blocked:    r.Blocked,
-		ClaimedBy:  r.ClaimedBy,
-		ClaimedAt:  fmtTS(r.ClaimedAt),
-		CreatedAt:  fmtTS(r.CreatedAt),
-		ResolvedAt: fmtTS(r.ResolvedAt),
+		ID:              r.ID,
+		Text:            r.Text,
+		Key:             r.Key,
+		Persona:         r.Persona,
+		Priority:        r.Priority,
+		Status:          r.Status,
+		TargetType:      r.TargetType,
+		TargetID:        r.TargetID,
+		Kind:            r.Kind,
+		IssueRef:        r.IssueRef,
+		Blocked:         r.Blocked,
+		SuggestedAction: suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
+		ClaimedBy:       r.ClaimedBy,
+		ClaimedAt:       fmtTS(r.ClaimedAt),
+		CreatedAt:       fmtTS(r.CreatedAt),
+		ResolvedAt:      fmtTS(r.ResolvedAt),
 	}
 }
 
 func toTodoItemFromFiltered(r db.ListTodosFilteredRow) TodoItem {
 	return TodoItem{
-		ID:         r.ID,
-		Text:       r.Text,
-		Key:        r.Key,
-		Persona:    r.Persona,
-		Priority:   r.Priority,
-		Status:     r.Status,
-		TargetType: r.TargetType,
-		TargetID:   r.TargetID,
-		Kind:       r.Kind,
-		IssueRef:   r.IssueRef,
-		Blocked:    r.Blocked,
-		ClaimedBy:  r.ClaimedBy,
-		ClaimedAt:  fmtTS(r.ClaimedAt),
-		CreatedAt:  fmtTS(r.CreatedAt),
-		ResolvedAt: fmtTS(r.ResolvedAt),
+		ID:              r.ID,
+		Text:            r.Text,
+		Key:             r.Key,
+		Persona:         r.Persona,
+		Priority:        r.Priority,
+		Status:          r.Status,
+		TargetType:      r.TargetType,
+		TargetID:        r.TargetID,
+		Kind:            r.Kind,
+		IssueRef:        r.IssueRef,
+		Blocked:         r.Blocked,
+		SuggestedAction: suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
+		ClaimedBy:       r.ClaimedBy,
+		ClaimedAt:       fmtTS(r.ClaimedAt),
+		CreatedAt:       fmtTS(r.CreatedAt),
+		ResolvedAt:      fmtTS(r.ResolvedAt),
 	}
 }
