@@ -1,0 +1,2 @@
+ALTER TABLE zdx_todos DROP COLUMN IF EXISTS title;
+ALTER TABLE zdx_todos DROP COLUMN IF EXISTS description;

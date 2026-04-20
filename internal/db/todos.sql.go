@@ -26,7 +26,7 @@ WHERE id = (
   LIMIT 1
   FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, text, key, persona, priority, status,
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 `
@@ -41,6 +41,8 @@ type ClaimNextTodoRow struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
 	Text           string             `db:"text" json:"text"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
 	Key            string             `db:"key" json:"key"`
 	Persona        string             `db:"persona" json:"persona"`
 	Priority       int32              `db:"priority" json:"priority"`
@@ -67,6 +69,8 @@ func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (C
 		&i.ID,
 		&i.ProjectID,
 		&i.Text,
+		&i.Title,
+		&i.Description,
 		&i.Key,
 		&i.Persona,
 		&i.Priority,
@@ -87,33 +91,37 @@ func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (C
 }
 
 const createTodo = `-- name: CreateTodo :one
-INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
+INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
                        target_type, target_id, kind, issue_ref, blocked)
-VALUES ($1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10, $11)
-RETURNING id, project_id, text, key, persona, priority, status,
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+        $9, $10, $11, $12, $13)
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 `
 
 type CreateTodoParams struct {
-	ProjectID  int32  `db:"project_id" json:"project_id"`
-	Text       string `db:"text" json:"text"`
-	Key        string `db:"key" json:"key"`
-	Persona    string `db:"persona" json:"persona"`
-	Priority   int32  `db:"priority" json:"priority"`
-	Status     string `db:"status" json:"status"`
-	TargetType string `db:"target_type" json:"target_type"`
-	TargetID   string `db:"target_id" json:"target_id"`
-	Kind       string `db:"kind" json:"kind"`
-	IssueRef   string `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool   `db:"blocked" json:"blocked"`
+	ProjectID   int32  `db:"project_id" json:"project_id"`
+	Text        string `db:"text" json:"text"`
+	Title       string `db:"title" json:"title"`
+	Description string `db:"description" json:"description"`
+	Key         string `db:"key" json:"key"`
+	Persona     string `db:"persona" json:"persona"`
+	Priority    int32  `db:"priority" json:"priority"`
+	Status      string `db:"status" json:"status"`
+	TargetType  string `db:"target_type" json:"target_type"`
+	TargetID    string `db:"target_id" json:"target_id"`
+	Kind        string `db:"kind" json:"kind"`
+	IssueRef    string `db:"issue_ref" json:"issue_ref"`
+	Blocked     bool   `db:"blocked" json:"blocked"`
 }
 
 type CreateTodoRow struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
 	Text           string             `db:"text" json:"text"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
 	Key            string             `db:"key" json:"key"`
 	Persona        string             `db:"persona" json:"persona"`
 	Priority       int32              `db:"priority" json:"priority"`
@@ -135,6 +143,8 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateT
 	row := q.db.QueryRow(ctx, createTodo,
 		arg.ProjectID,
 		arg.Text,
+		arg.Title,
+		arg.Description,
 		arg.Key,
 		arg.Persona,
 		arg.Priority,
@@ -150,6 +160,8 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateT
 		&i.ID,
 		&i.ProjectID,
 		&i.Text,
+		&i.Title,
+		&i.Description,
 		&i.Key,
 		&i.Persona,
 		&i.Priority,
@@ -195,7 +207,7 @@ func (q *Queries) GetState(ctx context.Context, arg GetStateParams) (string, err
 }
 
 const getTodoByID = `-- name: GetTodoByID :one
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE id = $1
@@ -205,6 +217,8 @@ type GetTodoByIDRow struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
 	Text           string             `db:"text" json:"text"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
 	Key            string             `db:"key" json:"key"`
 	Persona        string             `db:"persona" json:"persona"`
 	Priority       int32              `db:"priority" json:"priority"`
@@ -229,6 +243,8 @@ func (q *Queries) GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, er
 		&i.ID,
 		&i.ProjectID,
 		&i.Text,
+		&i.Title,
+		&i.Description,
 		&i.Key,
 		&i.Persona,
 		&i.Priority,
@@ -249,7 +265,7 @@ func (q *Queries) GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, er
 }
 
 const getTodoByKey = `-- name: GetTodoByKey :one
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 AND key = $2
@@ -264,6 +280,8 @@ type GetTodoByKeyRow struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
 	Text           string             `db:"text" json:"text"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
 	Key            string             `db:"key" json:"key"`
 	Persona        string             `db:"persona" json:"persona"`
 	Priority       int32              `db:"priority" json:"priority"`
@@ -288,6 +306,8 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 		&i.ID,
 		&i.ProjectID,
 		&i.Text,
+		&i.Title,
+		&i.Description,
 		&i.Key,
 		&i.Persona,
 		&i.Priority,
@@ -308,7 +328,7 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 }
 
 const listActiveTodoClaims = `-- name: ListActiveTodoClaims :many
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
@@ -322,6 +342,8 @@ type ListActiveTodoClaimsRow struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
 	Text           string             `db:"text" json:"text"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
 	Key            string             `db:"key" json:"key"`
 	Persona        string             `db:"persona" json:"persona"`
 	Priority       int32              `db:"priority" json:"priority"`
@@ -353,6 +375,8 @@ func (q *Queries) ListActiveTodoClaims(ctx context.Context, projectID int32) ([]
 			&i.ID,
 			&i.ProjectID,
 			&i.Text,
+			&i.Title,
+			&i.Description,
 			&i.Key,
 			&i.Persona,
 			&i.Priority,
@@ -380,7 +404,7 @@ func (q *Queries) ListActiveTodoClaims(ctx context.Context, projectID int32) ([]
 }
 
 const listTodos = `-- name: ListTodos :many
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at
@@ -390,6 +414,8 @@ type ListTodosRow struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
 	Text           string             `db:"text" json:"text"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
 	Key            string             `db:"key" json:"key"`
 	Persona        string             `db:"persona" json:"persona"`
 	Priority       int32              `db:"priority" json:"priority"`
@@ -420,6 +446,8 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRo
 			&i.ID,
 			&i.ProjectID,
 			&i.Text,
+			&i.Title,
+			&i.Description,
 			&i.Key,
 			&i.Persona,
 			&i.Priority,
@@ -447,7 +475,7 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRo
 }
 
 const listTodosFiltered = `-- name: ListTodosFiltered :many
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
@@ -471,6 +499,8 @@ type ListTodosFilteredRow struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
 	Text           string             `db:"text" json:"text"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
 	Key            string             `db:"key" json:"key"`
 	Persona        string             `db:"persona" json:"persona"`
 	Priority       int32              `db:"priority" json:"priority"`
@@ -507,6 +537,8 @@ func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredPa
 			&i.ID,
 			&i.ProjectID,
 			&i.Text,
+			&i.Title,
+			&i.Description,
 			&i.Key,
 			&i.Persona,
 			&i.Priority,
@@ -541,7 +573,7 @@ UPDATE zdx_todos SET
 WHERE project_id = $1
   AND claimed_by != ''
   AND lease_expires_at < NOW()
-RETURNING id, project_id, text, key, persona, priority, status,
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 `
@@ -550,6 +582,8 @@ type ReclaimExpiredTodosRow struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
 	Text           string             `db:"text" json:"text"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
 	Key            string             `db:"key" json:"key"`
 	Persona        string             `db:"persona" json:"persona"`
 	Priority       int32              `db:"priority" json:"priority"`
@@ -581,6 +615,8 @@ func (q *Queries) ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]R
 			&i.ID,
 			&i.ProjectID,
 			&i.Text,
+			&i.Title,
+			&i.Description,
 			&i.Key,
 			&i.Persona,
 			&i.Priority,
@@ -717,12 +753,14 @@ func (q *Queries) SetState(ctx context.Context, arg SetStateParams) error {
 }
 
 const upsertTodo = `-- name: UpsertTodo :one
-INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
+INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
                        target_type, target_id, kind, issue_ref, blocked)
-VALUES ($1, $2, $3, $4, $5, $6,
-        $7, $8, $9, $10, $11)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
+        $9, $10, $11, $12, $13)
 ON CONFLICT (project_id, key) DO UPDATE SET
   text = EXCLUDED.text,
+  title = EXCLUDED.title,
+  description = EXCLUDED.description,
   persona = EXCLUDED.persona,
   priority = EXCLUDED.priority,
   status = CASE WHEN zdx_todos.status = 'resolved' THEN 'open' ELSE zdx_todos.status END,
@@ -739,29 +777,33 @@ ON CONFLICT (project_id, key) DO UPDATE SET
     ELSE zdx_todos.reopen_count
   END
   -- claimed_by, claimed_at, lease_expires_at intentionally NOT updated
-RETURNING id, project_id, text, key, persona, priority, status,
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 `
 
 type UpsertTodoParams struct {
-	ProjectID  int32  `db:"project_id" json:"project_id"`
-	Text       string `db:"text" json:"text"`
-	Key        string `db:"key" json:"key"`
-	Persona    string `db:"persona" json:"persona"`
-	Priority   int32  `db:"priority" json:"priority"`
-	Status     string `db:"status" json:"status"`
-	TargetType string `db:"target_type" json:"target_type"`
-	TargetID   string `db:"target_id" json:"target_id"`
-	Kind       string `db:"kind" json:"kind"`
-	IssueRef   string `db:"issue_ref" json:"issue_ref"`
-	Blocked    bool   `db:"blocked" json:"blocked"`
+	ProjectID   int32  `db:"project_id" json:"project_id"`
+	Text        string `db:"text" json:"text"`
+	Title       string `db:"title" json:"title"`
+	Description string `db:"description" json:"description"`
+	Key         string `db:"key" json:"key"`
+	Persona     string `db:"persona" json:"persona"`
+	Priority    int32  `db:"priority" json:"priority"`
+	Status      string `db:"status" json:"status"`
+	TargetType  string `db:"target_type" json:"target_type"`
+	TargetID    string `db:"target_id" json:"target_id"`
+	Kind        string `db:"kind" json:"kind"`
+	IssueRef    string `db:"issue_ref" json:"issue_ref"`
+	Blocked     bool   `db:"blocked" json:"blocked"`
 }
 
 type UpsertTodoRow struct {
 	ID             int32              `db:"id" json:"id"`
 	ProjectID      int32              `db:"project_id" json:"project_id"`
 	Text           string             `db:"text" json:"text"`
+	Title          string             `db:"title" json:"title"`
+	Description    string             `db:"description" json:"description"`
 	Key            string             `db:"key" json:"key"`
 	Persona        string             `db:"persona" json:"persona"`
 	Priority       int32              `db:"priority" json:"priority"`
@@ -786,6 +828,8 @@ func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertT
 	row := q.db.QueryRow(ctx, upsertTodo,
 		arg.ProjectID,
 		arg.Text,
+		arg.Title,
+		arg.Description,
 		arg.Key,
 		arg.Persona,
 		arg.Priority,
@@ -801,6 +845,8 @@ func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertT
 		&i.ID,
 		&i.ProjectID,
 		&i.Text,
+		&i.Title,
+		&i.Description,
 		&i.Key,
 		&i.Persona,
 		&i.Priority,

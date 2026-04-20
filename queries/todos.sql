@@ -1,11 +1,11 @@
 -- name: ListTodos :many
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at;
 
 -- name: ListTodosFiltered :many
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
@@ -20,11 +20,11 @@ ORDER BY priority, created_at;
 DELETE FROM zdx_todos WHERE project_id = $1;
 
 -- name: CreateTodo :one
-INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
+INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
                        target_type, target_id, kind, issue_ref, blocked)
-VALUES (@project_id, @text, @key, @persona, @priority, @status,
+VALUES (@project_id, @text, @title, @description, @key, @persona, @priority, @status,
         @target_type, @target_id, @kind, @issue_ref, @blocked)
-RETURNING id, project_id, text, key, persona, priority, status,
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
@@ -32,12 +32,14 @@ RETURNING id, project_id, text, key, persona, priority, status,
 -- Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).
 -- Tracks resolve→open churn: reopen_count increments each time a resolved key is re-emitted.
 -- Auto-blocks at 3+ reopens so agents don't churn indefinitely on an untriageable item.
-INSERT INTO zdx_todos (project_id, text, key, persona, priority, status,
+INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
                        target_type, target_id, kind, issue_ref, blocked)
-VALUES (@project_id, @text, @key, @persona, @priority, @status,
+VALUES (@project_id, @text, @title, @description, @key, @persona, @priority, @status,
         @target_type, @target_id, @kind, @issue_ref, @blocked)
 ON CONFLICT (project_id, key) DO UPDATE SET
   text = EXCLUDED.text,
+  title = EXCLUDED.title,
+  description = EXCLUDED.description,
   persona = EXCLUDED.persona,
   priority = EXCLUDED.priority,
   status = CASE WHEN zdx_todos.status = 'resolved' THEN 'open' ELSE zdx_todos.status END,
@@ -54,7 +56,7 @@ ON CONFLICT (project_id, key) DO UPDATE SET
     ELSE zdx_todos.reopen_count
   END
   -- claimed_by, claimed_at, lease_expires_at intentionally NOT updated
-RETURNING id, project_id, text, key, persona, priority, status,
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
@@ -63,13 +65,13 @@ UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW()
 WHERE project_id = $1 AND key = $2;
 
 -- name: GetTodoByKey :one
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 AND key = $2;
 
 -- name: GetTodoByID :one
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE id = $1;
@@ -95,7 +97,7 @@ WHERE id = (
   LIMIT 1
   FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, text, key, persona, priority, status,
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
@@ -135,13 +137,13 @@ UPDATE zdx_todos SET
 WHERE project_id = $1
   AND claimed_by != ''
   AND lease_expires_at < NOW()
-RETURNING id, project_id, text, key, persona, priority, status,
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
 -- name: ListActiveTodoClaims :many
 -- Return all todos that are currently claimed and whose lease has not expired.
-SELECT id, project_id, text, key, persona, priority, status,
+SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
