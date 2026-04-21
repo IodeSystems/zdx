@@ -17,6 +17,7 @@ type Stack struct {
 	PythonMinor string // major.minor, e.g. "3.12"
 	HasSqlc     bool
 	HasPostgres bool
+	HasValkey   bool
 }
 
 // DetectStack inspects root for toolchain signals.
@@ -26,6 +27,7 @@ func DetectStack(root string) Stack {
 		s.HasGo = true
 		s.GoVersion = v
 		s.HasPostgres = goModHasPostgres(root)
+		s.HasValkey = goModHasValkey(root)
 	}
 	if v, ok := readNodeVersion(root); ok {
 		s.HasNode = true
@@ -62,6 +64,16 @@ func goModHasPostgres(root string) bool {
 		return false
 	}
 	return postgresDriverRe.Match(data)
+}
+
+var valkeyDriverRe = regexp.MustCompile(`(?m)\b(valkey-io/valkey-go|redis/go-redis|go-redis/redis)\b`)
+
+func goModHasValkey(root string) bool {
+	data, err := os.ReadFile(joinPath(root, "go.mod"))
+	if err != nil {
+		return false
+	}
+	return valkeyDriverRe.Match(data)
 }
 
 func readNodeVersion(root string) (string, bool) {

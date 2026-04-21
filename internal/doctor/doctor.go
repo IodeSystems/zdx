@@ -351,11 +351,17 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		case state.HasDevDockerfile && state.HasDevCompose:
 			return true, "dev.Dockerfile + docker-compose.dev.yml found", nil, ""
 		case state.HasDevDockerfile:
-			return true, "dev.Dockerfile found (no docker-compose.dev.yml — single-process dev env)", nil, ""
+			return false, "dev.Dockerfile found but docker-compose.dev.yml missing", func() error {
+				stack := DetectStack(".")
+				return os.WriteFile("docker-compose.dev.yml", []byte(RenderDevCompose(stack)), 0o644)
+			}, "Run `dx doctor --fix` to scaffold docker-compose.dev.yml"
 		default:
 			return false, "no dev container files found", func() error {
 				stack := DetectStack(".")
-				return os.WriteFile("dev.Dockerfile", []byte(RenderDevDockerfile(stack)), 0o644)
+				if err := os.WriteFile("dev.Dockerfile", []byte(RenderDevDockerfile(stack)), 0o644); err != nil {
+					return err
+				}
+				return os.WriteFile("docker-compose.dev.yml", []byte(RenderDevCompose(stack)), 0o644)
 			}, "Run `dx doctor --fix` to scaffold dev.Dockerfile and docker-compose.dev.yml for reproducible, isolated dev environments and parallel agent runs"
 		}
 
