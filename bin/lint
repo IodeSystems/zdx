@@ -71,6 +71,19 @@ run "sqlc-drift" bash -c '
 
 run "openapi-drift" go run ./cmd/dx-client-gen -check
 
+run "ui-api-drift" bash -c '
+  GO_HASH=internal/dxclient/openapi.json.sha256
+  UI_HASH=ui/src/api.gen.ts.sha256
+  if [ ! -f "$GO_HASH" ] || [ ! -f "$UI_HASH" ]; then
+    exit 0
+  fi
+  if [ "$(cat "$GO_HASH")" != "$(cat "$UI_HASH")" ]; then
+    echo "ui/src/api.gen.ts is stale — spec hash does not match internal/dxclient/openapi.json."
+    echo "Run: ./bin/dx ui gen-api"
+    exit 1
+  fi
+'
+
 # ── Advisory checks (reported but don't fail the build) ──────────────────────
 
 run "raw-api-calls" bash -c '

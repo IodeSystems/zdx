@@ -21,6 +21,15 @@ import (
 var buildSHA string
 
 func main() {
+	if len(os.Args) > 1 && os.Args[1] == "--openapi" {
+		spec, err := server.SpecJSON()
+		if err != nil {
+			log.Fatalf("openapi: %v", err)
+		}
+		os.Stdout.Write(spec)
+		return
+	}
+
 	dsn := os.Getenv("DATABASE_URL")
 	if dsn == "" {
 		dsn = "postgres://localhost/zdx?sslmode=disable"

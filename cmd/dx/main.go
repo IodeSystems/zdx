@@ -41,6 +41,7 @@ func main() {
 		devtools.BuildCmd(),
 		devtools.TestCmd(),
 		devtools.LintCmd(),
+		devtools.UICmd(),
 		devtools.CheckCmd(),
 		devtools.WatchCmd(),
 		devtools.HooksCmd(),
