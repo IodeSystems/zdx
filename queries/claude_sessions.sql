@@ -5,21 +5,21 @@ RETURNING id, project_id, issue_id, session_id, title, alias, header, summary, s
 
 -- name: GetClaudeSession :one
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.id = $2;
 
 -- name: GetClaudeSessionBySessionID :one
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.session_id = $2;
 
 -- name: ListClaudeSessions :many
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1
@@ -29,7 +29,7 @@ ORDER BY s.updated_at DESC;
 
 -- name: ListClaudeSessionsByIssue :many
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.issue_id = $2

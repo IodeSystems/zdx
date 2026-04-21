@@ -213,7 +213,7 @@ func (q *Queries) CreateClaudeSession(ctx context.Context, arg CreateClaudeSessi
 
 const getClaudeSession = `-- name: GetClaudeSession :one
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.id = $2
@@ -225,22 +225,24 @@ type GetClaudeSessionParams struct {
 }
 
 type GetClaudeSessionRow struct {
-	ID             int64              `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
-	IssueID        string             `db:"issue_id" json:"issue_id"`
-	SessionID      string             `db:"session_id" json:"session_id"`
-	Title          string             `db:"title" json:"title"`
-	Alias          string             `db:"alias" json:"alias"`
-	Header         string             `db:"header" json:"header"`
-	Summary        string             `db:"summary" json:"summary"`
-	Status         string             `db:"status" json:"status"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
-	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
-	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
-	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
-	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
+	ID              int64              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	IssueID         string             `db:"issue_id" json:"issue_id"`
+	SessionID       string             `db:"session_id" json:"session_id"`
+	Title           string             `db:"title" json:"title"`
+	Alias           string             `db:"alias" json:"alias"`
+	Header          string             `db:"header" json:"header"`
+	Summary         string             `db:"summary" json:"summary"`
+	Status          string             `db:"status" json:"status"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID          pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TodoText        pgtype.Text        `db:"todo_text" json:"todo_text"`
+	TodoTitle       pgtype.Text        `db:"todo_title" json:"todo_title"`
+	TodoDescription pgtype.Text        `db:"todo_description" json:"todo_description"`
+	TodoTargetType  pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
+	TodoTargetID    pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
 }
 
 func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error) {
@@ -261,6 +263,8 @@ func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionPara
 		&i.ClosedAt,
 		&i.TodoID,
 		&i.TodoText,
+		&i.TodoTitle,
+		&i.TodoDescription,
 		&i.TodoTargetType,
 		&i.TodoTargetID,
 	)
@@ -269,7 +273,7 @@ func (q *Queries) GetClaudeSession(ctx context.Context, arg GetClaudeSessionPara
 
 const getClaudeSessionBySessionID = `-- name: GetClaudeSessionBySessionID :one
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.session_id = $2
@@ -281,22 +285,24 @@ type GetClaudeSessionBySessionIDParams struct {
 }
 
 type GetClaudeSessionBySessionIDRow struct {
-	ID             int64              `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
-	IssueID        string             `db:"issue_id" json:"issue_id"`
-	SessionID      string             `db:"session_id" json:"session_id"`
-	Title          string             `db:"title" json:"title"`
-	Alias          string             `db:"alias" json:"alias"`
-	Header         string             `db:"header" json:"header"`
-	Summary        string             `db:"summary" json:"summary"`
-	Status         string             `db:"status" json:"status"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
-	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
-	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
-	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
-	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
+	ID              int64              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	IssueID         string             `db:"issue_id" json:"issue_id"`
+	SessionID       string             `db:"session_id" json:"session_id"`
+	Title           string             `db:"title" json:"title"`
+	Alias           string             `db:"alias" json:"alias"`
+	Header          string             `db:"header" json:"header"`
+	Summary         string             `db:"summary" json:"summary"`
+	Status          string             `db:"status" json:"status"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID          pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TodoText        pgtype.Text        `db:"todo_text" json:"todo_text"`
+	TodoTitle       pgtype.Text        `db:"todo_title" json:"todo_title"`
+	TodoDescription pgtype.Text        `db:"todo_description" json:"todo_description"`
+	TodoTargetType  pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
+	TodoTargetID    pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
 }
 
 func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (GetClaudeSessionBySessionIDRow, error) {
@@ -317,6 +323,8 @@ func (q *Queries) GetClaudeSessionBySessionID(ctx context.Context, arg GetClaude
 		&i.ClosedAt,
 		&i.TodoID,
 		&i.TodoText,
+		&i.TodoTitle,
+		&i.TodoDescription,
 		&i.TodoTargetType,
 		&i.TodoTargetID,
 	)
@@ -525,7 +533,7 @@ func (q *Queries) ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxC
 
 const listClaudeSessions = `-- name: ListClaudeSessions :many
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1
@@ -533,22 +541,24 @@ ORDER BY s.updated_at DESC
 `
 
 type ListClaudeSessionsRow struct {
-	ID             int64              `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
-	IssueID        string             `db:"issue_id" json:"issue_id"`
-	SessionID      string             `db:"session_id" json:"session_id"`
-	Title          string             `db:"title" json:"title"`
-	Alias          string             `db:"alias" json:"alias"`
-	Header         string             `db:"header" json:"header"`
-	Summary        string             `db:"summary" json:"summary"`
-	Status         string             `db:"status" json:"status"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
-	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
-	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
-	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
-	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
+	ID              int64              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	IssueID         string             `db:"issue_id" json:"issue_id"`
+	SessionID       string             `db:"session_id" json:"session_id"`
+	Title           string             `db:"title" json:"title"`
+	Alias           string             `db:"alias" json:"alias"`
+	Header          string             `db:"header" json:"header"`
+	Summary         string             `db:"summary" json:"summary"`
+	Status          string             `db:"status" json:"status"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID          pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TodoText        pgtype.Text        `db:"todo_text" json:"todo_text"`
+	TodoTitle       pgtype.Text        `db:"todo_title" json:"todo_title"`
+	TodoDescription pgtype.Text        `db:"todo_description" json:"todo_description"`
+	TodoTargetType  pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
+	TodoTargetID    pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
 }
 
 func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]ListClaudeSessionsRow, error) {
@@ -575,6 +585,8 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 			&i.ClosedAt,
 			&i.TodoID,
 			&i.TodoText,
+			&i.TodoTitle,
+			&i.TodoDescription,
 			&i.TodoTargetType,
 			&i.TodoTargetID,
 		); err != nil {
@@ -590,7 +602,7 @@ func (q *Queries) ListClaudeSessions(ctx context.Context, projectID int32) ([]Li
 
 const listClaudeSessionsByIssue = `-- name: ListClaudeSessionsByIssue :many
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.issue_id = $2
@@ -603,22 +615,24 @@ type ListClaudeSessionsByIssueParams struct {
 }
 
 type ListClaudeSessionsByIssueRow struct {
-	ID             int64              `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
-	IssueID        string             `db:"issue_id" json:"issue_id"`
-	SessionID      string             `db:"session_id" json:"session_id"`
-	Title          string             `db:"title" json:"title"`
-	Alias          string             `db:"alias" json:"alias"`
-	Header         string             `db:"header" json:"header"`
-	Summary        string             `db:"summary" json:"summary"`
-	Status         string             `db:"status" json:"status"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
-	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
-	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
-	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
-	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
+	ID              int64              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	IssueID         string             `db:"issue_id" json:"issue_id"`
+	SessionID       string             `db:"session_id" json:"session_id"`
+	Title           string             `db:"title" json:"title"`
+	Alias           string             `db:"alias" json:"alias"`
+	Header          string             `db:"header" json:"header"`
+	Summary         string             `db:"summary" json:"summary"`
+	Status          string             `db:"status" json:"status"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID          pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TodoText        pgtype.Text        `db:"todo_text" json:"todo_text"`
+	TodoTitle       pgtype.Text        `db:"todo_title" json:"todo_title"`
+	TodoDescription pgtype.Text        `db:"todo_description" json:"todo_description"`
+	TodoTargetType  pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
+	TodoTargetID    pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
 }
 
 func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error) {
@@ -645,6 +659,8 @@ func (q *Queries) ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeS
 			&i.ClosedAt,
 			&i.TodoID,
 			&i.TodoText,
+			&i.TodoTitle,
+			&i.TodoDescription,
 			&i.TodoTargetType,
 			&i.TodoTargetID,
 		); err != nil {

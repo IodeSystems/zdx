@@ -271,7 +271,7 @@ var MetaGetClaudeSession = metaquery.Query{
 	Cmd:    ":one",
 	Source: "claude_sessions.sql",
 	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.id = $2`,
@@ -290,6 +290,8 @@ WHERE s.project_id = $1 AND s.id = $2`,
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
 		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
 		{Name: "todo_text", OriginalName: "text", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
+		{Name: "todo_title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
+		{Name: "todo_description", OriginalName: "description", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_target_type", OriginalName: "target_type", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_target_id", OriginalName: "target_id", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 	},
@@ -306,39 +308,43 @@ func WrapGetClaudeSession(arg GetClaudeSessionParams) *metaquery.Builder {
 
 // GetClaudeSessionCols gives typed, name-safe access to GetClaudeSession's output columns.
 var GetClaudeSessionCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	IssueID        metaquery.TextCol
-	SessionID      metaquery.TextCol
-	Title          metaquery.TextCol
-	Alias          metaquery.TextCol
-	Header         metaquery.TextCol
-	Summary        metaquery.TextCol
-	Status         metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	UpdatedAt      metaquery.TimeCol
-	ClosedAt       metaquery.TimeCol
-	TodoID         metaquery.IntCol
-	TodoText       metaquery.TextCol
-	TodoTargetType metaquery.TextCol
-	TodoTargetID   metaquery.TextCol
+	ID              metaquery.IntCol
+	ProjectID       metaquery.IntCol
+	IssueID         metaquery.TextCol
+	SessionID       metaquery.TextCol
+	Title           metaquery.TextCol
+	Alias           metaquery.TextCol
+	Header          metaquery.TextCol
+	Summary         metaquery.TextCol
+	Status          metaquery.TextCol
+	CreatedAt       metaquery.TimeCol
+	UpdatedAt       metaquery.TimeCol
+	ClosedAt        metaquery.TimeCol
+	TodoID          metaquery.IntCol
+	TodoText        metaquery.TextCol
+	TodoTitle       metaquery.TextCol
+	TodoDescription metaquery.TextCol
+	TodoTargetType  metaquery.TextCol
+	TodoTargetID    metaquery.TextCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	IssueID:        metaquery.NewTextCol("issue_id"),
-	SessionID:      metaquery.NewTextCol("session_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Alias:          metaquery.NewTextCol("alias"),
-	Header:         metaquery.NewTextCol("header"),
-	Summary:        metaquery.NewTextCol("summary"),
-	Status:         metaquery.NewTextCol("status"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TodoID:         metaquery.NewIntCol("todo_id"),
-	TodoText:       metaquery.NewTextCol("text"),
-	TodoTargetType: metaquery.NewTextCol("target_type"),
-	TodoTargetID:   metaquery.NewTextCol("target_id"),
+	ID:              metaquery.NewIntCol("id"),
+	ProjectID:       metaquery.NewIntCol("project_id"),
+	IssueID:         metaquery.NewTextCol("issue_id"),
+	SessionID:       metaquery.NewTextCol("session_id"),
+	Title:           metaquery.NewTextCol("title"),
+	Alias:           metaquery.NewTextCol("alias"),
+	Header:          metaquery.NewTextCol("header"),
+	Summary:         metaquery.NewTextCol("summary"),
+	Status:          metaquery.NewTextCol("status"),
+	CreatedAt:       metaquery.NewTimeCol("created_at"),
+	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
+	ClosedAt:        metaquery.NewTimeCol("closed_at"),
+	TodoID:          metaquery.NewIntCol("todo_id"),
+	TodoText:        metaquery.NewTextCol("text"),
+	TodoTitle:       metaquery.NewTextCol("title"),
+	TodoDescription: metaquery.NewTextCol("description"),
+	TodoTargetType:  metaquery.NewTextCol("target_type"),
+	TodoTargetID:    metaquery.NewTextCol("target_id"),
 }
 
 var MetaGetClaudeSessionBySessionID = metaquery.Query{
@@ -346,7 +352,7 @@ var MetaGetClaudeSessionBySessionID = metaquery.Query{
 	Cmd:    ":one",
 	Source: "claude_sessions.sql",
 	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.session_id = $2`,
@@ -365,6 +371,8 @@ WHERE s.project_id = $1 AND s.session_id = $2`,
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
 		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
 		{Name: "todo_text", OriginalName: "text", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
+		{Name: "todo_title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
+		{Name: "todo_description", OriginalName: "description", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_target_type", OriginalName: "target_type", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_target_id", OriginalName: "target_id", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 	},
@@ -381,39 +389,43 @@ func WrapGetClaudeSessionBySessionID(arg GetClaudeSessionBySessionIDParams) *met
 
 // GetClaudeSessionBySessionIDCols gives typed, name-safe access to GetClaudeSessionBySessionID's output columns.
 var GetClaudeSessionBySessionIDCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	IssueID        metaquery.TextCol
-	SessionID      metaquery.TextCol
-	Title          metaquery.TextCol
-	Alias          metaquery.TextCol
-	Header         metaquery.TextCol
-	Summary        metaquery.TextCol
-	Status         metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	UpdatedAt      metaquery.TimeCol
-	ClosedAt       metaquery.TimeCol
-	TodoID         metaquery.IntCol
-	TodoText       metaquery.TextCol
-	TodoTargetType metaquery.TextCol
-	TodoTargetID   metaquery.TextCol
+	ID              metaquery.IntCol
+	ProjectID       metaquery.IntCol
+	IssueID         metaquery.TextCol
+	SessionID       metaquery.TextCol
+	Title           metaquery.TextCol
+	Alias           metaquery.TextCol
+	Header          metaquery.TextCol
+	Summary         metaquery.TextCol
+	Status          metaquery.TextCol
+	CreatedAt       metaquery.TimeCol
+	UpdatedAt       metaquery.TimeCol
+	ClosedAt        metaquery.TimeCol
+	TodoID          metaquery.IntCol
+	TodoText        metaquery.TextCol
+	TodoTitle       metaquery.TextCol
+	TodoDescription metaquery.TextCol
+	TodoTargetType  metaquery.TextCol
+	TodoTargetID    metaquery.TextCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	IssueID:        metaquery.NewTextCol("issue_id"),
-	SessionID:      metaquery.NewTextCol("session_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Alias:          metaquery.NewTextCol("alias"),
-	Header:         metaquery.NewTextCol("header"),
-	Summary:        metaquery.NewTextCol("summary"),
-	Status:         metaquery.NewTextCol("status"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TodoID:         metaquery.NewIntCol("todo_id"),
-	TodoText:       metaquery.NewTextCol("text"),
-	TodoTargetType: metaquery.NewTextCol("target_type"),
-	TodoTargetID:   metaquery.NewTextCol("target_id"),
+	ID:              metaquery.NewIntCol("id"),
+	ProjectID:       metaquery.NewIntCol("project_id"),
+	IssueID:         metaquery.NewTextCol("issue_id"),
+	SessionID:       metaquery.NewTextCol("session_id"),
+	Title:           metaquery.NewTextCol("title"),
+	Alias:           metaquery.NewTextCol("alias"),
+	Header:          metaquery.NewTextCol("header"),
+	Summary:         metaquery.NewTextCol("summary"),
+	Status:          metaquery.NewTextCol("status"),
+	CreatedAt:       metaquery.NewTimeCol("created_at"),
+	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
+	ClosedAt:        metaquery.NewTimeCol("closed_at"),
+	TodoID:          metaquery.NewIntCol("todo_id"),
+	TodoText:        metaquery.NewTextCol("text"),
+	TodoTitle:       metaquery.NewTextCol("title"),
+	TodoDescription: metaquery.NewTextCol("description"),
+	TodoTargetType:  metaquery.NewTextCol("target_type"),
+	TodoTargetID:    metaquery.NewTextCol("target_id"),
 }
 
 var MetaGetClaudeSessionTokenUsage = metaquery.Query{
@@ -606,7 +618,7 @@ var MetaListClaudeSessions = metaquery.Query{
 	Cmd:    ":many",
 	Source: "claude_sessions.sql",
 	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1
@@ -626,6 +638,8 @@ ORDER BY s.updated_at DESC`,
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
 		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
 		{Name: "todo_text", OriginalName: "text", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
+		{Name: "todo_title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
+		{Name: "todo_description", OriginalName: "description", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_target_type", OriginalName: "target_type", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_target_id", OriginalName: "target_id", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 	},
@@ -641,39 +655,43 @@ func WrapListClaudeSessions(projectID int32) *metaquery.Builder {
 
 // ListClaudeSessionsCols gives typed, name-safe access to ListClaudeSessions's output columns.
 var ListClaudeSessionsCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	IssueID        metaquery.TextCol
-	SessionID      metaquery.TextCol
-	Title          metaquery.TextCol
-	Alias          metaquery.TextCol
-	Header         metaquery.TextCol
-	Summary        metaquery.TextCol
-	Status         metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	UpdatedAt      metaquery.TimeCol
-	ClosedAt       metaquery.TimeCol
-	TodoID         metaquery.IntCol
-	TodoText       metaquery.TextCol
-	TodoTargetType metaquery.TextCol
-	TodoTargetID   metaquery.TextCol
+	ID              metaquery.IntCol
+	ProjectID       metaquery.IntCol
+	IssueID         metaquery.TextCol
+	SessionID       metaquery.TextCol
+	Title           metaquery.TextCol
+	Alias           metaquery.TextCol
+	Header          metaquery.TextCol
+	Summary         metaquery.TextCol
+	Status          metaquery.TextCol
+	CreatedAt       metaquery.TimeCol
+	UpdatedAt       metaquery.TimeCol
+	ClosedAt        metaquery.TimeCol
+	TodoID          metaquery.IntCol
+	TodoText        metaquery.TextCol
+	TodoTitle       metaquery.TextCol
+	TodoDescription metaquery.TextCol
+	TodoTargetType  metaquery.TextCol
+	TodoTargetID    metaquery.TextCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	IssueID:        metaquery.NewTextCol("issue_id"),
-	SessionID:      metaquery.NewTextCol("session_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Alias:          metaquery.NewTextCol("alias"),
-	Header:         metaquery.NewTextCol("header"),
-	Summary:        metaquery.NewTextCol("summary"),
-	Status:         metaquery.NewTextCol("status"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TodoID:         metaquery.NewIntCol("todo_id"),
-	TodoText:       metaquery.NewTextCol("text"),
-	TodoTargetType: metaquery.NewTextCol("target_type"),
-	TodoTargetID:   metaquery.NewTextCol("target_id"),
+	ID:              metaquery.NewIntCol("id"),
+	ProjectID:       metaquery.NewIntCol("project_id"),
+	IssueID:         metaquery.NewTextCol("issue_id"),
+	SessionID:       metaquery.NewTextCol("session_id"),
+	Title:           metaquery.NewTextCol("title"),
+	Alias:           metaquery.NewTextCol("alias"),
+	Header:          metaquery.NewTextCol("header"),
+	Summary:         metaquery.NewTextCol("summary"),
+	Status:          metaquery.NewTextCol("status"),
+	CreatedAt:       metaquery.NewTimeCol("created_at"),
+	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
+	ClosedAt:        metaquery.NewTimeCol("closed_at"),
+	TodoID:          metaquery.NewIntCol("todo_id"),
+	TodoText:        metaquery.NewTextCol("text"),
+	TodoTitle:       metaquery.NewTextCol("title"),
+	TodoDescription: metaquery.NewTextCol("description"),
+	TodoTargetType:  metaquery.NewTextCol("target_type"),
+	TodoTargetID:    metaquery.NewTextCol("target_id"),
 }
 
 var MetaListClaudeSessionsByIssue = metaquery.Query{
@@ -681,7 +699,7 @@ var MetaListClaudeSessionsByIssue = metaquery.Query{
 	Cmd:    ":many",
 	Source: "claude_sessions.sql",
 	SQL: `SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
+       t.text AS todo_text, t.title AS todo_title, t.description AS todo_description, t.target_type AS todo_target_type, t.target_id AS todo_target_id
 FROM zdx_claude_sessions s
 LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1 AND s.issue_id = $2
@@ -701,6 +719,8 @@ ORDER BY s.updated_at DESC`,
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_claude_sessions"},
 		{Name: "todo_id", OriginalName: "todo_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_claude_sessions"},
 		{Name: "todo_text", OriginalName: "text", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
+		{Name: "todo_title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
+		{Name: "todo_description", OriginalName: "description", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_target_type", OriginalName: "target_type", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 		{Name: "todo_target_id", OriginalName: "target_id", GoType: "pgtype.Text", DBType: "text", Table: "zdx_todos"},
 	},
@@ -717,39 +737,43 @@ func WrapListClaudeSessionsByIssue(arg ListClaudeSessionsByIssueParams) *metaque
 
 // ListClaudeSessionsByIssueCols gives typed, name-safe access to ListClaudeSessionsByIssue's output columns.
 var ListClaudeSessionsByIssueCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	IssueID        metaquery.TextCol
-	SessionID      metaquery.TextCol
-	Title          metaquery.TextCol
-	Alias          metaquery.TextCol
-	Header         metaquery.TextCol
-	Summary        metaquery.TextCol
-	Status         metaquery.TextCol
-	CreatedAt      metaquery.TimeCol
-	UpdatedAt      metaquery.TimeCol
-	ClosedAt       metaquery.TimeCol
-	TodoID         metaquery.IntCol
-	TodoText       metaquery.TextCol
-	TodoTargetType metaquery.TextCol
-	TodoTargetID   metaquery.TextCol
+	ID              metaquery.IntCol
+	ProjectID       metaquery.IntCol
+	IssueID         metaquery.TextCol
+	SessionID       metaquery.TextCol
+	Title           metaquery.TextCol
+	Alias           metaquery.TextCol
+	Header          metaquery.TextCol
+	Summary         metaquery.TextCol
+	Status          metaquery.TextCol
+	CreatedAt       metaquery.TimeCol
+	UpdatedAt       metaquery.TimeCol
+	ClosedAt        metaquery.TimeCol
+	TodoID          metaquery.IntCol
+	TodoText        metaquery.TextCol
+	TodoTitle       metaquery.TextCol
+	TodoDescription metaquery.TextCol
+	TodoTargetType  metaquery.TextCol
+	TodoTargetID    metaquery.TextCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	IssueID:        metaquery.NewTextCol("issue_id"),
-	SessionID:      metaquery.NewTextCol("session_id"),
-	Title:          metaquery.NewTextCol("title"),
-	Alias:          metaquery.NewTextCol("alias"),
-	Header:         metaquery.NewTextCol("header"),
-	Summary:        metaquery.NewTextCol("summary"),
-	Status:         metaquery.NewTextCol("status"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
-	ClosedAt:       metaquery.NewTimeCol("closed_at"),
-	TodoID:         metaquery.NewIntCol("todo_id"),
-	TodoText:       metaquery.NewTextCol("text"),
-	TodoTargetType: metaquery.NewTextCol("target_type"),
-	TodoTargetID:   metaquery.NewTextCol("target_id"),
+	ID:              metaquery.NewIntCol("id"),
+	ProjectID:       metaquery.NewIntCol("project_id"),
+	IssueID:         metaquery.NewTextCol("issue_id"),
+	SessionID:       metaquery.NewTextCol("session_id"),
+	Title:           metaquery.NewTextCol("title"),
+	Alias:           metaquery.NewTextCol("alias"),
+	Header:          metaquery.NewTextCol("header"),
+	Summary:         metaquery.NewTextCol("summary"),
+	Status:          metaquery.NewTextCol("status"),
+	CreatedAt:       metaquery.NewTimeCol("created_at"),
+	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
+	ClosedAt:        metaquery.NewTimeCol("closed_at"),
+	TodoID:          metaquery.NewIntCol("todo_id"),
+	TodoText:        metaquery.NewTextCol("text"),
+	TodoTitle:       metaquery.NewTextCol("title"),
+	TodoDescription: metaquery.NewTextCol("description"),
+	TodoTargetType:  metaquery.NewTextCol("target_type"),
+	TodoTargetID:    metaquery.NewTextCol("target_id"),
 }
 
 var MetaListClaudeSessionsByTodoID = metaquery.Query{

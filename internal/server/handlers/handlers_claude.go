@@ -22,23 +22,25 @@ import (
 
 func (h *Handler) registerClaudeRoutes(api huma.API) {
 	type ClaudeSessionItem struct {
-		ID             int64  `json:"id"`
-		IssueID        string `json:"issue_id"`
-		SessionID      string `json:"session_id"`
-		Title          string `json:"title"`
-		Alias          string `json:"alias"`
-		Header         string `json:"header"`
-		Summary        string `json:"summary"`
-		Status         string `json:"status"`
-		Lifecycle      string `json:"lifecycle"`
-		EventCount     int64  `json:"event_count"`
-		CreatedAt      string `json:"created_at"`
-		UpdatedAt      string `json:"updated_at"`
-		ClosedAt       string `json:"closed_at,omitempty"`
-		TodoID         int32  `json:"todo_id,omitempty"`
-		TodoText       string `json:"todo_text,omitempty"`
-		TodoTargetType string `json:"todo_target_type,omitempty"`
-		TodoTargetID   string `json:"todo_target_id,omitempty"`
+		ID              int64  `json:"id"`
+		IssueID         string `json:"issue_id"`
+		SessionID       string `json:"session_id"`
+		Title           string `json:"title"`
+		Alias           string `json:"alias"`
+		Header          string `json:"header"`
+		Summary         string `json:"summary"`
+		Status          string `json:"status"`
+		Lifecycle       string `json:"lifecycle"`
+		EventCount      int64  `json:"event_count"`
+		CreatedAt       string `json:"created_at"`
+		UpdatedAt       string `json:"updated_at"`
+		ClosedAt        string `json:"closed_at,omitempty"`
+		TodoID          int32  `json:"todo_id,omitempty"`
+		TodoText        string `json:"todo_text,omitempty"`
+		TodoTitle       string `json:"todo_title,omitempty"`
+		TodoDescription string `json:"todo_description,omitempty"`
+		TodoTargetType  string `json:"todo_target_type,omitempty"`
+		TodoTargetID    string `json:"todo_target_id,omitempty"`
 	}
 
 	lifecycleFor := func(closedAt pgtype.Timestamptz, eventCount int64) string {
@@ -105,7 +107,7 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 				out = make([]ClaudeSessionItem, len(rows))
 				for i, r := range rows {
 					cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
-					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt), TodoID: todoInt(r.TodoID), TodoText: todoStr(r.TodoText), TodoTargetType: todoStr(r.TodoTargetType), TodoTargetID: todoStr(r.TodoTargetID)}
+					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt), TodoID: todoInt(r.TodoID), TodoText: todoStr(r.TodoText), TodoTitle: todoStr(r.TodoTitle), TodoDescription: todoStr(r.TodoDescription), TodoTargetType: todoStr(r.TodoTargetType), TodoTargetID: todoStr(r.TodoTargetID)}
 				}
 			} else {
 				limit, offset := parsePage(in.Limit, in.Offset)
@@ -119,7 +121,7 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 				out = make([]ClaudeSessionItem, len(res.Data))
 				for i, r := range res.Data {
 					cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
-					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt), TodoID: todoInt(r.TodoID), TodoText: todoStr(r.TodoText), TodoTargetType: todoStr(r.TodoTargetType), TodoTargetID: todoStr(r.TodoTargetID)}
+					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt), TodoID: todoInt(r.TodoID), TodoText: todoStr(r.TodoText), TodoTitle: todoStr(r.TodoTitle), TodoDescription: todoStr(r.TodoDescription), TodoTargetType: todoStr(r.TodoTargetType), TodoTargetID: todoStr(r.TodoTargetID)}
 				}
 			}
 			return &struct {
@@ -152,23 +154,25 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 			return &struct {
 				Body ClaudeSessionItem
 			}{Body: ClaudeSessionItem{
-				ID:             sess.ID,
-				IssueID:        sess.IssueID,
-				SessionID:      sess.SessionID,
-				Title:          sess.Title,
-				Alias:          sess.Alias,
-				Header:         sess.Header,
-				Summary:        sess.Summary,
-				Status:         sess.Status,
-				Lifecycle:      lifecycleFor(sess.ClosedAt, cnt),
-				EventCount:     cnt,
-				CreatedAt:      fmtTS(sess.CreatedAt),
-				UpdatedAt:      fmtTS(sess.UpdatedAt),
-				ClosedAt:       fmtTS(sess.ClosedAt),
-				TodoID:         todoInt(sess.TodoID),
-				TodoText:       todoStr(sess.TodoText),
-				TodoTargetType: todoStr(sess.TodoTargetType),
-				TodoTargetID:   todoStr(sess.TodoTargetID),
+				ID:              sess.ID,
+				IssueID:         sess.IssueID,
+				SessionID:       sess.SessionID,
+				Title:           sess.Title,
+				Alias:           sess.Alias,
+				Header:          sess.Header,
+				Summary:         sess.Summary,
+				Status:          sess.Status,
+				Lifecycle:       lifecycleFor(sess.ClosedAt, cnt),
+				EventCount:      cnt,
+				CreatedAt:       fmtTS(sess.CreatedAt),
+				UpdatedAt:       fmtTS(sess.UpdatedAt),
+				ClosedAt:        fmtTS(sess.ClosedAt),
+				TodoID:          todoInt(sess.TodoID),
+				TodoText:        todoStr(sess.TodoText),
+				TodoTitle:       todoStr(sess.TodoTitle),
+				TodoDescription: todoStr(sess.TodoDescription),
+				TodoTargetType:  todoStr(sess.TodoTargetType),
+				TodoTargetID:    todoStr(sess.TodoTargetID),
 			}}, nil
 		})
 

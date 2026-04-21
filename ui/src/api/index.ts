@@ -1769,6 +1769,8 @@ export interface ClaudeSessionItem {
   closed_at?: string
   todo_id?: number
   todo_text?: string
+  todo_title?: string
+  todo_description?: string
   todo_target_type?: string
   todo_target_id?: string
 }
@@ -2523,23 +2525,6 @@ export const useCreateDiscussion = () => {
       return data as DiscussionItem
     },
     onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['discussions', v.slug] })
-    },
-  })
-}
-
-export const useUpdateDiscussionStatus = () => {
-  const qc = useQueryClient()
-  return useMutation<void, Error, { slug: string; id: number; status: string }>({
-    mutationFn: async ({ slug, id, status }) => {
-      const { error } = await client.PATCH('/api/dx/discussions/{id}/status' as never, {
-        params: { path: { id } },
-        body: { slug, status },
-      } as never)
-      if (error) throw new Error(JSON.stringify(error))
-    },
-    onSuccess: (_, v) => {
-      qc.invalidateQueries({ queryKey: ['discussion', v.slug, v.id] })
       qc.invalidateQueries({ queryKey: ['discussions', v.slug] })
     },
   })
