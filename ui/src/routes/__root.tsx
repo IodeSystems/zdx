@@ -275,10 +275,11 @@ function DrawerNav({ onNavigate }: { onNavigate?: () => void }) {
   const projectList = projects ?? []
 
   const isProjectExpanded = (slug: string) => {
+    // User's explicit choice takes precedence over route
+    if (manualProject === null) return false
+    if (manualProject !== undefined) return manualProject === slug
     // Route controls expansion when viewing a project
     if (currentSlug) return currentSlug === slug
-    // User's explicit choice takes precedence
-    if (manualProject !== undefined) return manualProject === slug
     // Auto-expand if there's only one project
     if (projectList.length === 1) return projectList[0].slug === slug
     return false
