@@ -32,6 +32,9 @@ func agentClaudeCmd() *cobra.Command {
 	var chrome bool
 	var model string
 	var level string
+	var container bool
+	var keepContainer bool
+	var maxWorktrees int
 	cmd := &cobra.Command{
 		Use:   "claude",
 		Short: "Run Claude agent sessions with zdx integration",
@@ -66,6 +69,18 @@ func agentClaudeCmd() *cobra.Command {
 				}
 			}
 
+			// --max-worktrees flag overrides config value when explicitly set.
+			if cmd.Flags().Changed("max-worktrees") && maxWorktrees > 0 {
+				agentCfg.MaxWorktrees = maxWorktrees
+			}
+
+			if container {
+				if !loop {
+					return fmt.Errorf("--container requires --loop")
+				}
+				return runContainerLoop(alias, agentCfg, keepContainer)
+			}
+
 			sel := modelSelector{modelFlag: model, levelFlag: level, agentCfg: agentCfg}
 
 			if loop {
@@ -85,6 +100,9 @@ func agentClaudeCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI")
 	cmd.Flags().StringVar(&model, "model", "", "claude model name (passes through as --model to claude CLI; wins over --level)")
 	cmd.Flags().StringVar(&level, "level", "", "task complexity tier: low|med|high (resolved against admin /llm-config; falls back to sensible defaults)")
+	cmd.Flags().BoolVar(&container, "container", false, "run agent loop inside the project's dev container (requires --loop and dev.Dockerfile)")
+	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep containers after exit (skip --rm; useful for debugging)")
+	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slots in --container mode)")
 	return cmd
 }
 
