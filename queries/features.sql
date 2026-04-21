@@ -104,6 +104,12 @@ JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE f.project_id = $1
   AND st.spec_id IS NULL
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_tasks t
+    WHERE t.project_id = $1
+      AND t.status IN ('ready', 'wip')
+      AND t.title ~* ('^Test spec ' || s.id::text || '[: ]')
+  )
 ORDER BY f.name, s.id;
 
 -- name: UpdateSpecConcernType :exec
