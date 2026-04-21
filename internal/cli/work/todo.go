@@ -456,29 +456,14 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
-	// 0d. Bootstrap: if no issues exist at all, guide agent to analyze the project.
+	// 0d. Bootstrap: if no issues exist at all, auto-create an onboarding issue so the queue has immediate work.
 	if issueFlag == "" && len(allIssues) == 0 && len(allFeatures) == 0 {
 		fmt.Printf("[bootstrap] %s\n", slug)
-		fmt.Println(`
-No issues or features exist yet — this looks like a new project.
-
-Analyze the project to bootstrap its feature catalog and first issue:
-
-1. Scan the codebase for conceptual features:
-   - Entry points (main packages, server routes, CLI commands)
-   - Data model (migrations, schema files, ORM models)
-   - External integrations (APIs, queues, caches, auth providers)
-   - UI structure (pages, components, layouts)
-   - Build / deploy (Dockerfile, CI config, Makefile)
-
-2. For each discovered feature, create it:
-   dx feature add <name> --desc="<what it does>"
-
-3. Create an initial setup issue for zdx integration:
-   dx issue add --title="Integrate project with zdx tooling" \
-     --context="Set up .zdx/config.yaml close-hooks (lint, gen), configure components, and verify dx todo solo cycle works end-to-end."
-
-4. Run dx todo solo again to start the normal triage flow.`)
+		if err := cli.BootstrapOnboardingIssue(c); err != nil {
+			fmt.Fprintf(os.Stderr, "bootstrap: %v\n", err)
+		} else {
+			fmt.Println("\nrun dx todo solo again to start the normal triage flow.")
+		}
 		return nil
 	}
 
