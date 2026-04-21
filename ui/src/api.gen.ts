@@ -2198,6 +2198,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-proposals"];
+        put?: never;
+        post: operations["create-proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/proposals/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["show-proposal"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update-proposal"];
+        trace?: never;
+    };
+    "/api/dx/proposals/{id}/approve": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["approve-proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/proposals/{id}/reject": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reject-proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/proposals/{id}/snooze": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["snooze-proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/qa/add": {
         parameters: {
             query?: never;
@@ -4414,6 +4494,28 @@ export interface components {
             issue_id: number;
             note: string;
         };
+        "Approve-proposalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Approve-proposalRequest.json
+             */
+            readonly $schema?: string;
+            issue_type?: string;
+            /** Format: int32 */
+            priority?: number;
+            slug: string;
+        };
+        "Approve-proposalResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Approve-proposalResponse.json
+             */
+            readonly $schema?: string;
+            issue_id: string;
+            proposal: components["schemas"]["ProposalItem"];
+        };
         "Attach-code-ref-to-issueRequest": {
             /**
              * Format: uri
@@ -4941,6 +5043,19 @@ export interface components {
             slug: string;
             upstream_credentials?: string;
             upstream_url?: string;
+        };
+        "Create-proposalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-proposalRequest.json
+             */
+            readonly $schema?: string;
+            body: string;
+            slug: string;
+            source_ref?: string;
+            source_type: string;
+            title: string;
         };
         "Defer-doctor-checkRequest": {
             /**
@@ -6368,6 +6483,15 @@ export interface components {
             readonly $schema?: string;
             projects: components["schemas"]["ProjectItem"][] | null;
         };
+        "List-proposalsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-proposalsResponse.json
+             */
+            readonly $schema?: string;
+            proposals: components["schemas"]["ProposalItem"][] | null;
+        };
         "List-question-proposalsResponse": {
             /**
              * Format: uri
@@ -6924,6 +7048,37 @@ export interface components {
             slug: string;
             stage: string;
         };
+        ProposalItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ProposalItem.json
+             */
+            readonly $schema?: string;
+            approved_issue_id?: string;
+            body: string;
+            created_at: string;
+            created_by: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            project_id: number;
+            snoozed_until?: string;
+            source_ref?: string;
+            source_type: string;
+            status: string;
+            title: string;
+            updated_at: string;
+        };
+        ProposalVersionItem: {
+            body: string;
+            edited_at: string;
+            edited_by: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int32 */
+            proposal_id: number;
+        };
         QuestionItem: {
             /**
              * Format: uri
@@ -7108,6 +7263,16 @@ export interface components {
             readonly $schema?: string;
             /** Format: int64 */
             indexed: number;
+        };
+        "Reject-proposalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reject-proposalRequest.json
+             */
+            readonly $schema?: string;
+            reason?: string;
+            slug: string;
         };
         "Release-taskRequest": {
             /**
@@ -7413,6 +7578,16 @@ export interface components {
             issue: components["schemas"]["IssueItem"];
             work: components["schemas"]["IssueWorkItem"][] | null;
         };
+        "Show-proposalResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Show-proposalResponse.json
+             */
+            readonly $schema?: string;
+            proposal: components["schemas"]["ProposalItem"];
+            versions: components["schemas"]["ProposalVersionItem"][] | null;
+        };
         "Similar-issuesRequest": {
             /**
              * Format: uri
@@ -7559,6 +7734,16 @@ export interface components {
             /** Format: int64 */
             total_lines: number;
             truncated: boolean;
+        };
+        "Snooze-proposalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Snooze-proposalRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+            snoozed_until: string;
         };
         "Solo-applyRequest": {
             /**
@@ -8222,6 +8407,17 @@ export interface components {
             id: number;
             plan_type: string;
             status: string;
+            title: string;
+        };
+        "Update-proposalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-proposalRequest.json
+             */
+            readonly $schema?: string;
+            body: string;
+            slug: string;
             title: string;
         };
         "Update-specsRequest": {
@@ -13297,6 +13493,244 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["TodoDetailBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-proposals": {
+        parameters: {
+            query: {
+                slug: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-proposalsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-proposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "show-proposal": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Show-proposalResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-proposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "approve-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Approve-proposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Approve-proposalResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "reject-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reject-proposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "snooze-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Snooze-proposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ProposalItem"];
                 };
             };
             /** @description Error */

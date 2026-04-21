@@ -2298,3 +2298,113 @@ export const useDeletePattern = () => {
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['patterns', v.slug] }),
   })
 }
+
+// ── proposals ─────────────────────────────────────────────────────────────────
+
+export type ProposalItem = components['schemas']['ProposalItem']
+export type ShowProposalResponse = components['schemas']['Show-proposalResponse']
+export type ApproveProposalResponse = components['schemas']['Approve-proposalResponse']
+
+export const useProposals = (slug: string, status?: string) =>
+  useQuery<ProposalItem[]>({
+    queryKey: ['proposals', slug, status ?? ''],
+    queryFn: async () => {
+      const query: { slug: string; status?: string } = { slug }
+      if (status) query.status = status
+      const { data, error } = await client.GET('/api/dx/proposals', { params: { query } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.proposals ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useProposal = (slug: string, id: number) =>
+  useQuery<ShowProposalResponse>({
+    queryKey: ['proposal', slug, id],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/proposals/{id}', {
+        params: { path: { id }, query: { slug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    enabled: !!slug && id > 0,
+  })
+
+export const useUpdateProposal = () => {
+  const qc = useQueryClient()
+  return useMutation<ProposalItem, Error, { slug: string; id: number; title: string; body: string }>({
+    mutationFn: async ({ slug, id, title, body }) => {
+      const { data, error } = await client.PATCH('/api/dx/proposals/{id}', {
+        params: { path: { id } },
+        body: { slug, title, body },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['proposal', v.slug, v.id] })
+      qc.invalidateQueries({ queryKey: ['proposals', v.slug] })
+    },
+  })
+}
+
+export const useApproveProposal = () => {
+  const qc = useQueryClient()
+  return useMutation<ApproveProposalResponse, Error, { slug: string; id: number; issue_type?: string; priority?: number }>({
+    mutationFn: async ({ slug, id, issue_type, priority }) => {
+      const body: { slug: string; issue_type?: string; priority?: number } = { slug }
+      if (issue_type) body.issue_type = issue_type
+      if (priority) body.priority = priority
+      const { data, error } = await client.POST('/api/dx/proposals/{id}/approve', {
+        params: { path: { id } },
+        body,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['proposal', v.slug, v.id] })
+      qc.invalidateQueries({ queryKey: ['proposals', v.slug] })
+      qc.invalidateQueries({ queryKey: ['issues', v.slug] })
+    },
+  })
+}
+
+export const useRejectProposal = () => {
+  const qc = useQueryClient()
+  return useMutation<ProposalItem, Error, { slug: string; id: number; reason?: string }>({
+    mutationFn: async ({ slug, id, reason }) => {
+      const body: { slug: string; reason?: string } = { slug }
+      if (reason) body.reason = reason
+      const { data, error } = await client.POST('/api/dx/proposals/{id}/reject', {
+        params: { path: { id } },
+        body,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['proposal', v.slug, v.id] })
+      qc.invalidateQueries({ queryKey: ['proposals', v.slug] })
+    },
+  })
+}
+
+export const useSnoozeProposal = () => {
+  const qc = useQueryClient()
+  return useMutation<ProposalItem, Error, { slug: string; id: number; snoozed_until: string }>({
+    mutationFn: async ({ slug, id, snoozed_until }) => {
+      const { data, error } = await client.POST('/api/dx/proposals/{id}/snooze', {
+        params: { path: { id } },
+        body: { slug, snoozed_until },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['proposal', v.slug, v.id] })
+      qc.invalidateQueries({ queryKey: ['proposals', v.slug] })
+    },
+  })
+}
