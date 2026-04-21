@@ -1,6 +1,7 @@
 package servercmd
 
 import (
+	"bufio"
 	"fmt"
 	"net/http"
 	"os"
@@ -12,11 +13,13 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/project"
 	"github.com/iodesystems/zdx-go/internal/config"
+	"github.com/iodesystems/zdx-go/internal/doctor"
 )
 
 func InitCmd() *cobra.Command {
 	var bootstrap bool
 	var useLocal bool
+	var withContainer, noContainer bool
 	var remoteURL, slug, email, name string
 	cmd := &cobra.Command{
 		Use:   "init",
@@ -24,6 +27,33 @@ func InitCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if err := scaffoldZdx(); err != nil {
 				return err
+			}
+
+			// Dev container scaffolding: before doctor so it sees the files.
+			if doctor.DevContainerFilesExist() {
+				fmt.Println("found existing dev container, skipping container scaffold")
+			} else if !noContainer {
+				scaffold := withContainer
+				if !scaffold {
+					// Interactive prompt when stdin is a terminal.
+					fi, err := os.Stdin.Stat()
+					isTerminal := err == nil && (fi.Mode()&os.ModeCharDevice != 0)
+					if isTerminal {
+						fmt.Print("scaffold dev container (dev.Dockerfile + docker-compose.dev.yml)? [y/N] ")
+						line, _ := bufio.NewReader(os.Stdin).ReadString('\n')
+						line = strings.TrimSpace(strings.ToLower(line))
+						scaffold = line == "y" || line == "yes"
+					} else {
+						scaffold = true // non-interactive default: scaffold
+					}
+				}
+				if scaffold {
+					if err := doctor.ScaffoldDevContainer(); err != nil {
+						fmt.Fprintf(os.Stderr, "container scaffold: %v\n", err)
+					} else {
+						fmt.Println("scaffolded dev.Dockerfile and docker-compose.dev.yml")
+					}
+				}
 			}
 
 			connected := detectExistingConnection()
@@ -60,9 +90,14 @@ func InitCmd() *cobra.Command {
 			}
 
 			// Run doctor to diagnose and guide the project to a working state.
+			// Skip --fix when --no-container is set to avoid auto-scaffolding container files.
 			fmt.Println("\nrunning project health check...")
 			doctorCmd := project.DoctorCmd()
-			doctorCmd.SetArgs([]string{"--fix"})
+			if noContainer {
+				doctorCmd.SetArgs([]string{})
+			} else {
+				doctorCmd.SetArgs([]string{"--fix"})
+			}
 			if err := doctorCmd.Execute(); err != nil {
 				fmt.Fprintf(os.Stderr, "doctor: %v\n", err)
 			}
@@ -72,6 +107,8 @@ func InitCmd() *cobra.Command {
 	}
 	cmd.Flags().BoolVar(&bootstrap, "bootstrap", false, "create onboarding issue with project setup questions")
 	cmd.Flags().BoolVar(&useLocal, "local", false, "start a local zdx server via docker")
+	cmd.Flags().BoolVar(&withContainer, "with-container", false, "scaffold dev.Dockerfile + docker-compose.dev.yml without prompting")
+	cmd.Flags().BoolVar(&noContainer, "no-container", false, "skip dev container scaffolding")
 	cmd.Flags().StringVar(&remoteURL, "url", "", "connect to an existing zdx server URL")
 	cmd.Flags().StringVar(&slug, "slug", "", "project slug (defaults to current directory name)")
 	cmd.Flags().StringVar(&email, "email", "", "admin email (required with --local)")

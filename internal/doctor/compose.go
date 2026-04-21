@@ -2,8 +2,31 @@ package doctor
 
 import (
 	"fmt"
+	"os"
 	"strings"
 )
+
+// DevContainerFilesExist returns true if at least one dev container file is present.
+func DevContainerFilesExist() bool {
+	return fileExists("dev.Dockerfile") || fileExists("Dockerfile.dev") ||
+		fileExists("docker-compose.dev.yml") || fileExists("docker-compose.dev.yaml")
+}
+
+// ScaffoldDevContainer writes dev.Dockerfile and docker-compose.dev.yml if they don't exist.
+func ScaffoldDevContainer() error {
+	stack := DetectStack(".")
+	if !fileExists("dev.Dockerfile") && !fileExists("Dockerfile.dev") {
+		if err := os.WriteFile("dev.Dockerfile", []byte(RenderDevDockerfile(stack)), 0o644); err != nil {
+			return err
+		}
+	}
+	if !fileExists("docker-compose.dev.yml") && !fileExists("docker-compose.dev.yaml") {
+		if err := os.WriteFile("docker-compose.dev.yml", []byte(RenderDevCompose(stack)), 0o644); err != nil {
+			return err
+		}
+	}
+	return nil
+}
 
 // RenderDevCompose emits a starter docker-compose.dev.yml for the given stack.
 // The output is opinionated — tweak after generation.
