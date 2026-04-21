@@ -29,6 +29,23 @@ type soloCandidate struct {
 	Persona     string
 }
 
+// foldIssuePriority lowers a base candidate priority (lower=wins) by the
+// user-facing issue priority so a P1/P2 impl with a ready dev task outranks
+// low-value triage. issuePriority is the string form from zdx_issues.priority
+// ("1".."4" or ""). Unknown/empty is treated as P4 (no adjustment).
+func foldIssuePriority(base int32, issuePriority string) int32 {
+	p := 4
+	switch issuePriority {
+	case "1":
+		p = 1
+	case "2":
+		p = 2
+	case "3":
+		p = 3
+	}
+	return base - int32(5-p)*5
+}
+
 func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueFilter string, autonomousMode bool) ([]soloCandidate, error) {
 	var candidates []soloCandidate
 
@@ -456,7 +473,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			TargetType:  "issue",
 			TargetID:    iss.ID,
 			IssueRef:    iss.ID,
-			Priority:    36,
+			Priority:    foldIssuePriority(36, iss.Priority),
 			Persona:     "owner",
 		})
 	}
@@ -508,7 +525,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 					TargetType:  "issue",
 					TargetID:    iss.ID,
 					IssueRef:    iss.ID,
-					Priority:    35,
+					Priority:    foldIssuePriority(35, iss.Priority),
 					Persona:     "dev",
 				})
 			} else if len(tasks) == 0 {
@@ -522,7 +539,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 					TargetType:  "issue",
 					TargetID:    iss.ID,
 					IssueRef:    iss.ID,
-					Priority:    38,
+					Priority:    foldIssuePriority(38, iss.Priority),
 					Persona:     "dev",
 				})
 			}
@@ -544,7 +561,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 					TargetType:  "task",
 					TargetID:    t.ID,
 					IssueRef:    iss.ID,
-					Priority:    40,
+					Priority:    foldIssuePriority(40, iss.Priority),
 					Persona:     "dev",
 				})
 			}
