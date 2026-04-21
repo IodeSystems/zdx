@@ -57,6 +57,7 @@ func main() {
 		project.QaCmd(),
 		project.QuestionCmd(),
 		project.QuestionProposalCmd(),
+		project.ProposalCmd(),
 		mcpcmd.McpCmd(),
 		devtools.TimeCmd(),
 		devtools.ClaudeCmd(),
