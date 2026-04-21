@@ -1193,6 +1193,7 @@ func claimNextTodo(rc remoteConfig, agentID string, leaseMinutes int32) (*claime
 		"slug":          rc.slug,
 		"agent_id":      agentID,
 		"lease_minutes": leaseMinutes,
+		"mode":          "autonomous",
 	})
 	req, _ := http.NewRequest("POST", rc.url+"/api/dx/solo/claim", bytes.NewReader(body))
 	req.Header.Set("X-Api-Key", rc.key)
