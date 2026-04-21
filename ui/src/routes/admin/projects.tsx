@@ -1,5 +1,5 @@
 import { createFileRoute, useNavigate, Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import React, { useState } from 'react'
 import {
   Box,
   Button,
@@ -53,6 +53,8 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
   const [classification, setClassification] = useState<Classification | ''>('')
   const [upstreamURL, setUpstreamURL] = useState('')
   const [upstreamCredentials, setUpstreamCredentials] = useState('')
+  const [localGit, setLocalGit] = useState(false)
+  const [createdSlug, setCreatedSlug] = useState<string | null>(null)
 
   const isBindMode = tab === 1
 
@@ -64,11 +66,16 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
     setClassification('')
     setUpstreamURL('')
     setUpstreamCredentials('')
+    setLocalGit(false)
+    setCreatedSlug(null)
     create.reset()
   }
 
   const handleClose = () => {
     if (create.isPending) return
+    if (createdSlug) {
+      navigate({ to: '/project/$slug', params: { slug: createdSlug } })
+    }
     reset()
     onClose()
   }
@@ -87,8 +94,15 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
     }
   }
 
+  const handleTabChange = (_: React.SyntheticEvent, v: 0 | 1) => {
+    setTab(v)
+    setLocalGit(false)
+    setUpstreamURL('')
+    create.reset()
+  }
+
   const canSubmit =
-    (isBindMode ? upstreamURL.trim() !== '' : name.trim() !== '') &&
+    (isBindMode ? (localGit || upstreamURL.trim() !== '') : name.trim() !== '') &&
     slug.trim() !== '' &&
     classification !== '' &&
     !create.isPending
@@ -102,109 +116,158 @@ function CreateProjectDialog({ open, onClose }: { open: boolean; onClose: () => 
         classification,
         ...(upstreamURL.trim() ? { upstream_url: upstreamURL.trim() } : {}),
         ...(upstreamCredentials.trim() ? { upstream_credentials: upstreamCredentials.trim() } : {}),
+        ...(localGit && !upstreamURL.trim() ? { local_git: true } : {}),
       },
       {
         onSuccess: (proj) => {
-          reset()
-          onClose()
-          navigate({ to: '/project/$slug', params: { slug: proj.slug } })
+          if (localGit && !upstreamURL.trim()) {
+            setCreatedSlug(proj.slug)
+          } else {
+            reset()
+            onClose()
+            navigate({ to: '/project/$slug', params: { slug: proj.slug } })
+          }
         },
       },
     )
   }
 
+  const serverURL = window.location.origin
+
   return (
     <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
       <DialogTitle sx={{ pb: 0 }}>
-        <Tabs value={tab} onChange={(_, v) => { setTab(v as 0 | 1); create.reset() }} sx={{ mb: 1 }}>
+        <Tabs value={tab} onChange={handleTabChange} sx={{ mb: 1 }}>
           <Tab label="New Project" />
           <Tab label="Add Existing" />
         </Tabs>
       </DialogTitle>
       <DialogContent>
-        <Stack spacing={2} sx={{ mt: 1 }}>
-          {isBindMode ? (
-            <TextField
-              label="GitHub URL"
-              value={upstreamURL}
-              onChange={(e) => handleUpstreamURLChange(e.target.value)}
-              placeholder="https://github.com/owner/repo.git"
-              required
-              autoFocus
-              size="small"
-              fullWidth
-              helperText="Bind this repo to zdx and enable git proxy for srcless agents"
-            />
-          ) : (
-            <TextField
-              label="Name"
-              value={name}
-              onChange={(e) => handleNameChange(e.target.value)}
-              required
-              autoFocus
-              size="small"
-              fullWidth
-            />
-          )}
-          <TextField
-            label="Slug"
-            value={slug}
-            onChange={(e) => {
-              setSlug(slugify(e.target.value))
-              setSlugTouched(true)
-            }}
-            required
-            size="small"
-            fullWidth
-            helperText="URL identifier — auto-derived from name"
-          />
-          <FormControl size="small" fullWidth required>
-            <InputLabel id="classification-label">Classification</InputLabel>
-            <Select
-              labelId="classification-label"
-              label="Classification"
-              value={classification}
-              onChange={(e) => setClassification(e.target.value as Classification)}
-            >
-              {CLASSIFICATIONS.map((c) => (
-                <MenuItem key={c} value={c}>{c}</MenuItem>
-              ))}
-            </Select>
-            <FormHelperText>Shapes the maturity vine and doctor checks</FormHelperText>
-          </FormControl>
-          {!isBindMode && (
-            <TextField
-              label="GitHub URL (optional)"
-              value={upstreamURL}
-              onChange={(e) => setUpstreamURL(e.target.value)}
-              placeholder="https://github.com/owner/repo.git"
-              size="small"
-              fullWidth
-              helperText="Provide to enable git proxy for srcless agents"
-            />
-          )}
-          <TextField
-            label="GitHub PAT (optional)"
-            type="password"
-            value={upstreamCredentials}
-            onChange={(e) => setUpstreamCredentials(e.target.value)}
-            disabled={upstreamURL.trim() === ''}
-            size="small"
-            fullWidth
-            helperText="Personal access token; stored encrypted server-side"
-          />
-          {create.isError && (
-            <Typography color="error" variant="body2">
-              {create.error.message}
+        {createdSlug ? (
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>
+              Project created with zdx-hosted git.
             </Typography>
-          )}
-        </Stack>
+            <Typography variant="body2">
+              Push your local repo to zdx:
+            </Typography>
+            <Box component="pre" sx={{ bgcolor: 'action.hover', p: 1.5, borderRadius: 1, fontSize: '0.78rem', overflow: 'auto' }}>
+              {`git init\ngit add .\ngit commit -m "init"\ngit remote add origin ${serverURL}/git/${createdSlug}\ngit push -u origin main`}
+            </Box>
+            <Typography variant="caption" color="text.secondary">
+              Use your zdx API key as the password when prompted.
+            </Typography>
+          </Stack>
+        ) : (
+          <Stack spacing={2} sx={{ mt: 1 }}>
+            {isBindMode ? (
+              <>
+                <Tabs
+                  value={localGit ? 1 : 0}
+                  onChange={(_, v) => { setLocalGit(v === 1); setUpstreamURL(''); create.reset() }}
+                  variant="fullWidth"
+                  sx={{ mb: 0, minHeight: 36, '& .MuiTab-root': { minHeight: 36, py: 0.5, fontSize: '0.8rem' } }}
+                >
+                  <Tab label="GitHub upstream" />
+                  <Tab label="Local (zdx-hosted)" />
+                </Tabs>
+                {!localGit ? (
+                  <TextField
+                    label="GitHub URL"
+                    value={upstreamURL}
+                    onChange={(e) => handleUpstreamURLChange(e.target.value)}
+                    placeholder="https://github.com/owner/repo.git"
+                    required
+                    autoFocus
+                    size="small"
+                    fullWidth
+                    helperText="Bind this repo to zdx and enable git proxy for srcless agents"
+                  />
+                ) : (
+                  <Typography variant="body2" color="text.secondary" sx={{ pt: 0.5 }}>
+                    zdx will create a bare git repo on the server. After creation you'll get push instructions.
+                  </Typography>
+                )}
+              </>
+            ) : (
+              <TextField
+                label="Name"
+                value={name}
+                onChange={(e) => handleNameChange(e.target.value)}
+                required
+                autoFocus
+                size="small"
+                fullWidth
+              />
+            )}
+            <TextField
+              label="Slug"
+              value={slug}
+              onChange={(e) => {
+                setSlug(slugify(e.target.value))
+                setSlugTouched(true)
+              }}
+              required
+              size="small"
+              fullWidth
+              helperText="URL identifier — auto-derived from name"
+            />
+            <FormControl size="small" fullWidth required>
+              <InputLabel id="classification-label">Classification</InputLabel>
+              <Select
+                labelId="classification-label"
+                label="Classification"
+                value={classification}
+                onChange={(e) => setClassification(e.target.value as Classification)}
+              >
+                {CLASSIFICATIONS.map((c) => (
+                  <MenuItem key={c} value={c}>{c}</MenuItem>
+                ))}
+              </Select>
+              <FormHelperText>Shapes the maturity vine and doctor checks</FormHelperText>
+            </FormControl>
+            {!isBindMode && (
+              <TextField
+                label="GitHub URL (optional)"
+                value={upstreamURL}
+                onChange={(e) => setUpstreamURL(e.target.value)}
+                placeholder="https://github.com/owner/repo.git"
+                size="small"
+                fullWidth
+                helperText="Provide to enable git proxy for srcless agents"
+              />
+            )}
+            {(!isBindMode || (isBindMode && !localGit)) && (
+              <TextField
+                label="GitHub PAT (optional)"
+                type="password"
+                value={upstreamCredentials}
+                onChange={(e) => setUpstreamCredentials(e.target.value)}
+                disabled={upstreamURL.trim() === ''}
+                size="small"
+                fullWidth
+                helperText="Personal access token; stored encrypted server-side"
+              />
+            )}
+            {create.isError && (
+              <Typography color="error" variant="body2">
+                {create.error.message}
+              </Typography>
+            )}
+          </Stack>
+        )}
       </DialogContent>
       <DialogActions>
-        <Button onClick={handleClose} disabled={create.isPending}>Cancel</Button>
-        <Button variant="contained" onClick={handleSubmit} disabled={!canSubmit}>
-          {create.isPending ? (isBindMode ? 'Binding…' : 'Creating…') : (isBindMode ? 'Bind Repo' : 'Create')}
+        <Button onClick={handleClose} disabled={create.isPending}>
+          {createdSlug ? 'Done' : 'Cancel'}
         </Button>
+        {!createdSlug && (
+          <Button variant="contained" onClick={handleSubmit} disabled={!canSubmit}>
+            {create.isPending
+              ? (isBindMode ? (localGit ? 'Creating…' : 'Binding…') : 'Creating…')
+              : (isBindMode ? (localGit ? 'Create with zdx git' : 'Bind Repo') : 'Create')}
+          </Button>
+        )}
       </DialogActions>
     </Dialog>
   )

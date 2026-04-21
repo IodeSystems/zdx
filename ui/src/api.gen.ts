@@ -1158,6 +1158,70 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/discussions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-discussions"];
+        put?: never;
+        post: operations["create-discussion"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/discussions/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-discussion"];
+        put?: never;
+        post?: never;
+        delete: operations["delete-discussion"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/discussions/{id}/messages": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-discussion-messages"];
+        put?: never;
+        post: operations["add-discussion-message"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/discussions/{id}/status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update-discussion-status"];
+        trace?: never;
+    };
     "/api/dx/doctor/classify": {
         parameters: {
             query?: never;
@@ -2694,22 +2758,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/dx/specs/defer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["defer-spec"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/dx/specs/deferrals": {
         parameters: {
             query?: never;
@@ -2912,22 +2960,6 @@ export interface paths {
         get: operations["list-uncovered-specs"];
         put?: never;
         post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/specs/undefer": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["undefer-spec"];
         delete?: never;
         options?: never;
         head?: never;
@@ -4273,6 +4305,17 @@ export interface components {
             target_id: string;
             target_type: string;
         };
+        "Add-discussion-messageRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-discussion-messageRequest.json
+             */
+            readonly $schema?: string;
+            content: string;
+            role: string;
+            slug: string;
+        };
         "Add-focus-blockerRequest": {
             /**
              * Format: uri
@@ -4337,6 +4380,7 @@ export interface components {
              * @description Server integer ID; CLI formats as IS-N
              */
             id: number;
+            interactive_only?: boolean;
             issue_type: string;
             link_of?: string;
             priority: string;
@@ -4860,11 +4904,13 @@ export interface components {
             status: string;
             summary: string;
             title: string;
+            todo_description?: string;
             /** Format: int32 */
             todo_id?: number;
             todo_target_id?: string;
             todo_target_type?: string;
             todo_text?: string;
+            todo_title?: string;
             updated_at: string;
         };
         ClientItem: {
@@ -5084,6 +5130,18 @@ export interface components {
             status: string;
             title: string;
         };
+        "Create-discussionRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-discussionRequest.json
+             */
+            readonly $schema?: string;
+            created_by?: string;
+            provider?: string;
+            slug: string;
+            title: string;
+        };
         "Create-environment-deployRequest": {
             /**
              * Format: uri
@@ -5180,6 +5238,7 @@ export interface components {
              */
             readonly $schema?: string;
             classification?: string;
+            local_git?: boolean;
             name: string;
             slug: string;
             upstream_credentials?: string;
@@ -5208,17 +5267,6 @@ export interface components {
             check_name: string;
             rung?: string;
             slug: string;
-        };
-        "Defer-specRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Defer-specRequest.json
-             */
-            readonly $schema?: string;
-            reason: string;
-            /** Format: int32 */
-            spec_id: number;
         };
         DeferralItem: {
             check_name: string;
@@ -5422,6 +5470,41 @@ export interface components {
             /** Format: int32 */
             test_id: number;
         };
+        DiscussionItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DiscussionItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            created_by: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: int64 */
+            message_count: number;
+            /** Format: int32 */
+            project_id: number;
+            provider: string;
+            status: string;
+            title: string;
+            updated_at: string;
+        };
+        DiscussionMessageItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/DiscussionMessageItem.json
+             */
+            readonly $schema?: string;
+            content: string;
+            created_at: string;
+            /** Format: int32 */
+            discussion_id: number;
+            /** Format: int32 */
+            id: number;
+            role: string;
+        };
         "Edit-issueRequest": {
             /**
              * Format: uri
@@ -5433,6 +5516,7 @@ export interface components {
             context?: string;
             /** Format: int32 */
             id: number;
+            interactive_only?: boolean;
             issue_type?: string;
             /** Format: int32 */
             priority?: number;
@@ -6003,6 +6087,7 @@ export interface components {
              * @description Server integer ID; CLI formats as IS-N
              */
             id: number;
+            interactive_only?: boolean;
             issue_type: string;
             link_of?: string;
             priority: string;
@@ -6359,6 +6444,24 @@ export interface components {
              */
             readonly $schema?: string;
             specs: components["schemas"]["DeferredSpecItem"][] | null;
+        };
+        "List-discussion-messagesResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-discussion-messagesResponse.json
+             */
+            readonly $schema?: string;
+            messages: components["schemas"]["DiscussionMessageItem"][] | null;
+        };
+        "List-discussionsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-discussionsResponse.json
+             */
+            readonly $schema?: string;
+            discussions: components["schemas"]["DiscussionItem"][] | null;
         };
         "List-doctor-deferralsResponse": {
             /**
@@ -7982,6 +8085,7 @@ export interface components {
             agent_id: string;
             /** Format: int32 */
             lease_minutes?: number;
+            mode?: string;
             slug: string;
         };
         "Solo-evaluateRequest": {
@@ -8114,8 +8218,6 @@ export interface components {
         };
         SpecItem: {
             concern_type: string;
-            deferred: boolean;
-            deferred_reason: string;
             description: string;
             /** Format: int32 */
             id: number;
@@ -8478,16 +8580,6 @@ export interface components {
             id: number;
             kind: string;
         };
-        "Undefer-specRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Undefer-specRequest.json
-             */
-            readonly $schema?: string;
-            /** Format: int32 */
-            spec_id: number;
-        };
         "Unlink-spec-issueRequest": {
             /**
              * Format: uri
@@ -8545,6 +8637,16 @@ export interface components {
             priority: number;
             status: string;
             title: string;
+        };
+        "Update-discussion-statusRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-discussion-statusRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+            status: string;
         };
         "Update-environmentRequest": {
             /**
@@ -11391,6 +11493,236 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["List-counter-events-groupedResponse"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-discussions": {
+        parameters: {
+            query: {
+                slug: string;
+                status?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-discussionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-discussion": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-discussionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscussionItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-discussion": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscussionItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-discussion": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-discussion-messages": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-discussion-messagesResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-discussion-message": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-discussion-messageRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["DiscussionMessageItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-discussion-status": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-discussion-statusRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -14827,39 +15159,6 @@ export interface operations {
             };
         };
     };
-    "defer-spec": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Defer-specRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     "list-spec-deferrals": {
         parameters: {
             query: {
@@ -15262,39 +15561,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-uncovered-specsResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "undefer-spec": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Undefer-specRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
                 };
             };
             /** @description Error */

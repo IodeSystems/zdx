@@ -252,6 +252,7 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 				Classification      string `json:"classification,omitempty"`
 				UpstreamURL         string `json:"upstream_url,omitempty"`
 				UpstreamCredentials string `json:"upstream_credentials,omitempty"`
+				LocalGit            bool   `json:"local_git,omitempty"`
 			}
 		}) (*struct{ Body ProjectItem }, error) {
 			if in.Body.Classification != "" {
@@ -274,7 +275,7 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 				}
 			}
 			gitEnabled := false
-			if in.Body.UpstreamURL != "" {
+			if in.Body.UpstreamURL != "" || in.Body.LocalGit {
 				if err := h.Q.SetProjectProxyConfig(ctx, db.SetProjectProxyConfigParams{
 					Slug:                row.Slug,
 					UpstreamUrl:         in.Body.UpstreamURL,

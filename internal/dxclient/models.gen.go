@@ -803,6 +803,7 @@ type CreateProjectRequest struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema              *string `json:"$schema,omitempty"`
 	Classification      *string `json:"classification,omitempty"`
+	LocalGit            *bool   `json:"local_git,omitempty"`
 	Name                string  `json:"name"`
 	Slug                string  `json:"slug"`
 	UpstreamCredentials *string `json:"upstream_credentials,omitempty"`
