@@ -29,7 +29,7 @@ type soloCandidate struct {
 	Persona     string
 }
 
-func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueFilter string) ([]soloCandidate, error) {
+func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueFilter string, autonomousMode bool) ([]soloCandidate, error) {
 	var candidates []soloCandidate
 
 	issues, err := h.Q.ListOpenIssues(ctx, projectID)
@@ -44,6 +44,17 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if iss.ID == issueFilter {
 				filtered = append(filtered, iss)
 				break
+			}
+		}
+		issues = filtered
+	}
+
+	// Autonomous agents skip interactive-only issues.
+	if autonomousMode {
+		var filtered []db.ZdxIssue
+		for _, iss := range issues {
+			if !iss.InteractiveOnly {
+				filtered = append(filtered, iss)
 			}
 		}
 		issues = filtered
@@ -707,7 +718,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				return nil, err
 			}
 
-			proposed, err := h.generateSoloQueue(ctx, p.ID, in.Body.Issue)
+			proposed, err := h.generateSoloQueue(ctx, p.ID, in.Body.Issue, false)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -810,6 +821,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				Slug         string `json:"slug"`
 				AgentID      string `json:"agent_id"`
 				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
+				Mode         string `json:"mode" required:"false"`
 			}
 		}) (*struct{ Body TodoItem }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -829,7 +841,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}
 
 			// Generate fresh queue and merge into persisted todos (preserving claims).
-			proposed, err := h.generateSoloQueue(ctx, p.ID, "")
+			proposed, err := h.generateSoloQueue(ctx, p.ID, "", in.Body.Mode == "autonomous")
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
