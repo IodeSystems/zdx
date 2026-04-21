@@ -89,7 +89,6 @@ type Querier interface {
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	DeferDoctorCheck(ctx context.Context, arg DeferDoctorCheckParams) error
-	DeferSpec(ctx context.Context, arg DeferSpecParams) error
 	DeleteAgent(ctx context.Context, id string) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
@@ -450,7 +449,6 @@ type Querier interface {
 	TouchApiKey(ctx context.Context, id int32) error
 	TouchClaudeSession(ctx context.Context, id int64) error
 	UndeferDoctorCheck(ctx context.Context, arg UndeferDoctorCheckParams) error
-	UndeferSpec(ctx context.Context, id int32) error
 	UnlinkGoalIssue(ctx context.Context, arg UnlinkGoalIssueParams) error
 	UnlinkSpecIssue(ctx context.Context, arg UnlinkSpecIssueParams) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error

@@ -122,7 +122,6 @@ func FeatureToCli(f dxclient.FeatureItem) clitypes.FeatureItem {
 				Description: s.Description,
 				Kind:        s.Kind,
 				ConcernType: s.ConcernType,
-				Deferred:    s.Deferred,
 			})
 		}
 	}

@@ -308,31 +308,6 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
-	huma.Register(api, huma.Operation{OperationID: "defer-spec", Method: http.MethodPost, Path: "/api/dx/specs/defer"},
-		func(ctx context.Context, in *struct {
-			Body struct {
-				SpecID int32  `json:"spec_id"`
-				Reason string `json:"reason"`
-			}
-		}) (*struct{ Body OKBody }, error) {
-			if err := h.Q.DeferSpec(ctx, db.DeferSpecParams{ID: in.Body.SpecID, Reason: in.Body.Reason}); err != nil {
-				return nil, apiErr(500, err.Error())
-			}
-			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
-		})
-
-	huma.Register(api, huma.Operation{OperationID: "undefer-spec", Method: http.MethodPost, Path: "/api/dx/specs/undefer"},
-		func(ctx context.Context, in *struct {
-			Body struct {
-				SpecID int32 `json:"spec_id"`
-			}
-		}) (*struct{ Body OKBody }, error) {
-			if err := h.Q.UndeferSpec(ctx, in.Body.SpecID); err != nil {
-				return nil, apiErr(500, err.Error())
-			}
-			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
-		})
-
 	huma.Register(api, huma.Operation{OperationID: "get-spec", Method: http.MethodGet, Path: "/api/dx/specs/detail"},
 		func(ctx context.Context, in *struct {
 			SpecID int32 `query:"spec_id" required:"true"`
@@ -361,12 +336,10 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				Issues []SpecIssueItem `json:"issues"`
 			}{
 				Spec: SpecItem{
-					ID:             spec.ID,
-					Description:    spec.Description,
-					Kind:           spec.Kind,
-					ConcernType:    spec.ConcernType,
-					Deferred:       spec.Deferred,
-					DeferredReason: spec.DeferredReason,
+					ID:          spec.ID,
+					Description: spec.Description,
+					Kind:        spec.Kind,
+					ConcernType: spec.ConcernType,
 				},
 				Issues: issues,
 			}}, nil
@@ -790,7 +763,7 @@ func (h *Handler) featuresWithSpecs(ctx context.Context, slug string) (*struct {
 	for _, sp := range allSpecs {
 		specsByFeature[sp.FeatureID] = append(specsByFeature[sp.FeatureID], SpecItem{
 			ID: sp.ID, Description: sp.Description, Kind: sp.Kind,
-			ConcernType: sp.ConcernType, Deferred: sp.Deferred, DeferredReason: sp.DeferredReason,
+			ConcernType: sp.ConcernType,
 		})
 	}
 	out := make([]FeatureItem, len(rows))
@@ -826,7 +799,7 @@ func toFeatureItemFromGet(f db.GetFeatureRow, specs []db.ListSpecsRow) FeatureIt
 		Specs: make([]SpecItem, len(specs)),
 	}
 	for i, sp := range specs {
-		item.Specs[i] = SpecItem{ID: sp.ID, Description: sp.Description, Kind: sp.Kind, ConcernType: sp.ConcernType, Deferred: sp.Deferred, DeferredReason: sp.DeferredReason}
+		item.Specs[i] = SpecItem{ID: sp.ID, Description: sp.Description, Kind: sp.Kind, ConcernType: sp.ConcernType}
 	}
 	return item
 }

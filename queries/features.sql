@@ -83,18 +83,18 @@ ORDER BY name;
 -- ── Specs ────────────────────────────────────────────────────────────────────
 
 -- name: ListSpecs :many
-SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE feature_id = $1 ORDER BY id;
 
 -- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, s.deferred, s.deferred_reason
+SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
 ORDER BY s.feature_id, s.id;
 
 -- name: GetSpec :one
-SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE id = $1;
 
 -- name: ListUncoveredSpecs :many
@@ -104,14 +104,7 @@ JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE f.project_id = $1
   AND st.spec_id IS NULL
-  AND s.deferred = false
 ORDER BY f.name, s.id;
-
--- name: DeferSpec :exec
-UPDATE zdx_specs SET deferred = true, deferred_reason = @reason WHERE id = @id;
-
--- name: UndeferSpec :exec
-UPDATE zdx_specs SET deferred = false, deferred_reason = '' WHERE id = $1;
 
 -- name: UpdateSpecConcernType :exec
 UPDATE zdx_specs SET concern_type = @concern_type WHERE id = @id;
@@ -136,7 +129,7 @@ WHERE si.spec_id = $1
 ORDER BY si.created_at;
 
 -- name: ListIssueSpecs :many
-SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type, s.deferred
+SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type
 FROM zdx_spec_issues si
 JOIN zdx_specs s ON s.id = si.spec_id
 WHERE si.issue_id = $1

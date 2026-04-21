@@ -73,20 +73,6 @@ func (q *Queries) ClearFeatureParent(ctx context.Context, id int32) error {
 	return err
 }
 
-const deferSpec = `-- name: DeferSpec :exec
-UPDATE zdx_specs SET deferred = true, deferred_reason = $1 WHERE id = $2
-`
-
-type DeferSpecParams struct {
-	Reason string `db:"reason" json:"reason"`
-	ID     int32  `db:"id" json:"id"`
-}
-
-func (q *Queries) DeferSpec(ctx context.Context, arg DeferSpecParams) error {
-	_, err := q.db.Exec(ctx, deferSpec, arg.Reason, arg.ID)
-	return err
-}
-
 const deleteFeature = `-- name: DeleteFeature :exec
 DELETE FROM zdx_features WHERE id = $1
 `
@@ -221,18 +207,16 @@ func (q *Queries) GetFeatureByID(ctx context.Context, id int32) (GetFeatureByIDR
 }
 
 const getSpec = `-- name: GetSpec :one
-SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE id = $1
 `
 
 type GetSpecRow struct {
-	ID             int32  `db:"id" json:"id"`
-	FeatureID      int32  `db:"feature_id" json:"feature_id"`
-	Description    string `db:"description" json:"description"`
-	Kind           string `db:"kind" json:"kind"`
-	ConcernType    string `db:"concern_type" json:"concern_type"`
-	Deferred       bool   `db:"deferred" json:"deferred"`
-	DeferredReason string `db:"deferred_reason" json:"deferred_reason"`
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+	ConcernType string `db:"concern_type" json:"concern_type"`
 }
 
 func (q *Queries) GetSpec(ctx context.Context, id int32) (GetSpecRow, error) {
@@ -244,8 +228,6 @@ func (q *Queries) GetSpec(ctx context.Context, id int32) (GetSpecRow, error) {
 		&i.Description,
 		&i.Kind,
 		&i.ConcernType,
-		&i.Deferred,
-		&i.DeferredReason,
 	)
 	return i, err
 }
@@ -461,7 +443,7 @@ func (q *Queries) ListFeaturesByGoal(ctx context.Context, goalID pgtype.Int4) ([
 }
 
 const listIssueSpecs = `-- name: ListIssueSpecs :many
-SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type, s.deferred
+SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type
 FROM zdx_spec_issues si
 JOIN zdx_specs s ON s.id = si.spec_id
 WHERE si.issue_id = $1
@@ -474,7 +456,6 @@ type ListIssueSpecsRow struct {
 	Description string `db:"description" json:"description"`
 	Kind        string `db:"kind" json:"kind"`
 	ConcernType string `db:"concern_type" json:"concern_type"`
-	Deferred    bool   `db:"deferred" json:"deferred"`
 }
 
 func (q *Queries) ListIssueSpecs(ctx context.Context, issueID string) ([]ListIssueSpecsRow, error) {
@@ -492,7 +473,6 @@ func (q *Queries) ListIssueSpecs(ctx context.Context, issueID string) ([]ListIss
 			&i.Description,
 			&i.Kind,
 			&i.ConcernType,
-			&i.Deferred,
 		); err != nil {
 			return nil, err
 		}
@@ -546,18 +526,16 @@ func (q *Queries) ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecI
 
 const listSpecs = `-- name: ListSpecs :many
 
-SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE feature_id = $1 ORDER BY id
 `
 
 type ListSpecsRow struct {
-	ID             int32  `db:"id" json:"id"`
-	FeatureID      int32  `db:"feature_id" json:"feature_id"`
-	Description    string `db:"description" json:"description"`
-	Kind           string `db:"kind" json:"kind"`
-	ConcernType    string `db:"concern_type" json:"concern_type"`
-	Deferred       bool   `db:"deferred" json:"deferred"`
-	DeferredReason string `db:"deferred_reason" json:"deferred_reason"`
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+	ConcernType string `db:"concern_type" json:"concern_type"`
 }
 
 // ── Specs ────────────────────────────────────────────────────────────────────
@@ -576,8 +554,6 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ListSpecsRo
 			&i.Description,
 			&i.Kind,
 			&i.ConcernType,
-			&i.Deferred,
-			&i.DeferredReason,
 		); err != nil {
 			return nil, err
 		}
@@ -590,7 +566,7 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ListSpecsRo
 }
 
 const listSpecsForProject = `-- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, s.deferred, s.deferred_reason
+SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
@@ -598,13 +574,11 @@ ORDER BY s.feature_id, s.id
 `
 
 type ListSpecsForProjectRow struct {
-	ID             int32  `db:"id" json:"id"`
-	FeatureID      int32  `db:"feature_id" json:"feature_id"`
-	Description    string `db:"description" json:"description"`
-	Kind           string `db:"kind" json:"kind"`
-	ConcernType    string `db:"concern_type" json:"concern_type"`
-	Deferred       bool   `db:"deferred" json:"deferred"`
-	DeferredReason string `db:"deferred_reason" json:"deferred_reason"`
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+	ConcernType string `db:"concern_type" json:"concern_type"`
 }
 
 func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]ListSpecsForProjectRow, error) {
@@ -622,8 +596,6 @@ func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]L
 			&i.Description,
 			&i.Kind,
 			&i.ConcernType,
-			&i.Deferred,
-			&i.DeferredReason,
 		); err != nil {
 			return nil, err
 		}
@@ -706,7 +678,6 @@ JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE f.project_id = $1
   AND st.spec_id IS NULL
-  AND s.deferred = false
 ORDER BY f.name, s.id
 `
 
@@ -772,15 +743,6 @@ type RemoveFeatureMultiplierParams struct {
 
 func (q *Queries) RemoveFeatureMultiplier(ctx context.Context, arg RemoveFeatureMultiplierParams) error {
 	_, err := q.db.Exec(ctx, removeFeatureMultiplier, arg.FeatureID, arg.MultipliesFeatureID)
-	return err
-}
-
-const undeferSpec = `-- name: UndeferSpec :exec
-UPDATE zdx_specs SET deferred = false, deferred_reason = '' WHERE id = $1
-`
-
-func (q *Queries) UndeferSpec(ctx context.Context, id int32) error {
-	_, err := q.db.Exec(ctx, undeferSpec, id)
 	return err
 }
 

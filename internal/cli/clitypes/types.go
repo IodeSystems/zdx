@@ -129,7 +129,6 @@ type SpecItem struct {
 	Description string `json:"description"`
 	Kind        string `json:"kind"`
 	ConcernType string `json:"concern_type"`
-	Deferred    bool   `json:"deferred"`
 }
 
 type CommentItem struct {

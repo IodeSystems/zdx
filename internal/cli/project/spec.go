@@ -16,7 +16,7 @@ func SpecCmd() *cobra.Command {
 		Use:   "spec",
 		Short: "Feature spec management (BDD statements)",
 	}
-	cmd.AddCommand(specAddCmd(), specShowCmd(), specListCmd(), specLinkCmd(), specUnlinkCmd(), specDeferCmd(), specUndeferCmd(), specMoveCmd(), specRmCmd())
+	cmd.AddCommand(specAddCmd(), specShowCmd(), specListCmd(), specLinkCmd(), specUnlinkCmd(), specDeferCmd(), specMoveCmd(), specRmCmd())
 	return cmd
 }
 
@@ -170,11 +170,7 @@ func specListCmd() *cobra.Command {
 					return nil
 				}
 				for _, s := range *f.Specs {
-					tag := ""
-					if s.Deferred {
-						tag = " (deferred)"
-					}
-					fmt.Printf("%-4d [%-14s]  %s%s\n", s.Id, s.Kind, s.Description, tag)
+					fmt.Printf("%-4d [%-14s]  %s\n", s.Id, s.Kind, s.Description)
 				}
 				return nil
 			}
@@ -218,18 +214,16 @@ func specLinkCmd() *cobra.Command {
 
 func specDeferCmd() *cobra.Command {
 	var (
-		reason    string
 		blockedBy []string
 		remove    string
 		note      string
 	)
 	cmd := &cobra.Command{
 		Use:   "defer <spec-id>",
-		Short: "Defer a spec to one or more blocking issues (preferred) or a free-text reason (legacy)",
+		Short: "Defer a spec to one or more blocking issues",
 		Long: `Defer a spec:
   dx spec defer <id> --blocked-by=IS-N [--blocked-by=IS-M] [--note="..."]
-  dx spec defer <id> --remove=IS-N
-  dx spec defer <id> --reason="..."   (legacy: sets the boolean deferred flag)`,
+  dx spec defer <id> --remove=IS-N`,
 		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			specID, err := strconv.Atoi(args[0])
@@ -239,13 +233,8 @@ func specDeferCmd() *cobra.Command {
 			c := cli.MustClient()
 			ctx := cmd.Context()
 
-			usedNew := len(blockedBy) > 0 || remove != ""
-			usedLegacy := reason != ""
-			if usedNew && usedLegacy {
-				return fmt.Errorf("--reason cannot be combined with --blocked-by/--remove")
-			}
-			if !usedNew && !usedLegacy {
-				return fmt.Errorf("specify --blocked-by=IS-N (or --remove=IS-N) to defer against an issue; --reason is the legacy boolean-flag path")
+			if len(blockedBy) == 0 && remove == "" {
+				return fmt.Errorf("specify --blocked-by=IS-N (or --remove=IS-N) to defer against an issue")
 			}
 
 			if remove != "" {
@@ -279,24 +268,9 @@ func specDeferCmd() *cobra.Command {
 				}
 				fmt.Printf("deferred spec %d ← %s\n", specID, issueID)
 			}
-
-			if usedLegacy {
-				resp, err := c.DeferSpecWithResponse(ctx, dxclient.DeferSpecRequest{
-					SpecId: int32(specID),
-					Reason: reason,
-				})
-				if err != nil {
-					return err
-				}
-				if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
-					return err
-				}
-				fmt.Printf("deferred spec %d (legacy reason: %q)\n", specID, reason)
-			}
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&reason, "reason", "", "legacy: free-text reason (sets boolean deferred flag)")
 	cmd.Flags().StringArrayVar(&blockedBy, "blocked-by", nil, "issue IDs blocking this spec (repeatable)")
 	cmd.Flags().StringVar(&remove, "remove", "", "remove a deferral by issue ID")
 	cmd.Flags().StringVar(&note, "note", "", "optional note attached to each new deferral")
@@ -329,14 +303,6 @@ func specShowCmd() *cobra.Command {
 			s := specResp.JSON200.Spec
 			fmt.Printf("Spec %d  [%s / %s]\n", s.Id, s.Kind, s.ConcernType)
 			fmt.Printf("  %s\n", s.Description)
-			if s.Deferred {
-				tag := "(legacy deferred"
-				if s.DeferredReason != "" {
-					tag += ": " + s.DeferredReason
-				}
-				tag += ")"
-				fmt.Printf("  %s\n", tag)
-			}
 
 			defResp, err := c.ListSpecDeferralsWithResponse(ctx, &dxclient.ListSpecDeferralsParams{SpecId: int32(specID)})
 			if err != nil {
@@ -362,32 +328,6 @@ func specShowCmd() *cobra.Command {
 					fmt.Printf("  %s (%s) — %s\n", is.IssueId, is.Status, is.Title)
 				}
 			}
-			return nil
-		},
-	}
-}
-
-func specUndeferCmd() *cobra.Command {
-	return &cobra.Command{
-		Use:   "undefer <spec-id>",
-		Short: "Un-defer a spec (re-enable solo tech:test-ref checks)",
-		Args:  cobra.ExactArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			specID, err := strconv.Atoi(args[0])
-			if err != nil {
-				return fmt.Errorf("invalid spec-id: %s", args[0])
-			}
-			c := cli.MustClient()
-			resp, err := c.UndeferSpecWithResponse(cmd.Context(), dxclient.UndeferSpecRequest{
-				SpecId: int32(specID),
-			})
-			if err != nil {
-				return err
-			}
-			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
-				return err
-			}
-			fmt.Printf("un-deferred spec %d\n", specID)
 			return nil
 		},
 	}

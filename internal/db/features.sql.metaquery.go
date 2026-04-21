@@ -87,22 +87,6 @@ func WrapClearFeatureParent(id int32) *metaquery.Builder {
 	return metaquery.Wrap(&MetaClearFeatureParent, id)
 }
 
-var MetaDeferSpec = metaquery.Query{
-	Name:   "DeferSpec",
-	Cmd:    ":exec",
-	Source: "features.sql",
-	SQL:    `UPDATE zdx_specs SET deferred = true, deferred_reason = $1 WHERE id = $2`,
-	Args: []metaquery.Arg{
-		{Position: 1, Name: "reason", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 2, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-	},
-}
-
-// WrapDeferSpec returns a metaquery.Builder over MetaDeferSpec, pre-bound with typed arguments.
-func WrapDeferSpec(arg DeferSpecParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaDeferSpec, arg.Reason, arg.ID)
-}
-
 var MetaDeleteFeature = metaquery.Query{
 	Name:   "DeleteFeature",
 	Cmd:    ":exec",
@@ -298,7 +282,7 @@ var MetaGetSpec = metaquery.Query{
 	Name:   "GetSpec",
 	Cmd:    ":one",
 	Source: "features.sql",
-	SQL: `SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+	SQL: `SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
@@ -306,8 +290,6 @@ FROM zdx_specs WHERE id = $1`,
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "deferred", OriginalName: "deferred", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_specs"},
-		{Name: "deferred_reason", OriginalName: "deferred_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -321,21 +303,17 @@ func WrapGetSpec(id int32) *metaquery.Builder {
 
 // GetSpecCols gives typed, name-safe access to GetSpec's output columns.
 var GetSpecCols = struct {
-	ID             metaquery.IntCol
-	FeatureID      metaquery.IntCol
-	Description    metaquery.TextCol
-	Kind           metaquery.TextCol
-	ConcernType    metaquery.TextCol
-	Deferred       metaquery.BoolCol
-	DeferredReason metaquery.TextCol
+	ID          metaquery.IntCol
+	FeatureID   metaquery.IntCol
+	Description metaquery.TextCol
+	Kind        metaquery.TextCol
+	ConcernType metaquery.TextCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	FeatureID:      metaquery.NewIntCol("feature_id"),
-	Description:    metaquery.NewTextCol("description"),
-	Kind:           metaquery.NewTextCol("kind"),
-	ConcernType:    metaquery.NewTextCol("concern_type"),
-	Deferred:       metaquery.NewBoolCol("deferred"),
-	DeferredReason: metaquery.NewTextCol("deferred_reason"),
+	ID:          metaquery.NewIntCol("id"),
+	FeatureID:   metaquery.NewIntCol("feature_id"),
+	Description: metaquery.NewTextCol("description"),
+	Kind:        metaquery.NewTextCol("kind"),
+	ConcernType: metaquery.NewTextCol("concern_type"),
 }
 
 var MetaLinkSpecIssue = metaquery.Query{
@@ -567,7 +545,7 @@ var MetaListIssueSpecs = metaquery.Query{
 	Name:   "ListIssueSpecs",
 	Cmd:    ":many",
 	Source: "features.sql",
-	SQL: `SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type, s.deferred
+	SQL: `SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type
 FROM zdx_spec_issues si
 JOIN zdx_specs s ON s.id = si.spec_id
 WHERE si.issue_id = $1
@@ -578,7 +556,6 @@ ORDER BY si.spec_id`,
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "deferred", OriginalName: "deferred", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
@@ -597,14 +574,12 @@ var ListIssueSpecsCols = struct {
 	Description metaquery.TextCol
 	Kind        metaquery.TextCol
 	ConcernType metaquery.TextCol
-	Deferred    metaquery.BoolCol
 }{
 	SpecID:      metaquery.NewIntCol("spec_id"),
 	IssueID:     metaquery.NewTextCol("issue_id"),
 	Description: metaquery.NewTextCol("description"),
 	Kind:        metaquery.NewTextCol("kind"),
 	ConcernType: metaquery.NewTextCol("concern_type"),
-	Deferred:    metaquery.NewBoolCol("deferred"),
 }
 
 var MetaListSpecIssues = metaquery.Query{
@@ -650,7 +625,7 @@ var MetaListSpecs = metaquery.Query{
 	Cmd:    ":many",
 	Source: "features.sql",
 	SQL: `
-SELECT id, feature_id, description, kind, concern_type, deferred, deferred_reason
+SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE feature_id = $1 ORDER BY id`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
@@ -658,8 +633,6 @@ FROM zdx_specs WHERE feature_id = $1 ORDER BY id`,
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "deferred", OriginalName: "deferred", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_specs"},
-		{Name: "deferred_reason", OriginalName: "deferred_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "feature_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -673,28 +646,24 @@ func WrapListSpecs(featureID int32) *metaquery.Builder {
 
 // ListSpecsCols gives typed, name-safe access to ListSpecs's output columns.
 var ListSpecsCols = struct {
-	ID             metaquery.IntCol
-	FeatureID      metaquery.IntCol
-	Description    metaquery.TextCol
-	Kind           metaquery.TextCol
-	ConcernType    metaquery.TextCol
-	Deferred       metaquery.BoolCol
-	DeferredReason metaquery.TextCol
+	ID          metaquery.IntCol
+	FeatureID   metaquery.IntCol
+	Description metaquery.TextCol
+	Kind        metaquery.TextCol
+	ConcernType metaquery.TextCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	FeatureID:      metaquery.NewIntCol("feature_id"),
-	Description:    metaquery.NewTextCol("description"),
-	Kind:           metaquery.NewTextCol("kind"),
-	ConcernType:    metaquery.NewTextCol("concern_type"),
-	Deferred:       metaquery.NewBoolCol("deferred"),
-	DeferredReason: metaquery.NewTextCol("deferred_reason"),
+	ID:          metaquery.NewIntCol("id"),
+	FeatureID:   metaquery.NewIntCol("feature_id"),
+	Description: metaquery.NewTextCol("description"),
+	Kind:        metaquery.NewTextCol("kind"),
+	ConcernType: metaquery.NewTextCol("concern_type"),
 }
 
 var MetaListSpecsForProject = metaquery.Query{
 	Name:   "ListSpecsForProject",
 	Cmd:    ":many",
 	Source: "features.sql",
-	SQL: `SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, s.deferred, s.deferred_reason
+	SQL: `SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
@@ -705,8 +674,6 @@ ORDER BY s.feature_id, s.id`,
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "deferred", OriginalName: "deferred", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_specs"},
-		{Name: "deferred_reason", OriginalName: "deferred_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -720,21 +687,17 @@ func WrapListSpecsForProject(projectID int32) *metaquery.Builder {
 
 // ListSpecsForProjectCols gives typed, name-safe access to ListSpecsForProject's output columns.
 var ListSpecsForProjectCols = struct {
-	ID             metaquery.IntCol
-	FeatureID      metaquery.IntCol
-	Description    metaquery.TextCol
-	Kind           metaquery.TextCol
-	ConcernType    metaquery.TextCol
-	Deferred       metaquery.BoolCol
-	DeferredReason metaquery.TextCol
+	ID          metaquery.IntCol
+	FeatureID   metaquery.IntCol
+	Description metaquery.TextCol
+	Kind        metaquery.TextCol
+	ConcernType metaquery.TextCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	FeatureID:      metaquery.NewIntCol("feature_id"),
-	Description:    metaquery.NewTextCol("description"),
-	Kind:           metaquery.NewTextCol("kind"),
-	ConcernType:    metaquery.NewTextCol("concern_type"),
-	Deferred:       metaquery.NewBoolCol("deferred"),
-	DeferredReason: metaquery.NewTextCol("deferred_reason"),
+	ID:          metaquery.NewIntCol("id"),
+	FeatureID:   metaquery.NewIntCol("feature_id"),
+	Description: metaquery.NewTextCol("description"),
+	Kind:        metaquery.NewTextCol("kind"),
+	ConcernType: metaquery.NewTextCol("concern_type"),
 }
 
 var MetaListStaleFeatures = metaquery.Query{
@@ -814,7 +777,6 @@ JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE f.project_id = $1
   AND st.spec_id IS NULL
-  AND s.deferred = false
 ORDER BY f.name, s.id`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
@@ -882,21 +844,6 @@ var MetaRemoveFeatureMultiplier = metaquery.Query{
 // WrapRemoveFeatureMultiplier returns a metaquery.Builder over MetaRemoveFeatureMultiplier, pre-bound with typed arguments.
 func WrapRemoveFeatureMultiplier(arg RemoveFeatureMultiplierParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaRemoveFeatureMultiplier, arg.FeatureID, arg.MultipliesFeatureID)
-}
-
-var MetaUndeferSpec = metaquery.Query{
-	Name:   "UndeferSpec",
-	Cmd:    ":exec",
-	Source: "features.sql",
-	SQL:    `UPDATE zdx_specs SET deferred = false, deferred_reason = '' WHERE id = $1`,
-	Args: []metaquery.Arg{
-		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-	},
-}
-
-// WrapUndeferSpec returns a metaquery.Builder over MetaUndeferSpec, pre-bound with typed arguments.
-func WrapUndeferSpec(id int32) *metaquery.Builder {
-	return metaquery.Wrap(&MetaUndeferSpec, id)
 }
 
 var MetaUnlinkSpecIssue = metaquery.Query{
