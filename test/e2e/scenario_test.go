@@ -1,6 +1,9 @@
 package e2e
 
-import "fmt"
+import (
+	"fmt"
+	"time"
+)
 
 // Scenario holds fixtures created during the "given" phase.
 type Scenario struct {
@@ -83,11 +86,13 @@ func (b *ScenarioBuilder) ReviewedFeature(name string) *ScenarioBuilder {
 }
 
 // HealthPrereqs sets up goals, constraints, and journals so solo doesn't gate on health checks.
-func (b *ScenarioBuilder) HealthPrereqs(date string) *ScenarioBuilder {
+// Uses yesterday's date so the 7-day standup threshold never trips regardless of when tests run.
+func (b *ScenarioBuilder) HealthPrereqs() *ScenarioBuilder {
+	yesterday := time.Now().AddDate(0, 0, -1).Format("2006-01-02")
 	b.driver.AddGoal("Test goal")
 	b.driver.AddConstraint("Test constraint")
-	b.driver.CheckinJournal("owner", date)
-	b.driver.CheckinJournal("tech", date)
+	b.driver.CheckinJournal("owner", yesterday)
+	b.driver.CheckinJournal("tech", yesterday)
 	return b
 }
 

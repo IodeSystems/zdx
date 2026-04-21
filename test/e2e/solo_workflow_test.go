@@ -379,7 +379,7 @@ func TestSoloFullLifecycle(t *testing.T) {
 		Feature("lifecycle-feat", "Lifecycle test feature").
 		Spec("lifecycle-feat", "unit_test", "Basic lifecycle test").
 		Issue("Lifecycle test issue", "full workflow").
-		HealthPrereqs("2026-04-14").
+		HealthPrereqs().
 		Build()
 	issueID := sc.Issues[0]
 

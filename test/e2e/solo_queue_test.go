@@ -357,7 +357,7 @@ func TestQueueKindPriority(t *testing.T) {
 func TestQueueEmpty(t *testing.T) {
 	d := NewApiDriver(t, "q-empty", "Queue Empty")
 	sc := Given(d).
-		HealthPrereqs("2026-04-14").
+		HealthPrereqs().
 		Feature("complete", "All set").
 		Spec("complete", "unit_test", "Test").
 		TriagedIssue("Done issue", "finished", 2).
@@ -424,7 +424,7 @@ func TestQueueStrictPriorityOrder(t *testing.T) {
 	d := NewApiDriver(t, "q-strict-order", "Queue Strict Priority Order")
 
 	// Health prereqs suppress owner:goals / owner:constraints noise.
-	Given(d).HealthPrereqs("2026-04-14").Build()
+	Given(d).HealthPrereqs().Build()
 
 	// comments (priority 5): unread comment on any issue
 	sc := Given(d).TriagedIssue("Commented issue", "has comment", 2).Build()
@@ -501,7 +501,7 @@ func TestQueueIssueScoped(t *testing.T) {
 
 	// Four issues, one per scoped kind.
 	sc := Given(d).
-		HealthPrereqs("2026-04-14").
+		HealthPrereqs().
 		Issue("Untriaged bug", "needs triage").                 // idx 0 → triage
 		TriagedIssue("Needs decomposition", "no tasks yet", 2). // idx 1 → add
 		TriagedIssue("Dev work", "has tasks", 2).               // idx 2 → dev
@@ -551,7 +551,7 @@ func TestQueueUnifiedMixedSources(t *testing.T) {
 	d := NewApiDriver(t, "q-unified", "Queue Unified Mixed Sources")
 
 	// Suppress health noise so the queue reflects only the signal sources under test.
-	Given(d).HealthPrereqs("2026-04-14").Build()
+	Given(d).HealthPrereqs().Build()
 
 	// Signal 1: unread comment → read:comments (priority 5)
 	sc := Given(d).TriagedIssue("Commented issue", "has unread comment", 2).Build()
