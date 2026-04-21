@@ -212,7 +212,9 @@ in the first place:
 
 1. For each point of friction, ask: could a better error message, flag, or guard have guided me correctly on the first
    attempt?
-2. If yes, file an issue:
+2. If yes, file a **proposal** (not an issue) — proposals go to operator review before becoming real issues:
+   Use the `proposal_add` MCP tool with `source_type="session-review"` and a body describing what happened, what the
+   tool said, and what it should have said or done instead. If MCP is unavailable, use the CLI:
    `./bin/dx issue add --title="..." --context="<what happened, what the tool said, what it should have said or done instead>"`
-3. Report the filed issue IDs.
-   Do not file issues for expected complexity or user error. Only file when the tool itself failed to guide correctly.
+3. Report the filed proposal IDs (or issue IDs if CLI fallback was used).
+   Do not file proposals for expected complexity or user error. Only file when the tool itself failed to guide correctly.

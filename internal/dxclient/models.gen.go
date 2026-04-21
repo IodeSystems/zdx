@@ -337,6 +337,23 @@ type AppendIssueWorkRequest struct {
 	Note      string  `json:"note"`
 }
 
+// ApproveProposalRequest defines model for Approve-proposalRequest.
+type ApproveProposalRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string `json:"$schema,omitempty"`
+	IssueType *string `json:"issue_type,omitempty"`
+	Priority  *int32  `json:"priority,omitempty"`
+	Slug      string  `json:"slug"`
+}
+
+// ApproveProposalResponse defines model for Approve-proposalResponse.
+type ApproveProposalResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string      `json:"$schema,omitempty"`
+	IssueId  string       `json:"issue_id"`
+	Proposal ProposalItem `json:"proposal"`
+}
+
 // AttachCodeRefToIssueRequest defines model for Attach-code-ref-to-issueRequest.
 type AttachCodeRefToIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -758,6 +775,17 @@ type CreateProjectRequest struct {
 	Slug                string  `json:"slug"`
 	UpstreamCredentials *string `json:"upstream_credentials,omitempty"`
 	UpstreamUrl         *string `json:"upstream_url,omitempty"`
+}
+
+// CreateProposalRequest defines model for Create-proposalRequest.
+type CreateProposalRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string `json:"$schema,omitempty"`
+	Body       string  `json:"body"`
+	Slug       string  `json:"slug"`
+	SourceRef  *string `json:"source_ref,omitempty"`
+	SourceType string  `json:"source_type"`
+	Title      string  `json:"title"`
 }
 
 // DeferDoctorCheckRequest defines model for Defer-doctor-checkRequest.
@@ -1900,6 +1928,13 @@ type ListProjectsResponse struct {
 	Projects *[]ProjectItem `json:"projects"`
 }
 
+// ListProposalsResponse defines model for List-proposalsResponse.
+type ListProposalsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string         `json:"$schema,omitempty"`
+	Proposals *[]ProposalItem `json:"proposals"`
+}
+
 // ListQuestionProposalsResponse defines model for List-question-proposalsResponse.
 type ListQuestionProposalsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2339,6 +2374,33 @@ type ProjectItem struct {
 	Stage          string  `json:"stage"`
 }
 
+// ProposalItem defines model for ProposalItem.
+type ProposalItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema          *string `json:"$schema,omitempty"`
+	ApprovedIssueId *string `json:"approved_issue_id,omitempty"`
+	Body            string  `json:"body"`
+	CreatedAt       string  `json:"created_at"`
+	CreatedBy       string  `json:"created_by"`
+	Id              int32   `json:"id"`
+	ProjectId       int32   `json:"project_id"`
+	SnoozedUntil    *string `json:"snoozed_until,omitempty"`
+	SourceRef       *string `json:"source_ref,omitempty"`
+	SourceType      string  `json:"source_type"`
+	Status          string  `json:"status"`
+	Title           string  `json:"title"`
+	UpdatedAt       string  `json:"updated_at"`
+}
+
+// ProposalVersionItem defines model for ProposalVersionItem.
+type ProposalVersionItem struct {
+	Body       string `json:"body"`
+	EditedAt   string `json:"edited_at"`
+	EditedBy   string `json:"edited_by"`
+	Id         int32  `json:"id"`
+	ProposalId int32  `json:"proposal_id"`
+}
+
 // QuestionItem defines model for QuestionItem.
 type QuestionItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2481,6 +2543,14 @@ type ReindexPatternsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema  *string `json:"$schema,omitempty"`
 	Indexed int64   `json:"indexed"`
+}
+
+// RejectProposalRequest defines model for Reject-proposalRequest.
+type RejectProposalRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Reason *string `json:"reason,omitempty"`
+	Slug   string  `json:"slug"`
 }
 
 // ReleaseTaskRequest defines model for Release-taskRequest.
@@ -2736,6 +2806,14 @@ type ShowIssueResponse struct {
 	Work   *[]IssueWorkItem `json:"work"`
 }
 
+// ShowProposalResponse defines model for Show-proposalResponse.
+type ShowProposalResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string                `json:"$schema,omitempty"`
+	Proposal ProposalItem           `json:"proposal"`
+	Versions *[]ProposalVersionItem `json:"versions"`
+}
+
 // SimilarIssuesRequest defines model for Similar-issuesRequest.
 type SimilarIssuesRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2855,6 +2933,14 @@ type SnippetResult struct {
 	StartLine  int64   `json:"start_line"`
 	TotalLines int64   `json:"total_lines"`
 	Truncated  bool    `json:"truncated"`
+}
+
+// SnoozeProposalRequest defines model for Snooze-proposalRequest.
+type SnoozeProposalRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	Slug         string  `json:"slug"`
+	SnoozedUntil string  `json:"snoozed_until"`
 }
 
 // SoloApplyRequest defines model for Solo-applyRequest.
@@ -3410,6 +3496,15 @@ type UpdatePlanRequest struct {
 	Title      string  `json:"title"`
 }
 
+// UpdateProposalRequest defines model for Update-proposalRequest.
+type UpdateProposalRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Body   string  `json:"body"`
+	Slug   string  `json:"slug"`
+	Title  string  `json:"title"`
+}
+
 // UpdateSpecsRequest defines model for Update-specsRequest.
 type UpdateSpecsRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3916,6 +4011,17 @@ type GetProjectInfoParams struct {
 type ListEnvironmentDeploysParams struct {
 	Limit  *int32 `form:"limit,omitempty" json:"limit,omitempty"`
 	Offset *int32 `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListProposalsParams defines parameters for ListProposals.
+type ListProposalsParams struct {
+	Slug   string  `form:"slug" json:"slug"`
+	Status *string `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// ShowProposalParams defines parameters for ShowProposal.
+type ShowProposalParams struct {
+	Slug string `form:"slug" json:"slug"`
 }
 
 // ListChildQuestionsParams defines parameters for ListChildQuestions.
@@ -4452,6 +4558,21 @@ type ClaimIssueJSONRequestBody = ClaimIssueRequest
 
 // RenewIssueLeaseJSONRequestBody defines body for RenewIssueLease for application/json ContentType.
 type RenewIssueLeaseJSONRequestBody = RenewIssueLeaseRequest
+
+// CreateProposalJSONRequestBody defines body for CreateProposal for application/json ContentType.
+type CreateProposalJSONRequestBody = CreateProposalRequest
+
+// UpdateProposalJSONRequestBody defines body for UpdateProposal for application/json ContentType.
+type UpdateProposalJSONRequestBody = UpdateProposalRequest
+
+// ApproveProposalJSONRequestBody defines body for ApproveProposal for application/json ContentType.
+type ApproveProposalJSONRequestBody = ApproveProposalRequest
+
+// RejectProposalJSONRequestBody defines body for RejectProposal for application/json ContentType.
+type RejectProposalJSONRequestBody = RejectProposalRequest
+
+// SnoozeProposalJSONRequestBody defines body for SnoozeProposal for application/json ContentType.
+type SnoozeProposalJSONRequestBody = SnoozeProposalRequest
 
 // AddQuestionJSONRequestBody defines body for AddQuestion for application/json ContentType.
 type AddQuestionJSONRequestBody = AddQuestionRequest
@@ -5323,6 +5444,37 @@ type ClientInterface interface {
 
 	// GetTodoDetail request
 	GetTodoDetail(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListProposals request
+	ListProposals(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateProposalWithBody request with any body
+	CreateProposalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateProposal(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ShowProposal request
+	ShowProposal(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateProposalWithBody request with any body
+	UpdateProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateProposal(ctx context.Context, id int32, body UpdateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApproveProposalWithBody request with any body
+	ApproveProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ApproveProposal(ctx context.Context, id int32, body ApproveProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RejectProposalWithBody request with any body
+	RejectProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RejectProposal(ctx context.Context, id int32, body RejectProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SnoozeProposalWithBody request with any body
+	SnoozeProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SnoozeProposal(ctx context.Context, id int32, body SnoozeProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AddQuestionWithBody request with any body
 	AddQuestionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8460,6 +8612,150 @@ func (c *APIClient) RenewIssueLease(ctx context.Context, slug string, id string,
 
 func (c *APIClient) GetTodoDetail(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetTodoDetailRequest(c.Server, slug, key)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListProposals(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListProposalsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateProposalWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProposalRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateProposal(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateProposalRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ShowProposal(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewShowProposalRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProposalRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateProposal(ctx context.Context, id int32, body UpdateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateProposalRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ApproveProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveProposalRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ApproveProposal(ctx context.Context, id int32, body ApproveProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApproveProposalRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) RejectProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRejectProposalRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) RejectProposal(ctx context.Context, id int32, body RejectProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRejectProposalRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SnoozeProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSnoozeProposalRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SnoozeProposal(ctx context.Context, id int32, body SnoozeProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSnoozeProposalRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -18650,6 +18946,347 @@ func NewGetTodoDetailRequest(server string, slug string, key string) (*http.Requ
 	return req, nil
 }
 
+// NewListProposalsRequest generates requests for ListProposals
+func NewListProposalsRequest(server string, params *ListProposalsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/proposals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateProposalRequest calls the generic CreateProposal builder with application/json body
+func NewCreateProposalRequest(server string, body CreateProposalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateProposalRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateProposalRequestWithBody generates requests for CreateProposal with any type of body
+func NewCreateProposalRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/proposals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewShowProposalRequest generates requests for ShowProposal
+func NewShowProposalRequest(server string, id int32, params *ShowProposalParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/proposals/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewUpdateProposalRequest calls the generic UpdateProposal builder with application/json body
+func NewUpdateProposalRequest(server string, id int32, body UpdateProposalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateProposalRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateProposalRequestWithBody generates requests for UpdateProposal with any type of body
+func NewUpdateProposalRequestWithBody(server string, id int32, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/proposals/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewApproveProposalRequest calls the generic ApproveProposal builder with application/json body
+func NewApproveProposalRequest(server string, id int32, body ApproveProposalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApproveProposalRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewApproveProposalRequestWithBody generates requests for ApproveProposal with any type of body
+func NewApproveProposalRequestWithBody(server string, id int32, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/proposals/%s/approve", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRejectProposalRequest calls the generic RejectProposal builder with application/json body
+func NewRejectProposalRequest(server string, id int32, body RejectProposalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRejectProposalRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewRejectProposalRequestWithBody generates requests for RejectProposal with any type of body
+func NewRejectProposalRequestWithBody(server string, id int32, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/proposals/%s/reject", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSnoozeProposalRequest calls the generic SnoozeProposal builder with application/json body
+func NewSnoozeProposalRequest(server string, id int32, body SnoozeProposalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSnoozeProposalRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSnoozeProposalRequestWithBody generates requests for SnoozeProposal with any type of body
+func NewSnoozeProposalRequestWithBody(server string, id int32, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/proposals/%s/snooze", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewAddQuestionRequest calls the generic AddQuestion builder with application/json body
 func NewAddQuestionRequest(server string, body AddQuestionJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -25500,6 +26137,37 @@ type ClientWithResponsesInterface interface {
 	// GetTodoDetailWithResponse request
 	GetTodoDetailWithResponse(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*GetTodoDetailResponse, error)
 
+	// ListProposalsWithResponse request
+	ListProposalsWithResponse(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*ParsedListProposalsResponse, error)
+
+	// CreateProposalWithBodyWithResponse request with any body
+	CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error)
+
+	CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error)
+
+	// ShowProposalWithResponse request
+	ShowProposalWithResponse(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*ParsedShowProposalResponse, error)
+
+	// UpdateProposalWithBodyWithResponse request with any body
+	UpdateProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProposalResponse, error)
+
+	UpdateProposalWithResponse(ctx context.Context, id int32, body UpdateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProposalResponse, error)
+
+	// ApproveProposalWithBodyWithResponse request with any body
+	ApproveProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedApproveProposalResponse, error)
+
+	ApproveProposalWithResponse(ctx context.Context, id int32, body ApproveProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedApproveProposalResponse, error)
+
+	// RejectProposalWithBodyWithResponse request with any body
+	RejectProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RejectProposalResponse, error)
+
+	RejectProposalWithResponse(ctx context.Context, id int32, body RejectProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectProposalResponse, error)
+
+	// SnoozeProposalWithBodyWithResponse request with any body
+	SnoozeProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SnoozeProposalResponse, error)
+
+	SnoozeProposalWithResponse(ctx context.Context, id int32, body SnoozeProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*SnoozeProposalResponse, error)
+
 	// AddQuestionWithBodyWithResponse request with any body
 	AddQuestionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddQuestionResponse, error)
 
@@ -29476,6 +30144,167 @@ func (r GetTodoDetailResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetTodoDetailResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListProposalsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListProposalsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListProposalsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListProposalsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateProposalResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ProposalItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateProposalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateProposalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedShowProposalResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ShowProposalResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedShowProposalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedShowProposalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateProposalResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ProposalItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateProposalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateProposalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedApproveProposalResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ApproveProposalResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedApproveProposalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedApproveProposalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RejectProposalResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ProposalItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r RejectProposalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RejectProposalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SnoozeProposalResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ProposalItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SnoozeProposalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SnoozeProposalResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -34133,6 +34962,109 @@ func (c *ClientWithResponses) GetTodoDetailWithResponse(ctx context.Context, slu
 		return nil, err
 	}
 	return ParseGetTodoDetailResponse(rsp)
+}
+
+// ListProposalsWithResponse request returning *ParsedListProposalsResponse
+func (c *ClientWithResponses) ListProposalsWithResponse(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*ParsedListProposalsResponse, error) {
+	rsp, err := c.ListProposals(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListProposalsResponse(rsp)
+}
+
+// CreateProposalWithBodyWithResponse request with arbitrary body returning *CreateProposalResponse
+func (c *ClientWithResponses) CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error) {
+	rsp, err := c.CreateProposalWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProposalResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error) {
+	rsp, err := c.CreateProposal(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateProposalResponse(rsp)
+}
+
+// ShowProposalWithResponse request returning *ParsedShowProposalResponse
+func (c *ClientWithResponses) ShowProposalWithResponse(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*ParsedShowProposalResponse, error) {
+	rsp, err := c.ShowProposal(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedShowProposalResponse(rsp)
+}
+
+// UpdateProposalWithBodyWithResponse request with arbitrary body returning *UpdateProposalResponse
+func (c *ClientWithResponses) UpdateProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateProposalResponse, error) {
+	rsp, err := c.UpdateProposalWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProposalResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateProposalWithResponse(ctx context.Context, id int32, body UpdateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateProposalResponse, error) {
+	rsp, err := c.UpdateProposal(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateProposalResponse(rsp)
+}
+
+// ApproveProposalWithBodyWithResponse request with arbitrary body returning *ParsedApproveProposalResponse
+func (c *ClientWithResponses) ApproveProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedApproveProposalResponse, error) {
+	rsp, err := c.ApproveProposalWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedApproveProposalResponse(rsp)
+}
+
+func (c *ClientWithResponses) ApproveProposalWithResponse(ctx context.Context, id int32, body ApproveProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedApproveProposalResponse, error) {
+	rsp, err := c.ApproveProposal(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedApproveProposalResponse(rsp)
+}
+
+// RejectProposalWithBodyWithResponse request with arbitrary body returning *RejectProposalResponse
+func (c *ClientWithResponses) RejectProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RejectProposalResponse, error) {
+	rsp, err := c.RejectProposalWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRejectProposalResponse(rsp)
+}
+
+func (c *ClientWithResponses) RejectProposalWithResponse(ctx context.Context, id int32, body RejectProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*RejectProposalResponse, error) {
+	rsp, err := c.RejectProposal(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRejectProposalResponse(rsp)
+}
+
+// SnoozeProposalWithBodyWithResponse request with arbitrary body returning *SnoozeProposalResponse
+func (c *ClientWithResponses) SnoozeProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SnoozeProposalResponse, error) {
+	rsp, err := c.SnoozeProposalWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSnoozeProposalResponse(rsp)
+}
+
+func (c *ClientWithResponses) SnoozeProposalWithResponse(ctx context.Context, id int32, body SnoozeProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*SnoozeProposalResponse, error) {
+	rsp, err := c.SnoozeProposal(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSnoozeProposalResponse(rsp)
 }
 
 // AddQuestionWithBodyWithResponse request with arbitrary body returning *AddQuestionResponse
@@ -40693,6 +41625,237 @@ func ParseGetTodoDetailResponse(rsp *http.Response) (*GetTodoDetailResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TodoDetailBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListProposalsResponse parses an HTTP response from a ListProposalsWithResponse call
+func ParseParsedListProposalsResponse(rsp *http.Response) (*ParsedListProposalsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListProposalsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListProposalsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateProposalResponse parses an HTTP response from a CreateProposalWithResponse call
+func ParseCreateProposalResponse(rsp *http.Response) (*CreateProposalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateProposalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProposalItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedShowProposalResponse parses an HTTP response from a ShowProposalWithResponse call
+func ParseParsedShowProposalResponse(rsp *http.Response) (*ParsedShowProposalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedShowProposalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ShowProposalResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateProposalResponse parses an HTTP response from a UpdateProposalWithResponse call
+func ParseUpdateProposalResponse(rsp *http.Response) (*UpdateProposalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateProposalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProposalItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedApproveProposalResponse parses an HTTP response from a ApproveProposalWithResponse call
+func ParseParsedApproveProposalResponse(rsp *http.Response) (*ParsedApproveProposalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedApproveProposalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApproveProposalResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRejectProposalResponse parses an HTTP response from a RejectProposalWithResponse call
+func ParseRejectProposalResponse(rsp *http.Response) (*RejectProposalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RejectProposalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProposalItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSnoozeProposalResponse parses an HTTP response from a SnoozeProposalWithResponse call
+func ParseSnoozeProposalResponse(rsp *http.Response) (*SnoozeProposalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SnoozeProposalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ProposalItem
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

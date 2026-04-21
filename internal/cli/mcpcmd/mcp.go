@@ -818,6 +818,45 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		}
 		return nil, resp.JSON200, nil
 	})
+
+	// ── proposal tools ───────────────────────────────────────────────────────
+
+	type proposalAddInput struct {
+		Title      string  `json:"title" jsonschema:"required,short headline for the proposal"`
+		Body       string  `json:"body" jsonschema:"required,full description: what happened, what the tool said, what should have happened instead"`
+		SourceType string  `json:"source_type,omitempty" jsonschema:"session-review, maturity, or historical (default: session-review)"`
+		SourceRef  *string `json:"source_ref,omitempty" jsonschema:"optional reference (issue ID, task ID, URL, etc.)"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "proposal_add",
+		Description: "File a DX friction item or improvement idea for operator review. Use this instead of issue_add when the improvement is not a confirmed bug — the operator will review, refine, and promote it to a real issue if appropriate.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in proposalAddInput) (*mcp.CallToolResult, any, error) {
+		sourceType := in.SourceType
+		if sourceType == "" {
+			sourceType = "session-review"
+		}
+		body := dxclient.CreateProposalRequest{
+			Slug:       slug,
+			Title:      in.Title,
+			Body:       in.Body,
+			SourceType: sourceType,
+			SourceRef:  in.SourceRef,
+		}
+		resp, err := c.CreateProposalWithResponse(ctx, body)
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		if resp.JSON200 == nil {
+			return nil, nil, fmt.Errorf("empty response")
+		}
+		return nil, map[string]any{
+			"proposal": resp.JSON200,
+			"guidance": "Proposal filed for operator review. Do NOT file a follow-up issue_add for this item.",
+		}, nil
+	})
 }
 
 func runDX(args ...string) (string, error) {
