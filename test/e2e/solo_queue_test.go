@@ -198,6 +198,38 @@ func TestQueueKindCloseTracker(t *testing.T) {
 	}
 }
 
+func TestTrackerAutoCascadeClose(t *testing.T) {
+	d := NewApiDriver(t, "q-tracker-cascade", "Tracker Cascade Close")
+	childID := d.AddIssue("Child work", "one unit of work")
+	childRef := fmt.Sprintf("IS-%d", childID)
+
+	var tracker struct {
+		ID int32 `json:"id"`
+	}
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/issue/add",
+		map[string]any{
+			"slug":       d.Slug,
+			"title":      "Tracker parent",
+			"context":    "umbrella",
+			"issue_type": "tracker",
+			"auto_ready": true,
+			"blocked_by": []string{childRef},
+		}, &tracker))
+
+	// Closing the only child should auto-close the tracker.
+	d.CloseIssue(childID)
+
+	var show struct {
+		Issue struct {
+			Status string `json:"status"`
+		} `json:"issue"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet, fmt.Sprintf("/api/dx/todo/issue/show?slug=%s&id=IS-%d", d.Slug, tracker.ID), nil, &show))
+	if show.Issue.Status != "closed" {
+		t.Errorf("expected tracker status=closed after last child closed, got %q", show.Issue.Status)
+	}
+}
+
 func TestQueueKindAdd(t *testing.T) {
 	d := NewApiDriver(t, "q-add", "Queue Add")
 	Given(d).TriagedIssue("Needs decomposition", "no tasks yet", 2).Build()

@@ -430,6 +430,36 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 						h.Broker.PublishIssue(in.Body.Slug, li.ID, "issue.closed", map[string]any{"id": li.ID, "reason": "cascade"})
 					}
 				}
+
+				// Auto-close tracker issues whose last open child just closed.
+				parentIDs, pErr := h.Q.ListIssuesBlockedBy(ctx, issueID)
+				if pErr == nil {
+					for _, parentID := range parentIDs {
+						parent, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: parentID})
+						if gErr != nil || parent.IssueType != "tracker" || parent.Status != "open" {
+							continue
+						}
+						blockers, bErr := h.Q.ListIssueBlockersWithStatus(ctx, parentID)
+						if bErr != nil {
+							continue
+						}
+						allClosed := len(blockers) > 0
+						for _, b := range blockers {
+							if b.Status != "closed" {
+								allClosed = false
+								break
+							}
+						}
+						if !allClosed {
+							continue
+						}
+						_ = h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: parentID})
+						h.recordRevision(ctx, p.ID, "issue", parentID, "status", "open", "closed")
+						trackerNote := "[closed:tracker-cascade] all children closed; last was " + issueID
+						_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: parentID, Agent: agent, Note: trackerNote})
+						h.Broker.PublishIssue(in.Body.Slug, parentID, "issue.closed", map[string]any{"id": parentID, "reason": "tracker-cascade"})
+					}
+				}
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
