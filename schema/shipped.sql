@@ -1874,8 +1874,6 @@ CREATE TABLE public.zdx_specs (
     feature_id integer NOT NULL,
     description text NOT NULL,
     kind text DEFAULT 'must'::text NOT NULL,
-    deferred boolean DEFAULT false NOT NULL,
-    deferred_reason text DEFAULT ''::text NOT NULL,
     concern_type text DEFAULT 'functional'::text NOT NULL
 );
 

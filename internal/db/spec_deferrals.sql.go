@@ -116,23 +116,15 @@ WHERE i.status = 'open'
 ORDER BY s.id
 `
 
-type ListDeferredSpecsRow struct {
-	ID          int32  `db:"id" json:"id"`
-	FeatureID   int32  `db:"feature_id" json:"feature_id"`
-	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
-}
-
-func (q *Queries) ListDeferredSpecs(ctx context.Context) ([]ListDeferredSpecsRow, error) {
+func (q *Queries) ListDeferredSpecs(ctx context.Context) ([]ZdxSpec, error) {
 	rows, err := q.db.Query(ctx, listDeferredSpecs)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListDeferredSpecsRow
+	var items []ZdxSpec
 	for rows.Next() {
-		var i ListDeferredSpecsRow
+		var i ZdxSpec
 		if err := rows.Scan(
 			&i.ID,
 			&i.FeatureID,
@@ -253,23 +245,15 @@ WHERE EXISTS (SELECT 1 FROM zdx_spec_deferrals sd WHERE sd.spec_id = s.id)
 ORDER BY s.id
 `
 
-type ListSpecsWithAllBlockersClosedRow struct {
-	ID          int32  `db:"id" json:"id"`
-	FeatureID   int32  `db:"feature_id" json:"feature_id"`
-	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
-}
-
-func (q *Queries) ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ListSpecsWithAllBlockersClosedRow, error) {
+func (q *Queries) ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ZdxSpec, error) {
 	rows, err := q.db.Query(ctx, listSpecsWithAllBlockersClosed)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListSpecsWithAllBlockersClosedRow
+	var items []ZdxSpec
 	for rows.Next() {
-		var i ListSpecsWithAllBlockersClosedRow
+		var i ZdxSpec
 		if err := rows.Scan(
 			&i.ID,
 			&i.FeatureID,

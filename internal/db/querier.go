@@ -20,7 +20,7 @@ type Querier interface {
 	AddIssueBlock(ctx context.Context, arg AddIssueBlockParams) error
 	AddResolutionCommit(ctx context.Context, arg AddResolutionCommitParams) error
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
-	AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, error)
+	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddSpecDeferral(ctx context.Context, arg AddSpecDeferralParams) error
 	AnswerBlockerQuestion(ctx context.Context, arg AnswerBlockerQuestionParams) error
 	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
@@ -185,7 +185,7 @@ type Querier interface {
 	GetProposal(ctx context.Context, arg GetProposalParams) (ZdxProposal, error)
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetQuestionProposal(ctx context.Context, arg GetQuestionProposalParams) (ZdxQuestionProposal, error)
-	GetSpec(ctx context.Context, id int32) (GetSpecRow, error)
+	GetSpec(ctx context.Context, id int32) (ZdxSpec, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetTask(ctx context.Context, id string) (GetTaskRow, error)
 	GetTaskByExactText(ctx context.Context, arg GetTaskByExactTextParams) ([]GetTaskByExactTextRow, error)
@@ -254,7 +254,7 @@ type Querier interface {
 	ListCountedDistinctTagValues(ctx context.Context, arg ListCountedDistinctTagValuesParams) ([]interface{}, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_value, value) sum(sum_value, value) min(first_seen, created_at) max(last_seen, created_at)
 	ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error)
-	ListDeferredSpecs(ctx context.Context) ([]ListDeferredSpecsRow, error)
+	ListDeferredSpecs(ctx context.Context) ([]ZdxSpec, error)
 	ListDeferredSpecsWithFeatureForProject(ctx context.Context, projectID int32) ([]ListDeferredSpecsWithFeatureForProjectRow, error)
 	// All demo artifacts in the project, joined to their owning test. file_id falls
 	// back to sibling rows sharing the same (demo_type, artifact_path) — see
@@ -343,11 +343,11 @@ type Querier interface {
 	ListSpecDeferrals(ctx context.Context, specID int32) ([]ListSpecDeferralsRow, error)
 	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
 	// ── Specs ────────────────────────────────────────────────────────────────────
-	ListSpecs(ctx context.Context, featureID int32) ([]ListSpecsRow, error)
+	ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error)
 	// Used to show what breaks if a test is deleted.
 	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ListSpecsCoveredByTestRow, error)
-	ListSpecsForProject(ctx context.Context, projectID int32) ([]ListSpecsForProjectRow, error)
-	ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ListSpecsWithAllBlockersClosedRow, error)
+	ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error)
+	ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ZdxSpec, error)
 	// metaquery: off
 	// Specs linked to tests but where none of those tests have demo artifacts.
 	// Non-deferred specs only.

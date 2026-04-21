@@ -38,22 +38,14 @@ type AddSpecParams struct {
 	ConcernType string `db:"concern_type" json:"concern_type"`
 }
 
-type AddSpecRow struct {
-	ID          int32  `db:"id" json:"id"`
-	FeatureID   int32  `db:"feature_id" json:"feature_id"`
-	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
-}
-
-func (q *Queries) AddSpec(ctx context.Context, arg AddSpecParams) (AddSpecRow, error) {
+func (q *Queries) AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error) {
 	row := q.db.QueryRow(ctx, addSpec,
 		arg.FeatureID,
 		arg.Description,
 		arg.Kind,
 		arg.ConcernType,
 	)
-	var i AddSpecRow
+	var i ZdxSpec
 	err := row.Scan(
 		&i.ID,
 		&i.FeatureID,
@@ -211,17 +203,9 @@ SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE id = $1
 `
 
-type GetSpecRow struct {
-	ID          int32  `db:"id" json:"id"`
-	FeatureID   int32  `db:"feature_id" json:"feature_id"`
-	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
-}
-
-func (q *Queries) GetSpec(ctx context.Context, id int32) (GetSpecRow, error) {
+func (q *Queries) GetSpec(ctx context.Context, id int32) (ZdxSpec, error) {
 	row := q.db.QueryRow(ctx, getSpec, id)
-	var i GetSpecRow
+	var i ZdxSpec
 	err := row.Scan(
 		&i.ID,
 		&i.FeatureID,
@@ -530,24 +514,16 @@ SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE feature_id = $1 ORDER BY id
 `
 
-type ListSpecsRow struct {
-	ID          int32  `db:"id" json:"id"`
-	FeatureID   int32  `db:"feature_id" json:"feature_id"`
-	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
-}
-
 // ── Specs ────────────────────────────────────────────────────────────────────
-func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ListSpecsRow, error) {
+func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error) {
 	rows, err := q.db.Query(ctx, listSpecs, featureID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListSpecsRow
+	var items []ZdxSpec
 	for rows.Next() {
-		var i ListSpecsRow
+		var i ZdxSpec
 		if err := rows.Scan(
 			&i.ID,
 			&i.FeatureID,
@@ -573,23 +549,15 @@ WHERE f.project_id = $1
 ORDER BY s.feature_id, s.id
 `
 
-type ListSpecsForProjectRow struct {
-	ID          int32  `db:"id" json:"id"`
-	FeatureID   int32  `db:"feature_id" json:"feature_id"`
-	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
-}
-
-func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]ListSpecsForProjectRow, error) {
+func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error) {
 	rows, err := q.db.Query(ctx, listSpecsForProject, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListSpecsForProjectRow
+	var items []ZdxSpec
 	for rows.Next() {
-		var i ListSpecsForProjectRow
+		var i ZdxSpec
 		if err := rows.Scan(
 			&i.ID,
 			&i.FeatureID,
