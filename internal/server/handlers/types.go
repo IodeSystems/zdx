@@ -17,6 +17,7 @@ type IssueItem struct {
 	DuplicateOf     string            `json:"duplicate_of,omitempty"`
 	LinkOf          string            `json:"link_of,omitempty"`
 	ReopenCount     int32             `json:"reopen_count,omitempty" doc:"Number of times this issue has been reopened — a churn signal for stabilization candidates"`
+	InteractiveOnly bool              `json:"interactive_only,omitempty"`
 	URL             string            `json:"url"`
 	CreatedAt       string            `json:"created_at"`
 	UpdatedAt       string            `json:"updated_at"`

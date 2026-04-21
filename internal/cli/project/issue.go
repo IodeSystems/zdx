@@ -521,6 +521,7 @@ func issueUnblockCmd() *cobra.Command {
 func issueEditCmd() *cobra.Command {
 	var title, ctx, component, issueType string
 	var priority int
+	var interactiveOnly bool
 	cmd := &cobra.Command{
 		Use:   "edit <IS-N>",
 		Short: "Edit fields on an existing issue",
@@ -549,6 +550,9 @@ func issueEditCmd() *cobra.Command {
 			if cmd.Flags().Changed("type") {
 				body.IssueType = &issueType
 			}
+			if cmd.Flags().Changed("interactive-only") {
+				body.InteractiveOnly = &interactiveOnly
+			}
 			resp, err := c.EditIssueWithResponse(cmd.Context(), body)
 			if err != nil {
 				return err
@@ -565,6 +569,7 @@ func issueEditCmd() *cobra.Command {
 	cmd.Flags().IntVar(&priority, "priority", 0, "priority (1-4)")
 	cmd.Flags().StringVar(&component, "component", "", "component")
 	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops, impl, or tracker")
+	cmd.Flags().BoolVar(&interactiveOnly, "interactive-only", false, "mark issue as requiring human interaction (hides from autonomous agent loop)")
 	return cmd
 }
 

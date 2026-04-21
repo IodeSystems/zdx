@@ -47,6 +47,7 @@ type IssueItem struct {
 	DuplicateOf     string            `json:"duplicate_of,omitempty"`
 	LinkOf          string            `json:"link_of,omitempty"`
 	ReopenCount     int32             `json:"reopen_count,omitempty"`
+	InteractiveOnly bool              `json:"interactive_only,omitempty"`
 	URL             string            `json:"url"`
 }
 

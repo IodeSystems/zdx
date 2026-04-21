@@ -975,15 +975,16 @@ type DetachCodeRefFromTestRequest struct {
 // EditIssueRequest defines model for Edit-issueRequest.
 type EditIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema    *string `json:"$schema,omitempty"`
-	Component *string `json:"component,omitempty"`
-	Context   *string `json:"context,omitempty"`
-	Id        int32   `json:"id"`
-	IssueType *string `json:"issue_type,omitempty"`
-	Priority  *int32  `json:"priority,omitempty"`
-	Slug      string  `json:"slug"`
-	Title     *string `json:"title,omitempty"`
-	Url       *string `json:"url,omitempty"`
+	Schema          *string `json:"$schema,omitempty"`
+	Component       *string `json:"component,omitempty"`
+	Context         *string `json:"context,omitempty"`
+	Id              int32   `json:"id"`
+	InteractiveOnly *bool   `json:"interactive_only,omitempty"`
+	IssueType       *string `json:"issue_type,omitempty"`
+	Priority        *int32  `json:"priority,omitempty"`
+	Slug            string  `json:"slug"`
+	Title           *string `json:"title,omitempty"`
+	Url             *string `json:"url,omitempty"`
 }
 
 // EnvironmentItem defines model for EnvironmentItem.
@@ -1450,10 +1451,11 @@ type IssueItem struct {
 	Features        string             `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
-	Id        int32   `json:"id"`
-	IssueType string  `json:"issue_type"`
-	LinkOf    *string `json:"link_of,omitempty"`
-	Priority  string  `json:"priority"`
+	Id              int32   `json:"id"`
+	InteractiveOnly *bool   `json:"interactive_only,omitempty"`
+	IssueType       string  `json:"issue_type"`
+	LinkOf          *string `json:"link_of,omitempty"`
+	Priority        string  `json:"priority"`
 
 	// ReopenCount Number of times this issue has been reopened — a churn signal for stabilization candidates
 	ReopenCount *int32 `json:"reopen_count,omitempty"`
