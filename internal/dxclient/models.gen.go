@@ -1987,6 +1987,13 @@ type ListSpecTestsResponse struct {
 	Tests  *[]SpecTestItem `json:"tests"`
 }
 
+// ListSpecsBlockerResolvedResponse defines model for List-specs-blocker-resolvedResponse.
+type ListSpecsBlockerResolvedResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string              `json:"$schema,omitempty"`
+	Specs  *[]UncoveredSpecItem `json:"specs"`
+}
+
 // ListSpecsWithoutDemosResponse defines model for List-specs-without-demosResponse.
 type ListSpecsWithoutDemosResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4115,6 +4122,11 @@ type SoloListReservationsParams struct {
 	Limit   *int32  `form:"limit,omitempty" json:"limit,omitempty"`
 }
 
+// ListSpecsBlockerResolvedParams defines parameters for ListSpecsBlockerResolved.
+type ListSpecsBlockerResolvedParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
 // ListSpecsWithoutDemosParams defines parameters for ListSpecsWithoutDemos.
 type ListSpecsWithoutDemosParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -5589,6 +5601,9 @@ type ClientInterface interface {
 
 	// SoloListReservations request
 	SoloListReservations(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSpecsBlockerResolved request
+	ListSpecsBlockerResolved(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeferSpecWithBody request with any body
 	DeferSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9200,6 +9215,18 @@ func (c *APIClient) SoloRenew(ctx context.Context, body SoloRenewJSONRequestBody
 
 func (c *APIClient) SoloListReservations(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSoloListReservationsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListSpecsBlockerResolved(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSpecsBlockerResolvedRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -20622,6 +20649,51 @@ func NewSoloListReservationsRequest(server string, params *SoloListReservationsP
 	return req, nil
 }
 
+// NewListSpecsBlockerResolvedRequest generates requests for ListSpecsBlockerResolved
+func NewListSpecsBlockerResolvedRequest(server string, params *ListSpecsBlockerResolvedParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/blocker-resolved")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeferSpecRequest calls the generic DeferSpec builder with application/json body
 func NewDeferSpecRequest(server string, body DeferSpecJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -26354,6 +26426,9 @@ type ClientWithResponsesInterface interface {
 	// SoloListReservationsWithResponse request
 	SoloListReservationsWithResponse(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListReservationsResponse, error)
 
+	// ListSpecsBlockerResolvedWithResponse request
+	ListSpecsBlockerResolvedWithResponse(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsBlockerResolvedResponse, error)
+
 	// DeferSpecWithBodyWithResponse request with any body
 	DeferSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeferSpecResponse, error)
 
@@ -30936,6 +31011,29 @@ func (r ParsedSoloListReservationsResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListSpecsBlockerResolvedResponse struct {
+	Body         []byte
+	HTTPResponse *http.Response
+	JSON200      *ListSpecsBlockerResolvedResponse
+	JSONDefault  *ErrorDetail
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListSpecsBlockerResolvedResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListSpecsBlockerResolvedResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeferSpecResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -35487,6 +35585,15 @@ func (c *ClientWithResponses) SoloListReservationsWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseParsedSoloListReservationsResponse(rsp)
+}
+
+// ListSpecsBlockerResolvedWithResponse request returning *ParsedListSpecsBlockerResolvedResponse
+func (c *ClientWithResponses) ListSpecsBlockerResolvedWithResponse(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsBlockerResolvedResponse, error) {
+	rsp, err := c.ListSpecsBlockerResolved(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListSpecsBlockerResolvedResponse(rsp)
 }
 
 // DeferSpecWithBodyWithResponse request with arbitrary body returning *DeferSpecResponse
@@ -42754,6 +42861,39 @@ func ParseParsedSoloListReservationsResponse(rsp *http.Response) (*ParsedSoloLis
 			return nil, err
 		}
 		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListSpecsBlockerResolvedResponse parses an HTTP response from a ListSpecsBlockerResolvedWithResponse call
+func ParseParsedListSpecsBlockerResolvedResponse(rsp *http.Response) (*ParsedListSpecsBlockerResolvedResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListSpecsBlockerResolvedResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListSpecsBlockerResolvedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSONDefault = &dest
 
 	}
 

@@ -611,6 +611,18 @@ Analyze the project to bootstrap its feature catalog and first issue:
 		return nil
 	}
 
+	// 1e. Deferred specs whose blockers are all closed — resurface for re-evaluation (global only).
+	if issueFlag == "" {
+		brResp, err := c.ListSpecsBlockerResolvedWithResponse(ctx, &dxclient.ListSpecsBlockerResolvedParams{Slug: slug})
+		if err == nil && brResp.JSON200 != nil && brResp.JSON200.Specs != nil && len(*brResp.JSON200.Specs) > 0 {
+			s := (*brResp.JSON200.Specs)[0]
+			fmt.Printf("[review:deferred-spec]  spec %d (%s) — all blocking issues closed, re-evaluate\n", s.Id, s.Description)
+			fmt.Println("  Options: write/link the test (dx spec link), re-defer (dx spec defer --blocked-by=<IS-N>), or remove.")
+			fmt.Printf("  hint: dx spec show %d\n", s.Id)
+			return nil
+		}
+	}
+
 	// 2. Find open issue with no pending tasks
 	for _, iss := range targetIssues {
 		if iss.Status != "open" {

@@ -563,6 +563,26 @@ func DecomposeFeatureText(title, description string) Hint {
 	}
 }
 
+// ReviewDeferredSpecText builds a Hint for a spec whose deferral blockers are all closed.
+// The agent should evaluate whether to write the test, mark the spec resolved, or re-defer.
+func ReviewDeferredSpecText(specID int32, description string) Hint {
+	id := fmt.Sprintf("%d", specID)
+	return Hint{
+		Title:       fmt.Sprintf("Review deferred spec %d: %s", specID, description),
+		Description: "All blocking issues closed — re-evaluate this deferred spec.",
+		Instructions: fmt.Sprintf(
+			"Deferred spec %s (%s) has no open blockers — time to re-evaluate.\n\n"+
+				"1. Read the spec and its deferrals: `dx spec show %s`.\n"+
+				"2. Choose one:\n"+
+				"   a. If the concern is now testable: write or link the test — `dx spec link %s <test-id>` — then mark the deferral resolved: `dx spec defer remove %s --issue=<IS-N>`.\n"+
+				"   b. If the concern is not yet addressable: re-defer with a new blocker — `dx spec defer %s --blocked-by=<new-IS-N> --note=\"<why>\"`.\n"+
+				"   c. If the spec is no longer relevant: remove it — `dx spec delete %s`.\n"+
+				"3. Stop after handling — one spec per session.",
+			id, description, id, id, id, id, id,
+		),
+	}
+}
+
 // MaturityDefaultText is the fallback Hint when a maturity item's kind has no
 // dedicated builder.
 func MaturityDefaultText(title, description string) Hint {

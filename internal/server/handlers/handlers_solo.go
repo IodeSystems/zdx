@@ -450,6 +450,26 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		})
 	}
 
+	// Deferred specs whose blockers are all closed — resurface for re-evaluation.
+	// Global only: not meaningful when scoped to a specific issue.
+	if issueFilter == "" {
+		readySpecs, _ := h.Q.ListSpecsWithAllBlockersClosed(ctx)
+		for _, sp := range readySpecs {
+			rds := workflowhints.ReviewDeferredSpecText(sp.ID, sp.Description)
+			candidates = append(candidates, soloCandidate{
+				Key:         fmt.Sprintf("review-deferred-spec-%d", sp.ID),
+				Title:       rds.Title,
+				Description: rds.Description,
+				Text:        rds.Instructions,
+				Kind:        "review:deferred-spec",
+				TargetType:  "spec",
+				TargetID:    fmt.Sprintf("%d", sp.ID),
+				Priority:    37,
+				Persona:     "owner",
+			})
+		}
+	}
+
 	// Issues with no pending tasks
 	for _, iss := range issues {
 		tasks, _ := h.Q.ListTasksByIssue(ctx, db.ListTasksByIssueParams{ProjectID: projectID, Issue: iss.ID})
@@ -600,6 +620,8 @@ func suggestedActionForKind(kind, targetType, targetID string) string {
 		return "dx standup checkin --tech"
 	case "owner:orphan-task":
 		return "dx issue add --title=<issue> && dx todo tech add --issue=<IS-N>"
+	case "review:deferred-spec":
+		return "dx spec show " + targetID
 	}
 	if strings.HasSuffix(kind, ":journal-review") {
 		role := strings.TrimSuffix(kind, ":journal-review")
