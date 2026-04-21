@@ -311,6 +311,9 @@ func issueCloseCmd() *cobra.Command {
 				if err == nil && showResp.JSON200 != nil {
 					issueType := showResp.JSON200.Issue.IssueType
 					if issueType != "tracker" && issueType != "ops" {
+						if err := runSpecCoverageGate(cmd, c, id); err != nil {
+							return err
+						}
 						if err := runIssueTestGate(cmd, c, id); err != nil {
 							return err
 						}
@@ -345,6 +348,36 @@ func issueCloseCmd() *cobra.Command {
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
 	cmd.Flags().StringVar(&linkOf, "link-of", "", "issue ID this is a narrow-slice link of (required when --reason=link; cascade-closes with target, no reopen-cascade)")
 	return cmd
+}
+
+// runSpecCoverageGate blocks close-as-done when any spec on a linked feature
+// is not deferred by an open blocking issue and lacks passing test coverage.
+// Warns (non-fatal) if the endpoint is unavailable — matches test-gate
+// behavior so a transient server error does not strand an otherwise-ready
+// close.
+func runSpecCoverageGate(cmd *cobra.Command, c *cli.Client, issueID string) error {
+	resp, err := c.ListSpecCloseGateOffendersWithResponse(cmd.Context(), &dxclient.ListSpecCloseGateOffendersParams{
+		Slug: c.SlugOrDie(),
+		Id:   issueID,
+	})
+	if err != nil || resp.JSON200 == nil || resp.JSON200.Offenders == nil {
+		fmt.Fprintf(os.Stderr, "[warn] could not fetch spec coverage for %s — skipping spec-coverage gate\n", issueID)
+		return nil
+	}
+	offenders := *resp.JSON200.Offenders
+	if len(offenders) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "cannot close %s as done — these non-deferred specs have no passing tests:\n", issueID)
+	for _, o := range offenders {
+		fmt.Fprintf(&b, "  Spec %d (feature %q): %s [%s]\n", o.SpecId, o.Feature, o.Description, o.Reason)
+	}
+	b.WriteString("Options:\n")
+	b.WriteString("  - Write/fix the tests, then retry close\n")
+	b.WriteString("  - Defer the spec against a blocking issue (dx spec defer <spec-id> --blocked-by=IS-X)\n")
+	b.WriteString("  - Close for a different reason: --reason=wontfix, --reason=duplicate")
+	return fmt.Errorf("%s", b.String())
 }
 
 // runIssueTestGate collects features from the issue's tasks and runs dx test

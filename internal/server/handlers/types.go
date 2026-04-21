@@ -107,6 +107,13 @@ type SpecTestItem struct {
 	Status    string `json:"status"`
 }
 
+type SpecCloseGateOffender struct {
+	SpecID      int32  `json:"spec_id"`
+	Description string `json:"description"`
+	Feature     string `json:"feature"`
+	Reason      string `json:"reason"`
+}
+
 type SpecDemoItem struct {
 	ID            int32  `json:"id"`
 	TestID        int32  `json:"test_id"`

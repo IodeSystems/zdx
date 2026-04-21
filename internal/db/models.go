@@ -301,6 +301,7 @@ type ZdxIssue struct {
 	SourceErrorID pgtype.Int8        `db:"source_error_id" json:"source_error_id"`
 	LinkOf        string             `db:"link_of" json:"link_of"`
 	ReopenCount   int32              `db:"reopen_count" json:"reopen_count"`
+	ClosedAt      pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 }
 
 type ZdxIssueBlock struct {

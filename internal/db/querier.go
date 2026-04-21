@@ -262,6 +262,10 @@ type Querier interface {
 	ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error)
 	ListClaudeSessionsByTodoID(ctx context.Context, arg ListClaudeSessionsByTodoIDParams) ([]ListClaudeSessionsByTodoIDRow, error)
 	ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error)
+	// Specs linked to an issue (via tasks→features by name) that are NOT deferred
+	// by any open issue and lack passing-test coverage. Reason is 'no-tests' if
+	// the spec has no zdx_spec_tests rows, otherwise 'failing-tests'.
+	ListCloseGateOffenders(ctx context.Context, arg ListCloseGateOffendersParams) ([]ListCloseGateOffendersRow, error)
 	ListCodeRefsByIssue(ctx context.Context, issueID string) ([]ZdxCodeRef, error)
 	ListCodeRefsBySpec(ctx context.Context, specID int32) ([]ZdxCodeRef, error)
 	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)

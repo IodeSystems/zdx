@@ -38,3 +38,29 @@ SELECT EXISTS (
     JOIN zdx_issues i ON i.id = sd.issue_id
     WHERE sd.spec_id = $1 AND i.status = 'open'
 ) AS deferred;
+
+-- name: ListCloseGateOffenders :many
+-- Specs linked to an issue (via tasks→features by name) that are NOT deferred
+-- by any open issue and lack passing-test coverage. Reason is 'no-tests' if
+-- the spec has no zdx_spec_tests rows, otherwise 'failing-tests'.
+SELECT s.id AS spec_id, s.description, f.name AS feature_name,
+  CASE WHEN NOT EXISTS (SELECT 1 FROM zdx_spec_tests st WHERE st.spec_id = s.id)
+       THEN 'no-tests' ELSE 'failing-tests' END AS reason
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = @project_id
+  AND EXISTS (
+    SELECT 1 FROM zdx_tasks t
+    WHERE t.project_id = @project_id AND t.issue = @issue_id AND t.feature = f.name
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_deferrals sd
+    JOIN zdx_issues i ON i.id = sd.issue_id
+    WHERE sd.spec_id = s.id AND i.status = 'open'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_tests st
+    JOIN zdx_tests tt ON tt.id = st.test_id
+    WHERE st.spec_id = s.id AND tt.status = 'pass'
+  )
+ORDER BY f.name, s.id;

@@ -1966,6 +1966,13 @@ type ListSlowQueriesResponse struct {
 	Total   int64            `json:"total"`
 }
 
+// ListSpecCloseGateOffendersResponse defines model for List-spec-close-gate-offendersResponse.
+type ListSpecCloseGateOffendersResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string                  `json:"$schema,omitempty"`
+	Offenders *[]SpecCloseGateOffender `json:"offenders"`
+}
+
 // ListSpecDemosResponse defines model for List-spec-demosResponse.
 type ListSpecDemosResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3036,6 +3043,14 @@ type SoloQueueItem struct {
 	TargetType      string  `json:"target_type"`
 	Text            string  `json:"text"`
 	Title           *string `json:"title,omitempty"`
+}
+
+// SpecCloseGateOffender defines model for SpecCloseGateOffender.
+type SpecCloseGateOffender struct {
+	Description string `json:"description"`
+	Feature     string `json:"feature"`
+	Reason      string `json:"reason"`
+	SpecId      int32  `json:"spec_id"`
 }
 
 // SpecDemoItem defines model for SpecDemoItem.
@@ -4258,6 +4273,12 @@ type SearchIssuesParams struct {
 
 // ShowIssueParams defines parameters for ShowIssue.
 type ShowIssueParams struct {
+	Slug string `form:"slug" json:"slug"`
+	Id   string `form:"id" json:"id"`
+}
+
+// ListSpecCloseGateOffendersParams defines parameters for ListSpecCloseGateOffenders.
+type ListSpecCloseGateOffendersParams struct {
 	Slug string `form:"slug" json:"slug"`
 	Id   string `form:"id" json:"id"`
 }
@@ -5803,6 +5824,9 @@ type ClientInterface interface {
 
 	// ShowIssue request
 	ShowIssue(ctx context.Context, params *ShowIssueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSpecCloseGateOffenders request
+	ListSpecCloseGateOffenders(ctx context.Context, params *ListSpecCloseGateOffendersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTasksForIssue request
 	ListTasksForIssue(ctx context.Context, params *ListTasksForIssueParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -10244,6 +10268,18 @@ func (c *APIClient) IssueSetFeatures(ctx context.Context, body IssueSetFeaturesJ
 
 func (c *APIClient) ShowIssue(ctx context.Context, params *ShowIssueParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewShowIssueRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListSpecCloseGateOffenders(ctx context.Context, params *ListSpecCloseGateOffendersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSpecCloseGateOffendersRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -23579,6 +23615,63 @@ func NewShowIssueRequest(server string, params *ShowIssueParams) (*http.Request,
 	return req, nil
 }
 
+// NewListSpecCloseGateOffendersRequest generates requests for ListSpecCloseGateOffenders
+func NewListSpecCloseGateOffendersRequest(server string, params *ListSpecCloseGateOffendersParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/todo/issue/spec-close-gate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "id", params.Id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListTasksForIssueRequest generates requests for ListTasksForIssue
 func NewListTasksForIssueRequest(server string, params *ListTasksForIssueParams) (*http.Request, error) {
 	var err error
@@ -26495,6 +26588,9 @@ type ClientWithResponsesInterface interface {
 
 	// ShowIssueWithResponse request
 	ShowIssueWithResponse(ctx context.Context, params *ShowIssueParams, reqEditors ...RequestEditorFn) (*ParsedShowIssueResponse, error)
+
+	// ListSpecCloseGateOffendersWithResponse request
+	ListSpecCloseGateOffendersWithResponse(ctx context.Context, params *ListSpecCloseGateOffendersParams, reqEditors ...RequestEditorFn) (*ParsedListSpecCloseGateOffendersResponse, error)
 
 	// ListTasksForIssueWithResponse request
 	ListTasksForIssueWithResponse(ctx context.Context, params *ListTasksForIssueParams, reqEditors ...RequestEditorFn) (*ParsedListTasksForIssueResponse, error)
@@ -32151,6 +32247,29 @@ func (r ParsedShowIssueResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListSpecCloseGateOffendersResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListSpecCloseGateOffendersResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListSpecCloseGateOffendersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListSpecCloseGateOffendersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListTasksForIssueResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -36137,6 +36256,15 @@ func (c *ClientWithResponses) ShowIssueWithResponse(ctx context.Context, params 
 		return nil, err
 	}
 	return ParseParsedShowIssueResponse(rsp)
+}
+
+// ListSpecCloseGateOffendersWithResponse request returning *ParsedListSpecCloseGateOffendersResponse
+func (c *ClientWithResponses) ListSpecCloseGateOffendersWithResponse(ctx context.Context, params *ListSpecCloseGateOffendersParams, reqEditors ...RequestEditorFn) (*ParsedListSpecCloseGateOffendersResponse, error) {
+	rsp, err := c.ListSpecCloseGateOffenders(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListSpecCloseGateOffendersResponse(rsp)
 }
 
 // ListTasksForIssueWithResponse request returning *ParsedListTasksForIssueResponse
@@ -44496,6 +44624,39 @@ func ParseParsedShowIssueResponse(rsp *http.Response) (*ParsedShowIssueResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ShowIssueResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListSpecCloseGateOffendersResponse parses an HTTP response from a ListSpecCloseGateOffendersWithResponse call
+func ParseParsedListSpecCloseGateOffendersResponse(rsp *http.Response) (*ParsedListSpecCloseGateOffendersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListSpecCloseGateOffendersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListSpecCloseGateOffendersResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

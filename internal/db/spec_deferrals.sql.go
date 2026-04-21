@@ -43,6 +43,70 @@ func (q *Queries) IsSpecDeferred(ctx context.Context, specID int32) (bool, error
 	return deferred, err
 }
 
+const listCloseGateOffenders = `-- name: ListCloseGateOffenders :many
+SELECT s.id AS spec_id, s.description, f.name AS feature_name,
+  CASE WHEN NOT EXISTS (SELECT 1 FROM zdx_spec_tests st WHERE st.spec_id = s.id)
+       THEN 'no-tests' ELSE 'failing-tests' END AS reason
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = $1
+  AND EXISTS (
+    SELECT 1 FROM zdx_tasks t
+    WHERE t.project_id = $1 AND t.issue = $2 AND t.feature = f.name
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_deferrals sd
+    JOIN zdx_issues i ON i.id = sd.issue_id
+    WHERE sd.spec_id = s.id AND i.status = 'open'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_tests st
+    JOIN zdx_tests tt ON tt.id = st.test_id
+    WHERE st.spec_id = s.id AND tt.status = 'pass'
+  )
+ORDER BY f.name, s.id
+`
+
+type ListCloseGateOffendersParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	IssueID   string `db:"issue_id" json:"issue_id"`
+}
+
+type ListCloseGateOffendersRow struct {
+	SpecID      int32  `db:"spec_id" json:"spec_id"`
+	Description string `db:"description" json:"description"`
+	FeatureName string `db:"feature_name" json:"feature_name"`
+	Reason      string `db:"reason" json:"reason"`
+}
+
+// Specs linked to an issue (via tasks→features by name) that are NOT deferred
+// by any open issue and lack passing-test coverage. Reason is 'no-tests' if
+// the spec has no zdx_spec_tests rows, otherwise 'failing-tests'.
+func (q *Queries) ListCloseGateOffenders(ctx context.Context, arg ListCloseGateOffendersParams) ([]ListCloseGateOffendersRow, error) {
+	rows, err := q.db.Query(ctx, listCloseGateOffenders, arg.ProjectID, arg.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCloseGateOffendersRow
+	for rows.Next() {
+		var i ListCloseGateOffendersRow
+		if err := rows.Scan(
+			&i.SpecID,
+			&i.Description,
+			&i.FeatureName,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listDeferredSpecs = `-- name: ListDeferredSpecs :many
 SELECT DISTINCT s.id, s.feature_id, s.description, s.kind, s.concern_type
 FROM zdx_specs s

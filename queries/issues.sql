@@ -1,21 +1,21 @@
 -- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC;
 
 -- name: CountIssues :one
 SELECT count(*) FROM zdx_issues WHERE project_id = $1;
 
 -- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 LIMIT $2 OFFSET $3;
 
 -- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC;
 
 -- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues
 WHERE project_id = @project_id
   AND (title ILIKE '%' || @query::text || '%' OR context ILIKE '%' || @query::text || '%')
@@ -23,20 +23,20 @@ ORDER BY updated_at DESC
 LIMIT 20;
 
 -- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues WHERE project_id = $1 AND id = $2;
 
 -- name: GetIssueByAnyProject :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues WHERE id = $1;
 
 -- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count;
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at;
 
 -- name: GetIssueBySourceErrorID :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
 LIMIT 1;
 
@@ -66,7 +66,7 @@ WHERE project_id = $1 AND id = $2;
 -- name: ListOpenLinkedIssues :many
 -- Open issues whose duplicate_of or link_of targets the given issue. Used to
 -- cascade-close narrow-slice links (and full duplicates) when the target closes.
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues
 WHERE project_id = @project_id
   AND status = 'open'

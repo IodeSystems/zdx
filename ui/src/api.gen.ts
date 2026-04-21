@@ -3542,6 +3542,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/todo/issue/spec-close-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-spec-close-gate-offenders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/todo/issue/tasks": {
         parameters: {
             query?: never;
@@ -6534,6 +6550,15 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        "List-spec-close-gate-offendersResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-spec-close-gate-offendersResponse.json
+             */
+            readonly $schema?: string;
+            offenders: components["schemas"]["SpecCloseGateOffender"][] | null;
+        };
         "List-spec-demosResponse": {
             /**
              * Format: uri
@@ -7863,6 +7888,13 @@ export interface components {
             target_type: string;
             text: string;
             title?: string;
+        };
+        SpecCloseGateOffender: {
+            description: string;
+            feature: string;
+            reason: string;
+            /** Format: int32 */
+            spec_id: number;
         };
         SpecDemoItem: {
             /** Format: int32 */
@@ -16357,6 +16389,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Show-issueResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-spec-close-gate-offenders": {
+        parameters: {
+            query: {
+                slug: string;
+                id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-spec-close-gate-offendersResponse"];
                 };
             };
             /** @description Error */
