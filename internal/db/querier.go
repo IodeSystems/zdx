@@ -66,6 +66,8 @@ type Querier interface {
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
 	CreateDeploy(ctx context.Context, arg CreateDeployParams) (ZdxDeploy, error)
+	CreateDiscussion(ctx context.Context, arg CreateDiscussionParams) (ZdxDiscussion, error)
+	CreateDiscussionMessage(ctx context.Context, arg CreateDiscussionMessageParams) (ZdxDiscussionMessage, error)
 	CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) (ZdxEnvironment, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateFocus(ctx context.Context, arg CreateFocusParams) (ZdxFocuse, error)
@@ -93,6 +95,7 @@ type Querier interface {
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
 	DeleteCounterEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
+	DeleteDiscussion(ctx context.Context, arg DeleteDiscussionParams) error
 	DeleteDraftTask(ctx context.Context, id string) (int64, error)
 	DeleteEnvironment(ctx context.Context, arg DeleteEnvironmentParams) error
 	DeleteErrorEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
@@ -146,6 +149,7 @@ type Querier interface {
 	// that does have a file_id, so legacy rows linked to non-recorder tests still
 	// resolve to the uploaded artifact instead of 404ing on handleServeDemo.
 	GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, error)
+	GetDiscussion(ctx context.Context, arg GetDiscussionParams) (ZdxDiscussion, error)
 	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (ZdxEnvironment, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
 	GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error)
@@ -265,6 +269,8 @@ type Querier interface {
 	// GetDemoByID for rationale.
 	ListDemosForSpec(ctx context.Context, specID int32) ([]ListDemosForSpecRow, error)
 	ListDeploys(ctx context.Context, environmentID int32) ([]ZdxDeploy, error)
+	ListDiscussionMessages(ctx context.Context, discussionID int32) ([]ZdxDiscussionMessage, error)
+	ListDiscussions(ctx context.Context, arg ListDiscussionsParams) ([]ZdxDiscussion, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
 	ListEnvironments(ctx context.Context, projectID int32) ([]ZdxEnvironment, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
@@ -455,6 +461,8 @@ type Querier interface {
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
 	UpdateAgentHeartbeat(ctx context.Context, id string) error
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
+	UpdateDiscussionSession(ctx context.Context, arg UpdateDiscussionSessionParams) (ZdxDiscussion, error)
+	UpdateDiscussionStatus(ctx context.Context, arg UpdateDiscussionStatusParams) error
 	UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error
 	UpdateEnvironmentDeploy(ctx context.Context, arg UpdateEnvironmentDeployParams) error
 	UpdateFeatureField(ctx context.Context, arg UpdateFeatureFieldParams) error

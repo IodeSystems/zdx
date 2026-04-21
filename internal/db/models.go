@@ -154,6 +154,27 @@ type ZdxDeploy struct {
 	Status           string             `db:"status" json:"status"`
 }
 
+type ZdxDiscussion struct {
+	ID              int32              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	Title           string             `db:"title" json:"title"`
+	Provider        string             `db:"provider" json:"provider"`
+	ClaudeSessionID pgtype.Text        `db:"claude_session_id" json:"claude_session_id"`
+	OpenaiThreadID  pgtype.Text        `db:"openai_thread_id" json:"openai_thread_id"`
+	Status          string             `db:"status" json:"status"`
+	CreatedBy       string             `db:"created_by" json:"created_by"`
+	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type ZdxDiscussionMessage struct {
+	ID           int32              `db:"id" json:"id"`
+	DiscussionID int32              `db:"discussion_id" json:"discussion_id"`
+	Role         string             `db:"role" json:"role"`
+	Content      string             `db:"content" json:"content"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxDoctorDeferral struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`
