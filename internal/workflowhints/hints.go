@@ -326,7 +326,8 @@ func OrphanTaskText(taskID, title string) Hint {
 			"Orphan task %s (no parent issue): %s.\n\n"+
 				"1. Read: `dx todo show %s`. Check if the work is already done, superseded, or still needed.\n"+
 				"2. If done/stale: `dx todo dev done %s --test-plan=\"<how verified or 'superseded by <ref>'>\".\n"+
-				"3. If still needed: file an issue to host it — `dx issue add --title=\"...\" --context=\"...\"` — then the task links to it on next triage.",
+				"3. If still needed: file an issue to host it — `dx issue add --title=\"...\" --context=\"...\"` — then the task links to it on next triage.\n"+
+				"Stop after handling — one orphan per session.",
 			taskID, title, taskID, taskID,
 		),
 	}
@@ -380,7 +381,8 @@ func DemoGapText(specID int32, description, featureName string) Hint {
 				"1. Check if a demo test already exists that could cover this spec: `dx test list --layer=demo`.\n"+
 				"2. Link an existing demo: `dx spec link %d <test-id>`.\n"+
 				"3. Or write a new demo test, then link it.\n"+
-				"Demos are verifiable walk-throughs of the spec's behavior — prefer small, focused scenarios.",
+				"Demos are verifiable walk-throughs of the spec's behavior — prefer small, focused scenarios.\n"+
+				"Stop after linking/filing — the demo test itself is a separate dev task.",
 			specID, description, featureName, specID,
 		),
 	}
@@ -427,7 +429,8 @@ func StandupOverdueText(role string) Hint {
 				"   - risks & attention areas\n"+
 				"   - near-term plan\n"+
 				"   Be quantitative where possible.\n"+
-				"3. Submit: `dx standup checkin --role=%s --project-root=$(git rev-parse --show-toplevel)`.",
+				"3. Submit: `dx standup checkin --role=%s --project-root=$(git rev-parse --show-toplevel)`.\n"+
+				"Stop after submitting — one standup per session.",
 			capitalize(role), role,
 		),
 	}
@@ -442,7 +445,8 @@ func JournalReviewText(role string) Hint {
 			"Review generated %s check-in.\n\n"+
 				"1. Read the latest entry: `dx journal show`.\n"+
 				"2. Verify the data is accurate and the assessment is fair.\n"+
-				"3. If corrections are needed, submit an updated check-in: `dx standup checkin --role=%s --project-root=$(git rev-parse --show-toplevel)`.",
+				"3. If corrections are needed, submit an updated check-in: `dx standup checkin --role=%s --project-root=$(git rev-parse --show-toplevel)`.\n"+
+				"Stop after review — one journal entry per session.",
 			role, role,
 		),
 	}
@@ -474,7 +478,8 @@ func StaleFeatureText(featureName string) Hint {
 			"Feature %q not reviewed in >30 days.\n\n"+
 				"1. Review: `dx feature show %s` — read specs, test coverage, linked issues, recent commits touching the feature area.\n"+
 				"2. Update the description or specs if reality has drifted: `dx feature set %s --desc=\"...\"` / `dx spec add ...`.\n"+
-				"3. Mark reviewed: `dx feature review %s`.",
+				"3. Mark reviewed: `dx feature review %s`.\n"+
+				"Stop after review — one feature per session.",
 			featureName, featureName, featureName, featureName,
 		),
 	}
