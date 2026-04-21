@@ -1103,6 +1103,47 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-issue-reservations", Method: http.MethodGet, Path: "/api/dx/projects/{slug}/issues/{id}/reservations"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			ID   string `path:"id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Reservations []ReservationItem `json:"reservations"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListReservationsByIssueID(ctx, db.ListReservationsByIssueIDParams{
+				ProjectID: p.ID,
+				IssueID:   in.ID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ReservationItem, len(rows))
+			for i, r := range rows {
+				out[i] = ReservationItem{
+					ID:             r.ID,
+					TargetType:     r.TargetType,
+					TargetID:       r.TargetID,
+					ClaimedBy:      r.ClaimedBy,
+					ClaimedAt:      fmtTS(r.ClaimedAt),
+					ReleasedAt:     fmtTS(r.ReleasedAt),
+					LeaseExpiresAt: fmtTS(r.LeaseExpiresAt),
+				}
+			}
+			return &struct {
+				Body struct {
+					Reservations []ReservationItem `json:"reservations"`
+				}
+			}{Body: struct {
+				Reservations []ReservationItem `json:"reservations"`
+			}{Reservations: out}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "reconcile-branch", Method: http.MethodPost, Path: "/api/dx/todo/issue/reconcile"},
 		func(ctx context.Context, in *struct {
 			Body struct {

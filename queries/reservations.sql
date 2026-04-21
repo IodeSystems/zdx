@@ -107,3 +107,21 @@ WHERE r.project_id = @project_id
   AND t.target_type = 'issue'
   AND t.target_id = @issue_id
 ORDER BY r.claimed_at DESC;
+
+-- name: ListReservationsByTaskID :many
+-- Return all reservation history for a specific task, most recent first.
+SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
+FROM zdx_reservations
+WHERE project_id = @project_id
+  AND target_type = 'task'
+  AND target_id = @task_id
+ORDER BY claimed_at DESC;
+
+-- name: ListReservationsByIssueID :many
+-- Return all reservation history for a specific issue (direct issue claims), most recent first.
+SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
+FROM zdx_reservations
+WHERE project_id = @project_id
+  AND target_type = 'issue'
+  AND target_id = @issue_id
+ORDER BY claimed_at DESC;

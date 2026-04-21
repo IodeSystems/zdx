@@ -2,13 +2,14 @@ import { useEffect } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import { Box, Button, Chip, Tooltip, Typography } from '@mui/material'
 import { ArrowBack as ArrowBackIcon, CheckCircle as CheckCircleIcon, LockOpen as LockOpenIcon, PlayArrow as PlayArrowIcon, RadioButtonUnchecked as RadioButtonUncheckedIcon } from '@mui/icons-material'
-import { useTask, useTasks, useUpdateTaskStatus, useReleaseTask, useReadyTask, useTaskCodeRefs } from '../api'
+import { useTask, useTasks, useUpdateTaskStatus, useReleaseTask, useReadyTask, useTaskCodeRefs, useReservationsByTask } from '../api'
 import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { TaskReviewSection } from './TaskReviewSection'
 import { CodeRefs } from './CodeRefs'
 import { MarkdownContent } from './MarkdownContent'
 import { EditHistory } from './EditHistory'
+import { ReservationSection } from './ReservationSection'
 
 const STATUS_COLORS: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
   done: 'success',
@@ -25,6 +26,7 @@ export function TaskDetail({
   const { data: taskData, isLoading } = useTask(slug, taskId)
   const { data: allTasksData } = useTasks(slug)
   const { data: codeRefs } = useTaskCodeRefs(slug, taskId)
+  const { data: reservationsData } = useReservationsByTask(slug, taskId)
   const updateStatus = useUpdateTaskStatus()
   const releaseTask = useReleaseTask()
   const readyTask = useReadyTask()
@@ -275,6 +277,8 @@ export function TaskDetail({
           Completed: {new Date(task.completed_at).toLocaleString()}
         </Typography>
       )}
+
+      <ReservationSection slug={slug} reservations={reservationsData?.reservations ?? []} />
 
       <BlockerQuestionsSection slug={slug} targetType="task" targetId={taskId} />
 

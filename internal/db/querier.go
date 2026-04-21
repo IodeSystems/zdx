@@ -332,6 +332,10 @@ type Querier interface {
 	ListReservations(ctx context.Context, arg ListReservationsParams) ([]ZdxReservation, error)
 	// Return reservations for todos linked to a specific issue, with optional agent session info.
 	ListReservationsByIssue(ctx context.Context, arg ListReservationsByIssueParams) ([]ListReservationsByIssueRow, error)
+	// Return all reservation history for a specific issue (direct issue claims), most recent first.
+	ListReservationsByIssueID(ctx context.Context, arg ListReservationsByIssueIDParams) ([]ZdxReservation, error)
+	// Return all reservation history for a specific task, most recent first.
+	ListReservationsByTaskID(ctx context.Context, arg ListReservationsByTaskIDParams) ([]ZdxReservation, error)
 	// Return all reservation history rows for a todo identified by its stable key,
 	// most recent first. Joins in the claude session (if any) that shared the reservation window.
 	ListReservationsByTodoKey(ctx context.Context, arg ListReservationsByTodoKeyParams) ([]ListReservationsByTodoKeyRow, error)

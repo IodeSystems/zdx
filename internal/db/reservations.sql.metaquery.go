@@ -201,6 +201,110 @@ var ListReservationsByIssueCols = struct {
 	SessionAlias:    metaquery.NewTextCol("alias"),
 }
 
+var MetaListReservationsByIssueID = metaquery.Query{
+	Name:   "ListReservationsByIssueID",
+	Cmd:    ":many",
+	Source: "reservations.sql",
+	SQL: `SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
+FROM zdx_reservations
+WHERE project_id = $1
+  AND target_type = 'issue'
+  AND target_id = $2
+ORDER BY claimed_at DESC`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_reservations"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_reservations"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_reservations"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_reservations"},
+		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_reservations"},
+		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_reservations"},
+		{Name: "released_at", OriginalName: "released_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_reservations"},
+		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_reservations"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListReservationsByIssueID returns a metaquery.Builder over MetaListReservationsByIssueID, pre-bound with typed arguments.
+func WrapListReservationsByIssueID(arg ListReservationsByIssueIDParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListReservationsByIssueID, arg.ProjectID, arg.IssueID)
+}
+
+// ListReservationsByIssueIDCols gives typed, name-safe access to ListReservationsByIssueID's output columns.
+var ListReservationsByIssueIDCols = struct {
+	ID             metaquery.IntCol
+	ProjectID      metaquery.IntCol
+	TargetType     metaquery.TextCol
+	TargetID       metaquery.TextCol
+	ClaimedBy      metaquery.TextCol
+	ClaimedAt      metaquery.TimeCol
+	ReleasedAt     metaquery.TimeCol
+	LeaseExpiresAt metaquery.TimeCol
+}{
+	ID:             metaquery.NewIntCol("id"),
+	ProjectID:      metaquery.NewIntCol("project_id"),
+	TargetType:     metaquery.NewTextCol("target_type"),
+	TargetID:       metaquery.NewTextCol("target_id"),
+	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
+	ReleasedAt:     metaquery.NewTimeCol("released_at"),
+	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
+}
+
+var MetaListReservationsByTaskID = metaquery.Query{
+	Name:   "ListReservationsByTaskID",
+	Cmd:    ":many",
+	Source: "reservations.sql",
+	SQL: `SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
+FROM zdx_reservations
+WHERE project_id = $1
+  AND target_type = 'task'
+  AND target_id = $2
+ORDER BY claimed_at DESC`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_reservations"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_reservations"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_reservations"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_reservations"},
+		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_reservations"},
+		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_reservations"},
+		{Name: "released_at", OriginalName: "released_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_reservations"},
+		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_reservations"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "task_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListReservationsByTaskID returns a metaquery.Builder over MetaListReservationsByTaskID, pre-bound with typed arguments.
+func WrapListReservationsByTaskID(arg ListReservationsByTaskIDParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListReservationsByTaskID, arg.ProjectID, arg.TaskID)
+}
+
+// ListReservationsByTaskIDCols gives typed, name-safe access to ListReservationsByTaskID's output columns.
+var ListReservationsByTaskIDCols = struct {
+	ID             metaquery.IntCol
+	ProjectID      metaquery.IntCol
+	TargetType     metaquery.TextCol
+	TargetID       metaquery.TextCol
+	ClaimedBy      metaquery.TextCol
+	ClaimedAt      metaquery.TimeCol
+	ReleasedAt     metaquery.TimeCol
+	LeaseExpiresAt metaquery.TimeCol
+}{
+	ID:             metaquery.NewIntCol("id"),
+	ProjectID:      metaquery.NewIntCol("project_id"),
+	TargetType:     metaquery.NewTextCol("target_type"),
+	TargetID:       metaquery.NewTextCol("target_id"),
+	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
+	ReleasedAt:     metaquery.NewTimeCol("released_at"),
+	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
+}
+
 var MetaListReservationsByTodoKey = metaquery.Query{
 	Name:   "ListReservationsByTodoKey",
 	Cmd:    ":many",

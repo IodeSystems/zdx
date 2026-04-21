@@ -831,6 +831,47 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				Total int64      `json:"total"`
 			}{Tasks: out, Total: int64(len(out))}}, nil
 		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-task-reservations", Method: http.MethodGet, Path: "/api/dx/projects/{slug}/tasks/{id}/reservations"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			ID   string `path:"id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Reservations []ReservationItem `json:"reservations"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListReservationsByTaskID(ctx, db.ListReservationsByTaskIDParams{
+				ProjectID: p.ID,
+				TaskID:    in.ID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ReservationItem, len(rows))
+			for i, r := range rows {
+				out[i] = ReservationItem{
+					ID:             r.ID,
+					TargetType:     r.TargetType,
+					TargetID:       r.TargetID,
+					ClaimedBy:      r.ClaimedBy,
+					ClaimedAt:      fmtTS(r.ClaimedAt),
+					ReleasedAt:     fmtTS(r.ReleasedAt),
+					LeaseExpiresAt: fmtTS(r.LeaseExpiresAt),
+				}
+			}
+			return &struct {
+				Body struct {
+					Reservations []ReservationItem `json:"reservations"`
+				}
+			}{Body: struct {
+				Reservations []ReservationItem `json:"reservations"`
+			}{Reservations: out}}, nil
+		})
 }
 
 // ── Model → response converter ────────────────────────────────────────────

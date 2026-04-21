@@ -205,6 +205,94 @@ func (q *Queries) ListReservationsByIssue(ctx context.Context, arg ListReservati
 	return items, nil
 }
 
+const listReservationsByIssueID = `-- name: ListReservationsByIssueID :many
+SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
+FROM zdx_reservations
+WHERE project_id = $1
+  AND target_type = 'issue'
+  AND target_id = $2
+ORDER BY claimed_at DESC
+`
+
+type ListReservationsByIssueIDParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	IssueID   string `db:"issue_id" json:"issue_id"`
+}
+
+// Return all reservation history for a specific issue (direct issue claims), most recent first.
+func (q *Queries) ListReservationsByIssueID(ctx context.Context, arg ListReservationsByIssueIDParams) ([]ZdxReservation, error) {
+	rows, err := q.db.Query(ctx, listReservationsByIssueID, arg.ProjectID, arg.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxReservation
+	for rows.Next() {
+		var i ZdxReservation
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.ReleasedAt,
+			&i.LeaseExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReservationsByTaskID = `-- name: ListReservationsByTaskID :many
+SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
+FROM zdx_reservations
+WHERE project_id = $1
+  AND target_type = 'task'
+  AND target_id = $2
+ORDER BY claimed_at DESC
+`
+
+type ListReservationsByTaskIDParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	TaskID    string `db:"task_id" json:"task_id"`
+}
+
+// Return all reservation history for a specific task, most recent first.
+func (q *Queries) ListReservationsByTaskID(ctx context.Context, arg ListReservationsByTaskIDParams) ([]ZdxReservation, error) {
+	rows, err := q.db.Query(ctx, listReservationsByTaskID, arg.ProjectID, arg.TaskID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxReservation
+	for rows.Next() {
+		var i ZdxReservation
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.ClaimedBy,
+			&i.ClaimedAt,
+			&i.ReleasedAt,
+			&i.LeaseExpiresAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listReservationsByTodoKey = `-- name: ListReservationsByTodoKey :many
 SELECT
   r.id,

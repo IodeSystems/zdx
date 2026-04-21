@@ -1854,6 +1854,13 @@ type ListInvitesResponse struct {
 	Invites *[]InviteItem `json:"invites"`
 }
 
+// ListIssueReservationsResponse defines model for List-issue-reservationsResponse.
+type ListIssueReservationsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string            `json:"$schema,omitempty"`
+	Reservations *[]ReservationItem `json:"reservations"`
+}
+
 // ListIssueResolutionsResponse defines model for List-issue-resolutionsResponse.
 type ListIssueResolutionsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2057,6 +2064,13 @@ type ListStaleTasksResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string     `json:"$schema,omitempty"`
 	Tasks  *[]TaskItem `json:"tasks"`
+}
+
+// ListTaskReservationsResponse defines model for List-task-reservationsResponse.
+type ListTaskReservationsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string            `json:"$schema,omitempty"`
+	Reservations *[]ReservationItem `json:"reservations"`
 }
 
 // ListTaskReviewsResponse defines model for List-task-reviewsResponse.
@@ -5542,6 +5556,12 @@ type ClientInterface interface {
 
 	RenewIssueLease(ctx context.Context, slug string, id string, body RenewIssueLeaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListIssueReservations request
+	ListIssueReservations(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTaskReservations request
+	ListTaskReservations(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetTodoDetail request
 	GetTodoDetail(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -8722,6 +8742,30 @@ func (c *APIClient) RenewIssueLeaseWithBody(ctx context.Context, slug string, id
 
 func (c *APIClient) RenewIssueLease(ctx context.Context, slug string, id string, body RenewIssueLeaseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewRenewIssueLeaseRequest(c.Server, slug, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListIssueReservations(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIssueReservationsRequest(c.Server, slug, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListTaskReservations(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTaskReservationsRequest(c.Server, slug, id)
 	if err != nil {
 		return nil, err
 	}
@@ -19123,6 +19167,88 @@ func NewRenewIssueLeaseRequestWithBody(server string, slug string, id string, co
 	return req, nil
 }
 
+// NewListIssueReservationsRequest generates requests for ListIssueReservations
+func NewListIssueReservationsRequest(server string, slug string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/issues/%s/reservations", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListTaskReservationsRequest generates requests for ListTaskReservations
+func NewListTaskReservationsRequest(server string, slug string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/tasks/%s/reservations", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetTodoDetailRequest generates requests for GetTodoDetail
 func NewGetTodoDetailRequest(server string, slug string, key string) (*http.Request, error) {
 	var err error
@@ -26624,6 +26750,12 @@ type ClientWithResponsesInterface interface {
 
 	RenewIssueLeaseWithResponse(ctx context.Context, slug string, id string, body RenewIssueLeaseJSONRequestBody, reqEditors ...RequestEditorFn) (*RenewIssueLeaseResponse, error)
 
+	// ListIssueReservationsWithResponse request
+	ListIssueReservationsWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ParsedListIssueReservationsResponse, error)
+
+	// ListTaskReservationsWithResponse request
+	ListTaskReservationsWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ParsedListTaskReservationsResponse, error)
+
 	// GetTodoDetailWithResponse request
 	GetTodoDetailWithResponse(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*GetTodoDetailResponse, error)
 
@@ -30633,6 +30765,52 @@ func (r RenewIssueLeaseResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r RenewIssueLeaseResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListIssueReservationsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListIssueReservationsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListIssueReservationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListIssueReservationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListTaskReservationsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListTaskReservationsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListTaskReservationsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListTaskReservationsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -35603,6 +35781,24 @@ func (c *ClientWithResponses) RenewIssueLeaseWithResponse(ctx context.Context, s
 		return nil, err
 	}
 	return ParseRenewIssueLeaseResponse(rsp)
+}
+
+// ListIssueReservationsWithResponse request returning *ParsedListIssueReservationsResponse
+func (c *ClientWithResponses) ListIssueReservationsWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ParsedListIssueReservationsResponse, error) {
+	rsp, err := c.ListIssueReservations(ctx, slug, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListIssueReservationsResponse(rsp)
+}
+
+// ListTaskReservationsWithResponse request returning *ParsedListTaskReservationsResponse
+func (c *ClientWithResponses) ListTaskReservationsWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ParsedListTaskReservationsResponse, error) {
+	rsp, err := c.ListTaskReservations(ctx, slug, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListTaskReservationsResponse(rsp)
 }
 
 // GetTodoDetailWithResponse request returning *GetTodoDetailResponse
@@ -42312,6 +42508,72 @@ func ParseRenewIssueLeaseResponse(rsp *http.Response) (*RenewIssueLeaseResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListIssueReservationsResponse parses an HTTP response from a ListIssueReservationsWithResponse call
+func ParseParsedListIssueReservationsResponse(rsp *http.Response) (*ParsedListIssueReservationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListIssueReservationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListIssueReservationsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListTaskReservationsResponse parses an HTTP response from a ListTaskReservationsWithResponse call
+func ParseParsedListTaskReservationsResponse(rsp *http.Response) (*ParsedListTaskReservationsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListTaskReservationsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListTaskReservationsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

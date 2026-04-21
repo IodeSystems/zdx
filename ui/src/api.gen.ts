@@ -2182,6 +2182,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/projects/{slug}/issues/{id}/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-issue-reservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/tasks/{id}/reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-task-reservations"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/projects/{slug}/todos/{key}": {
         parameters: {
             query?: never;
@@ -6478,6 +6510,15 @@ export interface components {
             readonly $schema?: string;
             invites: components["schemas"]["InviteItem"][] | null;
         };
+        "List-issue-reservationsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-issue-reservationsResponse.json
+             */
+            readonly $schema?: string;
+            reservations: components["schemas"]["ReservationItem"][] | null;
+        };
         "List-issue-resolutionsResponse": {
             /**
              * Format: uri
@@ -6747,6 +6788,15 @@ export interface components {
              */
             readonly $schema?: string;
             tasks: components["schemas"]["TaskItem"][] | null;
+        };
+        "List-task-reservationsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-task-reservationsResponse.json
+             */
+            readonly $schema?: string;
+            reservations: components["schemas"]["ReservationItem"][] | null;
         };
         "List-task-reviewsResponse": {
             /**
@@ -13641,6 +13691,70 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-issue-reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-issue-reservationsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-task-reservations": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-task-reservationsResponse"];
                 };
             };
             /** @description Error */

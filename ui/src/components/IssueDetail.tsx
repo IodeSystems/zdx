@@ -27,6 +27,7 @@ import {
   useAddFocusBlocker,
   useRemoveFocusBlocker,
   useAddComment,
+  useReservationsByIssueID,
   type IssueItem,
   type IssueWorkItem,
   type TaskItem,
@@ -37,6 +38,7 @@ import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CodeRefs } from './CodeRefs'
 import { MarkdownContent } from './MarkdownContent'
 import { UnifiedTimeline } from './UnifiedTimeline'
+import { ReservationSection } from './ReservationSection'
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -73,6 +75,7 @@ export function IssueDetail({
 }) {
   const { data, isLoading, refetch } = useIssue(slug, issueId)
   const { data: allTasks, refetch: refetchTasks } = useTasks(slug, { issue: issueId })
+  const { data: reservationsData } = useReservationsByIssueID(slug, issueId)
   const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
   const closeIssue = useCloseIssue()
   const readyIssue = useReadyIssue()
@@ -444,6 +447,8 @@ export function IssueDetail({
           </Box>
         </Box>
       )}
+
+      <ReservationSection slug={slug} reservations={reservationsData?.reservations ?? []} />
 
       <BlockerQuestionsSection slug={slug} targetType="issue" targetId={issueId} />
 

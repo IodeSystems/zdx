@@ -1828,6 +1828,32 @@ export const useReservationsByIssue = (slug: string, issueId: string) =>
     enabled: !!slug && !!issueId,
   })
 
+export const useReservationsByTask = (slug: string, taskId: string) =>
+  useQuery<{ reservations: ReservationItem[] }>({
+    queryKey: ['reservations-by-task', slug, taskId],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/projects/{slug}/tasks/{id}/reservations', {
+        params: { path: { slug, id: taskId } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { reservations: ((data as any)?.reservations ?? []) as ReservationItem[] }
+    },
+    enabled: !!slug && !!taskId,
+  })
+
+export const useReservationsByIssueID = (slug: string, issueId: string) =>
+  useQuery<{ reservations: ReservationItem[] }>({
+    queryKey: ['reservations-by-issue-id', slug, issueId],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/projects/{slug}/issues/{id}/reservations', {
+        params: { path: { slug, id: issueId } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { reservations: ((data as any)?.reservations ?? []) as ReservationItem[] }
+    },
+    enabled: !!slug && !!issueId,
+  })
+
 export const useInfiniteClaudeSessionEvents = (slug: string, sessionId: number | null, pageSize = 200) =>
   useInfiniteQuery<{ events: ClaudeEventItem[]; total: number }>({
     queryKey: ['claude-events-infinite', slug, sessionId, pageSize],
