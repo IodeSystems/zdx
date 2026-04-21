@@ -68,6 +68,9 @@ func (a *GoBinAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
 		if err := os.MkdirAll(a.CoverDir, 0755); err != nil {
 			return nil, fmt.Errorf("cover dir: %w", err)
 		}
+		// go test -c binaries use -test.gocoverdir; go build -cover binaries use GOCOVERDIR.
+		// Pass both so either binary type works.
+		args = append(args, "-test.gocoverdir="+a.CoverDir)
 		env = append(env, "GOCOVERDIR="+a.CoverDir)
 	}
 

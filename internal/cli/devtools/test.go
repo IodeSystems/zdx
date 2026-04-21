@@ -539,7 +539,8 @@ func RunTest(_ []string) {}
 
 // ── e2e ───────────────────────────────────────────────────────────────────────
 
-const testBin = "bin/zdx-test"
+var testBin = "bin/zdx-test"
+
 const testPkg = "./test/e2e/"
 
 func testE2ECmd() *cobra.Command {

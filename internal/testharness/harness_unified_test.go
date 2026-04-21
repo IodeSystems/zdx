@@ -36,7 +36,7 @@ func makeResult(component, test, status string) testharness.Result {
 	}
 }
 
-func TestUnifiedOutput(t *testing.T) {
+func TestHarness_UnifiesMultiAdapterResults(t *testing.T) {
 	vitestAdapter := &stubAdapter{
 		id:        "vitest:ui",
 		component: "ui",
@@ -120,5 +120,35 @@ func TestUnifiedOutput(t *testing.T) {
 	}
 	if len(decoded) != len(results) {
 		t.Fatalf("decoded %d results, want %d", len(decoded), len(results))
+	}
+}
+
+func TestHarness_FilterScopesAdapters(t *testing.T) {
+	uiAdapter := &stubAdapter{
+		id:        "vitest:ui",
+		component: "ui",
+		layers:    []testharness.Layer{testharness.LayerUnit},
+		results:   []testharness.Result{makeResult("ui", "renders dashboard", "pass")},
+	}
+	apiAdapter := &stubAdapter{
+		id:        "go:api",
+		component: "api",
+		layers:    []testharness.Layer{testharness.LayerIntegration},
+		results:   []testharness.Result{makeResult("api", "GET /api/issues returns 200", "pass")},
+	}
+
+	h := testharness.New()
+	h.Register(uiAdapter)
+	h.Register(apiAdapter)
+
+	results, err := h.Run(context.Background(), testharness.Filter{Component: "ui"})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result, got %d", len(results))
+	}
+	if results[0].Component != "ui" {
+		t.Errorf("expected component ui, got %q", results[0].Component)
 	}
 }
