@@ -410,6 +410,8 @@ func TestQueueBQBlockedGlobal(t *testing.T) {
 
 // TestQueueStrictPriorityOrder verifies spec 62: when multiple queue categories are present,
 // items are returned in strict priority order: comments < questions < triage < specs < closable < decomposition < tasks.
+// Note: issue.priority is folded into dev/closable/add base priorities (IS-426). Triaged issues
+// here use P4 (smallest fold, -5) to preserve the base category ordering this test documents.
 func TestQueueStrictPriorityOrder(t *testing.T) {
 	d := NewApiDriver(t, "q-strict-order", "Queue Strict Priority Order")
 
@@ -417,7 +419,7 @@ func TestQueueStrictPriorityOrder(t *testing.T) {
 	Given(d).HealthPrereqs().Build()
 
 	// comments (priority 5): unread comment on any issue
-	sc := Given(d).TriagedIssue("Commented issue", "has comment", 2).Build()
+	sc := Given(d).TriagedIssue("Commented issue", "has comment", 4).Build()
 	commentIssueRef := fmt.Sprintf("IS-%d", sc.Issues[0])
 	d.AddComment("issue", commentIssueRef, "Please review this")
 
@@ -430,19 +432,19 @@ func TestQueueStrictPriorityOrder(t *testing.T) {
 	// specs (priority 25): feature with no specs
 	d.AddFeature("unspecced-feature", "Feature lacking specs")
 
-	// closable (priority 35): triaged issue with all tasks done
+	// closable (base 35 → P4 folds to 30): triaged issue with all tasks done
 	sc2 := Given(d).
-		TriagedIssue("All done", "ready to close", 2).
+		TriagedIssue("All done", "ready to close", 4).
 		Task(0, "Finished task").
 		Build()
 	d.MarkTaskDone(sc2.Tasks[0])
 
-	// decomposition/add (priority 38): triaged issue with no tasks
-	Given(d).TriagedIssue("Needs decomposition", "no tasks yet", 2).Build()
+	// decomposition/add (base 38 → P4 folds to 33): triaged issue with no tasks
+	Given(d).TriagedIssue("Needs decomposition", "no tasks yet", 4).Build()
 
-	// tasks/dev (priority 40): triaged issue with a pending task
+	// tasks/dev (base 40 → P4 folds to 35): triaged issue with a pending task
 	Given(d).
-		TriagedIssue("Dev work", "has tasks", 2).
+		TriagedIssue("Dev work", "has tasks", 4).
 		Task(0, "Write the code").
 		Build()
 
@@ -537,6 +539,8 @@ func TestQueueIssueScoped(t *testing.T) {
 // TestQueueUnifiedMixedSources is the demo for spec 99: given a project with all six
 // signal source types present simultaneously, dx todo solo returns a single unified queue
 // ordered by priority tier.
+// Note: issue.priority is folded into dev/closable/add base priorities (IS-426). Triaged
+// issues here use P4 (smallest fold) to preserve the base tier ordering this demo shows.
 func TestQueueUnifiedMixedSources(t *testing.T) {
 	d := NewApiDriver(t, "q-unified", "Queue Unified Mixed Sources")
 
@@ -544,31 +548,31 @@ func TestQueueUnifiedMixedSources(t *testing.T) {
 	Given(d).HealthPrereqs().Build()
 
 	// Signal 1: unread comment → read:comments (priority 5)
-	sc := Given(d).TriagedIssue("Commented issue", "has unread comment", 2).Build()
+	sc := Given(d).TriagedIssue("Commented issue", "has unread comment", 4).Build()
 	commentIssueRef := fmt.Sprintf("IS-%d", sc.Issues[0])
 	d.AddComment("issue", commentIssueRef, "Please review this change")
 
 	// Signal 2: untriaged issue → triage (priority 20)
 	Given(d).Issue("Untriaged bug", "needs triage decision").Build()
 
-	// Signal 3: decomposition gap — triaged, no tasks → add (priority 38)
-	Given(d).TriagedIssue("Needs tasks", "no tasks yet", 2).Build()
+	// Signal 3: decomposition gap — triaged, no tasks → add (base 38, P4 folds to 33)
+	Given(d).TriagedIssue("Needs tasks", "no tasks yet", 4).Build()
 
-	// Signal 4: pending task → dev (priority 40)
+	// Signal 4: pending task → dev (base 40, P4 folds to 35)
 	Given(d).
-		TriagedIssue("Active work", "has a pending task", 2).
+		TriagedIssue("Active work", "has a pending task", 4).
 		Task(0, "Implement the feature").
 		Build()
 
-	// Signal 5: closable — triaged, all tasks done → closable (priority 35)
+	// Signal 5: closable — triaged, all tasks done → closable (base 35, P4 folds to 30)
 	sc2 := Given(d).
-		TriagedIssue("Ready to close", "all tasks done", 2).
+		TriagedIssue("Ready to close", "all tasks done", 4).
 		Task(0, "Finished work").
 		Build()
 	d.MarkTaskDone(sc2.Tasks[0])
 
 	// Signal 6: blocker question → clarify (priority 5, surfaces in issue-scoped mode)
-	sc3 := Given(d).TriagedIssue("BQ blocked issue", "pending decision", 2).Build()
+	sc3 := Given(d).TriagedIssue("BQ blocked issue", "pending decision", 4).Build()
 	bqIssueRef := fmt.Sprintf("IS-%d", sc3.Issues[0])
 	d.AddBlockerQuestion("issue", bqIssueRef, "Which approach should we use?")
 
