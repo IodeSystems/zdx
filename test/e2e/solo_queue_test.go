@@ -376,26 +376,13 @@ func TestQueueEmpty(t *testing.T) {
 	d.MarkTaskDone(sc.Tasks[0])
 	d.CloseIssue(sc.Issues[0])
 
-	items := d.EvaluateQueue("")
-	// Filter out maturity nudges and demo-gap since this test
-	// doesn't set up the full goal/feature attribution model.
-	maturityKinds := map[string]bool{
-		"owner:demo-gap":          true,
-		"owner:quantify-goal":     true,
-		"owner:attribute-feature": true,
-		"tech:instrument-feature": true,
-		"owner:decompose-feature": true,
-		"owner:standup":           true,
-		"tech:standup":            true,
-	}
-	var actionableItems []SoloQueueItem
-	for _, it := range items {
-		if !maturityKinds[it.Kind] {
-			actionableItems = append(actionableItems, it)
-		}
-	}
-	if len(actionableItems) != 0 {
-		t.Errorf("expected empty queue (excluding maturity nudges), got %d items: %v", len(actionableItems), kindsOf(actionableItems))
+	// Scope to the closed issue — ambient project-level kinds (standup,
+	// maturity nudges, goal/constraint health) are server-gated behind
+	// issueFilter == "", so scoping naturally excludes them.
+	target := fmt.Sprintf("IS-%d", sc.Issues[0])
+	items := d.EvaluateQueue(target)
+	if len(items) != 0 {
+		t.Errorf("expected empty queue for closed issue %s, got %d items: %v", target, len(items), kindsOf(items))
 	}
 }
 
