@@ -427,7 +427,7 @@ func StandupOverdueText(role string) Hint {
 				"   - risks & attention areas\n"+
 				"   - near-term plan\n"+
 				"   Be quantitative where possible.\n"+
-				"3. Submit: `dx journal checkin --%s`.",
+				"3. Submit: `dx standup checkin --role=%s --project-root=$(git rev-parse --show-toplevel)`.",
 			capitalize(role), role,
 		),
 	}
@@ -442,7 +442,7 @@ func JournalReviewText(role string) Hint {
 			"Review generated %s check-in.\n\n"+
 				"1. Read the latest entry: `dx journal show`.\n"+
 				"2. Verify the data is accurate and the assessment is fair.\n"+
-				"3. If corrections are needed, submit an updated check-in: `dx journal checkin --%s`.",
+				"3. If corrections are needed, submit an updated check-in: `dx standup checkin --role=%s --project-root=$(git rev-parse --show-toplevel)`.",
 			role, role,
 		),
 	}

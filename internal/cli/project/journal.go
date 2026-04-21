@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
 	"time"
@@ -92,7 +93,8 @@ func journalCheckinCmd() *cobra.Command {
 			if role == "tech" {
 				root := projectRoot
 				if root == "" {
-					root, _ = os.Getwd()
+					cwd, _ := os.Getwd()
+					root = findProjectRoot(cwd)
 				}
 
 				metrics := collectTechMetrics(root)
@@ -333,4 +335,26 @@ func journalListCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&issue, "issue", "", "filter by issue ID (IS-N)")
 	return cmd
+}
+
+// findProjectRoot walks up from dir to find the nearest ancestor containing
+// .zdx/config.yaml or .git. Falls back to dir if neither is found.
+// This handles srcless agent worktrees where os.Getwd() returns the worktree
+// root, but also guards against being in a subdirectory.
+func findProjectRoot(dir string) string {
+	current := dir
+	for {
+		if _, err := os.Stat(filepath.Join(current, ".zdx", "config.yaml")); err == nil {
+			return current
+		}
+		if _, err := os.Stat(filepath.Join(current, ".git")); err == nil {
+			return current
+		}
+		parent := filepath.Dir(current)
+		if parent == current {
+			break
+		}
+		current = parent
+	}
+	return dir
 }

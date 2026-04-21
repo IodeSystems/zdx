@@ -188,11 +188,25 @@ func countFilesByPattern(root, pattern string) int {
 	if matches != nil {
 		return len(matches)
 	}
-	parts := strings.SplitN(pattern, "/", -1)
+	// filepath.Glob doesn't support **, so fall back to find.
+	// Build the search directory by taking all non-** prefix segments;
+	// any ** segment means "recurse from root".
+	parts := strings.Split(pattern, "/")
 	name := parts[len(parts)-1]
 	dir := root
 	if len(parts) > 1 {
-		dir = filepath.Join(root, filepath.Join(parts[:len(parts)-1]...))
+		var dirParts []string
+		for _, p := range parts[:len(parts)-1] {
+			if p == "**" {
+				// ** means search recursively from root; reset dir
+				dirParts = nil
+			} else {
+				dirParts = append(dirParts, p)
+			}
+		}
+		if len(dirParts) > 0 {
+			dir = filepath.Join(root, filepath.Join(dirParts...))
+		}
 	}
 	out, err := exec.Command("find", dir, "-name", name, "-type", "f").Output()
 	if err != nil {
