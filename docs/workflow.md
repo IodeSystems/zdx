@@ -60,7 +60,7 @@ Solo checks conditions in this exact order. First match wins.
 
 ### `[owner:standup]` / `[tech:standup]`
 - **Trigger**: Standup check-in is overdue based on cadence (30 days / max(1, closed_tasks/10), clamped to min 7 days). Owner is checked before tech.
-- **Agent action**: Run `dx standup checkin --owner` or `dx standup checkin --tech`.
+- **Agent action**: Gather data (`dx issue list`, `dx feature list`, `dx focus list`, `dx goal list`, `dx todo list`, `dx standup show --role=<role>`, `git log`), then `dx standup checkin --role=<owner|tech> --tldr=... --assessment=... --concerns=... --next=...`. `--tldr` must lead with the stakeholder-actionable bottom line ("project healthy, no blockers" or "N items need your attention: …"). Full playbook (data sources, per-role section structure, anti-patterns) lives in the todo text returned by `dx todo solo`. Builder is persona-agnostic so new roles (e.g. a future Ops persona) plug in without rewriting. `dx standup review` acknowledges SOMEONE ELSE's entry — never use it in place of a checkin.
 - **Advances when**: Standup entry is recorded with a recent date.
 
 ### `[triage]`

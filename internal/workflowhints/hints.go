@@ -416,22 +416,73 @@ func NoConstraintsText() Hint {
 }
 
 // StandupOverdueText builds a Hint for an overdue standup check-in.
+//
+// The standup report is the agent's value proposition to the stakeholder:
+// read from a beach, learn whether the project is healthy, what is on fire,
+// and what the plan is. A receipt ("check-in acknowledged") is not a report.
+// The builder is persona-agnostic so additional roles (e.g. a future Ops
+// persona) can be added without rewriting.
 func StandupOverdueText(role string) Hint {
+	roleCap := capitalize(role)
+	var structure string
+	switch role {
+	case "owner":
+		structure = "Owner report sections (spread across --assessment / --concerns / --next):\n" +
+			"   1. Progress summary — what shipped since last standup, grouped by feature/focus, one-line descriptions.\n" +
+			"   2. Current state — open issues by priority, WIP count, blocked items and WHY they're blocked.\n" +
+			"   3. Feature health — progressing vs. stalled, spec coverage gaps, deferred specs and their blockers.\n" +
+			"   4. Focus alignment — active focuses and whether work is tracking toward their goals.\n" +
+			"   5. Risks & attention — items needing human decision, each with recommended action or explicit \"watching this because…\".\n" +
+			"   6. Near-term plan — next cycle based on the queue.\n" +
+			"   7. Long-term trajectory — goal progress, maturity-gradient gaps, strategic risks.\n"
+	case "tech":
+		structure = "Tech report sections (spread across --assessment / --concerns / --next):\n" +
+			"   1. What changed — schema migrations, API changes, new endpoints, dependency updates since last standup.\n" +
+			"   2. System health — error rates, timing KPIs, counter trends (observability pages).\n" +
+			"   3. Architecture notes — refactors, new patterns, technical debt added or paid down.\n" +
+			"   4. Test coverage — results, new tests, failing tests, deferred specs.\n" +
+			"   5. Identified risks — performance regressions, security concerns, scaling issues, fragile areas.\n" +
+			"   6. Improvement areas — DX friction from post-work analysis, recurring churn patterns, tooling gaps.\n"
+	default:
+		structure = capitalize(role) + " report — cover: what changed, current state, risks, and near-term plan. " +
+			"Be quantitative. Spread content across --assessment / --concerns / --next.\n"
+	}
+
+	techExtras := ""
+	if role == "tech" {
+		techExtras = "   - observability: timings / errors / counters pages — system KPIs\n"
+	}
+
 	return Hint{
-		Title:       capitalize(role) + " standup overdue",
-		Description: capitalize(role) + " standup check-in overdue.",
+		Title:       roleCap + " standup overdue",
+		Description: roleCap + " standup check-in overdue.",
 		Instructions: fmt.Sprintf(
-			"%s standup check-in overdue.\n\n"+
-				"1. Gather data: `dx issue list`, `dx feature list`, `dx goal list`, `dx focus list`, recent `git log`.\n"+
-				"2. Produce a stakeholder-facing report covering:\n"+
-				"   - progress since last standup\n"+
-				"   - current state (open / blocked items)\n"+
-				"   - risks & attention areas\n"+
-				"   - near-term plan\n"+
-				"   Be quantitative where possible.\n"+
-				"3. Submit: `dx standup checkin --role=%s --project-root=$(git rev-parse --show-toplevel)`.\n"+
+			"%s standup check-in is overdue.\n\n"+
+				"A standup is a stakeholder-facing analysis, not a receipt. The stakeholder should read it from a beach and know: project healthy / no blockers, OR exactly what needs their attention and what's being done about it. Never \"acknowledge\" or \"summarize back\" the previous entry — they wrote it.\n\n"+
+				"1. Gather data BEFORE writing (an agent with no data produces vague assessments):\n"+
+				"   - `dx issue list` — open / closed / WIP by priority, status, date\n"+
+				"   - `dx feature list` / `dx feature show <name>` — feature health, spec coverage, stale features\n"+
+				"   - `dx focus list` / `dx focus status` — active focuses and their feature linkage\n"+
+				"   - `dx goal list` — goals and metric presence\n"+
+				"   - `dx todo list` — queue state, blocked items\n"+
+				"   - `dx standup show --role=%s` — previous entry; compute deltas (do NOT regurgitate it)\n"+
+				"   - `git log --since=<prev-entry-date>` — what actually shipped (commits, not claims)\n"+
+				"%s"+
+				"2. %s"+
+				"3. Submit via `dx standup checkin --role=%s --tldr=\"...\" --assessment=\"...\" --concerns=\"...\" --next=\"...\" --project-root=$(git rev-parse --show-toplevel)`.\n"+
+				"   - `--tldr` MUST lead with the stakeholder-actionable bottom line: either `project healthy, no blockers` or `N items need your attention: …`. Never bury the verdict.\n"+
+				"   - `--assessment` carries the quantitative state (section 1–2 / 1–3 above).\n"+
+				"   - `--concerns` carries risks, stalled work, human-decision items (section 3–5).\n"+
+				"   - `--next` carries the near-term and long-term plan (section 6–7 / sections 4–6 for tech).\n\n"+
+				"Anti-patterns (these will be rejected in review):\n"+
+				"- Do NOT just acknowledge the previous entry — that is not a report.\n"+
+				"- Do NOT summarize the previous journal entry back to the stakeholder — they wrote it.\n"+
+				"- Do NOT produce vague qualitative assessments (\"strong velocity\") without backing numbers.\n"+
+				"- Do NOT skip the report because \"nothing to do\" — an empty queue is itself a reportable state; say so explicitly.\n"+
+				"- Do NOT bury problems in positive framing. If something is wrong, say it plainly.\n"+
+				"- Do NOT close this item with `dx standup review` — review is for acknowledging someone ELSE's entry, not for writing your own. Use `dx standup checkin`.\n\n"+
 				"Stop after submitting — one standup per session.",
-			capitalize(role), role,
+			roleCap, role, techExtras, structure, role,
 		),
 	}
 }
