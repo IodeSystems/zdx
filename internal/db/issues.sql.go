@@ -50,7 +50,7 @@ func (q *Queries) CloseIssue(ctx context.Context, arg CloseIssueParams) error {
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only
 `
 
 type CreateIssueParams struct {
@@ -97,12 +97,13 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		&i.LinkOf,
 		&i.ReopenCount,
 		&i.ClosedAt,
+		&i.InteractiveOnly,
 	)
 	return i, err
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only
 FROM zdx_issues WHERE project_id = $1 AND id = $2
 `
 
@@ -131,12 +132,13 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 		&i.LinkOf,
 		&i.ReopenCount,
 		&i.ClosedAt,
+		&i.InteractiveOnly,
 	)
 	return i, err
 }
 
 const getIssueByAnyProject = `-- name: GetIssueByAnyProject :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only
 FROM zdx_issues WHERE id = $1
 `
 
@@ -160,12 +162,13 @@ func (q *Queries) GetIssueByAnyProject(ctx context.Context, id string) (ZdxIssue
 		&i.LinkOf,
 		&i.ReopenCount,
 		&i.ClosedAt,
+		&i.InteractiveOnly,
 	)
 	return i, err
 }
 
 const getIssueBySourceErrorID = `-- name: GetIssueBySourceErrorID :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only
 FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
 LIMIT 1
 `
@@ -195,6 +198,7 @@ func (q *Queries) GetIssueBySourceErrorID(ctx context.Context, arg GetIssueBySou
 		&i.LinkOf,
 		&i.ReopenCount,
 		&i.ClosedAt,
+		&i.InteractiveOnly,
 	)
 	return i, err
 }
@@ -230,7 +234,7 @@ func (q *Queries) GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueW
 }
 
 const listIssues = `-- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 `
 
@@ -260,6 +264,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 			&i.LinkOf,
 			&i.ReopenCount,
 			&i.ClosedAt,
+			&i.InteractiveOnly,
 		); err != nil {
 			return nil, err
 		}
@@ -272,7 +277,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 }
 
 const listOpenIssues = `-- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC
 `
 
@@ -302,6 +307,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 			&i.LinkOf,
 			&i.ReopenCount,
 			&i.ClosedAt,
+			&i.InteractiveOnly,
 		); err != nil {
 			return nil, err
 		}
@@ -314,7 +320,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 }
 
 const listOpenLinkedIssues = `-- name: ListOpenLinkedIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only
 FROM zdx_issues
 WHERE project_id = $1
   AND status = 'open'
@@ -354,6 +360,7 @@ func (q *Queries) ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIs
 			&i.LinkOf,
 			&i.ReopenCount,
 			&i.ClosedAt,
+			&i.InteractiveOnly,
 		); err != nil {
 			return nil, err
 		}
@@ -476,7 +483,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -514,6 +521,7 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]Z
 			&i.LinkOf,
 			&i.ReopenCount,
 			&i.ClosedAt,
+			&i.InteractiveOnly,
 		); err != nil {
 			return nil, err
 		}
@@ -550,6 +558,21 @@ func (q *Queries) SetIssueField(ctx context.Context, arg SetIssueFieldParams) er
 		arg.ProjectID,
 		arg.ID,
 	)
+	return err
+}
+
+const setIssueInteractiveOnly = `-- name: SetIssueInteractiveOnly :exec
+UPDATE zdx_issues SET interactive_only = $1, updated_at = NOW() WHERE project_id = $2 AND id = $3
+`
+
+type SetIssueInteractiveOnlyParams struct {
+	InteractiveOnly bool   `db:"interactive_only" json:"interactive_only"`
+	ProjectID       int32  `db:"project_id" json:"project_id"`
+	ID              string `db:"id" json:"id"`
+}
+
+func (q *Queries) SetIssueInteractiveOnly(ctx context.Context, arg SetIssueInteractiveOnlyParams) error {
+	_, err := q.db.Exec(ctx, setIssueInteractiveOnly, arg.InteractiveOnly, arg.ProjectID, arg.ID)
 	return err
 }
 

@@ -968,7 +968,8 @@ CREATE TABLE public.zdx_issues (
     source_error_id bigint,
     link_of text DEFAULT ''::text NOT NULL,
     reopen_count integer DEFAULT 0 NOT NULL,
-    closed_at timestamp with time zone
+    closed_at timestamp with time zone,
+    interactive_only boolean DEFAULT false NOT NULL
 );
 
 
