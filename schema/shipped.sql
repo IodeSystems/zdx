@@ -967,7 +967,8 @@ CREATE TABLE public.zdx_issues (
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
     source_error_id bigint,
     link_of text DEFAULT ''::text NOT NULL,
-    reopen_count integer DEFAULT 0 NOT NULL
+    reopen_count integer DEFAULT 0 NOT NULL,
+    closed_at timestamp with time zone
 );
 
 
@@ -3672,6 +3673,13 @@ CREATE INDEX idx_issue_resolution_commits_sha ON public.zdx_issue_resolution_com
 --
 
 CREATE INDEX idx_issue_resolutions_issue ON public.zdx_issue_resolutions USING btree (issue_id);
+
+
+--
+-- Name: idx_issues_closed_at; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_issues_closed_at ON public.zdx_issues USING btree (project_id, closed_at) WHERE (closed_at IS NOT NULL);
 
 
 --
