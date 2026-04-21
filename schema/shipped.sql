@@ -445,6 +445,77 @@ ALTER SEQUENCE public.zdx_deploys_id_seq OWNED BY public.zdx_deploys.id;
 
 
 --
+-- Name: zdx_discussion_messages; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_discussion_messages (
+    id integer NOT NULL,
+    discussion_id integer NOT NULL,
+    role text NOT NULL,
+    content text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_discussion_messages_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_discussion_messages_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_discussion_messages_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_discussion_messages_id_seq OWNED BY public.zdx_discussion_messages.id;
+
+
+--
+-- Name: zdx_discussions; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_discussions (
+    id integer NOT NULL,
+    project_id integer NOT NULL,
+    title text DEFAULT ''::text NOT NULL,
+    provider text DEFAULT 'claude'::text NOT NULL,
+    claude_session_id text,
+    openai_thread_id text,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_by text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_discussions_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_discussions_id_seq
+    AS integer
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_discussions_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_discussions_id_seq OWNED BY public.zdx_discussions.id;
+
+
+--
 -- Name: zdx_doctor_deferrals; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2444,6 +2515,20 @@ ALTER TABLE ONLY public.zdx_deploys ALTER COLUMN id SET DEFAULT nextval('public.
 
 
 --
+-- Name: zdx_discussion_messages id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_discussion_messages ALTER COLUMN id SET DEFAULT nextval('public.zdx_discussion_messages_id_seq'::regclass);
+
+
+--
+-- Name: zdx_discussions id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_discussions ALTER COLUMN id SET DEFAULT nextval('public.zdx_discussions_id_seq'::regclass);
+
+
+--
 -- Name: zdx_doctor_deferrals id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2884,6 +2969,22 @@ ALTER TABLE ONLY public.zdx_counter_events
 
 ALTER TABLE ONLY public.zdx_deploys
     ADD CONSTRAINT zdx_deploys_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_discussion_messages zdx_discussion_messages_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_discussion_messages
+    ADD CONSTRAINT zdx_discussion_messages_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_discussions zdx_discussions_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_discussions
+    ADD CONSTRAINT zdx_discussions_pkey PRIMARY KEY (id);
 
 
 --
@@ -3626,6 +3727,27 @@ CREATE INDEX idx_comments_target ON public.zdx_comments USING btree (project_id,
 
 
 --
+-- Name: idx_discussion_messages_discussion; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_discussion_messages_discussion ON public.zdx_discussion_messages USING btree (discussion_id, created_at);
+
+
+--
+-- Name: idx_discussions_project_created; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_discussions_project_created ON public.zdx_discussions USING btree (project_id, created_at DESC);
+
+
+--
+-- Name: idx_discussions_project_status; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_discussions_project_status ON public.zdx_discussions USING btree (project_id, status);
+
+
+--
 -- Name: idx_error_reports_created_at; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4206,6 +4328,22 @@ ALTER TABLE ONLY public.zdx_deploys
 
 ALTER TABLE ONLY public.zdx_deploys
     ADD CONSTRAINT zdx_deploys_environment_id_fkey FOREIGN KEY (environment_id) REFERENCES public.zdx_environments(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_discussion_messages zdx_discussion_messages_discussion_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_discussion_messages
+    ADD CONSTRAINT zdx_discussion_messages_discussion_id_fkey FOREIGN KEY (discussion_id) REFERENCES public.zdx_discussions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_discussions zdx_discussions_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_discussions
+    ADD CONSTRAINT zdx_discussions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --
@@ -4919,64 +5057,6 @@ ALTER TABLE ONLY public.zdx_todos
 ALTER TABLE ONLY public.zdx_work_log
     ADD CONSTRAINT zdx_work_log_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
 
-
---
--- Name: zdx_discussions; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_discussions (
-    id integer NOT NULL,
-    project_id integer NOT NULL,
-    title text DEFAULT ''::text NOT NULL,
-    provider text DEFAULT 'claude'::text NOT NULL,
-    claude_session_id text,
-    openai_thread_id text,
-    status text DEFAULT 'active'::text NOT NULL,
-    created_by text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-CREATE SEQUENCE public.zdx_discussions_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.zdx_discussions_id_seq OWNED BY public.zdx_discussions.id;
-ALTER TABLE ONLY public.zdx_discussions ALTER COLUMN id SET DEFAULT nextval('public.zdx_discussions_id_seq'::regclass);
-ALTER TABLE ONLY public.zdx_discussions ADD CONSTRAINT zdx_discussions_pkey PRIMARY KEY (id);
-CREATE INDEX idx_discussions_project_status ON public.zdx_discussions USING btree (project_id, status);
-CREATE INDEX idx_discussions_project_created ON public.zdx_discussions USING btree (project_id, created_at DESC);
-ALTER TABLE ONLY public.zdx_discussions ADD CONSTRAINT zdx_discussions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
-
---
--- Name: zdx_discussion_messages; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_discussion_messages (
-    id integer NOT NULL,
-    discussion_id integer NOT NULL,
-    role text NOT NULL,
-    content text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
-);
-
-CREATE SEQUENCE public.zdx_discussion_messages_id_seq
-    AS integer
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-ALTER SEQUENCE public.zdx_discussion_messages_id_seq OWNED BY public.zdx_discussion_messages.id;
-ALTER TABLE ONLY public.zdx_discussion_messages ALTER COLUMN id SET DEFAULT nextval('public.zdx_discussion_messages_id_seq'::regclass);
-ALTER TABLE ONLY public.zdx_discussion_messages ADD CONSTRAINT zdx_discussion_messages_pkey PRIMARY KEY (id);
-CREATE INDEX idx_discussion_messages_discussion ON public.zdx_discussion_messages USING btree (discussion_id, created_at ASC);
-ALTER TABLE ONLY public.zdx_discussion_messages ADD CONSTRAINT zdx_discussion_messages_discussion_id_fkey FOREIGN KEY (discussion_id) REFERENCES public.zdx_discussions(id) ON DELETE CASCADE;
 
 --
 -- PostgreSQL database dump complete
