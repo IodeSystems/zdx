@@ -38,6 +38,7 @@ INSERT INTO zdx_counter_events (project_id, component, environment, name, value,
 VALUES (@project_id, @component, @environment, @name, @value, @source, @context_json);
 
 -- name: ListCounterEvents :many
+-- metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_value, value) sum(sum_value, value) min(first_seen, created_at) max(last_seen, created_at)
 SELECT id, project_id, component, environment, name, value, source, context_json, created_at
 FROM zdx_counter_events
 WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
@@ -45,24 +46,6 @@ WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
   AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
 ORDER BY created_at DESC;
-
--- name: ListCounterEventsGrouped :many
--- metaquery: off
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  max(value) AS max_value,
-  sum(value)::bigint AS sum_value,
-  min(created_at) AS first_seen,
-  max(created_at) AS last_seen
-FROM zdx_counter_events
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
-  AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
-  AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
-  AND context_json ? @group_key::text
-GROUP BY group_value
-ORDER BY max_value DESC;
 
 -- name: DeleteCounterEventsOlderThan :execrows
 DELETE FROM zdx_counter_events

@@ -151,26 +151,18 @@ func (h *Handler) registerErrorEventRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			rows, err := h.Q.ListErrorEventsGrouped(ctx, db.ListErrorEventsGroupedParams{
-				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, GroupKey: in.GroupBy,
-			})
+			b := db.WrapListErrorEventsGrouped(db.ListErrorEventsParams{
+				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until,
+			}, in.GroupBy)
+			res, err := mqpgx.Scan[db.ListErrorEventsGroupedRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]ErrorEventGroupedItem, len(rows))
-			for i, r := range rows {
-				gv, _ := r.GroupValue.(string)
-				firstSeen := ""
-				lastSeen := ""
-				if ts, ok := r.FirstSeen.(pgtype.Timestamptz); ok {
-					firstSeen = fmtTS(ts)
-				}
-				if ts, ok := r.LastSeen.(pgtype.Timestamptz); ok {
-					lastSeen = fmtTS(ts)
-				}
+			out := make([]ErrorEventGroupedItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = ErrorEventGroupedItem{
-					GroupValue: gv, EntryCount: r.EntryCount,
-					FirstSeen: firstSeen, LastSeen: lastSeen,
+					GroupValue: r.GroupValue, EntryCount: int32(r.EntryCount), //nolint:gosec
+					FirstSeen: fmtTS(r.FirstSeen), LastSeen: fmtTS(r.LastSeen),
 				}
 			}
 			return &struct {

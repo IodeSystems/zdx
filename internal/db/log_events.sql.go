@@ -69,6 +69,7 @@ type ListLogEventsParams struct {
 	Until     pgtype.Timestamptz `db:"until" json:"until"`
 }
 
+// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
 func (q *Queries) ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([]ZdxLogEvent, error) {
 	rows, err := q.db.Query(ctx, listLogEvents,
 		arg.ProjectID,
@@ -158,69 +159,6 @@ func (q *Queries) ListLogEventsDistinctTagValues(ctx context.Context, arg ListLo
 			return nil, err
 		}
 		items = append(items, tag_value)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listLogEventsGrouped = `-- name: ListLogEventsGrouped :many
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  min(created_at) AS first_seen,
-  max(created_at) AS last_seen
-FROM zdx_log_events
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
-  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
-  AND context_json ? $5::text
-GROUP BY group_value
-ORDER BY entry_count DESC
-`
-
-type ListLogEventsGroupedParams struct {
-	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
-	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
-	Since     pgtype.Timestamptz `db:"since" json:"since"`
-	Until     pgtype.Timestamptz `db:"until" json:"until"`
-	GroupKey  string             `db:"group_key" json:"group_key"`
-}
-
-type ListLogEventsGroupedRow struct {
-	GroupValue interface{} `db:"group_value" json:"group_value"`
-	EntryCount int32       `db:"entry_count" json:"entry_count"`
-	FirstSeen  interface{} `db:"first_seen" json:"first_seen"`
-	LastSeen   interface{} `db:"last_seen" json:"last_seen"`
-}
-
-// metaquery: off
-func (q *Queries) ListLogEventsGrouped(ctx context.Context, arg ListLogEventsGroupedParams) ([]ListLogEventsGroupedRow, error) {
-	rows, err := q.db.Query(ctx, listLogEventsGrouped,
-		arg.ProjectID,
-		arg.TagFilter,
-		arg.Since,
-		arg.Until,
-		arg.GroupKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListLogEventsGroupedRow
-	for rows.Next() {
-		var i ListLogEventsGroupedRow
-		if err := rows.Scan(
-			&i.GroupValue,
-			&i.EntryCount,
-			&i.FirstSeen,
-			&i.LastSeen,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
 	}
 	if err := rows.Err(); err != nil {
 		return nil, err

@@ -109,6 +109,24 @@ var ListLogEventsCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
+// ListLogEventsGroupedRow is the scan target for Grouped aggregation on ListLogEvents.
+type ListLogEventsGroupedRow struct {
+	GroupValue string             `db:"group_value" json:"group_value"`
+	EntryCount int64              `db:"entry_count" json:"entry_count"`
+	FirstSeen  pgtype.Timestamptz `db:"first_seen" json:"first_seen"`
+	LastSeen   pgtype.Timestamptz `db:"last_seen" json:"last_seen"`
+}
+
+// WrapListLogEventsGrouped returns a Builder pre-configured with Grouped aggregation over ListLogEvents.
+func WrapListLogEventsGrouped(arg ListLogEventsParams, groupKey string) *metaquery.Builder {
+	b := WrapListLogEvents(arg)
+	b.GroupByExpr("group_value", "context_json->>?", "string", groupKey)
+	b.Count("entry_count")
+	b.Min("first_seen", "created_at")
+	b.Max("last_seen", "created_at")
+	return b
+}
+
 var MetaListLogEventsDistinctTagKeys = metaquery.Query{
 	Name:   "ListLogEventsDistinctTagKeys",
 	Cmd:    ":many",

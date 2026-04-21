@@ -248,6 +248,28 @@ var ListCounterEventsCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
+// ListCounterEventsGroupedRow is the scan target for Grouped aggregation on ListCounterEvents.
+type ListCounterEventsGroupedRow struct {
+	GroupValue string             `db:"group_value" json:"group_value"`
+	EntryCount int64              `db:"entry_count" json:"entry_count"`
+	MaxValue   int32              `db:"max_value" json:"max_value"`
+	SumValue   int64              `db:"sum_value" json:"sum_value"`
+	FirstSeen  pgtype.Timestamptz `db:"first_seen" json:"first_seen"`
+	LastSeen   pgtype.Timestamptz `db:"last_seen" json:"last_seen"`
+}
+
+// WrapListCounterEventsGrouped returns a Builder pre-configured with Grouped aggregation over ListCounterEvents.
+func WrapListCounterEventsGrouped(arg ListCounterEventsParams, groupKey string) *metaquery.Builder {
+	b := WrapListCounterEvents(arg)
+	b.GroupByExpr("group_value", "context_json->>?", "string", groupKey)
+	b.Count("entry_count")
+	b.Max("max_value", "value")
+	b.Sum("sum_value", "value")
+	b.Min("first_seen", "created_at")
+	b.Max("last_seen", "created_at")
+	return b
+}
+
 var MetaUpsertCounted = metaquery.Query{
 	Name:   "UpsertCounted",
 	Cmd:    ":exec",

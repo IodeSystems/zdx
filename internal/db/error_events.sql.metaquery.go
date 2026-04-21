@@ -167,6 +167,24 @@ var ListErrorEventsCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
+// ListErrorEventsGroupedRow is the scan target for Grouped aggregation on ListErrorEvents.
+type ListErrorEventsGroupedRow struct {
+	GroupValue string             `db:"group_value" json:"group_value"`
+	EntryCount int64              `db:"entry_count" json:"entry_count"`
+	FirstSeen  pgtype.Timestamptz `db:"first_seen" json:"first_seen"`
+	LastSeen   pgtype.Timestamptz `db:"last_seen" json:"last_seen"`
+}
+
+// WrapListErrorEventsGrouped returns a Builder pre-configured with Grouped aggregation over ListErrorEvents.
+func WrapListErrorEventsGrouped(arg ListErrorEventsParams, groupKey string) *metaquery.Builder {
+	b := WrapListErrorEvents(arg)
+	b.GroupByExpr("group_value", "context_json->>?", "string", groupKey)
+	b.Count("entry_count")
+	b.Min("first_seen", "created_at")
+	b.Max("last_seen", "created_at")
+	return b
+}
+
 var MetaListErrorEventsDistinctTagKeys = metaquery.Query{
 	Name:   "ListErrorEventsDistinctTagKeys",
 	Cmd:    ":many",

@@ -11,27 +11,13 @@ DO UPDATE SET
   created_at   = NOW();
 
 -- name: ListTimed :many
+-- metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_ms, duration_ms) sum(sum_total_ms, total_ms) sum(sum_count, count)
 SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
 ORDER BY duration_ms DESC
 ;
-
--- name: ListTimedGrouped :many
--- metaquery: off
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  max(duration_ms) AS max_ms,
-  sum(total_ms)::bigint AS sum_total_ms,
-  sum(count)::int AS sum_count
-FROM zdx_timed
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
-  AND context_json ? @group_key::text
-GROUP BY group_value
-ORDER BY max_ms DESC;
 
 -- name: ListTimedDistinctTagKeys :many
 SELECT DISTINCT k AS tag_key
@@ -56,6 +42,7 @@ INSERT INTO zdx_timed_events (project_id, component, environment, name, duration
 VALUES (@project_id, @component, @environment, @name, @duration_ms, @source, @context_json, @created_at);
 
 -- name: ListTimedEvents :many
+-- metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_ms, duration_ms) sum(sum_ms, duration_ms) min(first_seen, created_at) max(last_seen, created_at)
 SELECT id, project_id, component, environment, name, duration_ms, source, context_json, created_at
 FROM zdx_timed_events
 WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
@@ -64,25 +51,6 @@ WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
 ORDER BY created_at DESC
 ;
-
-
--- name: ListTimedEventsGrouped :many
--- metaquery: off
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  max(duration_ms) AS max_ms,
-  sum(duration_ms)::bigint AS sum_ms,
-  min(created_at) AS first_seen,
-  max(created_at) AS last_seen
-FROM zdx_timed_events
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
-  AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
-  AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
-  AND context_json ? @group_key::text
-GROUP BY group_value
-ORDER BY max_ms DESC;
 
 -- name: DeleteTimedEventsOlderThan :execrows
 DELETE FROM zdx_timed_events

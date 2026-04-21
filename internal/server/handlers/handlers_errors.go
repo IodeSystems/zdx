@@ -317,21 +317,20 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 			if in.TagFilter != "" {
 				tagFilter = []byte(in.TagFilter)
 			}
-			rows, err := h.Q.ListTimedGrouped(ctx, db.ListTimedGroupedParams{ProjectID: pid, TagFilter: tagFilter, GroupKey: in.GroupBy})
+			b := db.WrapListTimedGrouped(db.ListTimedParams{ProjectID: pid, TagFilter: tagFilter}, in.GroupBy)
+			res, err := mqpgx.Scan[db.ListTimedGroupedRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]TimedGroupedItem, len(rows))
-			for i, r := range rows {
-				gv, _ := r.GroupValue.(string)
-				maxMs, _ := r.MaxMs.(int32)
+			out := make([]TimedGroupedItem, len(res.Data))
+			for i, r := range res.Data {
 				var avg int32
 				if r.SumCount > 0 {
-					avg = int32(r.SumTotalMs / int64(r.SumCount)) //nolint:gosec
+					avg = int32(r.SumTotalMs / r.SumCount) //nolint:gosec
 				}
 				out[i] = TimedGroupedItem{
-					GroupValue: gv, EntryCount: r.EntryCount,
-					MaxMs: maxMs, SumTotalMs: r.SumTotalMs, SumCount: r.SumCount, AvgMs: avg,
+					GroupValue: r.GroupValue, EntryCount: int32(r.EntryCount), //nolint:gosec
+					MaxMs: r.MaxMs, SumTotalMs: r.SumTotalMs, SumCount: int32(r.SumCount), AvgMs: avg, //nolint:gosec
 				}
 			}
 			return &struct {
@@ -536,28 +535,19 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			rows, err := h.Q.ListTimedEventsGrouped(ctx, db.ListTimedEventsGroupedParams{
-				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, GroupKey: in.GroupBy,
-			})
+			b := db.WrapListTimedEventsGrouped(db.ListTimedEventsParams{
+				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until,
+			}, in.GroupBy)
+			res, err := mqpgx.Scan[db.ListTimedEventsGroupedRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]TimedEventGroupedItem, len(rows))
-			for i, r := range rows {
-				gv, _ := r.GroupValue.(string)
-				maxMs, _ := r.MaxMs.(int32)
-				firstSeen := ""
-				lastSeen := ""
-				if ts, ok := r.FirstSeen.(pgtype.Timestamptz); ok {
-					firstSeen = fmtTS(ts)
-				}
-				if ts, ok := r.LastSeen.(pgtype.Timestamptz); ok {
-					lastSeen = fmtTS(ts)
-				}
+			out := make([]TimedEventGroupedItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = TimedEventGroupedItem{
-					GroupValue: gv, EntryCount: r.EntryCount,
-					MaxMs: maxMs, SumMs: r.SumMs,
-					FirstSeen: firstSeen, LastSeen: lastSeen,
+					GroupValue: r.GroupValue, EntryCount: int32(r.EntryCount), //nolint:gosec
+					MaxMs: r.MaxMs, SumMs: r.SumMs,
+					FirstSeen: fmtTS(r.FirstSeen), LastSeen: fmtTS(r.LastSeen),
 				}
 			}
 			return &struct {

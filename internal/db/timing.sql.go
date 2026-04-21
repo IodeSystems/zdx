@@ -109,6 +109,7 @@ type ListTimedRow struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_ms, duration_ms) sum(sum_total_ms, total_ms) sum(sum_count, count)
 func (q *Queries) ListTimed(ctx context.Context, arg ListTimedParams) ([]ListTimedRow, error) {
 	rows, err := q.db.Query(ctx, listTimed, arg.ProjectID, arg.TagFilter)
 	if err != nil {
@@ -219,6 +220,7 @@ type ListTimedEventsParams struct {
 	Until     pgtype.Timestamptz `db:"until" json:"until"`
 }
 
+// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_ms, duration_ms) sum(sum_ms, duration_ms) min(first_seen, created_at) max(last_seen, created_at)
 func (q *Queries) ListTimedEvents(ctx context.Context, arg ListTimedEventsParams) ([]ZdxTimedEvent, error) {
 	rows, err := q.db.Query(ctx, listTimedEvents,
 		arg.ProjectID,
@@ -243,131 +245,6 @@ func (q *Queries) ListTimedEvents(ctx context.Context, arg ListTimedEventsParams
 			&i.Source,
 			&i.ContextJson,
 			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTimedEventsGrouped = `-- name: ListTimedEventsGrouped :many
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  max(duration_ms) AS max_ms,
-  sum(duration_ms)::bigint AS sum_ms,
-  min(created_at) AS first_seen,
-  max(created_at) AS last_seen
-FROM zdx_timed_events
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
-  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
-  AND context_json ? $5::text
-GROUP BY group_value
-ORDER BY max_ms DESC
-`
-
-type ListTimedEventsGroupedParams struct {
-	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
-	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
-	Since     pgtype.Timestamptz `db:"since" json:"since"`
-	Until     pgtype.Timestamptz `db:"until" json:"until"`
-	GroupKey  string             `db:"group_key" json:"group_key"`
-}
-
-type ListTimedEventsGroupedRow struct {
-	GroupValue interface{} `db:"group_value" json:"group_value"`
-	EntryCount int32       `db:"entry_count" json:"entry_count"`
-	MaxMs      interface{} `db:"max_ms" json:"max_ms"`
-	SumMs      int64       `db:"sum_ms" json:"sum_ms"`
-	FirstSeen  interface{} `db:"first_seen" json:"first_seen"`
-	LastSeen   interface{} `db:"last_seen" json:"last_seen"`
-}
-
-// metaquery: off
-func (q *Queries) ListTimedEventsGrouped(ctx context.Context, arg ListTimedEventsGroupedParams) ([]ListTimedEventsGroupedRow, error) {
-	rows, err := q.db.Query(ctx, listTimedEventsGrouped,
-		arg.ProjectID,
-		arg.TagFilter,
-		arg.Since,
-		arg.Until,
-		arg.GroupKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTimedEventsGroupedRow
-	for rows.Next() {
-		var i ListTimedEventsGroupedRow
-		if err := rows.Scan(
-			&i.GroupValue,
-			&i.EntryCount,
-			&i.MaxMs,
-			&i.SumMs,
-			&i.FirstSeen,
-			&i.LastSeen,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTimedGrouped = `-- name: ListTimedGrouped :many
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  max(duration_ms) AS max_ms,
-  sum(total_ms)::bigint AS sum_total_ms,
-  sum(count)::int AS sum_count
-FROM zdx_timed
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-  AND context_json ? $3::text
-GROUP BY group_value
-ORDER BY max_ms DESC
-`
-
-type ListTimedGroupedParams struct {
-	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
-	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
-	GroupKey  string      `db:"group_key" json:"group_key"`
-}
-
-type ListTimedGroupedRow struct {
-	GroupValue interface{} `db:"group_value" json:"group_value"`
-	EntryCount int32       `db:"entry_count" json:"entry_count"`
-	MaxMs      interface{} `db:"max_ms" json:"max_ms"`
-	SumTotalMs int64       `db:"sum_total_ms" json:"sum_total_ms"`
-	SumCount   int32       `db:"sum_count" json:"sum_count"`
-}
-
-// metaquery: off
-func (q *Queries) ListTimedGrouped(ctx context.Context, arg ListTimedGroupedParams) ([]ListTimedGroupedRow, error) {
-	rows, err := q.db.Query(ctx, listTimedGrouped, arg.ProjectID, arg.TagFilter, arg.GroupKey)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTimedGroupedRow
-	for rows.Next() {
-		var i ListTimedGroupedRow
-		if err := rows.Scan(
-			&i.GroupValue,
-			&i.EntryCount,
-			&i.MaxMs,
-			&i.SumTotalMs,
-			&i.SumCount,
 		); err != nil {
 			return nil, err
 		}

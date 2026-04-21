@@ -190,6 +190,7 @@ type ListCounterEventsParams struct {
 	Until     pgtype.Timestamptz `db:"until" json:"until"`
 }
 
+// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_value, value) sum(sum_value, value) min(first_seen, created_at) max(last_seen, created_at)
 func (q *Queries) ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error) {
 	rows, err := q.db.Query(ctx, listCounterEvents,
 		arg.ProjectID,
@@ -214,75 +215,6 @@ func (q *Queries) ListCounterEvents(ctx context.Context, arg ListCounterEventsPa
 			&i.Source,
 			&i.ContextJson,
 			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCounterEventsGrouped = `-- name: ListCounterEventsGrouped :many
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  max(value) AS max_value,
-  sum(value)::bigint AS sum_value,
-  min(created_at) AS first_seen,
-  max(created_at) AS last_seen
-FROM zdx_counter_events
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
-  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
-  AND context_json ? $5::text
-GROUP BY group_value
-ORDER BY max_value DESC
-`
-
-type ListCounterEventsGroupedParams struct {
-	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
-	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
-	Since     pgtype.Timestamptz `db:"since" json:"since"`
-	Until     pgtype.Timestamptz `db:"until" json:"until"`
-	GroupKey  string             `db:"group_key" json:"group_key"`
-}
-
-type ListCounterEventsGroupedRow struct {
-	GroupValue interface{} `db:"group_value" json:"group_value"`
-	EntryCount int32       `db:"entry_count" json:"entry_count"`
-	MaxValue   interface{} `db:"max_value" json:"max_value"`
-	SumValue   int64       `db:"sum_value" json:"sum_value"`
-	FirstSeen  interface{} `db:"first_seen" json:"first_seen"`
-	LastSeen   interface{} `db:"last_seen" json:"last_seen"`
-}
-
-// metaquery: off
-func (q *Queries) ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error) {
-	rows, err := q.db.Query(ctx, listCounterEventsGrouped,
-		arg.ProjectID,
-		arg.TagFilter,
-		arg.Since,
-		arg.Until,
-		arg.GroupKey,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCounterEventsGroupedRow
-	for rows.Next() {
-		var i ListCounterEventsGroupedRow
-		if err := rows.Scan(
-			&i.GroupValue,
-			&i.EntryCount,
-			&i.MaxValue,
-			&i.SumValue,
-			&i.FirstSeen,
-			&i.LastSeen,
 		); err != nil {
 			return nil, err
 		}

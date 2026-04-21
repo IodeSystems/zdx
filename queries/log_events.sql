@@ -3,6 +3,7 @@ INSERT INTO zdx_log_events (project_id, component, environment, level, message, 
 VALUES (@project_id, @component, @environment, @level, @message, @source, @context_json);
 
 -- name: ListLogEvents :many
+-- metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
 SELECT id, project_id, component, environment, level, message, source, context_json, created_at
 FROM zdx_log_events
 WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
@@ -11,23 +12,6 @@ WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
 ORDER BY created_at DESC
 ;
-
-
--- name: ListLogEventsGrouped :many
--- metaquery: off
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  min(created_at) AS first_seen,
-  max(created_at) AS last_seen
-FROM zdx_log_events
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
-  AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
-  AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
-  AND context_json ? @group_key::text
-GROUP BY group_value
-ORDER BY entry_count DESC;
 
 -- name: ListLogEventsDistinctTagKeys :many
 SELECT DISTINCT k AS tag_key

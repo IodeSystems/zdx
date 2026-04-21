@@ -253,9 +253,8 @@ type Querier interface {
 	ListCounted(ctx context.Context, arg ListCountedParams) ([]ListCountedRow, error)
 	ListCountedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListCountedDistinctTagValues(ctx context.Context, arg ListCountedDistinctTagValuesParams) ([]interface{}, error)
+	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_value, value) sum(sum_value, value) min(first_seen, created_at) max(last_seen, created_at)
 	ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error)
-	// metaquery: off
-	ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error)
 	ListDeferredSpecs(ctx context.Context) ([]ListDeferredSpecsRow, error)
 	ListDeferredSpecsWithFeatureForProject(ctx context.Context, projectID int32) ([]ListDeferredSpecsWithFeatureForProjectRow, error)
 	// All demo artifacts in the project, joined to their owning test. file_id falls
@@ -269,11 +268,10 @@ type Querier interface {
 	ListDeploys(ctx context.Context, environmentID int32) ([]ZdxDeploy, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
 	ListEnvironments(ctx context.Context, projectID int32) ([]ZdxEnvironment, error)
+	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
 	ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error)
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
-	// metaquery: off
-	ListErrorEventsGrouped(ctx context.Context, arg ListErrorEventsGroupedParams) ([]ListErrorEventsGroupedRow, error)
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	ListFeatureFocuses(ctx context.Context, featureID int32) ([]ListFeatureFocusesRow, error)
 	ListFeatureMultipliers(ctx context.Context, featureID int32) ([]ListFeatureMultipliersRow, error)
@@ -297,11 +295,10 @@ type Querier interface {
 	ListIssuesWithUnreadComments(ctx context.Context, arg ListIssuesWithUnreadCommentsParams) ([]ListIssuesWithUnreadCommentsRow, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ListJournalEntriesRow, error)
 	ListLLMConfigs(ctx context.Context) ([]ListLLMConfigsRow, error)
+	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
 	ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([]ZdxLogEvent, error)
 	ListLogEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListLogEventsDistinctTagValues(ctx context.Context, arg ListLogEventsDistinctTagValuesParams) ([]interface{}, error)
-	// metaquery: off
-	ListLogEventsGrouped(ctx context.Context, arg ListLogEventsGroupedParams) ([]ListLogEventsGroupedRow, error)
 	ListMaturityAnswers(ctx context.Context, projectID int32) ([]ZdxMaturityAnswer, error)
 	ListMaturityItems(ctx context.Context, arg ListMaturityItemsParams) ([]ZdxMaturityItem, error)
 	ListMaturityQuestions(ctx context.Context) ([]ZdxMaturityQuestion, error)
@@ -375,14 +372,12 @@ type Querier interface {
 	ListTests(ctx context.Context, projectID int32) ([]ListTestsRow, error)
 	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ListTestsByLayerRow, error)
 	ListTestsForSpec(ctx context.Context, specID int32) ([]ListTestsForSpecRow, error)
+	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_ms, duration_ms) sum(sum_total_ms, total_ms) sum(sum_count, count)
 	ListTimed(ctx context.Context, arg ListTimedParams) ([]ListTimedRow, error)
 	ListTimedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListTimedDistinctTagValues(ctx context.Context, arg ListTimedDistinctTagValuesParams) ([]interface{}, error)
+	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_ms, duration_ms) sum(sum_ms, duration_ms) min(first_seen, created_at) max(last_seen, created_at)
 	ListTimedEvents(ctx context.Context, arg ListTimedEventsParams) ([]ZdxTimedEvent, error)
-	// metaquery: off
-	ListTimedEventsGrouped(ctx context.Context, arg ListTimedEventsGroupedParams) ([]ListTimedEventsGroupedRow, error)
-	// metaquery: off
-	ListTimedGrouped(ctx context.Context, arg ListTimedGroupedParams) ([]ListTimedGroupedRow, error)
 	ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error)
 	ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error)
 	ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)

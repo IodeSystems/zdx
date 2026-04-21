@@ -333,28 +333,19 @@ func (h *Handler) registerCounterRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			rows, err := h.Q.ListCounterEventsGrouped(ctx, db.ListCounterEventsGroupedParams{
-				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, GroupKey: in.GroupBy,
-			})
+			b := db.WrapListCounterEventsGrouped(db.ListCounterEventsParams{
+				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until,
+			}, in.GroupBy)
+			res, err := mqpgx.Scan[db.ListCounterEventsGroupedRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]CounterEventGroupedItem, len(rows))
-			for i, r := range rows {
-				gv, _ := r.GroupValue.(string)
-				maxVal, _ := r.MaxValue.(int32)
-				firstSeen := ""
-				lastSeen := ""
-				if ts, ok := r.FirstSeen.(pgtype.Timestamptz); ok {
-					firstSeen = fmtTS(ts)
-				}
-				if ts, ok := r.LastSeen.(pgtype.Timestamptz); ok {
-					lastSeen = fmtTS(ts)
-				}
+			out := make([]CounterEventGroupedItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = CounterEventGroupedItem{
-					GroupValue: gv, EntryCount: r.EntryCount,
-					MaxValue: maxVal, SumValue: r.SumValue,
-					FirstSeen: firstSeen, LastSeen: lastSeen,
+					GroupValue: r.GroupValue, EntryCount: int32(r.EntryCount), //nolint:gosec
+					MaxValue: r.MaxValue, SumValue: r.SumValue,
+					FirstSeen: fmtTS(r.FirstSeen), LastSeen: fmtTS(r.LastSeen),
 				}
 			}
 			return &struct {

@@ -135,6 +135,26 @@ var ListTimedCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
+// ListTimedGroupedRow is the scan target for Grouped aggregation on ListTimed.
+type ListTimedGroupedRow struct {
+	GroupValue string `db:"group_value" json:"group_value"`
+	EntryCount int64  `db:"entry_count" json:"entry_count"`
+	MaxMs      int32  `db:"max_ms" json:"max_ms"`
+	SumTotalMs int64  `db:"sum_total_ms" json:"sum_total_ms"`
+	SumCount   int64  `db:"sum_count" json:"sum_count"`
+}
+
+// WrapListTimedGrouped returns a Builder pre-configured with Grouped aggregation over ListTimed.
+func WrapListTimedGrouped(arg ListTimedParams, groupKey string) *metaquery.Builder {
+	b := WrapListTimed(arg)
+	b.GroupByExpr("group_value", "context_json->>?", "string", groupKey)
+	b.Count("entry_count")
+	b.Max("max_ms", "duration_ms")
+	b.Sum("sum_total_ms", "total_ms")
+	b.Sum("sum_count", "count")
+	return b
+}
+
 var MetaListTimedDistinctTagKeys = metaquery.Query{
 	Name:   "ListTimedDistinctTagKeys",
 	Cmd:    ":many",
@@ -250,6 +270,28 @@ var ListTimedEventsCols = struct {
 	Source:      metaquery.NewTextCol("source"),
 	ContextJson: metaquery.NewBytesCol("context_json"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
+}
+
+// ListTimedEventsGroupedRow is the scan target for Grouped aggregation on ListTimedEvents.
+type ListTimedEventsGroupedRow struct {
+	GroupValue string             `db:"group_value" json:"group_value"`
+	EntryCount int64              `db:"entry_count" json:"entry_count"`
+	MaxMs      int32              `db:"max_ms" json:"max_ms"`
+	SumMs      int64              `db:"sum_ms" json:"sum_ms"`
+	FirstSeen  pgtype.Timestamptz `db:"first_seen" json:"first_seen"`
+	LastSeen   pgtype.Timestamptz `db:"last_seen" json:"last_seen"`
+}
+
+// WrapListTimedEventsGrouped returns a Builder pre-configured with Grouped aggregation over ListTimedEvents.
+func WrapListTimedEventsGrouped(arg ListTimedEventsParams, groupKey string) *metaquery.Builder {
+	b := WrapListTimedEvents(arg)
+	b.GroupByExpr("group_value", "context_json->>?", "string", groupKey)
+	b.Count("entry_count")
+	b.Max("max_ms", "duration_ms")
+	b.Sum("sum_ms", "duration_ms")
+	b.Min("first_seen", "created_at")
+	b.Max("last_seen", "created_at")
+	return b
 }
 
 var MetaUpsertTimed = metaquery.Query{
