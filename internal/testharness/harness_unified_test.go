@@ -18,8 +18,8 @@ type stubAdapter struct {
 	results   []testharness.Result
 }
 
-func (s *stubAdapter) ID() string                { return s.id }
-func (s *stubAdapter) Component() string         { return s.component }
+func (s *stubAdapter) ID() string                  { return s.id }
+func (s *stubAdapter) Component() string           { return s.component }
 func (s *stubAdapter) Layers() []testharness.Layer { return s.layers }
 func (s *stubAdapter) Run(_ context.Context, _ testharness.Filter) ([]testharness.Result, error) {
 	return s.results, nil
