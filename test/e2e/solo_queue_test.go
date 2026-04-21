@@ -163,11 +163,9 @@ func TestQueueTrackerExcludedFromAllRegularItems(t *testing.T) {
 
 func TestQueueKindCloseTracker(t *testing.T) {
 	d := NewApiDriver(t, "q-close-tracker", "Queue Close Tracker")
-	// Child issue to act as a blocker for the tracker.
 	childID := d.AddIssue("Child work", "first milestone")
 	childRef := fmt.Sprintf("IS-%d", childID)
 
-	// Tracker blocked by the child. Without a closed blocker it should NOT surface.
 	var tracker struct {
 		ID int32 `json:"id"`
 	}
@@ -181,42 +179,11 @@ func TestQueueKindCloseTracker(t *testing.T) {
 			"blocked_by": []string{childRef},
 		}, &tracker))
 
+	// With open child, no close:tracker signal and no auto-close.
 	items := d.EvaluateQueue("")
 	requireNoKind(t, items, "close:tracker")
 
-	// Closing the blocker should make the tracker closable.
-	d.CloseIssue(childID)
-
-	items = d.EvaluateQueue("")
-	item := requireKind(t, items, "close:tracker")
-	trackerRef := fmt.Sprintf("IS-%d", tracker.ID)
-	if item.TargetType != "issue" {
-		t.Errorf("expected target_type=issue, got %q", item.TargetType)
-	}
-	if item.TargetID != trackerRef {
-		t.Errorf("expected target_id=%s, got %s", trackerRef, item.TargetID)
-	}
-}
-
-func TestTrackerAutoCascadeClose(t *testing.T) {
-	d := NewApiDriver(t, "q-tracker-cascade", "Tracker Cascade Close")
-	childID := d.AddIssue("Child work", "one unit of work")
-	childRef := fmt.Sprintf("IS-%d", childID)
-
-	var tracker struct {
-		ID int32 `json:"id"`
-	}
-	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/issue/add",
-		map[string]any{
-			"slug":       d.Slug,
-			"title":      "Tracker parent",
-			"context":    "umbrella",
-			"issue_type": "tracker",
-			"auto_ready": true,
-			"blocked_by": []string{childRef},
-		}, &tracker))
-
-	// Closing the only child should auto-close the tracker.
+	// Closing the last child auto-closes the tracker immediately.
 	d.CloseIssue(childID)
 
 	var show struct {
@@ -228,6 +195,10 @@ func TestTrackerAutoCascadeClose(t *testing.T) {
 	if show.Issue.Status != "closed" {
 		t.Errorf("expected tracker status=closed after last child closed, got %q", show.Issue.Status)
 	}
+
+	// Queue should not surface close:tracker for an already-closed tracker.
+	items = d.EvaluateQueue("")
+	requireNoKind(t, items, "close:tracker")
 }
 
 func TestQueueKindAdd(t *testing.T) {
