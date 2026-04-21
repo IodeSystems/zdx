@@ -788,7 +788,7 @@ func int4Val(v pgtype.Int4) int32 {
 	return 0
 }
 
-func toFeatureItemFromGet(f db.GetFeatureRow, specs []db.ListSpecsRow) FeatureItem {
+func toFeatureItemFromGet(f db.GetFeatureRow, specs []db.ZdxSpec) FeatureItem {
 	item := FeatureItem{
 		ID: f.ID, Name: f.Name, Description: f.Description,
 		What: f.What, Why: f.Why, DoneWhen: f.DoneWhen,

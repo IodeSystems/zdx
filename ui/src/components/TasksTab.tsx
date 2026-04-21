@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from 'react'
+import { useRef, useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import { Box, Chip, IconButton, InputAdornment, Stack, TextField, Typography } from '@mui/material'
 import { Search as SearchIcon, NavigateBefore, NavigateNext } from '@mui/icons-material'
@@ -39,9 +39,13 @@ export function TasksTab({
   onSearch: (search: string) => void
 }) {
   const [localSearch, setLocalSearch] = useState(search)
+  const [prevSearch, setPrevSearch] = useState(search)
   const debounceRef = useRef<ReturnType<typeof setTimeout>>(undefined)
 
-  useEffect(() => { setLocalSearch(search) }, [search])
+  if (search !== prevSearch) {
+    setPrevSearch(search)
+    setLocalSearch(search)
+  }
 
   function handleSearchChange(value: string) {
     setLocalSearch(value)
