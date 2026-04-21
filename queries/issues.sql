@@ -41,7 +41,7 @@ FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
 LIMIT 1;
 
 -- name: ReadyIssue :exec
-UPDATE zdx_issues SET status = 'open', updated_at = NOW() WHERE project_id = $1 AND id = $2 AND status = 'wip';
+UPDATE zdx_issues SET status = 'open', closed_at = NULL, updated_at = NOW() WHERE project_id = $1 AND id = $2 AND status = 'wip';
 
 -- name: UpdateIssue :exec
 UPDATE zdx_issues
@@ -53,12 +53,13 @@ SET title      = COALESCE(NULLIF(@title, ''),      title),
 WHERE project_id = @project_id AND id = @id;
 
 -- name: CloseIssue :exec
-UPDATE zdx_issues SET status = 'closed', duplicate_of = @duplicate_of, link_of = @link_of, updated_at = NOW() WHERE project_id = @project_id AND id = @id;
+UPDATE zdx_issues SET status = 'closed', duplicate_of = @duplicate_of, link_of = @link_of, closed_at = NOW(), updated_at = NOW() WHERE project_id = @project_id AND id = @id;
 
 -- name: ReopenIssue :exec
 UPDATE zdx_issues
 SET status = 'open',
     reopen_count = reopen_count + CASE WHEN status = 'closed' THEN 1 ELSE 0 END,
+    closed_at = NULL,
     updated_at = NOW()
 WHERE project_id = $1 AND id = $2;
 

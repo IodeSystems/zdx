@@ -27,7 +27,7 @@ func (q *Queries) AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams
 }
 
 const closeIssue = `-- name: CloseIssue :exec
-UPDATE zdx_issues SET status = 'closed', duplicate_of = $1, link_of = $2, updated_at = NOW() WHERE project_id = $3 AND id = $4
+UPDATE zdx_issues SET status = 'closed', duplicate_of = $1, link_of = $2, closed_at = NOW(), updated_at = NOW() WHERE project_id = $3 AND id = $4
 `
 
 type CloseIssueParams struct {
@@ -558,7 +558,7 @@ func (q *Queries) ProjectStateSummary(ctx context.Context, projectID int32) (Pro
 }
 
 const readyIssue = `-- name: ReadyIssue :exec
-UPDATE zdx_issues SET status = 'open', updated_at = NOW() WHERE project_id = $1 AND id = $2 AND status = 'wip'
+UPDATE zdx_issues SET status = 'open', closed_at = NULL, updated_at = NOW() WHERE project_id = $1 AND id = $2 AND status = 'wip'
 `
 
 type ReadyIssueParams struct {
@@ -575,6 +575,7 @@ const reopenIssue = `-- name: ReopenIssue :exec
 UPDATE zdx_issues
 SET status = 'open',
     reopen_count = reopen_count + CASE WHEN status = 'closed' THEN 1 ELSE 0 END,
+    closed_at = NULL,
     updated_at = NOW()
 WHERE project_id = $1 AND id = $2
 `
