@@ -385,6 +385,8 @@ func TestQueueEmpty(t *testing.T) {
 		"owner:attribute-feature": true,
 		"tech:instrument-feature": true,
 		"owner:decompose-feature": true,
+		"owner:standup":           true,
+		"tech:standup":            true,
 	}
 	var actionableItems []SoloQueueItem
 	for _, it := range items {
