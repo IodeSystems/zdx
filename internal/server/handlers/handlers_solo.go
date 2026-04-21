@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"sort"
 	"strings"
 	"time"
 
@@ -586,6 +587,12 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			})
 		}
 	}
+
+	// Stable sort by priority ascending (lower = wins). Generation order is
+	// preserved on ties so the diff in the evaluate endpoint stays readable.
+	sort.SliceStable(candidates, func(i, j int) bool {
+		return candidates[i].Priority < candidates[j].Priority
+	})
 
 	return candidates, nil
 }
