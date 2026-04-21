@@ -2344,6 +2344,21 @@ export const useProposals = (slug: string, status?: string) =>
     enabled: !!slug,
   })
 
+export const useCreateProposal = () => {
+  const qc = useQueryClient()
+  return useMutation<ProposalItem, Error, { slug: string; title: string; body: string; source_type?: string; source_ref?: string }>({
+    mutationFn: async ({ slug, title, body, source_type, source_ref }) => {
+      const reqBody = { slug, title, body, source_type: source_type ?? 'discussion', source_ref } as never
+      const { data, error } = await client.POST('/api/dx/proposals', { body: reqBody })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['proposals', v.slug] })
+    },
+  })
+}
+
 export const useProposal = (slug: string, id: number) =>
   useQuery<ShowProposalResponse>({
     queryKey: ['proposal', slug, id],
@@ -2431,6 +2446,118 @@ export const useSnoozeProposal = () => {
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['proposal', v.slug, v.id] })
       qc.invalidateQueries({ queryKey: ['proposals', v.slug] })
+    },
+  })
+}
+
+// ── discussions ───────────────────────────────────────────────────────────────
+
+export interface DiscussionItem {
+  id: number
+  project_id: number
+  title: string
+  provider: string
+  status: string
+  created_by: string
+  created_at: string
+  updated_at: string
+  message_count: number
+}
+
+export interface DiscussionMessageItem {
+  id: number
+  discussion_id: number
+  role: string
+  content: string
+  created_at: string
+}
+
+export const useDiscussions = (slug: string, status?: string) =>
+  useQuery<DiscussionItem[]>({
+    queryKey: ['discussions', slug, status ?? ''],
+    queryFn: async () => {
+      const query: { slug: string; status?: string } = { slug }
+      if (status) query.status = status
+      const { data, error } = await client.GET('/api/dx/discussions' as never, { params: { query } } as never)
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as { discussions: DiscussionItem[] }) ?? {}).discussions ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useDiscussion = (slug: string, id: number) =>
+  useQuery<DiscussionItem>({
+    queryKey: ['discussion', slug, id],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/discussions/{id}' as never, {
+        params: { path: { id }, query: { slug } },
+      } as never)
+      if (error) throw new Error(JSON.stringify(error))
+      return data as DiscussionItem
+    },
+    enabled: !!slug && id > 0,
+  })
+
+export const useDiscussionMessages = (slug: string, id: number) =>
+  useQuery<DiscussionMessageItem[]>({
+    queryKey: ['discussion-messages', slug, id],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/discussions/{id}/messages' as never, {
+        params: { path: { id }, query: { slug } },
+      } as never)
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as { messages: DiscussionMessageItem[] }) ?? {}).messages ?? []
+    },
+    enabled: !!slug && id > 0,
+  })
+
+export const useCreateDiscussion = () => {
+  const qc = useQueryClient()
+  return useMutation<DiscussionItem, Error, { slug: string; title: string; provider?: string; created_by?: string }>({
+    mutationFn: async ({ slug, title, provider, created_by }) => {
+      const body: Record<string, string> = { slug, title }
+      if (provider) body.provider = provider
+      if (created_by) body.created_by = created_by
+      const { data, error } = await client.POST('/api/dx/discussions' as never, { body } as never)
+      if (error) throw new Error(JSON.stringify(error))
+      return data as DiscussionItem
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['discussions', v.slug] })
+    },
+  })
+}
+
+export const useUpdateDiscussionStatus = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; id: number; status: string }>({
+    mutationFn: async ({ slug, id, status }) => {
+      const { error } = await client.PATCH('/api/dx/discussions/{id}/status' as never, {
+        params: { path: { id } },
+        body: { slug, status },
+      } as never)
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['discussion', v.slug, v.id] })
+      qc.invalidateQueries({ queryKey: ['discussions', v.slug] })
+    },
+  })
+}
+
+export const useAddDiscussionMessage = () => {
+  const qc = useQueryClient()
+  return useMutation<DiscussionMessageItem, Error, { slug: string; id: number; role: string; content: string }>({
+    mutationFn: async ({ slug, id, role, content }) => {
+      const { data, error } = await client.POST('/api/dx/discussions/{id}/messages' as never, {
+        params: { path: { id } },
+        body: { slug, role, content },
+      } as never)
+      if (error) throw new Error(JSON.stringify(error))
+      return data as DiscussionMessageItem
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['discussion-messages', v.slug, v.id] })
     },
   })
 }

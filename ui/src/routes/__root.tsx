@@ -47,6 +47,7 @@ import {
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
   AccountTree as AccountTreeIcon,
+  ChatBubbleOutlined as ChatBubbleOutlineIcon,
   Lightbulb as LightbulbIcon,
 } from '@mui/icons-material'
 import { theme } from '../theme'
@@ -71,6 +72,7 @@ const NAV_GROUPS: NavGroup[] = [
     items: [
       { label: 'Blockers', icon: <HelpOutlineIcon fontSize="small" />, path: 'blocker-questions' },
       { label: 'Proposals', icon: <LightbulbIcon fontSize="small" />, path: 'proposals' },
+      { label: 'Discussions', icon: <ChatBubbleOutlineIcon fontSize="small" />, path: 'discussions' },
       { label: 'Tasks', icon: <TaskAltIcon fontSize="small" />, path: 'tasks' },
       { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
       { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
