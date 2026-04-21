@@ -41,17 +41,6 @@ func (q *Queries) AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) 
 	return i, err
 }
 
-const countQuestions = `-- name: CountQuestions :one
-SELECT count(*) FROM zdx_questions WHERE project_id = $1
-`
-
-func (q *Queries) CountQuestions(ctx context.Context, projectID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countQuestions, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const getQuestion = `-- name: GetQuestion :one
 SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
 FROM zdx_questions
@@ -163,49 +152,6 @@ ORDER BY created_at
 
 func (q *Queries) ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error) {
 	rows, err := q.db.Query(ctx, listQuestions, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ZdxQuestion
-	for rows.Next() {
-		var i ZdxQuestion
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Category,
-			&i.Question,
-			&i.Answer,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ParentQuestionID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listQuestionsPaginated = `-- name: ListQuestionsPaginated :many
-SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
-FROM zdx_questions
-WHERE project_id = $1
-ORDER BY created_at
-LIMIT $2 OFFSET $3
-`
-
-type ListQuestionsPaginatedParams struct {
-	ProjectID int32 `db:"project_id" json:"project_id"`
-	Limit     int32 `db:"limit" json:"limit"`
-	Offset    int32 `db:"offset" json:"offset"`
-}
-
-func (q *Queries) ListQuestionsPaginated(ctx context.Context, arg ListQuestionsPaginatedParams) ([]ZdxQuestion, error) {
-	rows, err := q.db.Query(ctx, listQuestionsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

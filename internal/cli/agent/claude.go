@@ -722,6 +722,7 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 	}
 
 	a.proc = exec.Command(claudePath, cmdArgs...)
+	a.proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	a.proc.Stdin = os.Stdin
 	a.proc.Stdout = os.Stdout
 	a.proc.Stderr = os.Stderr
@@ -745,12 +746,14 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 		if p == nil {
 			return
 		}
-		_ = p.Signal(syscall.SIGTERM)
+		// Signal the process group (negative PID) so claude and any
+		// children it spawned all receive SIGTERM.
+		_ = syscall.Kill(-p.Pid, syscall.SIGTERM)
 		select {
 		case <-a.exited:
 			return
 		case <-time.After(10 * time.Second):
-			_ = p.Kill()
+			_ = syscall.Kill(-p.Pid, syscall.SIGKILL)
 		}
 	}()
 

@@ -27,17 +27,9 @@ FROM zdx_patterns
 WHERE project_id = $1
 ORDER BY name;
 
--- name: ListPatternsPaginated :many
-SELECT id, project_id, name, description, code_refs, created_at, updated_at
-FROM zdx_patterns
-WHERE project_id = $1
-ORDER BY name
-LIMIT $2 OFFSET $3;
-
--- name: CountPatterns :one
-SELECT count(*) FROM zdx_patterns WHERE project_id = $1;
 
 -- name: SearchPatterns :many
+-- metaquery: off
 SELECT id, project_id, name, description, code_refs, created_at, updated_at
 FROM zdx_patterns
 WHERE project_id = $1

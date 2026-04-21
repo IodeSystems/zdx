@@ -8,6 +8,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -37,20 +40,21 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountTasks(ctx, db.CountTasksParams{ProjectID: p.ID, StatusFilter: in.Status, Search: in.Search})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListTasksPaginated(ctx, db.ListTasksPaginatedParams{ProjectID: p.ID, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
+			b := db.WrapListTasks(db.ListTasksParams{ProjectID: p.ID, StatusFilter: in.Status, Search: in.Search}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListTasksRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]TaskItem, len(rows))
-			for i, r := range rows {
+			out := make([]TaskItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Title: r.Title, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
 				Total int64      `json:"total"`
-			}{Tasks: out, Total: total}}, nil
+			}{Tasks: out, Total: res.Meta.Pagination.Total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "get-task", Method: http.MethodGet, Path: "/api/task"},
@@ -91,20 +95,21 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountTasksByFeature(ctx, db.CountTasksByFeatureParams{ProjectID: p.ID, Feature: in.Feature, StatusFilter: in.Status, Search: in.Search})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListTasksByFeaturePaginated(ctx, db.ListTasksByFeaturePaginatedParams{ProjectID: p.ID, Feature: in.Feature, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
+			b := db.WrapListTasksByFeature(db.ListTasksByFeatureParams{ProjectID: p.ID, Feature: in.Feature, StatusFilter: in.Status, Search: in.Search}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListTasksByFeatureRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]TaskItem, len(rows))
-			for i, r := range rows {
+			out := make([]TaskItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Title: r.Title, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
 				Total int64      `json:"total"`
-			}{Tasks: out, Total: total}}, nil
+			}{Tasks: out, Total: res.Meta.Pagination.Total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-tasks-for-issue", Method: http.MethodGet, Path: "/api/dx/todo/issue/tasks"},
@@ -120,20 +125,21 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountTasksByIssue(ctx, db.CountTasksByIssueParams{ProjectID: p.ID, Issue: in.IssueID, StatusFilter: in.Status, Search: in.Search})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListTasksByIssuePaginated(ctx, db.ListTasksByIssuePaginatedParams{ProjectID: p.ID, Issue: in.IssueID, StatusFilter: in.Status, Search: in.Search, PageLimit: limit, PageOffset: offset})
+			b := db.WrapListTasksByIssue(db.ListTasksByIssueParams{ProjectID: p.ID, Issue: in.IssueID, StatusFilter: in.Status, Search: in.Search}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListTasksByIssueRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]TaskItem, len(rows))
-			for i, r := range rows {
+			out := make([]TaskItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = toTaskItem(db.ZdxTask{ID: r.ID, ProjectID: r.ProjectID, Title: r.Title, Text: r.Text, Feature: r.Feature, Status: r.Status, Reason: r.Reason, Issue: r.Issue, Depends: r.Depends, TestPlan: r.TestPlan, TestRefs: r.TestRefs, CreatedAt: r.CreatedAt, CompletedAt: r.CompletedAt, UpdatedAt: r.UpdatedAt, TaskGroup: r.TaskGroup})
 			}
 			return &TasksSlugOutput{Body: struct {
 				Tasks []TaskItem `json:"tasks"`
 				Total int64      `json:"total"`
-			}{Tasks: out, Total: total}}, nil
+			}{Tasks: out, Total: res.Meta.Pagination.Total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "add-task", Method: http.MethodPost, Path: "/api/dx/todo/tech/add"},

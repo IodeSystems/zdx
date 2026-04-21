@@ -1,62 +1,29 @@
 -- name: ListTasks :many
 SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
-FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC;
-
--- name: CountTasks :one
-SELECT count(*) FROM zdx_tasks
+FROM zdx_tasks
 WHERE project_id = @project_id
   AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%');
+  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%')
+ORDER BY updated_at DESC;
 
 -- name: CountClosedTasks :one
 SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND status = 'done';
 
--- name: ListTasksPaginated :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
-FROM zdx_tasks
-WHERE project_id = @project_id
-  AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%')
-ORDER BY updated_at DESC
-LIMIT @page_limit OFFSET @page_offset;
-
 -- name: ListTasksByFeature :many
 SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
-FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC;
-
--- name: CountTasksByFeature :one
-SELECT count(*) FROM zdx_tasks
-WHERE project_id = @project_id AND feature = @feature
-  AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%');
-
--- name: ListTasksByFeaturePaginated :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id AND feature = @feature
   AND (@status_filter::text = '' OR status = @status_filter)
   AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%')
-ORDER BY updated_at DESC
-LIMIT @page_limit OFFSET @page_offset;
+ORDER BY updated_at DESC;
 
 -- name: ListTasksByIssue :many
 SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
-FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC;
-
--- name: CountTasksByIssue :one
-SELECT count(*) FROM zdx_tasks
-WHERE project_id = @project_id AND issue = @issue
-  AND (@status_filter::text = '' OR status = @status_filter)
-  AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%');
-
--- name: ListTasksByIssuePaginated :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id AND issue = @issue
   AND (@status_filter::text = '' OR status = @status_filter)
   AND (@search::text = '' OR text ILIKE '%' || @search || '%' OR title ILIKE '%' || @search || '%')
-ORDER BY updated_at DESC
-LIMIT @page_limit OFFSET @page_offset;
+ORDER BY updated_at DESC;
 
 -- name: GetTask :one
 SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at

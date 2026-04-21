@@ -14,22 +14,12 @@ DO UPDATE SET
 SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-ORDER BY duration_ms DESC;
-
--- name: CountTimed :one
-SELECT count(*) FROM zdx_timed
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb);
-
--- name: ListTimedPaginated :many
-SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
-FROM zdx_timed
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
 ORDER BY duration_ms DESC
-LIMIT @lim OFFSET @off;
+;
 
 -- name: ListTimedGrouped :many
+-- metaquery: off
 SELECT
   context_json->>@group_key::text AS group_value,
   count(*)::int AS entry_count,
@@ -73,16 +63,11 @@ WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
   AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
 ORDER BY created_at DESC
-LIMIT @lim OFFSET @off;
+;
 
--- name: CountTimedEvents :one
-SELECT count(*) FROM zdx_timed_events
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
-  AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
-  AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz);
 
 -- name: ListTimedEventsGrouped :many
+-- metaquery: off
 SELECT
   context_json->>@group_key::text AS group_value,
   count(*)::int AS entry_count,

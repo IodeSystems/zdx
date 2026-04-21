@@ -10,32 +10,14 @@ DO UPDATE SET
   total_value  = zdx_counted.total_value + EXCLUDED.value,
   created_at   = NOW();
 
--- name: CountCounted :one
-SELECT count(*) FROM zdx_counted
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb);
-
--- name: ListCountedPaginated :many
+-- name: ListCounted :many
+-- metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_value, value) sum(sum_total_value, total_value) sum(sum_count, count)
 SELECT id, project_id, component, environment, name, value, count, total_value, source, context_json, created_at
 FROM zdx_counted
 WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
-ORDER BY total_value DESC
-LIMIT @lim OFFSET @off;
+ORDER BY total_value DESC;
 
--- name: ListCountedGrouped :many
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  max(value) AS max_value,
-  sum(total_value)::bigint AS sum_total_value,
-  sum(count)::int AS sum_count
-FROM zdx_counted
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
-  AND context_json ? @group_key::text
-GROUP BY group_value
-ORDER BY max_value DESC;
 
 -- name: ListCountedDistinctTagKeys :many
 SELECT DISTINCT k AS tag_key
@@ -62,17 +44,10 @@ WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
   AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
   AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
   AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz)
-ORDER BY created_at DESC
-LIMIT @lim OFFSET @off;
-
--- name: CountCounterEvents :one
-SELECT count(*) FROM zdx_counter_events
-WHERE (sqlc.narg(project_id)::int IS NULL OR project_id = sqlc.narg(project_id))
-  AND (sqlc.narg(tag_filter)::jsonb IS NULL OR context_json @> sqlc.narg(tag_filter)::jsonb)
-  AND (sqlc.narg(since)::timestamptz IS NULL OR created_at >= sqlc.narg(since)::timestamptz)
-  AND (sqlc.narg(until)::timestamptz IS NULL OR created_at < sqlc.narg(until)::timestamptz);
+ORDER BY created_at DESC;
 
 -- name: ListCounterEventsGrouped :many
+-- metaquery: off
 SELECT
   context_json->>@group_key::text AS group_value,
   count(*)::int AS entry_count,

@@ -25,17 +25,7 @@ LEFT JOIN zdx_todos t ON t.id = s.todo_id
 WHERE s.project_id = $1
 ORDER BY s.updated_at DESC;
 
--- name: CountClaudeSessions :one
-SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1;
 
--- name: ListClaudeSessionsPaginated :many
-SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
-FROM zdx_claude_sessions s
-LEFT JOIN zdx_todos t ON t.id = s.todo_id
-WHERE s.project_id = $1
-ORDER BY s.updated_at DESC
-LIMIT $2 OFFSET $3;
 
 -- name: ListClaudeSessionsByIssue :many
 SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
@@ -108,12 +98,6 @@ SELECT count(*) FROM zdx_claude_events WHERE session_pk = $1;
 -- name: GetMaxClaudeEventSeq :one
 SELECT coalesce(max(seq), -1)::int AS max_seq FROM zdx_claude_events WHERE session_pk = $1;
 
--- name: ListClaudeEventsPaginated :many
-SELECT id, session_pk, seq, event_type, event_json, created_at, agent_id, is_sidechain, agent_type, agent_description
-FROM zdx_claude_events
-WHERE session_pk = $1
-ORDER BY seq DESC
-LIMIT $2 OFFSET $3;
 
 -- name: ListChurnSessions :many
 SELECT id, project_id, issue_id, session_id, title, alias, header, summary, status, created_at, updated_at, closed_at
@@ -139,6 +123,7 @@ WHERE session_pk = $1
   AND event_json->'message'->'usage' IS NOT NULL;
 
 -- name: GetClaudeSessionTokenUsageByAgent :many
+-- metaquery: off
 SELECT
   agent_id,
   agent_type,

@@ -12,6 +12,7 @@ WHERE project_id = @project_id
   AND released_at IS NULL;
 
 -- name: ListReservations :many
+-- metaquery: off
 -- Return all reservations for a project, most recent first.
 SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
 FROM zdx_reservations

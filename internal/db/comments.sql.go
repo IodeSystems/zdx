@@ -129,56 +129,6 @@ func (q *Queries) AddRevision(ctx context.Context, arg AddRevisionParams) error 
 	return err
 }
 
-const countComments = `-- name: CountComments :one
-SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
-`
-
-type CountCommentsParams struct {
-	ProjectID  int32  `db:"project_id" json:"project_id"`
-	TargetType string `db:"target_type" json:"target_type"`
-	TargetID   string `db:"target_id" json:"target_id"`
-}
-
-func (q *Queries) CountComments(ctx context.Context, arg CountCommentsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countComments, arg.ProjectID, arg.TargetType, arg.TargetID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countCommentsByAuthor = `-- name: CountCommentsByAuthor :one
-SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND author = $2
-`
-
-type CountCommentsByAuthorParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Author    string `db:"author" json:"author"`
-}
-
-func (q *Queries) CountCommentsByAuthor(ctx context.Context, arg CountCommentsByAuthorParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCommentsByAuthor, arg.ProjectID, arg.Author)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countRevisions = `-- name: CountRevisions :one
-SELECT count(*) FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
-`
-
-type CountRevisionsParams struct {
-	ProjectID  int32  `db:"project_id" json:"project_id"`
-	TargetType string `db:"target_type" json:"target_type"`
-	TargetID   string `db:"target_id" json:"target_id"`
-}
-
-func (q *Queries) CountRevisions(ctx context.Context, arg CountRevisionsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countRevisions, arg.ProjectID, arg.TargetType, arg.TargetID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countRevisionsBySession = `-- name: CountRevisionsBySession :one
 SELECT count(*) FROM zdx_revisions WHERE project_id = $1 AND session_id = $2
 `
@@ -595,130 +545,6 @@ func (q *Queries) ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAu
 	return items, nil
 }
 
-const listCommentsByAuthorPaginated = `-- name: ListCommentsByAuthorPaginated :many
-SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
-FROM zdx_comments WHERE project_id = $1 AND author = $2
-ORDER BY created_at DESC
-LIMIT $3 OFFSET $4
-`
-
-type ListCommentsByAuthorPaginatedParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Author    string `db:"author" json:"author"`
-	Limit     int32  `db:"limit" json:"limit"`
-	Offset    int32  `db:"offset" json:"offset"`
-}
-
-type ListCommentsByAuthorPaginatedRow struct {
-	ID          int32              `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	TargetType  string             `db:"target_type" json:"target_type"`
-	TargetID    string             `db:"target_id" json:"target_id"`
-	Author      string             `db:"author" json:"author"`
-	Body        string             `db:"body" json:"body"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
-	AuthorAlias string             `db:"author_alias" json:"author_alias"`
-}
-
-func (q *Queries) ListCommentsByAuthorPaginated(ctx context.Context, arg ListCommentsByAuthorPaginatedParams) ([]ListCommentsByAuthorPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listCommentsByAuthorPaginated,
-		arg.ProjectID,
-		arg.Author,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCommentsByAuthorPaginatedRow
-	for rows.Next() {
-		var i ListCommentsByAuthorPaginatedRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.TargetType,
-			&i.TargetID,
-			&i.Author,
-			&i.Body,
-			&i.CreatedAt,
-			&i.ParentID,
-			&i.AuthorAlias,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCommentsPaginated = `-- name: ListCommentsPaginated :many
-SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
-FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
-ORDER BY created_at
-LIMIT $4 OFFSET $5
-`
-
-type ListCommentsPaginatedParams struct {
-	ProjectID  int32  `db:"project_id" json:"project_id"`
-	TargetType string `db:"target_type" json:"target_type"`
-	TargetID   string `db:"target_id" json:"target_id"`
-	Limit      int32  `db:"limit" json:"limit"`
-	Offset     int32  `db:"offset" json:"offset"`
-}
-
-type ListCommentsPaginatedRow struct {
-	ID          int32              `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	TargetType  string             `db:"target_type" json:"target_type"`
-	TargetID    string             `db:"target_id" json:"target_id"`
-	Author      string             `db:"author" json:"author"`
-	Body        string             `db:"body" json:"body"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ParentID    pgtype.Int4        `db:"parent_id" json:"parent_id"`
-	AuthorAlias string             `db:"author_alias" json:"author_alias"`
-}
-
-func (q *Queries) ListCommentsPaginated(ctx context.Context, arg ListCommentsPaginatedParams) ([]ListCommentsPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listCommentsPaginated,
-		arg.ProjectID,
-		arg.TargetType,
-		arg.TargetID,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCommentsPaginatedRow
-	for rows.Next() {
-		var i ListCommentsPaginatedRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.TargetType,
-			&i.TargetID,
-			&i.Author,
-			&i.Body,
-			&i.CreatedAt,
-			&i.ParentID,
-			&i.AuthorAlias,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listIssuesWithUnreadComments = `-- name: ListIssuesWithUnreadComments :many
 SELECT DISTINCT i.id, i.title, i.status
 FROM zdx_issues i
@@ -884,73 +710,6 @@ func (q *Queries) ListRevisionsByTarget(ctx context.Context, arg ListRevisionsBy
 	return items, nil
 }
 
-const listRevisionsPaginated = `-- name: ListRevisionsPaginated :many
-SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
-FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
-ORDER BY created_at
-LIMIT $4 OFFSET $5
-`
-
-type ListRevisionsPaginatedParams struct {
-	ProjectID  int32  `db:"project_id" json:"project_id"`
-	TargetType string `db:"target_type" json:"target_type"`
-	TargetID   string `db:"target_id" json:"target_id"`
-	Limit      int32  `db:"limit" json:"limit"`
-	Offset     int32  `db:"offset" json:"offset"`
-}
-
-type ListRevisionsPaginatedRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Field      string             `db:"field" json:"field"`
-	OldVal     string             `db:"old_val" json:"old_val"`
-	NewVal     string             `db:"new_val" json:"new_val"`
-	Agent      string             `db:"agent" json:"agent"`
-	SessionID  string             `db:"session_id" json:"session_id"`
-	UserID     string             `db:"user_id" json:"user_id"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ListRevisionsPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listRevisionsPaginated,
-		arg.ProjectID,
-		arg.TargetType,
-		arg.TargetID,
-		arg.Limit,
-		arg.Offset,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListRevisionsPaginatedRow
-	for rows.Next() {
-		var i ListRevisionsPaginatedRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.TargetType,
-			&i.TargetID,
-			&i.Field,
-			&i.OldVal,
-			&i.NewVal,
-			&i.Agent,
-			&i.SessionID,
-			&i.UserID,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listStaleUnreadComments = `-- name: ListStaleUnreadComments :many
 SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at, c.parent_id, c.author_alias
 FROM zdx_comments c
@@ -987,6 +746,7 @@ type ListStaleUnreadCommentsRow struct {
 	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
+// metaquery: off
 // Returns comments that are unread for the given role and older than the given age threshold.
 // Excludes comments authored by agents (author_alias != ”) so agents don't review their own replies.
 func (q *Queries) ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error) {
@@ -1061,6 +821,7 @@ type ListUnreadResponseThreadsForUserRow struct {
 	LastUnreadAt interface{} `db:"last_unread_at" json:"last_unread_at"`
 }
 
+// metaquery: off
 // Returns distinct threads where the user has commented and others have replied unread.
 func (q *Queries) ListUnreadResponseThreadsForUser(ctx context.Context, arg ListUnreadResponseThreadsForUserParams) ([]ListUnreadResponseThreadsForUserRow, error) {
 	rows, err := q.db.Query(ctx, listUnreadResponseThreadsForUser, arg.ProjectID, arg.Author, arg.Role)

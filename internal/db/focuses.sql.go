@@ -236,6 +236,7 @@ type ListFocusesRow struct {
 	Blockers    interface{}        `db:"blockers" json:"blockers"`
 }
 
+// metaquery: off
 func (q *Queries) ListFocuses(ctx context.Context, projectID int32) ([]ListFocusesRow, error) {
 	rows, err := q.db.Query(ctx, listFocuses, projectID)
 	if err != nil {

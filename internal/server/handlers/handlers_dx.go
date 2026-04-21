@@ -10,6 +10,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/techmetrics"
 )
@@ -214,14 +217,15 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountTests(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListTestsPaginated(ctx, db.ListTestsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			b := db.WrapListTests(p.ID).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListTestsRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]TestItem, len(rows))
-			for i, r := range rows {
+			out := make([]TestItem, len(res.Data))
+			for i, r := range res.Data {
 				var lastRunAt *string
 				if r.LastRunAt.Valid {
 					s := r.LastRunAt.Time.Format("2006-01-02T15:04:05Z07:00")
@@ -237,7 +241,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			}{Body: struct {
 				Tests []TestItem `json:"tests"`
 				Total int64      `json:"total"`
-			}{Tests: out, Total: total}}, nil
+			}{Tests: out, Total: res.Meta.Pagination.Total}}, nil
 		})
 
 	type TestHistoryItem struct {

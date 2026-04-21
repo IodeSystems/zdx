@@ -87,17 +87,6 @@ func (q *Queries) CountClaudeEvents(ctx context.Context, sessionPk int64) (int64
 	return count, err
 }
 
-const countClaudeSessions = `-- name: CountClaudeSessions :one
-SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1
-`
-
-func (q *Queries) CountClaudeSessions(ctx context.Context, projectID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countClaudeSessions, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const countClaudeSessionsByIssue = `-- name: CountClaudeSessionsByIssue :one
 SELECT count(*) FROM zdx_claude_sessions WHERE project_id = $1 AND issue_id = $2
 `
@@ -394,6 +383,7 @@ type GetClaudeSessionTokenUsageByAgentRow struct {
 	EventCount               int64  `db:"event_count" json:"event_count"`
 }
 
+// metaquery: off
 func (q *Queries) GetClaudeSessionTokenUsageByAgent(ctx context.Context, sessionPk int64) ([]GetClaudeSessionTokenUsageByAgentRow, error) {
 	rows, err := q.db.Query(ctx, getClaudeSessionTokenUsageByAgent, sessionPk)
 	if err != nil {
@@ -504,51 +494,6 @@ ORDER BY seq
 
 func (q *Queries) ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxClaudeEvent, error) {
 	rows, err := q.db.Query(ctx, listClaudeEvents, sessionPk)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ZdxClaudeEvent
-	for rows.Next() {
-		var i ZdxClaudeEvent
-		if err := rows.Scan(
-			&i.ID,
-			&i.SessionPk,
-			&i.Seq,
-			&i.EventType,
-			&i.EventJson,
-			&i.CreatedAt,
-			&i.AgentID,
-			&i.IsSidechain,
-			&i.AgentType,
-			&i.AgentDescription,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listClaudeEventsPaginated = `-- name: ListClaudeEventsPaginated :many
-SELECT id, session_pk, seq, event_type, event_json, created_at, agent_id, is_sidechain, agent_type, agent_description
-FROM zdx_claude_events
-WHERE session_pk = $1
-ORDER BY seq DESC
-LIMIT $2 OFFSET $3
-`
-
-type ListClaudeEventsPaginatedParams struct {
-	SessionPk int64 `db:"session_pk" json:"session_pk"`
-	Limit     int32 `db:"limit" json:"limit"`
-	Offset    int32 `db:"offset" json:"offset"`
-}
-
-func (q *Queries) ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeEventsPaginatedParams) ([]ZdxClaudeEvent, error) {
-	rows, err := q.db.Query(ctx, listClaudeEventsPaginated, arg.SessionPk, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -764,78 +709,6 @@ func (q *Queries) ListClaudeSessionsByTodoID(ctx context.Context, arg ListClaude
 			&i.UpdatedAt,
 			&i.ClosedAt,
 			&i.TodoID,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listClaudeSessionsPaginated = `-- name: ListClaudeSessionsPaginated :many
-SELECT s.id, s.project_id, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
-       t.text AS todo_text, t.target_type AS todo_target_type, t.target_id AS todo_target_id
-FROM zdx_claude_sessions s
-LEFT JOIN zdx_todos t ON t.id = s.todo_id
-WHERE s.project_id = $1
-ORDER BY s.updated_at DESC
-LIMIT $2 OFFSET $3
-`
-
-type ListClaudeSessionsPaginatedParams struct {
-	ProjectID int32 `db:"project_id" json:"project_id"`
-	Limit     int32 `db:"limit" json:"limit"`
-	Offset    int32 `db:"offset" json:"offset"`
-}
-
-type ListClaudeSessionsPaginatedRow struct {
-	ID             int64              `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
-	IssueID        string             `db:"issue_id" json:"issue_id"`
-	SessionID      string             `db:"session_id" json:"session_id"`
-	Title          string             `db:"title" json:"title"`
-	Alias          string             `db:"alias" json:"alias"`
-	Header         string             `db:"header" json:"header"`
-	Summary        string             `db:"summary" json:"summary"`
-	Status         string             `db:"status" json:"status"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ClosedAt       pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
-	TodoID         pgtype.Int4        `db:"todo_id" json:"todo_id"`
-	TodoText       pgtype.Text        `db:"todo_text" json:"todo_text"`
-	TodoTargetType pgtype.Text        `db:"todo_target_type" json:"todo_target_type"`
-	TodoTargetID   pgtype.Text        `db:"todo_target_id" json:"todo_target_id"`
-}
-
-func (q *Queries) ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listClaudeSessionsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListClaudeSessionsPaginatedRow
-	for rows.Next() {
-		var i ListClaudeSessionsPaginatedRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.IssueID,
-			&i.SessionID,
-			&i.Title,
-			&i.Alias,
-			&i.Header,
-			&i.Summary,
-			&i.Status,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-			&i.ClosedAt,
-			&i.TodoID,
-			&i.TodoText,
-			&i.TodoTargetType,
-			&i.TodoTargetID,
 		); err != nil {
 			return nil, err
 		}

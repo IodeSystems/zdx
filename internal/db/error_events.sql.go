@@ -11,33 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countErrorEvents = `-- name: CountErrorEvents :one
-SELECT count(*) FROM zdx_error_events
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
-  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
-`
-
-type CountErrorEventsParams struct {
-	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
-	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
-	Since     pgtype.Timestamptz `db:"since" json:"since"`
-	Until     pgtype.Timestamptz `db:"until" json:"until"`
-}
-
-func (q *Queries) CountErrorEvents(ctx context.Context, arg CountErrorEventsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countErrorEvents,
-		arg.ProjectID,
-		arg.TagFilter,
-		arg.Since,
-		arg.Until,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const deleteErrorEventsOlderThan = `-- name: DeleteErrorEventsOlderThan :execrows
 DELETE FROM zdx_error_events
 WHERE created_at < $1::timestamptz
@@ -113,7 +86,6 @@ WHERE ($1::int IS NULL OR project_id = $1)
   AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
   AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
 ORDER BY created_at DESC
-LIMIT $6 OFFSET $5
 `
 
 type ListErrorEventsParams struct {
@@ -121,8 +93,6 @@ type ListErrorEventsParams struct {
 	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
 	Since     pgtype.Timestamptz `db:"since" json:"since"`
 	Until     pgtype.Timestamptz `db:"until" json:"until"`
-	Off       int32              `db:"off" json:"off"`
-	Lim       int32              `db:"lim" json:"lim"`
 }
 
 func (q *Queries) ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error) {
@@ -131,8 +101,6 @@ func (q *Queries) ListErrorEvents(ctx context.Context, arg ListErrorEventsParams
 		arg.TagFilter,
 		arg.Since,
 		arg.Until,
-		arg.Off,
-		arg.Lim,
 	)
 	if err != nil {
 		return nil, err
@@ -255,6 +223,7 @@ type ListErrorEventsGroupedRow struct {
 	LastSeen   interface{} `db:"last_seen" json:"last_seen"`
 }
 
+// metaquery: off
 func (q *Queries) ListErrorEventsGrouped(ctx context.Context, arg ListErrorEventsGroupedParams) ([]ListErrorEventsGroupedRow, error) {
 	rows, err := q.db.Query(ctx, listErrorEventsGrouped,
 		arg.ProjectID,

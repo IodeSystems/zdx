@@ -254,7 +254,7 @@ func (q *Queries) JournalVelocity(ctx context.Context, projectID int32) (Journal
 
 const listJournalEntries = `-- name: ListJournalEntries :many
 SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
-FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 20
+FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC
 `
 
 type ListJournalEntriesParams struct {

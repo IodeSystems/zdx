@@ -9,6 +9,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -76,16 +79,15 @@ func (h *Handler) registerErrorEventRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			total, _ := h.Q.CountErrorEvents(ctx, db.CountErrorEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListErrorEvents(ctx, db.ListErrorEventsParams{
-				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, Lim: limit, Off: offset,
-			})
+			b := db.WrapListErrorEvents(db.ListErrorEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxErrorEvent](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]ErrorEventItem, len(rows))
-			for i, r := range rows {
+			out := make([]ErrorEventItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = ErrorEventItem{
 					ID: r.ID, Name: r.Name, Message: r.Message, StackTrace: r.StackTrace,
 					Source: r.Source, Component: r.Component, Environment: r.Environment,
@@ -101,7 +103,7 @@ func (h *Handler) registerErrorEventRoutes(api huma.API) {
 				Body: struct {
 					Items []ErrorEventItem `json:"items"`
 					Total int64            `json:"total"`
-				}{Items: out, Total: total},
+				}{Items: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 

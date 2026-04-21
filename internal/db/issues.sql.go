@@ -47,28 +47,6 @@ func (q *Queries) CloseIssue(ctx context.Context, arg CloseIssueParams) error {
 	return err
 }
 
-const countIssues = `-- name: CountIssues :one
-SELECT count(*) FROM zdx_issues WHERE project_id = $1
-`
-
-func (q *Queries) CountIssues(ctx context.Context, projectID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countIssues, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countWorklogForProject = `-- name: CountWorklogForProject :one
-SELECT count(*) FROM zdx_issue_work w JOIN zdx_issues i ON i.id = w.issue_id WHERE i.project_id = $1
-`
-
-func (q *Queries) CountWorklogForProject(ctx context.Context, projectID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countWorklogForProject, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -293,55 +271,6 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 	return items, nil
 }
 
-const listIssuesPaginated = `-- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
-FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
-LIMIT $2 OFFSET $3
-`
-
-type ListIssuesPaginatedParams struct {
-	ProjectID int32 `db:"project_id" json:"project_id"`
-	Limit     int32 `db:"limit" json:"limit"`
-	Offset    int32 `db:"offset" json:"offset"`
-}
-
-func (q *Queries) ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error) {
-	rows, err := q.db.Query(ctx, listIssuesPaginated, arg.ProjectID, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ZdxIssue
-	for rows.Next() {
-		var i ZdxIssue
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Title,
-			&i.Status,
-			&i.Priority,
-			&i.Component,
-			&i.Context,
-			&i.CreatedAt,
-			&i.IssueType,
-			&i.DuplicateOf,
-			&i.Url,
-			&i.UpdatedAt,
-			&i.SourceErrorID,
-			&i.LinkOf,
-			&i.ReopenCount,
-			&i.ClosedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listOpenIssues = `-- name: ListOpenIssues :many
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC
@@ -442,7 +371,6 @@ FROM zdx_issue_work w
 JOIN zdx_issues i ON i.id = w.issue_id
 WHERE i.project_id = $1
 ORDER BY w.created_at DESC
-LIMIT 200
 `
 
 type ListWorklogForProjectRow struct {
@@ -463,57 +391,6 @@ func (q *Queries) ListWorklogForProject(ctx context.Context, projectID int32) ([
 	var items []ListWorklogForProjectRow
 	for rows.Next() {
 		var i ListWorklogForProjectRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.IssueID,
-			&i.IssueTitle,
-			&i.Agent,
-			&i.Note,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listWorklogForProjectPaginated = `-- name: ListWorklogForProjectPaginated :many
-SELECT w.id, w.issue_id, i.title AS issue_title, w.agent, w.note, w.created_at
-FROM zdx_issue_work w
-JOIN zdx_issues i ON i.id = w.issue_id
-WHERE i.project_id = $1
-ORDER BY w.created_at DESC
-LIMIT $2 OFFSET $3
-`
-
-type ListWorklogForProjectPaginatedParams struct {
-	ProjectID int32 `db:"project_id" json:"project_id"`
-	Limit     int32 `db:"limit" json:"limit"`
-	Offset    int32 `db:"offset" json:"offset"`
-}
-
-type ListWorklogForProjectPaginatedRow struct {
-	ID         int32              `db:"id" json:"id"`
-	IssueID    string             `db:"issue_id" json:"issue_id"`
-	IssueTitle string             `db:"issue_title" json:"issue_title"`
-	Agent      string             `db:"agent" json:"agent"`
-	Note       string             `db:"note" json:"note"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) ListWorklogForProjectPaginated(ctx context.Context, arg ListWorklogForProjectPaginatedParams) ([]ListWorklogForProjectPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listWorklogForProjectPaginated, arg.ProjectID, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListWorklogForProjectPaginatedRow
-	for rows.Next() {
-		var i ListWorklogForProjectPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.IssueID,
@@ -604,7 +481,6 @@ FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
 ORDER BY updated_at DESC
-LIMIT 20
 `
 
 type SearchIssuesParams struct {
@@ -706,6 +582,7 @@ type TopPriorityOpenIssuesRow struct {
 	Priority string `db:"priority" json:"priority"`
 }
 
+// metaquery: off
 func (q *Queries) TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error) {
 	rows, err := q.db.Query(ctx, topPriorityOpenIssues, projectID)
 	if err != nil {

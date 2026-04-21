@@ -9,6 +9,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -60,16 +63,15 @@ func (h *Handler) registerLogEventRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			total, _ := h.Q.CountLogEvents(ctx, db.CountLogEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListLogEvents(ctx, db.ListLogEventsParams{
-				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, Lim: limit, Off: offset,
-			})
+			b := db.WrapListLogEvents(db.ListLogEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxLogEvent](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]LogEventItem, len(rows))
-			for i, r := range rows {
+			out := make([]LogEventItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = LogEventItem{
 					ID: r.ID, Level: r.Level, Message: r.Message,
 					Source: r.Source, Component: r.Component, Environment: r.Environment,
@@ -85,7 +87,7 @@ func (h *Handler) registerLogEventRoutes(api huma.API) {
 				Body: struct {
 					Items []LogEventItem `json:"items"`
 					Total int64          `json:"total"`
-				}{Items: out, Total: total},
+				}{Items: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 

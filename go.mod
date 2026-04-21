@@ -8,8 +8,11 @@ require (
 	github.com/golang-migrate/migrate/v4 v4.19.1
 	github.com/golang/snappy v1.0.0
 	github.com/google/uuid v1.6.0
-	github.com/jackc/pgx/v5 v5.6.0
+	github.com/iodesystems/sqlc-go-codegen-metaquery v0.1.0
+	github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx v0.0.0-20260421032010-9c3033998584
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/modelcontextprotocol/go-sdk v1.5.0
+	github.com/oapi-codegen/runtime v1.4.0
 	github.com/playwright-community/playwright-go v0.5700.1
 	github.com/prometheus/prometheus v0.311.2
 	github.com/redis/go-redis/v9 v9.18.0
@@ -32,11 +35,8 @@ require (
 	github.com/inconshreveable/mousetrap v1.1.0 // indirect
 	github.com/jackc/pgerrcode v0.0.0-20220416144525-469b46aa5efa // indirect
 	github.com/jackc/pgpassfile v1.0.0 // indirect
-	github.com/jackc/pgservicefile v0.0.0-20221227161230-091c0ba34f0a // indirect
-	github.com/jackc/puddle/v2 v2.2.1 // indirect
-	github.com/josharian/intern v1.0.0 // indirect
-	github.com/mailru/easyjson v0.9.2 // indirect
-	github.com/oapi-codegen/runtime v1.4.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/prometheus/client_model v0.6.2 // indirect
 	github.com/prometheus/common v0.67.5 // indirect
 	github.com/segmentio/asm v1.1.3 // indirect
@@ -51,3 +51,7 @@ require (
 	golang.org/x/text v0.35.0 // indirect
 	google.golang.org/protobuf v1.36.11 // indirect
 )
+
+replace github.com/iodesystems/sqlc-go-codegen-metaquery => /home/nthalk/local/src/iodesystems/sqlc-go-codegen-metaquery
+
+replace github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx => /home/nthalk/local/src/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx

@@ -7,6 +7,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -181,17 +184,14 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				return nil, apiErr(http.StatusNotFound, "environment not found: "+in.Name)
 			}
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListDeploys(ctx, db.ListDeploysParams{
-				EnvironmentID: env.ID,
-				Limit:         limit,
-				Offset:        offset,
-			})
+			b := db.WrapListDeploys(env.ID).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxDeploy](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			total, _ := h.Q.CountDeploys(ctx, env.ID)
-			items := make([]DeployItem, len(rows))
-			for i, r := range rows {
+			items := make([]DeployItem, len(res.Data))
+			for i, r := range res.Data {
 				items[i] = toDeployItem(r)
 			}
 			out := &struct {
@@ -201,7 +201,7 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				}
 			}{}
 			out.Body.Items = items
-			out.Body.Total = total
+			out.Body.Total = res.Meta.Pagination.Total
 			return out, nil
 		})
 

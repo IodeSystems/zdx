@@ -11,51 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countTimed = `-- name: CountTimed :one
-SELECT count(*) FROM zdx_timed
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-`
-
-type CountTimedParams struct {
-	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
-	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
-}
-
-func (q *Queries) CountTimed(ctx context.Context, arg CountTimedParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countTimed, arg.ProjectID, arg.TagFilter)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countTimedEvents = `-- name: CountTimedEvents :one
-SELECT count(*) FROM zdx_timed_events
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
-  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
-`
-
-type CountTimedEventsParams struct {
-	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
-	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
-	Since     pgtype.Timestamptz `db:"since" json:"since"`
-	Until     pgtype.Timestamptz `db:"until" json:"until"`
-}
-
-func (q *Queries) CountTimedEvents(ctx context.Context, arg CountTimedEventsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countTimedEvents,
-		arg.ProjectID,
-		arg.TagFilter,
-		arg.Since,
-		arg.Until,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const deleteTimedEventsOlderThan = `-- name: DeleteTimedEventsOlderThan :execrows
 DELETE FROM zdx_timed_events
 WHERE created_at < $1::timestamptz
@@ -131,8 +86,14 @@ const listTimed = `-- name: ListTimed :many
 SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
 FROM zdx_timed
 WHERE ($1::int IS NULL OR project_id = $1)
+  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
 ORDER BY duration_ms DESC
 `
+
+type ListTimedParams struct {
+	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
+	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
+}
 
 type ListTimedRow struct {
 	ID          int64              `db:"id" json:"id"`
@@ -148,8 +109,8 @@ type ListTimedRow struct {
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-func (q *Queries) ListTimed(ctx context.Context, projectID pgtype.Int4) ([]ListTimedRow, error) {
-	rows, err := q.db.Query(ctx, listTimed, projectID)
+func (q *Queries) ListTimed(ctx context.Context, arg ListTimedParams) ([]ListTimedRow, error) {
+	rows, err := q.db.Query(ctx, listTimed, arg.ProjectID, arg.TagFilter)
 	if err != nil {
 		return nil, err
 	}
@@ -249,7 +210,6 @@ WHERE ($1::int IS NULL OR project_id = $1)
   AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
   AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
 ORDER BY created_at DESC
-LIMIT $6 OFFSET $5
 `
 
 type ListTimedEventsParams struct {
@@ -257,8 +217,6 @@ type ListTimedEventsParams struct {
 	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
 	Since     pgtype.Timestamptz `db:"since" json:"since"`
 	Until     pgtype.Timestamptz `db:"until" json:"until"`
-	Off       int32              `db:"off" json:"off"`
-	Lim       int32              `db:"lim" json:"lim"`
 }
 
 func (q *Queries) ListTimedEvents(ctx context.Context, arg ListTimedEventsParams) ([]ZdxTimedEvent, error) {
@@ -267,8 +225,6 @@ func (q *Queries) ListTimedEvents(ctx context.Context, arg ListTimedEventsParams
 		arg.TagFilter,
 		arg.Since,
 		arg.Until,
-		arg.Off,
-		arg.Lim,
 	)
 	if err != nil {
 		return nil, err
@@ -333,6 +289,7 @@ type ListTimedEventsGroupedRow struct {
 	LastSeen   interface{} `db:"last_seen" json:"last_seen"`
 }
 
+// metaquery: off
 func (q *Queries) ListTimedEventsGrouped(ctx context.Context, arg ListTimedEventsGroupedParams) ([]ListTimedEventsGroupedRow, error) {
 	rows, err := q.db.Query(ctx, listTimedEventsGrouped,
 		arg.ProjectID,
@@ -395,6 +352,7 @@ type ListTimedGroupedRow struct {
 	SumCount   int32       `db:"sum_count" json:"sum_count"`
 }
 
+// metaquery: off
 func (q *Queries) ListTimedGrouped(ctx context.Context, arg ListTimedGroupedParams) ([]ListTimedGroupedRow, error) {
 	rows, err := q.db.Query(ctx, listTimedGrouped, arg.ProjectID, arg.TagFilter, arg.GroupKey)
 	if err != nil {
@@ -410,73 +368,6 @@ func (q *Queries) ListTimedGrouped(ctx context.Context, arg ListTimedGroupedPara
 			&i.MaxMs,
 			&i.SumTotalMs,
 			&i.SumCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTimedPaginated = `-- name: ListTimedPaginated :many
-SELECT id, project_id, component, environment, name, duration_ms, count, total_ms, source, context_json, created_at
-FROM zdx_timed
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-ORDER BY duration_ms DESC
-LIMIT $4 OFFSET $3
-`
-
-type ListTimedPaginatedParams struct {
-	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
-	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
-	Off       int32       `db:"off" json:"off"`
-	Lim       int32       `db:"lim" json:"lim"`
-}
-
-type ListTimedPaginatedRow struct {
-	ID          int64              `db:"id" json:"id"`
-	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
-	Component   string             `db:"component" json:"component"`
-	Environment string             `db:"environment" json:"environment"`
-	Name        string             `db:"name" json:"name"`
-	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
-	Count       int32              `db:"count" json:"count"`
-	TotalMs     int64              `db:"total_ms" json:"total_ms"`
-	Source      string             `db:"source" json:"source"`
-	ContextJson []byte             `db:"context_json" json:"context_json"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ListTimedPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listTimedPaginated,
-		arg.ProjectID,
-		arg.TagFilter,
-		arg.Off,
-		arg.Lim,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTimedPaginatedRow
-	for rows.Next() {
-		var i ListTimedPaginatedRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Component,
-			&i.Environment,
-			&i.Name,
-			&i.DurationMs,
-			&i.Count,
-			&i.TotalMs,
-			&i.Source,
-			&i.ContextJson,
-			&i.CreatedAt,
 		); err != nil {
 			return nil, err
 		}

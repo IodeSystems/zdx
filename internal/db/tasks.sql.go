@@ -171,78 +171,6 @@ func (q *Queries) CountClosedTasks(ctx context.Context, projectID int32) (int64,
 	return count, err
 }
 
-const countTasks = `-- name: CountTasks :one
-SELECT count(*) FROM zdx_tasks
-WHERE project_id = $1
-  AND ($2::text = '' OR status = $2)
-  AND ($3::text = '' OR text ILIKE '%' || $3 || '%' OR title ILIKE '%' || $3 || '%')
-`
-
-type CountTasksParams struct {
-	ProjectID    int32  `db:"project_id" json:"project_id"`
-	StatusFilter string `db:"status_filter" json:"status_filter"`
-	Search       string `db:"search" json:"search"`
-}
-
-func (q *Queries) CountTasks(ctx context.Context, arg CountTasksParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countTasks, arg.ProjectID, arg.StatusFilter, arg.Search)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countTasksByFeature = `-- name: CountTasksByFeature :one
-SELECT count(*) FROM zdx_tasks
-WHERE project_id = $1 AND feature = $2
-  AND ($3::text = '' OR status = $3)
-  AND ($4::text = '' OR text ILIKE '%' || $4 || '%' OR title ILIKE '%' || $4 || '%')
-`
-
-type CountTasksByFeatureParams struct {
-	ProjectID    int32  `db:"project_id" json:"project_id"`
-	Feature      string `db:"feature" json:"feature"`
-	StatusFilter string `db:"status_filter" json:"status_filter"`
-	Search       string `db:"search" json:"search"`
-}
-
-func (q *Queries) CountTasksByFeature(ctx context.Context, arg CountTasksByFeatureParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countTasksByFeature,
-		arg.ProjectID,
-		arg.Feature,
-		arg.StatusFilter,
-		arg.Search,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countTasksByIssue = `-- name: CountTasksByIssue :one
-SELECT count(*) FROM zdx_tasks
-WHERE project_id = $1 AND issue = $2
-  AND ($3::text = '' OR status = $3)
-  AND ($4::text = '' OR text ILIKE '%' || $4 || '%' OR title ILIKE '%' || $4 || '%')
-`
-
-type CountTasksByIssueParams struct {
-	ProjectID    int32  `db:"project_id" json:"project_id"`
-	Issue        string `db:"issue" json:"issue"`
-	StatusFilter string `db:"status_filter" json:"status_filter"`
-	Search       string `db:"search" json:"search"`
-}
-
-func (q *Queries) CountTasksByIssue(ctx context.Context, arg CountTasksByIssueParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countTasksByIssue,
-		arg.ProjectID,
-		arg.Issue,
-		arg.StatusFilter,
-		arg.Search,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createTask = `-- name: CreateTask :one
 INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
@@ -822,8 +750,18 @@ func (q *Queries) ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksB
 
 const listTasks = `-- name: ListTasks :many
 SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
-FROM zdx_tasks WHERE project_id = $1 ORDER BY updated_at DESC
+FROM zdx_tasks
+WHERE project_id = $1
+  AND ($2::text = '' OR status = $2)
+  AND ($3::text = '' OR text ILIKE '%' || $3 || '%' OR title ILIKE '%' || $3 || '%')
+ORDER BY updated_at DESC
 `
+
+type ListTasksParams struct {
+	ProjectID    int32  `db:"project_id" json:"project_id"`
+	StatusFilter string `db:"status_filter" json:"status_filter"`
+	Search       string `db:"search" json:"search"`
+}
 
 type ListTasksRow struct {
 	ID          string             `db:"id" json:"id"`
@@ -843,8 +781,8 @@ type ListTasksRow struct {
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
-func (q *Queries) ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error) {
-	rows, err := q.db.Query(ctx, listTasks, projectID)
+func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTasksRow, error) {
+	rows, err := q.db.Query(ctx, listTasks, arg.ProjectID, arg.StatusFilter, arg.Search)
 	if err != nil {
 		return nil, err
 	}
@@ -951,12 +889,18 @@ func (q *Queries) ListTasksByAgent(ctx context.Context, claimedBy string) ([]Lis
 
 const listTasksByFeature = `-- name: ListTasksByFeature :many
 SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
-FROM zdx_tasks WHERE project_id = $1 AND feature = $2 ORDER BY updated_at DESC
+FROM zdx_tasks
+WHERE project_id = $1 AND feature = $2
+  AND ($3::text = '' OR status = $3)
+  AND ($4::text = '' OR text ILIKE '%' || $4 || '%' OR title ILIKE '%' || $4 || '%')
+ORDER BY updated_at DESC
 `
 
 type ListTasksByFeatureParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Feature   string `db:"feature" json:"feature"`
+	ProjectID    int32  `db:"project_id" json:"project_id"`
+	Feature      string `db:"feature" json:"feature"`
+	StatusFilter string `db:"status_filter" json:"status_filter"`
+	Search       string `db:"search" json:"search"`
 }
 
 type ListTasksByFeatureRow struct {
@@ -978,7 +922,12 @@ type ListTasksByFeatureRow struct {
 }
 
 func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error) {
-	rows, err := q.db.Query(ctx, listTasksByFeature, arg.ProjectID, arg.Feature)
+	rows, err := q.db.Query(ctx, listTasksByFeature,
+		arg.ProjectID,
+		arg.Feature,
+		arg.StatusFilter,
+		arg.Search,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1013,94 +962,20 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 	return items, nil
 }
 
-const listTasksByFeaturePaginated = `-- name: ListTasksByFeaturePaginated :many
+const listTasksByIssue = `-- name: ListTasksByIssue :many
 SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks
-WHERE project_id = $1 AND feature = $2
+WHERE project_id = $1 AND issue = $2
   AND ($3::text = '' OR status = $3)
   AND ($4::text = '' OR text ILIKE '%' || $4 || '%' OR title ILIKE '%' || $4 || '%')
 ORDER BY updated_at DESC
-LIMIT $6 OFFSET $5
-`
-
-type ListTasksByFeaturePaginatedParams struct {
-	ProjectID    int32  `db:"project_id" json:"project_id"`
-	Feature      string `db:"feature" json:"feature"`
-	StatusFilter string `db:"status_filter" json:"status_filter"`
-	Search       string `db:"search" json:"search"`
-	PageOffset   int32  `db:"page_offset" json:"page_offset"`
-	PageLimit    int32  `db:"page_limit" json:"page_limit"`
-}
-
-type ListTasksByFeaturePaginatedRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-}
-
-func (q *Queries) ListTasksByFeaturePaginated(ctx context.Context, arg ListTasksByFeaturePaginatedParams) ([]ListTasksByFeaturePaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listTasksByFeaturePaginated,
-		arg.ProjectID,
-		arg.Feature,
-		arg.StatusFilter,
-		arg.Search,
-		arg.PageOffset,
-		arg.PageLimit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTasksByFeaturePaginatedRow
-	for rows.Next() {
-		var i ListTasksByFeaturePaginatedRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Title,
-			&i.Text,
-			&i.Feature,
-			&i.Status,
-			&i.Reason,
-			&i.Issue,
-			&i.Depends,
-			&i.TestPlan,
-			&i.TestRefs,
-			&i.TaskGroup,
-			&i.CreatedAt,
-			&i.CompletedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTasksByIssue = `-- name: ListTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
-FROM zdx_tasks WHERE project_id = $1 AND issue = $2 ORDER BY updated_at DESC
 `
 
 type ListTasksByIssueParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Issue     string `db:"issue" json:"issue"`
+	ProjectID    int32  `db:"project_id" json:"project_id"`
+	Issue        string `db:"issue" json:"issue"`
+	StatusFilter string `db:"status_filter" json:"status_filter"`
+	Search       string `db:"search" json:"search"`
 }
 
 type ListTasksByIssueRow struct {
@@ -1122,7 +997,12 @@ type ListTasksByIssueRow struct {
 }
 
 func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error) {
-	rows, err := q.db.Query(ctx, listTasksByIssue, arg.ProjectID, arg.Issue)
+	rows, err := q.db.Query(ctx, listTasksByIssue,
+		arg.ProjectID,
+		arg.Issue,
+		arg.StatusFilter,
+		arg.Search,
+	)
 	if err != nil {
 		return nil, err
 	}
@@ -1130,164 +1010,6 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 	var items []ListTasksByIssueRow
 	for rows.Next() {
 		var i ListTasksByIssueRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Title,
-			&i.Text,
-			&i.Feature,
-			&i.Status,
-			&i.Reason,
-			&i.Issue,
-			&i.Depends,
-			&i.TestPlan,
-			&i.TestRefs,
-			&i.TaskGroup,
-			&i.CreatedAt,
-			&i.CompletedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTasksByIssuePaginated = `-- name: ListTasksByIssuePaginated :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
-FROM zdx_tasks
-WHERE project_id = $1 AND issue = $2
-  AND ($3::text = '' OR status = $3)
-  AND ($4::text = '' OR text ILIKE '%' || $4 || '%' OR title ILIKE '%' || $4 || '%')
-ORDER BY updated_at DESC
-LIMIT $6 OFFSET $5
-`
-
-type ListTasksByIssuePaginatedParams struct {
-	ProjectID    int32  `db:"project_id" json:"project_id"`
-	Issue        string `db:"issue" json:"issue"`
-	StatusFilter string `db:"status_filter" json:"status_filter"`
-	Search       string `db:"search" json:"search"`
-	PageOffset   int32  `db:"page_offset" json:"page_offset"`
-	PageLimit    int32  `db:"page_limit" json:"page_limit"`
-}
-
-type ListTasksByIssuePaginatedRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-}
-
-func (q *Queries) ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ListTasksByIssuePaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listTasksByIssuePaginated,
-		arg.ProjectID,
-		arg.Issue,
-		arg.StatusFilter,
-		arg.Search,
-		arg.PageOffset,
-		arg.PageLimit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTasksByIssuePaginatedRow
-	for rows.Next() {
-		var i ListTasksByIssuePaginatedRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Title,
-			&i.Text,
-			&i.Feature,
-			&i.Status,
-			&i.Reason,
-			&i.Issue,
-			&i.Depends,
-			&i.TestPlan,
-			&i.TestRefs,
-			&i.TaskGroup,
-			&i.CreatedAt,
-			&i.CompletedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTasksPaginated = `-- name: ListTasksPaginated :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
-FROM zdx_tasks
-WHERE project_id = $1
-  AND ($2::text = '' OR status = $2)
-  AND ($3::text = '' OR text ILIKE '%' || $3 || '%' OR title ILIKE '%' || $3 || '%')
-ORDER BY updated_at DESC
-LIMIT $5 OFFSET $4
-`
-
-type ListTasksPaginatedParams struct {
-	ProjectID    int32  `db:"project_id" json:"project_id"`
-	StatusFilter string `db:"status_filter" json:"status_filter"`
-	Search       string `db:"search" json:"search"`
-	PageOffset   int32  `db:"page_offset" json:"page_offset"`
-	PageLimit    int32  `db:"page_limit" json:"page_limit"`
-}
-
-type ListTasksPaginatedRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-}
-
-func (q *Queries) ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ListTasksPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listTasksPaginated,
-		arg.ProjectID,
-		arg.StatusFilter,
-		arg.Search,
-		arg.PageOffset,
-		arg.PageLimit,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTasksPaginatedRow
-	for rows.Next() {
-		var i ListTasksPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,

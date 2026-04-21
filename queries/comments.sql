@@ -8,28 +8,12 @@ SELECT id, project_id, target_type, target_id, author, body, created_at, parent_
 FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at;
 
--- name: CountComments :one
-SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3;
-
--- name: ListCommentsPaginated :many
-SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
-FROM zdx_comments WHERE project_id = $1 AND target_type = $2 AND target_id = $3
-ORDER BY created_at
-LIMIT $4 OFFSET $5;
 
 -- name: ListCommentsByAuthor :many
 SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE project_id = $1 AND author = $2
 ORDER BY created_at DESC;
 
--- name: CountCommentsByAuthor :one
-SELECT count(*) FROM zdx_comments WHERE project_id = $1 AND author = $2;
-
--- name: ListCommentsByAuthorPaginated :many
-SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
-FROM zdx_comments WHERE project_id = $1 AND author = $2
-ORDER BY created_at DESC
-LIMIT $3 OFFSET $4;
 
 -- name: UpsertCommentRead :exec
 INSERT INTO zdx_comment_reads (project_id, target_type, target_id, role)
@@ -94,6 +78,7 @@ WHERE c.project_id = @project_id
   );
 
 -- name: ListUnreadResponseThreadsForUser :many
+-- metaquery: off
 -- Returns distinct threads where the user has commented and others have replied unread.
 SELECT
   c.target_type,
@@ -148,6 +133,7 @@ ON CONFLICT (project_id, target_type, target_id, role)
 DO UPDATE SET last_read_at = NOW();
 
 -- name: ListStaleUnreadComments :many
+-- metaquery: off
 -- Returns comments that are unread for the given role and older than the given age threshold.
 -- Excludes comments authored by agents (author_alias != '') so agents don't review their own replies.
 SELECT c.id, c.project_id, c.target_type, c.target_id, c.author, c.body, c.created_at, c.parent_id, c.author_alias
@@ -216,14 +202,6 @@ SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, s
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
 ORDER BY created_at;
 
--- name: CountRevisions :one
-SELECT count(*) FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3;
-
--- name: ListRevisionsPaginated :many
-SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
-FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3
-ORDER BY created_at
-LIMIT $4 OFFSET $5;
 
 -- name: ListRevisionsByTarget :many
 SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at

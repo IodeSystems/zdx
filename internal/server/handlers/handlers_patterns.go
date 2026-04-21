@@ -8,6 +8,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -157,29 +160,36 @@ func (h *Handler) registerPatternRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountPatterns(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
 
-			var rows []db.ZdxPattern
+			var out []PatternItem
+			var total int64
 			if in.Search != "" {
-				rows, err = h.Q.SearchPatterns(ctx, db.SearchPatternsParams{
+				rows, err := h.Q.SearchPatterns(ctx, db.SearchPatternsParams{
 					ProjectID: p.ID,
 					Column2:   pgtype.Text{String: in.Search, Valid: true},
 					Limit:     limit,
 				})
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				total = int64(len(rows))
+				out = make([]PatternItem, len(rows))
+				for i, r := range rows {
+					out[i] = toPatternItem(r)
+				}
 			} else {
-				rows, err = h.Q.ListPatternsPaginated(ctx, db.ListPatternsPaginatedParams{
-					ProjectID: p.ID,
-					Limit:     limit,
-					Offset:    offset,
-				})
-			}
-			if err != nil {
-				return nil, apiErr(500, err.Error())
-			}
-			out := make([]PatternItem, len(rows))
-			for i, r := range rows {
-				out[i] = toPatternItem(r)
+				b := db.WrapListPatterns(p.ID).
+					ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+				res, err := mqpgx.Scan[db.ZdxPattern](ctx, h.Pool, b)
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				total = res.Meta.Pagination.Total
+				out = make([]PatternItem, len(res.Data))
+				for i, r := range res.Data {
+					out[i] = toPatternItem(r)
+				}
 			}
 			return &struct {
 				Body struct {

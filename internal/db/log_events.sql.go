@@ -11,33 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countLogEvents = `-- name: CountLogEvents :one
-SELECT count(*) FROM zdx_log_events
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
-  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
-`
-
-type CountLogEventsParams struct {
-	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
-	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
-	Since     pgtype.Timestamptz `db:"since" json:"since"`
-	Until     pgtype.Timestamptz `db:"until" json:"until"`
-}
-
-func (q *Queries) CountLogEvents(ctx context.Context, arg CountLogEventsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countLogEvents,
-		arg.ProjectID,
-		arg.TagFilter,
-		arg.Since,
-		arg.Until,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const deleteLogEventsOlderThan = `-- name: DeleteLogEventsOlderThan :execrows
 DELETE FROM zdx_log_events
 WHERE created_at < $1::timestamptz
@@ -87,7 +60,6 @@ WHERE ($1::int IS NULL OR project_id = $1)
   AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
   AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
 ORDER BY created_at DESC
-LIMIT $6 OFFSET $5
 `
 
 type ListLogEventsParams struct {
@@ -95,8 +67,6 @@ type ListLogEventsParams struct {
 	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
 	Since     pgtype.Timestamptz `db:"since" json:"since"`
 	Until     pgtype.Timestamptz `db:"until" json:"until"`
-	Off       int32              `db:"off" json:"off"`
-	Lim       int32              `db:"lim" json:"lim"`
 }
 
 func (q *Queries) ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([]ZdxLogEvent, error) {
@@ -105,8 +75,6 @@ func (q *Queries) ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([
 		arg.TagFilter,
 		arg.Since,
 		arg.Until,
-		arg.Off,
-		arg.Lim,
 	)
 	if err != nil {
 		return nil, err
@@ -228,6 +196,7 @@ type ListLogEventsGroupedRow struct {
 	LastSeen   interface{} `db:"last_seen" json:"last_seen"`
 }
 
+// metaquery: off
 func (q *Queries) ListLogEventsGrouped(ctx context.Context, arg ListLogEventsGroupedParams) ([]ListLogEventsGroupedRow, error) {
 	rows, err := q.db.Query(ctx, listLogEventsGrouped,
 		arg.ProjectID,

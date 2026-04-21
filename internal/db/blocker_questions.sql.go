@@ -32,17 +32,6 @@ func (q *Queries) AnswerBlockerQuestion(ctx context.Context, arg AnswerBlockerQu
 	return err
 }
 
-const countBlockerQuestions = `-- name: CountBlockerQuestions :one
-SELECT count(*) FROM zdx_blocker_questions WHERE project_id = $1
-`
-
-func (q *Queries) CountBlockerQuestions(ctx context.Context, projectID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countBlockerQuestions, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const getBlockerQuestion = `-- name: GetBlockerQuestion :one
 SELECT id, project_id, target_type, target_id, context, choices, answer, answered_by, status, created_at, answered_at
 FROM zdx_blocker_questions WHERE project_id = $1 AND id = $2
@@ -165,52 +154,6 @@ type ListBlockerQuestionsByTargetParams struct {
 
 func (q *Queries) ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error) {
 	rows, err := q.db.Query(ctx, listBlockerQuestionsByTarget, arg.ProjectID, arg.TargetType, arg.TargetID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ZdxBlockerQuestion
-	for rows.Next() {
-		var i ZdxBlockerQuestion
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.TargetType,
-			&i.TargetID,
-			&i.Context,
-			&i.Choices,
-			&i.Answer,
-			&i.AnsweredBy,
-			&i.Status,
-			&i.CreatedAt,
-			&i.AnsweredAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listBlockerQuestionsPaginated = `-- name: ListBlockerQuestionsPaginated :many
-SELECT id, project_id, target_type, target_id, context, choices, answer, answered_by, status, created_at, answered_at
-FROM zdx_blocker_questions
-WHERE project_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
-`
-
-type ListBlockerQuestionsPaginatedParams struct {
-	ProjectID int32 `db:"project_id" json:"project_id"`
-	Limit     int32 `db:"limit" json:"limit"`
-	Offset    int32 `db:"offset" json:"offset"`
-}
-
-func (q *Queries) ListBlockerQuestionsPaginated(ctx context.Context, arg ListBlockerQuestionsPaginatedParams) ([]ZdxBlockerQuestion, error) {
-	rows, err := q.db.Query(ctx, listBlockerQuestionsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

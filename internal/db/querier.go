@@ -44,45 +44,23 @@ type Querier interface {
 	CloseIssue(ctx context.Context, arg CloseIssueParams) error
 	CloseStaleClaudeSessions(ctx context.Context, staleMinutes int32) ([]CloseStaleClaudeSessionsRow, error)
 	CountApiKeys(ctx context.Context) (int32, error)
-	CountBlockerQuestions(ctx context.Context, projectID int32) (int64, error)
 	CountChurnSessions(ctx context.Context, arg CountChurnSessionsParams) (int64, error)
 	CountClaudeEvents(ctx context.Context, sessionPk int64) (int64, error)
-	CountClaudeSessions(ctx context.Context, projectID int32) (int64, error)
 	CountClaudeSessionsByIssue(ctx context.Context, arg CountClaudeSessionsByIssueParams) (int64, error)
 	CountClosedTasks(ctx context.Context, projectID int32) (int64, error)
-	CountComments(ctx context.Context, arg CountCommentsParams) (int64, error)
-	CountCommentsByAuthor(ctx context.Context, arg CountCommentsByAuthorParams) (int64, error)
-	CountCounted(ctx context.Context, arg CountCountedParams) (int64, error)
-	CountCounterEvents(ctx context.Context, arg CountCounterEventsParams) (int64, error)
-	CountDeploys(ctx context.Context, environmentID int32) (int64, error)
-	CountErrorEvents(ctx context.Context, arg CountErrorEventsParams) (int64, error)
-	CountErrorReports(ctx context.Context, projectID pgtype.Int4) (int64, error)
 	CountIssueResolutions(ctx context.Context, issueID string) (int64, error)
-	CountIssues(ctx context.Context, projectID int32) (int64, error)
-	CountLogEvents(ctx context.Context, arg CountLogEventsParams) (int64, error)
-	CountPatterns(ctx context.Context, projectID int32) (int64, error)
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
 	CountQuestionProposalsByQuestion(ctx context.Context, arg CountQuestionProposalsByQuestionParams) (int64, error)
-	CountQuestions(ctx context.Context, projectID int32) (int64, error)
-	CountRevisions(ctx context.Context, arg CountRevisionsParams) (int64, error)
 	// Count how many revisions were recorded by a given agent session.
 	// Used by /api/dx/solo/release to detect sessions that exited cleanly but
 	// didn't apply any durable mutation — those release without marking resolved.
 	CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error)
-	CountSlowQueries(ctx context.Context, projectID pgtype.Int4) (int64, error)
 	CountStaleOpenClaudeSessions(ctx context.Context, arg CountStaleOpenClaudeSessionsParams) (int64, error)
-	CountTasks(ctx context.Context, arg CountTasksParams) (int64, error)
-	CountTasksByFeature(ctx context.Context, arg CountTasksByFeatureParams) (int64, error)
-	CountTasksByIssue(ctx context.Context, arg CountTasksByIssueParams) (int64, error)
-	CountTests(ctx context.Context, projectID int32) (int64, error)
-	CountTimed(ctx context.Context, arg CountTimedParams) (int64, error)
-	CountTimedEvents(ctx context.Context, arg CountTimedEventsParams) (int64, error)
 	CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error)
 	// Counts comments on targets where the user has previously commented,
 	// excluding the user's own comments, that are newer than the user's last read.
 	CountUnreadResponsesForUser(ctx context.Context, arg CountUnreadResponsesForUserParams) (int32, error)
-	CountWorklogForProject(ctx context.Context, projectID int32) (int64, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
 	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)
@@ -159,6 +137,7 @@ type Querier interface {
 	GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error)
 	GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (GetClaudeSessionBySessionIDRow, error)
 	GetClaudeSessionTokenUsage(ctx context.Context, sessionPk int64) (GetClaudeSessionTokenUsageRow, error)
+	// metaquery: off
 	GetClaudeSessionTokenUsageByAgent(ctx context.Context, sessionPk int64) ([]GetClaudeSessionTokenUsageByAgentRow, error)
 	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
 	GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error)
@@ -252,16 +231,13 @@ type Querier interface {
 	ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error)
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
-	ListBlockerQuestionsPaginated(ctx context.Context, arg ListBlockerQuestionsPaginatedParams) ([]ZdxBlockerQuestion, error)
 	ListChildFeatures(ctx context.Context, parentFeatureID pgtype.Int4) ([]ListChildFeaturesRow, error)
 	ListChildQuestions(ctx context.Context, arg ListChildQuestionsParams) ([]ZdxQuestion, error)
 	ListChurnSessions(ctx context.Context, arg ListChurnSessionsParams) ([]ListChurnSessionsRow, error)
 	ListClaudeEvents(ctx context.Context, sessionPk int64) ([]ZdxClaudeEvent, error)
-	ListClaudeEventsPaginated(ctx context.Context, arg ListClaudeEventsPaginatedParams) ([]ZdxClaudeEvent, error)
 	ListClaudeSessions(ctx context.Context, projectID int32) ([]ListClaudeSessionsRow, error)
 	ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error)
 	ListClaudeSessionsByTodoID(ctx context.Context, arg ListClaudeSessionsByTodoIDParams) ([]ListClaudeSessionsByTodoIDRow, error)
-	ListClaudeSessionsPaginated(ctx context.Context, arg ListClaudeSessionsPaginatedParams) ([]ListClaudeSessionsPaginatedRow, error)
 	// Specs linked to an issue (via tasks→features by name) that are NOT deferred
 	// by any open issue and lack passing-test coverage. Reason is 'no-tests' if
 	// the spec has no zdx_spec_tests rows, otherwise 'failing-tests'.
@@ -273,13 +249,12 @@ type Querier interface {
 	ListCommentReactions(ctx context.Context, commentID int32) ([]ZdxCommentReaction, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
 	ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error)
-	ListCommentsByAuthorPaginated(ctx context.Context, arg ListCommentsByAuthorPaginatedParams) ([]ListCommentsByAuthorPaginatedRow, error)
-	ListCommentsPaginated(ctx context.Context, arg ListCommentsPaginatedParams) ([]ListCommentsPaginatedRow, error)
+	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_value, value) sum(sum_total_value, total_value) sum(sum_count, count)
+	ListCounted(ctx context.Context, arg ListCountedParams) ([]ListCountedRow, error)
 	ListCountedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListCountedDistinctTagValues(ctx context.Context, arg ListCountedDistinctTagValuesParams) ([]interface{}, error)
-	ListCountedGrouped(ctx context.Context, arg ListCountedGroupedParams) ([]ListCountedGroupedRow, error)
-	ListCountedPaginated(ctx context.Context, arg ListCountedPaginatedParams) ([]ListCountedPaginatedRow, error)
 	ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error)
+	// metaquery: off
 	ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error)
 	ListDeferredSpecs(ctx context.Context) ([]ListDeferredSpecsRow, error)
 	ListDeferredSpecsWithFeatureForProject(ctx context.Context, projectID int32) ([]ListDeferredSpecsWithFeatureForProjectRow, error)
@@ -291,20 +266,21 @@ type Querier interface {
 	// back to sibling rows sharing the same (demo_type, artifact_path) — see
 	// GetDemoByID for rationale.
 	ListDemosForSpec(ctx context.Context, specID int32) ([]ListDemosForSpecRow, error)
-	ListDeploys(ctx context.Context, arg ListDeploysParams) ([]ZdxDeploy, error)
+	ListDeploys(ctx context.Context, environmentID int32) ([]ZdxDeploy, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
 	ListEnvironments(ctx context.Context, projectID int32) ([]ZdxEnvironment, error)
 	ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error)
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
+	// metaquery: off
 	ListErrorEventsGrouped(ctx context.Context, arg ListErrorEventsGroupedParams) ([]ListErrorEventsGroupedRow, error)
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
-	ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ZdxErrorReport, error)
 	ListFeatureFocuses(ctx context.Context, featureID int32) ([]ListFeatureFocusesRow, error)
 	ListFeatureMultipliers(ctx context.Context, featureID int32) ([]ListFeatureMultipliersRow, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ListFeaturesRow, error)
 	ListFeaturesByGoal(ctx context.Context, goalID pgtype.Int4) ([]ListFeaturesByGoalRow, error)
 	ListFocusFeatures(ctx context.Context, focusID int32) ([]ListFocusFeaturesRow, error)
+	// metaquery: off
 	ListFocuses(ctx context.Context, projectID int32) ([]ListFocusesRow, error)
 	ListGoalIssues(ctx context.Context, goalID int32) ([]string, error)
 	ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error)
@@ -316,7 +292,6 @@ type Querier interface {
 	ListIssueSpecs(ctx context.Context, issueID string) ([]ListIssueSpecsRow, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesBlockedBy(ctx context.Context, blockedByID string) ([]string, error)
-	ListIssuesPaginated(ctx context.Context, arg ListIssuesPaginatedParams) ([]ZdxIssue, error)
 	// Returns issues (any status) that have unread comments for the given role.
 	// Excludes agent-authored comments (author_alias != '') so agents don't review their own replies.
 	ListIssuesWithUnreadComments(ctx context.Context, arg ListIssuesWithUnreadCommentsParams) ([]ListIssuesWithUnreadCommentsRow, error)
@@ -325,6 +300,7 @@ type Querier interface {
 	ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([]ZdxLogEvent, error)
 	ListLogEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListLogEventsDistinctTagValues(ctx context.Context, arg ListLogEventsDistinctTagValuesParams) ([]interface{}, error)
+	// metaquery: off
 	ListLogEventsGrouped(ctx context.Context, arg ListLogEventsGroupedParams) ([]ListLogEventsGroupedRow, error)
 	ListMaturityAnswers(ctx context.Context, projectID int32) ([]ZdxMaturityAnswer, error)
 	ListMaturityItems(ctx context.Context, arg ListMaturityItemsParams) ([]ZdxMaturityItem, error)
@@ -337,7 +313,6 @@ type Querier interface {
 	// Ready tasks with no parent issue — invisible to the normal solo queue.
 	ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]ListOrphanReadyTasksRow, error)
 	ListPatterns(ctx context.Context, projectID int32) ([]ZdxPattern, error)
-	ListPatternsPaginated(ctx context.Context, arg ListPatternsPaginatedParams) ([]ZdxPattern, error)
 	ListPendingBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListPlanStepRefs(ctx context.Context, stepID int32) ([]ZdxPlanStepRef, error)
 	ListPlanSteps(ctx context.Context, planID int32) ([]ZdxPlanStep, error)
@@ -352,7 +327,7 @@ type Querier interface {
 	ListProposals(ctx context.Context, arg ListProposalsParams) ([]ZdxProposal, error)
 	ListQuestionProposalsByQuestion(ctx context.Context, arg ListQuestionProposalsByQuestionParams) ([]ZdxQuestionProposal, error)
 	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
-	ListQuestionsPaginated(ctx context.Context, arg ListQuestionsPaginatedParams) ([]ZdxQuestion, error)
+	// metaquery: off
 	// Return all reservations for a project, most recent first.
 	ListReservations(ctx context.Context, arg ListReservationsParams) ([]ZdxReservation, error)
 	// Return reservations for todos linked to a specific issue, with optional agent session info.
@@ -364,9 +339,7 @@ type Querier interface {
 	ListResolutionsByProject(ctx context.Context, projectID int32) ([]ZdxIssueResolution, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
 	ListRevisionsByTarget(ctx context.Context, arg ListRevisionsByTargetParams) ([]ListRevisionsByTargetRow, error)
-	ListRevisionsPaginated(ctx context.Context, arg ListRevisionsPaginatedParams) ([]ListRevisionsPaginatedRow, error)
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
-	ListSlowQueriesPaginated(ctx context.Context, arg ListSlowQueriesPaginatedParams) ([]ZdxSlowQuery, error)
 	ListSpecDeferrals(ctx context.Context, specID int32) ([]ListSpecDeferralsRow, error)
 	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
 	// ── Specs ────────────────────────────────────────────────────────────────────
@@ -375,6 +348,7 @@ type Querier interface {
 	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ListSpecsCoveredByTestRow, error)
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ListSpecsForProjectRow, error)
 	ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ListSpecsWithAllBlockersClosedRow, error)
+	// metaquery: off
 	// Specs linked to tests but where none of those tests have demo artifacts.
 	// Non-deferred specs only.
 	ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error)
@@ -382,41 +356,40 @@ type Querier interface {
 	ListStaleOpenClaudeSessions(ctx context.Context, arg ListStaleOpenClaudeSessionsParams) ([]ListStaleOpenClaudeSessionsRow, error)
 	ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error)
 	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
+	// metaquery: off
 	// Returns comments that are unread for the given role and older than the given age threshold.
 	// Excludes comments authored by agents (author_alias != '') so agents don't review their own replies.
 	ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error)
 	ListTaskReviews(ctx context.Context, arg ListTaskReviewsParams) ([]ListTaskReviewsRow, error)
-	ListTasks(ctx context.Context, projectID int32) ([]ListTasksRow, error)
+	ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTasksRow, error)
 	ListTasksByAgent(ctx context.Context, claimedBy string) ([]ListTasksByAgentRow, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error)
-	ListTasksByFeaturePaginated(ctx context.Context, arg ListTasksByFeaturePaginatedParams) ([]ListTasksByFeaturePaginatedRow, error)
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error)
-	ListTasksByIssuePaginated(ctx context.Context, arg ListTasksByIssuePaginatedParams) ([]ListTasksByIssuePaginatedRow, error)
-	ListTasksPaginated(ctx context.Context, arg ListTasksPaginatedParams) ([]ListTasksPaginatedRow, error)
 	ListTestDemos(ctx context.Context, testID int32) ([]ListTestDemosRow, error)
+	// metaquery: off
 	ListTestResultHistory(ctx context.Context, arg ListTestResultHistoryParams) ([]ListTestResultHistoryRow, error)
 	ListTests(ctx context.Context, projectID int32) ([]ListTestsRow, error)
 	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ListTestsByLayerRow, error)
 	ListTestsForSpec(ctx context.Context, specID int32) ([]ListTestsForSpecRow, error)
-	ListTestsPaginated(ctx context.Context, arg ListTestsPaginatedParams) ([]ListTestsPaginatedRow, error)
-	ListTimed(ctx context.Context, projectID pgtype.Int4) ([]ListTimedRow, error)
+	ListTimed(ctx context.Context, arg ListTimedParams) ([]ListTimedRow, error)
 	ListTimedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListTimedDistinctTagValues(ctx context.Context, arg ListTimedDistinctTagValuesParams) ([]interface{}, error)
 	ListTimedEvents(ctx context.Context, arg ListTimedEventsParams) ([]ZdxTimedEvent, error)
+	// metaquery: off
 	ListTimedEventsGrouped(ctx context.Context, arg ListTimedEventsGroupedParams) ([]ListTimedEventsGroupedRow, error)
+	// metaquery: off
 	ListTimedGrouped(ctx context.Context, arg ListTimedGroupedParams) ([]ListTimedGroupedRow, error)
-	ListTimedPaginated(ctx context.Context, arg ListTimedPaginatedParams) ([]ListTimedPaginatedRow, error)
 	ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error)
 	ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error)
 	ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
+	// metaquery: off
 	// Returns distinct threads where the user has commented and others have replied unread.
 	ListUnreadResponseThreadsForUser(ctx context.Context, arg ListUnreadResponseThreadsForUserParams) ([]ListUnreadResponseThreadsForUserRow, error)
 	ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error)
 	ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error)
-	ListWorklogForProjectPaginated(ctx context.Context, arg ListWorklogForProjectPaginatedParams) ([]ListWorklogForProjectPaginatedRow, error)
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkInviteUsed(ctx context.Context, id int32) error
 	MarkJournalEntryReviewed(ctx context.Context, id int32) error
@@ -463,6 +436,7 @@ type Querier interface {
 	ResolveTodosNotInKeys(ctx context.Context, arg ResolveTodosNotInKeysParams) error
 	RevokeIntegrationToken(ctx context.Context, id int32) error
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
+	// metaquery: off
 	SearchPatterns(ctx context.Context, arg SearchPatternsParams) ([]ZdxPattern, error)
 	SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
@@ -472,6 +446,7 @@ type Querier interface {
 	SetProjectProxyConfig(ctx context.Context, arg SetProjectProxyConfigParams) error
 	SetProjectStage(ctx context.Context, arg SetProjectStageParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
+	// metaquery: off
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
 	TouchClaudeSession(ctx context.Context, id int64) error

@@ -117,7 +117,42 @@ run "raw-api-calls" bash -c '
   fi
 '
 
-ADVISORY_LABELS=("raw-api-calls")
+run "sql-metaquery-candidates" bash -c '
+  # Flag queries using LIMIT (>1) or GROUP BY that should use metaquery instead.
+  # Exempt: "-- metaquery: off" comment, LIMIT 1 (single-row lookups), :exec/:copyfrom.
+  OUTPUT=$(awk '\''
+    FNR==1 { file=FILENAME }
+    /^-- name:/ { flush(); name=$3; cmd=$4; lineno=FNR; body=""; next }
+    { body = body "\n" $0 }
+    END { flush(); if (total>0) printf "\ntotal: %d queries (suppress per-query with: -- metaquery: off)\n", total }
+    function flush() {
+      if (name == "") return
+      if (cmd == ":exec" || cmd == ":execrows" || cmd == ":copyfrom") return
+      if (index(body, "metaquery: off") > 0) return
+      upper = toupper(body)
+      if (upper ~ /GROUP[[:space:]]+BY/) {
+        printf "  %s:%d %s — GROUP BY (use metaquery aggregation)\n", file, lineno, name
+        total++
+      }
+      if (upper ~ /LIMIT[[:space:]]+[\$@]/ || body ~ /LIMIT[[:space:]]+@/) {
+        printf "  %s:%d %s — parameterized LIMIT (use metaquery pagination)\n", file, lineno, name
+        total++
+      } else if (upper ~ /LIMIT[[:space:]]+[0-9]/) {
+        if (upper !~ /LIMIT[[:space:]]+1([^0-9]|$)/) {
+          printf "  %s:%d %s — hardcoded LIMIT >1 (use metaquery pagination)\n", file, lineno, name
+          total++
+        }
+      }
+    }
+  '\'' queries/*.sql)
+  if [ -n "$OUTPUT" ]; then
+    echo "Queries with LIMIT/GROUP BY that could use metaquery:"
+    echo "$OUTPUT"
+    exit 1
+  fi
+'
+
+ADVISORY_LABELS=("raw-api-calls" "sql-metaquery-candidates")
 
 # ── Wait and report ──────────────────────────────────────────────────────────
 

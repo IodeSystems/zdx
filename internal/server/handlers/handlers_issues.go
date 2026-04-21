@@ -14,6 +14,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -33,16 +36,18 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountIssues(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListIssuesPaginated(ctx, db.ListIssuesPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			b := db.WrapListIssues(p.ID).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxIssue](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]IssueItem, len(rows))
-			for i, r := range rows {
+			out := make([]IssueItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = toIssueItem(r)
 			}
+			total := res.Meta.Pagination.Total
 			return &struct {
 				Body struct {
 					Issues []IssueItem `json:"issues"`
@@ -653,9 +658,10 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountWorklogForProject(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListWorklogForProjectPaginated(ctx, db.ListWorklogForProjectPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			b := db.WrapListWorklogForProject(p.ID).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListWorklogForProjectRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -670,11 +676,11 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				Entries []entry `json:"entries"`
 				Total   int64   `json:"total"`
 			}
-			out := make([]entry, len(rows))
-			for i, r := range rows {
+			out := make([]entry, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = entry{IssueID: r.IssueID, IssueTitle: r.IssueTitle, Agent: r.Agent, Note: r.Note, CreatedAt: fmtTS(r.CreatedAt)}
 			}
-			return &struct{ Body respBody }{Body: respBody{Entries: out, Total: total}}, nil
+			return &struct{ Body respBody }{Body: respBody{Entries: out, Total: res.Meta.Pagination.Total}}, nil
 		})
 
 	// ── Issue similarity ───────────────────────────────────────────────────────

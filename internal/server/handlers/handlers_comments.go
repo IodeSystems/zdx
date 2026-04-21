@@ -8,6 +8,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -43,16 +46,15 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountCommentsByAuthor(ctx, db.CountCommentsByAuthorParams{ProjectID: p.ID, Author: user.Email})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListCommentsByAuthorPaginated(ctx, db.ListCommentsByAuthorPaginatedParams{
-				ProjectID: p.ID, Author: user.Email, Limit: limit, Offset: offset,
-			})
+			b := db.WrapListCommentsByAuthor(db.ListCommentsByAuthorParams{ProjectID: p.ID, Author: user.Email}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListCommentsByAuthorRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]CommentItem, len(rows))
-			for i, r := range rows {
+			out := make([]CommentItem, len(res.Data))
+			for i, r := range res.Data {
 				ci := CommentItem{
 					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
 					Author: r.Author, AuthorAlias: r.AuthorAlias, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
@@ -71,7 +73,7 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 				Body: struct {
 					Comments []CommentItem `json:"comments"`
 					Total    int64         `json:"total"`
-				}{Comments: out, Total: total},
+				}{Comments: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 
@@ -141,11 +143,10 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountComments(ctx, db.CountCommentsParams{ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListCommentsPaginated(ctx, db.ListCommentsPaginatedParams{
-				ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID, Limit: limit, Offset: offset,
-			})
+			b := db.WrapListComments(db.ListCommentsParams{ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListCommentsRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
@@ -162,8 +163,8 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 					lastReadTime = ts.Time.UnixNano()
 				}
 			}
-			out := make([]CommentItem, len(rows))
-			for i, r := range rows {
+			out := make([]CommentItem, len(res.Data))
+			for i, r := range res.Data {
 				ci := CommentItem{
 					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
 					Author: r.Author, AuthorAlias: r.AuthorAlias, Body: r.Body, CreatedAt: fmtTS(r.CreatedAt),
@@ -186,7 +187,7 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 				Body: struct {
 					Comments []CommentItem `json:"comments"`
 					Total    int64         `json:"total"`
-				}{Comments: out, Total: total},
+				}{Comments: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 
@@ -500,16 +501,15 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountRevisions(ctx, db.CountRevisionsParams{ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListRevisionsPaginated(ctx, db.ListRevisionsPaginatedParams{
-				ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID, Limit: limit, Offset: offset,
-			})
+			b := db.WrapListRevisions(db.ListRevisionsParams{ProjectID: p.ID, TargetType: in.TargetType, TargetID: in.TargetID}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListRevisionsRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]RevisionItem, len(rows))
-			for i, r := range rows {
+			out := make([]RevisionItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = RevisionItem{
 					ID: r.ID, TargetType: r.TargetType, TargetID: r.TargetID,
 					Field: r.Field, OldVal: r.OldVal, NewVal: r.NewVal,
@@ -526,7 +526,7 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 				Body: struct {
 					Revisions []RevisionItem `json:"revisions"`
 					Total     int64          `json:"total"`
-				}{Revisions: out, Total: total},
+				}{Revisions: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 }

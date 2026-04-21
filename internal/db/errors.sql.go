@@ -11,28 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countErrorReports = `-- name: CountErrorReports :one
-SELECT count(*) FROM zdx_error_reports WHERE project_id = $1
-`
-
-func (q *Queries) CountErrorReports(ctx context.Context, projectID pgtype.Int4) (int64, error) {
-	row := q.db.QueryRow(ctx, countErrorReports, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countSlowQueries = `-- name: CountSlowQueries :one
-SELECT count(*) FROM zdx_slow_queries WHERE project_id = $1
-`
-
-func (q *Queries) CountSlowQueries(ctx context.Context, projectID pgtype.Int4) (int64, error) {
-	row := q.db.QueryRow(ctx, countSlowQueries, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const deleteErrorReports = `-- name: DeleteErrorReports :exec
 DELETE FROM zdx_error_reports WHERE project_id = $1
 `
@@ -141,53 +119,10 @@ SELECT id, project_id, source, endpoint, error_name, stack_trace, created_at
 FROM zdx_error_reports
 WHERE project_id = $1
 ORDER BY created_at DESC
-LIMIT 200
 `
 
 func (q *Queries) ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error) {
 	rows, err := q.db.Query(ctx, listErrorReports, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ZdxErrorReport
-	for rows.Next() {
-		var i ZdxErrorReport
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Source,
-			&i.Endpoint,
-			&i.ErrorName,
-			&i.StackTrace,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listErrorReportsPaginated = `-- name: ListErrorReportsPaginated :many
-SELECT id, project_id, source, endpoint, error_name, stack_trace, created_at
-FROM zdx_error_reports
-WHERE project_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3
-`
-
-type ListErrorReportsPaginatedParams struct {
-	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
-	Limit     int32       `db:"limit" json:"limit"`
-	Offset    int32       `db:"offset" json:"offset"`
-}
-
-func (q *Queries) ListErrorReportsPaginated(ctx context.Context, arg ListErrorReportsPaginatedParams) ([]ZdxErrorReport, error) {
-	rows, err := q.db.Query(ctx, listErrorReportsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}
@@ -219,54 +154,10 @@ SELECT id, project_id, sql_hash, sql_text, endpoint, duration_ms, explain_json, 
 FROM zdx_slow_queries
 WHERE project_id = $1
 ORDER BY duration_ms DESC
-LIMIT 200
 `
 
 func (q *Queries) ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error) {
 	rows, err := q.db.Query(ctx, listSlowQueries, projectID)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ZdxSlowQuery
-	for rows.Next() {
-		var i ZdxSlowQuery
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.SqlHash,
-			&i.SqlText,
-			&i.Endpoint,
-			&i.DurationMs,
-			&i.ExplainJson,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listSlowQueriesPaginated = `-- name: ListSlowQueriesPaginated :many
-SELECT id, project_id, sql_hash, sql_text, endpoint, duration_ms, explain_json, created_at
-FROM zdx_slow_queries
-WHERE project_id = $1
-ORDER BY duration_ms DESC
-LIMIT $2 OFFSET $3
-`
-
-type ListSlowQueriesPaginatedParams struct {
-	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
-	Limit     int32       `db:"limit" json:"limit"`
-	Offset    int32       `db:"offset" json:"offset"`
-}
-
-func (q *Queries) ListSlowQueriesPaginated(ctx context.Context, arg ListSlowQueriesPaginatedParams) ([]ZdxSlowQuery, error) {
-	rows, err := q.db.Query(ctx, listSlowQueriesPaginated, arg.ProjectID, arg.Limit, arg.Offset)
 	if err != nil {
 		return nil, err
 	}

@@ -1,4 +1,5 @@
 -- name: ListFocuses :many
+-- metaquery: off
 SELECT f.id, f.name, f.description, f.priority, f.status, f.created_at,
        f.started_at, f.ended_at,
        COALESCE(STRING_AGG(fb.issue_id, ','), '') AS blockers

@@ -16,15 +16,7 @@ FROM zdx_questions
 WHERE project_id = $1
 ORDER BY created_at;
 
--- name: CountQuestions :one
-SELECT count(*) FROM zdx_questions WHERE project_id = $1;
 
--- name: ListQuestionsPaginated :many
-SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
-FROM zdx_questions
-WHERE project_id = $1
-ORDER BY created_at
-LIMIT $2 OFFSET $3;
 
 -- name: GetQuestion :one
 SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id

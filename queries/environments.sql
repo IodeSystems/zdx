@@ -29,11 +29,7 @@ WHERE project_id = $1 AND name = $2;
 
 -- name: ListDeploys :many
 SELECT id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status
-FROM zdx_deploys WHERE environment_id = $1 ORDER BY deployed_at DESC
-LIMIT $2 OFFSET $3;
-
--- name: CountDeploys :one
-SELECT count(*) FROM zdx_deploys WHERE environment_id = $1;
+FROM zdx_deploys WHERE environment_id = $1 ORDER BY deployed_at DESC;
 
 -- name: CreateDeploy :one
 INSERT INTO zdx_deploys (environment_id, build_sha, build_branch, deployed_by_user_id, status)

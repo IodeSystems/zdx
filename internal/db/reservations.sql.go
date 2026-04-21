@@ -94,6 +94,7 @@ type ListReservationsParams struct {
 	Lim       int32 `db:"lim" json:"lim"`
 }
 
+// metaquery: off
 // Return all reservations for a project, most recent first.
 func (q *Queries) ListReservations(ctx context.Context, arg ListReservationsParams) ([]ZdxReservation, error) {
 	rows, err := q.db.Query(ctx, listReservations, arg.ProjectID, arg.Lim)

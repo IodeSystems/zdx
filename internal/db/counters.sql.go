@@ -11,51 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countCounted = `-- name: CountCounted :one
-SELECT count(*) FROM zdx_counted
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-`
-
-type CountCountedParams struct {
-	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
-	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
-}
-
-func (q *Queries) CountCounted(ctx context.Context, arg CountCountedParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCounted, arg.ProjectID, arg.TagFilter)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
-const countCounterEvents = `-- name: CountCounterEvents :one
-SELECT count(*) FROM zdx_counter_events
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-  AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
-  AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
-`
-
-type CountCounterEventsParams struct {
-	ProjectID pgtype.Int4        `db:"project_id" json:"project_id"`
-	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
-	Since     pgtype.Timestamptz `db:"since" json:"since"`
-	Until     pgtype.Timestamptz `db:"until" json:"until"`
-}
-
-func (q *Queries) CountCounterEvents(ctx context.Context, arg CountCounterEventsParams) (int64, error) {
-	row := q.db.QueryRow(ctx, countCounterEvents,
-		arg.ProjectID,
-		arg.TagFilter,
-		arg.Since,
-		arg.Until,
-	)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const deleteCounterEventsOlderThan = `-- name: DeleteCounterEventsOlderThan :execrows
 DELETE FROM zdx_counter_events
 WHERE created_at < $1::timestamptz
@@ -95,6 +50,66 @@ func (q *Queries) InsertCounterEvent(ctx context.Context, arg InsertCounterEvent
 		arg.ContextJson,
 	)
 	return err
+}
+
+const listCounted = `-- name: ListCounted :many
+SELECT id, project_id, component, environment, name, value, count, total_value, source, context_json, created_at
+FROM zdx_counted
+WHERE ($1::int IS NULL OR project_id = $1)
+  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
+ORDER BY total_value DESC
+`
+
+type ListCountedParams struct {
+	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
+	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
+}
+
+type ListCountedRow struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component   string             `db:"component" json:"component"`
+	Environment string             `db:"environment" json:"environment"`
+	Name        string             `db:"name" json:"name"`
+	Value       int32              `db:"value" json:"value"`
+	Count       int32              `db:"count" json:"count"`
+	TotalValue  int64              `db:"total_value" json:"total_value"`
+	Source      string             `db:"source" json:"source"`
+	ContextJson []byte             `db:"context_json" json:"context_json"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_value, value) sum(sum_total_value, total_value) sum(sum_count, count)
+func (q *Queries) ListCounted(ctx context.Context, arg ListCountedParams) ([]ListCountedRow, error) {
+	rows, err := q.db.Query(ctx, listCounted, arg.ProjectID, arg.TagFilter)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListCountedRow
+	for rows.Next() {
+		var i ListCountedRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Component,
+			&i.Environment,
+			&i.Name,
+			&i.Value,
+			&i.Count,
+			&i.TotalValue,
+			&i.Source,
+			&i.ContextJson,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listCountedDistinctTagKeys = `-- name: ListCountedDistinctTagKeys :many
@@ -158,128 +173,6 @@ func (q *Queries) ListCountedDistinctTagValues(ctx context.Context, arg ListCoun
 	return items, nil
 }
 
-const listCountedGrouped = `-- name: ListCountedGrouped :many
-SELECT
-  context_json->>@group_key::text AS group_value,
-  count(*)::int AS entry_count,
-  max(value) AS max_value,
-  sum(total_value)::bigint AS sum_total_value,
-  sum(count)::int AS sum_count
-FROM zdx_counted
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-  AND context_json ? $3::text
-GROUP BY group_value
-ORDER BY max_value DESC
-`
-
-type ListCountedGroupedParams struct {
-	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
-	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
-	GroupKey  string      `db:"group_key" json:"group_key"`
-}
-
-type ListCountedGroupedRow struct {
-	GroupValue    interface{} `db:"group_value" json:"group_value"`
-	EntryCount    int32       `db:"entry_count" json:"entry_count"`
-	MaxValue      interface{} `db:"max_value" json:"max_value"`
-	SumTotalValue int64       `db:"sum_total_value" json:"sum_total_value"`
-	SumCount      int32       `db:"sum_count" json:"sum_count"`
-}
-
-func (q *Queries) ListCountedGrouped(ctx context.Context, arg ListCountedGroupedParams) ([]ListCountedGroupedRow, error) {
-	rows, err := q.db.Query(ctx, listCountedGrouped, arg.ProjectID, arg.TagFilter, arg.GroupKey)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCountedGroupedRow
-	for rows.Next() {
-		var i ListCountedGroupedRow
-		if err := rows.Scan(
-			&i.GroupValue,
-			&i.EntryCount,
-			&i.MaxValue,
-			&i.SumTotalValue,
-			&i.SumCount,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listCountedPaginated = `-- name: ListCountedPaginated :many
-SELECT id, project_id, component, environment, name, value, count, total_value, source, context_json, created_at
-FROM zdx_counted
-WHERE ($1::int IS NULL OR project_id = $1)
-  AND ($2::jsonb IS NULL OR context_json @> $2::jsonb)
-ORDER BY total_value DESC
-LIMIT $4 OFFSET $3
-`
-
-type ListCountedPaginatedParams struct {
-	ProjectID pgtype.Int4 `db:"project_id" json:"project_id"`
-	TagFilter []byte      `db:"tag_filter" json:"tag_filter"`
-	Off       int32       `db:"off" json:"off"`
-	Lim       int32       `db:"lim" json:"lim"`
-}
-
-type ListCountedPaginatedRow struct {
-	ID          int64              `db:"id" json:"id"`
-	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
-	Component   string             `db:"component" json:"component"`
-	Environment string             `db:"environment" json:"environment"`
-	Name        string             `db:"name" json:"name"`
-	Value       int32              `db:"value" json:"value"`
-	Count       int32              `db:"count" json:"count"`
-	TotalValue  int64              `db:"total_value" json:"total_value"`
-	Source      string             `db:"source" json:"source"`
-	ContextJson []byte             `db:"context_json" json:"context_json"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) ListCountedPaginated(ctx context.Context, arg ListCountedPaginatedParams) ([]ListCountedPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listCountedPaginated,
-		arg.ProjectID,
-		arg.TagFilter,
-		arg.Off,
-		arg.Lim,
-	)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListCountedPaginatedRow
-	for rows.Next() {
-		var i ListCountedPaginatedRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Component,
-			&i.Environment,
-			&i.Name,
-			&i.Value,
-			&i.Count,
-			&i.TotalValue,
-			&i.Source,
-			&i.ContextJson,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const listCounterEvents = `-- name: ListCounterEvents :many
 SELECT id, project_id, component, environment, name, value, source, context_json, created_at
 FROM zdx_counter_events
@@ -288,7 +181,6 @@ WHERE ($1::int IS NULL OR project_id = $1)
   AND ($3::timestamptz IS NULL OR created_at >= $3::timestamptz)
   AND ($4::timestamptz IS NULL OR created_at < $4::timestamptz)
 ORDER BY created_at DESC
-LIMIT $6 OFFSET $5
 `
 
 type ListCounterEventsParams struct {
@@ -296,8 +188,6 @@ type ListCounterEventsParams struct {
 	TagFilter []byte             `db:"tag_filter" json:"tag_filter"`
 	Since     pgtype.Timestamptz `db:"since" json:"since"`
 	Until     pgtype.Timestamptz `db:"until" json:"until"`
-	Off       int32              `db:"off" json:"off"`
-	Lim       int32              `db:"lim" json:"lim"`
 }
 
 func (q *Queries) ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error) {
@@ -306,8 +196,6 @@ func (q *Queries) ListCounterEvents(ctx context.Context, arg ListCounterEventsPa
 		arg.TagFilter,
 		arg.Since,
 		arg.Until,
-		arg.Off,
-		arg.Lim,
 	)
 	if err != nil {
 		return nil, err
@@ -372,6 +260,7 @@ type ListCounterEventsGroupedRow struct {
 	LastSeen   interface{} `db:"last_seen" json:"last_seen"`
 }
 
+// metaquery: off
 func (q *Queries) ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error) {
 	rows, err := q.db.Query(ctx, listCounterEventsGrouped,
 		arg.ProjectID,

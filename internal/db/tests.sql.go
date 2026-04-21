@@ -11,17 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countTests = `-- name: CountTests :one
-SELECT count(*) FROM zdx_tests WHERE project_id = $1
-`
-
-func (q *Queries) CountTests(ctx context.Context, projectID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countTests, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const deleteTest = `-- name: DeleteTest :exec
 DELETE FROM zdx_tests WHERE id = $1
 `
@@ -395,6 +384,7 @@ type ListSpecsWithoutDemosRow struct {
 	FeatureName string `db:"feature_name" json:"feature_name"`
 }
 
+// metaquery: off
 // Specs linked to tests but where none of those tests have demo artifacts.
 // Non-deferred specs only.
 func (q *Queries) ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error) {
@@ -495,6 +485,7 @@ type ListTestResultHistoryRow struct {
 	GitSha     string             `db:"git_sha" json:"git_sha"`
 }
 
+// metaquery: off
 func (q *Queries) ListTestResultHistory(ctx context.Context, arg ListTestResultHistoryParams) ([]ListTestResultHistoryRow, error) {
 	rows, err := q.db.Query(ctx, listTestResultHistory,
 		arg.ProjectID,
@@ -656,60 +647,6 @@ func (q *Queries) ListTestsForSpec(ctx context.Context, specID int32) ([]ListTes
 	var items []ListTestsForSpecRow
 	for rows.Next() {
 		var i ListTestsForSpecRow
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Component,
-			&i.Name,
-			&i.Layer,
-			&i.Status,
-			&i.DurationMs,
-			&i.LastRunAt,
-			&i.CreatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
-const listTestsPaginated = `-- name: ListTestsPaginated :many
-SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
-FROM zdx_tests WHERE project_id = $1 ORDER BY component, name
-LIMIT $2 OFFSET $3
-`
-
-type ListTestsPaginatedParams struct {
-	ProjectID int32 `db:"project_id" json:"project_id"`
-	Limit     int32 `db:"limit" json:"limit"`
-	Offset    int32 `db:"offset" json:"offset"`
-}
-
-type ListTestsPaginatedRow struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Component  string             `db:"component" json:"component"`
-	Name       string             `db:"name" json:"name"`
-	Layer      string             `db:"layer" json:"layer"`
-	Status     string             `db:"status" json:"status"`
-	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
-	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) ListTestsPaginated(ctx context.Context, arg ListTestsPaginatedParams) ([]ListTestsPaginatedRow, error) {
-	rows, err := q.db.Query(ctx, listTestsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ListTestsPaginatedRow
-	for rows.Next() {
-		var i ListTestsPaginatedRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,

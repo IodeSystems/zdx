@@ -25,15 +25,7 @@ FROM zdx_blocker_questions
 WHERE project_id = $1
 ORDER BY created_at DESC;
 
--- name: CountBlockerQuestions :one
-SELECT count(*) FROM zdx_blocker_questions WHERE project_id = $1;
 
--- name: ListBlockerQuestionsPaginated :many
-SELECT id, project_id, target_type, target_id, context, choices, answer, answered_by, status, created_at, answered_at
-FROM zdx_blocker_questions
-WHERE project_id = $1
-ORDER BY created_at DESC
-LIMIT $2 OFFSET $3;
 
 -- name: AnswerBlockerQuestion :exec
 UPDATE zdx_blocker_questions

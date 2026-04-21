@@ -11,17 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countPatterns = `-- name: CountPatterns :one
-SELECT count(*) FROM zdx_patterns WHERE project_id = $1
-`
-
-func (q *Queries) CountPatterns(ctx context.Context, projectID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countPatterns, projectID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const deletePattern = `-- name: DeletePattern :exec
 DELETE FROM zdx_patterns
 WHERE project_id = $1 AND id = $2
@@ -131,48 +120,6 @@ func (q *Queries) ListPatterns(ctx context.Context, projectID int32) ([]ZdxPatte
 	return items, nil
 }
 
-const listPatternsPaginated = `-- name: ListPatternsPaginated :many
-SELECT id, project_id, name, description, code_refs, created_at, updated_at
-FROM zdx_patterns
-WHERE project_id = $1
-ORDER BY name
-LIMIT $2 OFFSET $3
-`
-
-type ListPatternsPaginatedParams struct {
-	ProjectID int32 `db:"project_id" json:"project_id"`
-	Limit     int32 `db:"limit" json:"limit"`
-	Offset    int32 `db:"offset" json:"offset"`
-}
-
-func (q *Queries) ListPatternsPaginated(ctx context.Context, arg ListPatternsPaginatedParams) ([]ZdxPattern, error) {
-	rows, err := q.db.Query(ctx, listPatternsPaginated, arg.ProjectID, arg.Limit, arg.Offset)
-	if err != nil {
-		return nil, err
-	}
-	defer rows.Close()
-	var items []ZdxPattern
-	for rows.Next() {
-		var i ZdxPattern
-		if err := rows.Scan(
-			&i.ID,
-			&i.ProjectID,
-			&i.Name,
-			&i.Description,
-			&i.CodeRefs,
-			&i.CreatedAt,
-			&i.UpdatedAt,
-		); err != nil {
-			return nil, err
-		}
-		items = append(items, i)
-	}
-	if err := rows.Err(); err != nil {
-		return nil, err
-	}
-	return items, nil
-}
-
 const searchPatterns = `-- name: SearchPatterns :many
 SELECT id, project_id, name, description, code_refs, created_at, updated_at
 FROM zdx_patterns
@@ -188,6 +135,7 @@ type SearchPatternsParams struct {
 	Limit     int32       `db:"limit" json:"limit"`
 }
 
+// metaquery: off
 func (q *Queries) SearchPatterns(ctx context.Context, arg SearchPatternsParams) ([]ZdxPattern, error) {
 	rows, err := q.db.Query(ctx, searchPatterns, arg.ProjectID, arg.Column2, arg.Limit)
 	if err != nil {

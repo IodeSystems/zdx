@@ -2,13 +2,6 @@
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC;
 
--- name: CountIssues :one
-SELECT count(*) FROM zdx_issues WHERE project_id = $1;
-
--- name: ListIssuesPaginated :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
-FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
-LIMIT $2 OFFSET $3;
 
 -- name: ListOpenIssues :many
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
@@ -19,8 +12,7 @@ SELECT id, project_id, title, status, priority, component, context, created_at, 
 FROM zdx_issues
 WHERE project_id = @project_id
   AND (title ILIKE '%' || @query::text || '%' OR context ILIKE '%' || @query::text || '%')
-ORDER BY updated_at DESC
-LIMIT 20;
+ORDER BY updated_at DESC;
 
 -- name: GetIssue :one
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at
@@ -96,8 +88,7 @@ SELECT w.id, w.issue_id, i.title AS issue_title, w.agent, w.note, w.created_at
 FROM zdx_issue_work w
 JOIN zdx_issues i ON i.id = w.issue_id
 WHERE i.project_id = $1
-ORDER BY w.created_at DESC
-LIMIT 200;
+ORDER BY w.created_at DESC;
 
 -- name: ProjectStateSummary :one
 SELECT
@@ -109,19 +100,11 @@ SELECT
   (SELECT count(*) FROM zdx_blocker_questions q WHERE q.project_id = $1 AND q.status = 'pending') AS pending_blockers;
 
 -- name: TopPriorityOpenIssues :many
+-- metaquery: off
 SELECT id, title, priority
 FROM zdx_issues
 WHERE project_id = $1 AND status = 'open' AND priority != ''
 ORDER BY priority, created_at
 LIMIT 5;
 
--- name: CountWorklogForProject :one
-SELECT count(*) FROM zdx_issue_work w JOIN zdx_issues i ON i.id = w.issue_id WHERE i.project_id = $1;
 
--- name: ListWorklogForProjectPaginated :many
-SELECT w.id, w.issue_id, i.title AS issue_title, w.agent, w.note, w.created_at
-FROM zdx_issue_work w
-JOIN zdx_issues i ON i.id = w.issue_id
-WHERE i.project_id = $1
-ORDER BY w.created_at DESC
-LIMIT $2 OFFSET $3;

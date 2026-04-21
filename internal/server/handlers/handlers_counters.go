@@ -9,6 +9,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -47,14 +50,15 @@ func (h *Handler) registerCounterRoutes(api huma.API) {
 			if in.TagFilter != "" {
 				tagFilter = []byte(in.TagFilter)
 			}
-			total, _ := h.Q.CountCounted(ctx, db.CountCountedParams{ProjectID: pid, TagFilter: tagFilter})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListCountedPaginated(ctx, db.ListCountedPaginatedParams{ProjectID: pid, TagFilter: tagFilter, Lim: limit, Off: offset})
+			b := db.WrapListCounted(db.ListCountedParams{ProjectID: pid, TagFilter: tagFilter}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListCountedRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]CountedItem, len(rows))
-			for i, r := range rows {
+			out := make([]CountedItem, len(res.Data))
+			for i, r := range res.Data {
 				var avg int32
 				if r.Count > 0 {
 					avg = int32(r.TotalValue / int64(r.Count)) //nolint:gosec
@@ -74,7 +78,7 @@ func (h *Handler) registerCounterRoutes(api huma.API) {
 				Body: struct {
 					Items []CountedItem `json:"items"`
 					Total int64         `json:"total"`
-				}{Items: out, Total: total},
+				}{Items: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 
@@ -110,21 +114,20 @@ func (h *Handler) registerCounterRoutes(api huma.API) {
 			if in.TagFilter != "" {
 				tagFilter = []byte(in.TagFilter)
 			}
-			rows, err := h.Q.ListCountedGrouped(ctx, db.ListCountedGroupedParams{ProjectID: pid, TagFilter: tagFilter, GroupKey: in.GroupBy})
+			b := db.WrapListCountedGrouped(db.ListCountedParams{ProjectID: pid, TagFilter: tagFilter}, in.GroupBy)
+			res, err := mqpgx.Scan[db.ListCountedGroupedRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]CountedGroupedItem, len(rows))
-			for i, r := range rows {
-				gv, _ := r.GroupValue.(string)
-				maxVal, _ := r.MaxValue.(int32)
+			out := make([]CountedGroupedItem, len(res.Data))
+			for i, r := range res.Data {
 				var avg int32
 				if r.SumCount > 0 {
-					avg = int32(r.SumTotalValue / int64(r.SumCount)) //nolint:gosec
+					avg = int32(r.SumTotalValue / r.SumCount) //nolint:gosec
 				}
 				out[i] = CountedGroupedItem{
-					GroupValue: gv, EntryCount: r.EntryCount,
-					MaxValue: maxVal, SumTotalValue: r.SumTotalValue, SumCount: r.SumCount, AvgValue: avg,
+					GroupValue: r.GroupValue, EntryCount: int32(r.EntryCount),
+					MaxValue: r.MaxValue, SumTotalValue: r.SumTotalValue, SumCount: int32(r.SumCount), AvgValue: avg,
 				}
 			}
 			return &struct {
@@ -255,16 +258,16 @@ func (h *Handler) registerCounterRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			total, _ := h.Q.CountCounterEvents(ctx, db.CountCounterEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListCounterEvents(ctx, db.ListCounterEventsParams{
-				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, Lim: limit, Off: offset,
-			})
+			b := db.WrapListCounterEvents(db.ListCounterEventsParams{
+				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until,
+			}).ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxCounterEvent](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]CounterEventItem, len(rows))
-			for i, r := range rows {
+			out := make([]CounterEventItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = CounterEventItem{
 					ID: r.ID, Name: r.Name, Value: r.Value,
 					Source: r.Source, Component: r.Component, Environment: r.Environment,
@@ -280,7 +283,7 @@ func (h *Handler) registerCounterRoutes(api huma.API) {
 				Body: struct {
 					Items []CounterEventItem `json:"items"`
 					Total int64              `json:"total"`
-				}{Items: out, Total: total},
+				}{Items: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 

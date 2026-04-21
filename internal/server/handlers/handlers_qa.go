@@ -8,6 +8,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -124,14 +127,15 @@ func (h *Handler) registerQARoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			total, _ := h.Q.CountQuestions(ctx, p.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListQuestionsPaginated(ctx, db.ListQuestionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+			b := db.WrapListQuestions(p.ID).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxQuestion](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]QuestionItem, len(rows))
-			for i, r := range rows {
+			out := make([]QuestionItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = toQuestionItem(r)
 			}
 			return &struct {
@@ -143,7 +147,7 @@ func (h *Handler) registerQARoutes(api huma.API) {
 				Body: struct {
 					Questions []QuestionItem `json:"questions"`
 					Total     int64          `json:"total"`
-				}{Questions: out, Total: total},
+				}{Questions: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 
@@ -293,22 +297,31 @@ func (h *Handler) registerQARoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			var rows []db.ZdxBlockerQuestion
+			var out []BlockerQuestionItem
 			var total int64
 			if in.Status == "pending" {
-				rows, err = h.Q.ListPendingBlockerQuestions(ctx, p.ID)
+				rows, err := h.Q.ListPendingBlockerQuestions(ctx, p.ID)
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
 				total = int64(len(rows))
+				out = make([]BlockerQuestionItem, len(rows))
+				for i, r := range rows {
+					out[i] = toBlockerQuestionItem(r)
+				}
 			} else {
-				total, _ = h.Q.CountBlockerQuestions(ctx, p.ID)
 				limit, offset := parsePage(in.Limit, in.Offset)
-				rows, err = h.Q.ListBlockerQuestionsPaginated(ctx, db.ListBlockerQuestionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
-			}
-			if err != nil {
-				return nil, apiErr(500, err.Error())
-			}
-			out := make([]BlockerQuestionItem, len(rows))
-			for i, r := range rows {
-				out[i] = toBlockerQuestionItem(r)
+				b := db.WrapListBlockerQuestions(p.ID).
+					ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+				res, err := mqpgx.Scan[db.ZdxBlockerQuestion](ctx, h.Pool, b)
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				total = res.Meta.Pagination.Total
+				out = make([]BlockerQuestionItem, len(res.Data))
+				for i, r := range res.Data {
+					out[i] = toBlockerQuestionItem(r)
+				}
 			}
 			return &struct {
 				Body struct {

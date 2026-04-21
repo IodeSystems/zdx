@@ -13,6 +13,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/llm"
 )
@@ -105,14 +108,16 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt), TodoID: todoInt(r.TodoID), TodoText: todoStr(r.TodoText), TodoTargetType: todoStr(r.TodoTargetType), TodoTargetID: todoStr(r.TodoTargetID)}
 				}
 			} else {
-				total, _ = h.Q.CountClaudeSessions(ctx, p.ID)
 				limit, offset := parsePage(in.Limit, in.Offset)
-				rows, err := h.Q.ListClaudeSessionsPaginated(ctx, db.ListClaudeSessionsPaginatedParams{ProjectID: p.ID, Limit: limit, Offset: offset})
+				b := db.WrapListClaudeSessions(p.ID).
+					ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+				res, err := mqpgx.Scan[db.ListClaudeSessionsRow](ctx, h.Pool, b)
 				if err != nil {
 					return nil, apiErr(500, err.Error())
 				}
-				out = make([]ClaudeSessionItem, len(rows))
-				for i, r := range rows {
+				total = res.Meta.Pagination.Total
+				out = make([]ClaudeSessionItem, len(res.Data))
+				for i, r := range res.Data {
 					cnt, _ := h.Q.CountClaudeEvents(ctx, r.ID)
 					out[i] = ClaudeSessionItem{ID: r.ID, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Alias: r.Alias, Header: r.Header, Summary: r.Summary, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, cnt), EventCount: cnt, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt), TodoID: todoInt(r.TodoID), TodoText: todoStr(r.TodoText), TodoTargetType: todoStr(r.TodoTargetType), TodoTargetID: todoStr(r.TodoTargetID)}
 				}
@@ -187,18 +192,15 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "session not found")
 			}
-			total, _ := h.Q.CountClaudeEvents(ctx, sess.ID)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListClaudeEventsPaginated(ctx, db.ListClaudeEventsPaginatedParams{
-				SessionPk: sess.ID,
-				Limit:     limit,
-				Offset:    offset,
-			})
+			b := db.WrapListClaudeEvents(sess.ID).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxClaudeEvent](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]ClaudeEventItem, len(rows))
-			for i, r := range rows {
+			out := make([]ClaudeEventItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = ClaudeEventItem{
 					ID:               r.ID,
 					Seq:              r.Seq,
@@ -219,7 +221,7 @@ func (h *Handler) registerClaudeRoutes(api huma.API) {
 			}{Body: struct {
 				Events []ClaudeEventItem `json:"events"`
 				Total  int64             `json:"total"`
-			}{Events: out, Total: total}}, nil
+			}{Events: out, Total: res.Meta.Pagination.Total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "get-claude-session-token-usage", Method: http.MethodGet, Path: "/api/dx/claude/sessions/{sessionId}/token-usage"},

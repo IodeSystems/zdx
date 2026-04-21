@@ -11,17 +11,6 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
-const countDeploys = `-- name: CountDeploys :one
-SELECT count(*) FROM zdx_deploys WHERE environment_id = $1
-`
-
-func (q *Queries) CountDeploys(ctx context.Context, environmentID int32) (int64, error) {
-	row := q.db.QueryRow(ctx, countDeploys, environmentID)
-	var count int64
-	err := row.Scan(&count)
-	return count, err
-}
-
 const createDeploy = `-- name: CreateDeploy :one
 INSERT INTO zdx_deploys (environment_id, build_sha, build_branch, deployed_by_user_id, status)
 VALUES ($1, $2, $3, $4, $5)
@@ -130,17 +119,10 @@ func (q *Queries) GetEnvironment(ctx context.Context, arg GetEnvironmentParams) 
 const listDeploys = `-- name: ListDeploys :many
 SELECT id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status
 FROM zdx_deploys WHERE environment_id = $1 ORDER BY deployed_at DESC
-LIMIT $2 OFFSET $3
 `
 
-type ListDeploysParams struct {
-	EnvironmentID int32 `db:"environment_id" json:"environment_id"`
-	Limit         int32 `db:"limit" json:"limit"`
-	Offset        int32 `db:"offset" json:"offset"`
-}
-
-func (q *Queries) ListDeploys(ctx context.Context, arg ListDeploysParams) ([]ZdxDeploy, error) {
-	rows, err := q.db.Query(ctx, listDeploys, arg.EnvironmentID, arg.Limit, arg.Offset)
+func (q *Queries) ListDeploys(ctx context.Context, environmentID int32) ([]ZdxDeploy, error) {
+	rows, err := q.db.Query(ctx, listDeploys, environmentID)
 	if err != nil {
 		return nil, err
 	}

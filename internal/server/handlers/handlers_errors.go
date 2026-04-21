@@ -9,6 +9,9 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -59,14 +62,15 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 				return nil, err
 			}
 			pid := pgtype.Int4{Int32: p.ID, Valid: true}
-			total, _ := h.Q.CountErrorReports(ctx, pid)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListErrorReportsPaginated(ctx, db.ListErrorReportsPaginatedParams{ProjectID: pid, Limit: limit, Offset: offset})
+			b := db.WrapListErrorReports(pid).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxErrorReport](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]ErrorReportItem, len(rows))
-			for i, r := range rows {
+			out := make([]ErrorReportItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = ErrorReportItem{
 					ID:         r.ID,
 					Source:     r.Source,
@@ -84,7 +88,7 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 			}{Body: struct {
 				Errors []ErrorReportItem `json:"errors"`
 				Total  int64             `json:"total"`
-			}{Errors: out, Total: total}}, nil
+			}{Errors: out, Total: res.Meta.Pagination.Total}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "get-error", Method: http.MethodGet, Path: "/api/dx/errors/{id}"},
@@ -183,14 +187,15 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 				return nil, err
 			}
 			pid := pgtype.Int4{Int32: p.ID, Valid: true}
-			total, _ := h.Q.CountSlowQueries(ctx, pid)
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListSlowQueriesPaginated(ctx, db.ListSlowQueriesPaginatedParams{ProjectID: pid, Limit: limit, Offset: offset})
+			b := db.WrapListSlowQueries(pid).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxSlowQuery](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]SlowQueryItem, len(rows))
-			for i, r := range rows {
+			out := make([]SlowQueryItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = SlowQueryItem{
 					ID:          r.ID,
 					SqlHash:     r.SqlHash,
@@ -209,7 +214,7 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 			}{Body: struct {
 				Queries []SlowQueryItem `json:"queries"`
 				Total   int64           `json:"total"`
-			}{Queries: out, Total: total}}, nil
+			}{Queries: out, Total: res.Meta.Pagination.Total}}, nil
 		})
 
 	// ── Timed ─────────────────────────────────────────────────────────────────
@@ -248,14 +253,15 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 			if in.TagFilter != "" {
 				tagFilter = []byte(in.TagFilter)
 			}
-			total, _ := h.Q.CountTimed(ctx, db.CountTimedParams{ProjectID: pid, TagFilter: tagFilter})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListTimedPaginated(ctx, db.ListTimedPaginatedParams{ProjectID: pid, TagFilter: tagFilter, Lim: limit, Off: offset})
+			b := db.WrapListTimed(db.ListTimedParams{ProjectID: pid, TagFilter: tagFilter}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ListTimedRow](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]TimedItem, len(rows))
-			for i, r := range rows {
+			out := make([]TimedItem, len(res.Data))
+			for i, r := range res.Data {
 				var avg int32
 				if r.Count > 0 {
 					avg = int32(r.TotalMs / int64(r.Count)) //nolint:gosec
@@ -275,7 +281,7 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 				Body: struct {
 					Items []TimedItem `json:"items"`
 					Total int64       `json:"total"`
-				}{Items: out, Total: total},
+				}{Items: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 
@@ -456,16 +462,15 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 					until = pgtype.Timestamptz{Time: t, Valid: true}
 				}
 			}
-			total, _ := h.Q.CountTimedEvents(ctx, db.CountTimedEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until})
 			limit, offset := parsePage(in.Limit, in.Offset)
-			rows, err := h.Q.ListTimedEvents(ctx, db.ListTimedEventsParams{
-				ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until, Lim: limit, Off: offset,
-			})
+			b := db.WrapListTimedEvents(db.ListTimedEventsParams{ProjectID: pid, TagFilter: tagFilter, Since: since, Until: until}).
+				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			res, err := mqpgx.Scan[db.ZdxTimedEvent](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			out := make([]TimedEventItem, len(rows))
-			for i, r := range rows {
+			out := make([]TimedEventItem, len(res.Data))
+			for i, r := range res.Data {
 				out[i] = TimedEventItem{
 					ID: r.ID, Name: r.Name, DurationMs: r.DurationMs,
 					Source: r.Source, Component: r.Component, Environment: r.Environment,
@@ -481,7 +486,7 @@ func (h *Handler) registerErrorRoutes(api huma.API) {
 				Body: struct {
 					Items []TimedEventItem `json:"items"`
 					Total int64            `json:"total"`
-				}{Items: out, Total: total},
+				}{Items: out, Total: res.Meta.Pagination.Total},
 			}, nil
 		})
 

@@ -31,13 +31,6 @@ FROM zdx_tests WHERE project_id = @project_id AND id = @id;
 SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
 FROM zdx_tests WHERE project_id = $1 ORDER BY component, name;
 
--- name: CountTests :one
-SELECT count(*) FROM zdx_tests WHERE project_id = $1;
-
--- name: ListTestsPaginated :many
-SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
-FROM zdx_tests WHERE project_id = $1 ORDER BY component, name
-LIMIT $2 OFFSET $3;
 
 -- name: ListTestsByLayer :many
 SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
@@ -50,6 +43,7 @@ JOIN zdx_spec_tests st ON st.test_id = t.id
 WHERE st.spec_id = $1 ORDER BY t.component, t.name;
 
 -- name: ListTestResultHistory :many
+-- metaquery: off
 SELECT id, driver, test_name, status, duration_ms, run_at, branch, git_sha
 FROM zdx_test_result_history
 WHERE project_id = @project_id AND test_name = @test_name
@@ -149,6 +143,7 @@ WHERE t.project_id = $1
 ORDER BY td.demo_type, t.component, t.name;
 
 -- name: ListSpecsWithoutDemos :many
+-- metaquery: off
 -- Specs linked to tests but where none of those tests have demo artifacts.
 -- Non-deferred specs only.
 SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
