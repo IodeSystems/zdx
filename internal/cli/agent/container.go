@@ -50,9 +50,9 @@ func buildDevImage() (string, error) {
 
 // containerManager tracks running container names for cleanup.
 type containerManager struct {
-	imageTag    string
-	keepOnExit  bool
-	mu          sync.Mutex
+	imageTag     string
+	keepOnExit   bool
+	mu           sync.Mutex
 	containerIDs []string
 }
 

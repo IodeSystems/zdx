@@ -37,15 +37,15 @@ type ProposalVersionItem struct {
 
 func toProposalItem(p db.ZdxProposal) ProposalItem {
 	item := ProposalItem{
-		ID:        p.ID,
-		ProjectID: p.ProjectID,
-		Title:     p.Title,
-		Body:      p.Body,
+		ID:         p.ID,
+		ProjectID:  p.ProjectID,
+		Title:      p.Title,
+		Body:       p.Body,
 		SourceType: p.SourceType,
-		Status:    p.Status,
-		CreatedBy: p.CreatedBy,
-		CreatedAt: fmtTS(p.CreatedAt),
-		UpdatedAt: fmtTS(p.UpdatedAt),
+		Status:     p.Status,
+		CreatedBy:  p.CreatedBy,
+		CreatedAt:  fmtTS(p.CreatedAt),
+		UpdatedAt:  fmtTS(p.UpdatedAt),
 	}
 	if p.SourceRef.Valid {
 		item.SourceRef = &p.SourceRef.String
