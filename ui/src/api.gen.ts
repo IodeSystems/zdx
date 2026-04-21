@@ -2646,6 +2646,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/specs/blocker-resolved": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-specs-blocker-resolved"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/specs/defer": {
         parameters: {
             query?: never;
@@ -2656,6 +2672,70 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["defer-spec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/deferrals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-spec-deferrals"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/deferrals/add": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-spec-deferral"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/deferrals/remove": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["remove-spec-deferral"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/deferred": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-deferred-specs"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4324,6 +4404,19 @@ export interface components {
             question: string;
             slug: string;
         };
+        "Add-spec-deferralRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-spec-deferralRequest.json
+             */
+            readonly $schema?: string;
+            issue_id: string;
+            note?: string;
+            slug: string;
+            /** Format: int32 */
+            spec_id: number;
+        };
         "Add-task-commitRequest": {
             /**
              * Format: uri
@@ -5099,6 +5192,17 @@ export interface components {
             check_name: string;
             deferred_at: string;
             rung: string;
+        };
+        DeferredSpecItem: {
+            blockers: components["schemas"]["SpecDeferralItem"][] | null;
+            concern_type: string;
+            description: string;
+            /** Format: int32 */
+            feature_id: number;
+            feature_name: string;
+            /** Format: int32 */
+            id: number;
+            kind: string;
         };
         "Delete-code-refRequest": {
             /**
@@ -6215,6 +6319,15 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        "List-deferred-specsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-deferred-specsResponse.json
+             */
+            readonly $schema?: string;
+            specs: components["schemas"]["DeferredSpecItem"][] | null;
+        };
         "List-doctor-deferralsResponse": {
             /**
              * Format: uri
@@ -6559,6 +6672,15 @@ export interface components {
             readonly $schema?: string;
             offenders: components["schemas"]["SpecCloseGateOffender"][] | null;
         };
+        "List-spec-deferralsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-spec-deferralsResponse.json
+             */
+            readonly $schema?: string;
+            deferrals: components["schemas"]["SpecDeferralItem"][] | null;
+        };
         "List-spec-demosResponse": {
             /**
              * Format: uri
@@ -6576,6 +6698,15 @@ export interface components {
              */
             readonly $schema?: string;
             tests: components["schemas"]["SpecTestItem"][] | null;
+        };
+        "List-specs-blocker-resolvedResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-specs-blocker-resolvedResponse.json
+             */
+            readonly $schema?: string;
+            specs: components["schemas"]["UncoveredSpecItem"][] | null;
         };
         "List-specs-without-demosResponse": {
             /**
@@ -7319,6 +7450,17 @@ export interface components {
             issue: string;
             slug: string;
         };
+        "Remove-spec-deferralRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Remove-spec-deferralRequest.json
+             */
+            readonly $schema?: string;
+            issue_id: string;
+            /** Format: int32 */
+            spec_id: number;
+        };
         "Renew-issue-leaseRequest": {
             /**
              * Format: uri
@@ -7895,6 +8037,12 @@ export interface components {
             reason: string;
             /** Format: int32 */
             spec_id: number;
+        };
+        SpecDeferralItem: {
+            issue_id: string;
+            issue_status: string;
+            issue_title: string;
+            note: string;
         };
         SpecDemoItem: {
             /** Format: int32 */
@@ -14534,6 +14682,37 @@ export interface operations {
             };
         };
     };
+    "list-specs-blocker-resolved": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-specs-blocker-resolvedResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "defer-spec": {
         parameters: {
             query?: never;
@@ -14554,6 +14733,134 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-spec-deferrals": {
+        parameters: {
+            query: {
+                spec_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-spec-deferralsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-spec-deferral": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-spec-deferralRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "remove-spec-deferral": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Remove-spec-deferralRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-deferred-specs": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-deferred-specsResponse"];
                 };
             };
             /** @description Error */

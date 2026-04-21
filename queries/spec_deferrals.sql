@@ -21,6 +21,16 @@ JOIN zdx_issues i ON i.id = sd.issue_id
 WHERE i.status = 'open'
 ORDER BY s.id;
 
+-- name: ListDeferredSpecsWithFeatureForProject :many
+SELECT DISTINCT s.id, s.feature_id, f.name AS feature_name, s.description, s.kind, s.concern_type
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+JOIN zdx_spec_deferrals sd ON sd.spec_id = s.id
+JOIN zdx_issues i ON i.id = sd.issue_id
+WHERE f.project_id = @project_id
+  AND i.status = 'open'
+ORDER BY f.name, s.id;
+
 -- name: ListSpecsWithAllBlockersClosed :many
 SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
 FROM zdx_specs s

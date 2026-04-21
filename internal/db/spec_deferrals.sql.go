@@ -150,6 +150,53 @@ func (q *Queries) ListDeferredSpecs(ctx context.Context) ([]ListDeferredSpecsRow
 	return items, nil
 }
 
+const listDeferredSpecsWithFeatureForProject = `-- name: ListDeferredSpecsWithFeatureForProject :many
+SELECT DISTINCT s.id, s.feature_id, f.name AS feature_name, s.description, s.kind, s.concern_type
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+JOIN zdx_spec_deferrals sd ON sd.spec_id = s.id
+JOIN zdx_issues i ON i.id = sd.issue_id
+WHERE f.project_id = $1
+  AND i.status = 'open'
+ORDER BY f.name, s.id
+`
+
+type ListDeferredSpecsWithFeatureForProjectRow struct {
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	FeatureName string `db:"feature_name" json:"feature_name"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+	ConcernType string `db:"concern_type" json:"concern_type"`
+}
+
+func (q *Queries) ListDeferredSpecsWithFeatureForProject(ctx context.Context, projectID int32) ([]ListDeferredSpecsWithFeatureForProjectRow, error) {
+	rows, err := q.db.Query(ctx, listDeferredSpecsWithFeatureForProject, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDeferredSpecsWithFeatureForProjectRow
+	for rows.Next() {
+		var i ListDeferredSpecsWithFeatureForProjectRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FeatureID,
+			&i.FeatureName,
+			&i.Description,
+			&i.Kind,
+			&i.ConcernType,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSpecDeferrals = `-- name: ListSpecDeferrals :many
 SELECT sd.spec_id, sd.issue_id, sd.note, sd.created_at, i.title AS issue_title, i.status AS issue_status
 FROM zdx_spec_deferrals sd

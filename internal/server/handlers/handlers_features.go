@@ -364,6 +364,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 					ID:             spec.ID,
 					Description:    spec.Description,
 					Kind:           spec.Kind,
+					ConcernType:    spec.ConcernType,
 					Deferred:       spec.Deferred,
 					DeferredReason: spec.DeferredReason,
 				},
@@ -602,6 +603,135 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				}
 			}{Body: struct {
 				Specs []UncoveredSpecItem `json:"specs"`
+			}{Specs: out}}, nil
+		})
+
+	// ── Spec deferrals (issue-backed) ─────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "add-spec-deferral", Method: http.MethodPost, Path: "/api/dx/specs/deferrals/add"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				SpecID  int32  `json:"spec_id"`
+				IssueID string `json:"issue_id"`
+				Note    string `json:"note,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if _, err := h.Q.GetSpec(ctx, in.Body.SpecID); err != nil {
+				return nil, apiErr(http.StatusNotFound, fmt.Sprintf("spec not found: %d", in.Body.SpecID))
+			}
+			iss, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: in.Body.IssueID})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, fmt.Sprintf("issue not found: %s", in.Body.IssueID))
+			}
+			if iss.Status != "open" {
+				return nil, apiErr(http.StatusBadRequest, fmt.Sprintf("cannot defer to closed issue %s (status=%s) — deferrals only make sense for open work", in.Body.IssueID, iss.Status))
+			}
+			if err := h.Q.AddSpecDeferral(ctx, db.AddSpecDeferralParams{
+				SpecID:  in.Body.SpecID,
+				IssueID: in.Body.IssueID,
+				Note:    in.Body.Note,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "remove-spec-deferral", Method: http.MethodPost, Path: "/api/dx/specs/deferrals/remove"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				SpecID  int32  `json:"spec_id"`
+				IssueID string `json:"issue_id"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			if err := h.Q.RemoveSpecDeferral(ctx, db.RemoveSpecDeferralParams{
+				SpecID:  in.Body.SpecID,
+				IssueID: in.Body.IssueID,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-spec-deferrals", Method: http.MethodGet, Path: "/api/dx/specs/deferrals"},
+		func(ctx context.Context, in *struct {
+			SpecID int32 `query:"spec_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Deferrals []SpecDeferralItem `json:"deferrals"`
+			}
+		}, error) {
+			rows, err := h.Q.ListSpecDeferrals(ctx, in.SpecID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]SpecDeferralItem, len(rows))
+			for i, r := range rows {
+				out[i] = SpecDeferralItem{
+					IssueID:     r.IssueID,
+					IssueTitle:  r.IssueTitle,
+					IssueStatus: r.IssueStatus,
+					Note:        r.Note,
+				}
+			}
+			return &struct {
+				Body struct {
+					Deferrals []SpecDeferralItem `json:"deferrals"`
+				}
+			}{Body: struct {
+				Deferrals []SpecDeferralItem `json:"deferrals"`
+			}{Deferrals: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-deferred-specs", Method: http.MethodGet, Path: "/api/dx/specs/deferred"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Specs []DeferredSpecItem `json:"specs"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListDeferredSpecsWithFeatureForProject(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]DeferredSpecItem, 0, len(rows))
+			for _, r := range rows {
+				defRows, _ := h.Q.ListSpecDeferrals(ctx, r.ID)
+				blockers := make([]SpecDeferralItem, 0, len(defRows))
+				for _, d := range defRows {
+					if d.IssueStatus != "open" {
+						continue
+					}
+					blockers = append(blockers, SpecDeferralItem{
+						IssueID:     d.IssueID,
+						IssueTitle:  d.IssueTitle,
+						IssueStatus: d.IssueStatus,
+						Note:        d.Note,
+					})
+				}
+				out = append(out, DeferredSpecItem{
+					ID:          r.ID,
+					FeatureID:   r.FeatureID,
+					FeatureName: r.FeatureName,
+					Description: r.Description,
+					Kind:        r.Kind,
+					ConcernType: r.ConcernType,
+					Blockers:    blockers,
+				})
+			}
+			return &struct {
+				Body struct {
+					Specs []DeferredSpecItem `json:"specs"`
+				}
+			}{Body: struct {
+				Specs []DeferredSpecItem `json:"specs"`
 			}{Specs: out}}, nil
 		})
 

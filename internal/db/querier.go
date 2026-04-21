@@ -282,6 +282,7 @@ type Querier interface {
 	ListCounterEvents(ctx context.Context, arg ListCounterEventsParams) ([]ZdxCounterEvent, error)
 	ListCounterEventsGrouped(ctx context.Context, arg ListCounterEventsGroupedParams) ([]ListCounterEventsGroupedRow, error)
 	ListDeferredSpecs(ctx context.Context) ([]ListDeferredSpecsRow, error)
+	ListDeferredSpecsWithFeatureForProject(ctx context.Context, projectID int32) ([]ListDeferredSpecsWithFeatureForProjectRow, error)
 	// All demo artifacts in the project, joined to their owning test. file_id falls
 	// back to sibling rows sharing the same (demo_type, artifact_path) — see
 	// GetDemoByID for rationale.

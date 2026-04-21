@@ -185,6 +185,16 @@ type AddQuestionRequest struct {
 	Slug             string  `json:"slug"`
 }
 
+// AddSpecDeferralRequest defines model for Add-spec-deferralRequest.
+type AddSpecDeferralRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	IssueId string  `json:"issue_id"`
+	Note    *string `json:"note,omitempty"`
+	Slug    string  `json:"slug"`
+	SpecId  int32   `json:"spec_id"`
+}
+
 // AddTaskCommitRequest defines model for Add-task-commitRequest.
 type AddTaskCommitRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -810,6 +820,17 @@ type DeferralItem struct {
 	CheckName  string `json:"check_name"`
 	DeferredAt string `json:"deferred_at"`
 	Rung       string `json:"rung"`
+}
+
+// DeferredSpecItem defines model for DeferredSpecItem.
+type DeferredSpecItem struct {
+	Blockers    *[]SpecDeferralItem `json:"blockers"`
+	ConcernType string              `json:"concern_type"`
+	Description string              `json:"description"`
+	FeatureId   int32               `json:"feature_id"`
+	FeatureName string              `json:"feature_name"`
+	Id          int32               `json:"id"`
+	Kind        string              `json:"kind"`
 }
 
 // DeleteCodeRefRequest defines model for Delete-code-refRequest.
@@ -1711,6 +1732,13 @@ type ListCounterEventsResponse struct {
 	Total  int64               `json:"total"`
 }
 
+// ListDeferredSpecsResponse defines model for List-deferred-specsResponse.
+type ListDeferredSpecsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string             `json:"$schema,omitempty"`
+	Specs  *[]DeferredSpecItem `json:"specs"`
+}
+
 // ListDoctorDeferralsResponse defines model for List-doctor-deferralsResponse.
 type ListDoctorDeferralsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1971,6 +1999,13 @@ type ListSpecCloseGateOffendersResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema    *string                  `json:"$schema,omitempty"`
 	Offenders *[]SpecCloseGateOffender `json:"offenders"`
+}
+
+// ListSpecDeferralsResponse defines model for List-spec-deferralsResponse.
+type ListSpecDeferralsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string             `json:"$schema,omitempty"`
+	Deferrals *[]SpecDeferralItem `json:"deferrals"`
 }
 
 // ListSpecDemosResponse defines model for List-spec-demosResponse.
@@ -2583,6 +2618,14 @@ type RemoveFocusBlockerRequest struct {
 	Slug   string  `json:"slug"`
 }
 
+// RemoveSpecDeferralRequest defines model for Remove-spec-deferralRequest.
+type RemoveSpecDeferralRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	IssueId string  `json:"issue_id"`
+	SpecId  int32   `json:"spec_id"`
+}
+
 // RenewIssueLeaseRequest defines model for Renew-issue-leaseRequest.
 type RenewIssueLeaseRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3058,6 +3101,14 @@ type SpecCloseGateOffender struct {
 	Feature     string `json:"feature"`
 	Reason      string `json:"reason"`
 	SpecId      int32  `json:"spec_id"`
+}
+
+// SpecDeferralItem defines model for SpecDeferralItem.
+type SpecDeferralItem struct {
+	IssueId     string `json:"issue_id"`
+	IssueStatus string `json:"issue_status"`
+	IssueTitle  string `json:"issue_title"`
+	Note        string `json:"note"`
 }
 
 // SpecDemoItem defines model for SpecDemoItem.
@@ -4127,6 +4178,16 @@ type ListSpecsBlockerResolvedParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// ListSpecDeferralsParams defines parameters for ListSpecDeferrals.
+type ListSpecDeferralsParams struct {
+	SpecId int32 `form:"spec_id" json:"spec_id"`
+}
+
+// ListDeferredSpecsParams defines parameters for ListDeferredSpecs.
+type ListDeferredSpecsParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
 // ListSpecsWithoutDemosParams defines parameters for ListSpecsWithoutDemos.
 type ListSpecsWithoutDemosParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -4645,6 +4706,12 @@ type SoloRenewJSONRequestBody = SoloRenewRequest
 
 // DeferSpecJSONRequestBody defines body for DeferSpec for application/json ContentType.
 type DeferSpecJSONRequestBody = DeferSpecRequest
+
+// AddSpecDeferralJSONRequestBody defines body for AddSpecDeferral for application/json ContentType.
+type AddSpecDeferralJSONRequestBody = AddSpecDeferralRequest
+
+// RemoveSpecDeferralJSONRequestBody defines body for RemoveSpecDeferral for application/json ContentType.
+type RemoveSpecDeferralJSONRequestBody = RemoveSpecDeferralRequest
 
 // DeleteSpecJSONRequestBody defines body for DeleteSpec for application/json ContentType.
 type DeleteSpecJSONRequestBody = DeleteSpecRequest
@@ -5609,6 +5676,22 @@ type ClientInterface interface {
 	DeferSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	DeferSpec(ctx context.Context, body DeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSpecDeferrals request
+	ListSpecDeferrals(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddSpecDeferralWithBody request with any body
+	AddSpecDeferralWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddSpecDeferral(ctx context.Context, body AddSpecDeferralJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// RemoveSpecDeferralWithBody request with any body
+	RemoveSpecDeferralWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RemoveSpecDeferral(ctx context.Context, body RemoveSpecDeferralJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDeferredSpecs request
+	ListDeferredSpecs(ctx context.Context, params *ListDeferredSpecsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteSpecWithBody request with any body
 	DeleteSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9251,6 +9334,78 @@ func (c *APIClient) DeferSpecWithBody(ctx context.Context, contentType string, b
 
 func (c *APIClient) DeferSpec(ctx context.Context, body DeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewDeferSpecRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListSpecDeferrals(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSpecDeferralsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AddSpecDeferralWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddSpecDeferralRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AddSpecDeferral(ctx context.Context, body AddSpecDeferralJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddSpecDeferralRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) RemoveSpecDeferralWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveSpecDeferralRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) RemoveSpecDeferral(ctx context.Context, body RemoveSpecDeferralJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRemoveSpecDeferralRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListDeferredSpecs(ctx context.Context, params *ListDeferredSpecsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDeferredSpecsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -20734,6 +20889,176 @@ func NewDeferSpecRequestWithBody(server string, contentType string, body io.Read
 	return req, nil
 }
 
+// NewListSpecDeferralsRequest generates requests for ListSpecDeferrals
+func NewListSpecDeferralsRequest(server string, params *ListSpecDeferralsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/deferrals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "spec_id", params.SpecId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddSpecDeferralRequest calls the generic AddSpecDeferral builder with application/json body
+func NewAddSpecDeferralRequest(server string, body AddSpecDeferralJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddSpecDeferralRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAddSpecDeferralRequestWithBody generates requests for AddSpecDeferral with any type of body
+func NewAddSpecDeferralRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/deferrals/add")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewRemoveSpecDeferralRequest calls the generic RemoveSpecDeferral builder with application/json body
+func NewRemoveSpecDeferralRequest(server string, body RemoveSpecDeferralJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRemoveSpecDeferralRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewRemoveSpecDeferralRequestWithBody generates requests for RemoveSpecDeferral with any type of body
+func NewRemoveSpecDeferralRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/deferrals/remove")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListDeferredSpecsRequest generates requests for ListDeferredSpecs
+func NewListDeferredSpecsRequest(server string, params *ListDeferredSpecsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/deferred")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteSpecRequest calls the generic DeleteSpec builder with application/json body
 func NewDeleteSpecRequest(server string, body DeleteSpecJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -26434,6 +26759,22 @@ type ClientWithResponsesInterface interface {
 
 	DeferSpecWithResponse(ctx context.Context, body DeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*DeferSpecResponse, error)
 
+	// ListSpecDeferralsWithResponse request
+	ListSpecDeferralsWithResponse(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*ParsedListSpecDeferralsResponse, error)
+
+	// AddSpecDeferralWithBodyWithResponse request with any body
+	AddSpecDeferralWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddSpecDeferralResponse, error)
+
+	AddSpecDeferralWithResponse(ctx context.Context, body AddSpecDeferralJSONRequestBody, reqEditors ...RequestEditorFn) (*AddSpecDeferralResponse, error)
+
+	// RemoveSpecDeferralWithBodyWithResponse request with any body
+	RemoveSpecDeferralWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveSpecDeferralResponse, error)
+
+	RemoveSpecDeferralWithResponse(ctx context.Context, body RemoveSpecDeferralJSONRequestBody, reqEditors ...RequestEditorFn) (*RemoveSpecDeferralResponse, error)
+
+	// ListDeferredSpecsWithResponse request
+	ListDeferredSpecsWithResponse(ctx context.Context, params *ListDeferredSpecsParams, reqEditors ...RequestEditorFn) (*ParsedListDeferredSpecsResponse, error)
+
 	// DeleteSpecWithBodyWithResponse request with any body
 	DeleteSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteSpecResponse, error)
 
@@ -31012,10 +31353,10 @@ func (r ParsedSoloListReservationsResponse) StatusCode() int {
 }
 
 type ParsedListSpecsBlockerResolvedResponse struct {
-	Body         []byte
-	HTTPResponse *http.Response
-	JSON200      *ListSpecsBlockerResolvedResponse
-	JSONDefault  *ErrorDetail
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListSpecsBlockerResolvedResponse
+	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
@@ -31051,6 +31392,98 @@ func (r DeferSpecResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r DeferSpecResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListSpecDeferralsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListSpecDeferralsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListSpecDeferralsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListSpecDeferralsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AddSpecDeferralResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AddSpecDeferralResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddSpecDeferralResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type RemoveSpecDeferralResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r RemoveSpecDeferralResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RemoveSpecDeferralResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListDeferredSpecsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListDeferredSpecsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListDeferredSpecsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListDeferredSpecsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -35611,6 +36044,58 @@ func (c *ClientWithResponses) DeferSpecWithResponse(ctx context.Context, body De
 		return nil, err
 	}
 	return ParseDeferSpecResponse(rsp)
+}
+
+// ListSpecDeferralsWithResponse request returning *ParsedListSpecDeferralsResponse
+func (c *ClientWithResponses) ListSpecDeferralsWithResponse(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*ParsedListSpecDeferralsResponse, error) {
+	rsp, err := c.ListSpecDeferrals(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListSpecDeferralsResponse(rsp)
+}
+
+// AddSpecDeferralWithBodyWithResponse request with arbitrary body returning *AddSpecDeferralResponse
+func (c *ClientWithResponses) AddSpecDeferralWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddSpecDeferralResponse, error) {
+	rsp, err := c.AddSpecDeferralWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddSpecDeferralResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddSpecDeferralWithResponse(ctx context.Context, body AddSpecDeferralJSONRequestBody, reqEditors ...RequestEditorFn) (*AddSpecDeferralResponse, error) {
+	rsp, err := c.AddSpecDeferral(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddSpecDeferralResponse(rsp)
+}
+
+// RemoveSpecDeferralWithBodyWithResponse request with arbitrary body returning *RemoveSpecDeferralResponse
+func (c *ClientWithResponses) RemoveSpecDeferralWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RemoveSpecDeferralResponse, error) {
+	rsp, err := c.RemoveSpecDeferralWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveSpecDeferralResponse(rsp)
+}
+
+func (c *ClientWithResponses) RemoveSpecDeferralWithResponse(ctx context.Context, body RemoveSpecDeferralJSONRequestBody, reqEditors ...RequestEditorFn) (*RemoveSpecDeferralResponse, error) {
+	rsp, err := c.RemoveSpecDeferral(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRemoveSpecDeferralResponse(rsp)
+}
+
+// ListDeferredSpecsWithResponse request returning *ParsedListDeferredSpecsResponse
+func (c *ClientWithResponses) ListDeferredSpecsWithResponse(ctx context.Context, params *ListDeferredSpecsParams, reqEditors ...RequestEditorFn) (*ParsedListDeferredSpecsResponse, error) {
+	rsp, err := c.ListDeferredSpecs(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListDeferredSpecsResponse(rsp)
 }
 
 // DeleteSpecWithBodyWithResponse request with arbitrary body returning *DeleteSpecResponse
@@ -42889,11 +43374,11 @@ func ParseParsedListSpecsBlockerResolvedResponse(rsp *http.Response) (*ParsedLis
 		response.JSON200 = &dest
 
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorDetail
+		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
-		response.JSONDefault = &dest
+		response.ApplicationproblemJSONDefault = &dest
 
 	}
 
@@ -42916,6 +43401,138 @@ func ParseDeferSpecResponse(rsp *http.Response) (*DeferSpecResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListSpecDeferralsResponse parses an HTTP response from a ListSpecDeferralsWithResponse call
+func ParseParsedListSpecDeferralsResponse(rsp *http.Response) (*ParsedListSpecDeferralsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListSpecDeferralsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListSpecDeferralsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddSpecDeferralResponse parses an HTTP response from a AddSpecDeferralWithResponse call
+func ParseAddSpecDeferralResponse(rsp *http.Response) (*AddSpecDeferralResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddSpecDeferralResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseRemoveSpecDeferralResponse parses an HTTP response from a RemoveSpecDeferralWithResponse call
+func ParseRemoveSpecDeferralResponse(rsp *http.Response) (*RemoveSpecDeferralResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RemoveSpecDeferralResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListDeferredSpecsResponse parses an HTTP response from a ListDeferredSpecsWithResponse call
+func ParseParsedListDeferredSpecsResponse(rsp *http.Response) (*ParsedListDeferredSpecsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListDeferredSpecsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListDeferredSpecsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

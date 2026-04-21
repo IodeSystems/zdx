@@ -99,6 +99,23 @@ type SpecIssueItem struct {
 	Status  string `json:"status"`
 }
 
+type SpecDeferralItem struct {
+	IssueID     string `json:"issue_id"`
+	IssueTitle  string `json:"issue_title"`
+	IssueStatus string `json:"issue_status"`
+	Note        string `json:"note"`
+}
+
+type DeferredSpecItem struct {
+	ID          int32              `json:"id"`
+	FeatureID   int32              `json:"feature_id"`
+	FeatureName string             `json:"feature_name"`
+	Description string             `json:"description"`
+	Kind        string             `json:"kind"`
+	ConcernType string             `json:"concern_type"`
+	Blockers    []SpecDeferralItem `json:"blockers"`
+}
+
 type SpecTestItem struct {
 	ID        int32  `json:"id"`
 	Component string `json:"component"`
