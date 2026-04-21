@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
@@ -10,6 +11,7 @@ import (
 	"net/http"
 	"net/url"
 	"os"
+	"strings"
 
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
@@ -235,6 +237,57 @@ func (c *Client) DoJSON(method, path string, body any, out any) error {
 	}
 	defer resp.Body.Close()
 	return c.checkResp(resp, out)
+}
+
+// PostStreamSSE POSTs a JSON body and consumes a text/event-stream response,
+// invoking onEvent for each parsed `data:` payload. The callback may return an
+// error to stop consumption early.
+func (c *Client) PostStreamSSE(ctx context.Context, path string, body any, onEvent func(raw []byte) error) error {
+	b, err := json.Marshal(body)
+	if err != nil {
+		return err
+	}
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.base+path, bytes.NewReader(b))
+	if err != nil {
+		return err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	if c.token != "" {
+		req.Header.Set("X-Api-Key", c.token)
+	}
+	attachAttributionHeaders(req)
+
+	resp, err := c.http.Do(req)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode >= 400 {
+		data, _ := io.ReadAll(resp.Body)
+		return c.CheckStatus(resp.StatusCode, data)
+	}
+
+	reader := bufio.NewReader(resp.Body)
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) > 0 {
+			line = strings.TrimRight(line, "\r\n")
+			if strings.HasPrefix(line, "data: ") {
+				payload := strings.TrimPrefix(line, "data: ")
+				if cbErr := onEvent([]byte(payload)); cbErr != nil {
+					return cbErr
+				}
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				return nil
+			}
+			return err
+		}
+	}
 }
 
 func (c *Client) checkResp(resp *http.Response, out any) error {

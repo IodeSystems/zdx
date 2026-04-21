@@ -182,6 +182,16 @@ func (e *embedder) Complete(ctx context.Context, messages []llm.ChatMessage) (st
 	return c.Complete(ctx, messages)
 }
 
+func (e *embedder) StreamComplete(ctx context.Context, messages []llm.ChatMessage, onDelta func(string)) (string, error) {
+	e.mu.RLock()
+	c := e.client
+	e.mu.RUnlock()
+	if c == nil {
+		return "", fmt.Errorf("no LLM client configured")
+	}
+	return c.StreamChatCompletion(ctx, messages, onDelta)
+}
+
 // topNQuestions returns up to n questions most similar to queryText.
 func (e *embedder) TopNQuestions(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
 	vec, err := e.embed(ctx, queryText)

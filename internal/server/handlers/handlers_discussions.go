@@ -2,11 +2,15 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/go-chi/chi/v5"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/llm"
 )
 
 type DiscussionItem struct {
@@ -231,4 +235,104 @@ func (h *Handler) registerDiscussionRoutes(api huma.API) {
 			}
 			return &struct{ Body DiscussionMessageItem }{Body: toDiscussionMessageItem(m)}, nil
 		})
+
+	// Streaming LLM send: accepts a user message, persists it, calls the LLM
+	// with the full message history for continuity, streams assistant deltas
+	// back as SSE, and persists the final assistant turn. OpenAI-compatible
+	// endpoints are stateless — continuity is supplied by sending history, not
+	// by reading claude_session_id / openai_thread_id (those columns remain
+	// available for a future Anthropic-native integration).
+	h.Mux.Post("/api/dx/discussions/{id}/messages/send", h.handleDiscussionSendStream)
+}
+
+func (h *Handler) handleDiscussionSendStream(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	idStr := chi.URLParam(r, "id")
+	id64, err := strconv.ParseInt(idStr, 10, 32)
+	if err != nil {
+		http.Error(w, `{"title":"Bad Request","detail":"invalid id"}`, http.StatusBadRequest)
+		return
+	}
+	id := int32(id64)
+
+	var body struct {
+		Slug    string `json:"slug"`
+		Message string `json:"message"`
+	}
+	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
+		http.Error(w, `{"title":"Bad Request","detail":"invalid json"}`, http.StatusBadRequest)
+		return
+	}
+	if body.Slug == "" || body.Message == "" {
+		http.Error(w, `{"title":"Bad Request","detail":"slug and message required"}`, http.StatusBadRequest)
+		return
+	}
+
+	p, err := getProject(ctx, h.Q, body.Slug)
+	if err != nil {
+		http.Error(w, `{"title":"Not Found","detail":"project not found"}`, http.StatusNotFound)
+		return
+	}
+	if _, err := h.Q.GetDiscussion(ctx, db.GetDiscussionParams{ProjectID: p.ID, ID: id}); err != nil {
+		http.Error(w, `{"title":"Not Found","detail":"discussion not found"}`, http.StatusNotFound)
+		return
+	}
+
+	// Persist user turn before invoking the model so partial failures still
+	// leave the user message recorded.
+	if _, err := h.Q.CreateDiscussionMessage(ctx, db.CreateDiscussionMessageParams{
+		DiscussionID: id,
+		Role:         "user",
+		Content:      body.Message,
+	}); err != nil {
+		http.Error(w, `{"title":"Internal Server Error","detail":"persist user message"}`, http.StatusInternalServerError)
+		return
+	}
+
+	history, err := h.Q.ListDiscussionMessages(ctx, id)
+	if err != nil {
+		http.Error(w, `{"title":"Internal Server Error","detail":"load history"}`, http.StatusInternalServerError)
+		return
+	}
+	messages := make([]llm.ChatMessage, 0, len(history))
+	for _, m := range history {
+		messages = append(messages, llm.ChatMessage{Role: m.Role, Content: m.Content})
+	}
+
+	w.Header().Set("Content-Type", "text/event-stream")
+	w.Header().Set("Cache-Control", "no-cache")
+	w.Header().Set("Connection", "keep-alive")
+	w.Header().Set("X-Accel-Buffering", "no")
+	w.WriteHeader(http.StatusOK)
+
+	flusher, _ := w.(http.Flusher)
+	writeSSE := func(obj any) {
+		b, _ := json.Marshal(obj)
+		_, _ = w.Write([]byte("data: "))
+		_, _ = w.Write(b)
+		_, _ = w.Write([]byte("\n\n"))
+		if flusher != nil {
+			flusher.Flush()
+		}
+	}
+
+	final, llmErr := h.Emb.StreamComplete(ctx, messages, func(delta string) {
+		writeSSE(map[string]string{"delta": delta})
+	})
+	if llmErr != nil {
+		writeSSE(map[string]string{"error": llmErr.Error()})
+		return
+	}
+
+	m, err := h.Q.CreateDiscussionMessage(ctx, db.CreateDiscussionMessageParams{
+		DiscussionID: id,
+		Role:         "assistant",
+		Content:      final,
+	})
+	if err != nil {
+		writeSSE(map[string]string{"error": "persist assistant: " + err.Error()})
+		return
+	}
+	writeSSE(map[string]any{"done": true, "message_id": m.ID})
 }

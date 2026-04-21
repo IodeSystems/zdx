@@ -1,10 +1,12 @@
 package llm
 
 import (
+	"bufio"
 	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
 	"strings"
 	"time"
@@ -149,4 +151,83 @@ func (c *Client) ChatCompletion(ctx context.Context, req *ChatRequest) (*ChatRes
 		FinishReason: ch.FinishReason,
 		Usage:        parsed.Usage,
 	}, nil
+}
+
+// StreamChatCompletion POSTs to /v1/chat/completions with stream:true, parses
+// SSE chunks, invokes onDelta for each content delta, and returns the
+// accumulated assistant content. Provider-side session continuity is achieved
+// by sending the full message history; OpenAI-compatible endpoints do not
+// expose a session/thread identifier on streamed responses.
+func (c *Client) StreamChatCompletion(ctx context.Context, messages []ChatMessage, onDelta func(string)) (string, error) {
+	u := strings.TrimRight(c.cfg.URL, "/") + "/v1/chat/completions"
+
+	body, err := json.Marshal(map[string]any{
+		"model":    c.cfg.Model,
+		"messages": messages,
+		"stream":   true,
+	})
+	if err != nil {
+		return "", err
+	}
+
+	req, err := http.NewRequestWithContext(ctx, http.MethodPost, u, bytes.NewReader(body))
+	if err != nil {
+		return "", err
+	}
+	req.Header.Set("Content-Type", "application/json")
+	req.Header.Set("Accept", "text/event-stream")
+	if c.cfg.APIKey != "" {
+		req.Header.Set("Authorization", "Bearer "+c.cfg.APIKey)
+	}
+
+	client := &http.Client{Timeout: 0}
+	resp, err := client.Do(req)
+	if err != nil {
+		return "", fmt.Errorf("llm: stream request: %w", err)
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		b, _ := io.ReadAll(resp.Body)
+		return "", fmt.Errorf("llm: stream %s: %s", resp.Status, strings.TrimSpace(string(b)))
+	}
+
+	var acc strings.Builder
+	reader := bufio.NewReader(resp.Body)
+	for {
+		line, err := reader.ReadString('\n')
+		if len(line) > 0 {
+			line = strings.TrimRight(line, "\r\n")
+			if strings.HasPrefix(line, "data: ") {
+				payload := strings.TrimPrefix(line, "data: ")
+				if payload == "[DONE]" {
+					return acc.String(), nil
+				}
+				var chunk struct {
+					Choices []struct {
+						Delta struct {
+							Content string `json:"content"`
+						} `json:"delta"`
+					} `json:"choices"`
+				}
+				if jerr := json.Unmarshal([]byte(payload), &chunk); jerr != nil {
+					continue
+				}
+				for _, ch := range chunk.Choices {
+					if ch.Delta.Content != "" {
+						acc.WriteString(ch.Delta.Content)
+						if onDelta != nil {
+							onDelta(ch.Delta.Content)
+						}
+					}
+				}
+			}
+		}
+		if err != nil {
+			if err == io.EOF {
+				return acc.String(), nil
+			}
+			return acc.String(), fmt.Errorf("llm: stream read: %w", err)
+		}
+	}
 }

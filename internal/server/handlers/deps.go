@@ -49,6 +49,7 @@ type Embedder interface {
 	TopNTasks(ctx context.Context, projectID int32, query string, n int) ([]zvec.SearchResult, error)
 	TopNPatterns(ctx context.Context, projectID int32, query string, n int) ([]zvec.SearchResult, error)
 	Complete(ctx context.Context, messages []llm.ChatMessage) (string, error)
+	StreamComplete(ctx context.Context, messages []llm.ChatMessage, onDelta func(string)) (string, error)
 	Reload(cfg *llm.Config)
 }
 
