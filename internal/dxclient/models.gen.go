@@ -55,6 +55,15 @@ type AddCommentRequest struct {
 	TargetType  string  `json:"target_type"`
 }
 
+// AddDiscussionMessageRequest defines model for Add-discussion-messageRequest.
+type AddDiscussionMessageRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	Content string  `json:"content"`
+	Role    string  `json:"role"`
+	Slug    string  `json:"slug"`
+}
+
 // AddFocusBlockerRequest defines model for Add-focus-blockerRequest.
 type AddFocusBlockerRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -105,10 +114,11 @@ type AddIssueResponse struct {
 	Features        string             `json:"features"`
 
 	// Id Server integer ID; CLI formats as IS-N
-	Id        int32   `json:"id"`
-	IssueType string  `json:"issue_type"`
-	LinkOf    *string `json:"link_of,omitempty"`
-	Priority  string  `json:"priority"`
+	Id              int32   `json:"id"`
+	InteractiveOnly *bool   `json:"interactive_only,omitempty"`
+	IssueType       string  `json:"issue_type"`
+	LinkOf          *string `json:"link_of,omitempty"`
+	Priority        string  `json:"priority"`
 
 	// ReopenCount Number of times this issue has been reopened — a churn signal for stabilization candidates
 	ReopenCount *int32              `json:"reopen_count,omitempty"`
@@ -511,24 +521,26 @@ type ClaudeEventItem struct {
 // ClaudeSessionItem defines model for ClaudeSessionItem.
 type ClaudeSessionItem struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema         *string `json:"$schema,omitempty"`
-	Alias          string  `json:"alias"`
-	ClosedAt       *string `json:"closed_at,omitempty"`
-	CreatedAt      string  `json:"created_at"`
-	EventCount     int64   `json:"event_count"`
-	Header         string  `json:"header"`
-	Id             int64   `json:"id"`
-	IssueId        string  `json:"issue_id"`
-	Lifecycle      string  `json:"lifecycle"`
-	SessionId      string  `json:"session_id"`
-	Status         string  `json:"status"`
-	Summary        string  `json:"summary"`
-	Title          string  `json:"title"`
-	TodoId         *int32  `json:"todo_id,omitempty"`
-	TodoTargetId   *string `json:"todo_target_id,omitempty"`
-	TodoTargetType *string `json:"todo_target_type,omitempty"`
-	TodoText       *string `json:"todo_text,omitempty"`
-	UpdatedAt      string  `json:"updated_at"`
+	Schema          *string `json:"$schema,omitempty"`
+	Alias           string  `json:"alias"`
+	ClosedAt        *string `json:"closed_at,omitempty"`
+	CreatedAt       string  `json:"created_at"`
+	EventCount      int64   `json:"event_count"`
+	Header          string  `json:"header"`
+	Id              int64   `json:"id"`
+	IssueId         string  `json:"issue_id"`
+	Lifecycle       string  `json:"lifecycle"`
+	SessionId       string  `json:"session_id"`
+	Status          string  `json:"status"`
+	Summary         string  `json:"summary"`
+	Title           string  `json:"title"`
+	TodoDescription *string `json:"todo_description,omitempty"`
+	TodoId          *int32  `json:"todo_id,omitempty"`
+	TodoTargetId    *string `json:"todo_target_id,omitempty"`
+	TodoTargetType  *string `json:"todo_target_type,omitempty"`
+	TodoText        *string `json:"todo_text,omitempty"`
+	TodoTitle       *string `json:"todo_title,omitempty"`
+	UpdatedAt       string  `json:"updated_at"`
 }
 
 // ClientItem defines model for ClientItem.
@@ -705,6 +717,16 @@ type CreateConstraintRequest struct {
 	Title       string  `json:"title"`
 }
 
+// CreateDiscussionRequest defines model for Create-discussionRequest.
+type CreateDiscussionRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string `json:"$schema,omitempty"`
+	CreatedBy *string `json:"created_by,omitempty"`
+	Provider  *string `json:"provider,omitempty"`
+	Slug      string  `json:"slug"`
+	Title     string  `json:"title"`
+}
+
 // CreateEnvironmentDeployRequest defines model for Create-environment-deployRequest.
 type CreateEnvironmentDeployRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -805,14 +827,6 @@ type DeferDoctorCheckRequest struct {
 	CheckName string  `json:"check_name"`
 	Rung      *string `json:"rung,omitempty"`
 	Slug      string  `json:"slug"`
-}
-
-// DeferSpecRequest defines model for Defer-specRequest.
-type DeferSpecRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Reason string  `json:"reason"`
-	SpecId int32   `json:"spec_id"`
 }
 
 // DeferralItem defines model for DeferralItem.
@@ -970,6 +984,32 @@ type DetachCodeRefFromTestRequest struct {
 	CodeRefId int32   `json:"code_ref_id"`
 	Slug      string  `json:"slug"`
 	TestId    int32   `json:"test_id"`
+}
+
+// DiscussionItem defines model for DiscussionItem.
+type DiscussionItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	CreatedAt    string  `json:"created_at"`
+	CreatedBy    string  `json:"created_by"`
+	Id           int32   `json:"id"`
+	MessageCount int64   `json:"message_count"`
+	ProjectId    int32   `json:"project_id"`
+	Provider     string  `json:"provider"`
+	Status       string  `json:"status"`
+	Title        string  `json:"title"`
+	UpdatedAt    string  `json:"updated_at"`
+}
+
+// DiscussionMessageItem defines model for DiscussionMessageItem.
+type DiscussionMessageItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	Content      string  `json:"content"`
+	CreatedAt    string  `json:"created_at"`
+	DiscussionId int32   `json:"discussion_id"`
+	Id           int32   `json:"id"`
+	Role         string  `json:"role"`
 }
 
 // EditIssueRequest defines model for Edit-issueRequest.
@@ -1739,6 +1779,20 @@ type ListDeferredSpecsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string             `json:"$schema,omitempty"`
 	Specs  *[]DeferredSpecItem `json:"specs"`
+}
+
+// ListDiscussionMessagesResponse defines model for List-discussion-messagesResponse.
+type ListDiscussionMessagesResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string                  `json:"$schema,omitempty"`
+	Messages *[]DiscussionMessageItem `json:"messages"`
+}
+
+// ListDiscussionsResponse defines model for List-discussionsResponse.
+type ListDiscussionsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string           `json:"$schema,omitempty"`
+	Discussions *[]DiscussionItem `json:"discussions"`
 }
 
 // ListDoctorDeferralsResponse defines model for List-doctor-deferralsResponse.
@@ -3030,6 +3084,7 @@ type SoloClaimRequest struct {
 	Schema       *string `json:"$schema,omitempty"`
 	AgentId      string  `json:"agent_id"`
 	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
+	Mode         *string `json:"mode,omitempty"`
 	Slug         string  `json:"slug"`
 }
 
@@ -3148,12 +3203,10 @@ type SpecIssueItem struct {
 
 // SpecItem defines model for SpecItem.
 type SpecItem struct {
-	ConcernType    string `json:"concern_type"`
-	Deferred       bool   `json:"deferred"`
-	DeferredReason string `json:"deferred_reason"`
-	Description    string `json:"description"`
-	Id             int32  `json:"id"`
-	Kind           string `json:"kind"`
+	ConcernType string `json:"concern_type"`
+	Description string `json:"description"`
+	Id          int32  `json:"id"`
+	Kind        string `json:"kind"`
 }
 
 // SpecTestItem defines model for SpecTestItem.
@@ -3463,13 +3516,6 @@ type UncoveredSpecItem struct {
 	Kind        string `json:"kind"`
 }
 
-// UndeferSpecRequest defines model for Undefer-specRequest.
-type UndeferSpecRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	SpecId int32   `json:"spec_id"`
-}
-
 // UnlinkSpecIssueRequest defines model for Unlink-spec-issueRequest.
 type UnlinkSpecIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3511,6 +3557,14 @@ type UpdateConstraintRequest struct {
 	Priority    int32   `json:"priority"`
 	Status      string  `json:"status"`
 	Title       string  `json:"title"`
+}
+
+// UpdateDiscussionStatusRequest defines model for Update-discussion-statusRequest.
+type UpdateDiscussionStatusRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+	Status string  `json:"status"`
 }
 
 // UpdateEnvironmentRequest defines model for Update-environmentRequest.
@@ -3906,6 +3960,27 @@ type ListCounterEventsGroupedParams struct {
 	TagFilter *string `form:"tag_filter,omitempty" json:"tag_filter,omitempty"`
 	Since     *string `form:"since,omitempty" json:"since,omitempty"`
 	Until     *string `form:"until,omitempty" json:"until,omitempty"`
+}
+
+// ListDiscussionsParams defines parameters for ListDiscussions.
+type ListDiscussionsParams struct {
+	Slug   string  `form:"slug" json:"slug"`
+	Status *string `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// DeleteDiscussionParams defines parameters for DeleteDiscussion.
+type DeleteDiscussionParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
+// GetDiscussionParams defines parameters for GetDiscussion.
+type GetDiscussionParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
+// ListDiscussionMessagesParams defines parameters for ListDiscussionMessages.
+type ListDiscussionMessagesParams struct {
+	Slug string `form:"slug" json:"slug"`
 }
 
 // ListDoctorDeferralsParams defines parameters for ListDoctorDeferrals.
@@ -4567,6 +4642,15 @@ type MarkCommentsReadJSONRequestBody = MarkCommentsReadRequest
 // ReactToCommentJSONRequestBody defines body for ReactToComment for application/json ContentType.
 type ReactToCommentJSONRequestBody = ReactToCommentRequest
 
+// CreateDiscussionJSONRequestBody defines body for CreateDiscussion for application/json ContentType.
+type CreateDiscussionJSONRequestBody = CreateDiscussionRequest
+
+// AddDiscussionMessageJSONRequestBody defines body for AddDiscussionMessage for application/json ContentType.
+type AddDiscussionMessageJSONRequestBody = AddDiscussionMessageRequest
+
+// UpdateDiscussionStatusJSONRequestBody defines body for UpdateDiscussionStatus for application/json ContentType.
+type UpdateDiscussionStatusJSONRequestBody = UpdateDiscussionStatusRequest
+
 // SetClassificationJSONRequestBody defines body for SetClassification for application/json ContentType.
 type SetClassificationJSONRequestBody = SetClassificationRequest
 
@@ -4720,9 +4804,6 @@ type SoloReleaseJSONRequestBody = SoloReleaseRequest
 // SoloRenewJSONRequestBody defines body for SoloRenew for application/json ContentType.
 type SoloRenewJSONRequestBody = SoloRenewRequest
 
-// DeferSpecJSONRequestBody defines body for DeferSpec for application/json ContentType.
-type DeferSpecJSONRequestBody = DeferSpecRequest
-
 // AddSpecDeferralJSONRequestBody defines body for AddSpecDeferral for application/json ContentType.
 type AddSpecDeferralJSONRequestBody = AddSpecDeferralRequest
 
@@ -4740,9 +4821,6 @@ type LinkSpecTestJSONRequestBody = LinkSpecTestRequest
 
 // MoveSpecJSONRequestBody defines body for MoveSpec for application/json ContentType.
 type MoveSpecJSONRequestBody = MoveSpecRequest
-
-// UndeferSpecJSONRequestBody defines body for UndeferSpec for application/json ContentType.
-type UndeferSpecJSONRequestBody = UndeferSpecRequest
 
 // UnlinkSpecIssueJSONRequestBody defines body for UnlinkSpecIssue for application/json ContentType.
 type UnlinkSpecIssueJSONRequestBody = UnlinkSpecIssueRequest
@@ -5280,6 +5358,33 @@ type ClientInterface interface {
 	// ListCounterEventsGrouped request
 	ListCounterEventsGrouped(ctx context.Context, params *ListCounterEventsGroupedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListDiscussions request
+	ListDiscussions(ctx context.Context, params *ListDiscussionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateDiscussionWithBody request with any body
+	CreateDiscussionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateDiscussion(ctx context.Context, body CreateDiscussionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteDiscussion request
+	DeleteDiscussion(ctx context.Context, id int32, params *DeleteDiscussionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetDiscussion request
+	GetDiscussion(ctx context.Context, id int32, params *GetDiscussionParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListDiscussionMessages request
+	ListDiscussionMessages(ctx context.Context, id int32, params *ListDiscussionMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddDiscussionMessageWithBody request with any body
+	AddDiscussionMessageWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddDiscussionMessage(ctx context.Context, id int32, body AddDiscussionMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDiscussionStatusWithBody request with any body
+	UpdateDiscussionStatusWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateDiscussionStatus(ctx context.Context, id int32, body UpdateDiscussionStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SetClassificationWithBody request with any body
 	SetClassificationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -5694,11 +5799,6 @@ type ClientInterface interface {
 	// ListSpecsBlockerResolved request
 	ListSpecsBlockerResolved(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// DeferSpecWithBody request with any body
-	DeferSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	DeferSpec(ctx context.Context, body DeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListSpecDeferrals request
 	ListSpecDeferrals(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -5749,11 +5849,6 @@ type ClientInterface interface {
 
 	// ListUncoveredSpecs request
 	ListUncoveredSpecs(ctx context.Context, params *ListUncoveredSpecsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// UndeferSpecWithBody request with any body
-	UndeferSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	UndeferSpec(ctx context.Context, body UndeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// UnlinkSpecIssueWithBody request with any body
 	UnlinkSpecIssueWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7496,6 +7591,126 @@ func (c *APIClient) ListCounterEvents(ctx context.Context, params *ListCounterEv
 
 func (c *APIClient) ListCounterEventsGrouped(ctx context.Context, params *ListCounterEventsGroupedParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListCounterEventsGroupedRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListDiscussions(ctx context.Context, params *ListDiscussionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDiscussionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateDiscussionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDiscussionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateDiscussion(ctx context.Context, body CreateDiscussionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateDiscussionRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) DeleteDiscussion(ctx context.Context, id int32, params *DeleteDiscussionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteDiscussionRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) GetDiscussion(ctx context.Context, id int32, params *GetDiscussionParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetDiscussionRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListDiscussionMessages(ctx context.Context, id int32, params *ListDiscussionMessagesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListDiscussionMessagesRequest(c.Server, id, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AddDiscussionMessageWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddDiscussionMessageRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AddDiscussionMessage(ctx context.Context, id int32, body AddDiscussionMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddDiscussionMessageRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateDiscussionStatusWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDiscussionStatusRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateDiscussionStatus(ctx context.Context, id int32, body UpdateDiscussionStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDiscussionStatusRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9366,30 +9581,6 @@ func (c *APIClient) ListSpecsBlockerResolved(ctx context.Context, params *ListSp
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) DeferSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeferSpecRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) DeferSpec(ctx context.Context, body DeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeferSpecRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *APIClient) ListSpecDeferrals(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSpecDeferralsRequest(c.Server, params)
 	if err != nil {
@@ -9608,30 +9799,6 @@ func (c *APIClient) ListSpecTests(ctx context.Context, params *ListSpecTestsPara
 
 func (c *APIClient) ListUncoveredSpecs(ctx context.Context, params *ListUncoveredSpecsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListUncoveredSpecsRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) UndeferSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUndeferSpecRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) UndeferSpec(ctx context.Context, body UndeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewUndeferSpecRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -15489,6 +15656,357 @@ func NewListCounterEventsGroupedRequest(server string, params *ListCounterEvents
 	return req, nil
 }
 
+// NewListDiscussionsRequest generates requests for ListDiscussions
+func NewListDiscussionsRequest(server string, params *ListDiscussionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/discussions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.Status != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "status", *params.Status, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateDiscussionRequest calls the generic CreateDiscussion builder with application/json body
+func NewCreateDiscussionRequest(server string, body CreateDiscussionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateDiscussionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateDiscussionRequestWithBody generates requests for CreateDiscussion with any type of body
+func NewCreateDiscussionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/discussions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteDiscussionRequest generates requests for DeleteDiscussion
+func NewDeleteDiscussionRequest(server string, id int32, params *DeleteDiscussionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/discussions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewGetDiscussionRequest generates requests for GetDiscussion
+func NewGetDiscussionRequest(server string, id int32, params *GetDiscussionParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/discussions/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListDiscussionMessagesRequest generates requests for ListDiscussionMessages
+func NewListDiscussionMessagesRequest(server string, id int32, params *ListDiscussionMessagesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/discussions/%s/messages", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddDiscussionMessageRequest calls the generic AddDiscussionMessage builder with application/json body
+func NewAddDiscussionMessageRequest(server string, id int32, body AddDiscussionMessageJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddDiscussionMessageRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewAddDiscussionMessageRequestWithBody generates requests for AddDiscussionMessage with any type of body
+func NewAddDiscussionMessageRequestWithBody(server string, id int32, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/discussions/%s/messages", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpdateDiscussionStatusRequest calls the generic UpdateDiscussionStatus builder with application/json body
+func NewUpdateDiscussionStatusRequest(server string, id int32, body UpdateDiscussionStatusJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateDiscussionStatusRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateDiscussionStatusRequestWithBody generates requests for UpdateDiscussionStatus with any type of body
+func NewUpdateDiscussionStatusRequestWithBody(server string, id int32, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/discussions/%s/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSetClassificationRequest calls the generic SetClassification builder with application/json body
 func NewSetClassificationRequest(server string, body SetClassificationJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -20977,46 +21495,6 @@ func NewListSpecsBlockerResolvedRequest(server string, params *ListSpecsBlockerR
 	return req, nil
 }
 
-// NewDeferSpecRequest calls the generic DeferSpec builder with application/json body
-func NewDeferSpecRequest(server string, body DeferSpecJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewDeferSpecRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewDeferSpecRequestWithBody generates requests for DeferSpec with any type of body
-func NewDeferSpecRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/specs/defer")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListSpecDeferralsRequest generates requests for ListSpecDeferrals
 func NewListSpecDeferralsRequest(server string, params *ListSpecDeferralsParams) (*http.Request, error) {
 	var err error
@@ -21568,46 +22046,6 @@ func NewListUncoveredSpecsRequest(server string, params *ListUncoveredSpecsParam
 	if err != nil {
 		return nil, err
 	}
-
-	return req, nil
-}
-
-// NewUndeferSpecRequest calls the generic UndeferSpec builder with application/json body
-func NewUndeferSpecRequest(server string, body UndeferSpecJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewUndeferSpecRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewUndeferSpecRequestWithBody generates requests for UndeferSpec with any type of body
-func NewUndeferSpecRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/specs/undefer")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -26474,6 +26912,33 @@ type ClientWithResponsesInterface interface {
 	// ListCounterEventsGroupedWithResponse request
 	ListCounterEventsGroupedWithResponse(ctx context.Context, params *ListCounterEventsGroupedParams, reqEditors ...RequestEditorFn) (*ParsedListCounterEventsGroupedResponse, error)
 
+	// ListDiscussionsWithResponse request
+	ListDiscussionsWithResponse(ctx context.Context, params *ListDiscussionsParams, reqEditors ...RequestEditorFn) (*ParsedListDiscussionsResponse, error)
+
+	// CreateDiscussionWithBodyWithResponse request with any body
+	CreateDiscussionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDiscussionResponse, error)
+
+	CreateDiscussionWithResponse(ctx context.Context, body CreateDiscussionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDiscussionResponse, error)
+
+	// DeleteDiscussionWithResponse request
+	DeleteDiscussionWithResponse(ctx context.Context, id int32, params *DeleteDiscussionParams, reqEditors ...RequestEditorFn) (*DeleteDiscussionResponse, error)
+
+	// GetDiscussionWithResponse request
+	GetDiscussionWithResponse(ctx context.Context, id int32, params *GetDiscussionParams, reqEditors ...RequestEditorFn) (*GetDiscussionResponse, error)
+
+	// ListDiscussionMessagesWithResponse request
+	ListDiscussionMessagesWithResponse(ctx context.Context, id int32, params *ListDiscussionMessagesParams, reqEditors ...RequestEditorFn) (*ParsedListDiscussionMessagesResponse, error)
+
+	// AddDiscussionMessageWithBodyWithResponse request with any body
+	AddDiscussionMessageWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddDiscussionMessageResponse, error)
+
+	AddDiscussionMessageWithResponse(ctx context.Context, id int32, body AddDiscussionMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*AddDiscussionMessageResponse, error)
+
+	// UpdateDiscussionStatusWithBodyWithResponse request with any body
+	UpdateDiscussionStatusWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDiscussionStatusResponse, error)
+
+	UpdateDiscussionStatusWithResponse(ctx context.Context, id int32, body UpdateDiscussionStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDiscussionStatusResponse, error)
+
 	// SetClassificationWithBodyWithResponse request with any body
 	SetClassificationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetClassificationResponse, error)
 
@@ -26888,11 +27353,6 @@ type ClientWithResponsesInterface interface {
 	// ListSpecsBlockerResolvedWithResponse request
 	ListSpecsBlockerResolvedWithResponse(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsBlockerResolvedResponse, error)
 
-	// DeferSpecWithBodyWithResponse request with any body
-	DeferSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeferSpecResponse, error)
-
-	DeferSpecWithResponse(ctx context.Context, body DeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*DeferSpecResponse, error)
-
 	// ListSpecDeferralsWithResponse request
 	ListSpecDeferralsWithResponse(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*ParsedListSpecDeferralsResponse, error)
 
@@ -26943,11 +27403,6 @@ type ClientWithResponsesInterface interface {
 
 	// ListUncoveredSpecsWithResponse request
 	ListUncoveredSpecsWithResponse(ctx context.Context, params *ListUncoveredSpecsParams, reqEditors ...RequestEditorFn) (*ParsedListUncoveredSpecsResponse, error)
-
-	// UndeferSpecWithBodyWithResponse request with any body
-	UndeferSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UndeferSpecResponse, error)
-
-	UndeferSpecWithResponse(ctx context.Context, body UndeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*UndeferSpecResponse, error)
 
 	// UnlinkSpecIssueWithBodyWithResponse request with any body
 	UnlinkSpecIssueWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UnlinkSpecIssueResponse, error)
@@ -29158,6 +29613,165 @@ func (r ParsedListCounterEventsGroupedResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListCounterEventsGroupedResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListDiscussionsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListDiscussionsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListDiscussionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListDiscussionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateDiscussionResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *DiscussionItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateDiscussionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateDiscussionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteDiscussionResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteDiscussionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteDiscussionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetDiscussionResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *DiscussionItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetDiscussionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetDiscussionResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListDiscussionMessagesResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListDiscussionMessagesResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListDiscussionMessagesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListDiscussionMessagesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AddDiscussionMessageResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *DiscussionMessageItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AddDiscussionMessageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddDiscussionMessageResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateDiscussionStatusResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateDiscussionStatusResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateDiscussionStatusResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -31555,29 +32169,6 @@ func (r ParsedListSpecsBlockerResolvedResponse) StatusCode() int {
 	return 0
 }
 
-type DeferSpecResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r DeferSpecResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r DeferSpecResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ParsedListSpecDeferralsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -31871,29 +32462,6 @@ func (r ParsedListUncoveredSpecsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListUncoveredSpecsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type UndeferSpecResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r UndeferSpecResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r UndeferSpecResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -34883,6 +35451,93 @@ func (c *ClientWithResponses) ListCounterEventsGroupedWithResponse(ctx context.C
 	return ParseParsedListCounterEventsGroupedResponse(rsp)
 }
 
+// ListDiscussionsWithResponse request returning *ParsedListDiscussionsResponse
+func (c *ClientWithResponses) ListDiscussionsWithResponse(ctx context.Context, params *ListDiscussionsParams, reqEditors ...RequestEditorFn) (*ParsedListDiscussionsResponse, error) {
+	rsp, err := c.ListDiscussions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListDiscussionsResponse(rsp)
+}
+
+// CreateDiscussionWithBodyWithResponse request with arbitrary body returning *CreateDiscussionResponse
+func (c *ClientWithResponses) CreateDiscussionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateDiscussionResponse, error) {
+	rsp, err := c.CreateDiscussionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDiscussionResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateDiscussionWithResponse(ctx context.Context, body CreateDiscussionJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateDiscussionResponse, error) {
+	rsp, err := c.CreateDiscussion(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateDiscussionResponse(rsp)
+}
+
+// DeleteDiscussionWithResponse request returning *DeleteDiscussionResponse
+func (c *ClientWithResponses) DeleteDiscussionWithResponse(ctx context.Context, id int32, params *DeleteDiscussionParams, reqEditors ...RequestEditorFn) (*DeleteDiscussionResponse, error) {
+	rsp, err := c.DeleteDiscussion(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteDiscussionResponse(rsp)
+}
+
+// GetDiscussionWithResponse request returning *GetDiscussionResponse
+func (c *ClientWithResponses) GetDiscussionWithResponse(ctx context.Context, id int32, params *GetDiscussionParams, reqEditors ...RequestEditorFn) (*GetDiscussionResponse, error) {
+	rsp, err := c.GetDiscussion(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetDiscussionResponse(rsp)
+}
+
+// ListDiscussionMessagesWithResponse request returning *ParsedListDiscussionMessagesResponse
+func (c *ClientWithResponses) ListDiscussionMessagesWithResponse(ctx context.Context, id int32, params *ListDiscussionMessagesParams, reqEditors ...RequestEditorFn) (*ParsedListDiscussionMessagesResponse, error) {
+	rsp, err := c.ListDiscussionMessages(ctx, id, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListDiscussionMessagesResponse(rsp)
+}
+
+// AddDiscussionMessageWithBodyWithResponse request with arbitrary body returning *AddDiscussionMessageResponse
+func (c *ClientWithResponses) AddDiscussionMessageWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddDiscussionMessageResponse, error) {
+	rsp, err := c.AddDiscussionMessageWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddDiscussionMessageResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddDiscussionMessageWithResponse(ctx context.Context, id int32, body AddDiscussionMessageJSONRequestBody, reqEditors ...RequestEditorFn) (*AddDiscussionMessageResponse, error) {
+	rsp, err := c.AddDiscussionMessage(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddDiscussionMessageResponse(rsp)
+}
+
+// UpdateDiscussionStatusWithBodyWithResponse request with arbitrary body returning *UpdateDiscussionStatusResponse
+func (c *ClientWithResponses) UpdateDiscussionStatusWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDiscussionStatusResponse, error) {
+	rsp, err := c.UpdateDiscussionStatusWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDiscussionStatusResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateDiscussionStatusWithResponse(ctx context.Context, id int32, body UpdateDiscussionStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDiscussionStatusResponse, error) {
+	rsp, err := c.UpdateDiscussionStatus(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDiscussionStatusResponse(rsp)
+}
+
 // SetClassificationWithBodyWithResponse request with arbitrary body returning *SetClassificationResponse
 func (c *ClientWithResponses) SetClassificationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetClassificationResponse, error) {
 	rsp, err := c.SetClassificationWithBody(ctx, contentType, body, reqEditors...)
@@ -36227,23 +36882,6 @@ func (c *ClientWithResponses) ListSpecsBlockerResolvedWithResponse(ctx context.C
 	return ParseParsedListSpecsBlockerResolvedResponse(rsp)
 }
 
-// DeferSpecWithBodyWithResponse request with arbitrary body returning *DeferSpecResponse
-func (c *ClientWithResponses) DeferSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeferSpecResponse, error) {
-	rsp, err := c.DeferSpecWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeferSpecResponse(rsp)
-}
-
-func (c *ClientWithResponses) DeferSpecWithResponse(ctx context.Context, body DeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*DeferSpecResponse, error) {
-	rsp, err := c.DeferSpec(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseDeferSpecResponse(rsp)
-}
-
 // ListSpecDeferralsWithResponse request returning *ParsedListSpecDeferralsResponse
 func (c *ClientWithResponses) ListSpecDeferralsWithResponse(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*ParsedListSpecDeferralsResponse, error) {
 	rsp, err := c.ListSpecDeferrals(ctx, params, reqEditors...)
@@ -36407,23 +37045,6 @@ func (c *ClientWithResponses) ListUncoveredSpecsWithResponse(ctx context.Context
 		return nil, err
 	}
 	return ParseParsedListUncoveredSpecsResponse(rsp)
-}
-
-// UndeferSpecWithBodyWithResponse request with arbitrary body returning *UndeferSpecResponse
-func (c *ClientWithResponses) UndeferSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UndeferSpecResponse, error) {
-	rsp, err := c.UndeferSpecWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUndeferSpecResponse(rsp)
-}
-
-func (c *ClientWithResponses) UndeferSpecWithResponse(ctx context.Context, body UndeferSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*UndeferSpecResponse, error) {
-	rsp, err := c.UndeferSpec(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseUndeferSpecResponse(rsp)
 }
 
 // UnlinkSpecIssueWithBodyWithResponse request with arbitrary body returning *UnlinkSpecIssueResponse
@@ -40224,6 +40845,223 @@ func ParseParsedListCounterEventsGroupedResponse(rsp *http.Response) (*ParsedLis
 	return response, nil
 }
 
+// ParseParsedListDiscussionsResponse parses an HTTP response from a ListDiscussionsWithResponse call
+func ParseParsedListDiscussionsResponse(rsp *http.Response) (*ParsedListDiscussionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListDiscussionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListDiscussionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateDiscussionResponse parses an HTTP response from a CreateDiscussionWithResponse call
+func ParseCreateDiscussionResponse(rsp *http.Response) (*CreateDiscussionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateDiscussionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DiscussionItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteDiscussionResponse parses an HTTP response from a DeleteDiscussionWithResponse call
+func ParseDeleteDiscussionResponse(rsp *http.Response) (*DeleteDiscussionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteDiscussionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetDiscussionResponse parses an HTTP response from a GetDiscussionWithResponse call
+func ParseGetDiscussionResponse(rsp *http.Response) (*GetDiscussionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetDiscussionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DiscussionItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListDiscussionMessagesResponse parses an HTTP response from a ListDiscussionMessagesWithResponse call
+func ParseParsedListDiscussionMessagesResponse(rsp *http.Response) (*ParsedListDiscussionMessagesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListDiscussionMessagesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListDiscussionMessagesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddDiscussionMessageResponse parses an HTTP response from a AddDiscussionMessageWithResponse call
+func ParseAddDiscussionMessageResponse(rsp *http.Response) (*AddDiscussionMessageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddDiscussionMessageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DiscussionMessageItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateDiscussionStatusResponse parses an HTTP response from a UpdateDiscussionStatusWithResponse call
+func ParseUpdateDiscussionStatusResponse(rsp *http.Response) (*UpdateDiscussionStatusResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateDiscussionStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseSetClassificationResponse parses an HTTP response from a SetClassificationWithResponse call
 func ParseSetClassificationResponse(rsp *http.Response) (*SetClassificationResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -43649,39 +44487,6 @@ func ParseParsedListSpecsBlockerResolvedResponse(rsp *http.Response) (*ParsedLis
 	return response, nil
 }
 
-// ParseDeferSpecResponse parses an HTTP response from a DeferSpecWithResponse call
-func ParseDeferSpecResponse(rsp *http.Response) (*DeferSpecResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &DeferSpecResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseParsedListSpecDeferralsResponse parses an HTTP response from a ListSpecDeferralsWithResponse call
 func ParseParsedListSpecDeferralsResponse(rsp *http.Response) (*ParsedListSpecDeferralsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -44094,39 +44899,6 @@ func ParseParsedListUncoveredSpecsResponse(rsp *http.Response) (*ParsedListUncov
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListUncoveredSpecsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseUndeferSpecResponse parses an HTTP response from a UndeferSpecWithResponse call
-func ParseUndeferSpecResponse(rsp *http.Response) (*UndeferSpecResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &UndeferSpecResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

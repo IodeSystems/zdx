@@ -67,6 +67,7 @@ func main() {
 		project.ReviewCmd(),
 		project.PatternCmd(),
 		project.EnvCmd(),
+		project.DiscussionCmd(),
 		servercmd.IntegrateCmd(),
 		servercmd.LoginCmd(),
 		configcmd.ConfigCmd(),
