@@ -18,8 +18,6 @@ import {
   useSpecTests,
   useSpecCodeRefs,
   useCreateIssue,
-  deferSpec,
-  undeferSpec,
   linkSpecIssue,
   type SpecIssueItem,
   type SpecTestItem,
@@ -40,8 +38,6 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
   const { data, isLoading } = useSpecDetail(specId)
   const { data: tests } = useSpecTests(specId)
   const { data: codeRefs } = useSpecCodeRefs(slug, specId)
-  const [deferOpen, setDeferOpen] = useState(false)
-  const [deferReason, setDeferReason] = useState('')
   const [issueOpen, setIssueOpen] = useState(false)
   const [issueContext, setIssueContext] = useState('')
   const createIssue = useCreateIssue()
@@ -50,18 +46,6 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
   if (!data) return <Typography color="error">Spec not found.</Typography>
 
   const { spec, issues } = data
-
-  const handleDefer = async () => {
-    await deferSpec(specId, deferReason)
-    setDeferOpen(false)
-    setDeferReason('')
-    qc.invalidateQueries({ queryKey: ['spec-detail', specId] })
-  }
-
-  const handleUndefer = async () => {
-    await undeferSpec(specId)
-    qc.invalidateQueries({ queryKey: ['spec-detail', specId] })
-  }
 
   const handleCreateIssue = () => {
     setIssueContext(`Spec #${specId}: ${spec.description}\n\n`)
@@ -97,32 +81,13 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
         <Chip label={spec.kind} size="small" variant="outlined" color="info" />
-        {spec.deferred && <Chip label="deferred" size="small" color="warning" />}
       </Box>
 
       <Typography variant="body1" sx={{ mb: 2 }}>{spec.description}</Typography>
 
       <CodeRefs refs={codeRefs ?? []} slug={slug} />
 
-      {spec.deferred && spec.deferred_reason && (
-        <Box sx={{ mb: 2, p: 1.5, bgcolor: 'warning.50', borderRadius: 1, border: 1, borderColor: 'warning.200' }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-            Deferral reason
-          </Typography>
-          <Typography variant="body2">{spec.deferred_reason}</Typography>
-        </Box>
-      )}
-
       <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
-        {spec.deferred ? (
-          <Button size="small" variant="outlined" onClick={handleUndefer}>
-            Remove deferral
-          </Button>
-        ) : (
-          <Button size="small" variant="outlined" color="warning" onClick={() => setDeferOpen(true)}>
-            Defer spec
-          </Button>
-        )}
         <Button size="small" variant="outlined" onClick={handleCreateIssue}>
           File issue against spec
         </Button>
@@ -185,26 +150,6 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
       <SpecDemos specId={specId} slug={slug} />
 
       <CommentsAndRevisions slug={slug} targetType="spec" targetId={String(specId)} />
-
-      <Dialog open={deferOpen} onClose={() => setDeferOpen(false)} maxWidth="sm" fullWidth>
-        <DialogTitle>Defer spec</DialogTitle>
-        <DialogContent>
-          <Typography variant="body2" sx={{ mb: 2 }}>Why is this spec being deferred?</Typography>
-          <TextField
-            autoFocus
-            fullWidth
-            multiline
-            rows={3}
-            value={deferReason}
-            onChange={e => setDeferReason(e.target.value)}
-            placeholder="e.g. Blocked on external API availability"
-          />
-        </DialogContent>
-        <DialogActions>
-          <Button onClick={() => setDeferOpen(false)}>Cancel</Button>
-          <Button onClick={handleDefer} variant="contained" color="warning">Defer</Button>
-        </DialogActions>
-      </Dialog>
 
       <Dialog open={issueOpen} onClose={() => setIssueOpen(false)} maxWidth="sm" fullWidth>
         <DialogTitle>File issue against spec</DialogTitle>

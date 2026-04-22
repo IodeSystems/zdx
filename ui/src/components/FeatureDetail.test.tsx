@@ -89,8 +89,6 @@ function makeSpec(overrides: Partial<SpecItem> = {}): SpecItem {
     id: 1,
     kind: 'must',
     description: 'Given X, when Y, then Z',
-    deferred: false,
-    deferred_reason: '',
     concern_type: 'functional',
     ...overrides,
   }

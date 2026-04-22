@@ -1660,17 +1660,6 @@ export const linkSpecIssue = async (specId: number, issueId: string) => {
 }
 
 
-export const deferSpec = async (specId: number, reason: string) => {
-  const { data, error } = await client.POST('/api/dx/specs/defer', { body: { spec_id: specId, reason } })
-  if (error) throw new Error(JSON.stringify(error))
-  return data
-}
-
-export const undeferSpec = async (specId: number) => {
-  const { data, error } = await client.POST('/api/dx/specs/undefer', { body: { spec_id: specId } })
-  if (error) throw new Error(JSON.stringify(error))
-  return data
-}
 
 // ── Demos ────────────────────────────────────────────────────────────────
 
