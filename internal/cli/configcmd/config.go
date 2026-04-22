@@ -30,7 +30,15 @@ func configInitCmd() *cobra.Command {
 			if existing == nil {
 				existing = &config.GlobalConfig{}
 			}
+			local := config.Load()
 			agentDefaults := existing.ResolvedGlobalAgent()
+
+			coalesce := func(global, local string) string {
+				if global != "" {
+					return global
+				}
+				return local
+			}
 
 			r := bufio.NewReader(os.Stdin)
 			prompt := func(label, def string) string {
@@ -50,18 +58,45 @@ func configInitCmd() *cobra.Command {
 			fmt.Println("Configure ~/.zdx/config.yaml for srcless agent operation.")
 			fmt.Println()
 
-			url := prompt("Remote URL", existing.Remote.URL)
-			apiKey := prompt("API key (written to ~/.zdx/credentials)", config.GlobalRemoteAPIKey())
-			workDir := prompt("Agent work dir", agentDefaults.WorkDir)
-			model := prompt("Claude model", agentDefaults.ClaudeModel)
+			// Coalesce: prefer global raw value; fall back to local; then apply defaults.
+			localURL := ""
+			localAPIKey := ""
+			localModel := ""
+			localMaxWorktrees := 0
+			localLeaseMinutes := 0
+			if local != nil {
+				localURL = local.Remote.URL
+				localAPIKey = config.RemoteAPIKey()
+				localModel = local.Agent.ClaudeModel
+				localMaxWorktrees = local.Agent.MaxWorktrees
+				localLeaseMinutes = local.Agent.LeaseMinutes
+			}
 
-			maxWStr := prompt("Max worktrees", strconv.Itoa(agentDefaults.MaxWorktrees))
+			defaultModel := coalesce(existing.Agent.ClaudeModel, localModel)
+			if defaultModel == "" {
+				defaultModel = "claude-sonnet-4-6"
+			}
+			defaultMaxW := agentDefaults.MaxWorktrees
+			if existing.Agent.MaxWorktrees == 0 && localMaxWorktrees > 0 {
+				defaultMaxW = localMaxWorktrees
+			}
+			defaultLease := agentDefaults.LeaseMinutes
+			if existing.Agent.LeaseMinutes == 0 && localLeaseMinutes > 0 {
+				defaultLease = localLeaseMinutes
+			}
+
+			url := prompt("Remote URL", coalesce(existing.Remote.URL, localURL))
+			apiKey := prompt("API key (written to ~/.zdx/credentials)", coalesce(config.GlobalRemoteAPIKey(), localAPIKey))
+			workDir := prompt("Agent work dir", agentDefaults.WorkDir)
+			model := prompt("Claude model", defaultModel)
+
+			maxWStr := prompt("Max worktrees", strconv.Itoa(defaultMaxW))
 			maxWorktrees, _ := strconv.Atoi(maxWStr)
 			if maxWorktrees <= 0 {
 				maxWorktrees = 4
 			}
 
-			leaseStr := prompt("Lease minutes", strconv.Itoa(agentDefaults.LeaseMinutes))
+			leaseStr := prompt("Lease minutes", strconv.Itoa(defaultLease))
 			leaseMinutes, _ := strconv.Atoi(leaseStr)
 			if leaseMinutes <= 0 {
 				leaseMinutes = 30
