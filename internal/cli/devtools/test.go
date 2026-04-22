@@ -141,6 +141,16 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 		}
 	}
 
+	// ── Go unit adapter (source packages / unit) ──────────────────────────
+	if f.Component == "" || f.Component == "api" {
+		if f.Layer == "" || f.Layer == testharness.LayerUnit {
+			h.Register(&testharness.GoUnitAdapter{
+				Pkgs: []string{"./internal/..."},
+				Comp: "api",
+			})
+		}
+	}
+
 	// ── Go binary adapter (API / integration + demo) ──────────────────────
 	if f.Component == "" || f.Component == "api" || f.Component == "demo" {
 		wantsDemo := f.Layer == testharness.LayerDemo || f.Component == "demo"
@@ -351,6 +361,21 @@ func testListCmd() *cobra.Command {
 				if layer == "" || layer == string(testharness.LayerUnit) {
 					if uiDir := detectUIDir(); uiDir != "" {
 						fmt.Printf("  %-8s %-12s %s\n", "ui", "unit", uiDir+" (vitest)")
+					}
+				}
+			}
+
+			// ── Go unit (source packages) ──────────────────────────────────
+			if component == "" || component == "api" {
+				if layer == "" || layer == string(testharness.LayerUnit) {
+					a := &testharness.GoUnitAdapter{Pkgs: []string{"./internal/..."}, Comp: "api"}
+					names, err := a.List(context.Background())
+					if err != nil {
+						fmt.Fprintf(os.Stderr, "  [api/unit] list failed: %v\n", err)
+					} else {
+						for _, n := range names {
+							fmt.Printf("  %-8s %-12s %s\n", "api", "unit", n)
+						}
 					}
 				}
 			}

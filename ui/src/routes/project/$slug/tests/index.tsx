@@ -125,6 +125,7 @@ function TestHistoryRow({ slug, test }: { slug: string; test: TestItem }) {
   )
 }
 
+const emptyArray: TestItem[] = []
 function TestsPage() {
   const { slug } = Route.useParams()
   const { data, isLoading } = useTests(slug)
@@ -132,7 +133,7 @@ function TestsPage() {
   const [filterLayer, setFilterLayer] = useState('')
   const [filterStatus, setFilterStatus] = useState('')
 
-  const tests = data?.tests ?? []
+  const tests = data?.tests ?? emptyArray
 
   const components = useMemo(() => [...new Set(tests.map(t => t.component))].sort(), [tests])
   const layers = useMemo(() => [...new Set(tests.map(t => t.layer))].sort(), [tests])
