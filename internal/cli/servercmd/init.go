@@ -196,6 +196,11 @@ func detectExistingConnection() bool {
 		fmt.Printf("server:  %s (configured)\n", cfg.RemoteURL())
 		return true
 	}
+	globalCfg := config.LoadGlobal()
+	if globalCfg != nil && globalCfg.Remote.URL != "" {
+		fmt.Printf("server:  %s (global config)\n", globalCfg.Remote.URL)
+		return true
+	}
 	conn := config.ReadDaemonConn()
 	if conn != nil {
 		resp, err := http.Get(conn.URL + "/api/health")
