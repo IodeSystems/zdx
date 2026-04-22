@@ -206,6 +206,40 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 			return &struct{ Body MeItem }{Body: MeItem{ID: user.ID, Email: user.Email, Name: user.Name, Role: user.Role}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "auth-cli-token", Method: http.MethodPost, Path: "/api/auth/cli-token"},
+		func(ctx context.Context, _ *struct{}) (*struct {
+			Body struct {
+				Token string `json:"token"`
+				Email string `json:"email"`
+			}
+		}, error) {
+			uid := ctxUserIDVal(ctx)
+			if uid == 0 {
+				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
+			}
+			user, err := h.Q.GetUserByID(ctx, uid)
+			if err != nil {
+				return nil, apiErr(http.StatusUnauthorized, "user not found")
+			}
+			var raw [32]byte
+			if _, err := rand.Read(raw[:]); err != nil {
+				return nil, apiErr(500, "generate token: "+err.Error())
+			}
+			token := hex.EncodeToString(raw[:])
+			if _, err := h.Q.CreateApiKey(ctx, db.CreateApiKeyParams{UserID: uid, Token: token, Name: "cli"}); err != nil {
+				return nil, apiErr(500, "create api key: "+err.Error())
+			}
+			return &struct {
+				Body struct {
+					Token string `json:"token"`
+					Email string `json:"email"`
+				}
+			}{Body: struct {
+				Token string `json:"token"`
+				Email string `json:"email"`
+			}{Token: token, Email: user.Email}}, nil
+		})
+
 	// ── Projects ─────────────────────────────────────────────────────────────
 
 	type ProjectItem struct {

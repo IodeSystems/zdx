@@ -145,6 +145,14 @@ export const useLogout = () => {
   }
 }
 
+export const useCliToken = () =>
+  useMutation<{ token: string; email: string }, Error>({
+    mutationFn: async () => {
+      const { data, error } = await client.POST('/api/auth/cli-token', {})
+      if (error) throw new Error((error as { title?: string }).title ?? 'Failed to generate CLI token')
+      return data!
+    },
+  })
 
 // ── projects ──────────────────────────────────────────────────────────────────
 

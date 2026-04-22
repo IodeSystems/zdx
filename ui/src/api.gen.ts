@@ -390,6 +390,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/auth/cli-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["auth-cli-token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/auth/login": {
         parameters: {
             query?: never;
@@ -4770,6 +4786,16 @@ export interface components {
             slug: string;
             /** Format: int32 */
             test_id: number;
+        };
+        "Auth-cli-tokenResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Auth-cli-tokenResponse.json
+             */
+            readonly $schema?: string;
+            email: string;
+            token: string;
         };
         "Auth-loginRequest": {
             /**
@@ -9828,6 +9854,35 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-agent-tasksResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "auth-cli-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Auth-cli-tokenResponse"];
                 };
             };
             /** @description Error */

@@ -9,6 +9,7 @@
 // Additionally, you should also exclude this file from your linter and/or formatter to prevent it from being checked or modified.
 
 import { Route as rootRouteImport } from './routes/__root'
+import { Route as CliAuthRouteImport } from './routes/cli-auth'
 import { Route as IndexRouteImport } from './routes/index'
 import { Route as AdminIndexRouteImport } from './routes/admin/index'
 import { Route as ProjectSlugRouteImport } from './routes/project/$slug'
@@ -65,6 +66,11 @@ import { Route as ProjectSlugDiscussionsIdRouteImport } from './routes/project/$
 import { Route as ProjectSlugDemosDemoIdRouteImport } from './routes/project/$slug/demos/$demoId'
 import { Route as ProjectSlugAgentsSessionIdRouteImport } from './routes/project/$slug/agents/$sessionId'
 
+const CliAuthRoute = CliAuthRouteImport.update({
+  id: '/cli-auth',
+  path: '/cli-auth',
+  getParentRoute: () => rootRouteImport,
+} as any)
 const IndexRoute = IndexRouteImport.update({
   id: '/',
   path: '/',
@@ -351,6 +357,7 @@ const ProjectSlugAgentsSessionIdRoute =
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
+  '/cli-auth': typeof CliAuthRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
   '/admin/projects': typeof AdminProjectsRoute
@@ -408,6 +415,7 @@ export interface FileRoutesByFullPath {
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
+  '/cli-auth': typeof CliAuthRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
   '/admin/projects': typeof AdminProjectsRoute
@@ -456,6 +464,7 @@ export interface FileRoutesByTo {
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
   '/': typeof IndexRoute
+  '/cli-auth': typeof CliAuthRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
   '/admin/projects': typeof AdminProjectsRoute
@@ -515,6 +524,7 @@ export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
   fullPaths:
     | '/'
+    | '/cli-auth'
     | '/admin/invites'
     | '/admin/llm'
     | '/admin/projects'
@@ -572,6 +582,7 @@ export interface FileRouteTypes {
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
+    | '/cli-auth'
     | '/admin/invites'
     | '/admin/llm'
     | '/admin/projects'
@@ -619,6 +630,7 @@ export interface FileRouteTypes {
   id:
     | '__root__'
     | '/'
+    | '/cli-auth'
     | '/admin/invites'
     | '/admin/llm'
     | '/admin/projects'
@@ -677,6 +689,7 @@ export interface FileRouteTypes {
 }
 export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
+  CliAuthRoute: typeof CliAuthRoute
   AdminInvitesRoute: typeof AdminInvitesRoute
   AdminLlmRoute: typeof AdminLlmRoute
   AdminProjectsRoute: typeof AdminProjectsRoute
@@ -688,6 +701,13 @@ export interface RootRouteChildren {
 
 declare module '@tanstack/react-router' {
   interface FileRoutesByPath {
+    '/cli-auth': {
+      id: '/cli-auth'
+      path: '/cli-auth'
+      fullPath: '/cli-auth'
+      preLoaderRoute: typeof CliAuthRouteImport
+      parentRoute: typeof rootRouteImport
+    }
     '/': {
       id: '/'
       path: '/'
@@ -1272,6 +1292,7 @@ const ProjectSlugRouteWithChildren = ProjectSlugRoute._addFileChildren(
 
 const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
+  CliAuthRoute: CliAuthRoute,
   AdminInvitesRoute: AdminInvitesRoute,
   AdminLlmRoute: AdminLlmRoute,
   AdminProjectsRoute: AdminProjectsRoute,

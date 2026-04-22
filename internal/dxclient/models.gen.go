@@ -426,6 +426,14 @@ type AttachCodeRefToTestRequest struct {
 	TestId    int32   `json:"test_id"`
 }
 
+// AuthCliTokenResponse defines model for Auth-cli-tokenResponse.
+type AuthCliTokenResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Email  string  `json:"email"`
+	Token  string  `json:"token"`
+}
+
 // AuthLoginRequest defines model for Auth-loginRequest.
 type AuthLoginRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -5165,6 +5173,9 @@ type ClientInterface interface {
 	// ListAgentTasks request
 	ListAgentTasks(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// AuthCliToken request
+	AuthCliToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// AuthLoginWithBody request with any body
 	AuthLoginWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -6728,6 +6739,18 @@ func (c *APIClient) AgentHeartbeat(ctx context.Context, id string, reqEditors ..
 
 func (c *APIClient) ListAgentTasks(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAgentTasksRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AuthCliToken(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAuthCliTokenRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -12634,6 +12657,33 @@ func NewListAgentTasksRequest(server string, id string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAuthCliTokenRequest generates requests for AuthCliToken
+func NewAuthCliTokenRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/auth/cli-token")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -26719,6 +26769,9 @@ type ClientWithResponsesInterface interface {
 	// ListAgentTasksWithResponse request
 	ListAgentTasksWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*ParsedListAgentTasksResponse, error)
 
+	// AuthCliTokenWithResponse request
+	AuthCliTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedAuthCliTokenResponse, error)
+
 	// AuthLoginWithBodyWithResponse request with any body
 	AuthLoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedAuthLoginResponse, error)
 
@@ -28464,6 +28517,29 @@ func (r ParsedListAgentTasksResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListAgentTasksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedAuthCliTokenResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AuthCliTokenResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedAuthCliTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedAuthCliTokenResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -34826,6 +34902,15 @@ func (c *ClientWithResponses) ListAgentTasksWithResponse(ctx context.Context, id
 	return ParseParsedListAgentTasksResponse(rsp)
 }
 
+// AuthCliTokenWithResponse request returning *ParsedAuthCliTokenResponse
+func (c *ClientWithResponses) AuthCliTokenWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedAuthCliTokenResponse, error) {
+	rsp, err := c.AuthCliToken(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedAuthCliTokenResponse(rsp)
+}
+
 // AuthLoginWithBodyWithResponse request with arbitrary body returning *ParsedAuthLoginResponse
 func (c *ClientWithResponses) AuthLoginWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedAuthLoginResponse, error) {
 	rsp, err := c.AuthLoginWithBody(ctx, contentType, body, reqEditors...)
@@ -39179,6 +39264,39 @@ func ParseParsedListAgentTasksResponse(rsp *http.Response) (*ParsedListAgentTask
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListAgentTasksResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedAuthCliTokenResponse parses an HTTP response from a AuthCliTokenWithResponse call
+func ParseParsedAuthCliTokenResponse(rsp *http.Response) (*ParsedAuthCliTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedAuthCliTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AuthCliTokenResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
