@@ -601,8 +601,8 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, fmt.Sprintf("issue not found: %s", in.Body.IssueID))
 			}
-			if iss.Status != "open" {
-				return nil, apiErr(http.StatusBadRequest, fmt.Sprintf("cannot defer to closed issue %s (status=%s) — deferrals only make sense for open work", in.Body.IssueID, iss.Status))
+			if iss.Status != "open" && iss.Status != "wip" {
+				return nil, apiErr(http.StatusBadRequest, fmt.Sprintf("cannot defer to non-open issue %s (status=%s) — deferrals only make sense for open work", in.Body.IssueID, iss.Status))
 			}
 			if err := h.Q.AddSpecDeferral(ctx, db.AddSpecDeferralParams{
 				SpecID:  in.Body.SpecID,

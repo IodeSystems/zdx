@@ -127,6 +127,78 @@ func TestFeatureSet(t *testing.T) {
 	t.Error("feature 'settable' not found")
 }
 
+func TestSpecDeferralAcceptsWipIssue(t *testing.T) {
+	slug := "e2e-spec-defer-wip"
+	apiDo(t, http.MethodPost, "/api/project",
+		map[string]string{"slug": slug, "name": "Spec Deferral Wip Test"}, nil)
+	apiDo(t, http.MethodPost, "/api/feature", map[string]any{
+		"slug": slug, "name": "defer-feat", "description": "Feature for deferral test",
+	}, nil)
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/specs/update", map[string]any{
+		"slug": slug, "feature": "defer-feat", "field": "must", "value": "spec to defer",
+	}, nil))
+
+	var featResp struct {
+		Specs []struct {
+			ID int32 `json:"id"`
+		} `json:"specs"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet, fmt.Sprintf("/api/dx/feature?slug=%s&name=defer-feat", slug), nil, &featResp))
+	if len(featResp.Specs) == 0 {
+		t.Fatal("expected at least one spec")
+	}
+	specID := featResp.Specs[0].ID
+
+	// wip issue (auto_ready: false keeps status=wip)
+	var issResp struct{ ID int32 `json:"id"` }
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/add",
+		map[string]any{"slug": slug, "title": "wip issue", "auto_ready": false}, &issResp))
+	wipID := fmt.Sprintf("IS-%d", issResp.ID)
+
+	resp := apiDo(t, http.MethodPost, "/api/dx/specs/deferrals/add",
+		map[string]any{"slug": slug, "spec_id": specID, "issue_id": wipID}, nil)
+	if resp.StatusCode != http.StatusOK {
+		t.Errorf("defer to wip issue: want 200, got %d", resp.StatusCode)
+	}
+}
+
+func TestSpecDeferralRejectsClosedIssue(t *testing.T) {
+	slug := "e2e-spec-defer-closed"
+	apiDo(t, http.MethodPost, "/api/project",
+		map[string]string{"slug": slug, "name": "Spec Deferral Closed Test"}, nil)
+	apiDo(t, http.MethodPost, "/api/feature", map[string]any{
+		"slug": slug, "name": "defer-feat", "description": "Feature for deferral test",
+	}, nil)
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/specs/update", map[string]any{
+		"slug": slug, "feature": "defer-feat", "field": "must", "value": "spec to defer",
+	}, nil))
+
+	var featResp struct {
+		Specs []struct {
+			ID int32 `json:"id"`
+		} `json:"specs"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet, fmt.Sprintf("/api/dx/feature?slug=%s&name=defer-feat", slug), nil, &featResp))
+	if len(featResp.Specs) == 0 {
+		t.Fatal("expected at least one spec")
+	}
+	specID := featResp.Specs[0].ID
+
+	// open issue, then close it
+	var issResp struct{ ID int32 `json:"id"` }
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/add",
+		map[string]any{"slug": slug, "title": "soon closed issue", "auto_ready": true}, &issResp))
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/close",
+		map[string]any{"slug": slug, "id": issResp.ID, "reason": "done"}, nil))
+	closedID := fmt.Sprintf("IS-%d", issResp.ID)
+
+	resp := apiDo(t, http.MethodPost, "/api/dx/specs/deferrals/add",
+		map[string]any{"slug": slug, "spec_id": specID, "issue_id": closedID}, nil)
+	if resp.StatusCode != http.StatusBadRequest {
+		t.Errorf("defer to closed issue: want 400, got %d", resp.StatusCode)
+	}
+}
+
 func TestFeatureReview(t *testing.T) {
 	slug := "e2e-feat-review"
 	apiDo(t, http.MethodPost, "/api/project",
