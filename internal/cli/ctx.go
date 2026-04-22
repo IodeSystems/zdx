@@ -3,6 +3,7 @@ package cli
 import (
 	"fmt"
 	"os"
+	"path/filepath"
 
 	"github.com/spf13/cobra"
 
@@ -10,15 +11,30 @@ import (
 )
 
 func CtxCmd() *cobra.Command {
-	var clear bool
+	var clearScope string
 	var remote, slug, apiKey string
 	cmd := &cobra.Command{
 		Use:   "ctx [component]",
 		Short: "Set or show active component context",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if clear {
-				_ = config.WriteContext("", "")
-				fmt.Println("context cleared")
+			if clearScope != "" {
+				switch clearScope {
+				case "local", "all", "true":
+					_ = config.WriteContext("", "")
+					_ = os.Remove(".zdx/credentials")
+					fmt.Println("local context cleared")
+					if clearScope == "local" {
+						return nil
+					}
+					fallthrough
+				case "global":
+					home, _ := os.UserHomeDir()
+					_ = os.Remove(filepath.Join(home, ".zdx", "credentials"))
+					_ = os.Remove(filepath.Join(home, ".zdx", "config.yaml"))
+					fmt.Println("global context cleared")
+				default:
+					return fmt.Errorf("--clear: invalid scope %q (use local, global, or all)", clearScope)
+				}
 				return nil
 			}
 			if apiKey != "" {
@@ -55,27 +71,50 @@ func CtxCmd() *cobra.Command {
 				return nil
 			}
 
-			// Show status
+			// Show status: global layer first, then local.
+			home, _ := os.UserHomeDir()
+			globalCfg := config.LoadGlobal()
+			fmt.Println("[global]")
+			if globalCfg != nil && globalCfg.Remote.URL != "" {
+				fmt.Printf("  remote: %s\n", globalCfg.Remote.URL)
+			} else {
+				fmt.Println("  remote: not configured")
+			}
+			if home != "" {
+				globalCreds := filepath.Join(home, ".zdx", "credentials")
+				if _, err := os.Stat(globalCreds); err == nil {
+					fmt.Printf("  credentials: %s\n", globalCreds)
+				} else {
+					fmt.Println("  credentials: none")
+				}
+			}
+
+			fmt.Println("[local]")
 			cfg := config.Load()
 			if comp := config.ActiveComponent(""); comp != "" {
-				fmt.Printf("component: %s\n", comp)
+				fmt.Printf("  component: %s\n", comp)
 			} else {
-				fmt.Println("component: (all)")
+				fmt.Println("  component: (all)")
 			}
 			if u := cfg.RemoteURL(); u != "" {
-				fmt.Printf("remote: %s\n", u)
+				fmt.Printf("  remote: %s\n", u)
 				if s := cfg.RemoteSlug(); s != "" {
-					fmt.Printf("slug: %s\n", s)
+					fmt.Printf("  slug: %s\n", s)
 				}
 			} else if conn := config.ReadDaemonConn(); conn != nil {
-				fmt.Printf("remote: %s (daemon)\n", conn.URL)
+				fmt.Printf("  remote: %s (daemon)\n", conn.URL)
 			} else {
-				fmt.Println("remote: not configured")
+				fmt.Println("  remote: not configured")
+			}
+			if _, err := os.Stat(".zdx/credentials"); err == nil {
+				fmt.Println("  credentials: .zdx/credentials")
+			} else {
+				fmt.Println("  credentials: none")
 			}
 			return nil
 		},
 	}
-	cmd.Flags().BoolVar(&clear, "clear", false, "clear component context")
+	cmd.Flags().StringVar(&clearScope, "clear", "", "clear context: local, global, or all")
 	cmd.Flags().StringVar(&remote, "remote", "", "set remote URL")
 	cmd.Flags().StringVar(&slug, "slug", "", "set project slug")
 	cmd.Flags().StringVar(&apiKey, "api-key", "", "set API key (written to .zdx/credentials)")
