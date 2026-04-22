@@ -159,3 +159,37 @@ func TestColorize(t *testing.T) {
 
 	colorsEnabled = prev
 }
+
+func TestBuildClaudeEnv(t *testing.T) {
+	base := []string{"PATH=/usr/bin", "HOME=/h"}
+
+	got := buildClaudeEnv(base, "sid-1", "agent-A", false)
+	wantContains := []string{"PATH=/usr/bin", "HOME=/h", "ZDX_SESSION_ID=sid-1", "ZDX_AGENT_ID=agent-A", "DX_AUTHOR_ALIAS=agent-A"}
+	for _, kv := range wantContains {
+		if !contains(got, kv) {
+			t.Errorf("non-srcless env missing %q in %v", kv, got)
+		}
+	}
+	if contains(got, "DX_GLOBAL=1") {
+		t.Errorf("non-srcless env should not contain DX_GLOBAL=1: %v", got)
+	}
+
+	got = buildClaudeEnv(base, "sid-2", "agent-B", true)
+	if !contains(got, "DX_GLOBAL=1") {
+		t.Errorf("srcless env missing DX_GLOBAL=1: %v", got)
+	}
+	for _, kv := range []string{"ZDX_SESSION_ID=sid-2", "ZDX_AGENT_ID=agent-B", "DX_AUTHOR_ALIAS=agent-B"} {
+		if !contains(got, kv) {
+			t.Errorf("srcless env missing %q in %v", kv, got)
+		}
+	}
+}
+
+func contains(s []string, needle string) bool {
+	for _, v := range s {
+		if v == needle {
+			return true
+		}
+	}
+	return false
+}

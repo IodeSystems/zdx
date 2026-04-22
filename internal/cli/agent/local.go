@@ -36,6 +36,7 @@ for the sessions/agents UI.`,
 				return fmt.Errorf("--complexity must be one of low|medium|high (got %q)", complexity)
 			}
 			global, _ := cmd.Flags().GetBool("global")
+			global = global || config.IsGlobalMode()
 			var cfg *config.Config
 			if !global {
 				cfg = config.Load()

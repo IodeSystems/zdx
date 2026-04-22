@@ -38,20 +38,42 @@ type Client struct {
 const (
 	tokenSrcEnv         = "$DX_REMOTE_API_KEY env var"
 	tokenSrcCredentials = ".zdx/credentials"
+	tokenSrcGlobalCreds = "~/.zdx/credentials"
 	tokenSrcDaemon      = "~/.zdx/daemon.token"
 	tokenSrcNone        = "no credentials configured"
 )
 
 // DefaultClient resolves connection in priority order:
-//  1. DX_REMOTE_URL env / .zdx/config.yaml remote.url  → explicit server
-//  2. ~/.zdx/daemon.{port,token}                        → local daemon
-//  3. neither                                           → error
+//  1. DX_GLOBAL=1: ~/.zdx/config.yaml + ~/.zdx/credentials  → srcless agent mode
+//  2. DX_REMOTE_URL env / .zdx/config.yaml remote.url       → explicit server
+//  3. ~/.zdx/daemon.{port,token}                             → local daemon
+//  4. none of the above                                      → error
 func DefaultClient() (*Client, error) {
-	cfg := config.Load()
+	var base, slug, token, tokenFrom string
 
-	base := cfg.RemoteURL()
-	slug := cfg.RemoteSlug()
-	token, tokenFrom := resolveRemoteAPIKey()
+	if config.IsGlobalMode() {
+		if gc := config.LoadGlobal(); gc != nil {
+			base = gc.Remote.URL
+		}
+		if v := os.Getenv("DX_REMOTE_URL"); v != "" {
+			base = v
+		}
+		if v := os.Getenv("DX_REMOTE_SLUG"); v != "" {
+			slug = v
+		}
+		if v := os.Getenv("DX_REMOTE_API_KEY"); v != "" {
+			token = v
+			tokenFrom = tokenSrcEnv
+		} else if v := config.GlobalRemoteAPIKey(); v != "" {
+			token = v
+			tokenFrom = tokenSrcGlobalCreds
+		}
+	} else {
+		cfg := config.Load()
+		base = cfg.RemoteURL()
+		slug = cfg.RemoteSlug()
+		token, tokenFrom = resolveRemoteAPIKey()
+	}
 
 	if base == "" {
 		conn := config.ReadDaemonConn()

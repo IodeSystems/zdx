@@ -41,6 +41,7 @@ func agentClaudeCmd() *cobra.Command {
 		Long:  "Launch Claude CLI sessions with automatic session streaming, subagent discovery, and token usage tracking.",
 		RunE: func(cmd *cobra.Command, args []string) error {
 			global, _ := cmd.Flags().GetBool("global")
+			global = global || config.IsGlobalMode()
 			var cfg *config.Config
 			if !global {
 				cfg = config.Load()
@@ -95,7 +96,7 @@ func agentClaudeCmd() *cobra.Command {
 			installReleaseOnSignal(rc, alias, "", nil, cancel)
 			sid := uuid.New().String()
 			resolved := sel.resolve(rc, 0)
-			return runSession(ctx, rc, sid, issue, alias, chrome, "", false, resolved, 0, nil)
+			return runSession(ctx, rc, sid, issue, alias, chrome, "", false, resolved, 0, nil, srcless)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
@@ -484,7 +485,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 		if activeTodo != nil {
 			todoID = activeTodo.ID
 		}
-		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed, resolvedModel, todoID, activeTodo)
+		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed, resolvedModel, todoID, activeTodo, srcless)
 
 		// ── Stall recovery: transparently restart the session ────────
 		if errors.Is(sessionErr, ErrSessionStalled) && ctx.Err() == nil {
@@ -497,7 +498,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			log("forking stalled session: %s → %s", stalledSID, resumeSID)
 
 			resumeStart := time.Now()
-			resumeErr := runSession(ctx, rc, resumeSID, issueID, alias, chrome, stalledSID, true, resolvedModel, todoID, activeTodo)
+			resumeErr := runSession(ctx, rc, resumeSID, issueID, alias, chrome, stalledSID, true, resolvedModel, todoID, activeTodo, srcless)
 
 			if resumeErr != nil && time.Since(resumeStart) < 60*time.Second {
 				// Resume failed fast — likely a context/compaction issue.
@@ -515,7 +516,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 				os.WriteFile(stateFile, []byte(issueID+"\n"+freshSID+"\n"), 0o644)
 				log("fresh session with summary: %s (issue=%s)", freshSID, issueID)
 
-				sessionErr = runSessionWithSummary(ctx, rc, freshSID, issueID, alias, chrome, resolvedModel, todoID, summary, activeTodo)
+				sessionErr = runSessionWithSummary(ctx, rc, freshSID, issueID, alias, chrome, resolvedModel, todoID, summary, activeTodo, srcless)
 				sid = freshSID
 			} else {
 				sessionErr = resumeErr
@@ -608,7 +609,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 // through the provider-agnostic RunLifecycle runner. Event tailing, WS
 // streaming, and close are all owned by the shared runner — this wrapper
 // only constructs a claudeAdapter and prints the post-session token summary.
-func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string, todoID int32, todo *claimedTodo) error {
+func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string, todoID int32, todo *claimedTodo, srcless bool) error {
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
@@ -630,6 +631,7 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 		alias:   alias,
 		model:   model,
 		prompt:  prompt,
+		srcless: srcless,
 		exited:  make(chan struct{}),
 	}
 
@@ -647,7 +649,7 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 // runSessionWithSummary starts a fresh claude session whose prompt includes
 // a transcript summary from a previous stalled session so the agent can
 // continue the same work without --resume.
-func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, model string, todoID int32, summary string, todo *claimedTodo) error {
+func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, model string, todoID int32, summary string, todo *claimedTodo, srcless bool) error {
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
@@ -666,6 +668,7 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 		alias:   alias,
 		model:   model,
 		prompt:  prompt,
+		srcless: srcless,
 		exited:  make(chan struct{}),
 	}
 
@@ -690,6 +693,7 @@ type claudeAdapter struct {
 	alias   string
 	model   string
 	prompt  string // custom prompt; empty = "/work"
+	srcless bool   // when true, inject DX_GLOBAL=1 into the subprocess env
 
 	proc       *exec.Cmd
 	exited     chan struct{}
@@ -697,6 +701,21 @@ type claudeAdapter struct {
 
 	toolNamesMu sync.Mutex
 	toolNames   map[string]string
+}
+
+// buildClaudeEnv builds the environment passed to the spawned claude CLI.
+// Extracted from Start() so the env wiring (including DX_GLOBAL in srcless
+// mode) is unit-testable without spawning a subprocess.
+func buildClaudeEnv(base []string, sid, alias string, srcless bool) []string {
+	env := append(base,
+		"ZDX_SESSION_ID="+sid,
+		"ZDX_AGENT_ID="+alias,
+		"DX_AUTHOR_ALIAS="+alias,
+	)
+	if srcless {
+		env = append(env, "DX_GLOBAL=1")
+	}
+	return env
 }
 
 func (a *claudeAdapter) Provider() string { return "claude" }
@@ -730,11 +749,7 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 	a.proc.Stdin = os.Stdin
 	a.proc.Stdout = os.Stdout
 	a.proc.Stderr = os.Stderr
-	a.proc.Env = append(os.Environ(),
-		"ZDX_SESSION_ID="+sid,
-		"ZDX_AGENT_ID="+a.alias,
-		"DX_AUTHOR_ALIAS="+a.alias,
-	)
+	a.proc.Env = buildClaudeEnv(os.Environ(), sid, a.alias, a.srcless)
 
 	if err := a.proc.Start(); err != nil {
 		return "", err

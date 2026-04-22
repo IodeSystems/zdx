@@ -192,6 +192,19 @@ func IsSrcless() bool {
 	return Load() == nil && LoadGlobal() != nil
 }
 
+// IsGlobalMode reports whether the DX_GLOBAL env var is truthy ("1" or "true").
+// When set, downstream dx invocations prefer ~/.zdx/config.yaml + credentials
+// over project config, matching `--global` on `dx agent`. Agent loops set
+// DX_GLOBAL=1 on spawned Claude subprocesses so /work's inner dx calls inherit
+// srcless mode without needing --global on every invocation.
+func IsGlobalMode() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("DX_GLOBAL"))) {
+	case "1", "true":
+		return true
+	}
+	return false
+}
+
 // LoadGlobal reads ~/.zdx/config.yaml. Returns nil if not found or unreadable.
 func LoadGlobal() *GlobalConfig {
 	home, err := os.UserHomeDir()
