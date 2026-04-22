@@ -33,3 +33,6 @@ test/e2e/uploads/
 bin/zdx-test
 bin/zdx-test-demo
 ui/.tanstack/
+vec/
+test/e2e/vec/
+ui/.eslintcache

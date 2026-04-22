@@ -784,6 +784,33 @@ func extractFirstBQID(output string) string {
 	return ""
 }
 
+// TestDemoCLI_SoloBootstrapGuidance is the demo for spec 79: when dx todo solo
+// is run on an empty project (no issues, no features), it emits a [bootstrap]
+// line with the project slug and guidance directing the user toward onboarding.
+func TestDemoCLI_SoloBootstrapGuidance(t *testing.T) {
+	const name = "solo-bootstrap-cli"
+	const slug = "demo-" + name
+	rec := newRecorder(t, name, "bin/dx")
+	t.Cleanup(rec.Save)
+
+	rec.Run("todo", "solo")
+
+	if len(rec.steps) == 0 {
+		t.Fatal("no steps recorded")
+	}
+	combined := rec.steps[0].Stdout + rec.steps[0].Stderr
+
+	if !strings.Contains(combined, "[bootstrap]") {
+		t.Errorf("expected '[bootstrap]' in output, got:\n%s", combined)
+	}
+	if !strings.Contains(combined, slug) {
+		t.Errorf("expected slug %q in output, got:\n%s", slug, combined)
+	}
+	if !strings.Contains(combined, "answer") && !strings.Contains(combined, "todo solo") {
+		t.Errorf("expected onboarding guidance in output, got:\n%s", combined)
+	}
+}
+
 // extractFirstID pulls the first IS-N or TK-N token from output.
 func extractFirstID(output string) string {
 	for _, word := range strings.Fields(output) {
