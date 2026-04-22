@@ -1,8 +1,15 @@
 package e2e
 
 import (
+	"context"
+	"encoding/json"
 	"fmt"
+	"net/http"
+	"strings"
 	"testing"
+	"time"
+
+	"nhooyr.io/websocket"
 )
 
 func TestSoloBootstrap(t *testing.T) {
@@ -607,4 +614,96 @@ func TestSoloStaleTaskSweep(t *testing.T) {
 	}
 
 	d.CloseIssue(issueID)
+}
+
+// TestSoloDevDone covers spec 76: POST /api/dx/todo/dev/done sets status=done,
+// populates completed_at, and publishes a task.done event on the WS channel.
+func TestSoloDevDone(t *testing.T) {
+	d := NewApiDriver(t, "solo-dev-done", "Solo Dev Done")
+	sc := Given(d).
+		TriagedIssue("Task done spec76", "verify all three assertions", 3).
+		Task(0, "Implement the thing").
+		Build()
+	taskID := sc.Tasks[0]
+
+	// Subscribe to the project tasks channel before triggering the action
+	// so we don't race against the event delivery.
+	channel := fmt.Sprintf("project:%s:tasks", d.Slug)
+	var signResp struct {
+		Token string `json:"token"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/ws/sign",
+		map[string]string{"channel": channel}, &signResp))
+
+	wsURL := strings.Replace(srv.URL, "http://", "ws://", 1) + "/ws"
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	conn, _, err := websocket.Dial(ctx, wsURL, &websocket.DialOptions{})
+	if err != nil {
+		t.Fatalf("ws dial: %v", err)
+	}
+	defer conn.Close(websocket.StatusNormalClosure, "")
+
+	subPayload, _ := json.Marshal(map[string]string{"type": "subscribe", "token": signResp.Token})
+	if err := conn.Write(ctx, websocket.MessageText, subPayload); err != nil {
+		t.Fatalf("ws write subscribe: %v", err)
+	}
+	_, ackData, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("ws read ack: %v", err)
+	}
+	var ack struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(ackData, &ack); err != nil || ack.Type != "subscribed" {
+		t.Fatalf("expected subscribed ack, got %s", ackData)
+	}
+
+	// (a) and (b): status=done and completed_at set after the call.
+	beforeDone := time.Now().UTC()
+	d.MarkTaskDone(taskID)
+
+	task := d.GetTask(taskID)
+	if task.Status != "done" {
+		t.Errorf("status: want done, got %q", task.Status)
+	}
+	if task.CompletedAt == "" {
+		t.Error("completed_at should be set after MarkTaskDone")
+	} else {
+		completedAt, parseErr := time.Parse(time.RFC3339, task.CompletedAt)
+		if parseErr != nil {
+			t.Errorf("parse completed_at %q: %v", task.CompletedAt, parseErr)
+		} else if completedAt.Before(beforeDone) {
+			t.Errorf("completed_at %v is before call start time %v", completedAt, beforeDone)
+		}
+	}
+
+	// (c): task.done event published with payload.id matching the task.
+	_, data, err := conn.Read(ctx)
+	if err != nil {
+		t.Fatalf("ws read: %v", err)
+	}
+	var msg struct {
+		Event   string          `json:"event"`
+		Payload json.RawMessage `json:"payload"`
+	}
+	if err := json.Unmarshal(data, &msg); err != nil {
+		t.Fatalf("unmarshal ws message: %v", err)
+	}
+	if msg.Event != "task.done" {
+		t.Errorf("event: want task.done, got %q", msg.Event)
+	}
+	var payload struct {
+		ID string `json:"id"`
+	}
+	if err := json.Unmarshal(msg.Payload, &payload); err != nil {
+		t.Fatalf("unmarshal payload: %v", err)
+	}
+	wantID := fmt.Sprintf("TK-%d", taskID)
+	if payload.ID != wantID {
+		t.Errorf("payload.id: want %q, got %q", wantID, payload.ID)
+	}
+
+	d.CloseIssue(sc.Issues[0])
 }

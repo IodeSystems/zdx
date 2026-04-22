@@ -3,6 +3,7 @@ package e2e
 import (
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestGoalCRUD(t *testing.T) {
@@ -28,9 +29,11 @@ func TestGoalCRUD(t *testing.T) {
 		t.Fatal("created_at should be set")
 	}
 
-	// Update
+	preUpdateAt, _ := time.Parse(time.RFC3339, goal.UpdatedAt)
+
+	// Update — change status to "paused" to verify round-trip
 	mustOK(t, apiDo(t, http.MethodPut, "/api/goal",
-		map[string]any{"id": goal.ID, "title": "Ship safely", "description": "Move carefully", "priority": 2, "status": "active"}, nil))
+		map[string]any{"id": goal.ID, "title": "Ship safely", "description": "Move carefully", "priority": 2, "status": "paused"}, nil))
 
 	// Verify update via list
 	var list struct {
@@ -39,6 +42,8 @@ func TestGoalCRUD(t *testing.T) {
 			Title       string `json:"title"`
 			Description string `json:"description"`
 			Priority    int    `json:"priority"`
+			Status      string `json:"status"`
+			UpdatedAt   string `json:"updated_at"`
 		} `json:"goals"`
 	}
 	mustOK(t, apiDo(t, http.MethodGet, "/api/goals?slug=e2e-goals", nil, &list))
@@ -49,8 +54,20 @@ func TestGoalCRUD(t *testing.T) {
 			if g.Title != "Ship safely" {
 				t.Errorf("updated title: want %q got %q", "Ship safely", g.Title)
 			}
+			if g.Description != "Move carefully" {
+				t.Errorf("updated description: want %q got %q", "Move carefully", g.Description)
+			}
 			if g.Priority != 2 {
 				t.Errorf("updated priority: want 2 got %d", g.Priority)
+			}
+			if g.Status != "paused" {
+				t.Errorf("updated status: want %q got %q", "paused", g.Status)
+			}
+			postUpdateAt, err := time.Parse(time.RFC3339, g.UpdatedAt)
+			if err != nil {
+				t.Errorf("updated_at parse error: %v", err)
+			} else if !postUpdateAt.After(preUpdateAt) {
+				t.Errorf("updated_at should advance: pre=%s post=%s", preUpdateAt, postUpdateAt)
 			}
 		}
 	}
@@ -94,9 +111,11 @@ func TestConstraintCRUD(t *testing.T) {
 		t.Fatal("created_at should be set")
 	}
 
-	// Update
+	preUpdateAt, _ := time.Parse(time.RFC3339, constraint.UpdatedAt)
+
+	// Update — change status to "paused" to verify round-trip
 	mustOK(t, apiDo(t, http.MethodPut, "/api/constraint",
-		map[string]any{"id": constraint.ID, "title": "Minimal downtime", "description": "Under 5 min", "priority": 2, "status": "active"}, nil))
+		map[string]any{"id": constraint.ID, "title": "Minimal downtime", "description": "Under 5 min", "priority": 2, "status": "paused"}, nil))
 
 	// Verify update via list
 	var list struct {
@@ -105,6 +124,8 @@ func TestConstraintCRUD(t *testing.T) {
 			Title       string `json:"title"`
 			Description string `json:"description"`
 			Priority    int    `json:"priority"`
+			Status      string `json:"status"`
+			UpdatedAt   string `json:"updated_at"`
 		} `json:"constraints"`
 	}
 	mustOK(t, apiDo(t, http.MethodGet, "/api/constraints?slug=e2e-constraints", nil, &list))
@@ -115,8 +136,20 @@ func TestConstraintCRUD(t *testing.T) {
 			if c.Title != "Minimal downtime" {
 				t.Errorf("updated title: want %q got %q", "Minimal downtime", c.Title)
 			}
+			if c.Description != "Under 5 min" {
+				t.Errorf("updated description: want %q got %q", "Under 5 min", c.Description)
+			}
 			if c.Priority != 2 {
 				t.Errorf("updated priority: want 2 got %d", c.Priority)
+			}
+			if c.Status != "paused" {
+				t.Errorf("updated status: want %q got %q", "paused", c.Status)
+			}
+			postUpdateAt, err := time.Parse(time.RFC3339, c.UpdatedAt)
+			if err != nil {
+				t.Errorf("updated_at parse error: %v", err)
+			} else if !postUpdateAt.After(preUpdateAt) {
+				t.Errorf("updated_at should advance: pre=%s post=%s", preUpdateAt, postUpdateAt)
 			}
 		}
 	}

@@ -10,10 +10,11 @@ type IssueInfo struct {
 }
 
 type TaskInfo struct {
-	ID        int32  `json:"id"`
-	Text      string `json:"text"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"created_at"`
+	ID          int32  `json:"id"`
+	Text        string `json:"text"`
+	Status      string `json:"status"`
+	CreatedAt   string `json:"created_at"`
+	CompletedAt string `json:"completed_at"`
 }
 
 type FeatureInfo struct {

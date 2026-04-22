@@ -64,6 +64,14 @@ func (d *ApiDriver) MarkTaskDone(taskID int32) {
 		map[string]any{"id": taskID}, nil))
 }
 
+func (d *ApiDriver) GetTask(taskID int32) TaskInfo {
+	d.t.Helper()
+	var resp TaskInfo
+	mustOK(d.t, apiDo(d.t, http.MethodGet,
+		fmt.Sprintf("/api/task?slug=%s&id=TK-%d", d.Slug, taskID), nil, &resp))
+	return resp
+}
+
 func (d *ApiDriver) AddFeature(name, desc string) int32 {
 	d.t.Helper()
 	var feat struct {
