@@ -69,6 +69,7 @@ func main() {
 		project.EnvCmd(),
 		project.DiscussionCmd(),
 		servercmd.IntegrateCmd(),
+		servercmd.ImportCmd(),
 		servercmd.LoginCmd(),
 		configcmd.ConfigCmd(),
 		credentialhelper.CredentialHelperCmd(),
