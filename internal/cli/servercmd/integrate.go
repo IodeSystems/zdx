@@ -2,17 +2,19 @@ package servercmd
 
 import (
 	"fmt"
-	"github.com/iodesystems/zdx-go/internal/cli"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 
 	"github.com/spf13/cobra"
+
+	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
 func IntegrateCmd() *cobra.Command {
-	var serverURL, slug, apiKey string
+	var serverURL, slug, projectName, apiKey string
 	var bootstrap bool
 	cmd := &cobra.Command{
 		Use:   "integrate",
@@ -28,6 +30,9 @@ func IntegrateCmd() *cobra.Command {
 				}
 				slug = filepath.Base(cwd)
 			}
+			if projectName == "" {
+				projectName = slug
+			}
 
 			// Validate server connectivity.
 			fmt.Printf("connecting to %s ...\n", serverURL)
@@ -41,16 +46,39 @@ func IntegrateCmd() *cobra.Command {
 			}
 			fmt.Println("server: ok")
 
-			// Validate API key by hitting an authenticated endpoint.
+			// Validate API key and create the project on the remote server.
 			if apiKey != "" {
 				client := cli.NewClient(serverURL, apiKey)
-				var projects struct {
-					Items []struct{} `json:"items"`
+				var listResp struct {
+					Projects []struct {
+						Slug string `json:"slug"`
+					} `json:"projects"`
 				}
-				if err := client.Get("/api/projects", nil, &projects); err != nil {
+				if err := client.Get("/api/projects", nil, &listResp); err != nil {
 					return fmt.Errorf("API key validation failed: %w", err)
 				}
 				fmt.Println("api key: valid")
+
+				exists := false
+				for _, p := range listResp.Projects {
+					if p.Slug == slug {
+						exists = true
+						break
+					}
+				}
+				if exists {
+					fmt.Printf("project: %s (already exists)\n", slug)
+				} else {
+					var proj struct {
+						Slug string `json:"slug"`
+						Name string `json:"name"`
+					}
+					if err := client.Post("/api/project", dxclient.CreateProjectRequest{Slug: slug, Name: projectName}, &proj); err != nil {
+						fmt.Fprintf(os.Stderr, "project: create failed: %v\n", err)
+					} else {
+						fmt.Printf("project: %s created\n", proj.Slug)
+					}
+				}
 			}
 
 			// Ensure .zdx/ exists.
@@ -88,6 +116,7 @@ func IntegrateCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&serverURL, "url", "", "zdx server base URL (e.g. https://zdx.example.com)")
 	cmd.Flags().StringVar(&slug, "slug", "", "project slug (defaults to current directory name)")
+	cmd.Flags().StringVar(&projectName, "project-name", "", "project display name (defaults to slug)")
 	cmd.Flags().StringVar(&apiKey, "api-key", "", "API key for authentication")
 	cmd.Flags().BoolVar(&bootstrap, "bootstrap", false, "create onboarding issue with project setup questions")
 	_ = cmd.MarkFlagRequired("url")
