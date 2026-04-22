@@ -642,6 +642,14 @@ if [ -f schema/next.sql ]; then
   echo "[ship] shipped.sql validation: OK (all migration tables present)."
 fi
 
+# ── Install dx locally ────────────────────────────────────────────────────────
+
+if [ -d "$HOME/local/bin" ]; then
+  echo "[ship] Installing dx to ~/local/bin/dx..."
+  go build -trimpath -ldflags="-s -w" -o "$HOME/local/bin/dx" ./cmd/dx
+  echo "[ship] dx installed."
+fi
+
 echo ""
 echo "[ship] Done."
 $HZ status 2>/dev/null || true
