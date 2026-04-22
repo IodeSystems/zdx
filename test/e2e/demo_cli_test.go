@@ -3,6 +3,7 @@ package e2e
 import (
 	"bytes"
 	"encoding/json"
+	"fmt"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -597,6 +598,41 @@ func TestDemoCLI_IssueScopedQueue(t *testing.T) {
 		if s.ExitCode != 0 {
 			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
 		}
+	}
+}
+
+// TestDemoCLI_WipIssueBlocksSolo is the demo for spec 85: when solo is run
+// with --issue=IS-N and that issue is still in wip status, the command exits
+// non-zero with a message directing the user to promote it via dx issue ready.
+func TestDemoCLI_WipIssueBlocksSolo(t *testing.T) {
+	rec := newRecorder(t, "wip-issue-blocks-solo", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	// Create the issue directly via the API so it stays in wip status.
+	// The CLI auto-promotes issues when no similar matches are found, making
+	// it impossible to reliably produce a wip issue through the CLI alone.
+	var addResp struct {
+		ID int32 `json:"id"`
+	}
+	apiDo(t, "POST", "/api/dx/todo/issue/add",
+		map[string]any{"slug": "demo-wip-issue-blocks-solo", "title": "WIP issue not ready", "auto_ready": false},
+		&addResp)
+	if addResp.ID == 0 {
+		t.Fatal("issue creation via API failed")
+	}
+	wipIssueID := fmt.Sprintf("IS-%d", addResp.ID)
+
+	// solo --issue on a wip issue must fail with a descriptive error.
+	rec.Run("todo", "solo", "--issue="+wipIssueID)
+	soloStep := rec.steps[len(rec.steps)-1]
+	if soloStep.ExitCode == 0 {
+		t.Errorf("expected non-zero exit for wip issue, got 0; stdout: %s", soloStep.Stdout)
+	}
+	if !strings.Contains(soloStep.Stderr, "still in draft (wip)") {
+		t.Errorf("expected 'still in draft (wip)' in stderr, got: %s", soloStep.Stderr)
+	}
+	if !strings.Contains(soloStep.Stderr, "dx issue ready") {
+		t.Errorf("expected 'dx issue ready' in stderr, got: %s", soloStep.Stderr)
 	}
 }
 
