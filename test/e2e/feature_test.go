@@ -150,7 +150,9 @@ func TestSpecDeferralAcceptsWipIssue(t *testing.T) {
 	specID := featResp.Specs[0].ID
 
 	// wip issue (auto_ready: false keeps status=wip)
-	var issResp struct{ ID int32 `json:"id"` }
+	var issResp struct {
+		ID int32 `json:"id"`
+	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/add",
 		map[string]any{"slug": slug, "title": "wip issue", "auto_ready": false}, &issResp))
 	wipID := fmt.Sprintf("IS-%d", issResp.ID)
@@ -185,7 +187,9 @@ func TestSpecDeferralRejectsClosedIssue(t *testing.T) {
 	specID := featResp.Specs[0].ID
 
 	// open issue, then close it
-	var issResp struct{ ID int32 `json:"id"` }
+	var issResp struct {
+		ID int32 `json:"id"`
+	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/add",
 		map[string]any{"slug": slug, "title": "soon closed issue", "auto_ready": true}, &issResp))
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/close",
