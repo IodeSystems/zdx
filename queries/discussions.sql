@@ -18,6 +18,9 @@ SET claude_session_id = $3, openai_thread_id = $4, updated_at = NOW()
 WHERE project_id = $1 AND id = $2
 RETURNING id, project_id, title, provider, claude_session_id, openai_thread_id, status, created_by, created_at, updated_at;
 
+-- name: UpdateDiscussionTitle :exec
+UPDATE zdx_discussions SET title = $3, updated_at = NOW() WHERE project_id = $1 AND id = $2;
+
 -- name: UpdateDiscussionStatus :exec
 UPDATE zdx_discussions SET status = $3, updated_at = NOW() WHERE project_id = $1 AND id = $2;
 

@@ -463,6 +463,7 @@ type Querier interface {
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
 	UpdateDiscussionSession(ctx context.Context, arg UpdateDiscussionSessionParams) (ZdxDiscussion, error)
 	UpdateDiscussionStatus(ctx context.Context, arg UpdateDiscussionStatusParams) error
+	UpdateDiscussionTitle(ctx context.Context, arg UpdateDiscussionTitleParams) error
 	UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error
 	UpdateEnvironmentDeploy(ctx context.Context, arg UpdateEnvironmentDeployParams) error
 	UpdateFeatureField(ctx context.Context, arg UpdateFeatureFieldParams) error

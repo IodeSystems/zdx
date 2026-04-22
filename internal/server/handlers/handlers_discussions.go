@@ -159,6 +159,29 @@ func (h *Handler) registerDiscussionRoutes(api huma.API) {
 			return &struct{}{}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "update-discussion-title", Method: http.MethodPatch, Path: "/api/dx/discussions/{id}/title"},
+		func(ctx context.Context, in *struct {
+			ID   int32 `path:"id"`
+			Body struct {
+				Slug  string `json:"slug"`
+				Title string `json:"title"`
+			}
+		}) (*struct{}, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			err = h.Q.UpdateDiscussionTitle(ctx, db.UpdateDiscussionTitleParams{
+				ProjectID: p.ID,
+				ID:        in.ID,
+				Title:     in.Body.Title,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{}{}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "delete-discussion", Method: http.MethodDelete, Path: "/api/dx/discussions/{id}"},
 		func(ctx context.Context, in *struct {
 			ID   int32  `path:"id"`
@@ -274,10 +297,12 @@ func (h *Handler) handleDiscussionSendStream(w http.ResponseWriter, r *http.Requ
 		http.Error(w, `{"title":"Not Found","detail":"project not found"}`, http.StatusNotFound)
 		return
 	}
-	if _, err := h.Q.GetDiscussion(ctx, db.GetDiscussionParams{ProjectID: p.ID, ID: id}); err != nil {
+	discussion, err := h.Q.GetDiscussion(ctx, db.GetDiscussionParams{ProjectID: p.ID, ID: id})
+	if err != nil {
 		http.Error(w, `{"title":"Not Found","detail":"discussion not found"}`, http.StatusNotFound)
 		return
 	}
+	emptyTitle := discussion.Title == ""
 
 	// Persist user turn before invoking the model so partial failures still
 	// leave the user message recorded.
@@ -334,5 +359,32 @@ func (h *Handler) handleDiscussionSendStream(w http.ResponseWriter, r *http.Requ
 		writeSSE(map[string]string{"error": "persist assistant: " + err.Error()})
 		return
 	}
-	writeSSE(map[string]any{"done": true, "message_id": m.ID})
+
+	// Derive title from first exchange when discussion was created without one.
+	var derivedTitle string
+	if emptyTitle {
+		titleMessages := []llm.ChatMessage{
+			{
+				Role:    "user",
+				Content: "Based on the following conversation starter, write a concise discussion title of at most 60 characters. Reply with only the title text, no quotes or punctuation at the end.\n\nUser: " + body.Message + "\n\nAssistant: " + final,
+			},
+		}
+		if t, tErr := h.Emb.Complete(ctx, titleMessages); tErr == nil && t != "" {
+			if len(t) > 60 {
+				t = t[:60]
+			}
+			_ = h.Q.UpdateDiscussionTitle(ctx, db.UpdateDiscussionTitleParams{
+				ProjectID: p.ID,
+				ID:        id,
+				Title:     t,
+			})
+			derivedTitle = t
+		}
+	}
+
+	event := map[string]any{"done": true, "message_id": m.ID}
+	if derivedTitle != "" {
+		event["title"] = derivedTitle
+	}
+	writeSSE(event)
 }

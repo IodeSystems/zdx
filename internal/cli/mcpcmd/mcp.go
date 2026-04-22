@@ -850,6 +850,140 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		return nil, resp.JSON200, nil
 	})
 
+	// ── discussion tools ─────────────────────────────────────────────────────
+
+	type discussionListInput struct {
+		Status string `json:"status,omitempty" jsonschema:"filter by status: active (default), archived, closed, all"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "discussion_list",
+		Description: "List discussions for the project, optionally filtered by status (default: active).",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in discussionListInput) (*mcp.CallToolResult, any, error) {
+		status := in.Status
+		if status == "" {
+			status = "active"
+		}
+		resp, err := c.ListDiscussionsWithResponse(ctx, &dxclient.ListDiscussionsParams{Slug: slug, Status: &status})
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		return nil, resp.JSON200, nil
+	})
+
+	type discussionCreateInput struct {
+		Message  string `json:"message" jsonschema:"required,opening message — what do you want to discuss?"`
+		Provider string `json:"provider,omitempty" jsonschema:"LLM provider: claude (default), openai, local"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "discussion_create",
+		Description: "Create a new discussion and post the opening message. Returns the discussion ID and first user message.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in discussionCreateInput) (*mcp.CallToolResult, any, error) {
+		provider := in.Provider
+		if provider == "" {
+			provider = "claude"
+		}
+		dr, err := c.CreateDiscussionWithResponse(ctx, dxclient.CreateDiscussionJSONRequestBody{
+			Slug:     slug,
+			Title:    "",
+			Provider: &provider,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(dr.StatusCode(), dr.Body); err != nil {
+			return nil, nil, err
+		}
+		if dr.JSON200 == nil {
+			return nil, nil, fmt.Errorf("empty response")
+		}
+		discussion := dr.JSON200
+
+		// Store opening user message (non-streaming; title derivation fires on first send).
+		msgResp, err := c.AddDiscussionMessageWithResponse(ctx, discussion.Id, dxclient.AddDiscussionMessageJSONRequestBody{
+			Slug:    slug,
+			Role:    "user",
+			Content: in.Message,
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(msgResp.StatusCode(), msgResp.Body); err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]any{
+			"discussion": discussion,
+			"message":    msgResp.JSON200,
+			"guidance":   fmt.Sprintf("Discussion #%d created. Call discussion_send with discussion_id=%d to get an LLM response.", discussion.Id, discussion.Id),
+		}, nil
+	})
+
+	type discussionSendInput struct {
+		DiscussionID int32  `json:"discussion_id" jsonschema:"required,numeric ID of the discussion"`
+		Message      string `json:"message" jsonschema:"required,message to send"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "discussion_send",
+		Description: "Send a message to a discussion and stream the LLM response. Returns the full assistant reply and any auto-derived title.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in discussionSendInput) (*mcp.CallToolResult, any, error) {
+		path := fmt.Sprintf("/api/dx/discussions/%d/messages/send", in.DiscussionID)
+		var response string
+		var title string
+		err := c.PostStreamSSE(ctx, path, map[string]any{
+			"slug":    slug,
+			"message": in.Message,
+		}, func(raw []byte) error {
+			var ev map[string]any
+			if err := json.Unmarshal(raw, &ev); err != nil {
+				return nil
+			}
+			if delta, ok := ev["delta"].(string); ok {
+				response += delta
+			}
+			if t, ok := ev["title"].(string); ok {
+				title = t
+			}
+			return nil
+		})
+		if err != nil {
+			return nil, nil, err
+		}
+		result := map[string]any{"response": response}
+		if title != "" {
+			result["title"] = title
+		}
+		return nil, result, nil
+	})
+
+	type discussionShowInput struct {
+		DiscussionID int32 `json:"discussion_id" jsonschema:"required,numeric ID of the discussion"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "discussion_show",
+		Description: "Show discussion metadata and full message thread.",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in discussionShowInput) (*mcp.CallToolResult, any, error) {
+		dr, err := c.GetDiscussionWithResponse(ctx, in.DiscussionID, &dxclient.GetDiscussionParams{Slug: slug})
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(dr.StatusCode(), dr.Body); err != nil {
+			return nil, nil, err
+		}
+		mr, err := c.ListDiscussionMessagesWithResponse(ctx, in.DiscussionID, &dxclient.ListDiscussionMessagesParams{Slug: slug})
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(mr.StatusCode(), mr.Body); err != nil {
+			return nil, nil, err
+		}
+		return nil, map[string]any{
+			"discussion": dr.JSON200,
+			"messages":   mr.JSON200,
+		}, nil
+	})
+
 	// ── proposal tools ───────────────────────────────────────────────────────
 
 	type proposalAddInput struct {

@@ -349,3 +349,20 @@ var MetaUpdateDiscussionStatus = metaquery.Query{
 func WrapUpdateDiscussionStatus(arg UpdateDiscussionStatusParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaUpdateDiscussionStatus, arg.ProjectID, arg.ID, arg.Status)
 }
+
+var MetaUpdateDiscussionTitle = metaquery.Query{
+	Name:   "UpdateDiscussionTitle",
+	Cmd:    ":exec",
+	Source: "discussions.sql",
+	SQL:    `UPDATE zdx_discussions SET title = $3, updated_at = NOW() WHERE project_id = $1 AND id = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 3, Name: "title", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapUpdateDiscussionTitle returns a metaquery.Builder over MetaUpdateDiscussionTitle, pre-bound with typed arguments.
+func WrapUpdateDiscussionTitle(arg UpdateDiscussionTitleParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUpdateDiscussionTitle, arg.ProjectID, arg.ID, arg.Title)
+}

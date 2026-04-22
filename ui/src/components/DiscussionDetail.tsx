@@ -94,13 +94,21 @@ function MessageBubble({
   )
 }
 
-export function DiscussionDetail({ slug, discussionId }: { slug: string; discussionId: number }) {
+export function DiscussionDetail({
+  slug,
+  discussionId,
+  initialMessage,
+}: {
+  slug: string
+  discussionId: number
+  initialMessage?: string
+}) {
   const { data: discussion, isLoading: loadingDiscussion } = useDiscussion(slug, discussionId)
   const { data: messages, isLoading: loadingMessages } = useDiscussionMessages(slug, discussionId)
   const addMessage = useAddDiscussionMessage()
   const createProposal = useCreateProposal()
 
-  const [input, setInput] = useState('')
+  const [input, setInput] = useState(initialMessage ?? '')
   const [promoteMsg, setPromoteMsg] = useState<DiscussionMessageItem | null>(null)
   const [propTitle, setPropTitle] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)

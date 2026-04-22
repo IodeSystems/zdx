@@ -3576,6 +3576,14 @@ type UpdateDiscussionStatusRequest struct {
 	Status string  `json:"status"`
 }
 
+// UpdateDiscussionTitleRequest defines model for Update-discussion-titleRequest.
+type UpdateDiscussionTitleRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+	Title  string  `json:"title"`
+}
+
 // UpdateEnvironmentRequest defines model for Update-environmentRequest.
 type UpdateEnvironmentRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4660,6 +4668,9 @@ type AddDiscussionMessageJSONRequestBody = AddDiscussionMessageRequest
 // UpdateDiscussionStatusJSONRequestBody defines body for UpdateDiscussionStatus for application/json ContentType.
 type UpdateDiscussionStatusJSONRequestBody = UpdateDiscussionStatusRequest
 
+// UpdateDiscussionTitleJSONRequestBody defines body for UpdateDiscussionTitle for application/json ContentType.
+type UpdateDiscussionTitleJSONRequestBody = UpdateDiscussionTitleRequest
+
 // SetClassificationJSONRequestBody defines body for SetClassification for application/json ContentType.
 type SetClassificationJSONRequestBody = SetClassificationRequest
 
@@ -5396,6 +5407,11 @@ type ClientInterface interface {
 	UpdateDiscussionStatusWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	UpdateDiscussionStatus(ctx context.Context, id int32, body UpdateDiscussionStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateDiscussionTitleWithBody request with any body
+	UpdateDiscussionTitleWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateDiscussionTitle(ctx context.Context, id int32, body UpdateDiscussionTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetClassificationWithBody request with any body
 	SetClassificationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7735,6 +7751,30 @@ func (c *APIClient) UpdateDiscussionStatusWithBody(ctx context.Context, id int32
 
 func (c *APIClient) UpdateDiscussionStatus(ctx context.Context, id int32, body UpdateDiscussionStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewUpdateDiscussionStatusRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateDiscussionTitleWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDiscussionTitleRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateDiscussionTitle(ctx context.Context, id int32, body UpdateDiscussionTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateDiscussionTitleRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -16039,6 +16079,53 @@ func NewUpdateDiscussionStatusRequestWithBody(server string, id int32, contentTy
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/discussions/%s/status", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewUpdateDiscussionTitleRequest calls the generic UpdateDiscussionTitle builder with application/json body
+func NewUpdateDiscussionTitleRequest(server string, id int32, body UpdateDiscussionTitleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateDiscussionTitleRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewUpdateDiscussionTitleRequestWithBody generates requests for UpdateDiscussionTitle with any type of body
+func NewUpdateDiscussionTitleRequestWithBody(server string, id int32, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/discussions/%s/title", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -26993,6 +27080,11 @@ type ClientWithResponsesInterface interface {
 
 	UpdateDiscussionStatusWithResponse(ctx context.Context, id int32, body UpdateDiscussionStatusJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDiscussionStatusResponse, error)
 
+	// UpdateDiscussionTitleWithBodyWithResponse request with any body
+	UpdateDiscussionTitleWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDiscussionTitleResponse, error)
+
+	UpdateDiscussionTitleWithResponse(ctx context.Context, id int32, body UpdateDiscussionTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDiscussionTitleResponse, error)
+
 	// SetClassificationWithBodyWithResponse request with any body
 	SetClassificationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetClassificationResponse, error)
 
@@ -29849,6 +29941,28 @@ func (r UpdateDiscussionStatusResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r UpdateDiscussionStatusResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateDiscussionTitleResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateDiscussionTitleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateDiscussionTitleResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -35624,6 +35738,23 @@ func (c *ClientWithResponses) UpdateDiscussionStatusWithResponse(ctx context.Con
 	return ParseUpdateDiscussionStatusResponse(rsp)
 }
 
+// UpdateDiscussionTitleWithBodyWithResponse request with arbitrary body returning *UpdateDiscussionTitleResponse
+func (c *ClientWithResponses) UpdateDiscussionTitleWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateDiscussionTitleResponse, error) {
+	rsp, err := c.UpdateDiscussionTitleWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDiscussionTitleResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateDiscussionTitleWithResponse(ctx context.Context, id int32, body UpdateDiscussionTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateDiscussionTitleResponse, error) {
+	rsp, err := c.UpdateDiscussionTitle(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateDiscussionTitleResponse(rsp)
+}
+
 // SetClassificationWithBodyWithResponse request with arbitrary body returning *SetClassificationResponse
 func (c *ClientWithResponses) SetClassificationWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetClassificationResponse, error) {
 	rsp, err := c.SetClassificationWithBody(ctx, contentType, body, reqEditors...)
@@ -41164,6 +41295,32 @@ func ParseUpdateDiscussionStatusResponse(rsp *http.Response) (*UpdateDiscussionS
 	}
 
 	response := &UpdateDiscussionStatusResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateDiscussionTitleResponse parses an HTTP response from a UpdateDiscussionTitleWithResponse call
+func ParseUpdateDiscussionTitleResponse(rsp *http.Response) (*UpdateDiscussionTitleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateDiscussionTitleResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}

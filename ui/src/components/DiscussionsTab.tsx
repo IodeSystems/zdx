@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { Link } from '@tanstack/react-router'
+import { Link, useNavigate } from '@tanstack/react-router'
 import {
   Box,
   Button,
@@ -51,8 +51,9 @@ export function DiscussionsTab({
 }) {
   const { data, isLoading } = useDiscussions(slug, statusFilter ?? undefined)
   const createDiscussion = useCreateDiscussion()
+  const navigate = useNavigate()
   const [createOpen, setCreateOpen] = useState(false)
-  const [newTitle, setNewTitle] = useState('')
+  const [newMessage, setNewMessage] = useState('')
   const [newProvider, setNewProvider] = useState('claude')
 
   if (isLoading && !data) return <Typography color="text.secondary">Loading...</Typography>
@@ -60,14 +61,19 @@ export function DiscussionsTab({
   const items: DiscussionItem[] = data ?? []
 
   const handleCreate = () => {
-    if (!newTitle.trim()) return
+    if (!newMessage.trim()) return
     createDiscussion.mutate(
-      { slug, title: newTitle.trim(), provider: newProvider },
+      { slug, title: '', provider: newProvider },
       {
-        onSuccess: () => {
+        onSuccess: d => {
           setCreateOpen(false)
-          setNewTitle('')
+          setNewMessage('')
           setNewProvider('claude')
+          navigate({
+            to: '/project/$slug/discussions/$id',
+            params: { slug, id: String(d.id) },
+            search: { initialMessage: newMessage.trim() },
+          })
         },
       },
     )
@@ -146,12 +152,14 @@ export function DiscussionsTab({
         <DialogTitle>New discussion</DialogTitle>
         <DialogContent>
           <TextField
-            label="Title"
+            label="What do you want to discuss?"
             fullWidth
+            multiline
+            minRows={2}
             margin="dense"
-            value={newTitle}
-            onChange={e => setNewTitle(e.target.value)}
-            onKeyDown={e => e.key === 'Enter' && handleCreate()}
+            value={newMessage}
+            onChange={e => setNewMessage(e.target.value)}
+            onKeyDown={e => e.key === 'Enter' && !e.shiftKey && handleCreate()}
             autoFocus
           />
           <TextField
@@ -173,9 +181,9 @@ export function DiscussionsTab({
           <Button
             variant="contained"
             onClick={handleCreate}
-            disabled={!newTitle.trim() || createDiscussion.isPending}
+            disabled={!newMessage.trim() || createDiscussion.isPending}
           >
-            Create
+            Start
           </Button>
         </DialogActions>
       </Dialog>

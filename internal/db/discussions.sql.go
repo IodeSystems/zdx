@@ -239,3 +239,18 @@ func (q *Queries) UpdateDiscussionStatus(ctx context.Context, arg UpdateDiscussi
 	_, err := q.db.Exec(ctx, updateDiscussionStatus, arg.ProjectID, arg.ID, arg.Status)
 	return err
 }
+
+const updateDiscussionTitle = `-- name: UpdateDiscussionTitle :exec
+UPDATE zdx_discussions SET title = $3, updated_at = NOW() WHERE project_id = $1 AND id = $2
+`
+
+type UpdateDiscussionTitleParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	ID        int32  `db:"id" json:"id"`
+	Title     string `db:"title" json:"title"`
+}
+
+func (q *Queries) UpdateDiscussionTitle(ctx context.Context, arg UpdateDiscussionTitleParams) error {
+	_, err := q.db.Exec(ctx, updateDiscussionTitle, arg.ProjectID, arg.ID, arg.Title)
+	return err
+}
