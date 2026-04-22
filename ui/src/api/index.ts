@@ -247,6 +247,25 @@ export const useCloseIssue = () => {
   })
 }
 
+export const useReopenIssue = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, { slug: string; id: number; reason: string }>({
+    mutationFn: async ({ slug, id, reason }) => {
+      const { data, error } = await client.POST('/api/dx/todo/issue/reopen', { body: { id } })
+      if (error) throw new Error(JSON.stringify(error))
+      // Post the reason as a comment so it appears in the work log.
+      if (reason) {
+        await client.POST('/api/dx/comment/add', { body: { slug, target_type: 'issue', target_id: `IS-${id}`, body: `[reopen] ${reason}` } })
+      }
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['issues', v.slug] })
+      qc.invalidateQueries({ queryKey: ['issue'] })
+    },
+  })
+}
+
 export const useReadyIssue = () => {
   const qc = useQueryClient()
   return useMutation<components['schemas']['Ready-issueResponse'], Error, components['schemas']['Ready-issueRequest']>({

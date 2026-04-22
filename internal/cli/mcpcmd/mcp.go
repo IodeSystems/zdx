@@ -203,6 +203,37 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		return nil, map[string]string{"status": "closed", "id": in.ID}, nil
 	})
 
+	type issueReopenInput struct {
+		ID     string `json:"id" jsonschema:"required,issue ID (IS-N)"`
+		Reason string `json:"reason" jsonschema:"required,why the issue is being reopened"`
+	}
+	mcp.AddTool(srv, &mcp.Tool{
+		Name:        "issue_reopen",
+		Description: "Reopen a closed issue with a reason (increments reopen_count as a churn signal)",
+	}, func(ctx context.Context, req *mcp.CallToolRequest, in issueReopenInput) (*mcp.CallToolResult, any, error) {
+		n, err := parseIssueNum(in.ID)
+		if err != nil {
+			return nil, nil, err
+		}
+		resp, err := c.ReopenIssueWithResponse(ctx, dxclient.ReopenIssueJSONRequestBody{Id: n})
+		if err != nil {
+			return nil, nil, err
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return nil, nil, err
+		}
+		// Record the reason as a comment so it's visible in the work log.
+		if in.Reason != "" {
+			_, _ = c.AddCommentWithResponse(ctx, dxclient.AddCommentRequest{
+				Slug:       slug,
+				TargetType: "issue",
+				TargetId:   in.ID,
+				Body:       "[reopen] " + in.Reason,
+			})
+		}
+		return nil, map[string]string{"status": "reopened", "id": in.ID}, nil
+	})
+
 	type issueEditInput struct {
 		ID        string `json:"id" jsonschema:"required,issue ID (IS-N)"`
 		Title     string `json:"title,omitempty" jsonschema:"issue title"`

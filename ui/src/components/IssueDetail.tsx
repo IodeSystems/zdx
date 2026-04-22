@@ -19,6 +19,7 @@ import {
   useIssue,
   useTasks,
   useCloseIssue,
+  useReopenIssue,
   useReadyIssue,
   useEditIssue,
   useSearchIssues,
@@ -78,10 +79,13 @@ export function IssueDetail({
   const { data: reservationsData } = useReservationsByIssueID(slug, issueId)
   const { data: codeRefs } = useIssueCodeRefs(slug, issueId)
   const closeIssue = useCloseIssue()
+  const reopenIssue = useReopenIssue()
   const readyIssue = useReadyIssue()
   const editIssue = useEditIssue()
   const router = useRouter()
   const [closeOpen, setCloseOpen] = useState(false)
+  const [reopenOpen, setReopenOpen] = useState(false)
+  const [reopenReason, setReopenReason] = useState('')
   const [editingTitle, setEditingTitle] = useState(false)
   const [editTitle, setEditTitle] = useState('')
   const [editingContext, setEditingContext] = useState(false)
@@ -200,6 +204,14 @@ export function IssueDetail({
           color={STATUS_COLORS[issue.status] || 'default'}
           variant="outlined"
         />
+        {(issue.reopen_count ?? 0) > 0 && (
+          <Chip
+            label={`reopened ×${issue.reopen_count}`}
+            size="small"
+            color="error"
+            variant="outlined"
+          />
+        )}
         {issue.component && (
           <Chip label={issue.component} size="small" variant="outlined" />
         )}
@@ -276,6 +288,11 @@ export function IssueDetail({
             Close
           </Button>
         )}
+        {issue.status === 'closed' && (
+          <Button size="small" variant="outlined" color="info" onClick={() => { setReopenReason(''); setReopenOpen(true) }}>
+            Reopen
+          </Button>
+        )}
       </Box>
 
       {availableFocuses.length > 0 && (
@@ -349,6 +366,39 @@ export function IssueDetail({
             }}
           >
             Close
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={reopenOpen} onClose={() => setReopenOpen(false)} maxWidth="xs" fullWidth>
+        <DialogTitle>Reopen {issue.id}</DialogTitle>
+        <DialogContent>
+          <TextField
+            fullWidth
+            multiline
+            minRows={2}
+            label="Why is this being reopened?"
+            value={reopenReason}
+            onChange={e => setReopenReason(e.target.value)}
+            sx={{ mt: 1 }}
+            autoFocus
+            placeholder="Explain what was wrong or incomplete..."
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReopenOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            color="info"
+            disabled={reopenIssue.isPending || !reopenReason.trim()}
+            onClick={() => {
+              reopenIssue.mutate(
+                { slug, id: issue.id, reason: reopenReason.trim() },
+                { onSuccess: () => setReopenOpen(false) },
+              )
+            }}
+          >
+            Reopen
           </Button>
         </DialogActions>
       </Dialog>
