@@ -857,3 +857,101 @@ func extractFirstID(output string) string {
 	}
 	return ""
 }
+
+// TestDemoCLI_TriageClarifyQuestions is the demo for spec 73: given an untriaged
+// issue needing human input, when owner triage is run with --clarify and --questions,
+// then blocker questions are created and solo blocks until they are answered. Drives
+// the full --clarify --questions flag surface via CLI exec; uses the API driver for
+// BQ-count and priority verification.
+func TestDemoCLI_TriageClarifyQuestions(t *testing.T) {
+	const name = "triage-clarify-questions"
+	rec := newRecorder(t, name, "bin/dx")
+	t.Cleanup(rec.Save)
+	d := &ApiDriver{Slug: "demo-" + name, t: t}
+
+	// 1. Create untriaged issue.
+	rec.Run("issue", "add", "--title=Design query caching layer", "--auto-ready")
+	issueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if issueID == "" {
+		t.Fatal("could not extract issue ID from output")
+	}
+
+	// 2. Triage with --clarify --questions; two semicolon-separated questions, first with choices.
+	rec.Run("todo", "owner", "triage", issueID, "--clarify",
+		`--questions=Which DB?|postgres,mysql;Timeline?`)
+	clarifyStep := rec.steps[len(rec.steps)-1]
+	if clarifyStep.ExitCode != 0 {
+		t.Fatalf("--clarify --questions exited %d:\n%s", clarifyStep.ExitCode, clarifyStep.Stderr)
+	}
+	if !strings.Contains(clarifyStep.Stdout, "BQ-") {
+		t.Errorf("expected BQ-N line(s) in output, got:\n%s", clarifyStep.Stdout)
+	}
+	if !strings.Contains(clarifyStep.Stdout, "solo will block") {
+		t.Errorf("expected 'solo will block' message in output, got:\n%s", clarifyStep.Stdout)
+	}
+
+	// 3. Verify via API: two pending BQs on this issue, priority still unset.
+	bqs := d.ListPendingBlockerQuestions()
+	var issueBQs []BlockerQuestionInfo
+	for _, q := range bqs {
+		if q.TargetID == issueID {
+			issueBQs = append(issueBQs, q)
+		}
+	}
+	if len(issueBQs) != 2 {
+		t.Errorf("expected 2 pending BQs on %s, got %d", issueID, len(issueBQs))
+	}
+	for _, iss := range d.ListIssues() {
+		if fmt.Sprintf("IS-%d", iss.ID) == issueID && iss.Priority != "" {
+			t.Errorf("priority should remain unset after --clarify, got %q", iss.Priority)
+		}
+	}
+
+	// 4. Issue-scoped solo: pending BQs surface as [clarify] items (blocking the issue).
+	rec.Run("todo", "solo", "--issue="+issueID)
+	soloBlocked := rec.steps[len(rec.steps)-1]
+	if soloBlocked.ExitCode != 0 {
+		t.Errorf("solo --issue exited %d:\n%s", soloBlocked.ExitCode, soloBlocked.Stderr)
+	}
+	if !strings.Contains(soloBlocked.Stdout, "[clarify]") {
+		t.Errorf("expected [clarify] in issue-scoped solo output while BQs pending, got:\n%s", soloBlocked.Stdout)
+	}
+
+	// 5. Answer both BQs via API.
+	for _, q := range issueBQs {
+		d.AnswerBlockerQuestion(q.ID, "answered")
+	}
+
+	// 6. Issue-scoped solo after answering: [clarify] gone, issue surfaced for triage.
+	rec.Run("todo", "solo", "--issue="+issueID)
+	soloAfter := rec.steps[len(rec.steps)-1]
+	if soloAfter.ExitCode != 0 {
+		t.Errorf("solo after answering BQs exited %d:\n%s", soloAfter.ExitCode, soloAfter.Stderr)
+	}
+	if strings.Contains(soloAfter.Stdout, "[clarify]") {
+		t.Errorf("[clarify] should be gone after all BQs answered, got:\n%s", soloAfter.Stdout)
+	}
+	if !strings.Contains(soloAfter.Stdout, issueID) {
+		t.Errorf("expected %s to resurface in solo after BQs answered, got:\n%s", issueID, soloAfter.Stdout)
+	}
+
+	// 7. Negative: --clarify without --questions must exit non-zero with clear error.
+	rec.Run("todo", "owner", "triage", issueID, "--clarify")
+	negStep := rec.steps[len(rec.steps)-1]
+	if negStep.ExitCode == 0 {
+		t.Error("expected non-zero exit for --clarify without --questions")
+	}
+	if !strings.Contains(negStep.Stderr+negStep.Stdout, "--clarify requires --questions") {
+		t.Errorf("expected '--clarify requires --questions' error, got stderr:\n%s", negStep.Stderr)
+	}
+
+	// All non-negative steps must have exited 0.
+	for i, s := range rec.steps {
+		if i == len(rec.steps)-1 {
+			continue // negative step intentionally fails
+		}
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
