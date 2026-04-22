@@ -35,12 +35,12 @@ func agentClaudeCmd() *cobra.Command {
 	var container bool
 	var keepContainer bool
 	var maxWorktrees int
-	var global bool
 	cmd := &cobra.Command{
 		Use:   "claude",
 		Short: "Run Claude agent sessions with zdx integration",
 		Long:  "Launch Claude CLI sessions with automatic session streaming, subagent discovery, and token usage tracking.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			global, _ := cmd.Flags().GetBool("global")
 			var cfg *config.Config
 			if !global {
 				cfg = config.Load()
@@ -107,7 +107,6 @@ func agentClaudeCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&container, "container", false, "run agent loop inside the project's dev container (requires --loop and dev.Dockerfile)")
 	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep containers after exit (skip --rm; useful for debugging)")
 	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slots in --container mode)")
-	cmd.Flags().BoolVar(&global, "global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
 	return cmd
 }
 
