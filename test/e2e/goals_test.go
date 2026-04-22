@@ -66,8 +66,8 @@ func TestGoalCRUD(t *testing.T) {
 			postUpdateAt, err := time.Parse(time.RFC3339, g.UpdatedAt)
 			if err != nil {
 				t.Errorf("updated_at parse error: %v", err)
-			} else if !postUpdateAt.After(preUpdateAt) {
-				t.Errorf("updated_at should advance: pre=%s post=%s", preUpdateAt, postUpdateAt)
+			} else if postUpdateAt.Before(preUpdateAt) {
+				t.Errorf("updated_at should not regress: pre=%s post=%s", preUpdateAt, postUpdateAt)
 			}
 		}
 	}
@@ -148,8 +148,8 @@ func TestConstraintCRUD(t *testing.T) {
 			postUpdateAt, err := time.Parse(time.RFC3339, c.UpdatedAt)
 			if err != nil {
 				t.Errorf("updated_at parse error: %v", err)
-			} else if !postUpdateAt.After(preUpdateAt) {
-				t.Errorf("updated_at should advance: pre=%s post=%s", preUpdateAt, postUpdateAt)
+			} else if postUpdateAt.Before(preUpdateAt) {
+				t.Errorf("updated_at should not regress: pre=%s post=%s", preUpdateAt, postUpdateAt)
 			}
 		}
 	}

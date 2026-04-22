@@ -661,7 +661,8 @@ func TestSoloDevDone(t *testing.T) {
 	}
 
 	// (a) and (b): status=done and completed_at set after the call.
-	beforeDone := time.Now().UTC()
+	// Truncate to seconds because the DB stores second-precision timestamps.
+	beforeDone := time.Now().UTC().Truncate(time.Second)
 	d.MarkTaskDone(taskID)
 
 	task := d.GetTask(taskID)
