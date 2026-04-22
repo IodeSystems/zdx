@@ -22,6 +22,7 @@ func agentLocalCmd() *cobra.Command {
 	var issue string
 	var maxTurns int
 	var complexity string
+	var global bool
 	cmd := &cobra.Command{
 		Use:   "local",
 		Short: "Run local-LLM agent sessions with zdx integration",
@@ -35,11 +36,25 @@ for the sessions/agents UI.`,
 			if !validComplexity(complexity) {
 				return fmt.Errorf("--complexity must be one of low|medium|high (got %q)", complexity)
 			}
-			cfg := config.Load()
-			rc := remoteConfig{
-				url:  cfg.RemoteURL(),
-				slug: cfg.RemoteSlug(),
-				key:  config.RemoteAPIKey(),
+			var cfg *config.Config
+			if !global {
+				cfg = config.Load()
+			}
+			var rc remoteConfig
+			if global {
+				if globalCfg := config.LoadGlobal(); globalCfg != nil {
+					fmt.Fprintln(os.Stderr, "srcless mode: using ~/.zdx/config.yaml (no project config found)")
+					rc = remoteConfig{
+						url: globalCfg.Remote.URL,
+						key: config.GlobalRemoteAPIKey(),
+					}
+				}
+			} else {
+				rc = remoteConfig{
+					url:  cfg.RemoteURL(),
+					slug: cfg.RemoteSlug(),
+					key:  config.RemoteAPIKey(),
+				}
 			}
 			llmCfg := cfg.ResolvedLLMLocal()
 			llmCfg = applyComplexityModel(cmd.Context(), llmCfg, complexity)
@@ -59,6 +74,7 @@ for the sessions/agents UI.`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 40, "cap on assistant turns per session")
 	cmd.Flags().StringVar(&complexity, "complexity", "medium", "model slot to use: low|medium|high (from server admin/llm config)")
+	cmd.Flags().BoolVar(&global, "global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
 	return cmd
 }
 
