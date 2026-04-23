@@ -848,75 +848,95 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				Mode         string `json:"mode" required:"false"`
 			}
 		}) (*struct{ Body TodoItem }, error) {
-			p, err := getProject(ctx, h.Q, in.Body.Slug)
-			if err != nil {
-				return nil, err
-			}
-
-			// Reclaim expired leases first.
-			if expired, _ := h.Q.ReclaimExpiredTodos(ctx, p.ID); len(expired) > 0 {
-				for _, t := range expired {
-					_ = h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
-						ProjectID:  t.ProjectID,
-						TargetType: "todo",
-						TargetID:   fmt.Sprintf("%d", t.ID),
-					})
-				}
-			}
-
-			// Generate fresh queue and merge into persisted todos (preserving claims).
-			proposed, err := h.generateSoloQueue(ctx, p.ID, "", in.Body.Mode == "autonomous")
-			if err != nil {
-				return nil, apiErr(500, err.Error())
-			}
-			keys := make([]string, 0, len(proposed))
-			for _, c := range proposed {
-				keys = append(keys, c.Key)
-				_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
-					ProjectID:   p.ID,
-					Title:       c.Title,
-					Description: c.Description,
-					Text:        c.Text,
-					Key:         c.Key,
-					Persona:     c.Persona,
-					Priority:    c.Priority,
-					Status:      "open",
-					TargetType:  c.TargetType,
-					TargetID:    c.TargetID,
-					Kind:        c.Kind,
-					IssueRef:    c.IssueRef,
-					Blocked:     c.Blocked,
-				})
-			}
-			if len(keys) > 0 {
-				_ = h.Q.ResolveTodosNotInKeys(ctx, db.ResolveTodosNotInKeysParams{
-					ProjectID: p.ID, Keys: keys,
-				})
-			}
-
-			// Claim the next available item.
 			leaseMin := in.Body.LeaseMinutes
 			if leaseMin == 0 {
 				leaseMin = 10
 			}
-			row, err := h.Q.ClaimNextTodo(ctx, db.ClaimNextTodoParams{
-				ProjectID:    p.ID,
-				AgentID:      in.Body.AgentID,
-				LeaseMinutes: leaseMin,
-			})
+			autonomous := in.Body.Mode == "autonomous"
+
+			claimFromProject := func(p db.ZdxProject) (*TodoItem, error) {
+				if expired, _ := h.Q.ReclaimExpiredTodos(ctx, p.ID); len(expired) > 0 {
+					for _, t := range expired {
+						_ = h.Q.ReleaseReservation(ctx, db.ReleaseReservationParams{
+							ProjectID:  t.ProjectID,
+							TargetType: "todo",
+							TargetID:   fmt.Sprintf("%d", t.ID),
+						})
+					}
+				}
+				proposed, err := h.generateSoloQueue(ctx, p.ID, "", autonomous)
+				if err != nil {
+					return nil, err
+				}
+				keys := make([]string, 0, len(proposed))
+				for _, c := range proposed {
+					keys = append(keys, c.Key)
+					_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
+						ProjectID:   p.ID,
+						Title:       c.Title,
+						Description: c.Description,
+						Text:        c.Text,
+						Key:         c.Key,
+						Persona:     c.Persona,
+						Priority:    c.Priority,
+						Status:      "open",
+						TargetType:  c.TargetType,
+						TargetID:    c.TargetID,
+						Kind:        c.Kind,
+						IssueRef:    c.IssueRef,
+						Blocked:     c.Blocked,
+					})
+				}
+				if len(keys) > 0 {
+					_ = h.Q.ResolveTodosNotInKeys(ctx, db.ResolveTodosNotInKeysParams{
+						ProjectID: p.ID, Keys: keys,
+					})
+				}
+				row, err := h.Q.ClaimNextTodo(ctx, db.ClaimNextTodoParams{
+					ProjectID:    p.ID,
+					AgentID:      in.Body.AgentID,
+					LeaseMinutes: leaseMin,
+				})
+				if err != nil {
+					return nil, err
+				}
+				_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
+					ProjectID:      row.ProjectID,
+					TargetType:     "todo",
+					TargetID:       fmt.Sprintf("%d", row.ID),
+					ClaimedBy:      row.ClaimedBy,
+					LeaseExpiresAt: row.LeaseExpiresAt,
+				})
+				item := toTodoItemFromClaim(row)
+				item.ProjectSlug = p.Slug
+				return &item, nil
+			}
+
+			// Global/srcless mode: empty slug means iterate all projects and claim from the first available.
+			if in.Body.Slug == "" {
+				projects, err := h.Q.ListProjects(ctx)
+				if err != nil {
+					return nil, apiErr(500, err.Error())
+				}
+				for _, p := range projects {
+					item, err := claimFromProject(p)
+					if err != nil {
+						continue
+					}
+					return &struct{ Body TodoItem }{Body: *item}, nil
+				}
+				return nil, apiErr(404, "no claimable todo items")
+			}
+
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			item, err := claimFromProject(p)
 			if err != nil {
 				return nil, apiErr(404, "no claimable todo items")
 			}
-			_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
-				ProjectID:      row.ProjectID,
-				TargetType:     "todo",
-				TargetID:       fmt.Sprintf("%d", row.ID),
-				ClaimedBy:      row.ClaimedBy,
-				LeaseExpiresAt: row.LeaseExpiresAt,
-			})
-			item := toTodoItemFromClaim(row)
-			item.ProjectSlug = p.Slug
-			return &struct{ Body TodoItem }{Body: item}, nil
+			return &struct{ Body TodoItem }{Body: *item}, nil
 		})
 
 	// POST /api/dx/solo/release — release or resolve a claimed todo
