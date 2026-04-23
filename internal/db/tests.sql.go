@@ -370,7 +370,11 @@ JOIN zdx_features f ON f.id = s.feature_id
 JOIN zdx_spec_tests st ON st.spec_id = s.id
 LEFT JOIN zdx_test_demos td ON td.test_id = st.test_id
 WHERE f.project_id = $1
-  AND s.deferred = false
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_deferrals sd
+    JOIN zdx_issues i ON i.id = sd.issue_id
+    WHERE sd.spec_id = s.id AND i.status = 'open'
+  )
 GROUP BY s.id, s.feature_id, s.description, s.kind, f.name
 HAVING COUNT(td.id) = 0
 ORDER BY f.name, s.id
