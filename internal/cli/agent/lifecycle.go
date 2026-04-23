@@ -202,6 +202,23 @@ func RunLifecycle(
 	}
 
 	flusher := newAgentEventFlusher(rc, sid, state, stateFile)
+	// Build compact label for dot-line prefixes so the operator always knows
+	// which project/issue/todo is running without scrolling up.
+	{
+		var labelParts []string
+		if rc.slug != "" {
+			labelParts = append(labelParts, rc.slug)
+		}
+		if issueID != "" {
+			labelParts = append(labelParts, issueID)
+		}
+		if todoID > 0 {
+			labelParts = append(labelParts, fmt.Sprintf("todo-%d", todoID))
+		}
+		if len(labelParts) > 0 {
+			flusher.dotLabel = "[" + strings.Join(labelParts, "/") + "] "
+		}
+	}
 	flusher.start(sessionCtx)
 	// Seed last-event time so the watchdog doesn't fire before any events arrive.
 	flusher.lastEventUnix.Store(time.Now().UnixNano())
@@ -430,6 +447,20 @@ func handleTranscriptLine(
 		// text is preserved in .zdx/logs/agent.log. The clickable session
 		// URL (printed by RunLifecycle on session create) is the path to
 		// the live-streamed UI session page for full detail.
+		const dotsPerLine = 80
+		n := flusher.dotCount.Add(1)
+		if (n-1)%dotsPerLine == 0 {
+			// Start of a new dot line: emit a preceding newline (except for
+			// the very first line, which follows the Session: URL's own \n)
+			// then the context label so the operator always sees which
+			// project/issue/todo is active.
+			if n > 1 {
+				_, _ = os.Stdout.Write([]byte("\n"))
+			}
+			if flusher.dotLabel != "" {
+				_, _ = os.Stdout.Write([]byte(flusher.dotLabel))
+			}
+		}
 		_, _ = os.Stdout.Write([]byte("."))
 		flusher.sawEvent.Store(true)
 		if logF != nil {
@@ -518,6 +549,13 @@ type agentEventFlusher struct {
 	// stdout heartbeat-dot; RunLifecycle reads it post-Wait to decide
 	// whether to emit a trailing newline that terminates the dots line.
 	sawEvent atomic.Bool
+
+	// dotLabel is a compact context prefix (e.g. "[slug/IS-N/todo-N] ") printed
+	// at the start of each wrapped dot line so the operator always sees which
+	// project/issue/todo is active without needing to scroll up.
+	dotLabel string
+	// dotCount tracks total dots emitted; used to wrap at dotsPerLine.
+	dotCount atomic.Int64
 
 	// lastEventUnix is updated (UnixNano) every time an event is enqueued.
 	// The stall watchdog reads it to detect stuck sessions.
