@@ -6,6 +6,96 @@ import (
 	"testing"
 )
 
+// TestDemoAPI_AdminLLMConfigMultiple demonstrates creating multiple LLM configs
+// each with a distinct agent_type (openai/local/claude), low/med/high model
+// slots, and an auto-assigned priority order — covering spec 95.
+func TestDemoAPI_AdminLLMConfigMultiple(t *testing.T) {
+	configs := []struct {
+		name      string
+		agentType string
+		ltype     string
+		low       string
+		medium    string
+		high      string
+		embedding string
+	}{
+		{
+			name: "demo-openai", agentType: "openai", ltype: "openai",
+			low: "gpt-4o-mini", medium: "gpt-4o-mini", high: "gpt-4o",
+			embedding: "text-embedding-3-small",
+		},
+		{
+			name: "demo-local", agentType: "local", ltype: "openai",
+			low: "llama3.2", medium: "llama3.3", high: "deepseek-r1",
+			embedding: "nomic-embed-text",
+		},
+		{
+			name: "demo-claude", agentType: "claude", ltype: "claude",
+			low: "claude-haiku-4-5", medium: "claude-sonnet-4-6", high: "claude-opus-4-7",
+		},
+	}
+
+	var ids []int64
+	var priorities []int32
+	for _, cfg := range configs {
+		var out struct {
+			ID        int64  `json:"id"`
+			Priority  int32  `json:"priority"`
+			AgentType string `json:"agent_type"`
+			ModelLow  string `json:"model_low"`
+			ModelHigh string `json:"model_high"`
+		}
+		mustOK(t, apiDo(t, http.MethodPost, "/api/admin/llm-configs", map[string]any{
+			"name":            cfg.name,
+			"type":            cfg.ltype,
+			"agent_type":      cfg.agentType,
+			"url":             "",
+			"embedding_model": cfg.embedding,
+			"model_low":       cfg.low,
+			"model_medium":    cfg.medium,
+			"model_high":      cfg.high,
+			"priority":        0,
+		}, &out))
+		if out.AgentType != cfg.agentType {
+			t.Errorf("%s: agent_type want %q got %q", cfg.name, cfg.agentType, out.AgentType)
+		}
+		if out.ModelLow != cfg.low {
+			t.Errorf("%s: model_low want %q got %q", cfg.name, cfg.low, out.ModelLow)
+		}
+		if out.ModelHigh != cfg.high {
+			t.Errorf("%s: model_high want %q got %q", cfg.name, cfg.high, out.ModelHigh)
+		}
+		ids = append(ids, out.ID)
+		priorities = append(priorities, out.Priority)
+	}
+	t.Cleanup(func() {
+		for _, id := range ids {
+			apiDo(t, http.MethodDelete, fmt.Sprintf("/api/admin/llm-configs/%d", id), nil, nil)
+		}
+	})
+
+	// Each successive config gets a higher priority number (lower importance = later in resolution).
+	for i := 1; i < len(priorities); i++ {
+		if priorities[i-1] >= priorities[i] {
+			t.Errorf("priority order: config[%d]=%d >= config[%d]=%d", i-1, priorities[i-1], i, priorities[i])
+		}
+	}
+
+	// List returns configs sorted by ascending priority.
+	var list struct {
+		Configs []struct {
+			ID       int64 `json:"id"`
+			Priority int32 `json:"priority"`
+		} `json:"configs"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet, "/api/admin/llm-configs", nil, &list))
+	for i := 1; i < len(list.Configs); i++ {
+		if list.Configs[i-1].Priority >= list.Configs[i].Priority {
+			t.Errorf("list not in priority order at index %d", i)
+		}
+	}
+}
+
 func TestAdminLLMConfigCRUD(t *testing.T) {
 	var created struct {
 		ID       int64  `json:"id"`
@@ -75,7 +165,9 @@ func TestAdminLLMConfigCRUD(t *testing.T) {
 	}
 }
 
-func TestAdminLLMConfigClaudeEmbeddingRejected(t *testing.T) {
+// TestDemoAPI_AdminLLMConfigClaudeEmbeddingRejected demonstrates that a config
+// with agent_type=claude rejects any non-null embedding_model on update — covering spec 96.
+func TestDemoAPI_AdminLLMConfigClaudeEmbeddingRejected(t *testing.T) {
 	var created struct {
 		ID int64 `json:"id"`
 	}
