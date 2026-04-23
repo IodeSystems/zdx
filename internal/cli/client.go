@@ -76,6 +76,16 @@ func DefaultClient() (*Client, error) {
 	}
 
 	if base == "" {
+		if gc := config.LoadGlobal(); gc != nil && gc.Remote.URL != "" {
+			base = gc.Remote.URL
+			if token == "" {
+				token = config.GlobalRemoteAPIKey()
+				tokenFrom = tokenSrcGlobalCreds
+			}
+		}
+	}
+
+	if base == "" {
 		conn := config.ReadDaemonConn()
 		if conn == nil {
 			return nil, fmt.Errorf("daemon not running — start it with: dx daemon start\n(or set DX_REMOTE_URL / remote.url in .zdx/config.yaml)")

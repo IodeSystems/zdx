@@ -6,7 +6,6 @@ import (
 
 	"github.com/spf13/cobra"
 
-	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/agent"
 	"github.com/iodesystems/zdx-go/internal/cli/configcmd"
 	"github.com/iodesystems/zdx-go/internal/cli/credentialhelper"
@@ -45,7 +44,6 @@ func main() {
 		devtools.CheckCmd(),
 		devtools.WatchCmd(),
 		devtools.HooksCmd(),
-		cli.CtxCmd(),
 		servercmd.InitCmd(),
 		servercmd.SetupCmd(),
 		servercmd.DaemonCmd(),
