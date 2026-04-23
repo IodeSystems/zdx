@@ -154,6 +154,31 @@ export const useCliToken = () =>
     },
   })
 
+export type ApiKeyItem = components['schemas']['ApiKeyItem']
+
+export const useMyApiKeys = () =>
+  useQuery<ApiKeyItem[]>({
+    queryKey: ['my-api-keys'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/me/api-keys')
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.keys ?? []
+    },
+  })
+
+export const useDeleteApiKey = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, number>({
+    mutationFn: async (id) => {
+      const { error } = await client.DELETE('/api/me/api-keys/{id}', { params: { path: { id } } })
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: () => {
+      qc.invalidateQueries({ queryKey: ['my-api-keys'] })
+    },
+  })
+}
+
 // ── projects ──────────────────────────────────────────────────────────────────
 
 export const useProjects = () =>

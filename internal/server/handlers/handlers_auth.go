@@ -240,6 +240,58 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 			}{Token: token, Email: user.Email}}, nil
 		})
 
+	type ApiKeyItem struct {
+		ID         int32  `json:"id"`
+		Name       string `json:"name"`
+		LastUsedAt string `json:"last_used_at,omitempty"`
+		CreatedAt  string `json:"created_at"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-my-api-keys", Method: http.MethodGet, Path: "/api/me/api-keys"},
+		func(ctx context.Context, _ *struct{}) (*struct {
+			Body struct {
+				Keys []ApiKeyItem `json:"keys"`
+			}
+		}, error) {
+			uid := ctxUserIDVal(ctx)
+			if uid == 0 {
+				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
+			}
+			rows, err := h.Q.ListApiKeysByUser(ctx, uid)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ApiKeyItem, len(rows))
+			for i, r := range rows {
+				item := ApiKeyItem{ID: r.ID, Name: r.Name, CreatedAt: fmtTS(r.CreatedAt)}
+				if r.LastUsedAt.Valid {
+					item.LastUsedAt = fmtTS(r.LastUsedAt)
+				}
+				out[i] = item
+			}
+			return &struct {
+				Body struct {
+					Keys []ApiKeyItem `json:"keys"`
+				}
+			}{Body: struct {
+				Keys []ApiKeyItem `json:"keys"`
+			}{Keys: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "delete-my-api-key", Method: http.MethodDelete, Path: "/api/me/api-keys/{id}"},
+		func(ctx context.Context, in *struct {
+			ID int32 `path:"id"`
+		}) (*struct{}, error) {
+			uid := ctxUserIDVal(ctx)
+			if uid == 0 {
+				return nil, apiErr(http.StatusUnauthorized, "not authenticated")
+			}
+			if err := h.Q.DeleteApiKey(ctx, db.DeleteApiKeyParams{ID: in.ID, UserID: uid}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return nil, nil
+		})
+
 	// ── Projects ─────────────────────────────────────────────────────────────
 
 	type ProjectItem struct {

@@ -61,3 +61,10 @@ FROM zdx_invites WHERE token = $1 AND used_at IS NULL AND expires_at > NOW();
 
 -- name: MarkInviteUsed :exec
 UPDATE zdx_invites SET used_at = NOW() WHERE id = $1;
+
+-- name: ListApiKeysByUser :many
+SELECT id, name, last_used_at, created_at
+FROM zdx_api_keys WHERE user_id = $1 ORDER BY created_at DESC;
+
+-- name: DeleteApiKey :exec
+DELETE FROM zdx_api_keys WHERE id = $1 AND user_id = $2;

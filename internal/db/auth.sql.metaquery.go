@@ -210,6 +210,22 @@ var CreateUserWithPasswordCols = struct {
 	CreatedAt: metaquery.NewTimeCol("created_at"),
 }
 
+var MetaDeleteApiKey = metaquery.Query{
+	Name:   "DeleteApiKey",
+	Cmd:    ":exec",
+	Source: "auth.sql",
+	SQL:    `DELETE FROM zdx_api_keys WHERE id = $1 AND user_id = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "user_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapDeleteApiKey returns a metaquery.Builder over MetaDeleteApiKey, pre-bound with typed arguments.
+func WrapDeleteApiKey(arg DeleteApiKeyParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaDeleteApiKey, arg.ID, arg.UserID)
+}
+
 var MetaDeleteInvite = metaquery.Query{
 	Name:   "DeleteInvite",
 	Cmd:    ":exec",
@@ -410,6 +426,41 @@ var GetUserByIDCols = struct {
 	Name:      metaquery.NewTextCol("name"),
 	Role:      metaquery.NewTextCol("role"),
 	CreatedAt: metaquery.NewTimeCol("created_at"),
+}
+
+var MetaListApiKeysByUser = metaquery.Query{
+	Name:   "ListApiKeysByUser",
+	Cmd:    ":many",
+	Source: "auth.sql",
+	SQL: `SELECT id, name, last_used_at, created_at
+FROM zdx_api_keys WHERE user_id = $1 ORDER BY created_at DESC`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_api_keys"},
+		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_api_keys"},
+		{Name: "last_used_at", OriginalName: "last_used_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_api_keys"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_api_keys"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "user_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListApiKeysByUser returns a metaquery.Builder over MetaListApiKeysByUser, pre-bound with typed arguments.
+func WrapListApiKeysByUser(userID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListApiKeysByUser, userID)
+}
+
+// ListApiKeysByUserCols gives typed, name-safe access to ListApiKeysByUser's output columns.
+var ListApiKeysByUserCols = struct {
+	ID         metaquery.IntCol
+	Name       metaquery.TextCol
+	LastUsedAt metaquery.TimeCol
+	CreatedAt  metaquery.TimeCol
+}{
+	ID:         metaquery.NewIntCol("id"),
+	Name:       metaquery.NewTextCol("name"),
+	LastUsedAt: metaquery.NewTimeCol("last_used_at"),
+	CreatedAt:  metaquery.NewTimeCol("created_at"),
 }
 
 var MetaListInvites = metaquery.Query{

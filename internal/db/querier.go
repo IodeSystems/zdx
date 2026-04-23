@@ -92,6 +92,7 @@ type Querier interface {
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
 	DeferDoctorCheck(ctx context.Context, arg DeferDoctorCheckParams) error
 	DeleteAgent(ctx context.Context, id string) error
+	DeleteApiKey(ctx context.Context, arg DeleteApiKeyParams) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
 	DeleteCounterEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
@@ -232,6 +233,7 @@ type Querier interface {
 	// Return all todos that are currently claimed and whose lease has not expired.
 	ListActiveTodoClaims(ctx context.Context, projectID int32) ([]ListActiveTodoClaimsRow, error)
 	ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error)
+	ListApiKeysByUser(ctx context.Context, userID int32) ([]ListApiKeysByUserRow, error)
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
 	ListChildFeatures(ctx context.Context, parentFeatureID pgtype.Int4) ([]ListChildFeaturesRow, error)

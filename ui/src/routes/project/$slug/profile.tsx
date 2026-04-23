@@ -1,19 +1,30 @@
-import { createFileRoute } from '@tanstack/react-router'
+import { createFileRoute, Link } from '@tanstack/react-router'
 import {
   Box,
+  Button,
   Chip,
   CircularProgress,
+  IconButton,
   Paper,
   Stack,
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableRow,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { useMe, useMyComments } from '../../../api'
+import { Delete as DeleteIcon } from '@mui/icons-material'
+import { useMe, useMyComments, useMyApiKeys, useDeleteApiKey } from '../../../api'
 import { MarkdownContent } from '../../../components/MarkdownContent'
 
 function ProfilePage() {
   const { slug } = Route.useParams()
   const { data: me } = useMe()
   const { data: mcData, isLoading } = useMyComments(slug)
+  const { data: apiKeys, isLoading: keysLoading } = useMyApiKeys()
+  const { mutate: deleteKey, isPending: deleting } = useDeleteApiKey()
   const comments = mcData?.comments
 
   if (!me) return null
@@ -28,6 +39,58 @@ function ProfilePage() {
           <Typography variant="body2" color="text.secondary">{me.email}</Typography>
           <Box><Chip label={me.role} size="small" /></Box>
         </Stack>
+      </Paper>
+
+      <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>Security</Typography>
+      <Paper variant="outlined" sx={{ p: 2, mb: 3 }}>
+        <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', mb: 2 }}>
+          <Typography variant="body2" color="text.secondary">API Tokens</Typography>
+          <Button
+            variant="outlined"
+            size="small"
+            component={Link}
+            to="/code"
+            target="_blank"
+          >
+            Generate Token
+          </Button>
+        </Box>
+        {keysLoading ? (
+          <CircularProgress size={20} />
+        ) : !apiKeys || apiKeys.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">No tokens yet. Generate one to use with the CLI.</Typography>
+        ) : (
+          <Table size="small">
+            <TableHead>
+              <TableRow>
+                <TableCell>Name</TableCell>
+                <TableCell>Created</TableCell>
+                <TableCell>Last Used</TableCell>
+                <TableCell />
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {apiKeys.map((k) => (
+                <TableRow key={k.id}>
+                  <TableCell>{k.name}</TableCell>
+                  <TableCell>{new Date(k.created_at).toLocaleDateString()}</TableCell>
+                  <TableCell>{k.last_used_at ? new Date(k.last_used_at).toLocaleDateString() : '—'}</TableCell>
+                  <TableCell align="right">
+                    <Tooltip title="Revoke">
+                      <IconButton
+                        size="small"
+                        disabled={deleting}
+                        onClick={() => deleteKey(k.id)}
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                    </Tooltip>
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </Paper>
 
       <Typography variant="subtitle1" sx={{ fontWeight: 600, mb: 1 }}>My Comments</Typography>

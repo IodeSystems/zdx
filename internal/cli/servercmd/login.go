@@ -154,7 +154,7 @@ func browserAuthFlow(base string) (string, error) {
 	go srv.Serve(ln) //nolint:errcheck
 
 	callbackURL := fmt.Sprintf("http://127.0.0.1:%d/callback", port)
-	authURL := fmt.Sprintf("%s/cli-auth?callback=%s", strings.TrimRight(base, "/"), callbackURL)
+	authURL := fmt.Sprintf("%s/code?callback=%s", strings.TrimRight(base, "/"), callbackURL)
 
 	fmt.Fprintf(os.Stderr, "Opening browser for authentication...\n")
 	fmt.Fprintf(os.Stderr, "If the browser doesn't open, visit:\n  %s\n\n", authURL)
@@ -176,7 +176,7 @@ func browserAuthFlow(base string) (string, error) {
 
 // manualTokenPrompt prints the auth URL and prompts the user to paste the token.
 func manualTokenPrompt(base string) string {
-	fmt.Fprintf(os.Stderr, "Visit the following URL to get a token, then paste it here:\n  %s/cli-auth\n\nToken: ", strings.TrimRight(base, "/"))
+	fmt.Fprintf(os.Stderr, "Visit the following URL to get a token, then paste it here:\n  %s/code\n\nToken: ", strings.TrimRight(base, "/"))
 	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
 	if err != nil && err != io.EOF {
 		return ""

@@ -1238,6 +1238,22 @@ export interface paths {
         patch: operations["update-discussion-status"];
         trace?: never;
     };
+    "/api/dx/discussions/{id}/title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["update-discussion-title"];
+        trace?: never;
+    };
     "/api/dx/doctor/classify": {
         parameters: {
             query?: never;
@@ -4075,6 +4091,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/me/api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-my-api-keys"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/me/api-keys/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete-my-api-key"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/project": {
         parameters: {
             query?: never;
@@ -4681,6 +4729,13 @@ export interface components {
             /** Format: int32 */
             id: number;
             slug: string;
+        };
+        ApiKeyItem: {
+            created_at: string;
+            /** Format: int32 */
+            id: number;
+            last_used_at?: string;
+            name: string;
         };
         "Append-issue-workRequest": {
             /**
@@ -6742,6 +6797,15 @@ export interface components {
             readonly $schema?: string;
             questions: components["schemas"]["MaturityQuestion"][] | null;
         };
+        "List-my-api-keysResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-my-api-keysResponse.json
+             */
+            readonly $schema?: string;
+            keys: components["schemas"]["ApiKeyItem"][] | null;
+        };
         "List-my-commentsResponse": {
             /**
              * Format: uri
@@ -8673,6 +8737,16 @@ export interface components {
             readonly $schema?: string;
             slug: string;
             status: string;
+        };
+        "Update-discussion-titleRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-discussion-titleRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+            title: string;
         };
         "Update-environmentRequest": {
             /**
@@ -11769,6 +11843,39 @@ export interface operations {
         requestBody: {
             content: {
                 "application/json": components["schemas"]["Update-discussion-statusRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "update-discussion-title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Update-discussion-titleRequest"];
             };
         };
         responses: {
@@ -18016,6 +18123,64 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["MeItem"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-my-api-keys": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-my-api-keysResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-my-api-key": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

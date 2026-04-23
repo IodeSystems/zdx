@@ -146,6 +146,20 @@ func (q *Queries) CreateUserWithPassword(ctx context.Context, arg CreateUserWith
 	return i, err
 }
 
+const deleteApiKey = `-- name: DeleteApiKey :exec
+DELETE FROM zdx_api_keys WHERE id = $1 AND user_id = $2
+`
+
+type DeleteApiKeyParams struct {
+	ID     int32 `db:"id" json:"id"`
+	UserID int32 `db:"user_id" json:"user_id"`
+}
+
+func (q *Queries) DeleteApiKey(ctx context.Context, arg DeleteApiKeyParams) error {
+	_, err := q.db.Exec(ctx, deleteApiKey, arg.ID, arg.UserID)
+	return err
+}
+
 const deleteInvite = `-- name: DeleteInvite :exec
 DELETE FROM zdx_invites WHERE id = $1
 `
@@ -246,6 +260,43 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, er
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const listApiKeysByUser = `-- name: ListApiKeysByUser :many
+SELECT id, name, last_used_at, created_at
+FROM zdx_api_keys WHERE user_id = $1 ORDER BY created_at DESC
+`
+
+type ListApiKeysByUserRow struct {
+	ID         int32              `db:"id" json:"id"`
+	Name       string             `db:"name" json:"name"`
+	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListApiKeysByUser(ctx context.Context, userID int32) ([]ListApiKeysByUserRow, error) {
+	rows, err := q.db.Query(ctx, listApiKeysByUser, userID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListApiKeysByUserRow
+	for rows.Next() {
+		var i ListApiKeysByUserRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.LastUsedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listInvites = `-- name: ListInvites :many
