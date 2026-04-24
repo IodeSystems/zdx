@@ -847,6 +847,51 @@ func TestDemoCLI_SoloBootstrapGuidance(t *testing.T) {
 	}
 }
 
+// TestDemoCLI_TodoShowDetail is the demo for spec 81: given an issue, task, or
+// feature identifier, dx todo show renders detailed information — status, context,
+// comments, and similar patterns — so the caller has full signal without extra lookups.
+func TestDemoCLI_TodoShowDetail(t *testing.T) {
+	rec := newRecorder(t, "todo-show-detail", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	// Seed an issue with context so the show output includes the context field.
+	rec.Run("issue", "add", "--title=Add rate limiting to API", "--context=Protect endpoints from abuse; need token-bucket or sliding-window approach", "--auto-ready")
+	issueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if issueID == "" {
+		t.Fatal("could not extract issue ID")
+	}
+
+	// Triage the issue so it carries a priority and status visible in show output.
+	rec.Run("todo", "owner", "triage", issueID, "--priority=2")
+
+	// Add a task; the task carries its own description/instructions shown by todo show TK-N.
+	rec.Run("todo", "tech", "add", "--issue="+issueID, "--text=Implement sliding-window rate limiter middleware")
+	taskID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+
+	// Add an LLM comment on the issue — comments appear in the show output.
+	rec.Run("comment", "add", "issue", issueID, "--body=Consider Redis for distributed rate-limit state if we go multi-instance.")
+
+	// Seed a feature so the feature-name path of todo show is exercised.
+	rec.Run("feature", "add", "rate-limiting", "--desc=Token-bucket rate limiting for all API endpoints")
+
+	// show IS-N: status, context, work log, comments, similar patterns.
+	rec.Run("todo", "show", issueID)
+
+	// show TK-N: task text, context/instructions, comments, revisions, similar patterns.
+	if taskID != "" {
+		rec.Run("todo", "show", taskID)
+	}
+
+	// show <feature-name>: feature details, comments, revisions.
+	rec.Run("todo", "show", "rate-limiting")
+
+	for _, s := range rec.steps {
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
 // extractFirstID pulls the first IS-N or TK-N token from output.
 func extractFirstID(output string) string {
 	for _, word := range strings.Fields(output) {
