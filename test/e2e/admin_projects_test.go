@@ -5,6 +5,90 @@ import (
 	"testing"
 )
 
+// TestDemoAPI_AdminProjectsList demonstrates that GET /api/projects returns the
+// full project list with name, slug, classification, and git_enabled — covering spec 103.
+func TestDemoAPI_AdminProjectsList(t *testing.T) {
+	rec := newApiRecorder(t, "admin-projects-list")
+	rec.AddCoderef(coderef{FilePath: "test/e2e/admin_projects_test.go", Note: "API demo source"})
+	t.Cleanup(rec.Save)
+
+	// Create a plain project (no git).
+	var plain struct {
+		Slug           string `json:"slug"`
+		Name           string `json:"name"`
+		Classification string `json:"classification"`
+		GitEnabled     bool   `json:"git_enabled"`
+	}
+	mustOK(t, rec.Do(http.MethodPost, "/api/project", map[string]any{
+		"slug":           "demo-proj-plain",
+		"name":           "Demo Plain Project",
+		"classification": "service",
+	}, &plain))
+	if plain.GitEnabled {
+		t.Error("plain project: git_enabled should be false")
+	}
+
+	// Create a git-enabled project.
+	var gitProj struct {
+		Slug       string `json:"slug"`
+		GitEnabled bool   `json:"git_enabled"`
+	}
+	mustOK(t, rec.Do(http.MethodPost, "/api/project", map[string]any{
+		"slug":           "demo-proj-git",
+		"name":           "Demo Git Project",
+		"classification": "tool",
+		"upstream_url":   "https://github.com/example/demo-git-proj.git",
+	}, &gitProj))
+	if !gitProj.GitEnabled {
+		t.Error("git project: git_enabled should be true")
+	}
+
+	// List all projects and verify both appear with the correct fields.
+	var list struct {
+		Projects []struct {
+			Slug           string `json:"slug"`
+			Name           string `json:"name"`
+			Classification string `json:"classification"`
+			GitEnabled     bool   `json:"git_enabled"`
+		} `json:"projects"`
+	}
+	mustOK(t, rec.Do(http.MethodGet, "/api/projects", nil, &list))
+
+	found := map[string]bool{}
+	for _, p := range list.Projects {
+		switch p.Slug {
+		case "demo-proj-plain":
+			if p.Name == "" {
+				t.Error("plain project: missing name in list")
+			}
+			if p.Classification != "service" {
+				t.Errorf("plain project classification: want service, got %q", p.Classification)
+			}
+			if p.GitEnabled {
+				t.Error("plain project: git_enabled should be false in list")
+			}
+			found["plain"] = true
+		case "demo-proj-git":
+			if p.Name == "" {
+				t.Error("git project: missing name in list")
+			}
+			if p.Classification != "tool" {
+				t.Errorf("git project classification: want tool, got %q", p.Classification)
+			}
+			if !p.GitEnabled {
+				t.Error("git project: git_enabled should be true in list")
+			}
+			found["git"] = true
+		}
+	}
+	if !found["plain"] {
+		t.Error("plain project not found in /api/projects list")
+	}
+	if !found["git"] {
+		t.Error("git project not found in /api/projects list")
+	}
+}
+
 func TestAdminProjects_CreateWithClassification(t *testing.T) {
 	var created struct {
 		ID             int32  `json:"id"`
