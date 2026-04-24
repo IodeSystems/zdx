@@ -346,21 +346,32 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			}
 		}
 
-		var issueID, sid string
-		var activeTodo *claimedTodo
-		resumed := false
+		// Build TakeConfig for this iteration.
+		takeCfg := TakeConfig{
+			RC:         rc,
+			AgentID:    agentID,
+			Alias:      alias,
+			Chrome:     chrome,
+			Srcless:    srcless,
+			WorkDir:    workDir,
+			HomeCwd:    homeCwd,
+			AgentCfg:   agentCfg,
+			ModelSel:   sel,
+			SessionIdx: sessionIdx,
+			SelfPath:   selfPath,
+			StateFile:  stateFile,
+			LogFn:      log,
+		}
 
-		// Try to resume interrupted session.
+		// Check for crash-recovery state from a previous interrupted session.
 		if data, err := os.ReadFile(stateFile); err == nil {
 			lines := strings.Split(strings.TrimSpace(string(data)), "\n")
 			if len(lines) >= 2 && lines[0] != "" {
 				savedIssue, savedSID := lines[0], lines[1]
 				status := issueStatus(savedIssue)
 				if status == "open" || status == "wip" {
-					log("resuming interrupted session: issue=%s sid=%s", savedIssue, savedSID)
-					issueID = savedIssue
-					sid = savedSID
-					resumed = true
+					takeCfg.ResumeIssueID = savedIssue
+					takeCfg.ResumeSID = savedSID
 				} else {
 					log("stale state: %s is %s, clearing", savedIssue, status)
 					os.Remove(stateFile)
@@ -368,231 +379,35 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			}
 		}
 
-		if !resumed {
-			// Claim the next available todo via the API.
-			todo, err := claimNextTodo(rc, agentID, int32(agentCfg.LeaseMinutes))
-			if err != nil || todo == nil {
-				log("idle (no claimable todos); sleeping 60s")
-				select {
-				case <-ctx.Done():
-					return nil
-				case <-time.After(60 * time.Second):
-				}
-				continue
-			}
-			activeTodo = todo
-			log("claimed todo %d [%s]: %s", todo.ID, todo.Kind, todo.Text)
-
-			// Extract issue ID from the todo's issue_ref or target.
-			issueID = todo.IssueRef
-			if issueID == "" && todo.TargetType == "issue" {
-				issueID = todo.TargetID
-			}
-			sid = uuid.New().String()
-		}
-
-		if ctx.Err() != nil {
-			if activeTodo != nil {
-				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
-			}
-			return nil
-		}
-
-		// Save state for crash recovery.
-		os.WriteFile(stateFile, []byte(issueID+"\n"+sid+"\n"), 0o644)
-
-		prevSID := ""
-		if resumed {
-			prevSID = sid
-			sid = uuid.New().String()
-			os.WriteFile(stateFile, []byte(issueID+"\n"+sid+"\n"), 0o644)
-			log("forking session: %s → %s", prevSID, sid)
-		}
-
-		// Srcless: clone (idempotent) + create per-session worktree, chdir
-		// in so runSession launches Claude rooted at the project. Any error
-		// here releases the claim and continues — better to skip a bad
-		// project than to wedge the loop.
-		var srclessProjectPath, srclessWorktreePath, srclessBranch string
-		if srcless && activeTodo != nil && activeTodo.ProjectSlug != "" {
-			pp, err := ensureProjectClone(workDir, activeTodo.ProjectSlug, rc.url)
-			if err != nil {
-				log("srcless: clone %s failed: %v", activeTodo.ProjectSlug, err)
-				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
-				os.Remove(stateFile)
-				continue
-			}
-			srclessProjectPath = pp
-			if ierr := ensureProjectInit(pp, activeTodo.ProjectSlug, rc.url, rc.key, selfPath); ierr != nil {
-				log("srcless: init %s failed: %v", activeTodo.ProjectSlug, ierr)
-				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
-				os.Remove(stateFile)
-				continue
-			}
-			wt, br, err := createSessionWorktree(pp, workDir, activeTodo.ProjectSlug, sid)
-			if err != nil {
-				log("srcless: worktree for %s failed: %v", activeTodo.ProjectSlug, err)
-				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
-				os.Remove(stateFile)
-				continue
-			}
-			srclessWorktreePath = wt
-			srclessBranch = br
-			if err := os.Chdir(wt); err != nil {
-				log("srcless: chdir %s failed: %v", wt, err)
-				_ = removeSessionWorktree(pp, wt, br)
-				releaseTodo(rc, activeTodo.ID, agentID, sid, false)
-				os.Remove(stateFile)
-				continue
-			}
-			log("srcless: project=%s worktree=%s branch=%s", activeTodo.ProjectSlug, wt, br)
-		}
-
-		log("──────────────────────────────────────────────")
-		log("SESSION START  session=%s  issue=%s  resumed=%v", sid, issueID, resumed)
-		log("──────────────────────────────────────────────")
-		startTime := time.Now()
-
-		// Start a lease renewal goroutine for the active todo.
-		var leaseCancel context.CancelFunc
-		if activeTodo != nil {
-			var leaseCtx context.Context
-			leaseCtx, leaseCancel = context.WithCancel(ctx)
-			go func(todoID int32, renewMin int32) {
-				interval := time.Duration(renewMin/2) * time.Minute
-				if interval < time.Minute {
-					interval = time.Minute
-				}
-				ticker := time.NewTicker(interval)
-				defer ticker.Stop()
-				for {
-					select {
-					case <-leaseCtx.Done():
-						return
-					case <-ticker.C:
-						renewTodoLease(rc, todoID, agentID, renewMin)
-					}
-				}
-			}(activeTodo.ID, int32(agentCfg.LeaseMinutes))
-		}
-
-		resolvedModel := sel.resolve(rc, sessionIdx)
+		result := Take(ctx, takeCfg)
 		sessionIdx++
-		if resolvedModel != "" {
-			log("model: %s", resolvedModel)
+
+		// Handle idle (no work available).
+		if errors.Is(result.Err, ErrNoWork) {
+			log("idle (no claimable todos); sleeping 60s")
+			select {
+			case <-ctx.Done():
+				return nil
+			case <-time.After(60 * time.Second):
+			}
+			continue
 		}
-		var todoID int32
-		if activeTodo != nil {
-			todoID = activeTodo.ID
-		}
-		sessionErr := runSession(ctx, rc, sid, issueID, alias, chrome, prevSID, resumed, resolvedModel, todoID, activeTodo, srcless)
 
-		// ── Stall recovery: transparently restart the session ────────
-		if errors.Is(sessionErr, ErrSessionStalled) && ctx.Err() == nil {
-			stalledSID := sid
-			log("session stalled, attempting resume...")
-
-			// Attempt 1: resume the stalled session via --resume.
-			resumeSID := uuid.New().String()
-			os.WriteFile(stateFile, []byte(issueID+"\n"+resumeSID+"\n"), 0o644)
-			log("forking stalled session: %s → %s", stalledSID, resumeSID)
-
-			resumeStart := time.Now()
-			resumeErr := runSession(ctx, rc, resumeSID, issueID, alias, chrome, stalledSID, true, resolvedModel, todoID, activeTodo, srcless)
-
-			if resumeErr != nil && time.Since(resumeStart) < 60*time.Second {
-				// Resume failed fast — likely a context/compaction issue.
-				// Fall back to a fresh session seeded with a transcript summary.
-				log("resume failed quickly (%v), starting fresh session with transcript summary", resumeErr)
-
-				projDir := claudeProjectDir()
-				summary := SummarizeTranscript(
-					filepath.Join(projDir, stalledSID+".jsonl"),
-					filepath.Join(projDir, stalledSID, "subagents"),
-					30, 40,
-				)
-
-				freshSID := uuid.New().String()
-				os.WriteFile(stateFile, []byte(issueID+"\n"+freshSID+"\n"), 0o644)
-				log("fresh session with summary: %s (issue=%s)", freshSID, issueID)
-
-				sessionErr = runSessionWithSummary(ctx, rc, freshSID, issueID, alias, chrome, resolvedModel, todoID, summary, activeTodo, srcless)
-				sid = freshSID
+		// Track churn across iterations by todo key.
+		switch {
+		case result.CycleDetected:
+			consecutiveChurns = 0
+			lastChurnTodoKey = ""
+		case result.ChurnDowngraded:
+			if result.TodoKey == lastChurnTodoKey {
+				consecutiveChurns++
 			} else {
-				sessionErr = resumeErr
-				sid = resumeSID
+				consecutiveChurns = 1
+				lastChurnTodoKey = result.TodoKey
 			}
-		}
-
-		// Stop lease renewal.
-		if leaseCancel != nil {
-			leaseCancel()
-		}
-
-		if sessionErr != nil {
-			log("session error: %v", sessionErr)
-		}
-
-		elapsed := time.Since(startTime)
-		log("──────────────────────────────────────────────")
-		log("SESSION END  session=%s  duration=%s", sid, elapsed.Truncate(time.Second))
-		log("──────────────────────────────────────────────")
-
-		// Release or resolve the claimed todo. The server performs a post-resolve
-		// cycle check: if the same candidate would be regenerated immediately,
-		// it auto-blocks and returns cycle_detected=true.
-		if activeTodo != nil {
-			success := sessionErr == nil
-			result := releaseTodo(rc, activeTodo.ID, agentID, sid, success)
-			switch {
-			case !success:
-				log("todo %d released (session failed)", activeTodo.ID)
-				consecutiveChurns = 0
-				lastChurnTodoKey = ""
-			case result.CycleDetected:
-				log("todo %d [%s] CYCLE DETECTED: resolved but would regenerate immediately — auto-blocked by server", activeTodo.ID, activeTodo.Key)
-				consecutiveChurns = 0
-				lastChurnTodoKey = ""
-			case result.ChurnDowngraded:
-				// Track churn by key (not ID) since ephemeral todos get new IDs
-				// each time the queue regenerates them.
-				if activeTodo.Key == lastChurnTodoKey {
-					consecutiveChurns++
-				} else {
-					consecutiveChurns = 1
-					lastChurnTodoKey = activeTodo.Key
-				}
-				log("todo %d [%s] released (churn guard, streak %d)", activeTodo.ID, activeTodo.Key, consecutiveChurns)
-			default:
-				log("todo %d resolved", activeTodo.ID)
-				consecutiveChurns = 0
-				lastChurnTodoKey = ""
-			}
-		}
-
-		os.Remove(stateFile)
-
-		// Srcless cleanup: push the session branch (success only) and tear
-		// down the worktree before chdir'ing back. We always restore homeCwd
-		// so the next iteration's stateFile / GC reads are stable.
-		if srclessWorktreePath != "" {
-			if sessionErr == nil {
-				skipped, perr := pushSessionBranch(srclessWorktreePath, srclessBranch)
-				switch {
-				case perr != nil:
-					log("srcless: push %s failed: %v", srclessBranch, perr)
-				case skipped:
-					log("srcless: %s had no commits to push", srclessBranch)
-				default:
-					log("srcless: pushed %s", srclessBranch)
-				}
-			}
-			if rerr := removeSessionWorktree(srclessProjectPath, srclessWorktreePath, srclessBranch); rerr != nil {
-				log("srcless: worktree teardown: %v", rerr)
-			}
-			if homeCwd != "" {
-				_ = os.Chdir(homeCwd)
-			}
+		default:
+			consecutiveChurns = 0
+			lastChurnTodoKey = ""
 		}
 
 		// Exponential backoff when the same todo keeps getting churn-guarded.
