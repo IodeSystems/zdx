@@ -213,6 +213,105 @@ func TestDemoAPI_AdminLLMConfigClaudeEmbeddingRejected(t *testing.T) {
 	}
 }
 
+// TestDemoAPI_AdminLLMConfigLevelResolution demonstrates spec 97: with multiple
+// configs, resolving a complexity level (low/med/high) walks configs in priority
+// order and returns the first non-empty slot at that level. The recorded trace
+// shows the setup (two configs with a deliberate gap pattern) and the list
+// response that the client-side resolver walks.
+func TestDemoAPI_AdminLLMConfigLevelResolution(t *testing.T) {
+	rec := newApiRecorder(t, "admin-llm-config-level-resolution")
+	rec.AddCoderef(coderef{FilePath: "test/e2e/admin_llm_config_test.go", Note: "API demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/cli/agent/claude_model.go", Note: "resolveLevelModel implementation"})
+	t.Cleanup(rec.Save)
+
+	// Priority 1: only high is set. Priority 2: low + med set, high empty.
+	// Resolver should pick p1 for high, p2 for low and med.
+	var p1 struct {
+		ID       int64 `json:"id"`
+		Priority int32 `json:"priority"`
+	}
+	mustOK(t, rec.Do(http.MethodPost, "/api/admin/llm-configs", map[string]any{
+		"name":            "demo-resolve-p1",
+		"type":            "openai",
+		"agent_type":      "openai",
+		"url":             "",
+		"embedding_model": "",
+		"model_low":       "",
+		"model_medium":    "",
+		"model_high":      "p1-opus",
+		"priority":        0,
+	}, &p1))
+
+	var p2 struct {
+		ID       int64 `json:"id"`
+		Priority int32 `json:"priority"`
+	}
+	mustOK(t, rec.Do(http.MethodPost, "/api/admin/llm-configs", map[string]any{
+		"name":            "demo-resolve-p2",
+		"type":            "openai",
+		"agent_type":      "openai",
+		"url":             "",
+		"embedding_model": "",
+		"model_low":       "p2-haiku",
+		"model_medium":    "p2-sonnet",
+		"model_high":      "",
+		"priority":        0,
+	}, &p2))
+
+	t.Cleanup(func() {
+		apiDo(t, http.MethodDelete, fmt.Sprintf("/api/admin/llm-configs/%d", p1.ID), nil, nil)
+		apiDo(t, http.MethodDelete, fmt.Sprintf("/api/admin/llm-configs/%d", p2.ID), nil, nil)
+	})
+
+	if p1.Priority >= p2.Priority {
+		t.Fatalf("priority order: p1=%d must be < p2=%d", p1.Priority, p2.Priority)
+	}
+
+	var list struct {
+		Configs []struct {
+			ID          int64  `json:"id"`
+			Priority    int32  `json:"priority"`
+			ModelLow    string `json:"model_low"`
+			ModelMedium string `json:"model_medium"`
+			ModelHigh   string `json:"model_high"`
+		} `json:"configs"`
+	}
+	mustOK(t, rec.Do(http.MethodGet, "/api/admin/llm-configs", nil, &list))
+
+	// Walk the list like resolveLevelModel does: return the first non-empty
+	// slot at the requested level.
+	resolve := func(level string) string {
+		for _, c := range list.Configs {
+			if c.ID != p1.ID && c.ID != p2.ID {
+				continue
+			}
+			var slot string
+			switch level {
+			case "low":
+				slot = c.ModelLow
+			case "med":
+				slot = c.ModelMedium
+			case "high":
+				slot = c.ModelHigh
+			}
+			if slot != "" {
+				return slot
+			}
+		}
+		return ""
+	}
+
+	if got := resolve("low"); got != "p2-haiku" {
+		t.Errorf("low: got %q, want p2-haiku (falls through p1 to p2)", got)
+	}
+	if got := resolve("med"); got != "p2-sonnet" {
+		t.Errorf("med: got %q, want p2-sonnet (falls through p1 to p2)", got)
+	}
+	if got := resolve("high"); got != "p1-opus" {
+		t.Errorf("high: got %q, want p1-opus (first non-empty wins)", got)
+	}
+}
+
 func TestAdminLLMConfigPriorityResolution(t *testing.T) {
 	var cfg1 struct {
 		ID       int64 `json:"id"`
