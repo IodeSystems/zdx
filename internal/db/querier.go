@@ -30,6 +30,9 @@ type Querier interface {
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
 	AttachCodeRefToTest(ctx context.Context, arg AttachCodeRefToTestParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
+	// Block a todo by its key (cycle detection). Prevents the queue from re-issuing
+	// a todo that the agent resolved but cannot actually fix.
+	BlockTodoByKey(ctx context.Context, arg BlockTodoByKeyParams) error
 	CancelOrphanedTasks(ctx context.Context) ([]CancelOrphanedTasksRow, error)
 	// Atomically claim the highest-priority unclaimed open todo for an agent.
 	// Skips locked rows (concurrent agents get different items).

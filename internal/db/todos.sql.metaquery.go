@@ -11,6 +11,23 @@ import (
 
 var _ = metaquery.Query{}
 
+var MetaBlockTodoByKey = metaquery.Query{
+	Name:   "BlockTodoByKey",
+	Cmd:    ":exec",
+	Source: "todos.sql",
+	SQL: `UPDATE zdx_todos SET blocked = true
+WHERE project_id = $1 AND key = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "key", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapBlockTodoByKey returns a metaquery.Builder over MetaBlockTodoByKey, pre-bound with typed arguments.
+func WrapBlockTodoByKey(arg BlockTodoByKeyParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaBlockTodoByKey, arg.ProjectID, arg.Key)
+}
+
 var MetaClaimNextTodo = metaquery.Query{
 	Name:   "ClaimNextTodo",
 	Cmd:    ":one",

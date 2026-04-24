@@ -940,13 +940,15 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 		})
 
 	// POST /api/dx/solo/release — release or resolve a claimed todo
-	// When resolve=true the todo is marked resolved. If the queue generator
-	// re-emits the same key, UpsertTodo increments reopen_count and auto-blocks
-	// at 3+ reopens — that's the server-side churn guard.
 	//
-	// Previously this checked CountRevisionsBySession and downgraded resolve→release
-	// for zero-mutation sessions, but that prevented legitimate non-code work
-	// (comments, triage) from resolving and bypassed the reopen_count tracking.
+	// When resolve=true the todo is marked resolved. After resolving, a
+	// post-resolve cycle check regenerates the queue and looks for the same
+	// key. If the candidate reappears, the agent clearly cannot fix the
+	// underlying condition — the todo is auto-blocked and cycle_detected is
+	// returned so the agent can log the error and move on.
+	//
+	// The reopen_count churn guard (auto-block at 3+ reopens) remains as a
+	// secondary safety net in UpsertTodo.
 	huma.Register(api, huma.Operation{OperationID: "solo-release", Method: http.MethodPost, Path: "/api/dx/solo/release"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -959,6 +961,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			Body struct {
 				OK              bool `json:"ok"`
 				ChurnDowngraded bool `json:"churn_downgraded" required:"false"`
+				CycleDetected   bool `json:"cycle_detected" required:"false"`
 			}
 		}, error) {
 			resolve := in.Body.Resolve
@@ -980,15 +983,38 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 					TargetID:   fmt.Sprintf("%d", todo.ID),
 				})
 			}
+
+			// Post-resolve cycle check: if we just resolved a todo, regenerate
+			// the queue and see if the same key would come back. If so, the
+			// agent cannot fix this — auto-block to prevent infinite loops.
+			cycleDetected := false
+			if resolve && todo.Key != "" && todo.ProjectID != 0 {
+				candidates, err := h.generateSoloQueue(ctx, todo.ProjectID, "", true)
+				if err == nil {
+					for _, c := range candidates {
+						if c.Key == todo.Key {
+							cycleDetected = true
+							_ = h.Q.BlockTodoByKey(ctx, db.BlockTodoByKeyParams{
+								ProjectID: todo.ProjectID,
+								Key:       todo.Key,
+							})
+							break
+						}
+					}
+				}
+			}
+
 			return &struct {
 				Body struct {
 					OK              bool `json:"ok"`
 					ChurnDowngraded bool `json:"churn_downgraded" required:"false"`
+					CycleDetected   bool `json:"cycle_detected" required:"false"`
 				}
 			}{Body: struct {
 				OK              bool `json:"ok"`
 				ChurnDowngraded bool `json:"churn_downgraded" required:"false"`
-			}{OK: true}}, nil
+				CycleDetected   bool `json:"cycle_detected" required:"false"`
+			}{OK: true, CycleDetected: cycleDetected}}, nil
 		})
 
 	// GET /api/dx/solo/claims — list all active todo + task claims (unexpired leases)

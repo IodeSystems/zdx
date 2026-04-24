@@ -128,6 +128,12 @@ UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW(),
   claimed_by = '', claimed_at = NULL, lease_expires_at = NULL
 WHERE id = $1;
 
+-- name: BlockTodoByKey :exec
+-- Block a todo by its key (cycle detection). Prevents the queue from re-issuing
+-- a todo that the agent resolved but cannot actually fix.
+UPDATE zdx_todos SET blocked = true
+WHERE project_id = @project_id AND key = @key;
+
 -- name: ReclaimExpiredTodos :many
 -- Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
 UPDATE zdx_todos SET

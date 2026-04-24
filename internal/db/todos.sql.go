@@ -11,6 +11,23 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const blockTodoByKey = `-- name: BlockTodoByKey :exec
+UPDATE zdx_todos SET blocked = true
+WHERE project_id = $1 AND key = $2
+`
+
+type BlockTodoByKeyParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Key       string `db:"key" json:"key"`
+}
+
+// Block a todo by its key (cycle detection). Prevents the queue from re-issuing
+// a todo that the agent resolved but cannot actually fix.
+func (q *Queries) BlockTodoByKey(ctx context.Context, arg BlockTodoByKeyParams) error {
+	_, err := q.db.Exec(ctx, blockTodoByKey, arg.ProjectID, arg.Key)
+	return err
+}
+
 const claimNextTodo = `-- name: ClaimNextTodo :one
 UPDATE zdx_todos SET
   claimed_by = $1,

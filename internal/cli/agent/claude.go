@@ -332,7 +332,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 
 	sessionIdx := 0
 	consecutiveChurns := 0
-	lastChurnTodoID := int32(0)
+	lastChurnTodoKey := ""
 	for {
 		if ctx.Err() != nil {
 			return nil
@@ -538,32 +538,35 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 		log("SESSION END  session=%s  duration=%s", sid, elapsed.Truncate(time.Second))
 		log("──────────────────────────────────────────────")
 
-		// Release or resolve the claimed todo. Server checks the session for
-		// recorded revisions when resolve=true; sessions with zero mutations
-		// are silently downgraded to a plain release to prevent churn.
+		// Release or resolve the claimed todo. The server performs a post-resolve
+		// cycle check: if the same candidate would be regenerated immediately,
+		// it auto-blocks and returns cycle_detected=true.
 		if activeTodo != nil {
 			success := sessionErr == nil
-			downgraded := releaseTodo(rc, activeTodo.ID, agentID, sid, success)
+			result := releaseTodo(rc, activeTodo.ID, agentID, sid, success)
 			switch {
 			case !success:
 				log("todo %d released (session failed)", activeTodo.ID)
 				consecutiveChurns = 0
-				lastChurnTodoID = 0
-			case downgraded:
-				// Only count as churn if the same todo keeps coming back.
-				// Different todos churning is normal (e.g. comment-only work
-				// that the server's mutation check doesn't recognize).
-				if activeTodo.ID == lastChurnTodoID {
+				lastChurnTodoKey = ""
+			case result.CycleDetected:
+				log("todo %d [%s] CYCLE DETECTED: resolved but would regenerate immediately — auto-blocked by server", activeTodo.ID, activeTodo.Key)
+				consecutiveChurns = 0
+				lastChurnTodoKey = ""
+			case result.ChurnDowngraded:
+				// Track churn by key (not ID) since ephemeral todos get new IDs
+				// each time the queue regenerates them.
+				if activeTodo.Key == lastChurnTodoKey {
 					consecutiveChurns++
 				} else {
 					consecutiveChurns = 1
-					lastChurnTodoID = activeTodo.ID
+					lastChurnTodoKey = activeTodo.Key
 				}
-				log("todo %d released (session made no mutations — churn guard, streak %d)", activeTodo.ID, consecutiveChurns)
+				log("todo %d [%s] released (churn guard, streak %d)", activeTodo.ID, activeTodo.Key, consecutiveChurns)
 			default:
 				log("todo %d resolved", activeTodo.ID)
 				consecutiveChurns = 0
-				lastChurnTodoID = 0
+				lastChurnTodoKey = ""
 			}
 		}
 
@@ -595,7 +598,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 		// Exponential backoff when the same todo keeps getting churn-guarded.
 		if consecutiveChurns >= 3 {
 			backoff := time.Duration(1<<min(consecutiveChurns-3, 6)) * time.Minute // 1m, 2m, 4m … 64m cap
-			log("churn backoff: todo %d churned %d times; sleeping %s", lastChurnTodoID, consecutiveChurns, backoff.Truncate(time.Second))
+			log("churn backoff: key %s churned %d times; sleeping %s", lastChurnTodoKey, consecutiveChurns, backoff.Truncate(time.Second))
 			select {
 			case <-ctx.Done():
 				return nil
@@ -615,11 +618,11 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 
 	prompt := ""
 	if issueID != "" {
-		prompt = "/work " + issueID
+		prompt = fmt.Sprintf("Work on issue %s. Use MCP tools (issue_show, comment_add, todo_dev_done) to interact with the project tracker.", issueID)
 	} else if todo != nil {
-		// Non-issue todo (maturity nudge, stale comment, etc.) — pass the
-		// todo text directly so the skill can act on it without re-claiming.
-		prompt = fmt.Sprintf("/work\n\nClaimed todo %d [%s] target=%s:%s\n%s",
+		// Pass the todo text directly as the prompt — the work instructions
+		// are already embedded in the todo by the queue generator.
+		prompt = fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
 	}
 
@@ -653,14 +656,14 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
-	workCmd := "/work"
+	taskPrompt := ""
 	if issueID != "" {
-		workCmd = "/work " + issueID
+		taskPrompt = fmt.Sprintf("Work on issue %s. Use MCP tools (issue_show, comment_add, todo_dev_done) to interact with the project tracker.", issueID)
 	} else if todo != nil {
-		workCmd = fmt.Sprintf("/work\n\nClaimed todo %d [%s] target=%s:%s\n%s",
+		taskPrompt = fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
 	}
-	prompt := fmt.Sprintf("%s\n\nThis session is a continuation of a stalled session. The previous session was automatically terminated because it stopped producing output (likely a stuck tool call). Below is a summary of what it accomplished. Continue the work from where it left off — do NOT repeat already-completed steps.\n\n%s", workCmd, summary)
+	prompt := fmt.Sprintf("%s\n\nThis session is a continuation of a stalled session. The previous session was automatically terminated because it stopped producing output (likely a stuck tool call). Below is a summary of what it accomplished. Continue the work from where it left off — do NOT repeat already-completed steps.\n\n%s", taskPrompt, summary)
 
 	adapter := &claudeAdapter{
 		projDir: projDir,
@@ -1247,10 +1250,16 @@ func renewTodoLease(rc remoteConfig, todoID int32, agentID string, leaseMinutes 
 	}
 }
 
-// releaseTodo posts the release/resolve call and returns whether the server
-// downgraded a resolve to a plain release because the session recorded no
-// mutations (churn guard — see handlers_solo.go).
-func releaseTodo(rc remoteConfig, todoID int32, agentID, sessionID string, resolve bool) bool {
+type releaseResult struct {
+	ChurnDowngraded bool
+	CycleDetected   bool
+}
+
+// releaseTodo posts the release/resolve call. The server may report:
+//   - churn_downgraded: session had no mutations, resolve was downgraded to release
+//   - cycle_detected: the resolved todo would be immediately regenerated by the queue,
+//     indicating the agent cannot actually fix the underlying condition. Server auto-blocks.
+func releaseTodo(rc remoteConfig, todoID int32, agentID, sessionID string, resolve bool) releaseResult {
 	body, _ := json.Marshal(map[string]any{
 		"id":         todoID,
 		"agent_id":   agentID,
@@ -1260,16 +1269,17 @@ func releaseTodo(rc remoteConfig, todoID int32, agentID, sessionID string, resol
 	req, _ := http.NewRequest("POST", rc.url+"/api/dx/solo/release", bytes.NewReader(body))
 	req.Header.Set("X-Api-Key", rc.key)
 	req.Header.Set("Content-Type", "application/json")
-	resp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	resp, err := (&http.Client{Timeout: 30 * time.Second}).Do(req)
 	if err != nil || resp == nil {
-		return false
+		return releaseResult{}
 	}
 	defer resp.Body.Close()
 	var r struct {
 		ChurnDowngraded bool `json:"churn_downgraded"`
+		CycleDetected   bool `json:"cycle_detected"`
 	}
 	_ = json.NewDecoder(resp.Body).Decode(&r)
-	return r.ChurnDowngraded
+	return releaseResult{ChurnDowngraded: r.ChurnDowngraded, CycleDetected: r.CycleDetected}
 }
 
 func fileHash(path string) string {
