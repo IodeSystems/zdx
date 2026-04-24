@@ -10,6 +10,10 @@ import (
 // each with a distinct agent_type (openai/local/claude), low/med/high model
 // slots, and an auto-assigned priority order — covering spec 95.
 func TestDemoAPI_AdminLLMConfigMultiple(t *testing.T) {
+	rec := newApiRecorder(t, "admin-llm-config-multiple")
+	rec.AddCoderef(coderef{FilePath: "test/e2e/admin_llm_config_test.go", Note: "API demo source"})
+	t.Cleanup(rec.Save)
+
 	configs := []struct {
 		name      string
 		agentType string
@@ -45,7 +49,7 @@ func TestDemoAPI_AdminLLMConfigMultiple(t *testing.T) {
 			ModelLow  string `json:"model_low"`
 			ModelHigh string `json:"model_high"`
 		}
-		mustOK(t, apiDo(t, http.MethodPost, "/api/admin/llm-configs", map[string]any{
+		mustOK(t, rec.Do(http.MethodPost, "/api/admin/llm-configs", map[string]any{
 			"name":            cfg.name,
 			"type":            cfg.ltype,
 			"agent_type":      cfg.agentType,
@@ -88,7 +92,7 @@ func TestDemoAPI_AdminLLMConfigMultiple(t *testing.T) {
 			Priority int32 `json:"priority"`
 		} `json:"configs"`
 	}
-	mustOK(t, apiDo(t, http.MethodGet, "/api/admin/llm-configs", nil, &list))
+	mustOK(t, rec.Do(http.MethodGet, "/api/admin/llm-configs", nil, &list))
 	for i := 1; i < len(list.Configs); i++ {
 		if list.Configs[i-1].Priority >= list.Configs[i].Priority {
 			t.Errorf("list not in priority order at index %d", i)
@@ -168,10 +172,14 @@ func TestAdminLLMConfigCRUD(t *testing.T) {
 // TestDemoAPI_AdminLLMConfigClaudeEmbeddingRejected demonstrates that a config
 // with agent_type=claude rejects any non-null embedding_model on update — covering spec 96.
 func TestDemoAPI_AdminLLMConfigClaudeEmbeddingRejected(t *testing.T) {
+	rec := newApiRecorder(t, "admin-llm-config-claude-embedding-rejected")
+	rec.AddCoderef(coderef{FilePath: "test/e2e/admin_llm_config_test.go", Note: "API demo source"})
+	t.Cleanup(rec.Save)
+
 	var created struct {
 		ID int64 `json:"id"`
 	}
-	mustOK(t, apiDo(t, http.MethodPost, "/api/admin/llm-configs", map[string]any{
+	mustOK(t, rec.Do(http.MethodPost, "/api/admin/llm-configs", map[string]any{
 		"name":            "e2e-claude",
 		"type":            "claude",
 		"agent_type":      "claude",
@@ -189,7 +197,7 @@ func TestDemoAPI_AdminLLMConfigClaudeEmbeddingRejected(t *testing.T) {
 		apiDo(t, http.MethodDelete, fmt.Sprintf("/api/admin/llm-configs/%d", created.ID), nil, nil)
 	})
 
-	resp := apiDo(t, http.MethodPut, fmt.Sprintf("/api/admin/llm-configs/%d", created.ID), map[string]any{
+	resp := rec.Do(http.MethodPut, fmt.Sprintf("/api/admin/llm-configs/%d", created.ID), map[string]any{
 		"name":            "e2e-claude",
 		"type":            "claude",
 		"agent_type":      "claude",

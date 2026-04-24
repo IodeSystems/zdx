@@ -232,6 +232,7 @@ func CollectDemoMetadata(demoDir string, cutoff time.Time) []DemoMeta {
 	}{
 		{"cli", "cli"},
 		{"video", "video"},
+		{"api", "api"},
 	} {
 		dir := filepath.Join(demoDir, sub.dir)
 		_ = filepath.WalkDir(dir, func(path string, d os.DirEntry, err error) error {
