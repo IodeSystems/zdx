@@ -786,6 +786,7 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   kind = EXCLUDED.kind,
   issue_ref = EXCLUDED.issue_ref,
   blocked = CASE
+    WHEN zdx_todos.blocked = true THEN true
     WHEN zdx_todos.status = 'resolved' AND zdx_todos.reopen_count + 1 >= 3 THEN true
     ELSE EXCLUDED.blocked
   END,
