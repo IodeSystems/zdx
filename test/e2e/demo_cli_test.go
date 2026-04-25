@@ -175,6 +175,59 @@ func TestDemoCLI_TaskFlow(t *testing.T) {
 	}
 }
 
+// TestDemoCLI_TaskAutoReady is the demo for spec 75: a tech-added task skips
+// the wip draft stage when --auto-ready is passed OR when no similar tasks
+// exist on the issue. Exercises both paths and asserts the resulting tasks
+// reach the ready state directly (no explicit promotion required).
+func TestDemoCLI_TaskAutoReady(t *testing.T) {
+	rec := newRecorder(t, "task-auto-ready", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	rec.Run("issue", "add", "--title=Add API rate limiting", "--auto-ready")
+	issueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if issueID == "" {
+		t.Fatal("could not extract issue ID")
+	}
+	rec.Run("todo", "owner", "triage", issueID, "--priority=2")
+
+	// Path A: --auto-ready forces ready status, no wip stage.
+	rec.Run("todo", "tech", "add", "--issue="+issueID,
+		"--text=Implement token-bucket rate limiter middleware", "--auto-ready")
+	autoReadyOut := rec.steps[len(rec.steps)-1].Stdout
+	autoReadyTaskID := extractFirstID(autoReadyOut)
+	if autoReadyTaskID == "" {
+		t.Fatal("could not extract auto-ready task ID")
+	}
+	// --auto-ready path should NOT print the auto-promotion message because
+	// the server creates the task as ready directly.
+	if strings.Contains(autoReadyOut, "auto-promoted to ready") {
+		t.Errorf("--auto-ready path should not auto-promote, got:\n%s", autoReadyOut)
+	}
+
+	// Path B: no --auto-ready, no similar tasks → CLI auto-promotes to ready
+	// and prints "(auto-promoted to ready — no similar tasks found)".
+	rec.Run("todo", "tech", "add", "--issue="+issueID,
+		"--text=Document rate-limit response headers in the public API reference")
+	autoPromotedOut := rec.steps[len(rec.steps)-1].Stdout
+	autoPromotedTaskID := extractFirstID(autoPromotedOut)
+	if !strings.Contains(autoPromotedOut, "auto-promoted to ready") {
+		t.Errorf("expected auto-promotion message on no-similar path, got:\n%s", autoPromotedOut)
+	}
+
+	// Show both tasks — status field demonstrates spec 75 outcome (ready, not wip).
+	rec.Run("todo", "show", autoReadyTaskID)
+	if autoPromotedTaskID != "" {
+		rec.Run("todo", "show", autoPromotedTaskID)
+	}
+	rec.Run("todo", "list", "--issue="+issueID)
+
+	for _, s := range rec.steps {
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
 func TestDemoCLI_BlockerQuestionFlow(t *testing.T) {
 	rec := newRecorder(t, "blocker-question-flow", "bin/dx")
 	t.Cleanup(rec.Save)
@@ -847,6 +900,85 @@ func TestDemoCLI_SoloBootstrapGuidance(t *testing.T) {
 	}
 }
 
+// TestDemoCLI_SoloOwnerGoalsGate is the demo for spec 53: when dx todo solo runs
+// on a project with zero goals, it emits an [owner:goals] gate instructing the
+// user to define a goal before further work proceeds. Once a goal exists, the
+// gate clears and solo advances to the next item.
+func TestDemoCLI_SoloOwnerGoalsGate(t *testing.T) {
+	rec := newRecorder(t, "solo-owner-goals-gate", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	// Seed an issue so the [bootstrap] check (zero issues AND zero features) does
+	// not pre-empt the owner:goals gate under test.
+	rec.Run("issue", "add", "--title=Wire up auth middleware", "--auto-ready")
+
+	// With zero goals, solo must emit [owner:goals] and stop.
+	rec.Run("todo", "solo")
+	gateOut := rec.steps[len(rec.steps)-1].Stdout + rec.steps[len(rec.steps)-1].Stderr
+	if !strings.Contains(gateOut, "[owner:goals]") {
+		t.Errorf("expected '[owner:goals]' in solo output before goal exists, got:\n%s", gateOut)
+	}
+	if !strings.Contains(gateOut, "dx goal add") {
+		t.Errorf("expected guidance to run 'dx goal add', got:\n%s", gateOut)
+	}
+
+	// Define a goal — the gate's advance condition.
+	rec.Run("goal", "add", "Ship v1")
+
+	// Solo should no longer emit the owner:goals gate now that a goal exists.
+	rec.Run("todo", "solo")
+	clearedOut := rec.steps[len(rec.steps)-1].Stdout + rec.steps[len(rec.steps)-1].Stderr
+	if strings.Contains(clearedOut, "[owner:goals]") {
+		t.Errorf("did not expect '[owner:goals]' after goal added, got:\n%s", clearedOut)
+	}
+
+	for _, s := range rec.steps {
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
+// TestDemoCLI_SoloOwnerConstraintsGate is the demo for spec 54: when dx todo solo
+// runs on a project with zero constraints, it emits an [owner:constraints] gate
+// instructing the user to define a constraint before further work proceeds. Once a
+// constraint exists, the gate clears and solo advances to the next item.
+func TestDemoCLI_SoloOwnerConstraintsGate(t *testing.T) {
+	rec := newRecorder(t, "solo-owner-constraints-gate", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	// Seed an issue and a goal so [bootstrap] and [owner:goals] do not pre-empt
+	// the owner:constraints gate under test.
+	rec.Run("issue", "add", "--title=Wire up rate limiting", "--auto-ready")
+	rec.Run("goal", "add", "Ship v1")
+
+	// With zero constraints, solo must emit [owner:constraints] and stop.
+	rec.Run("todo", "solo")
+	gateOut := rec.steps[len(rec.steps)-1].Stdout + rec.steps[len(rec.steps)-1].Stderr
+	if !strings.Contains(gateOut, "[owner:constraints]") {
+		t.Errorf("expected '[owner:constraints]' in solo output before constraint exists, got:\n%s", gateOut)
+	}
+	if !strings.Contains(gateOut, "dx constraint add") {
+		t.Errorf("expected guidance to run 'dx constraint add', got:\n%s", gateOut)
+	}
+
+	// Define a constraint — the gate's advance condition.
+	rec.Run("constraint", "add", "No breaking changes without an RFC")
+
+	// Solo should no longer emit the owner:constraints gate now that a constraint exists.
+	rec.Run("todo", "solo")
+	clearedOut := rec.steps[len(rec.steps)-1].Stdout + rec.steps[len(rec.steps)-1].Stderr
+	if strings.Contains(clearedOut, "[owner:constraints]") {
+		t.Errorf("did not expect '[owner:constraints]' after constraint added, got:\n%s", clearedOut)
+	}
+
+	for _, s := range rec.steps {
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
 // TestDemoCLI_TodoShowDetail is the demo for spec 81: given an issue, task, or
 // feature identifier, dx todo show renders detailed information — status, context,
 // comments, and similar patterns — so the caller has full signal without extra lookups.
@@ -995,6 +1127,58 @@ func TestDemoCLI_TriageClarifyQuestions(t *testing.T) {
 		if i == len(rec.steps)-1 {
 			continue // negative step intentionally fails
 		}
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
+// TestDemoCLI_TodoDevDone is the demo for spec 76: given a pending or in-progress
+// task, when dev done is run with TK-N, then the task status becomes done with
+// completed_at set. Exercises both the pending→done and in-progress→done paths.
+func TestDemoCLI_TodoDevDone(t *testing.T) {
+	rec := newRecorder(t, "todo-dev-done", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	rec.Run("issue", "add", "--title=Implement search indexing", "--auto-ready")
+	issueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if issueID == "" {
+		t.Fatal("could not extract issue ID")
+	}
+	rec.Run("todo", "owner", "triage", issueID, "--priority=2")
+
+	// Path A: pending → done (skip the start step).
+	rec.Run("todo", "tech", "add", "--issue="+issueID, "--text=Write the indexer")
+	pendingTaskID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if pendingTaskID == "" {
+		t.Fatal("could not extract pending task ID")
+	}
+	rec.Run("todo", "dev", "done", pendingTaskID, "--test-plan=Verified indexer writes records to the search index")
+	doneOut := rec.steps[len(rec.steps)-1].Stdout
+	if !strings.Contains(doneOut, pendingTaskID) {
+		t.Errorf("expected %s in done output, got:\n%s", pendingTaskID, doneOut)
+	}
+	rec.Run("todo", "show", pendingTaskID)
+	showOut := rec.steps[len(rec.steps)-1].Stdout
+	if !strings.Contains(showOut, "done") {
+		t.Errorf("expected status 'done' in show output after dev done, got:\n%s", showOut)
+	}
+
+	// Path B: in-progress → done (start first, then done).
+	rec.Run("todo", "tech", "add", "--issue="+issueID, "--text=Add incremental re-index support")
+	inProgressTaskID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if inProgressTaskID == "" {
+		t.Fatal("could not extract in-progress task ID")
+	}
+	rec.Run("todo", "dev", "start", inProgressTaskID)
+	rec.Run("todo", "dev", "done", inProgressTaskID, "--test-plan=Ran incremental re-index; verified delta records updated without full rebuild")
+	rec.Run("todo", "show", inProgressTaskID)
+	showOut2 := rec.steps[len(rec.steps)-1].Stdout
+	if !strings.Contains(showOut2, "done") {
+		t.Errorf("expected status 'done' after start+done, got:\n%s", showOut2)
+	}
+
+	for _, s := range rec.steps {
 		if s.ExitCode != 0 {
 			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
 		}

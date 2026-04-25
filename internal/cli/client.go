@@ -45,6 +45,9 @@ const (
 
 // DefaultClient resolves connection in priority order:
 //  1. DX_GLOBAL=1: ~/.zdx/config.yaml + ~/.zdx/credentials  → srcless agent mode
+//     (slug falls back to local .zdx/config.yaml when DX_REMOTE_SLUG is unset,
+//     so srcless loop sessions chdir'd into a cloned worktree pick up the
+//     project slug without losing global credentials)
 //  2. DX_REMOTE_URL env / .zdx/config.yaml remote.url       → explicit server
 //  3. ~/.zdx/daemon.{port,token}                             → local daemon
 //  4. none of the above                                      → error
@@ -60,6 +63,8 @@ func DefaultClient() (*Client, error) {
 		}
 		if v := os.Getenv("DX_REMOTE_SLUG"); v != "" {
 			slug = v
+		} else if cfg := config.Load(); cfg != nil {
+			slug = cfg.RemoteSlug()
 		}
 		if v := os.Getenv("DX_REMOTE_API_KEY"); v != "" {
 			token = v
