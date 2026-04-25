@@ -455,6 +455,7 @@ type Querier interface {
 	SetProjectGitConfig(ctx context.Context, arg SetProjectGitConfigParams) error
 	SetProjectProxyConfig(ctx context.Context, arg SetProjectProxyConfigParams) error
 	SetProjectStage(ctx context.Context, arg SetProjectStageParams) error
+	SetProjectVision(ctx context.Context, arg SetProjectVisionParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
 	// metaquery: off
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)

@@ -526,6 +526,8 @@ type ZdxProject struct {
 	UpstreamUrl         string             `db:"upstream_url" json:"upstream_url"`
 	UpstreamCredentials string             `db:"upstream_credentials" json:"upstream_credentials"`
 	GitEnabled          bool               `db:"git_enabled" json:"git_enabled"`
+	Title               string             `db:"title" json:"title"`
+	Description         string             `db:"description" json:"description"`
 }
 
 type ZdxProjectConstraint struct {

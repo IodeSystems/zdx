@@ -298,6 +298,8 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 		ID             int32  `json:"id"`
 		Slug           string `json:"slug"`
 		Name           string `json:"name"`
+		Title          string `json:"title,omitempty"`
+		Description    string `json:"description,omitempty"`
 		CreatedAt      string `json:"created_at"`
 		Stage          string `json:"stage"`
 		Classification string `json:"classification,omitempty"`
@@ -317,8 +319,8 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 			out := make([]ProjectItem, len(rows))
 			for i, r := range rows {
 				out[i] = ProjectItem{
-					ID: r.ID, Slug: r.Slug, Name: r.Name, CreatedAt: fmtTS(r.CreatedAt),
-					Stage: r.Stage, Classification: r.Classification, GitEnabled: r.GitEnabled,
+					ID: r.ID, Slug: r.Slug, Name: r.Name, Title: r.Title, Description: r.Description,
+					CreatedAt: fmtTS(r.CreatedAt), Stage: r.Stage, Classification: r.Classification, GitEnabled: r.GitEnabled,
 				}
 			}
 			return &struct {

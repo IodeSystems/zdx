@@ -4139,6 +4139,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/project-vision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put: operations["set-project-vision"];
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects": {
         parameters: {
             query?: never;
@@ -7440,12 +7456,14 @@ export interface components {
             readonly $schema?: string;
             classification?: string;
             created_at: string;
+            description?: string;
             git_enabled?: boolean;
             /** Format: int32 */
             id: number;
             name: string;
             slug: string;
             stage: string;
+            title?: string;
         };
         ProposalItem: {
             /**
@@ -7946,6 +7964,27 @@ export interface components {
             readonly $schema?: string;
             stage: string;
         };
+        "Set-project-visionRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-project-visionRequest.json
+             */
+            readonly $schema?: string;
+            description: string;
+            slug: string;
+            title: string;
+        };
+        "Set-project-visionResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-project-visionResponse.json
+             */
+            readonly $schema?: string;
+            description: string;
+            title: string;
+        };
         "Set-stateRequest": {
             /**
              * Format: uri
@@ -8244,6 +8283,7 @@ export interface components {
              */
             readonly $schema?: string;
             churn_downgraded?: boolean;
+            cycle_detected?: boolean;
             ok: boolean;
         };
         "Solo-renewRequest": {
@@ -18213,6 +18253,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["ProjectItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-project-vision": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-project-visionRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Set-project-visionResponse"];
                 };
             };
             /** @description Error */

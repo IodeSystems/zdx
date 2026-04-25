@@ -347,6 +347,14 @@ type AnswerQuestionRequest struct {
 	Slug   string  `json:"slug"`
 }
 
+// ApiKeyItem defines model for ApiKeyItem.
+type ApiKeyItem struct {
+	CreatedAt  string  `json:"created_at"`
+	Id         int32   `json:"id"`
+	LastUsedAt *string `json:"last_used_at,omitempty"`
+	Name       string  `json:"name"`
+}
+
 // AppendIssueWorkRequest defines model for Append-issue-workRequest.
 type AppendIssueWorkRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1998,6 +2006,13 @@ type ListMaturityQuestionsResponse struct {
 	Questions *[]MaturityQuestion `json:"questions"`
 }
 
+// ListMyApiKeysResponse defines model for List-my-api-keysResponse.
+type ListMyApiKeysResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string       `json:"$schema,omitempty"`
+	Keys   *[]ApiKeyItem `json:"keys"`
+}
+
 // ListMyCommentsResponse defines model for List-my-commentsResponse.
 type ListMyCommentsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2495,11 +2510,13 @@ type ProjectItem struct {
 	Schema         *string `json:"$schema,omitempty"`
 	Classification *string `json:"classification,omitempty"`
 	CreatedAt      string  `json:"created_at"`
+	Description    *string `json:"description,omitempty"`
 	GitEnabled     *bool   `json:"git_enabled,omitempty"`
 	Id             int32   `json:"id"`
 	Name           string  `json:"name"`
 	Slug           string  `json:"slug"`
 	Stage          string  `json:"stage"`
+	Title          *string `json:"title,omitempty"`
 }
 
 // ProposalItem defines model for ProposalItem.
@@ -2908,6 +2925,23 @@ type SetProjectStageResponse struct {
 	Stage  string  `json:"stage"`
 }
 
+// SetProjectVisionRequest defines model for Set-project-visionRequest.
+type SetProjectVisionRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	Description string  `json:"description"`
+	Slug        string  `json:"slug"`
+	Title       string  `json:"title"`
+}
+
+// SetProjectVisionResponse defines model for Set-project-visionResponse.
+type SetProjectVisionResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	Description string  `json:"description"`
+	Title       string  `json:"title"`
+}
+
 // SetStateRequest defines model for Set-stateRequest.
 type SetStateRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3146,6 +3180,7 @@ type SoloReleaseResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema          *string `json:"$schema,omitempty"`
 	ChurnDowngraded *bool   `json:"churn_downgraded,omitempty"`
+	CycleDetected   *bool   `json:"cycle_detected,omitempty"`
 	Ok              bool    `json:"ok"`
 }
 
@@ -4971,6 +5006,9 @@ type AppendIssueWorkJSONRequestBody = AppendIssueWorkRequest
 // CreateProjectJSONRequestBody defines body for CreateProject for application/json ContentType.
 type CreateProjectJSONRequestBody = CreateProjectRequest
 
+// SetProjectVisionJSONRequestBody defines body for SetProjectVision for application/json ContentType.
+type SetProjectVisionJSONRequestBody = SetProjectVisionRequest
+
 // SetupBootstrapJSONRequestBody defines body for SetupBootstrap for application/json ContentType.
 type SetupBootstrapJSONRequestBody = SetupBootstrapRequest
 
@@ -6181,10 +6219,21 @@ type ClientInterface interface {
 	// GetMe request
 	GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListMyApiKeys request
+	ListMyApiKeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteMyApiKey request
+	DeleteMyApiKey(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// CreateProjectWithBody request with any body
 	CreateProjectWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateProject(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetProjectVisionWithBody request with any body
+	SetProjectVisionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetProjectVision(ctx context.Context, body SetProjectVisionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListProjects request
 	ListProjects(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -11253,6 +11302,30 @@ func (c *APIClient) GetMe(ctx context.Context, reqEditors ...RequestEditorFn) (*
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) ListMyApiKeys(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMyApiKeysRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) DeleteMyApiKey(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteMyApiKeyRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) CreateProjectWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateProjectRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -11267,6 +11340,30 @@ func (c *APIClient) CreateProjectWithBody(ctx context.Context, contentType strin
 
 func (c *APIClient) CreateProject(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateProjectRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetProjectVisionWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectVisionRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetProjectVision(ctx context.Context, body SetProjectVisionJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetProjectVisionRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -26019,6 +26116,67 @@ func NewGetMeRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListMyApiKeysRequest generates requests for ListMyApiKeys
+func NewListMyApiKeysRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/me/api-keys")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDeleteMyApiKeyRequest generates requests for DeleteMyApiKey
+func NewDeleteMyApiKeyRequest(server string, id int32) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/me/api-keys/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewCreateProjectRequest calls the generic CreateProject builder with application/json body
 func NewCreateProjectRequest(server string, body CreateProjectJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -26050,6 +26208,46 @@ func NewCreateProjectRequestWithBody(server string, contentType string, body io.
 	}
 
 	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetProjectVisionRequest calls the generic SetProjectVision builder with application/json body
+func NewSetProjectVisionRequest(server string, body SetProjectVisionJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetProjectVisionRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetProjectVisionRequestWithBody generates requests for SetProjectVision with any type of body
+func NewSetProjectVisionRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/project-vision")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PUT", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
@@ -27853,10 +28051,21 @@ type ClientWithResponsesInterface interface {
 	// GetMeWithResponse request
 	GetMeWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*GetMeResponse, error)
 
+	// ListMyApiKeysWithResponse request
+	ListMyApiKeysWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListMyApiKeysResponse, error)
+
+	// DeleteMyApiKeyWithResponse request
+	DeleteMyApiKeyWithResponse(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*DeleteMyApiKeyResponse, error)
+
 	// CreateProjectWithBodyWithResponse request with any body
 	CreateProjectWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
 
 	CreateProjectWithResponse(ctx context.Context, body CreateProjectJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error)
+
+	// SetProjectVisionWithBodyWithResponse request with any body
+	SetProjectVisionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetProjectVisionResponse, error)
+
+	SetProjectVisionWithResponse(ctx context.Context, body SetProjectVisionJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSetProjectVisionResponse, error)
 
 	// ListProjectsWithResponse request
 	ListProjectsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListProjectsResponse, error)
@@ -34336,6 +34545,51 @@ func (r GetMeResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListMyApiKeysResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListMyApiKeysResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListMyApiKeysResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListMyApiKeysResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteMyApiKeyResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteMyApiKeyResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteMyApiKeyResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type CreateProjectResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -34353,6 +34607,29 @@ func (r CreateProjectResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateProjectResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedSetProjectVisionResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SetProjectVisionResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSetProjectVisionResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSetProjectVisionResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -38257,6 +38534,24 @@ func (c *ClientWithResponses) GetMeWithResponse(ctx context.Context, reqEditors 
 	return ParseGetMeResponse(rsp)
 }
 
+// ListMyApiKeysWithResponse request returning *ParsedListMyApiKeysResponse
+func (c *ClientWithResponses) ListMyApiKeysWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListMyApiKeysResponse, error) {
+	rsp, err := c.ListMyApiKeys(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListMyApiKeysResponse(rsp)
+}
+
+// DeleteMyApiKeyWithResponse request returning *DeleteMyApiKeyResponse
+func (c *ClientWithResponses) DeleteMyApiKeyWithResponse(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*DeleteMyApiKeyResponse, error) {
+	rsp, err := c.DeleteMyApiKey(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteMyApiKeyResponse(rsp)
+}
+
 // CreateProjectWithBodyWithResponse request with arbitrary body returning *CreateProjectResponse
 func (c *ClientWithResponses) CreateProjectWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProjectResponse, error) {
 	rsp, err := c.CreateProjectWithBody(ctx, contentType, body, reqEditors...)
@@ -38272,6 +38567,23 @@ func (c *ClientWithResponses) CreateProjectWithResponse(ctx context.Context, bod
 		return nil, err
 	}
 	return ParseCreateProjectResponse(rsp)
+}
+
+// SetProjectVisionWithBodyWithResponse request with arbitrary body returning *ParsedSetProjectVisionResponse
+func (c *ClientWithResponses) SetProjectVisionWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetProjectVisionResponse, error) {
+	rsp, err := c.SetProjectVisionWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSetProjectVisionResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetProjectVisionWithResponse(ctx context.Context, body SetProjectVisionJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSetProjectVisionResponse, error) {
+	rsp, err := c.SetProjectVision(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSetProjectVisionResponse(rsp)
 }
 
 // ListProjectsWithResponse request returning *ParsedListProjectsResponse
@@ -47587,6 +47899,65 @@ func ParseGetMeResponse(rsp *http.Response) (*GetMeResponse, error) {
 	return response, nil
 }
 
+// ParseParsedListMyApiKeysResponse parses an HTTP response from a ListMyApiKeysWithResponse call
+func ParseParsedListMyApiKeysResponse(rsp *http.Response) (*ParsedListMyApiKeysResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListMyApiKeysResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListMyApiKeysResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteMyApiKeyResponse parses an HTTP response from a DeleteMyApiKeyWithResponse call
+func ParseDeleteMyApiKeyResponse(rsp *http.Response) (*DeleteMyApiKeyResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteMyApiKeyResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseCreateProjectResponse parses an HTTP response from a CreateProjectWithResponse call
 func ParseCreateProjectResponse(rsp *http.Response) (*CreateProjectResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -47603,6 +47974,39 @@ func ParseCreateProjectResponse(rsp *http.Response) (*CreateProjectResponse, err
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ProjectItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedSetProjectVisionResponse parses an HTTP response from a SetProjectVisionWithResponse call
+func ParseParsedSetProjectVisionResponse(rsp *http.Response) (*ParsedSetProjectVisionResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSetProjectVisionResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SetProjectVisionResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

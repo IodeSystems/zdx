@@ -1,0 +1,2 @@
+ALTER TABLE zdx_projects ADD COLUMN IF NOT EXISTS title text NOT NULL DEFAULT '';
+ALTER TABLE zdx_projects ADD COLUMN IF NOT EXISTS description text NOT NULL DEFAULT '';

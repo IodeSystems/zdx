@@ -29,6 +29,7 @@ func main() {
 		project.IssueCmd(),
 		project.FeatureCmd(),
 		project.GoalCmd(),
+		project.VisionCmd(),
 		work.ConstraintCmd(),
 		project.JournalCmd(),
 		project.FocusCmd(),

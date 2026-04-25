@@ -226,4 +226,37 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	// ── Project vision ──────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "set-project-vision", Method: http.MethodPut, Path: "/api/project-vision"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug        string `json:"slug"`
+				Title       string `json:"title"`
+				Description string `json:"description"`
+			}
+		}) (*struct {
+			Body struct {
+				Title       string `json:"title"`
+				Description string `json:"description"`
+			}
+		}, error) {
+			if err := h.Q.SetProjectVision(ctx, db.SetProjectVisionParams{
+				Title:       in.Body.Title,
+				Description: in.Body.Description,
+				Slug:        in.Body.Slug,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Title       string `json:"title"`
+					Description string `json:"description"`
+				}
+			}{Body: struct {
+				Title       string `json:"title"`
+				Description string `json:"description"`
+			}{Title: in.Body.Title, Description: in.Body.Description}}, nil
+		})
+
 }

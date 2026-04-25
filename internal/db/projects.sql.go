@@ -41,7 +41,7 @@ func (q *Queries) CreateProject(ctx context.Context, arg CreateProjectParams) (C
 }
 
 const getProjectByID = `-- name: GetProjectByID :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled FROM zdx_projects WHERE id = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects WHERE id = $1
 `
 
 func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, error) {
@@ -60,12 +60,14 @@ func (q *Queries) GetProjectByID(ctx context.Context, id int32) (ZdxProject, err
 		&i.UpstreamUrl,
 		&i.UpstreamCredentials,
 		&i.GitEnabled,
+		&i.Title,
+		&i.Description,
 	)
 	return i, err
 }
 
 const getProjectBySlug = `-- name: GetProjectBySlug :one
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled FROM zdx_projects WHERE slug = $1
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects WHERE slug = $1
 `
 
 func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error) {
@@ -84,6 +86,8 @@ func (q *Queries) GetProjectBySlug(ctx context.Context, slug string) (ZdxProject
 		&i.UpstreamUrl,
 		&i.UpstreamCredentials,
 		&i.GitEnabled,
+		&i.Title,
+		&i.Description,
 	)
 	return i, err
 }
@@ -135,7 +139,7 @@ func (q *Queries) GetProjectProxyConfig(ctx context.Context, slug string) (GetPr
 }
 
 const listProjects = `-- name: ListProjects :many
-SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled FROM zdx_projects ORDER BY name
+SELECT id, slug, name, created_at, git_url, git_branch, git_token, stage, classification, upstream_url, upstream_credentials, git_enabled, title, description FROM zdx_projects ORDER BY name
 `
 
 func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
@@ -160,6 +164,8 @@ func (q *Queries) ListProjects(ctx context.Context) ([]ZdxProject, error) {
 			&i.UpstreamUrl,
 			&i.UpstreamCredentials,
 			&i.GitEnabled,
+			&i.Title,
+			&i.Description,
 		); err != nil {
 			return nil, err
 		}
@@ -237,5 +243,20 @@ type SetProjectStageParams struct {
 
 func (q *Queries) SetProjectStage(ctx context.Context, arg SetProjectStageParams) error {
 	_, err := q.db.Exec(ctx, setProjectStage, arg.Stage, arg.Slug)
+	return err
+}
+
+const setProjectVision = `-- name: SetProjectVision :exec
+UPDATE zdx_projects SET title = $1, description = $2 WHERE slug = $3
+`
+
+type SetProjectVisionParams struct {
+	Title       string `db:"title" json:"title"`
+	Description string `db:"description" json:"description"`
+	Slug        string `db:"slug" json:"slug"`
+}
+
+func (q *Queries) SetProjectVision(ctx context.Context, arg SetProjectVisionParams) error {
+	_, err := q.db.Exec(ctx, setProjectVision, arg.Title, arg.Description, arg.Slug)
 	return err
 }
