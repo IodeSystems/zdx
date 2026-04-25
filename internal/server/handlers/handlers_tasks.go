@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -13,6 +14,20 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
+
+// deriveTitle extracts a short title from task text when no explicit title is
+// provided. Uses the first line, stripped of markdown heading prefixes, and
+// truncates to 120 characters.
+func deriveTitle(text string) string {
+	line, _, _ := strings.Cut(text, "\n")
+	line = strings.TrimSpace(line)
+	line = strings.TrimLeft(line, "#")
+	line = strings.TrimSpace(line)
+	if len(line) > 120 {
+		line = line[:117] + "..."
+	}
+	return line
+}
 
 func (h *Handler) publishTaskByID(ctx context.Context, id, eventType string, payload any) {
 	task, err := h.Q.GetTask(ctx, id)
@@ -222,10 +237,15 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				}{Similar: similar, DuplicateBlocked: true}}, nil
 			}
 
+			title := ptrStr(in.Body.Title)
+			if title == "" {
+				title = deriveTitle(in.Body.Text)
+			}
+
 			row, err := h.Q.CreateTask(ctx, db.CreateTaskParams{
 				ID:        id,
 				ProjectID: p.ID,
-				Title:     ptrStr(in.Body.Title),
+				Title:     title,
 				Text:      in.Body.Text,
 				Feature:   ptrStr(in.Body.Feature),
 				Issue:     ptrStr(in.Body.Issue),

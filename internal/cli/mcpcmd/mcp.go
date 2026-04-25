@@ -582,9 +582,13 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 	})
 
 	type todoTechAddInput struct {
-		Text      string `json:"text" jsonschema:"required,task description"`
-		Issue     string `json:"issue,omitempty" jsonschema:"link to issue (IS-N)"`
-		Feature   string `json:"feature,omitempty" jsonschema:"link to feature name"`
+		Title    string `json:"title" jsonschema:"required,short scannable headline (the WHAT); shown in list views"`
+		Text     string `json:"text" jsonschema:"required,implementation details (the HOW); steps and file paths"`
+		Reason   string `json:"reason,omitempty" jsonschema:"motivation (the WHY)"`
+		TestPlan string `json:"test_plan,omitempty" jsonschema:"how the work will be verified"`
+		Issue    string `json:"issue,omitempty" jsonschema:"link to issue (IS-N)"`
+		Feature  string `json:"feature,omitempty" jsonschema:"link to feature name"`
+
 		TaskGroup string `json:"task_group,omitempty" jsonschema:"logical task group name for batch branch workflows"`
 		Force     bool   `json:"force,omitempty" jsonschema:"bypass duplicate detection"`
 	}
@@ -595,6 +599,15 @@ func RegisterMCPTools(srv *mcp.Server, c *cli.Client) {
 		addBody := dxclient.AddTaskRequest{
 			Slug: slug,
 			Text: in.Text,
+		}
+		if in.Title != "" {
+			addBody.Title = &in.Title
+		}
+		if in.Reason != "" {
+			addBody.Reason = &in.Reason
+		}
+		if in.TestPlan != "" {
+			addBody.TestPlan = &in.TestPlan
 		}
 		if in.Feature != "" {
 			addBody.Feature = &in.Feature
