@@ -20,12 +20,14 @@ type Config struct {
 
 // AgentConfig declares how agents run in this project.
 type AgentConfig struct {
-	ComposeFile   string `yaml:"compose_file"`   // docker-compose file for dev services (default: docker-compose.agent.yaml)
-	DevDockerfile string `yaml:"dev_dockerfile"` // Dockerfile for the dev image (default: Dockerfile.agent)
-	MaxWorktrees  int    `yaml:"max_worktrees"`  // concurrent agent slots (default: 4)
-	LLMProvider   string `yaml:"llm_provider"`   // claude | local | server (default: claude)
-	ClaudeModel   string `yaml:"claude_model"`   // model when provider=claude (default: claude-sonnet-4-6)
-	LeaseMinutes  int    `yaml:"lease_minutes"`  // todo lease duration in minutes (default: 30)
+	ComposeFile     string `yaml:"compose_file"`     // docker-compose file for dev services (default: docker-compose.agent.yaml)
+	DevDockerfile   string `yaml:"dev_dockerfile"`   // Dockerfile for the dev image (default: Dockerfile.agent)
+	MaxWorktrees    int    `yaml:"max_worktrees"`    // concurrent agent slots (default: 4)
+	LLMProvider     string `yaml:"llm_provider"`     // claude | local | server (default: claude)
+	ClaudeModel     string `yaml:"claude_model"`     // model when provider=claude (default: claude-sonnet-4-6)
+	LeaseMinutes    int    `yaml:"lease_minutes"`    // todo lease duration in minutes (default: 30)
+	ContainerMemory string `yaml:"container_memory"` // docker --memory limit per agent slot (default: 4g)
+	ContainerCPUs   string `yaml:"container_cpus"`   // docker --cpus limit per agent slot (default: 2)
 }
 
 // ResolvedAgent returns agent config with defaults applied.
@@ -51,6 +53,12 @@ func (c *Config) ResolvedAgent() AgentConfig {
 	}
 	if a.LeaseMinutes <= 0 {
 		a.LeaseMinutes = 30
+	}
+	if a.ContainerMemory == "" {
+		a.ContainerMemory = "4g"
+	}
+	if a.ContainerCPUs == "" {
+		a.ContainerCPUs = "2"
 	}
 	return a
 }

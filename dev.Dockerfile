@@ -18,7 +18,13 @@ RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
 # sqlc (query codegen)
 RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
 
+# Non-root agent user; matches default UID on most Linux dev hosts.
+RUN useradd -m -u 1000 -s /bin/bash agent
+
 WORKDIR /workspace
 COPY . /workspace
+RUN chown -R agent:agent /workspace
+
+USER agent
 
 CMD ["bash"]

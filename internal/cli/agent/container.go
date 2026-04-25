@@ -60,42 +60,19 @@ type containerManager struct {
 // Blocks until the container exits. Returns nil if the context was cancelled
 // (clean shutdown), or a non-nil error on unexpected failure.
 func (m *containerManager) run(ctx context.Context, slot int, alias string, agentCfg config.AgentConfig) error {
-	name := fmt.Sprintf("zdx-agent-%s-%d", alias, slot)
-
-	args := []string{"run", "--name", name}
-	if !m.keepOnExit {
-		args = append(args, "--rm")
-	}
-
 	cwd, err := os.Getwd()
 	if err != nil {
 		return fmt.Errorf("getwd: %w", err)
 	}
-	args = append(args, "-v", cwd+":/workspace", "-w", "/workspace")
-
-	// Pass through env vars the inner agent needs.
-	for _, key := range []string{
+	name := fmt.Sprintf("zdx-agent-%s-%d", alias, slot)
+	envPairs := collectContainerEnv([]string{
 		"DX_REMOTE_API_KEY",
 		"ANTHROPIC_API_KEY",
 		"DATABASE_URL",
 		"ZDX_API_URL",
 		"NO_COLOR",
-	} {
-		if val := os.Getenv(key); val != "" {
-			args = append(args, "-e", key+"="+val)
-		}
-	}
-
-	slotAlias := fmt.Sprintf("%s-%d", alias, slot)
-	args = append(args, m.imageTag,
-		"./bin/dx", "agent", "claude", "--loop",
-		"--alias", slotAlias,
-	)
-	if agentCfg.ClaudeModel != "" {
-		args = append(args, "--model", agentCfg.ClaudeModel)
-	}
-	// Disable chrome inside containers (no browser available).
-	args = append(args, "--chrome=false")
+	})
+	args := buildContainerArgs(name, m.imageTag, cwd, slot, alias, agentCfg, m.keepOnExit, envPairs)
 
 	m.mu.Lock()
 	m.containerIDs = append(m.containerIDs, name)
@@ -128,6 +105,56 @@ func (m *containerManager) stopAll() {
 	}
 }
 
+// buildContainerArgs constructs the `docker run` argv for an agent slot.
+// Pure function so the security-critical flag set is unit-testable.
+func buildContainerArgs(name, imageTag, cwd string, slot int, alias string, agentCfg config.AgentConfig, keepOnExit bool, envPairs []string) []string {
+	args := []string{"run", "--name", name}
+	if !keepOnExit {
+		args = append(args, "--rm")
+	}
+	args = append(args, "-v", cwd+":/workspace", "-w", "/workspace")
+
+	// Non-root execution with no privilege escalation (spec-121).
+	args = append(args, "--user", "agent")
+	args = append(args, "--cap-drop", "all")
+	args = append(args, "--security-opt", "no-new-privileges")
+
+	// Resource limits — prevent a runaway agent from starving the host or sibling slots (spec-120).
+	if agentCfg.ContainerMemory != "" {
+		args = append(args, "--memory", agentCfg.ContainerMemory)
+	}
+	if agentCfg.ContainerCPUs != "" {
+		args = append(args, "--cpus", agentCfg.ContainerCPUs)
+	}
+
+	for _, kv := range envPairs {
+		args = append(args, "-e", kv)
+	}
+
+	slotAlias := fmt.Sprintf("%s-%d", alias, slot)
+	args = append(args, imageTag,
+		"./bin/dx", "agent", "claude", "--loop",
+		"--alias", slotAlias,
+	)
+	if agentCfg.ClaudeModel != "" {
+		args = append(args, "--model", agentCfg.ClaudeModel)
+	}
+	// Disable chrome inside containers (no browser available).
+	args = append(args, "--chrome=false")
+	return args
+}
+
+// collectContainerEnv returns KEY=VAL pairs for every key with a non-empty value in the host env.
+func collectContainerEnv(keys []string) []string {
+	var out []string
+	for _, key := range keys {
+		if val := os.Getenv(key); val != "" {
+			out = append(out, key+"="+val)
+		}
+	}
+	return out
+}
+
 func removeString(ss []string, s string) []string {
 	out := ss[:0]
 	for _, v := range ss {
@@ -143,6 +170,15 @@ func removeString(ss []string, s string) []string {
 // are restarted on unexpected exit. SIGINT/SIGTERM stops all containers and
 // exits cleanly.
 func runContainerLoop(alias string, agentCfg config.AgentConfig, keepContainer bool) error {
+	// Apply container resource defaults — srcless mode constructs AgentConfig
+	// directly and skips ResolvedAgent, so we normalize here too.
+	if agentCfg.ContainerMemory == "" {
+		agentCfg.ContainerMemory = "4g"
+	}
+	if agentCfg.ContainerCPUs == "" {
+		agentCfg.ContainerCPUs = "2"
+	}
+
 	imageTag, err := buildDevImage()
 	if err != nil {
 		return err
@@ -180,7 +216,8 @@ func runContainerLoop(alias string, agentCfg config.AgentConfig, keepContainer b
 	if maxSlots <= 0 {
 		maxSlots = 1
 	}
-	logf("container mode: image=%s slots=%d keep=%v", imageTag, maxSlots, keepContainer)
+	logf("container mode: image=%s slots=%d keep=%v memory=%s cpus=%s",
+		imageTag, maxSlots, keepContainer, agentCfg.ContainerMemory, agentCfg.ContainerCPUs)
 
 	var wg sync.WaitGroup
 	for i := 0; i < maxSlots; i++ {
