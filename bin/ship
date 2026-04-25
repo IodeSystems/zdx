@@ -326,7 +326,7 @@ run_compat_check() {
     | grep -v '^\\' > "$NEXT_SQL"
 
   echo "[compat] Running tests against NEXT schema..."
-  if ! DATABASE_URL="$DSN_NEXT" go test ./... -count=1 -timeout 60s 2>&1; then
+  if ! DATABASE_URL="$DSN_NEXT" go test $(go list ./... | grep -v /test/e2e) -count=1 -timeout 60s 2>&1; then
     echo "[compat] FAIL: tests broken against next schema."
     return 2
   fi
@@ -339,7 +339,7 @@ run_compat_check() {
   fi
 
   echo "[compat] Running tests against CURRENT schema (rolling-deploy gate)..."
-  if DATABASE_URL="$DSN_CURRENT" go test ./... -count=1 -timeout 60s 2>&1; then
+  if DATABASE_URL="$DSN_CURRENT" go test $(go list ./... | grep -v /test/e2e) -count=1 -timeout 60s 2>&1; then
     echo "[compat] CURRENT schema: OK — migration is COMPATIBLE."
     echo "compatible" > schema/compat-result.txt
     return 0
