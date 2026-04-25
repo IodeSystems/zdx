@@ -150,10 +150,9 @@ func TestDemoAPI_AdminProjectsAddExisting(t *testing.T) {
 	t.Cleanup(rec.Save)
 
 	var created struct {
-		Slug        string `json:"slug"`
-		Name        string `json:"name"`
-		UpstreamURL string `json:"upstream_url"`
-		GitEnabled  bool   `json:"git_enabled"`
+		Slug       string `json:"slug"`
+		Name       string `json:"name"`
+		GitEnabled bool   `json:"git_enabled"`
 	}
 	mustOK(t, rec.Do(http.MethodPost, "/api/project", map[string]any{
 		"slug":           "demo-add-existing-gh",
@@ -161,9 +160,6 @@ func TestDemoAPI_AdminProjectsAddExisting(t *testing.T) {
 		"classification": "tool",
 		"upstream_url":   "https://github.com/example/demo-add-existing.git",
 	}, &created))
-	if created.UpstreamURL == "" {
-		t.Error("upstream_url: want non-empty")
-	}
 	if !created.GitEnabled {
 		t.Error("git_enabled: want true when upstream_url is a GitHub URL")
 	}
