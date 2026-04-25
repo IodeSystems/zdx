@@ -246,9 +246,18 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		return
 	}
 
-	// Classification
+	// Classification + Vision
 	if pResp, err := c.GetProjectInfoWithResponse(ctx, &dxclient.GetProjectInfoParams{Slug: slug}); err == nil && pResp.JSON200 != nil {
 		state.Classification = doctor.Classification(pResp.JSON200.Classification)
+	}
+	// Vision: check via list-projects which includes title/description
+	if lpResp, err := c.ListProjectsWithResponse(ctx); err == nil && lpResp.JSON200 != nil && lpResp.JSON200.Projects != nil {
+		for _, p := range *lpResp.JSON200.Projects {
+			if p.Slug == slug && p.Title != nil && *p.Title != "" {
+				state.HasVision = true
+				break
+			}
+		}
 	}
 
 	// Goals

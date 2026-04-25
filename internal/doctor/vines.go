@@ -94,8 +94,9 @@ func commonVine() []Rung {
 		},
 		{
 			Name:        "identity",
-			Description: "Project knows what it is — classification set, goals defined",
+			Description: "Project knows what it is — vision, classification, goals defined",
 			Checks: []Check{
+				{"has_vision", "Project vision / tagline is set", ActionPropose},
 				{"classification_set", "Project classification is set", ActionPropose},
 				{"has_goals", "At least one goal defined", ActionPropose},
 				{"has_constraints", "At least one constraint defined", ActionPropose},

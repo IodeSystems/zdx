@@ -17,6 +17,8 @@ func (h *Handler) registerDoctorRoutes(api huma.API) {
 				ID             int32  `json:"id"`
 				Slug           string `json:"slug"`
 				Name           string `json:"name"`
+				Title          string `json:"title"`
+				Description    string `json:"description"`
 				Classification string `json:"classification"`
 			}
 		}, error) {
@@ -29,14 +31,18 @@ func (h *Handler) registerDoctorRoutes(api huma.API) {
 					ID             int32  `json:"id"`
 					Slug           string `json:"slug"`
 					Name           string `json:"name"`
+					Title          string `json:"title"`
+					Description    string `json:"description"`
 					Classification string `json:"classification"`
 				}
 			}{Body: struct {
 				ID             int32  `json:"id"`
 				Slug           string `json:"slug"`
 				Name           string `json:"name"`
+				Title          string `json:"title"`
+				Description    string `json:"description"`
 				Classification string `json:"classification"`
-			}{ID: p.ID, Slug: p.Slug, Name: p.Name, Classification: p.Classification}}, nil
+			}{ID: p.ID, Slug: p.Slug, Name: p.Name, Title: p.Title, Description: p.Description, Classification: p.Classification}}, nil
 		})
 
 	// POST /api/dx/doctor/classify — set project classification

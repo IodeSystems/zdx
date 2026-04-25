@@ -121,6 +121,47 @@ func (r remoteConfig) valid() bool {
 	return r.url != "" && r.slug != "" && r.key != ""
 }
 
+// fetchProjectVision returns a one-line vision string for the project, or ""
+// if unavailable. Best-effort — never blocks the session on failure.
+func fetchProjectVision(rc remoteConfig) string {
+	if !rc.valid() {
+		return ""
+	}
+	req, err := http.NewRequest("GET", rc.url+"/api/projects", nil)
+	if err != nil {
+		return ""
+	}
+	req.Header.Set("X-Api-Key", rc.key)
+	resp, err := http.DefaultClient.Do(req)
+	if err != nil || resp.StatusCode != 200 {
+		return ""
+	}
+	defer resp.Body.Close()
+	var body struct {
+		Projects []struct {
+			Slug        string  `json:"slug"`
+			Title       *string `json:"title"`
+			Description *string `json:"description"`
+		} `json:"projects"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return ""
+	}
+	for _, p := range body.Projects {
+		if p.Slug == rc.slug {
+			parts := []string{}
+			if p.Title != nil && *p.Title != "" {
+				parts = append(parts, *p.Title)
+			}
+			if p.Description != nil && *p.Description != "" {
+				parts = append(parts, *p.Description)
+			}
+			return strings.Join(parts, " — ")
+		}
+	}
+	return ""
+}
+
 // installReleaseOnSignal traps SIGINT/SIGTERM once and, before exiting,
 // cancels the shared loop context (so the main loop and any in-flight
 // session stop picking new work), then releases every task claimed by
@@ -431,13 +472,19 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 	projDir := claudeProjectDir()
 	_ = os.MkdirAll(projDir, 0o755)
 
+	// Fetch project vision to provide context for the session.
+	vision := fetchProjectVision(rc)
+
 	prompt := ""
+	if vision != "" {
+		prompt = "Project vision: " + vision + "\n\n"
+	}
 	if issueID != "" {
-		prompt = fmt.Sprintf("Work on issue %s. Use MCP tools (issue_show, comment_add, todo_dev_done) to interact with the project tracker.", issueID)
+		prompt += fmt.Sprintf("Work on issue %s. Use MCP tools (issue_show, comment_add, todo_dev_done) to interact with the project tracker.", issueID)
 	} else if todo != nil {
 		// Pass the todo text directly as the prompt — the work instructions
 		// are already embedded in the todo by the queue generator.
-		prompt = fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
+		prompt += fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
 	}
 

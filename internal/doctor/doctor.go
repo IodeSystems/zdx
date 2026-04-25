@@ -53,6 +53,9 @@ type ProjectState struct {
 	// Classification
 	Classification Classification
 
+	// Vision
+	HasVision bool
+
 	// Remote project state (from server)
 	RemoteReachable    bool
 	GoalCount          int
@@ -256,6 +259,13 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		}
 		return false, "project classification not set", nil,
 			"Run `dx doctor` to choose a classification (library/tool/service/saas/site)"
+
+	case "has_vision":
+		if state.HasVision {
+			return true, "vision set", nil, ""
+		}
+		return false, "no project vision defined", nil,
+			"Run `dx vision set --title '<tagline>' --desc '<who, what, why>'` — a guiding star that frames all goals and features"
 
 	case "has_goals":
 		if state.GoalCount > 0 {
