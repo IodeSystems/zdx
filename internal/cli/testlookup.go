@@ -51,6 +51,14 @@ func ResolveTestID(ctx context.Context, c *Client, arg string) (int32, error) {
 	case 1:
 		return matches[0].Id, nil
 	default:
-		return 0, fmt.Errorf("test name %q is ambiguous (%d matches) — pass a numeric id", arg, len(matches))
+		// Multiple rows for the same name (e.g. component drift between runs).
+		// Pick the most-recently-run row; only error if we still can't decide.
+		best := matches[0]
+		for _, m := range matches[1:] {
+			if m.LastRunAt != nil && (best.LastRunAt == nil || *m.LastRunAt > *best.LastRunAt) {
+				best = m
+			}
+		}
+		return best.Id, nil
 	}
 }

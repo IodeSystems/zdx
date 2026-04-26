@@ -393,8 +393,10 @@ func testListCmd() *cobra.Command {
 						} else {
 							for _, n := range names {
 								l := "integration"
+								comp := "api"
 								if strings.HasPrefix(n, "TestDemo") {
 									l = "demo"
+									comp = "demo"
 								}
 								if wantsDemo && !wantsIntegration && l != "demo" {
 									continue
@@ -402,7 +404,7 @@ func testListCmd() *cobra.Command {
 								if wantsIntegration && !wantsDemo && l != "integration" {
 									continue
 								}
-								fmt.Printf("  %-8s %-12s %s\n", "api", l, n)
+								fmt.Printf("  %-8s %-12s %s\n", comp, l, n)
 							}
 						}
 					} else {
