@@ -54,6 +54,44 @@ func (h *Handler) findSimilarQuestions(ctx context.Context, projectID int32, que
 	return out, nil
 }
 
+func (h *Handler) findSimilarProposals(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarProposalItem, error) {
+	seen := make(map[int32]bool)
+	out := make([]SimilarProposalItem, 0, n)
+
+	// text search first
+	rows, _ := h.Q.SearchProposals(ctx, db.SearchProposalsParams{ProjectID: projectID, Query: queryText})
+	for _, r := range rows {
+		if seen[r.ID] {
+			continue
+		}
+		seen[r.ID] = true
+		out = append(out, SimilarProposalItem{ID: r.ID, Title: r.Title, Body: r.Body, Status: r.Status})
+	}
+
+	// vector search
+	results, _ := h.Emb.TopNProposals(ctx, projectID, queryText, n)
+	for _, r := range results {
+		id := int32(r.ID) //nolint:gosec
+		if seen[id] {
+			continue
+		}
+		seen[id] = true
+		p, err := h.Q.GetProposal(ctx, db.GetProposalParams{ProjectID: projectID, ID: id})
+		if err != nil {
+			continue
+		}
+		if p.Status == "rejected" || p.Status == "approved" {
+			continue
+		}
+		out = append(out, SimilarProposalItem{ID: p.ID, Title: p.Title, Body: p.Body, Status: p.Status, Score: r.Score})
+	}
+
+	if len(out) > n {
+		out = out[:n]
+	}
+	return out, nil
+}
+
 func (h *Handler) findSimilarTasks(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarTaskItem, error) {
 	results, err := h.Emb.TopNTasks(ctx, projectID, queryText, n)
 	if err != nil {

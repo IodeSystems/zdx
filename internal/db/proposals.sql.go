@@ -184,6 +184,55 @@ func (q *Queries) ListProposals(ctx context.Context, arg ListProposalsParams) ([
 	return items, nil
 }
 
+const searchProposals = `-- name: SearchProposals :many
+SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+FROM zdx_proposals
+WHERE project_id = $1
+  AND status NOT IN ('rejected', 'approved')
+  AND (title ILIKE '%' || $2::text || '%' OR body ILIKE '%' || $2::text || '%')
+ORDER BY created_at DESC
+LIMIT 10
+`
+
+type SearchProposalsParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Query     string `db:"query" json:"query"`
+}
+
+// metaquery: off
+func (q *Queries) SearchProposals(ctx context.Context, arg SearchProposalsParams) ([]ZdxProposal, error) {
+	rows, err := q.db.Query(ctx, searchProposals, arg.ProjectID, arg.Query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxProposal
+	for rows.Next() {
+		var i ZdxProposal
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Body,
+			&i.SourceType,
+			&i.SourceRef,
+			&i.Status,
+			&i.SnoozedUntil,
+			&i.CreatedBy,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ApprovedIssueID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateProposal = `-- name: UpdateProposal :one
 UPDATE zdx_proposals
 SET title = $3, body = $4, updated_at = NOW()

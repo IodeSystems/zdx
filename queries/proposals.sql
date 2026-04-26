@@ -33,3 +33,13 @@ RETURNING id, proposal_id, body, edited_by, edited_at;
 SELECT id, proposal_id, body, edited_by, edited_at
 FROM zdx_proposal_versions WHERE proposal_id = $1
 ORDER BY edited_at DESC;
+
+-- name: SearchProposals :many
+-- metaquery: off
+SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+FROM zdx_proposals
+WHERE project_id = @project_id
+  AND status NOT IN ('rejected', 'approved')
+  AND (title ILIKE '%' || @query::text || '%' OR body ILIKE '%' || @query::text || '%')
+ORDER BY created_at DESC
+LIMIT 10;

@@ -309,6 +309,14 @@ type SimilarQuestionItem struct {
 	Score    float32 `json:"score"`
 }
 
+type SimilarProposalItem struct {
+	ID     int32   `json:"id"`
+	Title  string  `json:"title"`
+	Body   string  `json:"body"`
+	Status string  `json:"status"`
+	Score  float32 `json:"score"`
+}
+
 type QuestionItem struct {
 	ID               int32  `json:"id"`
 	Category         string `json:"category"`

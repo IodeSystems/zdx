@@ -321,6 +321,54 @@ func (e *embedder) TopNPatterns(ctx context.Context, projectID int32, queryText 
 	return results, err
 }
 
+func (e *embedder) proposalIndexPath(projectID int32) string {
+	return filepath.Join(e.dataDir, fmt.Sprintf("proposals-%d.zvec", projectID))
+}
+
+func (e *embedder) UpsertProposal(ctx context.Context, projectID int32, proposalID int32, text string) {
+	vec, err := e.embed(ctx, text)
+	if err != nil {
+		log.Printf("embedder: embed proposal %d: %v", proposalID, err)
+		return
+	}
+	if vec == nil {
+		return
+	}
+	path := e.proposalIndexPath(projectID)
+	start := time.Now()
+	idx, err := e.loadOrCreate(path, len(vec))
+	if err != nil {
+		log.Printf("embedder: open proposal index %s: %v", path, err)
+		return
+	}
+	if err := idx.Upsert(path, uint64(proposalID), vec); err != nil { //nolint:gosec
+		log.Printf("embedder: upsert proposal %d: %v", proposalID, err)
+	}
+	e.sink.track(ctx, "zvec:upsert-proposal", start)
+}
+
+func (e *embedder) TopNProposals(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+	vec, err := e.embed(ctx, queryText)
+	if err != nil {
+		return nil, fmt.Errorf("embed query: %w", err)
+	}
+	if vec == nil {
+		return nil, nil
+	}
+	path := e.proposalIndexPath(projectID)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, nil
+	}
+	start := time.Now()
+	idx, err := zvec.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open proposal index: %w", err)
+	}
+	results, err := idx.TopN(vec, n)
+	e.sink.track(ctx, "zvec:search-proposals", start)
+	return results, err
+}
+
 // issueNumericID converts "IS-42" → 42.
 func issueNumericID(id string) uint64 {
 	s := strings.TrimPrefix(id, "IS-")

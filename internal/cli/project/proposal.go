@@ -39,7 +39,7 @@ func proposalIDStr(id int32) string {
 }
 
 func proposalAddCmd() *cobra.Command {
-	var title, body, sourceType, sourceRef string
+	var title, body, sourceType, sourceRef, duplicatesReviewed string
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Create a proposal",
@@ -57,6 +57,9 @@ func proposalAddCmd() *cobra.Command {
 			if sourceRef != "" {
 				req.SourceRef = &sourceRef
 			}
+			if duplicatesReviewed != "" {
+				req.DuplicatesReviewed = &duplicatesReviewed
+			}
 			resp, err := c.CreateProposalWithResponse(cmd.Context(), req)
 			if err != nil {
 				return err
@@ -67,7 +70,22 @@ func proposalAddCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("empty response")
 			}
-			p := resp.JSON200
+			r := resp.JSON200
+			if r.DuplicatesReviewToken != nil {
+				fmt.Println("Similar proposals found — review before submitting:")
+				if r.Similar != nil {
+					for _, s := range *r.Similar {
+						fmt.Printf("  PR-%-4d [%-10s]  %s\n", s.Id, s.Status, s.Title)
+					}
+				}
+				fmt.Printf("\nTo submit anyway:\n  dx proposal add --title %q --body %q --duplicates-reviewed=%s\n",
+					title, body, *r.DuplicatesReviewToken)
+				return nil
+			}
+			if r.Proposal == nil {
+				return fmt.Errorf("empty response")
+			}
+			p := r.Proposal
 			fmt.Printf("%s  [%s]  %s\n", proposalIDStr(p.Id), p.SourceType, p.Title)
 			return nil
 		},
@@ -76,6 +94,7 @@ func proposalAddCmd() *cobra.Command {
 	cmd.Flags().StringVar(&body, "body", "", "proposal body")
 	cmd.Flags().StringVar(&sourceType, "source", "session-review", "source type (session-review, conversation, etc.)")
 	cmd.Flags().StringVar(&sourceRef, "source-ref", "", "source reference (optional)")
+	cmd.Flags().StringVar(&duplicatesReviewed, "duplicates-reviewed", "", "server-provided token confirming duplicate review")
 	_ = cmd.MarkFlagRequired("title")
 	_ = cmd.MarkFlagRequired("body")
 	return cmd

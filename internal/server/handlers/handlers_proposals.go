@@ -2,6 +2,9 @@ package handlers
 
 import (
 	"context"
+	"crypto/hmac"
+	"crypto/sha256"
+	"encoding/base64"
 	"fmt"
 	"net/http"
 	"time"
@@ -11,6 +14,26 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
+
+func proposalReviewToken(secret string, projectID int32, title, body string) string {
+	hourBucket := time.Now().Unix() / 3600
+	mac := hmac.New(sha256.New, []byte(secret))
+	fmt.Fprintf(mac, "%d\x00%s\x00%s\x00%d", projectID, title, body, hourBucket)
+	return base64.URLEncoding.EncodeToString(mac.Sum(nil))
+}
+
+func verifyProposalReviewToken(secret, token string, projectID int32, title, body string) bool {
+	now := time.Now().Unix() / 3600
+	for _, offset := range []int64{0, -1} {
+		mac := hmac.New(sha256.New, []byte(secret))
+		fmt.Fprintf(mac, "%d\x00%s\x00%s\x00%d", projectID, title, body, now+offset)
+		expected := base64.URLEncoding.EncodeToString(mac.Sum(nil))
+		if hmac.Equal([]byte(token), []byte(expected)) {
+			return true
+		}
+	}
+	return false
+}
 
 type ProposalItem struct {
 	ID              int32   `json:"id"`
@@ -105,20 +128,40 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 			}{Proposals: out}}, nil
 		})
 
+	type createProposalBody struct {
+		Proposal              *ProposalItem         `json:"proposal,omitempty"`
+		Similar               []SimilarProposalItem `json:"similar,omitempty"`
+		DuplicatesReviewToken *string               `json:"duplicates_review_token,omitempty"`
+	}
+
 	huma.Register(api, huma.Operation{OperationID: "create-proposal", Method: http.MethodPost, Path: "/api/dx/proposals"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug       string  `json:"slug"`
-				Title      string  `json:"title"`
-				Body       string  `json:"body"`
-				SourceType string  `json:"source_type"`
-				SourceRef  *string `json:"source_ref,omitempty"`
+				Slug               string  `json:"slug"`
+				Title              string  `json:"title"`
+				Body               string  `json:"body"`
+				SourceType         string  `json:"source_type"`
+				SourceRef          *string `json:"source_ref,omitempty"`
+				DuplicatesReviewed *string `json:"duplicates_reviewed,omitempty"`
 			}
-		}) (*struct{ Body ProposalItem }, error) {
+		}) (*struct{ Body createProposalBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
 			}
+
+			if in.Body.DuplicatesReviewed != nil {
+				if !verifyProposalReviewToken(h.WSSecret, *in.Body.DuplicatesReviewed, p.ID, in.Body.Title, in.Body.Body) {
+					return nil, apiErr(http.StatusUnprocessableEntity, "invalid or expired duplicates review token")
+				}
+			} else {
+				similar, _ := h.findSimilarProposals(ctx, p.ID, in.Body.Title+" "+in.Body.Body, 10)
+				if len(similar) > 0 {
+					token := proposalReviewToken(h.WSSecret, p.ID, in.Body.Title, in.Body.Body)
+					return &struct{ Body createProposalBody }{Body: createProposalBody{Similar: similar, DuplicatesReviewToken: &token}}, nil
+				}
+			}
+
 			createdBy := ""
 			if uid := ctxUserIDVal(ctx); uid != 0 {
 				if u, e := h.Q.GetUserByID(ctx, uid); e == nil {
@@ -146,7 +189,9 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body ProposalItem }{Body: toProposalItem(row)}, nil
+			go h.Emb.UpsertProposal(context.Background(), p.ID, row.ID, row.Title+" "+row.Body)
+			item := toProposalItem(row)
+			return &struct{ Body createProposalBody }{Body: createProposalBody{Proposal: &item}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "show-proposal", Method: http.MethodGet, Path: "/api/dx/proposals/{id}"},

@@ -829,12 +829,22 @@ type CreateProjectRequest struct {
 // CreateProposalRequest defines model for Create-proposalRequest.
 type CreateProposalRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema     *string `json:"$schema,omitempty"`
-	Body       string  `json:"body"`
-	Slug       string  `json:"slug"`
-	SourceRef  *string `json:"source_ref,omitempty"`
-	SourceType string  `json:"source_type"`
-	Title      string  `json:"title"`
+	Schema             *string `json:"$schema,omitempty"`
+	Body               string  `json:"body"`
+	DuplicatesReviewed *string `json:"duplicates_reviewed,omitempty"`
+	Slug               string  `json:"slug"`
+	SourceRef          *string `json:"source_ref,omitempty"`
+	SourceType         string  `json:"source_type"`
+	Title              string  `json:"title"`
+}
+
+// CreateProposalResponse defines model for Create-proposalResponse.
+type CreateProposalResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema                *string                `json:"$schema,omitempty"`
+	DuplicatesReviewToken *string                `json:"duplicates_review_token,omitempty"`
+	Proposal              *ProposalItem          `json:"proposal,omitempty"`
+	Similar               *[]SimilarProposalItem `json:"similar,omitempty"`
 }
 
 // DeferDoctorCheckRequest defines model for Defer-doctor-checkRequest.
@@ -3061,6 +3071,17 @@ type SimilarIssueItem struct {
 type SimilarPatternItem struct {
 	Pattern PatternItem `json:"pattern"`
 	Score   float64     `json:"score"`
+}
+
+// SimilarProposalItem defines model for SimilarProposalItem.
+type SimilarProposalItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Body   string  `json:"body"`
+	Id     int32   `json:"id"`
+	Score  float32 `json:"score"`
+	Status string  `json:"status"`
+	Title  string  `json:"title"`
 }
 
 // SimilarQuestionItem defines model for SimilarQuestionItem.
@@ -27574,9 +27595,9 @@ type ClientWithResponsesInterface interface {
 	ListProposalsWithResponse(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*ParsedListProposalsResponse, error)
 
 	// CreateProposalWithBodyWithResponse request with any body
-	CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error)
+	CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedCreateProposalResponse, error)
 
-	CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error)
+	CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedCreateProposalResponse, error)
 
 	// ShowProposalWithResponse request
 	ShowProposalWithResponse(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*ParsedShowProposalResponse, error)
@@ -31879,15 +31900,15 @@ func (r ParsedListProposalsResponse) StatusCode() int {
 	return 0
 }
 
-type CreateProposalResponse struct {
+type ParsedCreateProposalResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ProposalItem
+	JSON200                       *CreateProposalResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
-func (r CreateProposalResponse) Status() string {
+func (r ParsedCreateProposalResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -31895,7 +31916,7 @@ func (r CreateProposalResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r CreateProposalResponse) StatusCode() int {
+func (r ParsedCreateProposalResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -36970,21 +36991,21 @@ func (c *ClientWithResponses) ListProposalsWithResponse(ctx context.Context, par
 	return ParseParsedListProposalsResponse(rsp)
 }
 
-// CreateProposalWithBodyWithResponse request with arbitrary body returning *CreateProposalResponse
-func (c *ClientWithResponses) CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error) {
+// CreateProposalWithBodyWithResponse request with arbitrary body returning *ParsedCreateProposalResponse
+func (c *ClientWithResponses) CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedCreateProposalResponse, error) {
 	rsp, err := c.CreateProposalWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateProposalResponse(rsp)
+	return ParseParsedCreateProposalResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error) {
+func (c *ClientWithResponses) CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedCreateProposalResponse, error) {
 	rsp, err := c.CreateProposal(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseCreateProposalResponse(rsp)
+	return ParseParsedCreateProposalResponse(rsp)
 }
 
 // ShowProposalWithResponse request returning *ParsedShowProposalResponse
@@ -44085,22 +44106,22 @@ func ParseParsedListProposalsResponse(rsp *http.Response) (*ParsedListProposalsR
 	return response, nil
 }
 
-// ParseCreateProposalResponse parses an HTTP response from a CreateProposalWithResponse call
-func ParseCreateProposalResponse(rsp *http.Response) (*CreateProposalResponse, error) {
+// ParseParsedCreateProposalResponse parses an HTTP response from a CreateProposalWithResponse call
+func ParseParsedCreateProposalResponse(rsp *http.Response) (*ParsedCreateProposalResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &CreateProposalResponse{
+	response := &ParsedCreateProposalResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ProposalItem
+		var dest CreateProposalResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

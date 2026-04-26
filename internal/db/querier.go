@@ -451,6 +451,8 @@ type Querier interface {
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
 	// metaquery: off
 	SearchPatterns(ctx context.Context, arg SearchPatternsParams) ([]ZdxPattern, error)
+	// metaquery: off
+	SearchProposals(ctx context.Context, arg SearchProposalsParams) ([]ZdxProposal, error)
 	SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssueInteractiveOnly(ctx context.Context, arg SetIssueInteractiveOnlyParams) error

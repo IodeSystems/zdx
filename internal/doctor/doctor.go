@@ -348,7 +348,7 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "", nil, ""
 		}
 		return false, "no agent config in .zdx/config.yaml", nil,
-			"Add agent section to .zdx/config.yaml with llm_provider and max_worktrees"
+			"Edit .zdx/config.yaml to add an agent section with llm_provider and max_worktrees (run `dx config show` to view current config)"
 
 	case "no_stale_agent_sessions":
 		if state.StaleAgentSessions == 0 {
