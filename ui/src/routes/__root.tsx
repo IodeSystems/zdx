@@ -432,6 +432,15 @@ function DrawerNav({ onNavigate }: { onNavigate?: () => void }) {
             <ListItemText primary="LLM" />
           </ListItemButton>
           <ListItemButton
+            selected={lastPath === '/admin/activity'}
+            component={Link as any}
+            to={'/admin/activity' as any}
+            onClick={onNavigate}
+            sx={{ pl: 5 }}
+          >
+            <ListItemText primary="Activity" />
+          </ListItemButton>
+          <ListItemButton
             selected={lastPath === '/admin/websocket'}
             component={Link as any}
             to={'/admin/websocket' as any}

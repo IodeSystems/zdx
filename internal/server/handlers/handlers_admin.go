@@ -460,4 +460,95 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 			return &struct{}{}, nil
 		})
 
+	// ── Admin: cross-project activity ─────────────────────────────────────────
+
+	type ActivityWorklogEntry struct {
+		IssueID     string `json:"issue_id"`
+		IssueTitle  string `json:"issue_title"`
+		ProjectSlug string `json:"project_slug"`
+		ProjectName string `json:"project_name"`
+		Agent       string `json:"agent"`
+		Note        string `json:"note"`
+		CreatedAt   string `json:"created_at"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-activity-worklog", Method: http.MethodGet, Path: "/api/admin/activity/worklog"},
+		func(ctx context.Context, in *struct {
+			Limit  int32 `query:"limit"`
+			Offset int32 `query:"offset"`
+		}) (*struct {
+			Body struct {
+				Entries []ActivityWorklogEntry `json:"entries"`
+			}
+		}, error) {
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := h.Q.ListWorklogCrossProject(ctx, db.ListWorklogCrossProjectParams{Limit: limit, Offset: offset})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ActivityWorklogEntry, len(rows))
+			for i, r := range rows {
+				out[i] = ActivityWorklogEntry{IssueID: r.IssueID, IssueTitle: r.IssueTitle, ProjectSlug: r.ProjectSlug, ProjectName: r.ProjectName, Agent: r.Agent, Note: r.Note, CreatedAt: fmtTS(r.CreatedAt)}
+			}
+			return &struct {
+				Body struct {
+					Entries []ActivityWorklogEntry `json:"entries"`
+				}
+			}{Body: struct {
+				Entries []ActivityWorklogEntry `json:"entries"`
+			}{Entries: out}}, nil
+		})
+
+	type ActivitySessionItem struct {
+		ID          int64  `json:"id"`
+		ProjectSlug string `json:"project_slug"`
+		ProjectName string `json:"project_name"`
+		IssueID     string `json:"issue_id"`
+		SessionID   string `json:"session_id"`
+		Title       string `json:"title"`
+		Header      string `json:"header"`
+		Status      string `json:"status"`
+		Lifecycle   string `json:"lifecycle"`
+		EventCount  int64  `json:"event_count"`
+		CreatedAt   string `json:"created_at"`
+		UpdatedAt   string `json:"updated_at"`
+		ClosedAt    string `json:"closed_at,omitempty"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-activity-sessions", Method: http.MethodGet, Path: "/api/admin/activity/sessions"},
+		func(ctx context.Context, in *struct {
+			Limit  int32 `query:"limit"`
+			Offset int32 `query:"offset"`
+		}) (*struct {
+			Body struct {
+				Sessions []ActivitySessionItem `json:"sessions"`
+			}
+		}, error) {
+			limit, offset := parsePage(in.Limit, in.Offset)
+			rows, err := h.Q.ListClaudeSessionsCrossProject(ctx, db.ListClaudeSessionsCrossProjectParams{Limit: limit, Offset: offset})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			lifecycleFor := func(closedAt pgtype.Timestamptz, eventCount int64) string {
+				if closedAt.Valid {
+					return "done"
+				}
+				if eventCount == 0 {
+					return "starting"
+				}
+				return "active"
+			}
+			out := make([]ActivitySessionItem, len(rows))
+			for i, r := range rows {
+				out[i] = ActivitySessionItem{ID: r.ID, ProjectSlug: r.ProjectSlug, ProjectName: r.ProjectName, IssueID: r.IssueID, SessionID: r.SessionID, Title: r.Title, Header: r.Header, Status: r.Status, Lifecycle: lifecycleFor(r.ClosedAt, r.EventCount), EventCount: r.EventCount, CreatedAt: fmtTS(r.CreatedAt), UpdatedAt: fmtTS(r.UpdatedAt), ClosedAt: fmtTS(r.ClosedAt)}
+			}
+			return &struct {
+				Body struct {
+					Sessions []ActivitySessionItem `json:"sessions"`
+				}
+			}{Body: struct {
+				Sessions []ActivitySessionItem `json:"sessions"`
+			}{Sessions: out}}, nil
+		})
+
 }

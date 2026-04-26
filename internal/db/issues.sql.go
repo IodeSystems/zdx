@@ -372,6 +372,61 @@ func (q *Queries) ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIs
 	return items, nil
 }
 
+const listWorklogCrossProject = `-- name: ListWorklogCrossProject :many
+SELECT w.id, w.issue_id, i.title AS issue_title, p.slug AS project_slug, p.name AS project_name, w.agent, w.note, w.created_at
+FROM zdx_issue_work w
+JOIN zdx_issues i ON i.id = w.issue_id
+JOIN zdx_projects p ON i.project_id = p.id
+ORDER BY w.created_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListWorklogCrossProjectParams struct {
+	Limit  int32 `db:"limit" json:"limit"`
+	Offset int32 `db:"offset" json:"offset"`
+}
+
+type ListWorklogCrossProjectRow struct {
+	ID          int32              `db:"id" json:"id"`
+	IssueID     string             `db:"issue_id" json:"issue_id"`
+	IssueTitle  string             `db:"issue_title" json:"issue_title"`
+	ProjectSlug string             `db:"project_slug" json:"project_slug"`
+	ProjectName string             `db:"project_name" json:"project_name"`
+	Agent       string             `db:"agent" json:"agent"`
+	Note        string             `db:"note" json:"note"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+// metaquery: off
+func (q *Queries) ListWorklogCrossProject(ctx context.Context, arg ListWorklogCrossProjectParams) ([]ListWorklogCrossProjectRow, error) {
+	rows, err := q.db.Query(ctx, listWorklogCrossProject, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListWorklogCrossProjectRow
+	for rows.Next() {
+		var i ListWorklogCrossProjectRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.IssueID,
+			&i.IssueTitle,
+			&i.ProjectSlug,
+			&i.ProjectName,
+			&i.Agent,
+			&i.Note,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listWorklogForProject = `-- name: ListWorklogForProject :many
 SELECT w.id, w.issue_id, i.title AS issue_title, w.agent, w.note, w.created_at
 FROM zdx_issue_work w

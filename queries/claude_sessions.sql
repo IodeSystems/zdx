@@ -111,6 +111,15 @@ SELECT count(*) FROM zdx_claude_sessions
 WHERE project_id = $1 AND status = 'churn'
   AND created_at >= $2;
 
+-- name: ListClaudeSessionsCrossProject :many
+-- metaquery: off
+SELECT s.id, s.project_id, p.slug AS project_slug, p.name AS project_name, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       (SELECT count(*) FROM zdx_claude_events e WHERE e.session_pk = s.id) AS event_count
+FROM zdx_claude_sessions s
+JOIN zdx_projects p ON s.project_id = p.id
+ORDER BY s.updated_at DESC
+LIMIT $1 OFFSET $2;
+
 -- name: GetClaudeSessionTokenUsage :one
 SELECT
   coalesce(sum((event_json->'message'->'usage'->>'input_tokens')::bigint), 0)::bigint AS input_tokens,

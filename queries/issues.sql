@@ -110,4 +110,13 @@ WHERE project_id = $1 AND status = 'open' AND priority != ''
 ORDER BY priority, created_at
 LIMIT 5;
 
+-- name: ListWorklogCrossProject :many
+-- metaquery: off
+SELECT w.id, w.issue_id, i.title AS issue_title, p.slug AS project_slug, p.name AS project_name, w.agent, w.note, w.created_at
+FROM zdx_issue_work w
+JOIN zdx_issues i ON i.id = w.issue_id
+JOIN zdx_projects p ON i.project_id = p.id
+ORDER BY w.created_at DESC
+LIMIT $1 OFFSET $2;
+
 

@@ -736,6 +736,77 @@ func (q *Queries) ListClaudeSessionsByTodoID(ctx context.Context, arg ListClaude
 	return items, nil
 }
 
+const listClaudeSessionsCrossProject = `-- name: ListClaudeSessionsCrossProject :many
+SELECT s.id, s.project_id, p.slug AS project_slug, p.name AS project_name, s.issue_id, s.session_id, s.title, s.alias, s.header, s.summary, s.status, s.created_at, s.updated_at, s.closed_at, s.todo_id,
+       (SELECT count(*) FROM zdx_claude_events e WHERE e.session_pk = s.id) AS event_count
+FROM zdx_claude_sessions s
+JOIN zdx_projects p ON s.project_id = p.id
+ORDER BY s.updated_at DESC
+LIMIT $1 OFFSET $2
+`
+
+type ListClaudeSessionsCrossProjectParams struct {
+	Limit  int32 `db:"limit" json:"limit"`
+	Offset int32 `db:"offset" json:"offset"`
+}
+
+type ListClaudeSessionsCrossProjectRow struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	ProjectSlug string             `db:"project_slug" json:"project_slug"`
+	ProjectName string             `db:"project_name" json:"project_name"`
+	IssueID     string             `db:"issue_id" json:"issue_id"`
+	SessionID   string             `db:"session_id" json:"session_id"`
+	Title       string             `db:"title" json:"title"`
+	Alias       string             `db:"alias" json:"alias"`
+	Header      string             `db:"header" json:"header"`
+	Summary     string             `db:"summary" json:"summary"`
+	Status      string             `db:"status" json:"status"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ClosedAt    pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
+	TodoID      pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	EventCount  int64              `db:"event_count" json:"event_count"`
+}
+
+// metaquery: off
+func (q *Queries) ListClaudeSessionsCrossProject(ctx context.Context, arg ListClaudeSessionsCrossProjectParams) ([]ListClaudeSessionsCrossProjectRow, error) {
+	rows, err := q.db.Query(ctx, listClaudeSessionsCrossProject, arg.Limit, arg.Offset)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListClaudeSessionsCrossProjectRow
+	for rows.Next() {
+		var i ListClaudeSessionsCrossProjectRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.ProjectSlug,
+			&i.ProjectName,
+			&i.IssueID,
+			&i.SessionID,
+			&i.Title,
+			&i.Alias,
+			&i.Header,
+			&i.Summary,
+			&i.Status,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ClosedAt,
+			&i.TodoID,
+			&i.EventCount,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listStaleOpenClaudeSessions = `-- name: ListStaleOpenClaudeSessions :many
 SELECT id, project_id, session_id, title, alias, updated_at
 FROM zdx_claude_sessions

@@ -19,6 +19,7 @@ import { Route as AdminUsersRouteImport } from './routes/admin/users'
 import { Route as AdminProjectsRouteImport } from './routes/admin/projects'
 import { Route as AdminLlmRouteImport } from './routes/admin/llm'
 import { Route as AdminInvitesRouteImport } from './routes/admin/invites'
+import { Route as AdminActivityRouteImport } from './routes/admin/activity'
 import { Route as ProjectSlugIndexRouteImport } from './routes/project/$slug/index'
 import { Route as ProjectSlugWorklogRouteImport } from './routes/project/$slug/worklog'
 import { Route as ProjectSlugTimingsRouteImport } from './routes/project/$slug/timings'
@@ -115,6 +116,11 @@ const AdminLlmRoute = AdminLlmRouteImport.update({
 const AdminInvitesRoute = AdminInvitesRouteImport.update({
   id: '/admin/invites',
   path: '/admin/invites',
+  getParentRoute: () => rootRouteImport,
+} as any)
+const AdminActivityRoute = AdminActivityRouteImport.update({
+  id: '/admin/activity',
+  path: '/admin/activity',
   getParentRoute: () => rootRouteImport,
 } as any)
 const ProjectSlugIndexRoute = ProjectSlugIndexRouteImport.update({
@@ -365,6 +371,7 @@ export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
   '/cli-auth': typeof CliAuthRoute
   '/code': typeof CodeRoute
+  '/admin/activity': typeof AdminActivityRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
   '/admin/projects': typeof AdminProjectsRoute
@@ -424,6 +431,7 @@ export interface FileRoutesByTo {
   '/': typeof IndexRoute
   '/cli-auth': typeof CliAuthRoute
   '/code': typeof CodeRoute
+  '/admin/activity': typeof AdminActivityRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
   '/admin/projects': typeof AdminProjectsRoute
@@ -474,6 +482,7 @@ export interface FileRoutesById {
   '/': typeof IndexRoute
   '/cli-auth': typeof CliAuthRoute
   '/code': typeof CodeRoute
+  '/admin/activity': typeof AdminActivityRoute
   '/admin/invites': typeof AdminInvitesRoute
   '/admin/llm': typeof AdminLlmRoute
   '/admin/projects': typeof AdminProjectsRoute
@@ -535,6 +544,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cli-auth'
     | '/code'
+    | '/admin/activity'
     | '/admin/invites'
     | '/admin/llm'
     | '/admin/projects'
@@ -594,6 +604,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cli-auth'
     | '/code'
+    | '/admin/activity'
     | '/admin/invites'
     | '/admin/llm'
     | '/admin/projects'
@@ -643,6 +654,7 @@ export interface FileRouteTypes {
     | '/'
     | '/cli-auth'
     | '/code'
+    | '/admin/activity'
     | '/admin/invites'
     | '/admin/llm'
     | '/admin/projects'
@@ -703,6 +715,7 @@ export interface RootRouteChildren {
   IndexRoute: typeof IndexRoute
   CliAuthRoute: typeof CliAuthRoute
   CodeRoute: typeof CodeRoute
+  AdminActivityRoute: typeof AdminActivityRoute
   AdminInvitesRoute: typeof AdminInvitesRoute
   AdminLlmRoute: typeof AdminLlmRoute
   AdminProjectsRoute: typeof AdminProjectsRoute
@@ -782,6 +795,13 @@ declare module '@tanstack/react-router' {
       path: '/admin/invites'
       fullPath: '/admin/invites'
       preLoaderRoute: typeof AdminInvitesRouteImport
+      parentRoute: typeof rootRouteImport
+    }
+    '/admin/activity': {
+      id: '/admin/activity'
+      path: '/admin/activity'
+      fullPath: '/admin/activity'
+      preLoaderRoute: typeof AdminActivityRouteImport
       parentRoute: typeof rootRouteImport
     }
     '/project/$slug/': {
@@ -1314,6 +1334,7 @@ const rootRouteChildren: RootRouteChildren = {
   IndexRoute: IndexRoute,
   CliAuthRoute: CliAuthRoute,
   CodeRoute: CodeRoute,
+  AdminActivityRoute: AdminActivityRoute,
   AdminInvitesRoute: AdminInvitesRoute,
   AdminLlmRoute: AdminLlmRoute,
   AdminProjectsRoute: AdminProjectsRoute,

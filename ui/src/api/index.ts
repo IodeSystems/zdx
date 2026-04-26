@@ -1165,6 +1165,60 @@ export const useLLMModels = (id: number, url: string, enabled: boolean) =>
     },
   })
 
+// ── Admin activity (cross-project) ───────────────────────────────────────────
+
+export interface ActivityWorklogEntry {
+  issue_id: string
+  issue_title: string
+  project_slug: string
+  project_name: string
+  agent: string
+  note: string
+  created_at: string
+}
+
+export const useActivityWorklog = (limit?: number, offset?: number) =>
+  useQuery<{ entries: ActivityWorklogEntry[] }>({
+    queryKey: ['activity-worklog', limit, offset],
+    queryFn: async () => {
+      const query: Record<string, number> = {}
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      const { data, error } = await (client.GET as any)('/api/admin/activity/worklog', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { entries: (data as any)?.entries ?? [] }
+    },
+  })
+
+export interface ActivitySessionItem {
+  id: number
+  project_slug: string
+  project_name: string
+  issue_id: string
+  session_id: string
+  title: string
+  header: string
+  status: string
+  lifecycle: string
+  event_count: number
+  created_at: string
+  updated_at: string
+  closed_at?: string
+}
+
+export const useActivitySessions = (limit?: number, offset?: number) =>
+  useQuery<{ sessions: ActivitySessionItem[] }>({
+    queryKey: ['activity-sessions', limit, offset],
+    queryFn: async () => {
+      const query: Record<string, number> = {}
+      if (limit != null) query.limit = limit
+      if (offset != null) query.offset = offset
+      const { data, error } = await (client.GET as any)('/api/admin/activity/sessions', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { sessions: (data as any)?.sessions ?? [] }
+    },
+  })
+
 // ── Admin stats ──────────────────────────────────────────────────────────────
 
 export interface AdminStats {

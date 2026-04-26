@@ -246,6 +246,8 @@ type Querier interface {
 	ListClaudeSessions(ctx context.Context, projectID int32) ([]ListClaudeSessionsRow, error)
 	ListClaudeSessionsByIssue(ctx context.Context, arg ListClaudeSessionsByIssueParams) ([]ListClaudeSessionsByIssueRow, error)
 	ListClaudeSessionsByTodoID(ctx context.Context, arg ListClaudeSessionsByTodoIDParams) ([]ListClaudeSessionsByTodoIDRow, error)
+	// metaquery: off
+	ListClaudeSessionsCrossProject(ctx context.Context, arg ListClaudeSessionsCrossProjectParams) ([]ListClaudeSessionsCrossProjectRow, error)
 	// Specs linked to an issue (via tasks→features by name) that are NOT deferred
 	// by any open issue and lack passing-test coverage. Reason is 'no-tests' if
 	// the spec has no zdx_spec_tests rows, otherwise 'failing-tests'.
@@ -398,6 +400,8 @@ type Querier interface {
 	ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error)
 	ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
+	// metaquery: off
+	ListWorklogCrossProject(ctx context.Context, arg ListWorklogCrossProjectParams) ([]ListWorklogCrossProjectRow, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error)
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkInviteUsed(ctx context.Context, id int32) error
