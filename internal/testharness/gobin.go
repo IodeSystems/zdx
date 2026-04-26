@@ -18,10 +18,12 @@ import (
 // -test.json output to testharness Results.
 //
 // The binary enumerates tests via -test.list, applies shard/filter, then runs
-// with -test.json. Coverage output (GOCOVERDIR) is set if CoverDir is non-empty.
+// with -test.json. If CoverDir is non-empty, coverage data is collected.
 //
-// A binary built with go build -cover produces coverage data when GOCOVERDIR
-// is set; use coverage.MergeDir to aggregate across shards afterward.
+// Coverage flag note (Go 1.20+): go test -c -cover binaries require
+// -test.gocoverdir; GOCOVERDIR env is silently ignored by them. go build -cover
+// binaries use GOCOVERDIR. Both are passed so either binary type works.
+// Use MergeCoverage to aggregate across shards afterward.
 type GoBinAdapter struct {
 	// Bin is the path to the compiled test binary.
 	Bin string
@@ -31,7 +33,7 @@ type GoBinAdapter struct {
 	Layer_ []Layer
 	// Env is extra environment variables injected when running the binary.
 	Env []string
-	// CoverDir, if set, is passed as GOCOVERDIR to collect binary-level coverage.
+	// CoverDir, if set, is passed as both -test.gocoverdir and GOCOVERDIR to collect coverage.
 	CoverDir string
 }
 
