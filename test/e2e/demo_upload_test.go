@@ -122,6 +122,62 @@ func TestDemoUpload_UpdatesExistingDemoRow(t *testing.T) {
 	}
 }
 
+// TestDemoSubmit_DeduplicatesOnComponent verifies that submitting the same
+// TestDemo* test name twice — once with driver="api" (legacy) and once with
+// driver="demo" (current) — results in exactly one zdx_tests row, not two.
+// This guards against the regression reported in IS-471 where the two
+// component values produced duplicate rows and made `dx spec link <name>`
+// ambiguous.
+func TestDemoSubmit_DeduplicatesOnComponent(t *testing.T) {
+	requiresAPI(t)
+
+	const slug = "e2e-demo-dedup"
+	apiDo(t, http.MethodPost, "/api/project",
+		map[string]string{"slug": slug, "name": "E2E Demo Dedup"}, nil)
+
+	const testName = "TestDemoDedup_SameNameDifferentDriver"
+	submit := func(driver string) {
+		mustOK(t, apiDo(t, http.MethodPost, "/api/dx/test-results/submit",
+			map[string]any{
+				"slug": slug,
+				"results": []map[string]any{{
+					"driver":      driver,
+					"test_name":   testName,
+					"status":      "pass",
+					"feature":     "dedup-test",
+					"duration_ms": 0,
+				}},
+			}, nil))
+	}
+
+	// First submit with legacy driver value.
+	submit("api")
+	// Second submit with correct driver value.
+	submit("demo")
+
+	// Both should land in the same row: expect exactly one entry for testName.
+	var tests struct {
+		Tests []struct {
+			Name      string `json:"name"`
+			Component string `json:"component"`
+		} `json:"tests"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet, "/api/dx/tests?slug="+slug+"&limit=100", nil, &tests))
+
+	var matches []string
+	for _, tr := range tests.Tests {
+		if tr.Name == testName {
+			matches = append(matches, tr.Component)
+		}
+	}
+	if len(matches) != 1 {
+		t.Fatalf("want exactly 1 test row for %q, got %d (components: %v)", testName, len(matches), matches)
+	}
+	if matches[0] != "demo" {
+		t.Errorf("want component=demo, got %q", matches[0])
+	}
+}
+
 func uploadDemo(t *testing.T, slug, component, testName, demoType, artifactPath string, body []byte) {
 	t.Helper()
 	var buf bytes.Buffer

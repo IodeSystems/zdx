@@ -152,9 +152,13 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				return nil, err
 			}
 			for _, r := range in.Body.Results {
+				component := r.Driver
+				if strings.HasPrefix(r.TestName, "TestDemo") {
+					component = "demo"
+				}
 				test, _ := h.Q.UpsertTest(ctx, db.UpsertTestParams{
 					ProjectID:  p.ID,
-					Component:  r.Driver,
+					Component:  component,
 					Name:       r.TestName,
 					Layer:      "integration",
 					Status:     r.Status,
