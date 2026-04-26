@@ -300,6 +300,42 @@ func TestQueueKindTechTestRef(t *testing.T) {
 	}
 }
 
+// IS-481: an in-flight task referencing the spec by id should suppress the
+// tech:test-ref candidate, even when the task's title doesn't follow the
+// "Test spec N: ..." prefix exactly. Prior behavior anchored on `^Test spec`
+// only, so agents filing with variant titles ("Add test for spec N") kept
+// re-emitting the candidate and stacking duplicate wip drafts.
+func TestQueueKindTechTestRefSuppressedByVariantTitle(t *testing.T) {
+	d := NewApiDriver(t, "q-testref-variant", "TestRef Variant Title")
+	Given(d).
+		Feature("variant-q", "Variant title coverage").
+		Spec("variant-q", "unit_test", "Behavior to test").
+		Build()
+
+	uncovered := d.ListUncoveredSpecs()
+	if len(uncovered) == 0 {
+		t.Fatal("expected at least one uncovered spec")
+	}
+	specID := uncovered[0].ID
+
+	// File a task that references the spec by id with a non-canonical title.
+	r := d.AddTaskCustom(map[string]any{
+		"title": fmt.Sprintf("Add test for spec %d", specID),
+		"text":  fmt.Sprintf("Cover spec %d with a unit test", specID),
+		"force": true,
+	})
+	if r.ID == 0 {
+		t.Fatalf("expected task to be created, got %+v", r)
+	}
+
+	items := d.EvaluateQueue("")
+	for _, it := range items {
+		if it.Kind == "tech:test-ref" && it.TargetID == fmt.Sprintf("%d", specID) {
+			t.Errorf("tech:test-ref for spec %d should be suppressed by variant-title task", specID)
+		}
+	}
+}
+
 func TestQueueKindOwnerDemoGap(t *testing.T) {
 	d := NewApiDriver(t, "q-demogap", "Queue DemoGap")
 	Given(d).

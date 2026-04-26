@@ -393,6 +393,11 @@ type Querier interface {
 	ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error)
 	ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error)
 	ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
+	// Specs without linked tests AND without an open task in flight for them.
+	// The "in-flight" check matches any open task (wip/ready/active) whose title
+	// references the spec by id ("spec N" with word boundaries) — agents file
+	// with varied titles ("Test spec 55: ...", "Add test for spec 55", etc.),
+	// so a strict prefix anchor was too narrow and produced duplicate drafts.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
 	// metaquery: off
 	// Returns distinct threads where the user has commented and others have replied unread.

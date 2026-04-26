@@ -58,6 +58,19 @@ func (d *ApiDriver) AddTask(issueID int32, text string) int32 {
 	return task.ID
 }
 
+type AddTaskResult struct {
+	ID               int32 `json:"id"`
+	DuplicateBlocked bool  `json:"duplicate_blocked"`
+}
+
+func (d *ApiDriver) AddTaskCustom(body map[string]any) AddTaskResult {
+	d.t.Helper()
+	body["slug"] = d.Slug
+	var resp AddTaskResult
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/tech/add", body, &resp))
+	return resp
+}
+
 func (d *ApiDriver) MarkTaskDone(taskID int32) {
 	d.t.Helper()
 	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/dev/done",

@@ -98,6 +98,11 @@ SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE id = $1;
 
 -- name: ListUncoveredSpecs :many
+-- Specs without linked tests AND without an open task in flight for them.
+-- The "in-flight" check matches any open task (wip/ready/active) whose title
+-- references the spec by id ("spec N" with word boundaries) — agents file
+-- with varied titles ("Test spec 55: ...", "Add test for spec 55", etc.),
+-- so a strict prefix anchor was too narrow and produced duplicate drafts.
 SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
@@ -107,8 +112,8 @@ WHERE f.project_id = $1
   AND NOT EXISTS (
     SELECT 1 FROM zdx_tasks t
     WHERE t.project_id = $1
-      AND t.status IN ('ready', 'wip')
-      AND t.title ~* ('^Test spec ' || s.id::text || '[: ]')
+      AND t.status IN ('ready', 'wip', 'active')
+      AND t.title ~* ('\mspec\s+' || s.id::text || '\M')
   )
 ORDER BY f.name, s.id;
 

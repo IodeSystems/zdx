@@ -213,12 +213,18 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			var duplicateBlocked bool
 			if !in.Body.AutoReady && !in.Body.Force {
 				similar, _ = h.findSimilarTasks(ctx, p.ID, in.Body.Text, 5)
-				if issueFilter != "" {
-					for _, s := range similar {
-						if s.Issue == issueFilter && s.Score > 0.85 {
-							duplicateBlocked = true
-							break
-						}
+				for _, s := range similar {
+					if s.Score <= 0.85 {
+						continue
+					}
+					// When the new task is scoped to an issue, only same-issue
+					// dupes block; cross-issue overlap may be coincidental.
+					// When unscoped (e.g. test-ref candidates), any high-similarity
+					// match in any state blocks — these tasks have no issue to
+					// disambiguate on.
+					if issueFilter == "" || s.Issue == issueFilter {
+						duplicateBlocked = true
+						break
 					}
 				}
 			}

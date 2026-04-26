@@ -649,8 +649,8 @@ WHERE f.project_id = $1
   AND NOT EXISTS (
     SELECT 1 FROM zdx_tasks t
     WHERE t.project_id = $1
-      AND t.status IN ('ready', 'wip')
-      AND t.title ~* ('^Test spec ' || s.id::text || '[: ]')
+      AND t.status IN ('ready', 'wip', 'active')
+      AND t.title ~* ('\mspec\s+' || s.id::text || '\M')
   )
 ORDER BY f.name, s.id
 `
@@ -664,6 +664,11 @@ type ListUncoveredSpecsRow struct {
 	FeatureName string `db:"feature_name" json:"feature_name"`
 }
 
+// Specs without linked tests AND without an open task in flight for them.
+// The "in-flight" check matches any open task (wip/ready/active) whose title
+// references the spec by id ("spec N" with word boundaries) — agents file
+// with varied titles ("Test spec 55: ...", "Add test for spec 55", etc.),
+// so a strict prefix anchor was too narrow and produced duplicate drafts.
 func (q *Queries) ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error) {
 	rows, err := q.db.Query(ctx, listUncoveredSpecs, projectID)
 	if err != nil {
