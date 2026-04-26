@@ -73,6 +73,12 @@ func newTempShipRepo(t *testing.T) *shipRepo {
 	shipDst := filepath.Join(binDir, "ship")
 	copyFile(t, sourceShip, shipDst, 0o755)
 
+	// Stub bin/lint so the lint gate in bin/ship passes in the isolated temp repo.
+	lintStub := filepath.Join(binDir, "lint")
+	if err := os.WriteFile(lintStub, []byte("#!/usr/bin/env bash\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write lint stub: %v", err)
+	}
+
 	env := append(os.Environ(),
 		"GIT_AUTHOR_NAME=ship-test",
 		"GIT_AUTHOR_EMAIL=ship-test@example.invalid",

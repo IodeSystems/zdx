@@ -121,6 +121,22 @@ load_deploy_config() {
   HZ="./infra/hz-client --timeout 60"
 }
 
+# ── Lint gate ─────────────────────────────────────────────────────────────────
+# Refuse to ship if the tree has generator drift (sqlc-drift, openapi-drift,
+# tsc, gofmt, etc). Close hooks run lint on issue/task close, but plain commits
+# (notably the post-ship shipped.sql update) bypass them — without this gate,
+# drift introduced by one ship sits in main until the next agent's `dev done`
+# regenerates and finds their build broken by unrelated work (see IS-475).
+
+if ! $SKIP_BUILD; then
+  echo "[ship] Running lint..."
+  if ! ./bin/lint; then
+    echo "[ship] REFUSING TO SHIP: lint failed."
+    echo "[ship] Fix the failing checks above (or run ./bin/db gen / ./bin/dx ui gen-api for drift)."
+    exit 1
+  fi
+fi
+
 # ── Build ─────────────────────────────────────────────────────────────────────
 
 if ! $SKIP_BUILD; then
@@ -640,6 +656,29 @@ if [ -f schema/next.sql ]; then
     exit 1
   fi
   echo "[ship] shipped.sql validation: OK (all migration tables present)."
+
+  # Regenerate sqlc against the new shipped.sql. If the schema added columns
+  # that explicit-column SELECTs in queries/*.sql don't enumerate, sqlc starts
+  # emitting custom Row types instead of returning the model struct — handlers
+  # written against the model break (IS-475 root cause). Surface that NOW so
+  # it doesn't sit in main until the next agent regenerates via `dev done`.
+  echo "[ship] Regenerating sqlc against new shipped.sql..."
+  SQLC=$(command -v sqlc || echo "$HOME/go/bin/sqlc")
+  "$SQLC" generate
+  if ! git diff --quiet -- internal/db/; then
+    echo "[ship] sqlc regenerate produced changes — commit them alongside shipped.sql:"
+    git status -s -- internal/db/
+    echo "[ship] Verifying handlers still build against regenerated sqlc..."
+    if ! go build ./...; then
+      echo ""
+      echo "[ship] ERROR: handlers no longer compile against regenerated sqlc."
+      echo "[ship] A schema column added by this migration is missing from explicit-column"
+      echo "[ship] SELECTs in queries/*.sql, so sqlc switched to custom Row types."
+      echo "[ship] Add the new column(s) to every SELECT enumerating that table, then re-run ship."
+      exit 1
+    fi
+    echo "[ship] Build OK with regenerated sqlc."
+  fi
 fi
 
 # ── Install dx locally ────────────────────────────────────────────────────────
