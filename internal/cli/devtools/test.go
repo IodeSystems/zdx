@@ -355,6 +355,11 @@ func testListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			component, _ := cmd.Flags().GetString("component")
 			layer, _ := cmd.Flags().GetString("layer")
+			fromDB, _ := cmd.Flags().GetBool("from-db")
+
+			if fromDB {
+				return testListFromDB(cmd.Context(), component, layer)
+			}
 
 			// ── vitest ────────────────────────────────────────────────────
 			if component == "" || component == "ui" {
@@ -417,7 +422,49 @@ func testListCmd() *cobra.Command {
 	}
 	cmd.Flags().String("component", "", "filter to component")
 	cmd.Flags().String("layer", "", "filter to layer")
+	cmd.Flags().Bool("from-db", false, "list tests registered in the server DB (shows IDs)")
 	return cmd
+}
+
+func testListFromDB(ctx context.Context, component, layer string) error {
+	c := cli.MustClient()
+	slug := c.SlugOrDie()
+	limit := int32(200)
+	var offset int32
+	total := int64(-1)
+	fmt.Printf("  %-6s %-8s %-12s %s\n", "id", "comp", "layer", "name")
+	fmt.Printf("  %-6s %-8s %-12s %s\n", "------", "--------", "------------", "----")
+	for total < 0 || int64(offset) < total {
+		resp, err := c.ListTestsWithResponse(ctx, &dxclient.ListTestsParams{
+			Slug:   slug,
+			Limit:  &limit,
+			Offset: &offset,
+		})
+		if err != nil {
+			return err
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return err
+		}
+		if resp.JSON200 == nil || resp.JSON200.Tests == nil {
+			break
+		}
+		total = resp.JSON200.Total
+		for _, t := range *resp.JSON200.Tests {
+			if component != "" && t.Component != component {
+				continue
+			}
+			if layer != "" && t.Layer != layer {
+				continue
+			}
+			fmt.Printf("  %-6d %-8s %-12s %s\n", t.Id, t.Component, t.Layer, t.Name)
+		}
+		offset += int32(len(*resp.JSON200.Tests))
+		if len(*resp.JSON200.Tests) == 0 {
+			break
+		}
+	}
+	return nil
 }
 
 func testRunCmd() *cobra.Command {
