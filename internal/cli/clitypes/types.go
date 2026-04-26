@@ -1,6 +1,6 @@
 // Package clitypes holds JSON wire shapes shared across CLI subpackages
-// (cli, cli/agent, cli/mcpcmd, cli/project, cli/work). Types live here so
-// subpackages can depend on them without creating import cycles.
+// (cli, cli/agent, cli/project, cli/work). Types live here so subpackages
+// can depend on them without creating import cycles.
 package clitypes
 
 import (

@@ -26,11 +26,12 @@ func agentLocalCmd() *cobra.Command {
 		Use:   "local",
 		Short: "Run local-LLM agent sessions with zdx integration",
 		Long: `Run an OpenAI-compatible chat-completions loop against the configured
-llm_local endpoint with tool-calling enabled. Registered tools span the dx
-project API, the filesystem (read/write/edit/glob/grep/list_dir) and shell
-(run_bash). Every message, tool_use, and tool_result is written as Claude-
-compatible JSONL to .zdx/agent/local/<sid>.jsonl and streamed to the server
-for the sessions/agents UI.`,
+llm_local endpoint with tool-calling enabled. Registered tools span the
+filesystem (read/write/edit/glob/grep/list_dir) and shell (run_bash); use
+shell tools to invoke dx CLI commands directly. Every message, tool_use,
+and tool_result is written as Claude-compatible JSONL to
+.zdx/agent/local/<sid>.jsonl and streamed to the server for the
+sessions/agents UI.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			if !validComplexity(complexity) {
 				return fmt.Errorf("--complexity must be one of low|medium|high (got %q)", complexity)
@@ -156,10 +157,6 @@ func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (s
 	if alias != "" {
 		os.Setenv("DX_AUTHOR_ALIAS", alias)
 	}
-	c, err := cli.DefaultClient()
-	if err != nil {
-		return "", err
-	}
 	root, err := cli.GitRepoRoot()
 	if err != nil {
 		return "", fmt.Errorf("dx agent local must run inside a git repo: %w", err)
@@ -169,7 +166,6 @@ func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (s
 		Name:    "dx-agent-local",
 		Version: "0.1.0",
 	}, nil)
-	mcpcmd.RegisterMCPTools(srv, c)
 	mcpcmd.RegisterFSTools(srv, root)
 	mcpcmd.RegisterShellTools(srv, root)
 
@@ -191,9 +187,9 @@ func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (s
 	user := a.seedPrompt
 	if user == "" {
 		if issueID != "" {
-			user = fmt.Sprintf("Work the vertical for %s. Use dx tools to read, triage, decompose, and close tasks. Use filesystem/shell tools to implement code. Stop when the issue is closed.", issueID)
+			user = fmt.Sprintf("Work the vertical for %s. Use run_bash to invoke `dx` CLI commands (issue show, comment add, todo dev start/done, ...) for project state, and filesystem tools to implement code. Stop when the issue is closed.", issueID)
 		} else {
-			user = "Pick the next item from `todo_solo` and work it. Stop when idle."
+			user = "Use run_bash to call `dx todo solo` to pick the next item, then work it. Stop when idle."
 		}
 	}
 
@@ -303,14 +299,13 @@ func localSystemPrompt(alias, issueID string) string {
 	var b strings.Builder
 	b.WriteString("You are dx agent local, a local-LLM autonomous developer operating inside a git repo.\n\n")
 	b.WriteString("Available tool categories:\n")
-	b.WriteString("  - dx project tools: issue_list, issue_add, issue_show, issue_close, todo_solo, todo_show, todo_tech_add, todo_dev_done, todo_owner_triage, comment_list, comment_add, feature_list, feature_show, pattern_search, question_search, question_add.\n")
 	b.WriteString("  - filesystem tools: read_file, write_file, edit_file, list_dir, glob, grep.\n")
-	b.WriteString("  - shell: run_bash.\n\n")
+	b.WriteString("  - shell: run_bash. Invoke `dx` CLI for project state — e.g. `dx issue show IS-N`, `dx comment add`, `dx todo dev start/done`, `dx feature show`, `dx pattern search`, `dx question add`. Run `dx --help` for the full tree.\n\n")
 	b.WriteString("Operating rules:\n")
-	b.WriteString("  - Prefer dx tools for project state (never re-derive from the filesystem alone).\n")
+	b.WriteString("  - Prefer `dx` CLI calls for project state (never re-derive from the filesystem alone).\n")
 	b.WriteString("  - Edit minimally; read surrounding context before writing.\n")
 	b.WriteString("  - After code edits, verify with run_bash (go build, tests, linters as appropriate).\n")
-	b.WriteString("  - When the vertical is done, call issue_close to finish.\n")
+	b.WriteString("  - When the vertical is done, run `dx issue close` to finish.\n")
 	b.WriteString("  - Stop emitting tool_calls when you are finished; a final text reply ends the session.\n\n")
 	if alias != "" {
 		b.WriteString("Your agent alias is: " + alias + ".\n")

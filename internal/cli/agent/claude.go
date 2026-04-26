@@ -480,7 +480,7 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 		prompt = "Project vision: " + vision + "\n\n"
 	}
 	if issueID != "" {
-		prompt += fmt.Sprintf("Work on issue %s. Use MCP tools (issue_show, comment_add, todo_dev_done) to interact with the project tracker.", issueID)
+		prompt += fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
 	} else if todo != nil {
 		// Pass the todo text directly as the prompt — the work instructions
 		// are already embedded in the todo by the queue generator.
@@ -520,7 +520,7 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 
 	taskPrompt := ""
 	if issueID != "" {
-		taskPrompt = fmt.Sprintf("Work on issue %s. Use MCP tools (issue_show, comment_add, todo_dev_done) to interact with the project tracker.", issueID)
+		taskPrompt = fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
 	} else if todo != nil {
 		taskPrompt = fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)

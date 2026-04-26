@@ -81,7 +81,7 @@ Once features are reparented:
 4. ~~**Archive old goals**~~ — done: G-7 through G-13 archived
 5. ~~**Create missing features**~~ — done: agent-harness, sdlc-workflow, onboarding, doctor-maturity-vines
 6. ~~**Consolidate test features**~~ — done: 7 → 3 (dx test unified absorbed 4, kept demo recordings + feature test layers)
-7. **Deprecate MCP server** — IS-465: migrate agent loop to CLI calls, then remove dx mcp
+7. ~~**Deprecate MCP server**~~ — done: IS-465 migrated agent loop to CLI calls, removed `dx mcp`, dropped `.mcp.json` zdx registration, updated agent prompts
 8. ~~**Project vision model**~~ — done: migration 106 adds title+description to zdx_projects, API endpoint, CLI `dx vision show/set`, specs on sdlc-workflow + onboarding
 9. ~~**Set zdx vision on production**~~ — done
 10. ~~**Wire vision into doctor/agent context**~~ — done: has_vision doctor check in identity rung, agent sessions get vision in prompt

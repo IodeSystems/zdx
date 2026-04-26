@@ -125,12 +125,4 @@ dx agent claude --loop        # agent work loop with todo claiming
 
 Run `./bin/dx --help` for the full command tree.
 
-## MCP Tools
-
-`.mcp.json` at the repo root registers `dx mcp` as a stdio MCP server. Claude Code and `claude -p` sessions in this directory auto-load it, exposing:
-
-- `pattern_search` / `pattern_refine` — search the ask-system knowledge base
-- `question_search` / `question_add` — query and file blocker questions
-- `issue_*` / `todo_*` / `feature_*` / `comment_*` — workflow tools
-
-Add `--with-fs` or `--with-shell` to the `args` in `.mcp.json` if agents need filesystem or shell access.
+Agents (Claude Code, `claude -p`, `dx agent local`) interact with the project tracker by shelling out to `dx` CLI commands rather than via a bespoke MCP server — the previous `dx mcp` server was deprecated in IS-465 to avoid CLI/MCP drift.

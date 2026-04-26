@@ -10,7 +10,6 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli/configcmd"
 	"github.com/iodesystems/zdx-go/internal/cli/credentialhelper"
 	"github.com/iodesystems/zdx-go/internal/cli/devtools"
-	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/cli/project"
 	"github.com/iodesystems/zdx-go/internal/cli/servercmd"
 	"github.com/iodesystems/zdx-go/internal/cli/work"
@@ -58,7 +57,6 @@ func main() {
 		project.QuestionCmd(),
 		project.QuestionProposalCmd(),
 		project.ProposalCmd(),
-		mcpcmd.McpCmd(),
 		devtools.TimeCmd(),
 		devtools.ClaudeCmd(),
 		agent.AgentCmd(),
