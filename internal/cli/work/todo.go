@@ -644,8 +644,12 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 				})
 				if err == nil && unreviewedResp.JSON200 != nil && unreviewedResp.JSON200.Tasks != nil && len(*unreviewedResp.JSON200.Tasks) > 0 {
 					t := (*unreviewedResp.JSON200.Tasks)[0]
-					fmt.Printf("[review]  %s  %s\n", clitypes.TaskIDStr(t.Id), taskHeadline(t.Title, t.Text))
+					taskIDStr := clitypes.TaskIDStr(t.Id)
+					headline := taskHeadline(t.Title, t.Text)
+					rh := workflowhints.ReviewPendingTaskText(taskIDStr, headline, issIDStr)
+					fmt.Printf("[review]  %s  %s\n", taskIDStr, headline)
 					fmt.Printf("  issue: %s\n", issIDStr)
+					fmt.Printf("\n%s\n", rh.Instructions)
 					return nil
 				}
 				fmt.Printf("[closable] %s  %s\n", issIDStr, iss.Title)
@@ -1052,6 +1056,9 @@ func todoShowCmd() *cobra.Command {
 				}
 				return fmt.Errorf("task %s not found", id)
 			default:
+				if _, err := strconv.Atoi(id); err == nil {
+					return fmt.Errorf("ambiguous numeric id %q: pass a prefixed id (IS-%s for issues, TK-%s for tasks). Solo todo numeric ids are not addressable via 'dx todo show'", id, id, id)
+				}
 				featResp, err := c.ListFeaturesWithResponse(ctx, &dxclient.ListFeaturesParams{Slug: slug})
 				if err != nil {
 					return err
@@ -1656,7 +1663,7 @@ func todoTechAddCmd() *cobra.Command {
 			}
 			r := resp.JSON200
 			if r.DuplicateBlocked != nil && *r.DuplicateBlocked {
-				fmt.Println("Blocked: near-duplicate tasks found on the same issue (>85% similarity):")
+				fmt.Println("Blocked: near-duplicate task already exists (>85% similarity):")
 				if r.Similar != nil {
 					for _, s := range *r.Similar {
 						fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.Id, s.Score*100, s.Text, s.Status)

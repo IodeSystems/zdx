@@ -333,6 +333,26 @@ func OrphanTaskText(taskID, title string) Hint {
 	}
 }
 
+// ReviewPendingTaskText builds a Hint for a done task awaiting review verdict.
+// The agent should run dx todo dev review with --verdict to approve or reject.
+func ReviewPendingTaskText(taskID, title, issueRef string) Hint {
+	return Hint{
+		Title:       fmt.Sprintf("Review %s: %s", taskID, title),
+		Description: fmt.Sprintf("Task done on %s — needs review verdict before issue can close.", issueRef),
+		Instructions: fmt.Sprintf(
+			"Task %s (%s) is done and waiting for a review verdict.\n\n"+
+				"1. Read the task and its work: `dx todo dev review %s` (prints details, code refs, test plan).\n"+
+				"2. Evaluate whether the implementation is correct and complete.\n"+
+				"3. Submit your verdict:\n"+
+				"   approve: `dx todo dev review %s --verdict=approve [--body=\"<note>\"]`\n"+
+				"   reject:  `dx todo dev review %s --verdict=reject --body=\"<what needs to change>\"`\n"+
+				"4. After approving, re-run `dx todo solo --issue=%s` to let the loop close or pick next steps.\n"+
+				"   After rejecting, a new dev task will be needed — create one: `dx todo tech add --issue=%s --title=\"...\" --text=\"...\"`.",
+			taskID, title, taskID, taskID, taskID, issueRef, issueRef,
+		),
+	}
+}
+
 // ReviewStaleTaskText builds a Hint for a stale task (created but never claimed,
 // enough time passed that the code may have moved).
 func ReviewStaleTaskText(taskID, title string) Hint {
