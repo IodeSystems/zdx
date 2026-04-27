@@ -13,7 +13,7 @@ import (
 
 func PatternCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "pattern", Short: "Pattern library management"}
-	cmd.AddCommand(patternListCmd(), patternAddCmd(), patternShowCmd(), patternDeleteCmd(), patternSearchCmd())
+	cmd.AddCommand(patternListCmd(), patternAddCmd(), patternShowCmd(), patternDeleteCmd(), patternSearchCmd(), patternRefineCmd())
 	return cmd
 }
 
@@ -170,6 +170,63 @@ func patternSearchCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().IntVarP(&n, "count", "n", 5, "number of results")
+	return cmd
+}
+
+func patternRefineCmd() *cobra.Command {
+	var addText string
+	cmd := &cobra.Command{
+		Use:   "refine <PT-N|id>",
+		Short: "Append detail to an existing pattern",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if addText == "" {
+				return fmt.Errorf("--add is required")
+			}
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+			id := parsePatternID(args[0])
+
+			resp, err := c.GetPatternWithResponse(cmd.Context(), &dxclient.GetPatternParams{
+				Slug: slug,
+				Id:   id,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("pattern not found")
+			}
+			p := resp.JSON200
+
+			newDesc := p.Description
+			if newDesc != "" {
+				newDesc += "\n\n" + addText
+			} else {
+				newDesc = addText
+			}
+
+			upResp, err := c.UpdatePatternWithResponse(cmd.Context(), dxclient.UpdatePatternRequest{
+				Slug:        slug,
+				Id:          id,
+				Name:        p.Name,
+				Description: newDesc,
+				CodeRefs:    p.CodeRefs,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(upResp.StatusCode(), upResp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("PT-%d refined: %s\n", id, p.Name)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&addText, "add", "", "text to append to pattern description")
 	return cmd
 }
 

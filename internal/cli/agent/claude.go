@@ -504,10 +504,9 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 
 	// Print token usage summary from the on-disk transcripts regardless of
 	// whether the lifecycle runner reached the server; useful in dev.
-	printTokenSummary(
-		filepath.Join(projDir, sid+".jsonl"),
-		filepath.Join(projDir, sid, "subagents"),
-	)
+	transcriptPath := filepath.Join(projDir, sid+".jsonl")
+	printTokenSummary(transcriptPath, filepath.Join(projDir, sid, "subagents"))
+	printPatternAnalysis(rc, transcriptPath, issueID, todo)
 	return err
 }
 
@@ -1015,6 +1014,145 @@ func parseTokenUsage(path string) tokenUsage {
 		}
 	}
 	return t
+}
+
+// extractTranscriptTitle reads a Claude JSONL transcript and returns the first
+// ai-title event's title. Returns "" if none found.
+func extractTranscriptTitle(path string) string {
+	f, err := os.Open(path)
+	if err != nil {
+		return ""
+	}
+	defer f.Close()
+	scanner := bufio.NewScanner(f)
+	scanner.Buffer(make([]byte, 1024*1024), 1024*1024)
+	for scanner.Scan() {
+		var ev struct {
+			Type  string `json:"type"`
+			Title string `json:"title"`
+		}
+		if json.Unmarshal(scanner.Bytes(), &ev) == nil && ev.Type == "ai-title" && ev.Title != "" {
+			return ev.Title
+		}
+	}
+	return ""
+}
+
+// patternNameFromText generates a kebab-case pattern name suggestion from
+// the first few significant words of text.
+func patternNameFromText(text string) string {
+	skip := map[string]bool{
+		"the": true, "a": true, "an": true, "and": true, "or": true,
+		"for": true, "to": true, "in": true, "of": true, "on": true,
+		"is": true, "be": true, "use": true, "with": true,
+	}
+	var parts []string
+	for _, w := range strings.Fields(text) {
+		w = strings.ToLower(w)
+		clean := strings.Map(func(r rune) rune {
+			if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') {
+				return r
+			}
+			return '-'
+		}, w)
+		clean = strings.Trim(clean, "-")
+		if clean == "" || skip[clean] {
+			continue
+		}
+		parts = append(parts, clean)
+		if len(parts) >= 4 {
+			break
+		}
+	}
+	if len(parts) == 0 {
+		return "new-pattern"
+	}
+	return strings.Join(parts, "-")
+}
+
+// printPatternAnalysis compares the completed session's work against the
+// pattern library and prints a "Pattern recommendations" section so the
+// operator can evolve the library without manual tracking.
+//
+// Three cases:
+//   - Missing pattern (low similarity): suggest dx pattern add
+//   - Incomplete pattern (medium similarity): suggest dx pattern refine PT-N
+//   - Good coverage (high similarity): list matched patterns, prompt misalignment check
+func printPatternAnalysis(rc remoteConfig, transcriptPath, issueID string, todo *claimedTodo) {
+	if !rc.valid() {
+		return
+	}
+
+	var textParts []string
+	if issueID != "" {
+		textParts = append(textParts, issueID)
+	}
+	if todo != nil && todo.Text != "" {
+		textParts = append(textParts, todo.Text)
+	}
+	if title := extractTranscriptTitle(transcriptPath); title != "" {
+		textParts = append(textParts, title)
+	}
+	if len(textParts) == 0 {
+		return
+	}
+	searchText := strings.Join(textParts, " ")
+
+	body, _ := json.Marshal(map[string]any{
+		"slug": rc.slug,
+		"text": searchText,
+		"n":    5,
+	})
+	req, _ := http.NewRequest("POST", rc.url+"/api/dx/patterns/similar", bytes.NewReader(body))
+	req.Header.Set("X-Api-Key", rc.key)
+	req.Header.Set("Content-Type", "application/json")
+	httpResp, err := (&http.Client{Timeout: 10 * time.Second}).Do(req)
+	if err != nil {
+		return
+	}
+	defer httpResp.Body.Close()
+
+	var result struct {
+		Patterns []struct {
+			Pattern struct {
+				ID   int32  `json:"id"`
+				Name string `json:"name"`
+			} `json:"pattern"`
+			Score float64 `json:"score"`
+		} `json:"patterns"`
+	}
+	if json.NewDecoder(httpResp.Body).Decode(&result) != nil {
+		return
+	}
+
+	fmt.Println("\nPattern recommendations:")
+
+	if len(result.Patterns) == 0 {
+		// Pattern library is empty.
+		fmt.Printf("  No patterns in library — consider: dx pattern add %q --desc=\"<approach used>\"\n",
+			patternNameFromText(searchText))
+		return
+	}
+
+	top := result.Patterns[0]
+	switch {
+	case top.Score < 0.40:
+		fmt.Printf("  Missing pattern (best match %.0f%%) — this work isn't captured yet.\n", top.Score*100)
+		fmt.Printf("  Suggest: dx pattern add %q --desc=\"<describe the approach used>\"\n",
+			patternNameFromText(searchText))
+	case top.Score < 0.65:
+		fmt.Printf("  Incomplete pattern: PT-%d %s (%.0f%% match)\n", top.Pattern.ID, top.Pattern.Name, top.Score*100)
+		fmt.Printf("  Suggest: dx pattern refine PT-%d --add=\"<detail about this specific case>\"\n", top.Pattern.ID)
+	default:
+		var matched []string
+		for _, p := range result.Patterns {
+			if p.Score >= 0.65 {
+				matched = append(matched, fmt.Sprintf("PT-%d %s (%.0f%%)", p.Pattern.ID, p.Pattern.Name, p.Score*100))
+			}
+		}
+		fmt.Printf("  Matched: %s\n", strings.Join(matched, "  "))
+		fmt.Printf("  Review: did the session follow these patterns? If it deviated: dx pattern refine PT-N --add=\"<correction>\"\n")
+	}
 }
 
 func runDxTodoSolo(issue string) (string, error) {
