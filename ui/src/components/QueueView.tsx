@@ -49,56 +49,63 @@ function targetLink(slug: string, targetType: string, targetId: string): { to: s
 function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
   const link = targetLink(slug, item.target_type, item.target_id)
   const todoHref = `/project/${slug}/todos/${encodeURIComponent(item.key)}`
+  const hasFooter = (item.issue_ref && item.issue_ref !== item.target_id) || item.blocked || item.persona
   return (
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', py: 0.75, borderBottom: 1, borderColor: 'divider' }}>
-      <Chip
-        label={item.kind}
-        size="small"
-        color={KIND_COLORS[item.kind] || 'default'}
-        variant="outlined"
-      />
-      {link ? (
+    <Box sx={{ py: 0.75, borderBottom: 1, borderColor: 'divider' }}>
+      <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mb: 0.5 }}>
         <Chip
-          label={item.target_id}
+          label={item.kind}
           size="small"
+          color={KIND_COLORS[item.kind] || 'default'}
           variant="outlined"
-          color="primary"
-          component={Link as any}
-          to={link.to}
-          params={link.params}
-          clickable
         />
-      ) : item.target_id ? (
-        <Chip label={item.target_id} size="small" variant="outlined" />
-      ) : null}
+        {link ? (
+          <Chip
+            label={item.target_id}
+            size="small"
+            variant="outlined"
+            color="primary"
+            component={Link as any}
+            to={link.to}
+            params={link.params}
+            clickable
+          />
+        ) : item.target_id ? (
+          <Chip label={item.target_id} size="small" variant="outlined" />
+        ) : null}
+      </Box>
       <Box
         component="a"
         href={todoHref}
-        sx={{ flex: 1, textDecoration: 'none', color: 'inherit', minWidth: 0, '&:hover .todo-title': { textDecoration: 'underline' } }}
+        sx={{ display: 'block', textDecoration: 'none', color: 'inherit', '&:hover .todo-title': { textDecoration: 'underline' } }}
       >
-        <Typography variant="body2" className="todo-title" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+        <Typography variant="body2" className="todo-title">
           {item.title || item.text}
         </Typography>
         {item.description && (
-          <Typography variant="caption" color="text.secondary" sx={{ display: 'block', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          <Typography variant="caption" color="text.secondary" sx={{ display: 'block' }}>
             {item.description}
           </Typography>
         )}
       </Box>
-      {item.issue_ref && item.issue_ref !== item.target_id && (
-        <Chip
-          label={item.issue_ref}
-          size="small"
-          variant="outlined"
-          color="info"
-          component={Link as any}
-          to="/project/$slug/issues/$id"
-          params={{ slug, id: item.issue_ref }}
-          clickable
-        />
+      {hasFooter && (
+        <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5, mt: 0.5 }}>
+          {item.issue_ref && item.issue_ref !== item.target_id && (
+            <Chip
+              label={item.issue_ref}
+              size="small"
+              variant="outlined"
+              color="info"
+              component={Link as any}
+              to="/project/$slug/issues/$id"
+              params={{ slug, id: item.issue_ref }}
+              clickable
+            />
+          )}
+          {item.blocked && <Chip label="blocked" size="small" color="error" variant="outlined" />}
+          {item.persona && <Chip label={item.persona} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />}
+        </Box>
       )}
-      {item.blocked && <Chip label="blocked" size="small" color="error" variant="outlined" />}
-      {item.persona && <Chip label={item.persona} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />}
     </Box>
   )
 }
