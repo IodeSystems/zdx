@@ -493,6 +493,38 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			}{Features: out}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "search-features", Method: http.MethodPost, Path: "/api/dx/features/search"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string `json:"slug"`
+				Query string `json:"query"`
+			}
+		}) (*struct {
+			Body struct {
+				Features []SearchFeatureItem `json:"features"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.SearchFeatures(ctx, db.SearchFeaturesParams{ProjectID: p.ID, Query: in.Body.Query})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]SearchFeatureItem, len(rows))
+			for i, r := range rows {
+				out[i] = SearchFeatureItem{Name: r.Name, Description: r.Description, Category: r.Category, Kind: r.Kind}
+			}
+			return &struct {
+				Body struct {
+					Features []SearchFeatureItem `json:"features"`
+				}
+			}{Body: struct {
+				Features []SearchFeatureItem `json:"features"`
+			}{Features: out}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "mark-feature-reviewed", Method: http.MethodPost, Path: "/api/dx/feature/review"},
 		func(ctx context.Context, in *struct {
 			Body struct {

@@ -185,3 +185,12 @@ ORDER BY last_reviewed_at NULLS FIRST, name;
 -- name: AddSpec :one
 INSERT INTO zdx_specs (feature_id, description, kind, concern_type) VALUES ($1, $2, $3, $4)
 RETURNING id, feature_id, description, kind, concern_type;
+
+-- name: SearchFeatures :many
+-- metaquery: off
+SELECT id, name, description, category, kind
+FROM zdx_features
+WHERE project_id = @project_id
+  AND (name ILIKE '%' || @query::text || '%' OR description ILIKE '%' || @query::text || '%')
+ORDER BY name
+LIMIT 10;

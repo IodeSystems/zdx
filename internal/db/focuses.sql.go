@@ -295,6 +295,53 @@ func (q *Queries) RemoveFocusFeature(ctx context.Context, arg RemoveFocusFeature
 	return err
 }
 
+const searchFocuses = `-- name: SearchFocuses :many
+SELECT id, name, description, status
+FROM zdx_focuses
+WHERE project_id = $1
+  AND (name ILIKE '%' || $2::text || '%' OR description ILIKE '%' || $2::text || '%')
+ORDER BY priority, name
+LIMIT 10
+`
+
+type SearchFocusesParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Query     string `db:"query" json:"query"`
+}
+
+type SearchFocusesRow struct {
+	ID          int32  `db:"id" json:"id"`
+	Name        string `db:"name" json:"name"`
+	Description string `db:"description" json:"description"`
+	Status      string `db:"status" json:"status"`
+}
+
+// metaquery: off
+func (q *Queries) SearchFocuses(ctx context.Context, arg SearchFocusesParams) ([]SearchFocusesRow, error) {
+	rows, err := q.db.Query(ctx, searchFocuses, arg.ProjectID, arg.Query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchFocusesRow
+	for rows.Next() {
+		var i SearchFocusesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Status,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateFocusDates = `-- name: UpdateFocusDates :exec
 UPDATE zdx_focuses SET started_at = $1, ended_at = $2
 WHERE project_id = $3 AND id = $4

@@ -1373,11 +1373,27 @@ export const useSimilarIssues = () =>
 export type SimilarTaskItem = components['schemas']['SimilarTaskItem']
 export type SimilarPatternItem = components['schemas']['SimilarPatternItem']
 
+export interface SearchFeatureItem {
+  name: string
+  description: string
+  category: string
+  kind: string
+}
+
+export interface SearchFocusItem {
+  id: number
+  name: string
+  description: string
+  status: string
+}
+
 export interface OmniboxResults {
   issues: SimilarIssueItem[]
   tasks: SimilarTaskItem[]
   patterns: SimilarPatternItem[]
   questions: SimilarQuestionItem[]
+  features: SearchFeatureItem[]
+  focuses: SearchFocusItem[]
 }
 
 export const useOmniboxSearch = (slug: string, text: string, enabled: boolean) =>
@@ -1385,17 +1401,22 @@ export const useOmniboxSearch = (slug: string, text: string, enabled: boolean) =
     queryKey: ['omnibox-search', slug, text],
     queryFn: async () => {
       const body = { slug, text, n: 5 }
-      const [issuesR, tasksR, patternsR, questionsR] = await Promise.all([
+      const searchBody = { slug, query: text }
+      const [issuesR, tasksR, patternsR, questionsR, featuresR, focusesR] = await Promise.all([
         client.POST('/api/dx/issues/similar', { body }),
         client.POST('/api/dx/tasks/similar', { body }),
         client.POST('/api/dx/patterns/similar', { body }),
         client.POST('/api/dx/qa/similar', { body }),
+        client.POST('/api/dx/features/search', { body: searchBody }),
+        client.POST('/api/dx/focuses/search', { body: searchBody }),
       ])
       return {
         issues: (((issuesR.data as any)?.issues) ?? []) as SimilarIssueItem[],
         tasks: (((tasksR.data as any)?.tasks) ?? []) as SimilarTaskItem[],
         patterns: (((patternsR.data as any)?.patterns) ?? []) as SimilarPatternItem[],
         questions: (((questionsR.data as any)?.questions) ?? []) as SimilarQuestionItem[],
+        features: (((featuresR.data as any)?.features) ?? []) as SearchFeatureItem[],
+        focuses: (((focusesR.data as any)?.focuses) ?? []) as SearchFocusItem[],
       }
     },
     enabled: enabled && !!slug && text.trim().length >= 2,

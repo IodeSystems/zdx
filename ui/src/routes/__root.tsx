@@ -53,7 +53,7 @@ import {
 } from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useProjects, useMe, useLogout, useUnreadCount, useUnreadThreads, useDismissAllNotifications, useZdxConfig, useBlockerQuestions, useProposals, useOmniboxSearch, type UnreadThread } from '../api'
+import { useProjects, useMe, useLogout, useUnreadCount, useUnreadThreads, useDismissAllNotifications, useZdxConfig, useBlockerQuestions, useProposals, useOmniboxSearch, type SearchFeatureItem, type SearchFocusItem, type UnreadThread } from '../api'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
 import { IssueReportFab } from '../components/IssueReportFab'
@@ -130,7 +130,7 @@ function ProjectLabel() {
 }
 
 type OmniboxHit = {
-  category: 'Issues' | 'Tasks' | 'Patterns' | 'Q&A'
+  category: 'Issues' | 'Tasks' | 'Patterns' | 'Q&A' | 'Features' | 'Focuses'
   key: string
   ref: string
   primary: string
@@ -186,11 +186,33 @@ function flattenHits(slug: string, data: ReturnType<typeof useOmniboxSearch>['da
       href: `/project/${slug}/questions/${q.id}`,
     })
   }
+  for (const f of (data.features ?? []) as SearchFeatureItem[]) {
+    hits.push({
+      category: 'Features',
+      key: `feature:${f.name}`,
+      ref: f.category || f.kind || 'feature',
+      primary: f.name,
+      secondary: f.description?.slice(0, 80) || undefined,
+      score: 1,
+      href: `/project/${slug}/features/${encodeURIComponent(f.name)}`,
+    })
+  }
+  for (const f of (data.focuses ?? []) as SearchFocusItem[]) {
+    hits.push({
+      category: 'Focuses',
+      key: `focus:${f.id}`,
+      ref: f.status,
+      primary: f.name,
+      secondary: f.description?.slice(0, 80) || undefined,
+      score: 1,
+      href: `/project/${slug}/focuses/${encodeURIComponent(f.name)}`,
+    })
+  }
   return hits
 }
 
 function groupHits(hits: OmniboxHit[]): { category: OmniboxHit['category']; items: OmniboxHit[] }[] {
-  const order: OmniboxHit['category'][] = ['Issues', 'Tasks', 'Patterns', 'Q&A']
+  const order: OmniboxHit['category'][] = ['Features', 'Focuses', 'Issues', 'Tasks', 'Patterns', 'Q&A']
   return order
     .map(category => ({ category, items: hits.filter(h => h.category === category) }))
     .filter(g => g.items.length > 0)

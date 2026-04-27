@@ -1542,6 +1542,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/features/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["search-features"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/features/stale": {
         parameters: {
             query?: never;
@@ -1600,6 +1616,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["add-focus-blocker"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/focuses/search": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["search-focuses"];
         delete?: never;
         options?: never;
         head?: never;
@@ -8078,6 +8110,44 @@ export interface components {
             target_type: string;
             user_id: string;
         };
+        "Search-featuresRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Search-featuresRequest.json
+             */
+            readonly $schema?: string;
+            query: string;
+            slug: string;
+        };
+        "Search-featuresResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Search-featuresResponse.json
+             */
+            readonly $schema?: string;
+            features: components["schemas"]["SearchFeatureItem"][] | null;
+        };
+        "Search-focusesRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Search-focusesRequest.json
+             */
+            readonly $schema?: string;
+            query: string;
+            slug: string;
+        };
+        "Search-focusesResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Search-focusesResponse.json
+             */
+            readonly $schema?: string;
+            focuses: components["schemas"]["SearchFocusItem"][] | null;
+        };
         "Search-issuesResponse": {
             /**
              * Format: uri
@@ -8086,6 +8156,19 @@ export interface components {
              */
             readonly $schema?: string;
             issues: components["schemas"]["IssueItem"][] | null;
+        };
+        SearchFeatureItem: {
+            category: string;
+            description: string;
+            kind: string;
+            name: string;
+        };
+        SearchFocusItem: {
+            description: string;
+            /** Format: int32 */
+            id: number;
+            name: string;
+            status: string;
         };
         "Set-classificationRequest": {
             /**
@@ -12791,6 +12874,39 @@ export interface operations {
             };
         };
     };
+    "search-features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Search-featuresRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Search-featuresResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-stale-features": {
         parameters: {
             query: {
@@ -12907,6 +13023,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "search-focuses": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Search-focusesRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Search-focusesResponse"];
                 };
             };
             /** @description Error */

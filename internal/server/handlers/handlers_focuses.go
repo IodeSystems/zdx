@@ -49,6 +49,38 @@ func (h *Handler) registerFocusRoutes(api huma.API) {
 			}{Focuses: out}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "search-focuses", Method: http.MethodPost, Path: "/api/dx/focuses/search"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug  string `json:"slug"`
+				Query string `json:"query"`
+			}
+		}) (*struct {
+			Body struct {
+				Focuses []SearchFocusItem `json:"focuses"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.SearchFocuses(ctx, db.SearchFocusesParams{ProjectID: p.ID, Query: in.Body.Query})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]SearchFocusItem, len(rows))
+			for i, r := range rows {
+				out[i] = SearchFocusItem{ID: r.ID, Name: r.Name, Description: r.Description, Status: r.Status}
+			}
+			return &struct {
+				Body struct {
+					Focuses []SearchFocusItem `json:"focuses"`
+				}
+			}{Body: struct {
+				Focuses []SearchFocusItem `json:"focuses"`
+			}{Focuses: out}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "add-focus", Method: http.MethodPost, Path: "/api/dx/focuses/add"},
 		func(ctx context.Context, in *struct {
 			Body struct {

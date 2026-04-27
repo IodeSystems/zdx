@@ -795,6 +795,55 @@ func (q *Queries) RemoveFeatureMultiplier(ctx context.Context, arg RemoveFeature
 	return err
 }
 
+const searchFeatures = `-- name: SearchFeatures :many
+SELECT id, name, description, category, kind
+FROM zdx_features
+WHERE project_id = $1
+  AND (name ILIKE '%' || $2::text || '%' OR description ILIKE '%' || $2::text || '%')
+ORDER BY name
+LIMIT 10
+`
+
+type SearchFeaturesParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Query     string `db:"query" json:"query"`
+}
+
+type SearchFeaturesRow struct {
+	ID          int32  `db:"id" json:"id"`
+	Name        string `db:"name" json:"name"`
+	Description string `db:"description" json:"description"`
+	Category    string `db:"category" json:"category"`
+	Kind        string `db:"kind" json:"kind"`
+}
+
+// metaquery: off
+func (q *Queries) SearchFeatures(ctx context.Context, arg SearchFeaturesParams) ([]SearchFeaturesRow, error) {
+	rows, err := q.db.Query(ctx, searchFeatures, arg.ProjectID, arg.Query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchFeaturesRow
+	for rows.Next() {
+		var i SearchFeaturesRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Category,
+			&i.Kind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const unlinkSpecIssue = `-- name: UnlinkSpecIssue :exec
 DELETE FROM zdx_spec_issues WHERE spec_id = $1 AND issue_id = $2
 `

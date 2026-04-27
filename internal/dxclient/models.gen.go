@@ -2947,11 +2947,57 @@ type RevisionItem struct {
 	UserId     string `json:"user_id"`
 }
 
+// SearchFeaturesRequest defines model for Search-featuresRequest.
+type SearchFeaturesRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Query  string  `json:"query"`
+	Slug   string  `json:"slug"`
+}
+
+// SearchFeaturesResponse defines model for Search-featuresResponse.
+type SearchFeaturesResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string              `json:"$schema,omitempty"`
+	Features *[]SearchFeatureItem `json:"features"`
+}
+
+// SearchFocusesRequest defines model for Search-focusesRequest.
+type SearchFocusesRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Query  string  `json:"query"`
+	Slug   string  `json:"slug"`
+}
+
+// SearchFocusesResponse defines model for Search-focusesResponse.
+type SearchFocusesResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string            `json:"$schema,omitempty"`
+	Focuses *[]SearchFocusItem `json:"focuses"`
+}
+
 // SearchIssuesResponse defines model for Search-issuesResponse.
 type SearchIssuesResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string      `json:"$schema,omitempty"`
 	Issues *[]IssueItem `json:"issues"`
+}
+
+// SearchFeatureItem defines model for SearchFeatureItem.
+type SearchFeatureItem struct {
+	Category    string `json:"category"`
+	Description string `json:"description"`
+	Kind        string `json:"kind"`
+	Name        string `json:"name"`
+}
+
+// SearchFocusItem defines model for SearchFocusItem.
+type SearchFocusItem struct {
+	Description string `json:"description"`
+	Id          int32  `json:"id"`
+	Name        string `json:"name"`
+	Status      string `json:"status"`
 }
 
 // SetClassificationRequest defines model for Set-classificationRequest.
@@ -4871,11 +4917,17 @@ type SetFeatureGoalJSONRequestBody = SetFeatureGoalRequest
 // SetFeatureParentJSONRequestBody defines body for SetFeatureParent for application/json ContentType.
 type SetFeatureParentJSONRequestBody = SetFeatureParentRequest
 
+// SearchFeaturesJSONRequestBody defines body for SearchFeatures for application/json ContentType.
+type SearchFeaturesJSONRequestBody = SearchFeaturesRequest
+
 // AddFocusJSONRequestBody defines body for AddFocus for application/json ContentType.
 type AddFocusJSONRequestBody = AddFocusRequest
 
 // AddFocusBlockerJSONRequestBody defines body for AddFocusBlocker for application/json ContentType.
 type AddFocusBlockerJSONRequestBody = AddFocusBlockerRequest
+
+// SearchFocusesJSONRequestBody defines body for SearchFocuses for application/json ContentType.
+type SearchFocusesJSONRequestBody = SearchFocusesRequest
 
 // SetFocusStatusJSONRequestBody defines body for SetFocusStatus for application/json ContentType.
 type SetFocusStatusJSONRequestBody = SetFocusStatusRequest
@@ -5672,6 +5724,11 @@ type ClientInterface interface {
 
 	SetFeatureParent(ctx context.Context, body SetFeatureParentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// SearchFeaturesWithBody request with any body
+	SearchFeaturesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SearchFeatures(ctx context.Context, body SearchFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListStaleFeatures request
 	ListStaleFeatures(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -5687,6 +5744,11 @@ type ClientInterface interface {
 	AddFocusBlockerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	AddFocusBlocker(ctx context.Context, body AddFocusBlockerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SearchFocusesWithBody request with any body
+	SearchFocusesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SearchFocuses(ctx context.Context, body SearchFocusesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetFocusStatusWithBody request with any body
 	SetFocusStatusWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8318,6 +8380,30 @@ func (c *APIClient) SetFeatureParent(ctx context.Context, body SetFeatureParentJ
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) SearchFeaturesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchFeaturesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SearchFeatures(ctx context.Context, body SearchFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchFeaturesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListStaleFeatures(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListStaleFeaturesRequest(c.Server, params)
 	if err != nil {
@@ -8380,6 +8466,30 @@ func (c *APIClient) AddFocusBlockerWithBody(ctx context.Context, contentType str
 
 func (c *APIClient) AddFocusBlocker(ctx context.Context, body AddFocusBlockerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAddFocusBlockerRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SearchFocusesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchFocusesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SearchFocuses(ctx context.Context, body SearchFocusesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSearchFocusesRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17622,6 +17732,46 @@ func NewSetFeatureParentRequestWithBody(server string, contentType string, body 
 	return req, nil
 }
 
+// NewSearchFeaturesRequest calls the generic SearchFeatures builder with application/json body
+func NewSearchFeaturesRequest(server string, body SearchFeaturesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSearchFeaturesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSearchFeaturesRequestWithBody generates requests for SearchFeatures with any type of body
+func NewSearchFeaturesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/features/search")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListStaleFeaturesRequest generates requests for ListStaleFeatures
 func NewListStaleFeaturesRequest(server string, params *ListStaleFeaturesParams) (*http.Request, error) {
 	var err error
@@ -17789,6 +17939,46 @@ func NewAddFocusBlockerRequestWithBody(server string, contentType string, body i
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/focuses/block")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSearchFocusesRequest calls the generic SearchFocuses builder with application/json body
+func NewSearchFocusesRequest(server string, body SearchFocusesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSearchFocusesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSearchFocusesRequestWithBody generates requests for SearchFocuses with any type of body
+func NewSearchFocusesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/focuses/search")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -27955,6 +28145,11 @@ type ClientWithResponsesInterface interface {
 
 	SetFeatureParentWithResponse(ctx context.Context, body SetFeatureParentJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFeatureParentResponse, error)
 
+	// SearchFeaturesWithBodyWithResponse request with any body
+	SearchFeaturesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSearchFeaturesResponse, error)
+
+	SearchFeaturesWithResponse(ctx context.Context, body SearchFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSearchFeaturesResponse, error)
+
 	// ListStaleFeaturesWithResponse request
 	ListStaleFeaturesWithResponse(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*ParsedListStaleFeaturesResponse, error)
 
@@ -27970,6 +28165,11 @@ type ClientWithResponsesInterface interface {
 	AddFocusBlockerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddFocusBlockerResponse, error)
 
 	AddFocusBlockerWithResponse(ctx context.Context, body AddFocusBlockerJSONRequestBody, reqEditors ...RequestEditorFn) (*AddFocusBlockerResponse, error)
+
+	// SearchFocusesWithBodyWithResponse request with any body
+	SearchFocusesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSearchFocusesResponse, error)
+
+	SearchFocusesWithResponse(ctx context.Context, body SearchFocusesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSearchFocusesResponse, error)
 
 	// SetFocusStatusWithBodyWithResponse request with any body
 	SetFocusStatusWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetFocusStatusResponse, error)
@@ -31237,6 +31437,29 @@ func (r SetFeatureParentResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedSearchFeaturesResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SearchFeaturesResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSearchFeaturesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSearchFeaturesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListStaleFeaturesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -31323,6 +31546,29 @@ func (r AddFocusBlockerResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AddFocusBlockerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedSearchFocusesResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SearchFocusesResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSearchFocusesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSearchFocusesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -37020,6 +37266,23 @@ func (c *ClientWithResponses) SetFeatureParentWithResponse(ctx context.Context, 
 	return ParseSetFeatureParentResponse(rsp)
 }
 
+// SearchFeaturesWithBodyWithResponse request with arbitrary body returning *ParsedSearchFeaturesResponse
+func (c *ClientWithResponses) SearchFeaturesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSearchFeaturesResponse, error) {
+	rsp, err := c.SearchFeaturesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSearchFeaturesResponse(rsp)
+}
+
+func (c *ClientWithResponses) SearchFeaturesWithResponse(ctx context.Context, body SearchFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSearchFeaturesResponse, error) {
+	rsp, err := c.SearchFeatures(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSearchFeaturesResponse(rsp)
+}
+
 // ListStaleFeaturesWithResponse request returning *ParsedListStaleFeaturesResponse
 func (c *ClientWithResponses) ListStaleFeaturesWithResponse(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*ParsedListStaleFeaturesResponse, error) {
 	rsp, err := c.ListStaleFeatures(ctx, params, reqEditors...)
@@ -37070,6 +37333,23 @@ func (c *ClientWithResponses) AddFocusBlockerWithResponse(ctx context.Context, b
 		return nil, err
 	}
 	return ParseAddFocusBlockerResponse(rsp)
+}
+
+// SearchFocusesWithBodyWithResponse request with arbitrary body returning *ParsedSearchFocusesResponse
+func (c *ClientWithResponses) SearchFocusesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSearchFocusesResponse, error) {
+	rsp, err := c.SearchFocusesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSearchFocusesResponse(rsp)
+}
+
+func (c *ClientWithResponses) SearchFocusesWithResponse(ctx context.Context, body SearchFocusesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSearchFocusesResponse, error) {
+	rsp, err := c.SearchFocuses(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSearchFocusesResponse(rsp)
 }
 
 // SetFocusStatusWithBodyWithResponse request with arbitrary body returning *SetFocusStatusResponse
@@ -43101,6 +43381,39 @@ func ParseSetFeatureParentResponse(rsp *http.Response) (*SetFeatureParentRespons
 	return response, nil
 }
 
+// ParseParsedSearchFeaturesResponse parses an HTTP response from a SearchFeaturesWithResponse call
+func ParseParsedSearchFeaturesResponse(rsp *http.Response) (*ParsedSearchFeaturesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSearchFeaturesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SearchFeaturesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListStaleFeaturesResponse parses an HTTP response from a ListStaleFeaturesWithResponse call
 func ParseParsedListStaleFeaturesResponse(rsp *http.Response) (*ParsedListStaleFeaturesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -43216,6 +43529,39 @@ func ParseAddFocusBlockerResponse(rsp *http.Response) (*AddFocusBlockerResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedSearchFocusesResponse parses an HTTP response from a SearchFocusesWithResponse call
+func ParseParsedSearchFocusesResponse(rsp *http.Response) (*ParsedSearchFocusesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSearchFocusesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SearchFocusesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

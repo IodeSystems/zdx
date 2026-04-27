@@ -55,3 +55,12 @@ FROM zdx_focus_features ff
 JOIN zdx_focuses fo ON fo.id = ff.focus_id
 WHERE ff.feature_id = $1
 ORDER BY fo.priority, fo.name;
+
+-- name: SearchFocuses :many
+-- metaquery: off
+SELECT id, name, description, status
+FROM zdx_focuses
+WHERE project_id = @project_id
+  AND (name ILIKE '%' || @query::text || '%' OR description ILIKE '%' || @query::text || '%')
+ORDER BY priority, name
+LIMIT 10;
