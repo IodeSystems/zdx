@@ -1,14 +1,30 @@
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
+  Alert,
   Box,
+  Button,
   Card,
   CardActionArea,
   CardContent,
   Chip,
+  CircularProgress,
+  Dialog,
+  DialogActions,
+  DialogContent,
+  DialogTitle,
+  Divider,
   Stack,
   Typography,
 } from '@mui/material'
-import { useProposals, type ProposalItem } from '../api'
+import { Refresh as RefreshIcon } from '@mui/icons-material'
+import {
+  useProposals,
+  useRejectProposal,
+  useDeduplicateProposals,
+  type ProposalItem,
+  type ProposalDedupGroup,
+} from '../api'
 
 const STATUS_COLORS: Record<string, 'warning' | 'success' | 'default' | 'info' | 'secondary'> = {
   proposed: 'warning',
@@ -51,7 +67,49 @@ export function ProposalsTab({
   statusFilter: string | null
   onStatusFilter: (status: string | null) => void
 }) {
-  const { data, isLoading } = useProposals(slug, statusFilter ?? undefined)
+  const { data, isLoading, refetch } = useProposals(slug, statusFilter ?? undefined)
+  const deduplicateProposals = useDeduplicateProposals()
+  const rejectProposal = useRejectProposal()
+
+  const [dedupeOpen, setDedupeOpen] = useState(false)
+  const [dedupeGroups, setDedupeGroups] = useState<ProposalDedupGroup[] | null>(null)
+  const [rejectedIDs, setRejectedIDs] = useState<Set<number>>(new Set())
+
+  function doDeduplicate() {
+    setDedupeGroups(null)
+    setRejectedIDs(new Set())
+    setDedupeOpen(true)
+    deduplicateProposals.mutate({ slug }, {
+      onSuccess: (res) => setDedupeGroups(res.groups),
+    })
+  }
+
+  function rejectAsDuplicate(duplicateId: number, canonicalId: number, canonicalTitle: string) {
+    rejectProposal.mutate(
+      { slug, id: duplicateId, reason: `Duplicate of PR-${canonicalId}: ${canonicalTitle}` },
+      {
+        onSuccess: () => {
+          setRejectedIDs(prev => new Set([...prev, duplicateId]))
+        },
+      },
+    )
+  }
+
+  function rejectAsAddressed(proposalId: number, issueId: string, issueTitle: string) {
+    rejectProposal.mutate(
+      { slug, id: proposalId, reason: `Already addressed by ${issueId}: ${issueTitle}` },
+      {
+        onSuccess: () => {
+          setRejectedIDs(prev => new Set([...prev, proposalId]))
+        },
+      },
+    )
+  }
+
+  function closeDedupeDialog() {
+    setDedupeOpen(false)
+    if (rejectedIDs.size > 0) refetch()
+  }
 
   if (isLoading && !data) return <Typography color="text.secondary">Loading...</Typography>
 
@@ -61,6 +119,12 @@ export function ProposalsTab({
     acc[p.status] = (acc[p.status] || 0) + 1
     return acc
   }, {} as Record<string, number>)
+
+  const activeGroups = (dedupeGroups ?? []).filter(g =>
+    !rejectedIDs.has(g.proposal.id) ||
+    (g.duplicates ?? []).some(d => !rejectedIDs.has(d.id)) ||
+    (g.existing_issues ?? []).length > 0
+  )
 
   return (
     <Box>
@@ -97,6 +161,10 @@ export function ProposalsTab({
             />
           )}
         </Stack>
+        <Box sx={{ flex: 1 }} />
+        <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={doDeduplicate}>
+          Deduplicate
+        </Button>
       </Box>
       <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
         {items.map(p => (
@@ -146,6 +214,117 @@ export function ProposalsTab({
           <Typography variant="body2" color="text.secondary">No proposals.</Typography>
         )}
       </Box>
+
+      <Dialog open={dedupeOpen} onClose={closeDedupeDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>Deduplicate proposals</DialogTitle>
+        <DialogContent>
+          {deduplicateProposals.isPending && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress size={32} />
+            </Box>
+          )}
+          {dedupeGroups !== null && activeGroups.length === 0 && (
+            <Alert severity="success">No duplicates found. All proposals look unique.</Alert>
+          )}
+          {activeGroups.length > 0 && (
+            <Stack spacing={3} sx={{ mt: 1 }}>
+              {activeGroups.map((group, i) => {
+                const duplicates = (group.duplicates ?? []).filter(d => !rejectedIDs.has(d.id))
+                const issues = group.existing_issues ?? []
+                const canonicalRejected = rejectedIDs.has(group.proposal.id)
+                return (
+                  <Box key={group.proposal.id}>
+                    {i > 0 && <Divider sx={{ mb: 2 }} />}
+                    <Box sx={{ mb: 1 }}>
+                      <Typography variant="subtitle2">
+                        PR-{group.proposal.id}:{' '}
+                        <Link
+                          to="/project/$slug/proposals/$id"
+                          params={{ slug, id: String(group.proposal.id) }}
+                          style={{ textDecoration: 'none', color: 'inherit' }}
+                        >
+                          {proposalDisplayTitle(group.proposal.title, group.proposal.body)}
+                        </Link>
+                      </Typography>
+                    </Box>
+
+                    {duplicates.length > 0 && (
+                      <Box sx={{ mb: 1.5 }}>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                          Similar proposals
+                        </Typography>
+                        <Stack spacing={0.75}>
+                          {duplicates.map(dup => (
+                            <Box key={dup.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  PR-{dup.id}: {dup.title || '(no title)'}
+                                </Typography>
+                                {dup.body && (
+                                  <Typography variant="caption" color="text.secondary">
+                                    {dup.body.slice(0, 100)}{dup.body.length > 100 ? '…' : ''}
+                                  </Typography>
+                                )}
+                              </Box>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="warning"
+                                disabled={rejectProposal.isPending}
+                                onClick={() => rejectAsDuplicate(dup.id, group.proposal.id, group.proposal.title)}
+                              >
+                                Reject duplicate
+                              </Button>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+
+                    {issues.length > 0 && !canonicalRejected && (
+                      <Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+                          Possibly already addressed
+                        </Typography>
+                        <Stack spacing={0.75}>
+                          {issues.map(iss => (
+                            <Box key={iss.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1, border: 1, borderColor: 'divider', borderRadius: 1, p: 1 }}>
+                              <Box sx={{ flex: 1, minWidth: 0 }}>
+                                <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                                  <Link
+                                    to="/project/$slug/issues/$id"
+                                    params={{ slug, id: iss.id }}
+                                    style={{ textDecoration: 'none', color: 'inherit' }}
+                                  >
+                                    {iss.id}: {iss.title}
+                                  </Link>
+                                </Typography>
+                                <Chip label={iss.status} size="small" variant="outlined" sx={{ mt: 0.5 }} />
+                              </Box>
+                              <Button
+                                size="small"
+                                variant="outlined"
+                                color="warning"
+                                disabled={rejectProposal.isPending}
+                                onClick={() => rejectAsAddressed(group.proposal.id, iss.id, iss.title)}
+                              >
+                                Reject (addressed)
+                              </Button>
+                            </Box>
+                          ))}
+                        </Stack>
+                      </Box>
+                    )}
+                  </Box>
+                )
+              })}
+            </Stack>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={closeDedupeDialog}>Close</Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   )
 }

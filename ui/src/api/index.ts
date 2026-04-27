@@ -30,6 +30,7 @@ export interface SoloItem {
   issue_ref: string
   priority: number
   blocked: boolean
+  blocked_reason?: string
   persona: string
   instructions?: string
   claimed_by?: string
@@ -2637,6 +2638,32 @@ export const useReevaluateProposal = () => {
       })
       if (error) throw new Error(JSON.stringify(error))
       return data!
+    },
+  })
+}
+
+export interface SimilarProposalItem {
+  id: number
+  title: string
+  body: string
+  status: string
+  score: number
+}
+
+export interface ProposalDedupGroup {
+  proposal: ProposalItem
+  duplicates: SimilarProposalItem[]
+  existing_issues: SimilarIssueItem[]
+}
+
+export const useDeduplicateProposals = () => {
+  return useMutation<{ groups: ProposalDedupGroup[] }, Error, { slug: string }>({
+    mutationFn: async ({ slug }) => {
+      const { data, error } = await client.POST('/api/dx/proposals/deduplicate' as never, {
+        body: { slug },
+      } as never)
+      if (error) throw new Error(JSON.stringify(error))
+      return data as { groups: ProposalDedupGroup[] }
     },
   })
 }

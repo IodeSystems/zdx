@@ -182,6 +182,7 @@ type TodoItem struct {
 	IssueRef        string `json:"issue_ref"`
 	ProjectSlug     string `json:"project_slug,omitempty"`
 	Blocked         bool   `json:"blocked"`
+	BlockedReason   string `json:"blocked_reason,omitempty"`
 	Instructions    string `json:"instructions,omitempty"`
 	SuggestedAction string `json:"suggested_action,omitempty"`
 	ClaimedBy       string `json:"claimed_by,omitempty"`
@@ -338,6 +339,12 @@ type SimilarProposalItem struct {
 	Body   string  `json:"body"`
 	Status string  `json:"status"`
 	Score  float32 `json:"score"`
+}
+
+type ProposalDedupGroup struct {
+	Proposal       ProposalItem          `json:"proposal"`
+	Duplicates     []SimilarProposalItem `json:"duplicates"`
+	ExistingIssues []SimilarIssueItem    `json:"existing_issues"`
 }
 
 type QuestionItem struct {

@@ -7,6 +7,7 @@ import (
 	"encoding/base64"
 	"fmt"
 	"net/http"
+	"sort"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -437,5 +438,58 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 				ExistingIssues []SimilarIssueItem    `json:"existing_issues"`
 			}
 			return &struct{ Body respBody }{Body: respBody{Duplicates: duplicates, ExistingIssues: issues}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "deduplicate-proposals", Method: http.MethodPost, Path: "/api/dx/proposals/deduplicate"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+			}
+		}) (*struct {
+			Body struct {
+				Groups []ProposalDedupGroup `json:"groups"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListProposals(ctx, db.ListProposalsParams{ProjectID: p.ID, Column2: "all"})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			var active []db.ZdxProposal
+			for _, r := range rows {
+				if r.Status == "proposed" || r.Status == "snoozed" {
+					active = append(active, r)
+				}
+			}
+			sort.Slice(active, func(i, j int) bool { return active[i].ID < active[j].ID })
+
+			coveredIDs := make(map[int32]bool)
+			groups := []ProposalDedupGroup{}
+			for _, proposal := range active {
+				if coveredIDs[proposal.ID] {
+					continue
+				}
+				queryText := proposal.Title + " " + proposal.Body
+				duplicates, _ := h.findSimilarProposals(ctx, p.ID, queryText, 10, proposal.ID)
+				issues, _ := h.findSimilarIssues(ctx, p.ID, queryText, 5)
+				if len(duplicates) == 0 && len(issues) == 0 {
+					continue
+				}
+				for _, d := range duplicates {
+					coveredIDs[d.ID] = true
+				}
+				groups = append(groups, ProposalDedupGroup{
+					Proposal:       toProposalItem(proposal),
+					Duplicates:     duplicates,
+					ExistingIssues: issues,
+				})
+			}
+			type respBody = struct {
+				Groups []ProposalDedupGroup `json:"groups"`
+			}
+			return &struct{ Body respBody }{Body: respBody{Groups: groups}}, nil
 		})
 }
