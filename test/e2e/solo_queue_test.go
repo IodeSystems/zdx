@@ -76,8 +76,8 @@ func TestQueueKindAnswer(t *testing.T) {
 
 	items := d.EvaluateQueue("")
 	item := requireKind(t, items, "answer")
-	if item.TargetType != "question" {
-		t.Errorf("expected target_type=question, got %q", item.TargetType)
+	if item.TargetType != "qa" {
+		t.Errorf("expected target_type=qa, got %q", item.TargetType)
 	}
 }
 
