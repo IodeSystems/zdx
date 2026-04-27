@@ -473,6 +473,10 @@ type Querier interface {
 	ResolveTodoByID(ctx context.Context, id int32) error
 	ResolveTodosNotInKeys(ctx context.Context, arg ResolveTodosNotInKeysParams) error
 	RevokeIntegrationToken(ctx context.Context, id int32) error
+	// metaquery: off
+	SearchFeatures(ctx context.Context, arg SearchFeaturesParams) ([]SearchFeaturesRow, error)
+	// metaquery: off
+	SearchFocuses(ctx context.Context, arg SearchFocusesParams) ([]SearchFocusesRow, error)
 	SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]ZdxIssue, error)
 	// metaquery: off
 	SearchPatterns(ctx context.Context, arg SearchPatternsParams) ([]ZdxPattern, error)
