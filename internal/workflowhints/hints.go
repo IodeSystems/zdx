@@ -640,6 +640,25 @@ func DecomposeFeatureText(title, description string) Hint {
 	}
 }
 
+// RespondDiscussionText builds a Hint for a discussion whose last message is
+// from the user. The agent should read the full history and post a direct reply.
+func RespondDiscussionText(discussionID, title, lastMessage string) Hint {
+	return Hint{
+		Title:       fmt.Sprintf("Reply in %s: %s", discussionID, title),
+		Description: lastMessage,
+		Instructions: fmt.Sprintf(
+			"User message awaiting reply in discussion %s: %s.\n\n"+
+				"Last user message:\n> %s\n\n"+
+				"1. Read the full history: `dx discussion show %s`.\n"+
+				"2. Compose a response that addresses the user's message directly.\n"+
+				"3. Reply: `dx discussion reply %s --message=\"<your response>\"`.\n"+
+				"   Use `dx discussion reply` (agent post, no LLM call) — the agent IS the respondent here.\n"+
+				"Stop after replying — one discussion per session.",
+			discussionID, title, lastMessage, discussionID, discussionID,
+		),
+	}
+}
+
 // ReviewDeferredSpecText builds a Hint for a spec whose deferral blockers are all closed.
 // The agent should evaluate whether to write the test, mark the spec resolved, or re-defer.
 func ReviewDeferredSpecText(specID int32, description string) Hint {

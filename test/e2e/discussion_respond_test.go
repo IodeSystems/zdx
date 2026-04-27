@@ -3,6 +3,7 @@ package e2e
 import (
 	"fmt"
 	"net/http"
+	"strings"
 	"testing"
 )
 
@@ -42,6 +43,42 @@ func TestQueueKindRespondDiscussion(t *testing.T) {
 
 	items = d.EvaluateQueue("")
 	requireNoKind(t, items, "respond:discussion")
+}
+
+// TestQueueRespondDiscussionHintText verifies IS-518: the respond:discussion
+// todo carries agent-actionable instructions (not just the raw user message),
+// including the discussion ID and a dx discussion reply command.
+func TestQueueRespondDiscussionHintText(t *testing.T) {
+	d := NewApiDriver(t, "q-discuss-hint", "Queue Discussion Hint")
+
+	var ds struct {
+		ID int32 `json:"id"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/discussions",
+		map[string]any{"slug": d.Slug, "title": "Agent inbox"}, &ds))
+
+	userMsg := "What is the status of IS-518?"
+	mustOK(t, apiDo(t, http.MethodPost,
+		fmt.Sprintf("/api/dx/discussions/%d/messages", ds.ID),
+		map[string]any{"slug": d.Slug, "role": "user", "content": userMsg}, nil))
+
+	items := d.EvaluateQueue("")
+	item := requireKind(t, items, "respond:discussion")
+
+	dsRef := fmt.Sprintf("DS-%d", ds.ID)
+
+	if !strings.Contains(item.Text, dsRef) {
+		t.Errorf("todo text should contain %s, got: %s", dsRef, item.Text)
+	}
+	if !strings.Contains(item.Text, "dx discussion reply") {
+		t.Errorf("todo text should contain 'dx discussion reply', got: %s", item.Text)
+	}
+	if !strings.Contains(item.Text, userMsg) {
+		t.Errorf("todo text should include the user message, got: %s", item.Text)
+	}
+	if !strings.Contains(item.Text, "dx discussion show") {
+		t.Errorf("todo text should include 'dx discussion show', got: %s", item.Text)
+	}
 }
 
 // TestQueueRespondDiscussionSkipsClosed verifies that closed discussions —

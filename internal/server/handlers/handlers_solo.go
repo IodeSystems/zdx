@@ -200,8 +200,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	}
 
 	// Active discussions whose tail message is from the user — surface a todo
-	// so an agent picks up the dangling thread (e.g. when an LLM send failed
-	// after the user turn was persisted but before the assistant turn).
+	// so an agent picks up the dangling thread.
 	if issueFilter == "" {
 		pending, _ := h.Q.ListDiscussionsAwaitingResponse(ctx, projectID)
 		for _, d := range pending {
@@ -209,14 +208,16 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if title == "" {
 				title = "Untitled discussion"
 			}
+			dsID := fmt.Sprintf("DS-%d", d.ID)
+			dh := workflowhints.RespondDiscussionText(dsID, title, d.Content)
 			candidates = append(candidates, soloCandidate{
 				Key:         fmt.Sprintf("discussion-%d", d.ID),
-				Title:       fmt.Sprintf("Reply in DS-%d: %s", d.ID, title),
-				Description: d.Content,
-				Text:        d.Content,
+				Title:       dh.Title,
+				Description: dh.Description,
+				Text:        dh.Instructions,
 				Kind:        "respond:discussion",
 				TargetType:  "discussion",
-				TargetID:    fmt.Sprintf("DS-%d", d.ID),
+				TargetID:    dsID,
 				Priority:    10,
 				Persona:     "dev",
 			})
@@ -978,11 +979,14 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 
 	// POST /api/dx/solo/release — release or resolve a claimed todo
 	//
-	// When resolve=true the todo is marked resolved. After resolving, a
-	// post-resolve cycle check regenerates the queue and looks for the same
-	// key. If the candidate reappears, the agent clearly cannot fix the
-	// underlying condition — the todo is auto-blocked and cycle_detected is
-	// returned so the agent can log the error and move on.
+	// When resolve=true the todo is marked resolved. Two guards prevent a
+	// resolve from sticking when the underlying work isn't actually done:
+	//   - Pre-resolve (IS-514): for triage todos, verify the issue has a
+	//     priority. If not, downgrade to release + auto-block.
+	//   - Post-resolve cycle check: regenerate the queue and look for the
+	//     same key. If it reappears, auto-block.
+	// In either case cycle_detected is returned so the agent surfaces the
+	// discrepancy instead of re-claiming.
 	//
 	// The reopen_count churn guard (auto-block at 3+ reopens) remains as a
 	// secondary safety net in UpsertTodo.
@@ -1003,6 +1007,20 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 		}, error) {
 			resolve := in.Body.Resolve
 			todo, _ := h.Q.GetTodoByID(ctx, in.Body.ID)
+
+			// IS-514: pre-resolve guard for triage todos. Resolve only succeeds
+			// if the underlying issue has actually been triaged (priority set).
+			// Otherwise the agent's "session succeeded" path silently flips the
+			// todo to resolved even though no triage level was applied.
+			triageIncomplete := false
+			if resolve && todo.ID != 0 && todo.Kind == "triage" && todo.TargetType == "issue" && todo.TargetID != "" {
+				iss, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: todo.ProjectID, ID: todo.TargetID})
+				if err == nil && iss.Priority == "" {
+					triageIncomplete = true
+					resolve = false
+				}
+			}
+
 			if resolve {
 				_ = h.Q.ResolveTodoByID(ctx, in.Body.ID)
 			} else if in.Body.AgentID == "" {
@@ -1021,11 +1039,21 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				})
 			}
 
-			// Post-resolve cycle check: if we just resolved a todo, regenerate
-			// the queue and see if the same key would come back. If so, the
-			// agent cannot fix this — auto-block to prevent infinite loops.
 			cycleDetected := false
-			if resolve && todo.Key != "" && todo.ProjectID != 0 {
+			switch {
+			case triageIncomplete:
+				// Agent reported the triage todo done but the issue still has
+				// no priority. Auto-block and surface as cycle_detected so the
+				// agent logs the discrepancy rather than re-claiming.
+				cycleDetected = true
+				_ = h.Q.BlockTodoByKey(ctx, db.BlockTodoByKeyParams{
+					ProjectID: todo.ProjectID,
+					Key:       todo.Key,
+				})
+			case resolve && todo.Key != "" && todo.ProjectID != 0:
+				// Post-resolve cycle check: if we just resolved a todo, regenerate
+				// the queue and see if the same key would come back. If so, the
+				// agent cannot fix this — auto-block to prevent infinite loops.
 				candidates, err := h.generateSoloQueue(ctx, todo.ProjectID, "", true)
 				if err == nil {
 					for _, c := range candidates {

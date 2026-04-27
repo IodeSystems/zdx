@@ -200,6 +200,79 @@ func TestSoloTriage(t *testing.T) {
 	d.CloseIssue(issueID)
 }
 
+// TestSoloTriageResolveRefusedWhenUntriaged covers IS-514: a triage todo
+// must not be marked resolved unless the underlying issue actually has a
+// priority. The agent's "session succeeded" path used to silently flip
+// the todo to resolved without applying any triage level. The server now
+// downgrades that resolve to a release+block and returns cycle_detected.
+func TestSoloTriageResolveRefusedWhenUntriaged(t *testing.T) {
+	d := NewApiDriver(t, "solo-triage-guard", "Solo Triage Guard")
+	// Pre-load goals/constraints/journal so the only remaining queue item
+	// for the agent to pick is the untriaged-issue triage candidate.
+	Given(d).
+		Issue("Untriaged issue", "needs triage").
+		HealthPrereqs().
+		Build()
+
+	var claimed TodoItem
+	for i := 0; i < 10; i++ {
+		c, status := soloClaimNext(t, d.Slug, fmt.Sprintf("test-agent-%d", i))
+		if status != http.StatusOK {
+			t.Fatalf("solo/claim attempt %d: status=%d", i, status)
+		}
+		if c.Kind == "triage" {
+			claimed = c
+			break
+		}
+	}
+	if claimed.Kind != "triage" {
+		t.Fatalf("did not find a triage todo to claim after 10 attempts")
+	}
+
+	var rel struct {
+		OK            bool `json:"ok"`
+		CycleDetected bool `json:"cycle_detected"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+		map[string]any{"id": claimed.ID, "agent_id": "test-agent", "resolve": true}, &rel))
+
+	if !rel.CycleDetected {
+		t.Error("expected cycle_detected=true when resolving a triage todo with no priority applied")
+	}
+
+	var listResp struct {
+		Todos []struct {
+			ID         int32  `json:"id"`
+			Status     string `json:"status"`
+			Blocked    bool   `json:"blocked"`
+			Kind       string `json:"kind"`
+			ResolvedAt string `json:"resolved_at"`
+		} `json:"todos"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet,
+		fmt.Sprintf("/api/dx/todos?slug=%s", d.Slug), nil, &listResp))
+
+	var foundTodo bool
+	for _, td := range listResp.Todos {
+		if td.ID != claimed.ID {
+			continue
+		}
+		foundTodo = true
+		if td.Status == "resolved" {
+			t.Errorf("triage todo should not be resolved when issue still has no priority, got status=%q", td.Status)
+		}
+		if !td.Blocked {
+			t.Error("triage todo should be auto-blocked after a refused resolve")
+		}
+		if td.ResolvedAt != "" {
+			t.Errorf("resolved_at should be empty, got %q", td.ResolvedAt)
+		}
+	}
+	if !foundTodo {
+		t.Fatalf("could not find todo id=%d in /api/dx/todos response", claimed.ID)
+	}
+}
+
 func TestSoloOwnerSpec(t *testing.T) {
 	d := NewApiDriver(t, "solo-spec", "Solo Spec")
 	Given(d).Feature("specless", "Feature without specs").Build()
