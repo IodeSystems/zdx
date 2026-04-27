@@ -49,7 +49,7 @@ The data model follows a canonical hierarchy:
 
 - **Goal** — outcome with optional metric (metric_name, metric_unit). Maturity gradient: metrics encouraged but not gated.
 - **Feature** — demonstrable value driver. `kind`: `direct` (deposits goal currency) or `multiplier` (amplifies other features; needs metric + baseline + target + graph_url). Over-specced features (>8 specs) signal decomposition via parent_feature_id.
-- **Spec** — concern on a feature. `kind` (must/should/nice-to-have) + `concern_type` (functional/latency/security/ux/compatibility).
+- **Spec** — concern on a feature. `kind` (must/should/nice-to-have). DB has `concern_type` column but no CLI flag or workflow uses it yet.
 - **Focus** (was "theme") — prioritization lens / sprint. M:N with features via zdx_focus_features. Any feature can belong to multiple active focuses.
 - **Plan** — first-class living object anchored to a focus, feature, or issue. Has ordered steps with discovery refs. Commentable, updatable, referencable.
 
@@ -119,7 +119,7 @@ dx feature add/show/set       # feature management (kind, goal, metrics)
 dx goal add/list              # goals with optional metrics
 dx focus add/list/status      # prioritization lenses (was: theme)
 dx plan add/show/step         # living plans with steps
-dx spec add                   # specs with concern_type
+dx spec add                   # specs with kind (must/should/nice-to-have)
 dx agent claude --loop        # agent work loop with todo claiming
 ```
 
