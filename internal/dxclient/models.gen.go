@@ -253,6 +253,7 @@ type AddTaskRequest struct {
 	Issue     *string `json:"issue,omitempty"`
 	Reason    *string `json:"reason,omitempty"`
 	Slug      string  `json:"slug"`
+	Spec      *string `json:"spec,omitempty"`
 	TaskGroup *string `json:"task_group,omitempty"`
 	TestPlan  *string `json:"test_plan,omitempty"`
 	Text      string  `json:"text"`
@@ -3443,6 +3444,7 @@ type TaskItem struct {
 	LeaseExpiresAt *string `json:"lease_expires_at,omitempty"`
 	Reason         string  `json:"reason"`
 	ReviewedAt     *string `json:"reviewed_at,omitempty"`
+	Spec           *string `json:"spec,omitempty"`
 	StaleSince     *string `json:"stale_since,omitempty"`
 	Status         string  `json:"status"`
 	TaskGroup      string  `json:"task_group"`

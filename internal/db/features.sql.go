@@ -216,6 +216,32 @@ func (q *Queries) GetSpec(ctx context.Context, id int32) (ZdxSpec, error) {
 	return i, err
 }
 
+const getSpecForProject = `-- name: GetSpecForProject :one
+SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE s.id = $1 AND f.project_id = $2
+`
+
+type GetSpecForProjectParams struct {
+	ID        int32 `db:"id" json:"id"`
+	ProjectID int32 `db:"project_id" json:"project_id"`
+}
+
+// Fetch a spec by id, validating it belongs to the given project.
+func (q *Queries) GetSpecForProject(ctx context.Context, arg GetSpecForProjectParams) (ZdxSpec, error) {
+	row := q.db.QueryRow(ctx, getSpecForProject, arg.ID, arg.ProjectID)
+	var i ZdxSpec
+	err := row.Scan(
+		&i.ID,
+		&i.FeatureID,
+		&i.Description,
+		&i.Kind,
+		&i.ConcernType,
+	)
+	return i, err
+}
+
 const linkSpecIssue = `-- name: LinkSpecIssue :exec
 INSERT INTO zdx_spec_issues (spec_id, issue_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
 `
@@ -691,7 +717,8 @@ WHERE f.project_id = $1
     WHERE t.project_id = $1
       AND t.status IN ('ready', 'wip', 'active')
       AND (
-        t.title ~* ('\mspec\s+' || s.id::text || '\M')
+        t.spec = s.id::text
+        OR t.title ~* ('\mspec\s+' || s.id::text || '\M')
         OR t.text ~* ('\mspec\s+' || s.id::text || '\M')
       )
   )

@@ -1609,7 +1609,7 @@ func todoTechCmd() *cobra.Command {
 }
 
 func todoTechAddCmd() *cobra.Command {
-	var issue, feature, title, text, reason, testPlan, taskGroup string
+	var issue, feature, spec, title, text, reason, testPlan, taskGroup string
 	var autoReady, force bool
 	cmd := &cobra.Command{
 		Use:   "add",
@@ -1647,6 +1647,9 @@ func todoTechAddCmd() *cobra.Command {
 			}
 			if issue != "" {
 				body.Issue = &issue
+			}
+			if spec != "" {
+				body.Spec = &spec
 			}
 			if taskGroup != "" {
 				body.TaskGroup = &taskGroup
@@ -1719,6 +1722,7 @@ func todoTechAddCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&issue, "issue", "", "link to issue (IS-N)")
 	cmd.Flags().StringVar(&feature, "feature", "", "link to feature name")
+	cmd.Flags().StringVar(&spec, "spec", "", "link to spec by integer ID (suppresses the test-ref nudge while open)")
 	cmd.Flags().StringVar(&title, "title", "", "outcome-oriented headline (what)")
 	cmd.Flags().StringVar(&text, "text", "", "implementation plan (how)")
 	cmd.Flags().StringVar(&reason, "reason", "", "motivation (why)")

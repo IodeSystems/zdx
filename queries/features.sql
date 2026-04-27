@@ -97,6 +97,13 @@ ORDER BY s.feature_id, s.id;
 SELECT id, feature_id, description, kind, concern_type
 FROM zdx_specs WHERE id = $1;
 
+-- name: GetSpecForProject :one
+-- Fetch a spec by id, validating it belongs to the given project.
+SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE s.id = $1 AND f.project_id = $2;
+
 -- name: ListUncoveredSpecs :many
 -- Specs without linked tests AND without an open task in flight for them.
 -- The "in-flight" check matches any open task (wip/ready/active) whose title
@@ -114,7 +121,8 @@ WHERE f.project_id = $1
     WHERE t.project_id = $1
       AND t.status IN ('ready', 'wip', 'active')
       AND (
-        t.title ~* ('\mspec\s+' || s.id::text || '\M')
+        t.spec = s.id::text
+        OR t.title ~* ('\mspec\s+' || s.id::text || '\M')
         OR t.text ~* ('\mspec\s+' || s.id::text || '\M')
       )
   )

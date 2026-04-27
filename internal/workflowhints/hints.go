@@ -566,9 +566,10 @@ func NoTestRefsText(specID int32, description, featureName string) Hint {
 				"Option A — if a test already covers this spec:\n"+
 				"   `dx spec link %d <test-id>`\n"+
 				"Option B — if no test exists, file a task for it:\n"+
-				"   `dx todo tech add --title=\"Test spec %d: %s\" --text=\"<test approach>\" --test-plan=\"<how the test verifies the spec>\"`\n"+
+				"   `dx todo tech add --spec=%d --title=\"Test spec %d: %s\" --text=\"<test approach>\" --test-plan=\"<how the test verifies the spec>\"`\n"+
+				"The --spec flag links the task to this spec and suppresses this nudge while the task is open.\n"+
 				"Stop after linking/filing — the test itself is a separate dev task.",
-			specID, description, featureName, specID, specID, description,
+			specID, description, featureName, specID, specID, specID, description,
 		),
 	}
 }

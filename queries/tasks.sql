@@ -1,5 +1,5 @@
 -- name: ListTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id
   AND (@status_filter::text = '' OR status = @status_filter)
@@ -10,7 +10,7 @@ ORDER BY updated_at DESC;
 SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND status = 'done';
 
 -- name: ListTasksByFeature :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id AND feature = @feature
   AND (@status_filter::text = '' OR status = @status_filter)
@@ -18,7 +18,7 @@ WHERE project_id = @project_id AND feature = @feature
 ORDER BY updated_at DESC;
 
 -- name: ListTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id AND issue = @issue
   AND (@status_filter::text = '' OR status = @status_filter)
@@ -26,13 +26,13 @@ WHERE project_id = @project_id AND issue = @issue
 ORDER BY updated_at DESC;
 
 -- name: GetTask :one
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1;
 
 -- name: CreateTask :one
-INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at;
+INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan, spec)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at;
 
 -- name: ReadyTask :exec
 UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1 AND status = 'wip';
@@ -90,7 +90,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at;
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at;
 
 -- name: ReleaseTask :exec
 UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1;
@@ -100,7 +100,7 @@ UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1;
 
 -- name: ListActiveTaskClaims :many
 -- Return tasks that currently have an unexpired, unreleased reservation.
-SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at,
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -110,7 +110,7 @@ WHERE t.project_id = $1
 ORDER BY r.claimed_at DESC;
 
 -- name: ListTasksByAgent :many
-SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at,
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -132,7 +132,7 @@ WHERE status = 'active'
       AND r.lease_expires_at > NOW()
   )
   AND status != 'done'
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at;
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at;
 
 -- name: CancelOrphanedTasks :many
 -- Skip ready tasks with no test_refs: they were never verified. Those stay
@@ -149,7 +149,7 @@ WHERE t.issue = i.id
     t.status IN ('active', 'wip')
     OR (t.status = 'ready' AND t.test_refs != '')
   )
-RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at;
+RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at;
 
 -- name: ListReadyTasksWithoutTestRefsByIssue :many
 -- Ready tasks linked to an issue that have no test_refs. CancelOrphanedTasks
@@ -166,23 +166,23 @@ WHERE project_id = @project_id
 UPDATE zdx_tasks SET reviewed_at = NOW(), updated_at = NOW() WHERE id = $1;
 
 -- name: ListUnreviewedDoneTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC;
 
 -- name: ListUnreviewedDoneTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC;
 
 -- name: GetTaskWithReview :one
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1;
 
 -- name: GetTaskByExactText :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id
   AND text = @text
@@ -219,7 +219,7 @@ WHERE status = 'ready'
 RETURNING id, text, issue;
 
 -- name: ListStaleTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
@@ -227,7 +227,7 @@ WHERE project_id = $1
 ORDER BY stale_since ASC;
 
 -- name: ListStaleTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
@@ -241,7 +241,7 @@ UPDATE zdx_tasks SET stale_since = NULL, updated_at = NOW() WHERE id = $1;
 
 -- name: ListOrphanReadyTasks :many
 -- Ready tasks with no parent issue — invisible to the normal solo queue.
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND status = 'ready'

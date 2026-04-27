@@ -316,6 +316,47 @@ var GetSpecCols = struct {
 	ConcernType: metaquery.NewTextCol("concern_type"),
 }
 
+var MetaGetSpecForProject = metaquery.Query{
+	Name:   "GetSpecForProject",
+	Cmd:    ":one",
+	Source: "features.sql",
+	SQL: `SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE s.id = $1 AND f.project_id = $2`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
+		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapGetSpecForProject returns a metaquery.Builder over MetaGetSpecForProject, pre-bound with typed arguments.
+func WrapGetSpecForProject(arg GetSpecForProjectParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetSpecForProject, arg.ID, arg.ProjectID)
+}
+
+// GetSpecForProjectCols gives typed, name-safe access to GetSpecForProject's output columns.
+var GetSpecForProjectCols = struct {
+	ID          metaquery.IntCol
+	FeatureID   metaquery.IntCol
+	Description metaquery.TextCol
+	Kind        metaquery.TextCol
+	ConcernType metaquery.TextCol
+}{
+	ID:          metaquery.NewIntCol("id"),
+	FeatureID:   metaquery.NewIntCol("feature_id"),
+	Description: metaquery.NewTextCol("description"),
+	Kind:        metaquery.NewTextCol("kind"),
+	ConcernType: metaquery.NewTextCol("concern_type"),
+}
+
 var MetaLinkSpecIssue = metaquery.Query{
 	Name:   "LinkSpecIssue",
 	Cmd:    ":exec",
@@ -822,7 +863,8 @@ WHERE f.project_id = $1
     WHERE t.project_id = $1
       AND t.status IN ('ready', 'wip', 'active')
       AND (
-        t.title ~* ('\mspec\s+' || s.id::text || '\M')
+        t.spec = s.id::text
+        OR t.title ~* ('\mspec\s+' || s.id::text || '\M')
         OR t.text ~* ('\mspec\s+' || s.id::text || '\M')
       )
   )

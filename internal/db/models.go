@@ -728,6 +728,7 @@ type ZdxTask struct {
 	ReviewedAt  pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 	StaleSince  pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
 	Title       string             `db:"title" json:"title"`
+	Spec        string             `db:"spec" json:"spec"`
 }
 
 type ZdxTaskCodeRef struct {

@@ -196,6 +196,8 @@ type Querier interface {
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetQuestionProposal(ctx context.Context, arg GetQuestionProposalParams) (ZdxQuestionProposal, error)
 	GetSpec(ctx context.Context, id int32) (ZdxSpec, error)
+	// Fetch a spec by id, validating it belongs to the given project.
+	GetSpecForProject(ctx context.Context, arg GetSpecForProjectParams) (ZdxSpec, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
 	GetTask(ctx context.Context, id string) (GetTaskRow, error)
 	GetTaskByExactText(ctx context.Context, arg GetTaskByExactTextParams) ([]GetTaskByExactTextRow, error)

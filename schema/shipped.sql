@@ -2086,7 +2086,8 @@ CREATE TABLE public.zdx_tasks (
     task_group text DEFAULT ''::text NOT NULL,
     reviewed_at timestamp with time zone,
     stale_since timestamp with time zone,
-    title text DEFAULT ''::text NOT NULL
+    title text DEFAULT ''::text NOT NULL,
+    spec text DEFAULT ''::text NOT NULL
 );
 
 

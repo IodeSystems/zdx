@@ -24,7 +24,7 @@ WHERE t.issue = i.id
     t.status IN ('active', 'wip')
     OR (t.status = 'ready' AND t.test_refs != '')
   )
-RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at
+RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at
 `
 
 type CancelOrphanedTasksRow struct {
@@ -40,6 +40,7 @@ type CancelOrphanedTasksRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -69,6 +70,7 @@ func (q *Queries) CancelOrphanedTasks(ctx context.Context) ([]CancelOrphanedTask
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -104,7 +106,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 `
 
 type ClaimTaskParams struct {
@@ -126,6 +128,7 @@ type ClaimTaskRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -149,6 +152,7 @@ func (q *Queries) ClaimTask(ctx context.Context, arg ClaimTaskParams) (ClaimTask
 		&i.TestPlan,
 		&i.TestRefs,
 		&i.TaskGroup,
+		&i.Spec,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -177,9 +181,9 @@ func (q *Queries) CountClosedTasks(ctx context.Context, projectID int32) (int64,
 }
 
 const createTask = `-- name: CreateTask :one
-INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan, spec)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 `
 
 type CreateTaskParams struct {
@@ -193,6 +197,7 @@ type CreateTaskParams struct {
 	Status    string `db:"status" json:"status"`
 	Reason    string `db:"reason" json:"reason"`
 	TestPlan  string `db:"test_plan" json:"test_plan"`
+	Spec      string `db:"spec" json:"spec"`
 }
 
 type CreateTaskRow struct {
@@ -208,6 +213,7 @@ type CreateTaskRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -225,6 +231,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (CreateT
 		arg.Status,
 		arg.Reason,
 		arg.TestPlan,
+		arg.Spec,
 	)
 	var i CreateTaskRow
 	err := row.Scan(
@@ -240,6 +247,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (CreateT
 		&i.TestPlan,
 		&i.TestRefs,
 		&i.TaskGroup,
+		&i.Spec,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -318,7 +326,7 @@ func (q *Queries) FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) 
 }
 
 const getTask = `-- name: GetTask :one
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1
 `
 
@@ -335,6 +343,7 @@ type GetTaskRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -356,6 +365,7 @@ func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
 		&i.TestPlan,
 		&i.TestRefs,
 		&i.TaskGroup,
+		&i.Spec,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -364,7 +374,7 @@ func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
 }
 
 const getTaskByExactText = `-- name: GetTaskByExactText :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND text = $2
@@ -392,6 +402,7 @@ type GetTaskByExactTextRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -419,6 +430,7 @@ func (q *Queries) GetTaskByExactText(ctx context.Context, arg GetTaskByExactText
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -434,7 +446,7 @@ func (q *Queries) GetTaskByExactText(ctx context.Context, arg GetTaskByExactText
 }
 
 const getTaskWithReview = `-- name: GetTaskWithReview :one
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1
 `
 
@@ -451,6 +463,7 @@ type GetTaskWithReviewRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -473,6 +486,7 @@ func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWith
 		&i.TestPlan,
 		&i.TestRefs,
 		&i.TaskGroup,
+		&i.Spec,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -482,7 +496,7 @@ func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWith
 }
 
 const listActiveTaskClaims = `-- name: ListActiveTaskClaims :many
-SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at,
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -505,6 +519,7 @@ type ListActiveTaskClaimsRow struct {
 	TestPlan       string             `db:"test_plan" json:"test_plan"`
 	TestRefs       string             `db:"test_refs" json:"test_refs"`
 	TaskGroup      string             `db:"task_group" json:"task_group"`
+	Spec           string             `db:"spec" json:"spec"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -536,6 +551,7 @@ func (q *Queries) ListActiveTaskClaims(ctx context.Context, projectID int32) ([]
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -609,7 +625,7 @@ func (q *Queries) ListOpenTasksByTitlePrefix(ctx context.Context, arg ListOpenTa
 }
 
 const listOrphanReadyTasks = `-- name: ListOrphanReadyTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND status = 'ready'
@@ -630,6 +646,7 @@ type ListOrphanReadyTasksRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -658,6 +675,7 @@ func (q *Queries) ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -715,7 +733,7 @@ func (q *Queries) ListReadyTasksWithoutTestRefsByIssue(ctx context.Context, arg 
 }
 
 const listStaleTasks = `-- name: ListStaleTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
@@ -736,6 +754,7 @@ type ListStaleTasksRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -764,6 +783,7 @@ func (q *Queries) ListStaleTasks(ctx context.Context, projectID int32) ([]ListSt
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -780,7 +800,7 @@ func (q *Queries) ListStaleTasks(ctx context.Context, projectID int32) ([]ListSt
 }
 
 const listStaleTasksByIssue = `-- name: ListStaleTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
@@ -807,6 +827,7 @@ type ListStaleTasksByIssueRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -835,6 +856,7 @@ func (q *Queries) ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksB
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -851,7 +873,7 @@ func (q *Queries) ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksB
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND ($2::text = '' OR status = $2)
@@ -878,6 +900,7 @@ type ListTasksRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -905,6 +928,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTas
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -920,7 +944,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTas
 }
 
 const listTasksByAgent = `-- name: ListTasksByAgent :many
-SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at,
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -942,6 +966,7 @@ type ListTasksByAgentRow struct {
 	TestPlan       string             `db:"test_plan" json:"test_plan"`
 	TestRefs       string             `db:"test_refs" json:"test_refs"`
 	TaskGroup      string             `db:"task_group" json:"task_group"`
+	Spec           string             `db:"spec" json:"spec"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -972,6 +997,7 @@ func (q *Queries) ListTasksByAgent(ctx context.Context, claimedBy string) ([]Lis
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -990,7 +1016,7 @@ func (q *Queries) ListTasksByAgent(ctx context.Context, claimedBy string) ([]Lis
 }
 
 const listTasksByFeature = `-- name: ListTasksByFeature :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND feature = $2
   AND ($3::text = '' OR status = $3)
@@ -1018,6 +1044,7 @@ type ListTasksByFeatureRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -1050,6 +1077,7 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1065,7 +1093,7 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 }
 
 const listTasksByIssue = `-- name: ListTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2
   AND ($3::text = '' OR status = $3)
@@ -1093,6 +1121,7 @@ type ListTasksByIssueRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -1125,6 +1154,7 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1140,7 +1170,7 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 }
 
 const listUnreviewedDoneTasks = `-- name: ListUnreviewedDoneTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC
@@ -1159,6 +1189,7 @@ type ListUnreviewedDoneTasksRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -1187,6 +1218,7 @@ func (q *Queries) ListUnreviewedDoneTasks(ctx context.Context, projectID int32) 
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1203,7 +1235,7 @@ func (q *Queries) ListUnreviewedDoneTasks(ctx context.Context, projectID int32) 
 }
 
 const listUnreviewedDoneTasksByIssue = `-- name: ListUnreviewedDoneTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC
@@ -1227,6 +1259,7 @@ type ListUnreviewedDoneTasksByIssueRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -1255,6 +1288,7 @@ func (q *Queries) ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUn
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1327,7 +1361,7 @@ WHERE status = 'active'
       AND r.lease_expires_at > NOW()
   )
   AND status != 'done'
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 `
 
 type ReclaimExpiredTasksRow struct {
@@ -1343,6 +1377,7 @@ type ReclaimExpiredTasksRow struct {
 	TestPlan    string             `db:"test_plan" json:"test_plan"`
 	TestRefs    string             `db:"test_refs" json:"test_refs"`
 	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
 	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -1371,6 +1406,7 @@ func (q *Queries) ReclaimExpiredTasks(ctx context.Context) ([]ReclaimExpiredTask
 			&i.TestPlan,
 			&i.TestRefs,
 			&i.TaskGroup,
+			&i.Spec,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,

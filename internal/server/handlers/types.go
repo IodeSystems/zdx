@@ -36,6 +36,7 @@ type TaskItem struct {
 	Status         string `json:"status"`
 	Reason         string `json:"reason"`
 	IssueID        *int32 `json:"issue_id,omitempty" doc:"Linked issue integer ID; CLI formats as IS-N"`
+	Spec           string `json:"spec,omitempty" doc:"Linked spec integer ID"`
 	Depends        string `json:"depends"`
 	TestPlan       string `json:"test_plan"`
 	TestRefs       string `json:"test_refs"`

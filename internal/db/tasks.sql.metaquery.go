@@ -27,7 +27,7 @@ WHERE t.issue = i.id
     t.status IN ('active', 'wip')
     OR (t.status = 'ready' AND t.test_refs != '')
   )
-RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at`,
+RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tasks"},
@@ -41,6 +41,7 @@ RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -66,6 +67,7 @@ var CancelOrphanedTasksCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -82,6 +84,7 @@ var CancelOrphanedTasksCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -111,7 +114,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at`,
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tasks"},
@@ -125,6 +128,7 @@ RETURNING id, project_id, title, text, feature, status, reason, issue, depends, 
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -155,6 +159,7 @@ var ClaimTaskCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -171,6 +176,7 @@ var ClaimTaskCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -220,9 +226,9 @@ var MetaCreateTask = metaquery.Query{
 	Name:   "CreateTask",
 	Cmd:    ":one",
 	Source: "tasks.sql",
-	SQL: `INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at`,
+	SQL: `INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan, spec)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tasks"},
@@ -236,6 +242,7 @@ RETURNING id, project_id, title, text, feature, status, reason, issue, depends, 
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -251,13 +258,14 @@ RETURNING id, project_id, title, text, feature, status, reason, issue, depends, 
 		{Position: 8, Name: "status", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 9, Name: "reason", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 10, Name: "test_plan", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 11, Name: "spec", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_tasks"},
 }
 
 // WrapCreateTask returns a metaquery.Builder over MetaCreateTask, pre-bound with typed arguments.
 func WrapCreateTask(arg CreateTaskParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateTask, arg.ID, arg.ProjectID, arg.Title, arg.Text, arg.Feature, arg.Issue, arg.TaskGroup, arg.Status, arg.Reason, arg.TestPlan)
+	return metaquery.Wrap(&MetaCreateTask, arg.ID, arg.ProjectID, arg.Title, arg.Text, arg.Feature, arg.Issue, arg.TaskGroup, arg.Status, arg.Reason, arg.TestPlan, arg.Spec)
 }
 
 // CreateTaskCols gives typed, name-safe access to CreateTask's output columns.
@@ -274,6 +282,7 @@ var CreateTaskCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -290,6 +299,7 @@ var CreateTaskCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -375,7 +385,7 @@ var MetaGetTask = metaquery.Query{
 	Name:   "GetTask",
 	Cmd:    ":one",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
@@ -390,6 +400,7 @@ FROM zdx_tasks WHERE id = $1`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -418,6 +429,7 @@ var GetTaskCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -434,6 +446,7 @@ var GetTaskCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -443,7 +456,7 @@ var MetaGetTaskByExactText = metaquery.Query{
 	Name:   "GetTaskByExactText",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND text = $2
@@ -463,6 +476,7 @@ ORDER BY created_at DESC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -493,6 +507,7 @@ var GetTaskByExactTextCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -509,6 +524,7 @@ var GetTaskByExactTextCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -518,7 +534,7 @@ var MetaGetTaskWithReview = metaquery.Query{
 	Name:   "GetTaskWithReview",
 	Cmd:    ":one",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
@@ -533,6 +549,7 @@ FROM zdx_tasks WHERE id = $1`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -562,6 +579,7 @@ var GetTaskWithReviewCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -579,6 +597,7 @@ var GetTaskWithReviewCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -589,7 +608,7 @@ var MetaListActiveTaskClaims = metaquery.Query{
 	Name:   "ListActiveTaskClaims",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at,
+	SQL: `SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -610,6 +629,7 @@ ORDER BY r.claimed_at DESC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -641,6 +661,7 @@ var ListActiveTaskClaimsCols = struct {
 	TestPlan       metaquery.TextCol
 	TestRefs       metaquery.TextCol
 	TaskGroup      metaquery.TextCol
+	Spec           metaquery.TextCol
 	CreatedAt      metaquery.TimeCol
 	CompletedAt    metaquery.TimeCol
 	UpdatedAt      metaquery.TimeCol
@@ -660,6 +681,7 @@ var ListActiveTaskClaimsCols = struct {
 	TestPlan:       metaquery.NewTextCol("test_plan"),
 	TestRefs:       metaquery.NewTextCol("test_refs"),
 	TaskGroup:      metaquery.NewTextCol("task_group"),
+	Spec:           metaquery.NewTextCol("spec"),
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 	CompletedAt:    metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
@@ -721,7 +743,7 @@ var MetaListOrphanReadyTasks = metaquery.Query{
 	Name:   "ListOrphanReadyTasks",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND status = 'ready'
@@ -740,6 +762,7 @@ ORDER BY created_at`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -768,6 +791,7 @@ var ListOrphanReadyTasksCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -784,6 +808,7 @@ var ListOrphanReadyTasksCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -827,7 +852,7 @@ var MetaListStaleTasks = metaquery.Query{
 	Name:   "ListStaleTasks",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
@@ -846,6 +871,7 @@ ORDER BY stale_since ASC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -875,6 +901,7 @@ var ListStaleTasksCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -892,6 +919,7 @@ var ListStaleTasksCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -902,7 +930,7 @@ var MetaListStaleTasksByIssue = metaquery.Query{
 	Name:   "ListStaleTasksByIssue",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, stale_since
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
@@ -922,6 +950,7 @@ ORDER BY stale_since ASC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -952,6 +981,7 @@ var ListStaleTasksByIssueCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -969,6 +999,7 @@ var ListStaleTasksByIssueCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -979,7 +1010,7 @@ var MetaListTasks = metaquery.Query{
 	Name:   "ListTasks",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND ($2::text = '' OR status = $2)
@@ -998,6 +1029,7 @@ ORDER BY updated_at DESC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1028,6 +1060,7 @@ var ListTasksCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -1044,6 +1077,7 @@ var ListTasksCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -1053,7 +1087,7 @@ var MetaListTasksByAgent = metaquery.Query{
 	Name:   "ListTasksByAgent",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at,
+	SQL: `SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -1073,6 +1107,7 @@ ORDER BY r.claimed_at DESC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1104,6 +1139,7 @@ var ListTasksByAgentCols = struct {
 	TestPlan       metaquery.TextCol
 	TestRefs       metaquery.TextCol
 	TaskGroup      metaquery.TextCol
+	Spec           metaquery.TextCol
 	CreatedAt      metaquery.TimeCol
 	CompletedAt    metaquery.TimeCol
 	UpdatedAt      metaquery.TimeCol
@@ -1123,6 +1159,7 @@ var ListTasksByAgentCols = struct {
 	TestPlan:       metaquery.NewTextCol("test_plan"),
 	TestRefs:       metaquery.NewTextCol("test_refs"),
 	TaskGroup:      metaquery.NewTextCol("task_group"),
+	Spec:           metaquery.NewTextCol("spec"),
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 	CompletedAt:    metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
@@ -1135,7 +1172,7 @@ var MetaListTasksByFeature = metaquery.Query{
 	Name:   "ListTasksByFeature",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND feature = $2
   AND ($3::text = '' OR status = $3)
@@ -1154,6 +1191,7 @@ ORDER BY updated_at DESC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1185,6 +1223,7 @@ var ListTasksByFeatureCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -1201,6 +1240,7 @@ var ListTasksByFeatureCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -1210,7 +1250,7 @@ var MetaListTasksByIssue = metaquery.Query{
 	Name:   "ListTasksByIssue",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2
   AND ($3::text = '' OR status = $3)
@@ -1229,6 +1269,7 @@ ORDER BY updated_at DESC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1260,6 +1301,7 @@ var ListTasksByIssueCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -1276,6 +1318,7 @@ var ListTasksByIssueCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -1285,7 +1328,7 @@ var MetaListUnreviewedDoneTasks = metaquery.Query{
 	Name:   "ListUnreviewedDoneTasks",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC`,
@@ -1302,6 +1345,7 @@ ORDER BY completed_at ASC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1331,6 +1375,7 @@ var ListUnreviewedDoneTasksCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -1348,6 +1393,7 @@ var ListUnreviewedDoneTasksCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -1358,7 +1404,7 @@ var MetaListUnreviewedDoneTasksByIssue = metaquery.Query{
 	Name:   "ListUnreviewedDoneTasksByIssue",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at, reviewed_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC`,
@@ -1375,6 +1421,7 @@ ORDER BY completed_at ASC`,
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1405,6 +1452,7 @@ var ListUnreviewedDoneTasksByIssueCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -1422,6 +1470,7 @@ var ListUnreviewedDoneTasksByIssueCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
@@ -1508,7 +1557,7 @@ WHERE status = 'active'
       AND r.lease_expires_at > NOW()
   )
   AND status != 'done'
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at`,
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tasks"},
@@ -1522,6 +1571,7 @@ RETURNING id, project_id, title, text, feature, status, reason, issue, depends, 
 		{Name: "test_plan", OriginalName: "test_plan", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1547,6 +1597,7 @@ var ReclaimExpiredTasksCols = struct {
 	TestPlan    metaquery.TextCol
 	TestRefs    metaquery.TextCol
 	TaskGroup   metaquery.TextCol
+	Spec        metaquery.TextCol
 	CreatedAt   metaquery.TimeCol
 	CompletedAt metaquery.TimeCol
 	UpdatedAt   metaquery.TimeCol
@@ -1563,6 +1614,7 @@ var ReclaimExpiredTasksCols = struct {
 	TestPlan:    metaquery.NewTextCol("test_plan"),
 	TestRefs:    metaquery.NewTextCol("test_refs"),
 	TaskGroup:   metaquery.NewTextCol("task_group"),
+	Spec:        metaquery.NewTextCol("spec"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
