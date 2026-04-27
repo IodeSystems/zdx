@@ -64,6 +64,9 @@ type ToolResultContent = string | Record<string, unknown>[]
 type ToolResultMap = Map<string, ToolResultContent>
 type ToolDurations = Map<string, number>
 
+type TurnMetrics = { turnMs: number; tps: number; tgs: number }
+type TurnMetricsMap = Map<number, TurnMetrics>
+
 function buildToolDurations(events: ClaudeEventItem[]): ToolDurations {
   const toolUseTs = new Map<string, string>()
   const toolResultTs = new Map<string, string>()
@@ -106,6 +109,32 @@ function buildToolDurations(events: ClaudeEventItem[]): ToolDurations {
     }
   }
   return durations
+}
+
+function buildTurnMetrics(events: ClaudeEventItem[]): TurnMetricsMap {
+  const metrics = new Map<number, TurnMetrics>()
+  let lastUserTs: string | null = null
+
+  for (const event of events) {
+    const ts = (event.event_json.timestamp as string) || event.created_at
+    if (event.event_type === 'user') {
+      lastUserTs = ts
+    } else if (event.event_type === 'assistant' && lastUserTs) {
+      const endMs = new Date(ts).getTime()
+      const startMs = new Date(lastUserTs).getTime()
+      const turnMs = endMs - startMs
+      if (turnMs > 0) {
+        const msg = event.event_json.message as Record<string, unknown> | undefined
+        const usage = msg?.usage as Record<string, number> | undefined
+        const inputTok = usage?.input_tokens ?? 0
+        const outputTok = usage?.output_tokens ?? 0
+        const secs = turnMs / 1000
+        metrics.set(event.id, { turnMs, tps: inputTok / secs, tgs: outputTok / secs })
+      }
+      lastUserTs = null
+    }
+  }
+  return metrics
 }
 
 function buildToolResultMap(events: ClaudeEventItem[]): { resultMap: ToolResultMap; toolResultEventIds: Set<number> } {
@@ -224,10 +253,12 @@ function AgentGroupRow({
   item,
   toolDurations,
   toolResultMap,
+  turnMetrics,
 }: {
   item: Extract<DisplayItem, { kind: 'agent-group' }>
   toolDurations: ToolDurations
   toolResultMap: ToolResultMap
+  turnMetrics?: TurnMetricsMap
 }) {
   const [expanded, setExpanded] = useState(false)
   const typeColor = AGENT_TYPE_COLORS[item.agentType] ?? '#888'
@@ -264,7 +295,7 @@ function AgentGroupRow({
       <Collapse in={expanded}>
         <Box sx={{ pl: 2, borderLeft: 2, borderColor: typeColor, ml: 1 }}>
           {item.events.map((e) => (
-            <EventRow key={e.id} event={e} toolDurations={toolDurations} toolResultMap={toolResultMap} />
+            <EventRow key={e.id} event={e} toolDurations={toolDurations} toolResultMap={toolResultMap} turnMetrics={turnMetrics} />
           ))}
         </Box>
       </Collapse>
@@ -436,13 +467,14 @@ function RichContent({ event, toolResultMap }: { event: ClaudeEventItem; toolRes
   )
 }
 
-function EventRow({ event, toolDurations, toolResultMap }: { event: ClaudeEventItem; toolDurations: ToolDurations; toolResultMap: ToolResultMap }) {
+function EventRow({ event, toolDurations, toolResultMap, turnMetrics }: { event: ClaudeEventItem; toolDurations: ToolDurations; toolResultMap: ToolResultMap; turnMetrics?: TurnMetricsMap }) {
   const [expanded, setExpanded] = useState(false)
   const color = EVENT_COLORS[event.event_type] ?? '#888'
 
   const summary = getSummary(event)
   const { toolName, toolUseId } = getToolInfo(event)
   const duration = toolUseId ? toolDurations.get(toolUseId) : undefined
+  const turn = turnMetrics?.get(event.id)
 
   return (
     <Box
@@ -470,6 +502,11 @@ function EventRow({ event, toolDurations, toolResultMap }: { event: ClaudeEventI
         {duration !== undefined && (
           <Typography variant="caption" sx={{ color: duration > 30000 ? 'error.main' : duration > 5000 ? 'warning.main' : 'text.secondary', flexShrink: 0 }}>
             {fmtDuration(duration)}
+          </Typography>
+        )}
+        {turn !== undefined && (
+          <Typography variant="caption" color="text.secondary" sx={{ flexShrink: 0 }}>
+            {fmtDuration(turn.turnMs)} · {turn.tps.toFixed(0)}tp/s · {turn.tgs.toFixed(0)}tg/s
           </Typography>
         )}
         <Typography variant="body2" color="text.secondary" noWrap sx={{ flex: 1, fontSize: '0.8rem' }}>
@@ -642,6 +679,7 @@ export function SessionDetail({
   const total = (data?.pages[0]?.total ?? 0) + liveEvents.filter((e) => e.id < 0).length
   const isLive = liveEvents.length > 0
   const toolDurations = useMemo(() => buildToolDurations(allEvents), [allEvents])
+  const turnMetrics = useMemo(() => buildTurnMetrics(allEvents), [allEvents])
   const { resultMap: toolResultMap, toolResultEventIds } = useMemo(() => buildToolResultMap(allEvents), [allEvents])
   const visibleEvents = useMemo(() => allEvents.filter((e) => !toolResultEventIds.has(e.id)), [allEvents, toolResultEventIds])
   const displayItems = useMemo(() => buildDisplayItems(visibleEvents), [visibleEvents])
@@ -800,9 +838,9 @@ export function SessionDetail({
       >
         {displayItems.map((item, idx) =>
           item.kind === 'event' ? (
-            <EventRow key={item.event.id} event={item.event} toolDurations={toolDurations} toolResultMap={toolResultMap} />
+            <EventRow key={item.event.id} event={item.event} toolDurations={toolDurations} toolResultMap={toolResultMap} turnMetrics={turnMetrics} />
           ) : (
-            <AgentGroupRow key={`agent-${item.agentId}-${idx}`} item={item} toolDurations={toolDurations} toolResultMap={toolResultMap} />
+            <AgentGroupRow key={`agent-${item.agentId}-${idx}`} item={item} toolDurations={toolDurations} toolResultMap={toolResultMap} turnMetrics={turnMetrics} />
           )
         )}
         {hasNextPage && (
