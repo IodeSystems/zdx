@@ -653,6 +653,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 					return nil
 				}
 				fmt.Printf("[closable] %s  %s\n", issIDStr, iss.Title)
+				fmt.Fprintln(os.Stderr, "  hint: all dev tasks done — dx issue close "+issIDStr+" (or dx issue resolve "+issIDStr+" <sha> first if the issue requires resolutions)")
 			} else {
 				fmt.Printf("[add]     %s  %s\n", issIDStr, iss.Title)
 				fmt.Fprintln(os.Stderr, "  hint: dx todo tech add --issue="+issIDStr+" --title=<outcome> --text=<plan> --reason=<why> --test-plan=<verification>")
@@ -1663,13 +1664,22 @@ func todoTechAddCmd() *cobra.Command {
 			}
 			r := resp.JSON200
 			if r.DuplicateBlocked != nil && *r.DuplicateBlocked {
-				fmt.Println("Blocked: near-duplicate task already exists (>85% similarity):")
 				if r.Similar != nil {
 					for _, s := range *r.Similar {
-						fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.Id, s.Score*100, s.Text, s.Status)
+						if s.Score < 0.90 {
+							continue
+						}
+						if s.Status != "wip" && s.Status != "ready" && s.Status != "active" {
+							continue
+						}
+						headline := s.Title
+						if headline == "" {
+							headline = s.Text
+						}
+						fmt.Printf("%s (%.0f%%) is already %s for the same work:\n  %s\nUse that task, or pass --force to file anyway.\n", s.Id, s.Score*100, s.Status, headline)
+						break
 					}
 				}
-				fmt.Println("\nTo create anyway, re-run with --force")
 				return fmt.Errorf("duplicate blocked")
 			}
 			headline := r.Title
@@ -1681,7 +1691,7 @@ func todoTechAddCmd() *cobra.Command {
 			if !autoReady && hasSimilar {
 				fmt.Println("\nSimilar tasks:")
 				for _, s := range *r.Similar {
-					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.Id, s.Score*100, s.Text, s.Status)
+					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.Id, s.Score*100, s.Text, taskStatusLabel(s.Status, s.Reason))
 				}
 				fmt.Printf("\nTask created as draft (wip). To promote:\n")
 				fmt.Printf("  dx task ready %s\n", clitypes.TaskIDStr(r.Id))
@@ -1789,6 +1799,16 @@ func journalOverdue(ownerDate, techDate string, closedTasks int64) (bool, string
 		return true, "tech"
 	}
 	return false, ""
+}
+
+// taskStatusLabel returns the display label for a similar task's status.
+// Cascade-closed tasks (reason=parent-closed) get a distinct label so agents
+// don't mistake orphan-swept tasks for real coverage.
+func taskStatusLabel(status string, reason *string) string {
+	if status == "done" && reason != nil && *reason == "parent-closed" {
+		return "cascade-closed"
+	}
+	return status
 }
 
 func printSimilarPatterns(cmd *cobra.Command, c *cli.Client, slug, text string) {

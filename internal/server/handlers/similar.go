@@ -54,8 +54,11 @@ func (h *Handler) findSimilarQuestions(ctx context.Context, projectID int32, que
 	return out, nil
 }
 
-func (h *Handler) findSimilarProposals(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarProposalItem, error) {
+func (h *Handler) findSimilarProposals(ctx context.Context, projectID int32, queryText string, n int, excludeID int32) ([]SimilarProposalItem, error) {
 	seen := make(map[int32]bool)
+	if excludeID != 0 {
+		seen[excludeID] = true
+	}
 	out := make([]SimilarProposalItem, 0, n)
 
 	// text search first
@@ -107,7 +110,7 @@ func (h *Handler) findSimilarTasks(ctx context.Context, projectID int32, queryTe
 		if err != nil {
 			continue
 		}
-		out = append(out, SimilarTaskItem{ID: id, Text: task.Text, Status: task.Status, Issue: task.Issue, Score: r.Score})
+		out = append(out, SimilarTaskItem{ID: id, Title: task.Title, Text: task.Text, Status: task.Status, Reason: task.Reason, Issue: task.Issue, Score: r.Score})
 	}
 	return out, nil
 }

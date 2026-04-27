@@ -32,6 +32,34 @@ type AcceptQuestionProposalResponse struct {
 	Proposal QuestionProposalItem `json:"proposal"`
 }
 
+// ActivitySessionItem defines model for ActivitySessionItem.
+type ActivitySessionItem struct {
+	ClosedAt    *string `json:"closed_at,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+	EventCount  int64   `json:"event_count"`
+	Header      string  `json:"header"`
+	Id          int64   `json:"id"`
+	IssueId     string  `json:"issue_id"`
+	Lifecycle   string  `json:"lifecycle"`
+	ProjectName string  `json:"project_name"`
+	ProjectSlug string  `json:"project_slug"`
+	SessionId   string  `json:"session_id"`
+	Status      string  `json:"status"`
+	Title       string  `json:"title"`
+	UpdatedAt   string  `json:"updated_at"`
+}
+
+// ActivityWorklogEntry defines model for ActivityWorklogEntry.
+type ActivityWorklogEntry struct {
+	Agent       string `json:"agent"`
+	CreatedAt   string `json:"created_at"`
+	IssueId     string `json:"issue_id"`
+	IssueTitle  string `json:"issue_title"`
+	Note        string `json:"note"`
+	ProjectName string `json:"project_name"`
+	ProjectSlug string `json:"project_slug"`
+}
+
 // AddBlockerQuestionRequest defines model for Add-blocker-questionRequest.
 type AddBlockerQuestionRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -838,8 +866,8 @@ type CreateProposalRequest struct {
 	Title              string  `json:"title"`
 }
 
-// CreateProposalResponse defines model for Create-proposalResponse.
-type CreateProposalResponse struct {
+// CreateProposalBody defines model for CreateProposalBody.
+type CreateProposalBody struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema                *string                `json:"$schema,omitempty"`
 	DuplicatesReviewToken *string                `json:"duplicates_review_token,omitempty"`
@@ -1233,9 +1261,11 @@ type GetProjectInfoResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema         *string `json:"$schema,omitempty"`
 	Classification string  `json:"classification"`
+	Description    string  `json:"description"`
 	Id             int32   `json:"id"`
 	Name           string  `json:"name"`
 	Slug           string  `json:"slug"`
+	Title          string  `json:"title"`
 }
 
 // GetReviewDataResponse defines model for Get-review-dataResponse.
@@ -1653,6 +1683,20 @@ type LinkSpecTestRequest struct {
 	Schema *string `json:"$schema,omitempty"`
 	SpecId int32   `json:"spec_id"`
 	TestId int32   `json:"test_id"`
+}
+
+// ListActivitySessionsResponse defines model for List-activity-sessionsResponse.
+type ListActivitySessionsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string                `json:"$schema,omitempty"`
+	Sessions *[]ActivitySessionItem `json:"sessions"`
+}
+
+// ListActivityWorklogResponse defines model for List-activity-worklogResponse.
+type ListActivityWorklogResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string                 `json:"$schema,omitempty"`
+	Entries *[]ActivityWorklogEntry `json:"entries"`
 }
 
 // ListAdminUsersResponse defines model for List-admin-usersResponse.
@@ -2110,6 +2154,13 @@ type ListSpecDemosResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string         `json:"$schema,omitempty"`
 	Demos  *[]SpecDemoItem `json:"demos"`
+}
+
+// ListSpecTasksResponse defines model for List-spec-tasksResponse.
+type ListSpecTasksResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string         `json:"$schema,omitempty"`
+	Tasks  *[]SpecTaskItem `json:"tasks"`
 }
 
 // ListSpecTestsResponse defines model for List-spec-testsResponse.
@@ -2668,6 +2719,21 @@ type ReconcileResult struct {
 	Source       string    `json:"source"`
 }
 
+// ReevaluateProposalRequest defines model for Reevaluate-proposalRequest.
+type ReevaluateProposalRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+}
+
+// ReevaluateProposalResponse defines model for Reevaluate-proposalResponse.
+type ReevaluateProposalResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema         *string                `json:"$schema,omitempty"`
+	Duplicates     *[]SimilarProposalItem `json:"duplicates"`
+	ExistingIssues *[]SimilarIssueItem    `json:"existing_issues"`
+}
+
 // RegisterAgentRequest defines model for Register-agentRequest.
 type RegisterAgentRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2783,6 +2849,13 @@ type ReportSlowQueryRequest struct {
 	Slug        string  `json:"slug"`
 	SqlHash     string  `json:"sql_hash"`
 	SqlText     string  `json:"sql_text"`
+}
+
+// RequestEnvironmentTodoRequest defines model for Request-environment-todoRequest.
+type RequestEnvironmentTodoRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Kind   string  `json:"kind"`
 }
 
 // ReservationItem defines model for ReservationItem.
@@ -3075,8 +3148,6 @@ type SimilarPatternItem struct {
 
 // SimilarProposalItem defines model for SimilarProposalItem.
 type SimilarProposalItem struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
 	Body   string  `json:"body"`
 	Id     int32   `json:"id"`
 	Score  float32 `json:"score"`
@@ -3096,9 +3167,11 @@ type SimilarQuestionItem struct {
 type SimilarTaskItem struct {
 	Id     string  `json:"id"`
 	Issue  string  `json:"issue"`
+	Reason *string `json:"reason,omitempty"`
 	Score  float32 `json:"score"`
 	Status string  `json:"status"`
 	Text   string  `json:"text"`
+	Title  string  `json:"title"`
 }
 
 // SlowQueryItem defines model for SlowQueryItem.
@@ -3274,6 +3347,13 @@ type SpecItem struct {
 	Kind        string `json:"kind"`
 }
 
+// SpecTaskItem defines model for SpecTaskItem.
+type SpecTaskItem struct {
+	Id     string `json:"id"`
+	Status string `json:"status"`
+	Title  string `json:"title"`
+}
+
 // SpecTestItem defines model for SpecTestItem.
 type SpecTestItem struct {
 	Component string `json:"component"`
@@ -3426,14 +3506,18 @@ type TestHistoryItem struct {
 // TestItem defines model for TestItem.
 type TestItem struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema     *string `json:"$schema,omitempty"`
-	Component  string  `json:"component"`
-	DurationMs int32   `json:"duration_ms"`
-	Id         int32   `json:"id"`
-	LastRunAt  *string `json:"last_run_at,omitempty"`
-	Layer      string  `json:"layer"`
-	Name       string  `json:"name"`
-	Status     string  `json:"status"`
+	Schema           *string `json:"$schema,omitempty"`
+	Component        string  `json:"component"`
+	DurationMs       int32   `json:"duration_ms"`
+	Id               int32   `json:"id"`
+	LastFailedAt     *string `json:"last_failed_at,omitempty"`
+	LastFailedBranch string  `json:"last_failed_branch"`
+	LastRunAt        *string `json:"last_run_at,omitempty"`
+	LastRunBranch    string  `json:"last_run_branch"`
+	LastRunSha       string  `json:"last_run_sha"`
+	Layer            string  `json:"layer"`
+	Name             string  `json:"name"`
+	Status           string  `json:"status"`
 }
 
 // TestResultInput defines model for TestResultInput.
@@ -3808,6 +3892,18 @@ type WsSignResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string `json:"$schema,omitempty"`
 	Token  string  `json:"token"`
+}
+
+// ListActivitySessionsParams defines parameters for ListActivitySessions.
+type ListActivitySessionsParams struct {
+	Limit  *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int32 `form:"offset,omitempty" json:"offset,omitempty"`
+}
+
+// ListActivityWorklogParams defines parameters for ListActivityWorklog.
+type ListActivityWorklogParams struct {
+	Limit  *int32 `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset *int32 `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
 // ListIntegrationTokensParams defines parameters for ListIntegrationTokens.
@@ -4367,6 +4463,11 @@ type GetSpecParams struct {
 	SpecId int32 `form:"spec_id" json:"spec_id"`
 }
 
+// ListSpecTasksParams defines parameters for ListSpecTasks.
+type ListSpecTasksParams struct {
+	SpecId int32 `form:"spec_id" json:"spec_id"`
+}
+
 // ListSpecTestsParams defines parameters for ListSpecTests.
 type ListSpecTestsParams struct {
 	SpecId int32 `form:"spec_id" json:"spec_id"`
@@ -4823,6 +4924,9 @@ type UpdateEnvironmentJSONRequestBody = UpdateEnvironmentRequest
 // CreateEnvironmentDeployJSONRequestBody defines body for CreateEnvironmentDeploy for application/json ContentType.
 type CreateEnvironmentDeployJSONRequestBody = CreateEnvironmentDeployRequest
 
+// RequestEnvironmentTodoJSONRequestBody defines body for RequestEnvironmentTodo for application/json ContentType.
+type RequestEnvironmentTodoJSONRequestBody = RequestEnvironmentTodoRequest
+
 // ClaimIssueJSONRequestBody defines body for ClaimIssue for application/json ContentType.
 type ClaimIssueJSONRequestBody = ClaimIssueRequest
 
@@ -4837,6 +4941,9 @@ type UpdateProposalJSONRequestBody = UpdateProposalRequest
 
 // ApproveProposalJSONRequestBody defines body for ApproveProposal for application/json ContentType.
 type ApproveProposalJSONRequestBody = ApproveProposalRequest
+
+// ReevaluateProposalJSONRequestBody defines body for ReevaluateProposal for application/json ContentType.
+type ReevaluateProposalJSONRequestBody = ReevaluateProposalRequest
 
 // RejectProposalJSONRequestBody defines body for RejectProposal for application/json ContentType.
 type RejectProposalJSONRequestBody = RejectProposalRequest
@@ -5124,6 +5231,12 @@ func WithRequestEditorFn(fn RequestEditorFn) ClientOption {
 
 // The interface specification for the client above.
 type ClientInterface interface {
+	// ListActivitySessions request
+	ListActivitySessions(ctx context.Context, params *ListActivitySessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListActivityWorklog request
+	ListActivityWorklog(ctx context.Context, params *ListActivityWorklogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListIntegrationTokens request
 	ListIntegrationTokens(ctx context.Context, params *ListIntegrationTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -5737,6 +5850,11 @@ type ClientInterface interface {
 
 	CreateEnvironmentDeploy(ctx context.Context, slug string, name string, body CreateEnvironmentDeployJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// RequestEnvironmentTodoWithBody request with any body
+	RequestEnvironmentTodoWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	RequestEnvironmentTodo(ctx context.Context, slug string, name string, body RequestEnvironmentTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ClaimIssueWithBody request with any body
 	ClaimIssueWithBody(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -5779,6 +5897,11 @@ type ClientInterface interface {
 	ApproveProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	ApproveProposal(ctx context.Context, id int32, body ApproveProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReevaluateProposalWithBody request with any body
+	ReevaluateProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReevaluateProposal(ctx context.Context, id int32, body ReevaluateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// RejectProposalWithBody request with any body
 	RejectProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -5930,6 +6053,9 @@ type ClientInterface interface {
 	MoveSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	MoveSpec(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSpecTasks request
+	ListSpecTasks(ctx context.Context, params *ListSpecTasksParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSpecTests request
 	ListSpecTests(ctx context.Context, params *ListSpecTestsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6305,6 +6431,30 @@ type ClientInterface interface {
 	WsSignWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	WsSign(ctx context.Context, body WsSignJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+}
+
+func (c *APIClient) ListActivitySessions(ctx context.Context, params *ListActivitySessionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListActivitySessionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListActivityWorklog(ctx context.Context, params *ListActivityWorklogParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListActivityWorklogRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
 }
 
 func (c *APIClient) ListIntegrationTokens(ctx context.Context, params *ListIntegrationTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
@@ -9043,6 +9193,30 @@ func (c *APIClient) CreateEnvironmentDeploy(ctx context.Context, slug string, na
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) RequestEnvironmentTodoWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRequestEnvironmentTodoRequestWithBody(c.Server, slug, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) RequestEnvironmentTodo(ctx context.Context, slug string, name string, body RequestEnvironmentTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewRequestEnvironmentTodoRequest(c.Server, slug, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ClaimIssueWithBody(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewClaimIssueRequestWithBody(c.Server, slug, id, contentType, body)
 	if err != nil {
@@ -9225,6 +9399,30 @@ func (c *APIClient) ApproveProposalWithBody(ctx context.Context, id int32, conte
 
 func (c *APIClient) ApproveProposal(ctx context.Context, id int32, body ApproveProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewApproveProposalRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReevaluateProposalWithBody(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReevaluateProposalRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReevaluateProposal(ctx context.Context, id int32, body ReevaluateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReevaluateProposalRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9909,6 +10107,18 @@ func (c *APIClient) MoveSpecWithBody(ctx context.Context, contentType string, bo
 
 func (c *APIClient) MoveSpec(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewMoveSpecRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListSpecTasks(ctx context.Context, params *ListSpecTasksParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSpecTasksRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -11621,6 +11831,136 @@ func (c *APIClient) WsSign(ctx context.Context, body WsSignJSONRequestBody, reqE
 		return nil, err
 	}
 	return c.Client.Do(req)
+}
+
+// NewListActivitySessionsRequest generates requests for ListActivitySessions
+func NewListActivitySessionsRequest(server string, params *ListActivitySessionsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/activity/sessions")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListActivityWorklogRequest generates requests for ListActivityWorklog
+func NewListActivityWorklogRequest(server string, params *ListActivityWorklogParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/activity/worklog")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Limit != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "limit", *params.Limit, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Offset != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "offset", *params.Offset, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
 }
 
 // NewListIntegrationTokensRequest generates requests for ListIntegrationTokens
@@ -19794,6 +20134,60 @@ func NewCreateEnvironmentDeployRequestWithBody(server string, slug string, name 
 	return req, nil
 }
 
+// NewRequestEnvironmentTodoRequest calls the generic RequestEnvironmentTodo builder with application/json body
+func NewRequestEnvironmentTodoRequest(server string, slug string, name string, body RequestEnvironmentTodoJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewRequestEnvironmentTodoRequestWithBody(server, slug, name, "application/json", bodyReader)
+}
+
+// NewRequestEnvironmentTodoRequestWithBody generates requests for RequestEnvironmentTodo with any type of body
+func NewRequestEnvironmentTodoRequestWithBody(server string, slug string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/environments/%s/request", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewClaimIssueRequest calls the generic ClaimIssue builder with application/json body
 func NewClaimIssueRequest(server string, slug string, id string, body ClaimIssueJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -20294,6 +20688,53 @@ func NewApproveProposalRequestWithBody(server string, id int32, contentType stri
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/proposals/%s/approve", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReevaluateProposalRequest calls the generic ReevaluateProposal builder with application/json body
+func NewReevaluateProposalRequest(server string, id int32, body ReevaluateProposalJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReevaluateProposalRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewReevaluateProposalRequestWithBody generates requests for ReevaluateProposal with any type of body
+func NewReevaluateProposalRequestWithBody(server string, id int32, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/proposals/%s/reevaluate", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -22212,6 +22653,51 @@ func NewMoveSpecRequestWithBody(server string, contentType string, body io.Reade
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListSpecTasksRequest generates requests for ListSpecTasks
+func NewListSpecTasksRequest(server string, params *ListSpecTasksParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/tasks")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "spec_id", params.SpecId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -26956,6 +27442,12 @@ func WithBaseURL(baseURL string) ClientOption {
 
 // ClientWithResponsesInterface is the interface specification for the client with responses above.
 type ClientWithResponsesInterface interface {
+	// ListActivitySessionsWithResponse request
+	ListActivitySessionsWithResponse(ctx context.Context, params *ListActivitySessionsParams, reqEditors ...RequestEditorFn) (*ParsedListActivitySessionsResponse, error)
+
+	// ListActivityWorklogWithResponse request
+	ListActivityWorklogWithResponse(ctx context.Context, params *ListActivityWorklogParams, reqEditors ...RequestEditorFn) (*ParsedListActivityWorklogResponse, error)
+
 	// ListIntegrationTokensWithResponse request
 	ListIntegrationTokensWithResponse(ctx context.Context, params *ListIntegrationTokensParams, reqEditors ...RequestEditorFn) (*ParsedListIntegrationTokensResponse, error)
 
@@ -27569,6 +28061,11 @@ type ClientWithResponsesInterface interface {
 
 	CreateEnvironmentDeployWithResponse(ctx context.Context, slug string, name string, body CreateEnvironmentDeployJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateEnvironmentDeployResponse, error)
 
+	// RequestEnvironmentTodoWithBodyWithResponse request with any body
+	RequestEnvironmentTodoWithBodyWithResponse(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RequestEnvironmentTodoResponse, error)
+
+	RequestEnvironmentTodoWithResponse(ctx context.Context, slug string, name string, body RequestEnvironmentTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*RequestEnvironmentTodoResponse, error)
+
 	// ClaimIssueWithBodyWithResponse request with any body
 	ClaimIssueWithBodyWithResponse(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimIssueResponse, error)
 
@@ -27595,9 +28092,9 @@ type ClientWithResponsesInterface interface {
 	ListProposalsWithResponse(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*ParsedListProposalsResponse, error)
 
 	// CreateProposalWithBodyWithResponse request with any body
-	CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedCreateProposalResponse, error)
+	CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error)
 
-	CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedCreateProposalResponse, error)
+	CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error)
 
 	// ShowProposalWithResponse request
 	ShowProposalWithResponse(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*ParsedShowProposalResponse, error)
@@ -27611,6 +28108,11 @@ type ClientWithResponsesInterface interface {
 	ApproveProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedApproveProposalResponse, error)
 
 	ApproveProposalWithResponse(ctx context.Context, id int32, body ApproveProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedApproveProposalResponse, error)
+
+	// ReevaluateProposalWithBodyWithResponse request with any body
+	ReevaluateProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReevaluateProposalResponse, error)
+
+	ReevaluateProposalWithResponse(ctx context.Context, id int32, body ReevaluateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReevaluateProposalResponse, error)
 
 	// RejectProposalWithBodyWithResponse request with any body
 	RejectProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RejectProposalResponse, error)
@@ -27762,6 +28264,9 @@ type ClientWithResponsesInterface interface {
 	MoveSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MoveSpecResponse, error)
 
 	MoveSpecWithResponse(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*MoveSpecResponse, error)
+
+	// ListSpecTasksWithResponse request
+	ListSpecTasksWithResponse(ctx context.Context, params *ListSpecTasksParams, reqEditors ...RequestEditorFn) (*ParsedListSpecTasksResponse, error)
 
 	// ListSpecTestsWithResponse request
 	ListSpecTestsWithResponse(ctx context.Context, params *ListSpecTestsParams, reqEditors ...RequestEditorFn) (*ParsedListSpecTestsResponse, error)
@@ -28137,6 +28642,52 @@ type ClientWithResponsesInterface interface {
 	WsSignWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedWsSignResponse, error)
 
 	WsSignWithResponse(ctx context.Context, body WsSignJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedWsSignResponse, error)
+}
+
+type ParsedListActivitySessionsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListActivitySessionsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListActivitySessionsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListActivitySessionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListActivityWorklogResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListActivityWorklogResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListActivityWorklogResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListActivityWorklogResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
 }
 
 type ParsedListIntegrationTokensResponse struct {
@@ -31739,6 +32290,29 @@ func (r CreateEnvironmentDeployResponse) StatusCode() int {
 	return 0
 }
 
+type RequestEnvironmentTodoResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *TodoItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r RequestEnvironmentTodoResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r RequestEnvironmentTodoResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ClaimIssueResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -31900,15 +32474,15 @@ func (r ParsedListProposalsResponse) StatusCode() int {
 	return 0
 }
 
-type ParsedCreateProposalResponse struct {
+type CreateProposalResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *CreateProposalResponse
+	JSON200                       *CreateProposalBody
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
-func (r ParsedCreateProposalResponse) Status() string {
+func (r CreateProposalResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -31916,7 +32490,7 @@ func (r ParsedCreateProposalResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ParsedCreateProposalResponse) StatusCode() int {
+func (r CreateProposalResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -31986,6 +32560,29 @@ func (r ParsedApproveProposalResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedApproveProposalResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedReevaluateProposalResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ReevaluateProposalResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedReevaluateProposalResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedReevaluateProposalResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -32837,6 +33434,29 @@ func (r MoveSpecResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r MoveSpecResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListSpecTasksResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListSpecTasksResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListSpecTasksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListSpecTasksResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -34931,6 +35551,24 @@ func (r ParsedWsSignResponse) StatusCode() int {
 	return 0
 }
 
+// ListActivitySessionsWithResponse request returning *ParsedListActivitySessionsResponse
+func (c *ClientWithResponses) ListActivitySessionsWithResponse(ctx context.Context, params *ListActivitySessionsParams, reqEditors ...RequestEditorFn) (*ParsedListActivitySessionsResponse, error) {
+	rsp, err := c.ListActivitySessions(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListActivitySessionsResponse(rsp)
+}
+
+// ListActivityWorklogWithResponse request returning *ParsedListActivityWorklogResponse
+func (c *ClientWithResponses) ListActivityWorklogWithResponse(ctx context.Context, params *ListActivityWorklogParams, reqEditors ...RequestEditorFn) (*ParsedListActivityWorklogResponse, error) {
+	rsp, err := c.ListActivityWorklog(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListActivityWorklogResponse(rsp)
+}
+
 // ListIntegrationTokensWithResponse request returning *ParsedListIntegrationTokensResponse
 func (c *ClientWithResponses) ListIntegrationTokensWithResponse(ctx context.Context, params *ListIntegrationTokensParams, reqEditors ...RequestEditorFn) (*ParsedListIntegrationTokensResponse, error) {
 	rsp, err := c.ListIntegrationTokens(ctx, params, reqEditors...)
@@ -36912,6 +37550,23 @@ func (c *ClientWithResponses) CreateEnvironmentDeployWithResponse(ctx context.Co
 	return ParseCreateEnvironmentDeployResponse(rsp)
 }
 
+// RequestEnvironmentTodoWithBodyWithResponse request with arbitrary body returning *RequestEnvironmentTodoResponse
+func (c *ClientWithResponses) RequestEnvironmentTodoWithBodyWithResponse(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*RequestEnvironmentTodoResponse, error) {
+	rsp, err := c.RequestEnvironmentTodoWithBody(ctx, slug, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRequestEnvironmentTodoResponse(rsp)
+}
+
+func (c *ClientWithResponses) RequestEnvironmentTodoWithResponse(ctx context.Context, slug string, name string, body RequestEnvironmentTodoJSONRequestBody, reqEditors ...RequestEditorFn) (*RequestEnvironmentTodoResponse, error) {
+	rsp, err := c.RequestEnvironmentTodo(ctx, slug, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseRequestEnvironmentTodoResponse(rsp)
+}
+
 // ClaimIssueWithBodyWithResponse request with arbitrary body returning *ClaimIssueResponse
 func (c *ClientWithResponses) ClaimIssueWithBodyWithResponse(ctx context.Context, slug string, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ClaimIssueResponse, error) {
 	rsp, err := c.ClaimIssueWithBody(ctx, slug, id, contentType, body, reqEditors...)
@@ -36991,21 +37646,21 @@ func (c *ClientWithResponses) ListProposalsWithResponse(ctx context.Context, par
 	return ParseParsedListProposalsResponse(rsp)
 }
 
-// CreateProposalWithBodyWithResponse request with arbitrary body returning *ParsedCreateProposalResponse
-func (c *ClientWithResponses) CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedCreateProposalResponse, error) {
+// CreateProposalWithBodyWithResponse request with arbitrary body returning *CreateProposalResponse
+func (c *ClientWithResponses) CreateProposalWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error) {
 	rsp, err := c.CreateProposalWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseParsedCreateProposalResponse(rsp)
+	return ParseCreateProposalResponse(rsp)
 }
 
-func (c *ClientWithResponses) CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedCreateProposalResponse, error) {
+func (c *ClientWithResponses) CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error) {
 	rsp, err := c.CreateProposal(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseParsedCreateProposalResponse(rsp)
+	return ParseCreateProposalResponse(rsp)
 }
 
 // ShowProposalWithResponse request returning *ParsedShowProposalResponse
@@ -37049,6 +37704,23 @@ func (c *ClientWithResponses) ApproveProposalWithResponse(ctx context.Context, i
 		return nil, err
 	}
 	return ParseParsedApproveProposalResponse(rsp)
+}
+
+// ReevaluateProposalWithBodyWithResponse request with arbitrary body returning *ParsedReevaluateProposalResponse
+func (c *ClientWithResponses) ReevaluateProposalWithBodyWithResponse(ctx context.Context, id int32, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReevaluateProposalResponse, error) {
+	rsp, err := c.ReevaluateProposalWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReevaluateProposalResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReevaluateProposalWithResponse(ctx context.Context, id int32, body ReevaluateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReevaluateProposalResponse, error) {
+	rsp, err := c.ReevaluateProposal(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReevaluateProposalResponse(rsp)
 }
 
 // RejectProposalWithBodyWithResponse request with arbitrary body returning *RejectProposalResponse
@@ -37542,6 +38214,15 @@ func (c *ClientWithResponses) MoveSpecWithResponse(ctx context.Context, body Mov
 		return nil, err
 	}
 	return ParseMoveSpecResponse(rsp)
+}
+
+// ListSpecTasksWithResponse request returning *ParsedListSpecTasksResponse
+func (c *ClientWithResponses) ListSpecTasksWithResponse(ctx context.Context, params *ListSpecTasksParams, reqEditors ...RequestEditorFn) (*ParsedListSpecTasksResponse, error) {
+	rsp, err := c.ListSpecTasks(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListSpecTasksResponse(rsp)
 }
 
 // ListSpecTestsWithResponse request returning *ParsedListSpecTestsResponse
@@ -38769,6 +39450,72 @@ func (c *ClientWithResponses) WsSignWithResponse(ctx context.Context, body WsSig
 		return nil, err
 	}
 	return ParseParsedWsSignResponse(rsp)
+}
+
+// ParseParsedListActivitySessionsResponse parses an HTTP response from a ListActivitySessionsWithResponse call
+func ParseParsedListActivitySessionsResponse(rsp *http.Response) (*ParsedListActivitySessionsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListActivitySessionsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListActivitySessionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListActivityWorklogResponse parses an HTTP response from a ListActivityWorklogWithResponse call
+func ParseParsedListActivityWorklogResponse(rsp *http.Response) (*ParsedListActivityWorklogResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListActivityWorklogResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListActivityWorklogResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
 }
 
 // ParseParsedListIntegrationTokensResponse parses an HTTP response from a ListIntegrationTokensWithResponse call
@@ -43875,6 +44622,39 @@ func ParseCreateEnvironmentDeployResponse(rsp *http.Response) (*CreateEnvironmen
 	return response, nil
 }
 
+// ParseRequestEnvironmentTodoResponse parses an HTTP response from a RequestEnvironmentTodoWithResponse call
+func ParseRequestEnvironmentTodoResponse(rsp *http.Response) (*RequestEnvironmentTodoResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &RequestEnvironmentTodoResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TodoItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseClaimIssueResponse parses an HTTP response from a ClaimIssueWithResponse call
 func ParseClaimIssueResponse(rsp *http.Response) (*ClaimIssueResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -44106,22 +44886,22 @@ func ParseParsedListProposalsResponse(rsp *http.Response) (*ParsedListProposalsR
 	return response, nil
 }
 
-// ParseParsedCreateProposalResponse parses an HTTP response from a CreateProposalWithResponse call
-func ParseParsedCreateProposalResponse(rsp *http.Response) (*ParsedCreateProposalResponse, error) {
+// ParseCreateProposalResponse parses an HTTP response from a CreateProposalWithResponse call
+func ParseCreateProposalResponse(rsp *http.Response) (*CreateProposalResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ParsedCreateProposalResponse{
+	response := &CreateProposalResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest CreateProposalResponse
+		var dest CreateProposalBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -44221,6 +45001,39 @@ func ParseParsedApproveProposalResponse(rsp *http.Response) (*ParsedApprovePropo
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ApproveProposalResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedReevaluateProposalResponse parses an HTTP response from a ReevaluateProposalWithResponse call
+func ParseParsedReevaluateProposalResponse(rsp *http.Response) (*ParsedReevaluateProposalResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedReevaluateProposalResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReevaluateProposalResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -45442,6 +46255,39 @@ func ParseMoveSpecResponse(rsp *http.Response) (*MoveSpecResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListSpecTasksResponse parses an HTTP response from a ListSpecTasksWithResponse call
+func ParseParsedListSpecTasksResponse(rsp *http.Response) (*ParsedListSpecTasksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListSpecTasksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListSpecTasksResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

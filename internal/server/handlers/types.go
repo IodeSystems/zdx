@@ -130,6 +130,12 @@ type SpecCloseGateOffender struct {
 	Reason      string `json:"reason"`
 }
 
+type SpecTaskItem struct {
+	ID     string `json:"id"`
+	Title  string `json:"title"`
+	Status string `json:"status"`
+}
+
 type SpecDemoItem struct {
 	ID            int32  `json:"id"`
 	TestID        int32  `json:"test_id"`
@@ -296,8 +302,10 @@ type SimilarIssueItem struct {
 
 type SimilarTaskItem struct {
 	ID     string  `json:"id"`
+	Title  string  `json:"title"`
 	Text   string  `json:"text"`
 	Status string  `json:"status"`
+	Reason string  `json:"reason"`
 	Issue  string  `json:"issue"`
 	Score  float32 `json:"score"`
 }
