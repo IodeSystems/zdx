@@ -14,3 +14,12 @@ services:
       interval: 1s
       timeout: 3s
       retries: 30
+  valkey:
+    image: valkey/valkey:8
+    ports:
+      - "127.0.0.1::6379"
+    healthcheck:
+      test: ["CMD", "valkey-cli", "ping"]
+      interval: 1s
+      timeout: 3s
+      retries: 30

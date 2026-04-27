@@ -117,6 +117,18 @@ func startCompose() (dsn string, cleanup func(), err error) {
 		return "", nil, fmt.Errorf("get postgres port: %w", err)
 	}
 	addr := strings.TrimSpace(string(portOut))
+
+	// Export Valkey address so rolling-deploy demo tests can create broker-sharing slots.
+	if valkeyOut, verr := exec.Command("docker", "compose", "-f", composeFile, "-p", "zdx-e2e", "port", "valkey", "6379").Output(); verr == nil {
+		valkeyAddr := strings.TrimSpace(string(valkeyOut))
+		os.Setenv("ZDX_VALKEY_ADDR", valkeyAddr) //nolint:errcheck
+		origCleanup := cleanup
+		cleanup = func() {
+			os.Unsetenv("ZDX_VALKEY_ADDR") //nolint:errcheck
+			origCleanup()
+		}
+	}
+
 	return fmt.Sprintf("postgres://zdx:zdx@%s/zdx_e2e?sslmode=disable", addr), cleanup, nil
 }
 

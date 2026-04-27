@@ -39,6 +39,15 @@ type Options struct {
 	// ComposeProject is the docker compose -p label for isolation. Defaults
 	// to "zdx-devserver".
 	ComposeProject string
+	// ValkeyAddr sets ZDX_VALKEY_ADDR for this server instance. If empty the
+	// server uses an in-memory broker (single-instance mode).
+	ValkeyAddr string
+	// SkipBootstrap skips the /api/setup/bootstrap call. Use when starting a
+	// second slot against an already-bootstrapped DB; set AdminToken to the
+	// token from the first slot.
+	SkipBootstrap bool
+	// AdminToken is used as the handle token when SkipBootstrap is true.
+	AdminToken string
 }
 
 // Handle carries the connection details of a running ephemeral server.
@@ -48,6 +57,7 @@ type Handle struct {
 	DSN        string
 	UploadsDir string
 	DemosDir   string
+	ValkeyAddr string
 }
 
 // Start provisions the ephemeral server and returns a cleanup func that
@@ -123,20 +133,36 @@ func Start(opts Options) (*Handle, func(), error) {
 		return nil, nil, fmt.Errorf("listen: %w", err)
 	}
 
-	// server.New reads UPLOADS_DIR at construction time; stage the values so
-	// the ephemeral instance stays sandboxed even when the caller's env has
-	// a global UPLOADS_DIR set.
+	// server.New reads UPLOADS_DIR, DEMOS_DIR, and ZDX_VALKEY_ADDR at construction
+	// time; stage the values so the ephemeral instance stays sandboxed even when
+	// the caller's env has globals set.
 	restoreUploads := setEnv("UPLOADS_DIR", uploadsDir)
 	restoreDemos := setEnv("DEMOS_DIR", demosDir)
+	restoreValkey := func() {}
+	if opts.ValkeyAddr != "" {
+		restoreValkey = setEnv("ZDX_VALKEY_ADDR", opts.ValkeyAddr)
+	}
 	srv := server.New(pool, server.NewTimingSink(), "", "devserver")
 	restoreUploads()
 	restoreDemos()
+	restoreValkey()
 
 	hs := &http.Server{Handler: srv}
 	go hs.Serve(ln) //nolint:errcheck
 	cleanups = append(cleanups, func() { _ = hs.Close() })
 
 	base := "http://" + ln.Addr().String()
+
+	if opts.SkipBootstrap {
+		return &Handle{
+			URL:        base,
+			AdminToken: opts.AdminToken,
+			DSN:        dsn,
+			UploadsDir: uploadsDir,
+			DemosDir:   demosDir,
+			ValkeyAddr: opts.ValkeyAddr,
+		}, cleanup, nil
+	}
 
 	payload, _ := json.Marshal(map[string]string{
 		"email": "admin@test.local",
@@ -167,6 +193,7 @@ func Start(opts Options) (*Handle, func(), error) {
 		DSN:        dsn,
 		UploadsDir: uploadsDir,
 		DemosDir:   demosDir,
+		ValkeyAddr: opts.ValkeyAddr,
 	}, cleanup, nil
 }
 
