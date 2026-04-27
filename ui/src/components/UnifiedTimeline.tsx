@@ -58,8 +58,10 @@ type HistoryGroup = {
   events: HistoryEvent[]
 }
 
+type TodoEventKind = 'created' | 'claimed' | 'resolved'
+
 type TimelineEvent =
-  | { kind: 'todo'; ts: number; payload: SoloItem }
+  | { kind: 'todo'; subKind: TodoEventKind; ts: number; payload: SoloItem }
   | { kind: 'reservation'; ts: number; payload: ReservationItem }
   | { kind: 'resolution'; ts: number; payload: ResolutionItem }
   | { kind: 'work'; ts: number; payload: IssueWorkItem; idx: number }
@@ -141,18 +143,26 @@ function DiffModal({ event, onClose }: { event: HistoryEvent; onClose: () => voi
   )
 }
 
-const TODO_STATUS_COLOR: Record<string, 'default' | 'primary' | 'success' | 'warning'> = {
-  open: 'primary',
+const TODO_EVENT_COLOR: Record<TodoEventKind, 'default' | 'primary' | 'success' | 'info'> = {
+  created: 'primary',
+  claimed: 'info',
   resolved: 'success',
 }
 
-function TodoRow({ t }: { t: SoloItem }) {
-  const statusColor = TODO_STATUS_COLOR[t.status] ?? 'default'
-  const isActive = t.status === 'open' && !!t.claimed_by
+const TODO_EVENT_LABEL: Record<TodoEventKind, string> = {
+  created: 'created',
+  claimed: 'claimed',
+  resolved: 'resolved',
+}
+
+function TodoRow({ t, subKind }: { t: SoloItem; subKind: TodoEventKind }) {
+  const eventColor = TODO_EVENT_COLOR[subKind]
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
-      <Chip label={t.status} size="small" color={statusColor} variant="outlined" />
-      {isActive && <Chip label={`claimed: ${t.claimed_by}`} size="small" color="info" variant="outlined" sx={{ fontSize: '0.65rem' }} />}
+      <Chip label={TODO_EVENT_LABEL[subKind]} size="small" color={eventColor} variant="outlined" />
+      {subKind === 'claimed' && t.claimed_by && (
+        <Chip label={t.claimed_by} size="small" color="info" variant="filled" sx={{ fontSize: '0.65rem' }} />
+      )}
       {t.blocked && <Chip label="blocked" size="small" color="error" variant="outlined" sx={{ fontSize: '0.65rem' }} />}
       <Box sx={{ flex: 1 }}>
         <Typography variant="body2">{t.title || t.text.slice(0, 80)}</Typography>
@@ -412,7 +422,13 @@ export function UnifiedTimeline({
   const events = useMemo<TimelineEvent[]>(() => {
     const out: TimelineEvent[] = []
     for (const t of todos) {
-      out.push({ kind: 'todo', ts: new Date(t.created_at).getTime(), payload: t })
+      out.push({ kind: 'todo', subKind: 'created', ts: new Date(t.created_at).getTime(), payload: t })
+      if (t.claimed_at) {
+        out.push({ kind: 'todo', subKind: 'claimed', ts: new Date(t.claimed_at).getTime(), payload: t })
+      }
+      if (t.resolved_at) {
+        out.push({ kind: 'todo', subKind: 'resolved', ts: new Date(t.resolved_at).getTime(), payload: t })
+      }
     }
     for (const r of reservations) {
       out.push({ kind: 'reservation', ts: new Date(r.claimed_at).getTime(), payload: r })
@@ -507,7 +523,7 @@ export function UnifiedTimeline({
           {visible.map(ev => {
             const ts = new Date(ev.ts)
             const key =
-              ev.kind === 'todo' ? `todo:${ev.payload.id}` :
+              ev.kind === 'todo' ? `todo:${ev.payload.id}:${ev.subKind}` :
               ev.kind === 'comment' ? `comment:${ev.payload.id}` :
               ev.kind === 'reservation' ? `reservation:${ev.payload.id}` :
               ev.kind === 'resolution' ? `resolution:${ev.payload.id}` :
@@ -539,7 +555,7 @@ export function UnifiedTimeline({
                     {ts.toLocaleString()}
                   </Typography>
                 </Box>
-                {ev.kind === 'todo' && <TodoRow t={ev.payload} />}
+                {ev.kind === 'todo' && <TodoRow t={ev.payload} subKind={ev.subKind} />}
                 {ev.kind === 'reservation' && <ReservationRow r={ev.payload} slug={slug} />}
                 {ev.kind === 'resolution' && <ResolutionRow r={ev.payload} />}
                 {ev.kind === 'work' && <WorkRow e={ev.payload} />}

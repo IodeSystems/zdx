@@ -311,30 +311,34 @@ export function IssuesTab({
                 to="/project/$slug/issues/$id"
                 params={{ slug, id: `IS-${i.id}` }}
               >
-                <CardContent sx={{ py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
-                  <Chip
-                    label={pLabel}
-                    size="small"
-                    color={PRIORITY_COLORS[pLabel] || 'default'}
-                    sx={{ minWidth: 70 }}
-                  />
-                  <Typography variant="body2" sx={{ flex: 1 }}>
-                    IS-{i.id}: {issueDisplayTitle(i.title, i.context)}
-                  </Typography>
-                  {(i.issue_type && i.issue_type !== 'ops') && (
+                <CardContent sx={{ py: 1.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                      IS-{i.id}
+                    </Typography>
                     <Chip
-                      label={i.issue_type}
+                      label={pLabel}
                       size="small"
-                      color={i.issue_type === 'ask' ? 'info' : 'secondary'}
+                      color={PRIORITY_COLORS[pLabel] || 'default'}
+                    />
+                    {(i.issue_type && i.issue_type !== 'ops') && (
+                      <Chip
+                        label={i.issue_type}
+                        size="small"
+                        color={i.issue_type === 'ask' ? 'info' : 'secondary'}
+                        variant="outlined"
+                      />
+                    )}
+                    <Chip
+                      label={i.status}
+                      size="small"
+                      color={STATUS_COLORS[i.status] || 'default'}
                       variant="outlined"
                     />
-                  )}
-                  <Chip
-                    label={i.status}
-                    size="small"
-                    color={STATUS_COLORS[i.status] || 'default'}
-                    variant="outlined"
-                  />
+                  </Box>
+                  <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
+                    {issueDisplayTitle(i.title, i.context)}
+                  </Typography>
                 </CardContent>
               </CardActionArea>
             </Card>
