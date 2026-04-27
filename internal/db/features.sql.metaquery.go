@@ -781,7 +781,10 @@ WHERE f.project_id = $1
     SELECT 1 FROM zdx_tasks t
     WHERE t.project_id = $1
       AND t.status IN ('ready', 'wip', 'active')
-      AND t.title ~* ('\mspec\s+' || s.id::text || '\M')
+      AND (
+        t.title ~* ('\mspec\s+' || s.id::text || '\M')
+        OR t.text ~* ('\mspec\s+' || s.id::text || '\M')
+      )
   )
 ORDER BY f.name, s.id`,
 	Columns: []metaquery.Column{

@@ -336,6 +336,39 @@ func TestQueueKindTechTestRefSuppressedByVariantTitle(t *testing.T) {
 	}
 }
 
+// IS-493: a task whose title doesn't mention the spec but whose text body does
+// should still suppress the tech:test-ref nudge.
+func TestQueueKindTechTestRefSuppressedByTaskText(t *testing.T) {
+	d := NewApiDriver(t, "q-testref-text", "TestRef Text Body")
+	Given(d).
+		Feature("text-q", "Text body coverage").
+		Spec("text-q", "unit_test", "Behavior to test via body").
+		Build()
+
+	uncovered := d.ListUncoveredSpecs()
+	if len(uncovered) == 0 {
+		t.Fatal("expected at least one uncovered spec")
+	}
+	specID := uncovered[0].ID
+
+	// Title has no spec reference; spec id appears only in the task body.
+	r := d.AddTaskCustom(map[string]any{
+		"title": "Cover validation behavior",
+		"text":  fmt.Sprintf("spec %d needs a unit test for the core validation path", specID),
+		"force": true,
+	})
+	if r.ID == 0 {
+		t.Fatalf("expected task to be created, got %+v", r)
+	}
+
+	items := d.EvaluateQueue("")
+	for _, it := range items {
+		if it.Kind == "tech:test-ref" && it.TargetID == fmt.Sprintf("%d", specID) {
+			t.Errorf("tech:test-ref for spec %d should be suppressed by task body reference", specID)
+		}
+	}
+}
+
 func TestQueueKindOwnerDemoGap(t *testing.T) {
 	d := NewApiDriver(t, "q-demogap", "Queue DemoGap")
 	Given(d).
