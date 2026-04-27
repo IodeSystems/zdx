@@ -188,6 +188,7 @@ type ZdxEnvironment struct {
 	ProjectID          int32              `db:"project_id" json:"project_id"`
 	Name               string             `db:"name" json:"name"`
 	Url                string             `db:"url" json:"url"`
+	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
 	CurrentBuildSha    string             `db:"current_build_sha" json:"current_build_sha"`
 	CurrentBuildBranch string             `db:"current_build_branch" json:"current_build_branch"`
 	DeployedAt         pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
@@ -583,6 +584,7 @@ type ZdxProposal struct {
 	CreatedAt       pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt       pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 	ApprovedIssueID pgtype.Text        `db:"approved_issue_id" json:"approved_issue_id"`
+	Value           string             `db:"value" json:"value"`
 }
 
 type ZdxProposalVersion struct {

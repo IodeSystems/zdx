@@ -281,14 +281,17 @@ type AddTaskResponse struct {
 	Reason         string             `json:"reason"`
 	ReviewedAt     *string            `json:"reviewed_at,omitempty"`
 	Similar        *[]SimilarTaskItem `json:"similar,omitempty"`
-	StaleSince     *string            `json:"stale_since,omitempty"`
-	Status         string             `json:"status"`
-	TaskGroup      string             `json:"task_group"`
-	TestPlan       string             `json:"test_plan"`
-	TestRefs       string             `json:"test_refs"`
-	Text           string             `json:"text"`
-	Title          string             `json:"title"`
-	UpdatedAt      string             `json:"updated_at"`
+
+	// Spec Linked spec integer ID
+	Spec       *string `json:"spec,omitempty"`
+	StaleSince *string `json:"stale_since,omitempty"`
+	Status     string  `json:"status"`
+	TaskGroup  string  `json:"task_group"`
+	TestPlan   string  `json:"test_plan"`
+	TestRefs   string  `json:"test_refs"`
+	Text       string  `json:"text"`
+	Title      string  `json:"title"`
+	UpdatedAt  string  `json:"updated_at"`
 }
 
 // AdminStatsResponse defines model for Admin-statsResponse.
@@ -784,9 +787,10 @@ type CreateEnvironmentDeployRequest struct {
 // CreateEnvironmentRequest defines model for Create-environmentRequest.
 type CreateEnvironmentRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Name   string  `json:"name"`
-	Url    *string `json:"url,omitempty"`
+	Schema        *string `json:"$schema,omitempty"`
+	Name          string  `json:"name"`
+	ReleaseBranch *string `json:"release_branch,omitempty"`
+	Url           *string `json:"url,omitempty"`
 }
 
 // CreateGoalRequest defines model for Create-goalRequest.
@@ -865,6 +869,7 @@ type CreateProposalRequest struct {
 	SourceRef          *string `json:"source_ref,omitempty"`
 	SourceType         string  `json:"source_type"`
 	Title              string  `json:"title"`
+	Value              string  `json:"value"`
 }
 
 // CreateProposalBody defines model for CreateProposalBody.
@@ -1093,6 +1098,7 @@ type EnvironmentItem struct {
 	DeployedAt         string  `json:"deployed_at"`
 	Id                 int32   `json:"id"`
 	Name               string  `json:"name"`
+	ReleaseBranch      string  `json:"release_branch"`
 	Url                string  `json:"url"`
 }
 
@@ -1996,12 +2002,20 @@ type ListIssueResolutionsResponse struct {
 	Resolutions *[]ResolutionItem `json:"resolutions"`
 }
 
+// ListIssueTodosResponse defines model for List-issue-todosResponse.
+type ListIssueTodosResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string     `json:"$schema,omitempty"`
+	Todos  *[]TodoItem `json:"todos"`
+}
+
 // ListIssuesResponse defines model for List-issuesResponse.
 type ListIssuesResponse struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema *string      `json:"$schema,omitempty"`
-	Issues *[]IssueItem `json:"issues"`
-	Total  int64        `json:"total"`
+	Schema       *string          `json:"$schema,omitempty"`
+	Issues       *[]IssueItem     `json:"issues"`
+	StatusCounts map[string]int64 `json:"status_counts"`
+	Total        int64            `json:"total"`
 }
 
 // ListLlmConfigsResponse defines model for List-llm-configsResponse.
@@ -2597,6 +2611,7 @@ type ProposalItem struct {
 	Status          string  `json:"status"`
 	Title           string  `json:"title"`
 	UpdatedAt       string  `json:"updated_at"`
+	Value           string  `json:"value"`
 }
 
 // ProposalVersionItem defines model for ProposalVersionItem.
@@ -3444,15 +3459,17 @@ type TaskItem struct {
 	LeaseExpiresAt *string `json:"lease_expires_at,omitempty"`
 	Reason         string  `json:"reason"`
 	ReviewedAt     *string `json:"reviewed_at,omitempty"`
-	Spec           *string `json:"spec,omitempty"`
-	StaleSince     *string `json:"stale_since,omitempty"`
-	Status         string  `json:"status"`
-	TaskGroup      string  `json:"task_group"`
-	TestPlan       string  `json:"test_plan"`
-	TestRefs       string  `json:"test_refs"`
-	Text           string  `json:"text"`
-	Title          string  `json:"title"`
-	UpdatedAt      string  `json:"updated_at"`
+
+	// Spec Linked spec integer ID
+	Spec       *string `json:"spec,omitempty"`
+	StaleSince *string `json:"stale_since,omitempty"`
+	Status     string  `json:"status"`
+	TaskGroup  string  `json:"task_group"`
+	TestPlan   string  `json:"test_plan"`
+	TestRefs   string  `json:"test_refs"`
+	Text       string  `json:"text"`
+	Title      string  `json:"title"`
+	UpdatedAt  string  `json:"updated_at"`
 }
 
 // TaskReviewItem defines model for TaskReviewItem.
@@ -3729,8 +3746,9 @@ type UpdateDiscussionTitleRequest struct {
 // UpdateEnvironmentRequest defines model for Update-environmentRequest.
 type UpdateEnvironmentRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Url    *string `json:"url,omitempty"`
+	Schema        *string `json:"$schema,omitempty"`
+	ReleaseBranch *string `json:"release_branch,omitempty"`
+	Url           *string `json:"url,omitempty"`
 }
 
 // UpdateGoalRequest defines model for Update-goalRequest.
@@ -3805,6 +3823,7 @@ type UpdateProposalRequest struct {
 	Body   string  `json:"body"`
 	Slug   string  `json:"slug"`
 	Title  string  `json:"title"`
+	Value  string  `json:"value"`
 }
 
 // UpdateSpecsRequest defines model for Update-specsRequest.
@@ -4591,11 +4610,12 @@ type IssueListBlockersParams struct {
 
 // ListIssuesParams defines parameters for ListIssues.
 type ListIssuesParams struct {
-	Slug   string  `form:"slug" json:"slug"`
-	Limit  *int32  `form:"limit,omitempty" json:"limit,omitempty"`
-	Offset *int32  `form:"offset,omitempty" json:"offset,omitempty"`
-	Status *string `form:"status,omitempty" json:"status,omitempty"`
-	Search *string `form:"search,omitempty" json:"search,omitempty"`
+	Slug      string  `form:"slug" json:"slug"`
+	Limit     *int32  `form:"limit,omitempty" json:"limit,omitempty"`
+	Offset    *int32  `form:"offset,omitempty" json:"offset,omitempty"`
+	Status    *string `form:"status,omitempty" json:"status,omitempty"`
+	Search    *string `form:"search,omitempty" json:"search,omitempty"`
+	Component *string `form:"component,omitempty" json:"component,omitempty"`
 }
 
 // ListIssueResolutionsParams defines parameters for ListIssueResolutions.
@@ -5872,6 +5892,9 @@ type ClientInterface interface {
 
 	// ListIssueReservations request
 	ListIssueReservations(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListIssueTodos request
+	ListIssueTodos(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTaskReservations request
 	ListTaskReservations(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9281,6 +9304,18 @@ func (c *APIClient) RenewIssueLease(ctx context.Context, slug string, id string,
 
 func (c *APIClient) ListIssueReservations(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListIssueReservationsRequest(c.Server, slug, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListIssueTodos(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIssueTodosRequest(c.Server, slug, id)
 	if err != nil {
 		return nil, err
 	}
@@ -20380,6 +20415,47 @@ func NewListIssueReservationsRequest(server string, slug string, id string) (*ht
 	return req, nil
 }
 
+// NewListIssueTodosRequest generates requests for ListIssueTodos
+func NewListIssueTodosRequest(server string, slug string, id string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/issues/%s/todos", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListTaskReservationsRequest generates requests for ListTaskReservations
 func NewListTaskReservationsRequest(server string, slug string, id string) (*http.Request, error) {
 	var err error
@@ -24844,6 +24920,22 @@ func NewListIssuesRequest(server string, params *ListIssuesParams) (*http.Reques
 
 		}
 
+		if params.Component != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "component", *params.Component, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
@@ -28083,6 +28175,9 @@ type ClientWithResponsesInterface interface {
 
 	// ListIssueReservationsWithResponse request
 	ListIssueReservationsWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ParsedListIssueReservationsResponse, error)
+
+	// ListIssueTodosWithResponse request
+	ListIssueTodosWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ParsedListIssueTodosResponse, error)
 
 	// ListTaskReservationsWithResponse request
 	ListTaskReservationsWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ParsedListTaskReservationsResponse, error)
@@ -32401,6 +32496,29 @@ func (r ParsedListIssueReservationsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListIssueReservationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListIssueTodosResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListIssueTodosResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListIssueTodosResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListIssueTodosResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -37619,6 +37737,15 @@ func (c *ClientWithResponses) ListIssueReservationsWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseParsedListIssueReservationsResponse(rsp)
+}
+
+// ListIssueTodosWithResponse request returning *ParsedListIssueTodosResponse
+func (c *ClientWithResponses) ListIssueTodosWithResponse(ctx context.Context, slug string, id string, reqEditors ...RequestEditorFn) (*ParsedListIssueTodosResponse, error) {
+	rsp, err := c.ListIssueTodos(ctx, slug, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListIssueTodosResponse(rsp)
 }
 
 // ListTaskReservationsWithResponse request returning *ParsedListTaskReservationsResponse
@@ -44772,6 +44899,39 @@ func ParseParsedListIssueReservationsResponse(rsp *http.Response) (*ParsedListIs
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListIssueReservationsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListIssueTodosResponse parses an HTTP response from a ListIssueTodosWithResponse call
+func ParseParsedListIssueTodosResponse(rsp *http.Response) (*ParsedListIssueTodosResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListIssueTodosResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListIssueTodosResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

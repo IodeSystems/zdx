@@ -47,25 +47,32 @@ func (q *Queries) CreateDeploy(ctx context.Context, arg CreateDeployParams) (Zdx
 }
 
 const createEnvironment = `-- name: CreateEnvironment :one
-INSERT INTO zdx_environments (project_id, name, url)
-VALUES ($1, $2, $3)
-RETURNING id, project_id, name, url, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+INSERT INTO zdx_environments (project_id, name, url, release_branch)
+VALUES ($1, $2, $3, $4)
+RETURNING id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 `
 
 type CreateEnvironmentParams struct {
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Name      string `db:"name" json:"name"`
-	Url       string `db:"url" json:"url"`
+	ProjectID     int32  `db:"project_id" json:"project_id"`
+	Name          string `db:"name" json:"name"`
+	Url           string `db:"url" json:"url"`
+	ReleaseBranch string `db:"release_branch" json:"release_branch"`
 }
 
 func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) (ZdxEnvironment, error) {
-	row := q.db.QueryRow(ctx, createEnvironment, arg.ProjectID, arg.Name, arg.Url)
+	row := q.db.QueryRow(ctx, createEnvironment,
+		arg.ProjectID,
+		arg.Name,
+		arg.Url,
+		arg.ReleaseBranch,
+	)
 	var i ZdxEnvironment
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
 		&i.Name,
 		&i.Url,
+		&i.ReleaseBranch,
 		&i.CurrentBuildSha,
 		&i.CurrentBuildBranch,
 		&i.DeployedAt,
@@ -90,7 +97,7 @@ func (q *Queries) DeleteEnvironment(ctx context.Context, arg DeleteEnvironmentPa
 }
 
 const getEnvironment = `-- name: GetEnvironment :one
-SELECT id, project_id, name, url, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+SELECT id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 FROM zdx_environments WHERE project_id = $1 AND name = $2
 `
 
@@ -107,6 +114,7 @@ func (q *Queries) GetEnvironment(ctx context.Context, arg GetEnvironmentParams) 
 		&i.ProjectID,
 		&i.Name,
 		&i.Url,
+		&i.ReleaseBranch,
 		&i.CurrentBuildSha,
 		&i.CurrentBuildBranch,
 		&i.DeployedAt,
@@ -150,7 +158,7 @@ func (q *Queries) ListDeploys(ctx context.Context, environmentID int32) ([]ZdxDe
 }
 
 const listEnvironments = `-- name: ListEnvironments :many
-SELECT id, project_id, name, url, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+SELECT id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 FROM zdx_environments WHERE project_id = $1 ORDER BY name ASC
 `
 
@@ -168,6 +176,7 @@ func (q *Queries) ListEnvironments(ctx context.Context, projectID int32) ([]ZdxE
 			&i.ProjectID,
 			&i.Name,
 			&i.Url,
+			&i.ReleaseBranch,
 			&i.CurrentBuildSha,
 			&i.CurrentBuildBranch,
 			&i.DeployedAt,
@@ -186,18 +195,25 @@ func (q *Queries) ListEnvironments(ctx context.Context, projectID int32) ([]ZdxE
 
 const updateEnvironment = `-- name: UpdateEnvironment :exec
 UPDATE zdx_environments
-SET url = COALESCE(NULLIF($1, ''), url)
-WHERE project_id = $2 AND name = $3
+SET url            = COALESCE(NULLIF($1, ''), url),
+    release_branch = COALESCE(NULLIF($2, ''), release_branch)
+WHERE project_id = $3 AND name = $4
 `
 
 type UpdateEnvironmentParams struct {
-	Url       interface{} `db:"url" json:"url"`
-	ProjectID int32       `db:"project_id" json:"project_id"`
-	Name      string      `db:"name" json:"name"`
+	Url           interface{} `db:"url" json:"url"`
+	ReleaseBranch interface{} `db:"release_branch" json:"release_branch"`
+	ProjectID     int32       `db:"project_id" json:"project_id"`
+	Name          string      `db:"name" json:"name"`
 }
 
 func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentParams) error {
-	_, err := q.db.Exec(ctx, updateEnvironment, arg.Url, arg.ProjectID, arg.Name)
+	_, err := q.db.Exec(ctx, updateEnvironment,
+		arg.Url,
+		arg.ReleaseBranch,
+		arg.ProjectID,
+		arg.Name,
+	)
 	return err
 }
 

@@ -211,16 +211,21 @@ export const useCreateProject = () => {
 
 // ── issues ────────────────────────────────────────────────────────────────────
 
-export const useIssues = (slug: string, limit?: number, offset?: number) =>
-  useQuery<{ issues: IssueItem[]; total: number }>({
-    queryKey: ['issues', slug, limit, offset],
+export const useIssues = (slug: string, limit?: number, offset?: number, component?: string) =>
+  useQuery<{ issues: IssueItem[]; total: number; statusCounts: Record<string, number> }>({
+    queryKey: ['issues', slug, limit, offset, component ?? ''],
     queryFn: async () => {
       const params: Record<string, string> = { slug }
       if (limit != null) params.limit = String(limit)
       if (offset != null) params.offset = String(offset)
+      if (component) params.component = component
       const { data, error } = await client.GET('/api/dx/todo/issue/list', { params: { query: params as any } })
       if (error) throw new Error(JSON.stringify(error))
-      return { issues: data?.issues ?? [], total: (data as any)?.total ?? 0 }
+      return {
+        issues: data?.issues ?? [],
+        total: (data as any)?.total ?? 0,
+        statusCounts: (data as any)?.status_counts ?? {},
+      }
     },
     enabled: !!slug,
   })
@@ -1951,6 +1956,19 @@ export const useReservationsByIssueID = (slug: string, issueId: string) =>
     enabled: !!slug && !!issueId,
   })
 
+export const useTodosByIssue = (slug: string, issueId: string) =>
+  useQuery<{ todos: SoloItem[] }>({
+    queryKey: ['todos-by-issue', slug, issueId],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/projects/{slug}/issues/{id}/todos' as any, {
+        params: { path: { slug, id: issueId } } as any,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return { todos: ((data as any)?.todos ?? []) as SoloItem[] }
+    },
+    enabled: !!slug && !!issueId,
+  })
+
 export const useInfiniteClaudeSessionEvents = (slug: string, sessionId: number | null, pageSize = 200) =>
   useInfiniteQuery<{ events: ClaudeEventItem[]; total: number }>({
     queryKey: ['claude-events-infinite', slug, sessionId, pageSize],
@@ -2450,9 +2468,9 @@ export const useProposals = (slug: string, status?: string) =>
 
 export const useCreateProposal = () => {
   const qc = useQueryClient()
-  return useMutation<CreateProposalBody, Error, { slug: string; title: string; body: string; source_type?: string; source_ref?: string }>({
-    mutationFn: async ({ slug, title, body, source_type, source_ref }) => {
-      const reqBody = { slug, title, body, source_type: source_type ?? 'discussion', source_ref } as never
+  return useMutation<CreateProposalBody, Error, { slug: string; title: string; value?: string; body: string; source_type?: string; source_ref?: string }>({
+    mutationFn: async ({ slug, title, value, body, source_type, source_ref }) => {
+      const reqBody = { slug, title, value: value ?? '', body, source_type: source_type ?? 'discussion', source_ref } as never
       const { data, error } = await client.POST('/api/dx/proposals', { body: reqBody })
       if (error) throw new Error(JSON.stringify(error))
       return data!
@@ -2478,11 +2496,11 @@ export const useProposal = (slug: string, id: number) =>
 
 export const useUpdateProposal = () => {
   const qc = useQueryClient()
-  return useMutation<ProposalItem, Error, { slug: string; id: number; title: string; body: string }>({
-    mutationFn: async ({ slug, id, title, body }) => {
+  return useMutation<ProposalItem, Error, { slug: string; id: number; title: string; value: string; body: string }>({
+    mutationFn: async ({ slug, id, title, value, body }) => {
       const { data, error } = await client.PATCH('/api/dx/proposals/{id}', {
         params: { path: { id } },
-        body: { slug, title, body },
+        body: { slug, title, value, body },
       })
       if (error) throw new Error(JSON.stringify(error))
       return data!
@@ -2699,11 +2717,11 @@ export const useRequestEnvironmentTodo = () => {
 
 export const useCreateEnvironment = () => {
   const qc = useQueryClient()
-  return useMutation<EnvironmentItem, Error, { slug: string; name: string; url?: string }>({
-    mutationFn: async ({ slug, name, url }) => {
+  return useMutation<EnvironmentItem, Error, { slug: string; name: string; url?: string; release_branch?: string }>({
+    mutationFn: async ({ slug, name, url, release_branch }) => {
       const { data, error } = await client.POST('/api/dx/projects/{slug}/environments', {
         params: { path: { slug } },
-        body: { name, url: url ?? '' },
+        body: { name, url: url ?? '', release_branch: release_branch ?? '' },
       })
       if (error) throw new Error(JSON.stringify(error))
       return data!
@@ -2716,11 +2734,11 @@ export const useCreateEnvironment = () => {
 
 export const useUpdateEnvironment = () => {
   const qc = useQueryClient()
-  return useMutation<void, Error, { slug: string; name: string; url: string }>({
-    mutationFn: async ({ slug, name, url }) => {
+  return useMutation<void, Error, { slug: string; name: string; url: string; release_branch?: string }>({
+    mutationFn: async ({ slug, name, url, release_branch }) => {
       const { error } = await client.PUT('/api/dx/projects/{slug}/environments/{name}', {
         params: { path: { slug, name } },
-        body: { url },
+        body: { url, release_branch: release_branch ?? '' },
       })
       if (error) throw new Error(JSON.stringify(error))
     },

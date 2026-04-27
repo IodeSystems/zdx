@@ -19,6 +19,7 @@ type EnvironmentItem struct {
 	ID                 int32  `json:"id"`
 	Name               string `json:"name"`
 	URL                string `json:"url"`
+	ReleaseBranch      string `json:"release_branch"`
 	CurrentBuildSha    string `json:"current_build_sha"`
 	CurrentBuildBranch string `json:"current_build_branch"`
 	DeployedAt         string `json:"deployed_at"`
@@ -40,6 +41,7 @@ func toEnvironmentItem(e db.ZdxEnvironment) EnvironmentItem {
 		ID:                 e.ID,
 		Name:               e.Name,
 		URL:                e.Url,
+		ReleaseBranch:      e.ReleaseBranch,
 		CurrentBuildSha:    e.CurrentBuildSha,
 		CurrentBuildBranch: e.CurrentBuildBranch,
 		DeployedAt:         fmtTS(e.DeployedAt),
@@ -109,8 +111,9 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug string `path:"slug"`
 			Body struct {
-				Name string `json:"name"`
-				URL  string `json:"url,omitempty"`
+				Name          string `json:"name"`
+				URL           string `json:"url,omitempty"`
+				ReleaseBranch string `json:"release_branch,omitempty"`
 			}
 		}) (*struct{ Body EnvironmentItem }, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
@@ -118,9 +121,10 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				return nil, err
 			}
 			env, err := h.Q.CreateEnvironment(ctx, db.CreateEnvironmentParams{
-				ProjectID: p.ID,
-				Name:      in.Body.Name,
-				Url:       in.Body.URL,
+				ProjectID:     p.ID,
+				Name:          in.Body.Name,
+				Url:           in.Body.URL,
+				ReleaseBranch: in.Body.ReleaseBranch,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -133,7 +137,8 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 			Slug string `path:"slug"`
 			Name string `path:"name"`
 			Body struct {
-				URL string `json:"url,omitempty"`
+				URL           string `json:"url,omitempty"`
+				ReleaseBranch string `json:"release_branch,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
@@ -141,9 +146,10 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				return nil, err
 			}
 			if err := h.Q.UpdateEnvironment(ctx, db.UpdateEnvironmentParams{
-				Url:       in.Body.URL,
-				ProjectID: p.ID,
-				Name:      in.Name,
+				Url:           in.Body.URL,
+				ReleaseBranch: in.Body.ReleaseBranch,
+				ProjectID:     p.ID,
+				Name:          in.Name,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}

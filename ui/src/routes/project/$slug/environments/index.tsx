@@ -62,12 +62,13 @@ function AddEnvironmentDialog({ slug, open, onClose }: { slug: string; open: boo
   const create = useCreateEnvironment()
   const [name, setName] = useState('')
   const [url, setUrl] = useState('')
+  const [releaseBranch, setReleaseBranch] = useState('')
   const [error, setError] = useState('')
 
   const handleSubmit = () => {
     if (!name.trim()) { setError('Name is required'); return }
-    create.mutate({ slug, name: name.trim(), url: url.trim() }, {
-      onSuccess: () => { setName(''); setUrl(''); setError(''); onClose() },
+    create.mutate({ slug, name: name.trim(), url: url.trim(), release_branch: releaseBranch.trim() }, {
+      onSuccess: () => { setName(''); setUrl(''); setReleaseBranch(''); setError(''); onClose() },
       onError: (e) => setError(e.message),
     })
   }
@@ -93,6 +94,13 @@ function AddEnvironmentDialog({ slug, open, onClose }: { slug: string; open: boo
           size="small"
           placeholder="https://example.com"
         />
+        <TextField
+          label="Release branch (optional)"
+          value={releaseBranch}
+          onChange={e => setReleaseBranch(e.target.value)}
+          size="small"
+          placeholder="release/production"
+        />
       </DialogContent>
       <DialogActions>
         <Button onClick={onClose} size="small">Cancel</Button>
@@ -105,10 +113,11 @@ function AddEnvironmentDialog({ slug, open, onClose }: { slug: string; open: boo
 function EditEnvironmentDialog({ slug, env, open, onClose }: { slug: string; env: EnvironmentItem; open: boolean; onClose: () => void }) {
   const update = useUpdateEnvironment()
   const [url, setUrl] = useState(env.url ?? '')
+  const [releaseBranch, setReleaseBranch] = useState(env.release_branch ?? '')
   const [error, setError] = useState('')
 
   const handleSubmit = () => {
-    update.mutate({ slug, name: env.name, url }, {
+    update.mutate({ slug, name: env.name, url, release_branch: releaseBranch }, {
       onSuccess: () => { setError(''); onClose() },
       onError: (e) => setError(e.message),
     })
@@ -117,7 +126,7 @@ function EditEnvironmentDialog({ slug, env, open, onClose }: { slug: string; env
   return (
     <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
       <DialogTitle>Edit {env.name}</DialogTitle>
-      <DialogContent sx={{ pt: '12px !important' }}>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '12px !important' }}>
         <TextField
           label="URL"
           value={url}
@@ -128,6 +137,14 @@ function EditEnvironmentDialog({ slug, env, open, onClose }: { slug: string; env
           autoFocus
           error={!!error}
           helperText={error}
+        />
+        <TextField
+          label="Release branch"
+          value={releaseBranch}
+          onChange={e => setReleaseBranch(e.target.value)}
+          size="small"
+          fullWidth
+          placeholder="release/production"
         />
       </DialogContent>
       <DialogActions>
@@ -170,6 +187,18 @@ function EnvironmentRow({ slug, env }: { slug: string; env: EnvironmentItem }) {
               sx={{ color: 'text.secondary', fontSize: '0.8rem', wordBreak: 'break-all' }}>
               {env.url}
             </Typography>
+          ) : (
+            <Typography variant="body2" color="text.disabled">—</Typography>
+          )}
+        </TableCell>
+        <TableCell>
+          {env.release_branch ? (
+            <Chip
+              label={env.release_branch}
+              size="small"
+              variant="outlined"
+              sx={{ fontFamily: 'monospace', fontSize: '0.75rem', height: 20 }}
+            />
           ) : (
             <Typography variant="body2" color="text.disabled">—</Typography>
           )}
@@ -292,6 +321,7 @@ function EnvironmentsPage() {
               <TableRow>
                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>URL</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Release Branch</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Version</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Deployed</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>

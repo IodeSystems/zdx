@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -557,6 +557,7 @@ CREATE TABLE public.zdx_environments (
     project_id integer NOT NULL,
     name text NOT NULL,
     url text DEFAULT ''::text NOT NULL,
+    release_branch text DEFAULT ''::text NOT NULL,
     current_build_sha text DEFAULT ''::text NOT NULL,
     current_build_branch text DEFAULT ''::text NOT NULL,
     deployed_at timestamp with time zone,
@@ -1654,7 +1655,8 @@ CREATE TABLE public.zdx_proposals (
     created_by text DEFAULT ''::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL,
-    approved_issue_id text
+    approved_issue_id text,
+    value text DEFAULT ''::text NOT NULL
 );
 
 

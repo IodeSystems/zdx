@@ -1,0 +1,1 @@
+ALTER TABLE zdx_environments ADD COLUMN IF NOT EXISTS release_branch TEXT NOT NULL DEFAULT '';

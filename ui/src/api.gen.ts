@@ -2342,6 +2342,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/projects/{slug}/issues/{id}/todos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-issue-todos"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/projects/{slug}/tasks/{id}/reservations": {
         parameters: {
             query?: never;
@@ -4705,6 +4721,7 @@ export interface components {
             issue?: string;
             reason?: string;
             slug: string;
+            spec?: string;
             task_group?: string;
             test_plan?: string;
             text: string;
@@ -4738,6 +4755,8 @@ export interface components {
             reason: string;
             reviewed_at?: string;
             similar?: components["schemas"]["SimilarTaskItem"][] | null;
+            /** @description Linked spec integer ID */
+            spec?: string;
             stale_since?: string;
             status: string;
             task_group: string;
@@ -5364,6 +5383,7 @@ export interface components {
              */
             readonly $schema?: string;
             name: string;
+            release_branch?: string;
             url?: string;
         };
         "Create-goalRequest": {
@@ -5460,6 +5480,7 @@ export interface components {
             source_ref?: string;
             source_type: string;
             title: string;
+            value: string;
         };
         CreateProposalBody: {
             /**
@@ -5753,6 +5774,7 @@ export interface components {
             /** Format: int32 */
             id: number;
             name: string;
+            release_branch: string;
             url: string;
         };
         ErrorDetail: {
@@ -6866,6 +6888,15 @@ export interface components {
             readonly $schema?: string;
             resolutions: components["schemas"]["ResolutionItem"][] | null;
         };
+        "List-issue-todosResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-issue-todosResponse.json
+             */
+            readonly $schema?: string;
+            todos: components["schemas"]["TodoItem"][] | null;
+        };
         "List-issuesResponse": {
             /**
              * Format: uri
@@ -6874,6 +6905,9 @@ export interface components {
              */
             readonly $schema?: string;
             issues: components["schemas"]["IssueItem"][] | null;
+            status_counts: {
+                [key: string]: number;
+            };
             /** Format: int64 */
             total: number;
         };
@@ -7633,6 +7667,7 @@ export interface components {
             status: string;
             title: string;
             updated_at: string;
+            value: string;
         };
         ProposalVersionItem: {
             body: string;
@@ -8655,6 +8690,8 @@ export interface components {
             lease_expires_at?: string;
             reason: string;
             reviewed_at?: string;
+            /** @description Linked spec integer ID */
+            spec?: string;
             stale_since?: string;
             status: string;
             task_group: string;
@@ -8990,6 +9027,7 @@ export interface components {
              * @example https://example.com/schemas/Update-environmentRequest.json
              */
             readonly $schema?: string;
+            release_branch?: string;
             url?: string;
         };
         "Update-goalRequest": {
@@ -9086,6 +9124,7 @@ export interface components {
             body: string;
             slug: string;
             title: string;
+            value: string;
         };
         "Update-specsRequest": {
             /**
@@ -14565,6 +14604,38 @@ export interface operations {
             };
         };
     };
+    "list-issue-todos": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-issue-todosResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-task-reservations": {
         parameters: {
             query?: never;
@@ -17297,6 +17368,7 @@ export interface operations {
                 offset?: number;
                 status?: string;
                 search?: string;
+                component?: string;
             };
             header?: never;
             path?: never;
