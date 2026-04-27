@@ -111,6 +111,7 @@ export function DiscussionDetail({
   const [input, setInput] = useState(initialMessage ?? '')
   const [promoteMsg, setPromoteMsg] = useState<DiscussionMessageItem | null>(null)
   const [propTitle, setPropTitle] = useState('')
+  const [propValue, setPropValue] = useState('')
   const messagesEndRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -132,6 +133,7 @@ export function DiscussionDetail({
   const handlePromote = (msg: DiscussionMessageItem) => {
     setPromoteMsg(msg)
     setPropTitle(msg.content.slice(0, 80).replace(/\n/g, ' '))
+    setPropValue('')
   }
 
   const handleConfirmPromote = () => {
@@ -140,6 +142,7 @@ export function DiscussionDetail({
       {
         slug,
         title: propTitle,
+        value: propValue,
         body: promoteMsg.content,
         source_type: 'discussion',
         source_ref: String(discussionId),
@@ -148,6 +151,7 @@ export function DiscussionDetail({
         onSuccess: () => {
           setPromoteMsg(null)
           setPropTitle('')
+          setPropValue('')
         },
       },
     )
@@ -243,6 +247,16 @@ export function DiscussionDetail({
             value={propTitle}
             onChange={e => setPropTitle(e.target.value)}
             autoFocus
+          />
+          <TextField
+            label="Value (why does this matter?)"
+            fullWidth
+            margin="dense"
+            multiline
+            minRows={2}
+            value={propValue}
+            onChange={e => setPropValue(e.target.value)}
+            placeholder="Which goals does this advance? What problem does it solve?"
           />
           <Typography variant="caption" color="text.secondary" sx={{ mt: 1, display: 'block' }}>
             Body will be set to the full message content.

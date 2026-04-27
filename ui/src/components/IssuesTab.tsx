@@ -250,23 +250,16 @@ export function IssuesTab({
 }) {
   const { component } = useComponentFilter()
   const { offset, loadMore, pageSize } = useLoadMore()
-  const { data, isLoading } = useIssues(slug, pageSize, offset)
+  const { data, isLoading } = useIssues(slug, pageSize, offset, component)
 
   if (isLoading && !data) return <Typography color="text.secondary">Loading...</Typography>
 
   const allItems: Issue[] = data?.issues ?? []
   const total = data?.total ?? 0
+  const statusCounts: Record<string, number> = data?.statusCounts ?? {}
+  const filteredTotal = Object.values(statusCounts).reduce((a, b) => a + b, 0)
 
-  const componentFiltered = component ? allItems.filter(i => i.component === component) : allItems
-
-  const items = statusFilter
-    ? componentFiltered.filter(i => i.status === statusFilter)
-    : componentFiltered
-
-  const statusCounts = componentFiltered.reduce((acc, i) => {
-    acc[i.status] = (acc[i.status] || 0) + 1
-    return acc
-  }, {} as Record<string, number>)
+  const items = statusFilter ? allItems.filter(i => i.status === statusFilter) : allItems
 
   function toggleFilter(status: string) {
     onStatusFilter(statusFilter === status ? null : status)
@@ -276,7 +269,7 @@ export function IssuesTab({
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
         <Typography variant="subtitle2" color="text.secondary">
-          {statusFilter ? `${items.length} of ${componentFiltered.length}` : `${componentFiltered.length}`} issues
+          {statusFilter ? `${statusCounts[statusFilter] ?? 0} of ${filteredTotal}` : `${filteredTotal}`} issues
           {component && ` (component=${component})`}
           {statusFilter && ` — filtered: ${statusFilter}`}
         </Typography>

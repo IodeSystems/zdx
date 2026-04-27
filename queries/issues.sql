@@ -93,6 +93,14 @@ JOIN zdx_issues i ON i.id = w.issue_id
 WHERE i.project_id = $1
 ORDER BY w.created_at DESC;
 
+-- name: CountIssuesByStatus :many
+-- metaquery: off
+SELECT status, COUNT(*)::bigint AS count
+FROM zdx_issues
+WHERE project_id = @project_id
+  AND (@component::text = '' OR component = @component::text)
+GROUP BY status;
+
 -- name: ProjectStateSummary :one
 SELECT
   (SELECT count(*) FROM zdx_issues i WHERE i.project_id = $1 AND i.status = 'open') AS open_issues,

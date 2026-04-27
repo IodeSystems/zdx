@@ -12,14 +12,15 @@ import (
 )
 
 const createProposal = `-- name: CreateProposal :one
-INSERT INTO zdx_proposals (project_id, title, body, source_type, source_ref, created_by)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+INSERT INTO zdx_proposals (project_id, title, value, body, source_type, source_ref, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value
 `
 
 type CreateProposalParams struct {
 	ProjectID  int32       `db:"project_id" json:"project_id"`
 	Title      string      `db:"title" json:"title"`
+	Value      string      `db:"value" json:"value"`
 	Body       string      `db:"body" json:"body"`
 	SourceType string      `db:"source_type" json:"source_type"`
 	SourceRef  pgtype.Text `db:"source_ref" json:"source_ref"`
@@ -30,6 +31,7 @@ func (q *Queries) CreateProposal(ctx context.Context, arg CreateProposalParams) 
 	row := q.db.QueryRow(ctx, createProposal,
 		arg.ProjectID,
 		arg.Title,
+		arg.Value,
 		arg.Body,
 		arg.SourceType,
 		arg.SourceRef,
@@ -49,6 +51,7 @@ func (q *Queries) CreateProposal(ctx context.Context, arg CreateProposalParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ApprovedIssueID,
+		&i.Value,
 	)
 	return i, err
 }
@@ -79,7 +82,7 @@ func (q *Queries) CreateProposalVersion(ctx context.Context, arg CreateProposalV
 }
 
 const getProposal = `-- name: GetProposal :one
-SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value
 FROM zdx_proposals WHERE project_id = $1 AND id = $2
 `
 
@@ -104,6 +107,7 @@ func (q *Queries) GetProposal(ctx context.Context, arg GetProposalParams) (ZdxPr
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ApprovedIssueID,
+		&i.Value,
 	)
 	return i, err
 }
@@ -141,7 +145,7 @@ func (q *Queries) ListProposalVersions(ctx context.Context, proposalID int32) ([
 }
 
 const listProposals = `-- name: ListProposals :many
-SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value
 FROM zdx_proposals WHERE project_id = $1 AND ($2::text = 'all' OR status = $2::text)
 ORDER BY created_at DESC
 `
@@ -173,6 +177,7 @@ func (q *Queries) ListProposals(ctx context.Context, arg ListProposalsParams) ([
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ApprovedIssueID,
+			&i.Value,
 		); err != nil {
 			return nil, err
 		}
@@ -185,7 +190,7 @@ func (q *Queries) ListProposals(ctx context.Context, arg ListProposalsParams) ([
 }
 
 const searchProposals = `-- name: SearchProposals :many
-SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value
 FROM zdx_proposals
 WHERE project_id = $1
   AND status NOT IN ('rejected', 'approved')
@@ -222,6 +227,7 @@ func (q *Queries) SearchProposals(ctx context.Context, arg SearchProposalsParams
 			&i.CreatedAt,
 			&i.UpdatedAt,
 			&i.ApprovedIssueID,
+			&i.Value,
 		); err != nil {
 			return nil, err
 		}
@@ -235,15 +241,16 @@ func (q *Queries) SearchProposals(ctx context.Context, arg SearchProposalsParams
 
 const updateProposal = `-- name: UpdateProposal :one
 UPDATE zdx_proposals
-SET title = $3, body = $4, updated_at = NOW()
+SET title = $3, value = $4, body = $5, updated_at = NOW()
 WHERE project_id = $1 AND id = $2
-RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value
 `
 
 type UpdateProposalParams struct {
 	ProjectID int32  `db:"project_id" json:"project_id"`
 	ID        int32  `db:"id" json:"id"`
 	Title     string `db:"title" json:"title"`
+	Value     string `db:"value" json:"value"`
 	Body      string `db:"body" json:"body"`
 }
 
@@ -252,6 +259,7 @@ func (q *Queries) UpdateProposal(ctx context.Context, arg UpdateProposalParams) 
 		arg.ProjectID,
 		arg.ID,
 		arg.Title,
+		arg.Value,
 		arg.Body,
 	)
 	var i ZdxProposal
@@ -268,6 +276,7 @@ func (q *Queries) UpdateProposal(ctx context.Context, arg UpdateProposalParams) 
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ApprovedIssueID,
+		&i.Value,
 	)
 	return i, err
 }
@@ -276,7 +285,7 @@ const updateProposalStatus = `-- name: UpdateProposalStatus :one
 UPDATE zdx_proposals
 SET status = $3, snoozed_until = $4, approved_issue_id = $5, updated_at = NOW()
 WHERE project_id = $1 AND id = $2
-RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value
 `
 
 type UpdateProposalStatusParams struct {
@@ -309,6 +318,7 @@ func (q *Queries) UpdateProposalStatus(ctx context.Context, arg UpdateProposalSt
 		&i.CreatedAt,
 		&i.UpdatedAt,
 		&i.ApprovedIssueID,
+		&i.Value,
 	)
 	return i, err
 }

@@ -110,6 +110,11 @@ export function ProposalsTab({
                 <Typography variant="body2" sx={{ mb: 0.5 }}>
                   {proposalDisplayTitle(p.title, p.body)}
                 </Typography>
+                {p.value && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5, fontStyle: 'italic' }}>
+                    {p.value.slice(0, 100)}{p.value.length > 100 ? '…' : ''}
+                  </Typography>
+                )}
                 <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
                   <Typography variant="caption" color="text.secondary">
                     #{p.id}

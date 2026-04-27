@@ -1,0 +1,1 @@
+ALTER TABLE zdx_proposals DROP COLUMN IF EXISTS value;

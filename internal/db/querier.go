@@ -54,6 +54,8 @@ type Querier interface {
 	CountClaudeSessionsByIssue(ctx context.Context, arg CountClaudeSessionsByIssueParams) (int64, error)
 	CountClosedTasks(ctx context.Context, projectID int32) (int64, error)
 	CountIssueResolutions(ctx context.Context, issueID string) (int64, error)
+	// metaquery: off
+	CountIssuesByStatus(ctx context.Context, arg CountIssuesByStatusParams) ([]CountIssuesByStatusRow, error)
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
 	CountQuestionProposalsByQuestion(ctx context.Context, arg CountQuestionProposalsByQuestionParams) (int64, error)

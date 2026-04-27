@@ -39,6 +39,7 @@ type ProposalItem struct {
 	ID              int32   `json:"id"`
 	ProjectID       int32   `json:"project_id"`
 	Title           string  `json:"title"`
+	Value           string  `json:"value"`
 	Body            string  `json:"body"`
 	SourceType      string  `json:"source_type"`
 	SourceRef       *string `json:"source_ref,omitempty"`
@@ -63,6 +64,7 @@ func toProposalItem(p db.ZdxProposal) ProposalItem {
 		ID:         p.ID,
 		ProjectID:  p.ProjectID,
 		Title:      p.Title,
+		Value:      p.Value,
 		Body:       p.Body,
 		SourceType: p.SourceType,
 		Status:     p.Status,
@@ -139,6 +141,7 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 			Body struct {
 				Slug               string  `json:"slug"`
 				Title              string  `json:"title"`
+				Value              string  `json:"value"`
 				Body               string  `json:"body"`
 				SourceType         string  `json:"source_type"`
 				SourceRef          *string `json:"source_ref,omitempty"`
@@ -178,6 +181,7 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 			params := db.CreateProposalParams{
 				ProjectID:  p.ID,
 				Title:      in.Body.Title,
+				Value:      in.Body.Value,
 				Body:       in.Body.Body,
 				SourceType: sourceType,
 				CreatedBy:  createdBy,
@@ -230,6 +234,7 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 			Body struct {
 				Slug  string `json:"slug"`
 				Title string `json:"title"`
+				Value string `json:"value"`
 				Body  string `json:"body"`
 			}
 		}) (*struct{ Body ProposalItem }, error) {
@@ -260,6 +265,7 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 				ProjectID: p.ID,
 				ID:        in.ID,
 				Title:     in.Body.Title,
+				Value:     in.Body.Value,
 				Body:      in.Body.Body,
 			})
 			if err != nil {

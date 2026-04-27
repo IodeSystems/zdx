@@ -47,6 +47,45 @@ func (q *Queries) CloseIssue(ctx context.Context, arg CloseIssueParams) error {
 	return err
 }
 
+const countIssuesByStatus = `-- name: CountIssuesByStatus :many
+SELECT status, COUNT(*)::bigint AS count
+FROM zdx_issues
+WHERE project_id = $1
+  AND ($2::text = '' OR component = $2::text)
+GROUP BY status
+`
+
+type CountIssuesByStatusParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Component string `db:"component" json:"component"`
+}
+
+type CountIssuesByStatusRow struct {
+	Status string `db:"status" json:"status"`
+	Count  int64  `db:"count" json:"count"`
+}
+
+// metaquery: off
+func (q *Queries) CountIssuesByStatus(ctx context.Context, arg CountIssuesByStatusParams) ([]CountIssuesByStatusRow, error) {
+	rows, err := q.db.Query(ctx, countIssuesByStatus, arg.ProjectID, arg.Component)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []CountIssuesByStatusRow
+	for rows.Next() {
+		var i CountIssuesByStatusRow
+		if err := rows.Scan(&i.Status, &i.Count); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

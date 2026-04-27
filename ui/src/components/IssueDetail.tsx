@@ -39,7 +39,6 @@ import { BlockerQuestionsSection } from './BlockerQuestionsSection'
 import { CodeRefs } from './CodeRefs'
 import { MarkdownContent } from './MarkdownContent'
 import { UnifiedTimeline } from './UnifiedTimeline'
-import { ReservationSection } from './ReservationSection'
 
 function priorityLabel(p: string): string {
   if (!p) return 'untriaged'
@@ -109,6 +108,10 @@ export function IssueDetail({
   useChannel(`issue:${issueId}`, onWsMessage)
 
   const issue = data?.issue
+  const reservations = reservationsData?.reservations ?? []
+  const activeReservation = reservations.find(
+    r => !r.released_at && new Date(r.lease_expires_at) > new Date(),
+  )
   const displayTitle = issue ? issueDisplayTitle(issue.title, issue.context) : ''
   useEffect(() => {
     if (!issue) return
@@ -253,6 +256,19 @@ export function IssueDetail({
             component={Link as any}
             to="/project/$slug/issues/$id"
             params={{ slug, id: issue.duplicate_of }}
+            clickable
+            sx={{ textDecoration: 'none' }}
+          />
+        )}
+        {activeReservation && activeReservation.session_id && (
+          <Chip
+            label={`reserved: ${activeReservation.session_alias || activeReservation.claimed_by || 'agent'}`}
+            size="small"
+            variant="outlined"
+            color="info"
+            component={Link as any}
+            to="/project/$slug/agents/$sessionId"
+            params={{ slug, sessionId: String(activeReservation.session_id) }}
             clickable
             sx={{ textDecoration: 'none' }}
           />
@@ -497,8 +513,6 @@ export function IssueDetail({
           </Box>
         </Box>
       )}
-
-      <ReservationSection slug={slug} reservations={reservationsData?.reservations ?? []} />
 
       <BlockerQuestionsSection slug={slug} targetType="issue" targetId={issueId} />
 

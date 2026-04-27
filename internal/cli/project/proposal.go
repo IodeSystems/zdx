@@ -39,7 +39,7 @@ func proposalIDStr(id int32) string {
 }
 
 func proposalAddCmd() *cobra.Command {
-	var title, body, sourceType, sourceRef, duplicatesReviewed string
+	var title, value, body, sourceType, sourceRef, duplicatesReviewed string
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Create a proposal",
@@ -51,6 +51,7 @@ func proposalAddCmd() *cobra.Command {
 			req := dxclient.CreateProposalRequest{
 				Slug:       c.SlugOrDie(),
 				Title:      title,
+				Value:      value,
 				Body:       body,
 				SourceType: sourceType,
 			}
@@ -91,7 +92,8 @@ func proposalAddCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&title, "title", "", "proposal title")
-	cmd.Flags().StringVar(&body, "body", "", "proposal body")
+	cmd.Flags().StringVar(&value, "value", "", "value / goals justification (why this matters)")
+	cmd.Flags().StringVar(&body, "body", "", "proposal body (implementation details)")
 	cmd.Flags().StringVar(&sourceType, "source", "session-review", "source type (session-review, conversation, etc.)")
 	cmd.Flags().StringVar(&sourceRef, "source-ref", "", "source reference (optional)")
 	cmd.Flags().StringVar(&duplicatesReviewed, "duplicates-reviewed", "", "server-provided token confirming duplicate review")
@@ -173,6 +175,9 @@ func proposalShowCmd() *cobra.Command {
 				fmt.Printf("snoozed until: %s\n", *p.SnoozedUntil)
 			}
 			fmt.Printf("created: %s  by %s\n\n", p.CreatedAt, p.CreatedBy)
+			if p.Value != "" {
+				fmt.Printf("Value:\n%s\n\n", p.Value)
+			}
 			fmt.Println(p.Body)
 			if resp.JSON200.Versions != nil && len(*resp.JSON200.Versions) > 0 {
 				fmt.Printf("\n--- version history (%d) ---\n", len(*resp.JSON200.Versions))
@@ -187,7 +192,7 @@ func proposalShowCmd() *cobra.Command {
 }
 
 func proposalEditCmd() *cobra.Command {
-	var title, body string
+	var title, value, body string
 	cmd := &cobra.Command{
 		Use:   "edit <PR-N>",
 		Short: "Update a proposal body (creates a version)",
@@ -201,6 +206,7 @@ func proposalEditCmd() *cobra.Command {
 			resp, err := c.UpdateProposalWithResponse(cmd.Context(), id, dxclient.UpdateProposalRequest{
 				Slug:  c.SlugOrDie(),
 				Title: title,
+				Value: value,
 				Body:  body,
 			})
 			if err != nil {
@@ -218,6 +224,7 @@ func proposalEditCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&title, "title", "", "new title")
+	cmd.Flags().StringVar(&value, "value", "", "value / goals justification")
 	cmd.Flags().StringVar(&body, "body", "", "new body")
 	_ = cmd.MarkFlagRequired("body")
 	return cmd

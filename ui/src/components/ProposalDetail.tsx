@@ -80,6 +80,7 @@ export function ProposalDetail({
 
   const [editing, setEditing] = useState(false)
   const [editTitle, setEditTitle] = useState('')
+  const [editValue, setEditValue] = useState('')
   const [editBody, setEditBody] = useState('')
   const [previewBody, setPreviewBody] = useState(false)
 
@@ -128,6 +129,7 @@ export function ProposalDetail({
 
   function startEdit() {
     setEditTitle(proposal!.title ?? '')
+    setEditValue(proposal!.value ?? '')
     setEditBody(proposal!.body ?? '')
     setPreviewBody(false)
     setEditing(true)
@@ -136,7 +138,7 @@ export function ProposalDetail({
   function saveEdit() {
     if (!editTitle.trim()) return
     updateProposal.mutate(
-      { slug, id: proposal!.id, title: editTitle.trim(), body: editBody },
+      { slug, id: proposal!.id, title: editTitle.trim(), value: editValue, body: editBody },
       { onSuccess: () => setEditing(false) },
     )
   }
@@ -295,6 +297,27 @@ export function ProposalDetail({
             clickable
             sx={{ textDecoration: 'none' }}
           />
+        </Box>
+      )}
+
+      {(editing || proposal.value) && (
+        <Box sx={{ mb: 3 }}>
+          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
+            Value
+          </Typography>
+          {editing ? (
+            <TextField
+              fullWidth
+              multiline
+              minRows={3}
+              size="small"
+              placeholder="Why does this matter? Which goals does it advance?"
+              value={editValue}
+              onChange={e => setEditValue(e.target.value)}
+            />
+          ) : (
+            <MarkdownContent slug={slug}>{proposal.value}</MarkdownContent>
+          )}
         </Box>
       )}
 

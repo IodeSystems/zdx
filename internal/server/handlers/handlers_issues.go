@@ -25,11 +25,16 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 		ID int32 `json:"id"`
 	}
 
+	type ListIssuesInput struct {
+		PaginatedSlugInput
+		Component string `query:"component"`
+	}
 	huma.Register(api, huma.Operation{OperationID: "list-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/list"},
-		func(ctx context.Context, in *PaginatedSlugInput) (*struct {
+		func(ctx context.Context, in *ListIssuesInput) (*struct {
 			Body struct {
-				Issues []IssueItem `json:"issues"`
-				Total  int64       `json:"total"`
+				Issues       []IssueItem      `json:"issues"`
+				Total        int64            `json:"total"`
+				StatusCounts map[string]int64 `json:"status_counts"`
 			}
 		}, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
@@ -37,8 +42,11 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				return nil, err
 			}
 			limit, offset := parsePage(in.Limit, in.Offset)
-			b := db.WrapListIssues(p.ID).
-				ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
+			b := db.WrapListIssues(p.ID)
+			if in.Component != "" {
+				b = b.Where("component", metaquery.OpEq, in.Component)
+			}
+			b = b.ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
 			res, err := mqpgx.Scan[db.ZdxIssue](ctx, h.Pool, b)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -48,15 +56,26 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				out[i] = toIssueItem(r)
 			}
 			total := res.Meta.Pagination.Total
+
+			countRows, err := h.Q.CountIssuesByStatus(ctx, db.CountIssuesByStatusParams{ProjectID: p.ID, Component: in.Component})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			statusCounts := make(map[string]int64, len(countRows))
+			for _, r := range countRows {
+				statusCounts[r.Status] = r.Count
+			}
 			return &struct {
 				Body struct {
-					Issues []IssueItem `json:"issues"`
-					Total  int64       `json:"total"`
+					Issues       []IssueItem      `json:"issues"`
+					Total        int64            `json:"total"`
+					StatusCounts map[string]int64 `json:"status_counts"`
 				}
 			}{Body: struct {
-				Issues []IssueItem `json:"issues"`
-				Total  int64       `json:"total"`
-			}{Issues: out, Total: total}}, nil
+				Issues       []IssueItem      `json:"issues"`
+				Total        int64            `json:"total"`
+				StatusCounts map[string]int64 `json:"status_counts"`
+			}{Issues: out, Total: total, StatusCounts: statusCounts}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "search-issues", Method: http.MethodGet, Path: "/api/dx/todo/issue/search"},
@@ -1196,6 +1215,39 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}{Body: struct {
 				Reservations []ReservationItem `json:"reservations"`
 			}{Reservations: out}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-issue-todos", Method: http.MethodGet, Path: "/api/dx/projects/{slug}/issues/{id}/todos"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			ID   string `path:"id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Todos []TodoItem `json:"todos"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListTodosFiltered(ctx, db.ListTodosFilteredParams{
+				ProjectID: p.ID,
+				IssueRef:  pgtype.Text{String: in.ID, Valid: true},
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]TodoItem, len(rows))
+			for i, r := range rows {
+				out[i] = toTodoItemFromFiltered(r)
+			}
+			return &struct {
+				Body struct {
+					Todos []TodoItem `json:"todos"`
+				}
+			}{Body: struct {
+				Todos []TodoItem `json:"todos"`
+			}{Todos: out}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "reconcile-branch", Method: http.MethodPost, Path: "/api/dx/todo/issue/reconcile"},

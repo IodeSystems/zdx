@@ -15,9 +15,9 @@ var MetaCreateProposal = metaquery.Query{
 	Name:   "CreateProposal",
 	Cmd:    ":one",
 	Source: "proposals.sql",
-	SQL: `INSERT INTO zdx_proposals (project_id, title, body, source_type, source_ref, created_by)
-VALUES ($1, $2, $3, $4, $5, $6)
-RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id`,
+	SQL: `INSERT INTO zdx_proposals (project_id, title, value, body, source_type, source_ref, created_by)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_proposals"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_proposals"},
@@ -31,21 +31,23 @@ RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "approved_issue_id", OriginalName: "approved_issue_id", GoType: "pgtype.Text", DBType: "text", Table: "zdx_proposals"},
+		{Name: "value", OriginalName: "value", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_proposals"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 		{Position: 2, Name: "title", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 3, Name: "body", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 4, Name: "source_type", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 5, Name: "source_ref", GoType: "pgtype.Text", DBType: "text"},
-		{Position: 6, Name: "created_by", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "value", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 4, Name: "body", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 5, Name: "source_type", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 6, Name: "source_ref", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 7, Name: "created_by", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_proposals"},
 }
 
 // WrapCreateProposal returns a metaquery.Builder over MetaCreateProposal, pre-bound with typed arguments.
 func WrapCreateProposal(arg CreateProposalParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateProposal, arg.ProjectID, arg.Title, arg.Body, arg.SourceType, arg.SourceRef, arg.CreatedBy)
+	return metaquery.Wrap(&MetaCreateProposal, arg.ProjectID, arg.Title, arg.Value, arg.Body, arg.SourceType, arg.SourceRef, arg.CreatedBy)
 }
 
 // CreateProposalCols gives typed, name-safe access to CreateProposal's output columns.
@@ -62,6 +64,7 @@ var CreateProposalCols = struct {
 	CreatedAt       metaquery.TimeCol
 	UpdatedAt       metaquery.TimeCol
 	ApprovedIssueID metaquery.TextCol
+	Value           metaquery.TextCol
 }{
 	ID:              metaquery.NewIntCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -75,6 +78,7 @@ var CreateProposalCols = struct {
 	CreatedAt:       metaquery.NewTimeCol("created_at"),
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 	ApprovedIssueID: metaquery.NewTextCol("approved_issue_id"),
+	Value:           metaquery.NewTextCol("value"),
 }
 
 var MetaCreateProposalVersion = metaquery.Query{
@@ -123,7 +127,7 @@ var MetaGetProposal = metaquery.Query{
 	Name:   "GetProposal",
 	Cmd:    ":one",
 	Source: "proposals.sql",
-	SQL: `SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+	SQL: `SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value
 FROM zdx_proposals WHERE project_id = $1 AND id = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_proposals"},
@@ -138,6 +142,7 @@ FROM zdx_proposals WHERE project_id = $1 AND id = $2`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "approved_issue_id", OriginalName: "approved_issue_id", GoType: "pgtype.Text", DBType: "text", Table: "zdx_proposals"},
+		{Name: "value", OriginalName: "value", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_proposals"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -164,6 +169,7 @@ var GetProposalCols = struct {
 	CreatedAt       metaquery.TimeCol
 	UpdatedAt       metaquery.TimeCol
 	ApprovedIssueID metaquery.TextCol
+	Value           metaquery.TextCol
 }{
 	ID:              metaquery.NewIntCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -177,6 +183,7 @@ var GetProposalCols = struct {
 	CreatedAt:       metaquery.NewTimeCol("created_at"),
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 	ApprovedIssueID: metaquery.NewTextCol("approved_issue_id"),
+	Value:           metaquery.NewTextCol("value"),
 }
 
 var MetaListProposalVersions = metaquery.Query{
@@ -222,7 +229,7 @@ var MetaListProposals = metaquery.Query{
 	Name:   "ListProposals",
 	Cmd:    ":many",
 	Source: "proposals.sql",
-	SQL: `SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id
+	SQL: `SELECT id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value
 FROM zdx_proposals WHERE project_id = $1 AND ($2::text = 'all' OR status = $2::text)
 ORDER BY created_at DESC`,
 	Columns: []metaquery.Column{
@@ -238,6 +245,7 @@ ORDER BY created_at DESC`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "approved_issue_id", OriginalName: "approved_issue_id", GoType: "pgtype.Text", DBType: "text", Table: "zdx_proposals"},
+		{Name: "value", OriginalName: "value", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_proposals"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -264,6 +272,7 @@ var ListProposalsCols = struct {
 	CreatedAt       metaquery.TimeCol
 	UpdatedAt       metaquery.TimeCol
 	ApprovedIssueID metaquery.TextCol
+	Value           metaquery.TextCol
 }{
 	ID:              metaquery.NewIntCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -277,6 +286,7 @@ var ListProposalsCols = struct {
 	CreatedAt:       metaquery.NewTimeCol("created_at"),
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 	ApprovedIssueID: metaquery.NewTextCol("approved_issue_id"),
+	Value:           metaquery.NewTextCol("value"),
 }
 
 var MetaUpdateProposal = metaquery.Query{
@@ -284,9 +294,9 @@ var MetaUpdateProposal = metaquery.Query{
 	Cmd:    ":one",
 	Source: "proposals.sql",
 	SQL: `UPDATE zdx_proposals
-SET title = $3, body = $4, updated_at = NOW()
+SET title = $3, value = $4, body = $5, updated_at = NOW()
 WHERE project_id = $1 AND id = $2
-RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id`,
+RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_proposals"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_proposals"},
@@ -300,18 +310,20 @@ RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "approved_issue_id", OriginalName: "approved_issue_id", GoType: "pgtype.Text", DBType: "text", Table: "zdx_proposals"},
+		{Name: "value", OriginalName: "value", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_proposals"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 		{Position: 2, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 		{Position: 3, Name: "title", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 4, Name: "body", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 4, Name: "value", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 5, Name: "body", GoType: "string", DBType: "text", NotNull: true},
 	},
 }
 
 // WrapUpdateProposal returns a metaquery.Builder over MetaUpdateProposal, pre-bound with typed arguments.
 func WrapUpdateProposal(arg UpdateProposalParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaUpdateProposal, arg.ProjectID, arg.ID, arg.Title, arg.Body)
+	return metaquery.Wrap(&MetaUpdateProposal, arg.ProjectID, arg.ID, arg.Title, arg.Value, arg.Body)
 }
 
 // UpdateProposalCols gives typed, name-safe access to UpdateProposal's output columns.
@@ -328,6 +340,7 @@ var UpdateProposalCols = struct {
 	CreatedAt       metaquery.TimeCol
 	UpdatedAt       metaquery.TimeCol
 	ApprovedIssueID metaquery.TextCol
+	Value           metaquery.TextCol
 }{
 	ID:              metaquery.NewIntCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -341,6 +354,7 @@ var UpdateProposalCols = struct {
 	CreatedAt:       metaquery.NewTimeCol("created_at"),
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 	ApprovedIssueID: metaquery.NewTextCol("approved_issue_id"),
+	Value:           metaquery.NewTextCol("value"),
 }
 
 var MetaUpdateProposalStatus = metaquery.Query{
@@ -350,7 +364,7 @@ var MetaUpdateProposalStatus = metaquery.Query{
 	SQL: `UPDATE zdx_proposals
 SET status = $3, snoozed_until = $4, approved_issue_id = $5, updated_at = NOW()
 WHERE project_id = $1 AND id = $2
-RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id`,
+RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_until, created_by, created_at, updated_at, approved_issue_id, value`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_proposals"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_proposals"},
@@ -364,6 +378,7 @@ RETURNING id, project_id, title, body, source_type, source_ref, status, snoozed_
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_proposals"},
 		{Name: "approved_issue_id", OriginalName: "approved_issue_id", GoType: "pgtype.Text", DBType: "text", Table: "zdx_proposals"},
+		{Name: "value", OriginalName: "value", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_proposals"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -393,6 +408,7 @@ var UpdateProposalStatusCols = struct {
 	CreatedAt       metaquery.TimeCol
 	UpdatedAt       metaquery.TimeCol
 	ApprovedIssueID metaquery.TextCol
+	Value           metaquery.TextCol
 }{
 	ID:              metaquery.NewIntCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -406,4 +422,5 @@ var UpdateProposalStatusCols = struct {
 	CreatedAt:       metaquery.NewTimeCol("created_at"),
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 	ApprovedIssueID: metaquery.NewTextCol("approved_issue_id"),
+	Value:           metaquery.NewTextCol("value"),
 }
