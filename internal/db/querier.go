@@ -33,6 +33,8 @@ type Querier interface {
 	// Block a todo by its key (cycle detection). Prevents the queue from re-issuing
 	// a todo that the agent resolved but cannot actually fix.
 	BlockTodoByKey(ctx context.Context, arg BlockTodoByKeyParams) error
+	// Skip ready tasks with no test_refs: they were never verified. Those stay
+	// open so the maturity nudge can re-discover them without creating duplicates.
 	CancelOrphanedTasks(ctx context.Context) ([]CancelOrphanedTasksRow, error)
 	// Atomically claim the highest-priority unclaimed open todo for an agent.
 	// Skips locked rows (concurrent agents get different items).
@@ -344,6 +346,10 @@ type Querier interface {
 	ListProposals(ctx context.Context, arg ListProposalsParams) ([]ZdxProposal, error)
 	ListQuestionProposalsByQuestion(ctx context.Context, arg ListQuestionProposalsByQuestionParams) ([]ZdxQuestionProposal, error)
 	ListQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
+	// Ready tasks linked to an issue that have no test_refs. CancelOrphanedTasks
+	// skips these; surface them at close time so agents know to adopt rather than
+	// re-file.
+	ListReadyTasksWithoutTestRefsByIssue(ctx context.Context, arg ListReadyTasksWithoutTestRefsByIssueParams) ([]ListReadyTasksWithoutTestRefsByIssueRow, error)
 	// metaquery: off
 	// Return all reservations for a project, most recent first.
 	ListReservations(ctx context.Context, arg ListReservationsParams) ([]ZdxReservation, error)

@@ -426,6 +426,20 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: note})
 			h.Broker.PublishIssue(in.Body.Slug, issueID, "issue.closed", map[string]any{"id": issueID, "reason": reason})
 
+			// Warn about ready tasks with no test_refs that will not be cascade-closed.
+			// These were never verified; they stay open for re-adoption.
+			if unverified, uErr := h.Q.ListReadyTasksWithoutTestRefsByIssue(ctx, db.ListReadyTasksWithoutTestRefsByIssueParams{
+				ProjectID: p.ID,
+				Issue:     issueID,
+			}); uErr == nil && len(unverified) > 0 {
+				ids := make([]string, len(unverified))
+				for i, t := range unverified {
+					ids[i] = t.ID
+				}
+				warnNote := fmt.Sprintf("[cascade-skip] %d task(s) remain open (status=ready, no test_refs): %s — re-file or adopt", len(unverified), strings.Join(ids, ", "))
+				_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: issueID, Agent: agent, Note: warnNote})
+			}
+
 			// Cascade-close on open→closed transition only: close any open issues
 			// that reference this issue via duplicate_of or link_of. Reopen does
 			// not reverse this (see reopen-issue handler).

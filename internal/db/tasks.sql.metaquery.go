@@ -23,7 +23,10 @@ SET status = 'done',
 FROM zdx_issues i
 WHERE t.issue = i.id
   AND i.status = 'closed'
-  AND t.status IN ('ready', 'active', 'wip')
+  AND (
+    t.status IN ('active', 'wip')
+    OR (t.status = 'ready' AND t.test_refs != '')
+  )
 RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
@@ -784,6 +787,40 @@ var ListOrphanReadyTasksCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 	CompletedAt: metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+}
+
+var MetaListReadyTasksWithoutTestRefsByIssue = metaquery.Query{
+	Name:   "ListReadyTasksWithoutTestRefsByIssue",
+	Cmd:    ":many",
+	Source: "tasks.sql",
+	SQL: `SELECT id, title
+FROM zdx_tasks
+WHERE project_id = $1
+  AND issue = $2
+  AND status = 'ready'
+  AND test_refs = ''`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "issue", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListReadyTasksWithoutTestRefsByIssue returns a metaquery.Builder over MetaListReadyTasksWithoutTestRefsByIssue, pre-bound with typed arguments.
+func WrapListReadyTasksWithoutTestRefsByIssue(arg ListReadyTasksWithoutTestRefsByIssueParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListReadyTasksWithoutTestRefsByIssue, arg.ProjectID, arg.Issue)
+}
+
+// ListReadyTasksWithoutTestRefsByIssueCols gives typed, name-safe access to ListReadyTasksWithoutTestRefsByIssue's output columns.
+var ListReadyTasksWithoutTestRefsByIssueCols = struct {
+	ID    metaquery.TextCol
+	Title metaquery.TextCol
+}{
+	ID:    metaquery.NewTextCol("id"),
+	Title: metaquery.NewTextCol("title"),
 }
 
 var MetaListStaleTasks = metaquery.Query{

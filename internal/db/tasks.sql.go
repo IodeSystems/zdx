@@ -20,7 +20,10 @@ SET status = 'done',
 FROM zdx_issues i
 WHERE t.issue = i.id
   AND i.status = 'closed'
-  AND t.status IN ('ready', 'active', 'wip')
+  AND (
+    t.status IN ('active', 'wip')
+    OR (t.status = 'ready' AND t.test_refs != '')
+  )
 RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.created_at, t.completed_at, t.updated_at
 `
 
@@ -42,6 +45,8 @@ type CancelOrphanedTasksRow struct {
 	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+// Skip ready tasks with no test_refs: they were never verified. Those stay
+// open so the maturity nudge can re-discover them without creating duplicates.
 func (q *Queries) CancelOrphanedTasks(ctx context.Context) ([]CancelOrphanedTasksRow, error) {
 	rows, err := q.db.Query(ctx, cancelOrphanedTasks)
 	if err != nil {
@@ -657,6 +662,48 @@ func (q *Queries) ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]
 			&i.CompletedAt,
 			&i.UpdatedAt,
 		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listReadyTasksWithoutTestRefsByIssue = `-- name: ListReadyTasksWithoutTestRefsByIssue :many
+SELECT id, title
+FROM zdx_tasks
+WHERE project_id = $1
+  AND issue = $2
+  AND status = 'ready'
+  AND test_refs = ''
+`
+
+type ListReadyTasksWithoutTestRefsByIssueParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Issue     string `db:"issue" json:"issue"`
+}
+
+type ListReadyTasksWithoutTestRefsByIssueRow struct {
+	ID    string `db:"id" json:"id"`
+	Title string `db:"title" json:"title"`
+}
+
+// Ready tasks linked to an issue that have no test_refs. CancelOrphanedTasks
+// skips these; surface them at close time so agents know to adopt rather than
+// re-file.
+func (q *Queries) ListReadyTasksWithoutTestRefsByIssue(ctx context.Context, arg ListReadyTasksWithoutTestRefsByIssueParams) ([]ListReadyTasksWithoutTestRefsByIssueRow, error) {
+	rows, err := q.db.Query(ctx, listReadyTasksWithoutTestRefsByIssue, arg.ProjectID, arg.Issue)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListReadyTasksWithoutTestRefsByIssueRow
+	for rows.Next() {
+		var i ListReadyTasksWithoutTestRefsByIssueRow
+		if err := rows.Scan(&i.ID, &i.Title); err != nil {
 			return nil, err
 		}
 		items = append(items, i)
