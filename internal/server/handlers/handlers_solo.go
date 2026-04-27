@@ -191,7 +191,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				Description: q.Question,
 				Text:        q.Question,
 				Kind:        "answer",
-				TargetType:  "question",
+				TargetType:  "qa",
 				TargetID:    fmt.Sprintf("QA-%d", q.ID),
 				Priority:    10,
 				Persona:     "dev",
