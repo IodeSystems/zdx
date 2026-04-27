@@ -53,13 +53,14 @@ import {
 } from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useProjects, useMe, useLogout, useUnreadCount, useUnreadThreads, useDismissAllNotifications, useZdxConfig, useBlockerQuestions, useProposals, type UnreadThread } from '../api'
+import { useProjects, useMe, useLogout, useUnreadCount, useUnreadThreads, useDismissAllNotifications, useZdxConfig, useBlockerQuestions, useProposals, useOmniboxSearch, type UnreadThread } from '../api'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
 import { IssueReportFab } from '../components/IssueReportFab'
 import { ActivityToast } from '../components/ActivityToast'
 import { useComponentFilter } from '../components/ComponentContext'
-import { useState, useCallback, type FormEvent } from 'react'
+import { useState, useCallback, useEffect, type FormEvent } from 'react'
+import { Paper, Popper, ClickAwayListener, CircularProgress } from '@mui/material'
 
 const queryClient = new QueryClient()
 
@@ -128,11 +129,105 @@ function ProjectLabel() {
   )
 }
 
+type OmniboxHit = {
+  category: 'Issues' | 'Tasks' | 'Patterns' | 'Q&A'
+  key: string
+  ref: string
+  primary: string
+  secondary?: string
+  score: number
+  href: string
+}
+
+function flattenHits(slug: string, data: ReturnType<typeof useOmniboxSearch>['data']): OmniboxHit[] {
+  if (!data) return []
+  const hits: OmniboxHit[] = []
+  for (const i of data.issues) {
+    hits.push({
+      category: 'Issues',
+      key: `issue:${i.id}`,
+      ref: i.id,
+      primary: i.title || i.context.slice(0, 80) || '(no title)',
+      secondary: i.status,
+      score: i.score,
+      href: `/project/${slug}/issues/${i.id}`,
+    })
+  }
+  for (const t of data.tasks) {
+    hits.push({
+      category: 'Tasks',
+      key: `task:${t.id}`,
+      ref: t.id,
+      primary: t.title || t.text.slice(0, 80) || '(no title)',
+      secondary: t.issue ? `${t.status} · ${t.issue}` : t.status,
+      score: t.score,
+      href: `/project/${slug}/tasks/${t.id}`,
+    })
+  }
+  for (const p of data.patterns) {
+    hits.push({
+      category: 'Patterns',
+      key: `pattern:${p.pattern.id}`,
+      ref: `PT-${p.pattern.id}`,
+      primary: p.pattern.name,
+      secondary: p.pattern.description?.slice(0, 80),
+      score: p.score,
+      href: `/project/${slug}/patterns/${p.pattern.id}`,
+    })
+  }
+  for (const q of data.questions) {
+    hits.push({
+      category: 'Q&A',
+      key: `qa:${q.id}`,
+      ref: `BQ-${q.id}`,
+      primary: q.question,
+      secondary: q.answer ? 'answered' : 'unanswered',
+      score: q.score,
+      href: `/project/${slug}/questions/${q.id}`,
+    })
+  }
+  return hits
+}
+
+function groupHits(hits: OmniboxHit[]): { category: OmniboxHit['category']; items: OmniboxHit[] }[] {
+  const order: OmniboxHit['category'][] = ['Issues', 'Tasks', 'Patterns', 'Q&A']
+  return order
+    .map(category => ({ category, items: hits.filter(h => h.category === category) }))
+    .filter(g => g.items.length > 0)
+}
+
 function Omnibox() {
   const [value, setValue] = useState('')
+  const [debounced, setDebounced] = useState('')
+  const [open, setOpen] = useState(false)
+  const [activeIdx, setActiveIdx] = useState(0)
   const navigate = useNavigate()
   const matches = useMatches()
   const currentSlug = (matches.find(m => (m.params as Record<string, string>).slug)?.params as { slug?: string })?.slug
+  const [anchorEl, setAnchorEl] = useState<HTMLElement | null>(null)
+
+  useEffect(() => {
+    const t = setTimeout(() => {
+      setDebounced(value.trim())
+      setActiveIdx(0)
+    }, 200)
+    return () => clearTimeout(t)
+  }, [value])
+
+  const enabled = open && !!currentSlug && debounced.length >= 2
+  const { data, isFetching } = useOmniboxSearch(currentSlug ?? '', debounced, enabled)
+
+  const hits = currentSlug ? flattenHits(currentSlug, data) : []
+  const groups = groupHits(hits)
+
+  const close = () => setOpen(false)
+
+  const go = (href: string) => {
+    navigate({ to: href })
+    setValue('')
+    setDebounced('')
+    setOpen(false)
+  }
 
   const handleSubmit = (e: FormEvent) => {
     e.preventDefault()
@@ -141,45 +236,135 @@ function Omnibox() {
 
     const issueMatch = input.match(/^IS-(\d+)$/i)
     if (issueMatch) {
-      navigate({ to: '/project/$slug/issues/$id', params: { slug: currentSlug, id: `IS-${issueMatch[1]}` } })
-      setValue('')
+      go(`/project/${currentSlug}/issues/IS-${issueMatch[1]}`)
       return
     }
-
     const taskMatch = input.match(/^TK-(\d+)$/i)
     if (taskMatch) {
-      navigate({ to: '/project/$slug/tasks/$id', params: { slug: currentSlug, id: `TK-${taskMatch[1]}` } })
-      setValue('')
+      go(`/project/${currentSlug}/tasks/TK-${taskMatch[1]}`)
       return
     }
+    if (hits.length > 0) {
+      const idx = Math.min(activeIdx, hits.length - 1)
+      go(hits[idx].href)
+    }
+  }
 
-    // Treat anything else as a feature name
-    navigate({ to: '/project/$slug/features/$name', params: { slug: currentSlug, name: input } })
-    setValue('')
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (!open || hits.length === 0) return
+    if (e.key === 'ArrowDown') {
+      e.preventDefault()
+      setActiveIdx(i => Math.min(hits.length - 1, i + 1))
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault()
+      setActiveIdx(i => Math.max(0, i - 1))
+    } else if (e.key === 'Escape') {
+      e.preventDefault()
+      setOpen(false)
+    }
   }
 
   if (!currentSlug) return null
 
+  const showDropdown = open && debounced.length >= 2
+
+  let runningIdx = 0
+
   return (
-    <Box component="form" onSubmit={handleSubmit} sx={{ ml: 2, display: 'flex', alignItems: 'center' }}>
-      <TextField
-        size="small"
-        value={value}
-        onChange={e => setValue(e.target.value)}
-        placeholder="IS-N / TK-N / Feature"
-        variant="outlined"
-        sx={{
-          width: 180,
-          '& .MuiOutlinedInput-root': {
-            color: 'inherit',
-            '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
-            '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
-          },
-          '& .MuiInputBase-input': { py: 0.5 },
-          '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.5)', opacity: 1 },
-        }}
-      />
-    </Box>
+    <ClickAwayListener onClickAway={close}>
+      <Box
+        component="form"
+        onSubmit={handleSubmit}
+        ref={setAnchorEl}
+        sx={{ ml: 2, display: 'flex', alignItems: 'center', position: 'relative' }}
+      >
+        <TextField
+          size="small"
+          value={value}
+          onChange={e => { setValue(e.target.value); setOpen(true) }}
+          onFocus={() => { if (debounced.length >= 2) setOpen(true) }}
+          onKeyDown={handleKeyDown}
+          placeholder="Search by text or IS-N / TK-N…"
+          variant="outlined"
+          autoComplete="off"
+          sx={{
+            width: 260,
+            '& .MuiOutlinedInput-root': {
+              color: 'inherit',
+              '& fieldset': { borderColor: 'rgba(255,255,255,0.2)' },
+              '&:hover fieldset': { borderColor: 'rgba(255,255,255,0.4)' },
+            },
+            '& .MuiInputBase-input': { py: 0.5 },
+            '& .MuiInputBase-input::placeholder': { color: 'rgba(255,255,255,0.5)', opacity: 1 },
+          }}
+        />
+        <Popper
+          open={showDropdown}
+          anchorEl={anchorEl}
+          placement="bottom-start"
+          modifiers={[{ name: 'offset', options: { offset: [0, 4] } }]}
+          sx={{ zIndex: (t) => t.zIndex.modal + 1 }}
+        >
+          <Paper sx={{ width: 360, maxHeight: 480, overflowY: 'auto' }} elevation={6}>
+            {isFetching && hits.length === 0 && (
+              <Box sx={{ display: 'flex', justifyContent: 'center', py: 1.5 }}>
+                <CircularProgress size={18} />
+              </Box>
+            )}
+            {!isFetching && hits.length === 0 && (
+              <Box sx={{ px: 1.5, py: 1 }}>
+                <Typography variant="body2" color="text.secondary">No matches</Typography>
+              </Box>
+            )}
+            {groups.map(g => (
+              <Box key={g.category}>
+                <ListSubheader
+                  component="div"
+                  sx={{
+                    lineHeight: '24px', fontSize: '0.7rem', fontWeight: 700,
+                    textTransform: 'uppercase', letterSpacing: 0.5, bgcolor: 'background.paper',
+                  }}
+                >
+                  {g.category}
+                </ListSubheader>
+                <List dense disablePadding>
+                  {g.items.map(h => {
+                    const idx = runningIdx++
+                    const selected = idx === activeIdx
+                    return (
+                      <ListItemButton
+                        key={h.key}
+                        selected={selected}
+                        onMouseEnter={() => setActiveIdx(idx)}
+                        onClick={() => go(h.href)}
+                        sx={{ alignItems: 'flex-start', py: 0.5 }}
+                      >
+                        <Box sx={{ flex: 1, minWidth: 0 }}>
+                          <Typography variant="body2" noWrap>
+                            <Box component="span" sx={{ fontFamily: 'monospace', mr: 1, color: 'text.secondary' }}>
+                              {h.ref}
+                            </Box>
+                            {h.primary}
+                          </Typography>
+                          {h.secondary && (
+                            <Typography variant="caption" color="text.secondary" noWrap component="div">
+                              {h.secondary}
+                            </Typography>
+                          )}
+                        </Box>
+                        <Typography variant="caption" color="text.secondary" sx={{ ml: 1, flexShrink: 0 }}>
+                          {Math.round(h.score * 100)}%
+                        </Typography>
+                      </ListItemButton>
+                    )
+                  })}
+                </List>
+              </Box>
+            ))}
+          </Paper>
+        </Popper>
+      </Box>
+    </ClickAwayListener>
   )
 }
 

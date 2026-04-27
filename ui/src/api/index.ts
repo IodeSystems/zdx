@@ -1370,6 +1370,39 @@ export const useSimilarIssues = () =>
     },
   })
 
+export type SimilarTaskItem = components['schemas']['SimilarTaskItem']
+export type SimilarPatternItem = components['schemas']['SimilarPatternItem']
+
+export interface OmniboxResults {
+  issues: SimilarIssueItem[]
+  tasks: SimilarTaskItem[]
+  patterns: SimilarPatternItem[]
+  questions: SimilarQuestionItem[]
+}
+
+export const useOmniboxSearch = (slug: string, text: string, enabled: boolean) =>
+  useQuery<OmniboxResults>({
+    queryKey: ['omnibox-search', slug, text],
+    queryFn: async () => {
+      const body = { slug, text, n: 5 }
+      const [issuesR, tasksR, patternsR, questionsR] = await Promise.all([
+        client.POST('/api/dx/issues/similar', { body }),
+        client.POST('/api/dx/tasks/similar', { body }),
+        client.POST('/api/dx/patterns/similar', { body }),
+        client.POST('/api/dx/qa/similar', { body }),
+      ])
+      return {
+        issues: (((issuesR.data as any)?.issues) ?? []) as SimilarIssueItem[],
+        tasks: (((tasksR.data as any)?.tasks) ?? []) as SimilarTaskItem[],
+        patterns: (((patternsR.data as any)?.patterns) ?? []) as SimilarPatternItem[],
+        questions: (((questionsR.data as any)?.questions) ?? []) as SimilarQuestionItem[],
+      }
+    },
+    enabled: enabled && !!slug && text.trim().length >= 2,
+    staleTime: 30_000,
+    placeholderData: keepPreviousData,
+  })
+
 export const useSearchIssues = (slug: string, q: string, enabled: boolean) =>
   useQuery<IssueItem[]>({
     queryKey: ['issue-search', slug, q],

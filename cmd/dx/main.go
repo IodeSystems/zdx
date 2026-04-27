@@ -70,6 +70,7 @@ func main() {
 		servercmd.LoginCmd(),
 		configcmd.ConfigCmd(),
 		credentialhelper.CredentialHelperCmd(),
+		project.SimilarCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
