@@ -17,17 +17,20 @@ import {
   useIssueResolutions,
   useMarkCommentsRead,
   useReservationsByIssue,
+  useTodosByIssue,
   type CommentItem,
   type HistoryEvent,
   type IssueWorkItem,
   type ReservationItem,
   type ResolutionItem,
+  type SoloItem,
 } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 
-type Kind = 'reservation' | 'resolution' | 'work' | 'history' | 'comment'
+type Kind = 'todo' | 'reservation' | 'resolution' | 'work' | 'history' | 'comment'
 
 const KIND_LABEL: Record<Kind, string> = {
+  todo: 'Todos',
   reservation: 'Reservations',
   resolution: 'Resolutions',
   work: 'Work Log',
@@ -35,7 +38,8 @@ const KIND_LABEL: Record<Kind, string> = {
   comment: 'Comments',
 }
 
-const KIND_COLOR: Record<Kind, 'success' | 'info' | 'secondary' | 'warning' | 'default'> = {
+const KIND_COLOR: Record<Kind, 'success' | 'info' | 'secondary' | 'warning' | 'default' | 'primary'> = {
+  todo: 'primary',
   reservation: 'info',
   resolution: 'success',
   work: 'secondary',
@@ -43,7 +47,7 @@ const KIND_COLOR: Record<Kind, 'success' | 'info' | 'secondary' | 'warning' | 'd
   comment: 'warning',
 }
 
-const KIND_ORDER: Kind[] = ['reservation', 'resolution', 'work', 'history', 'comment']
+const KIND_ORDER: Kind[] = ['todo', 'reservation', 'resolution', 'work', 'history', 'comment']
 
 type HistoryGroup = {
   key: string
@@ -55,6 +59,7 @@ type HistoryGroup = {
 }
 
 type TimelineEvent =
+  | { kind: 'todo'; ts: number; payload: SoloItem }
   | { kind: 'reservation'; ts: number; payload: ReservationItem }
   | { kind: 'resolution'; ts: number; payload: ResolutionItem }
   | { kind: 'work'; ts: number; payload: IssueWorkItem; idx: number }
@@ -136,37 +141,76 @@ function DiffModal({ event, onClose }: { event: HistoryEvent; onClose: () => voi
   )
 }
 
+const TODO_STATUS_COLOR: Record<string, 'default' | 'primary' | 'success' | 'warning'> = {
+  open: 'primary',
+  resolved: 'success',
+}
+
+function TodoRow({ t }: { t: SoloItem }) {
+  const statusColor = TODO_STATUS_COLOR[t.status] ?? 'default'
+  const isActive = t.status === 'open' && !!t.claimed_by
+  return (
+    <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
+      <Chip label={t.status} size="small" color={statusColor} variant="outlined" />
+      {isActive && <Chip label={`claimed: ${t.claimed_by}`} size="small" color="info" variant="outlined" sx={{ fontSize: '0.65rem' }} />}
+      {t.blocked && <Chip label="blocked" size="small" color="error" variant="outlined" sx={{ fontSize: '0.65rem' }} />}
+      <Box sx={{ flex: 1 }}>
+        <Typography variant="body2">{t.title || t.text.slice(0, 80)}</Typography>
+        <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>{t.key}</Typography>
+      </Box>
+    </Box>
+  )
+}
+
 function ReservationRow({ r, slug }: { r: ReservationItem; slug: string }) {
   const isActive = !r.released_at && new Date(r.lease_expires_at) > new Date()
   const statusLabel = r.released_at ? 'released' : isActive ? 'active' : 'expired'
   const statusColor: 'success' | 'default' | 'warning' = isActive ? 'success' : r.released_at ? 'default' : 'warning'
   const inner = (
-    <>
-      <Chip label={statusLabel} size="small" color={statusColor} variant="outlined" />
-      {r.session_id && r.session_status && (
-        <Chip
-          label={r.session_status || 'session'}
-          size="small"
-          color={r.session_status === 'ok' ? 'success' : r.session_status === 'errored' ? 'error' : r.session_status === 'churn' ? 'warning' : 'default'}
-          variant="filled"
-        />
+    <Box>
+      <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+        <Chip label={statusLabel} size="small" color={statusColor} variant="outlined" />
+        {r.session_id && r.session_status && (
+          <Chip
+            label={r.session_status || 'session'}
+            size="small"
+            color={r.session_status === 'ok' ? 'success' : r.session_status === 'errored' ? 'error' : r.session_status === 'churn' ? 'warning' : 'default'}
+            variant="filled"
+          />
+        )}
+        <Typography variant="caption" color="text.secondary">{r.claimed_by}</Typography>
+      </Box>
+      {r.session_header && (
+        <Typography variant="body2" sx={{ mt: 0.5 }}>{r.session_header}</Typography>
       )}
-      <Typography variant="body2" sx={{ flex: 1 }}>
-        {r.session_header || r.todo_text || r.claimed_by}
-      </Typography>
-    </>
+      {r.todo_text && (
+        <Box sx={{ mt: 0.5 }}>
+          <MarkdownContent slug={slug}>{r.todo_text}</MarkdownContent>
+        </Box>
+      )}
+      <Box sx={{ display: 'flex', gap: 2, mt: 0.5, flexWrap: 'wrap' }}>
+        <Typography variant="caption" color="text.disabled">
+          acquired: {new Date(r.claimed_at).toLocaleString()}
+        </Typography>
+        {r.released_at && (
+          <Typography variant="caption" color="text.disabled">
+            released: {new Date(r.released_at).toLocaleString()}
+          </Typography>
+        )}
+      </Box>
+    </Box>
   )
   return r.session_id ? (
     <Box
       component={Link as any}
       to="/project/$slug/agents/$sessionId"
       params={{ slug, sessionId: String(r.session_id) }}
-      sx={{ display: 'flex', gap: 1, alignItems: 'center', textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
+      sx={{ display: 'block', textDecoration: 'none', color: 'inherit', '&:hover': { opacity: 0.8 } }}
     >
       {inner}
     </Box>
   ) : (
-    <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>{inner}</Box>
+    <Box>{inner}</Box>
   )
 }
 
@@ -330,12 +374,14 @@ export function UnifiedTimeline({
   const { data: resolutions } = useIssueResolutions(slug, issueId)
   const { data: historyData } = useHistory('issue', issueId)
   const { data: commentsData } = useComments(slug, 'issue', issueId)
+  const { data: todosData } = useTodosByIssue(slug, issueId)
   const markRead = useMarkCommentsRead()
 
   const reservations = reservationsData?.reservations ?? []
   const resols = resolutions ?? []
   const histEvents = historyData?.events ?? []
   const comments = commentsData?.comments ?? []
+  const todos = todosData?.todos ?? []
 
   const [active, setActive] = useState<Set<Kind>>(new Set(KIND_ORDER))
   const [diffEvent, setDiffEvent] = useState<HistoryEvent | null>(null)
@@ -365,6 +411,9 @@ export function UnifiedTimeline({
 
   const events = useMemo<TimelineEvent[]>(() => {
     const out: TimelineEvent[] = []
+    for (const t of todos) {
+      out.push({ kind: 'todo', ts: new Date(t.created_at).getTime(), payload: t })
+    }
     for (const r of reservations) {
       out.push({ kind: 'reservation', ts: new Date(r.claimed_at).getTime(), payload: r })
     }
@@ -383,12 +432,12 @@ export function UnifiedTimeline({
     }
     out.sort((a, b) => b.ts - a.ts)
     return out
-  }, [reservations, resols, workEntries, histEvents, comments])
+  }, [todos, reservations, resols, workEntries, histEvents, comments])
 
   const visible = events.filter(e => active.has(e.kind))
 
   const counts = useMemo(() => {
-    const c: Record<Kind, number> = { reservation: 0, resolution: 0, work: 0, history: 0, comment: 0 }
+    const c: Record<Kind, number> = { todo: 0, reservation: 0, resolution: 0, work: 0, history: 0, comment: 0 }
     for (const e of events) c[e.kind]++
     return c
   }, [events])
@@ -458,6 +507,7 @@ export function UnifiedTimeline({
           {visible.map(ev => {
             const ts = new Date(ev.ts)
             const key =
+              ev.kind === 'todo' ? `todo:${ev.payload.id}` :
               ev.kind === 'comment' ? `comment:${ev.payload.id}` :
               ev.kind === 'reservation' ? `reservation:${ev.payload.id}` :
               ev.kind === 'resolution' ? `resolution:${ev.payload.id}` :
@@ -489,6 +539,7 @@ export function UnifiedTimeline({
                     {ts.toLocaleString()}
                   </Typography>
                 </Box>
+                {ev.kind === 'todo' && <TodoRow t={ev.payload} />}
                 {ev.kind === 'reservation' && <ReservationRow r={ev.payload} slug={slug} />}
                 {ev.kind === 'resolution' && <ResolutionRow r={ev.payload} />}
                 {ev.kind === 'work' && <WorkRow e={ev.payload} />}
