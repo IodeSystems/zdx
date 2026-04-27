@@ -4,6 +4,7 @@ bin/dx
 bin/dx-server
 bin/dx-bin
 bin/db
+/dx
 ui/node_modules/
 ui/dist/
 schema/next.sql
