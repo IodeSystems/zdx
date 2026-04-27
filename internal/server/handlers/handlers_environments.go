@@ -2,7 +2,9 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -246,5 +248,64 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body DeployItem }{Body: toDeployItem(deploy)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "request-environment-todo", Method: http.MethodPost, Path: "/api/dx/projects/{slug}/environments/{name}/request"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug"`
+			Name string `path:"name"`
+			Body struct {
+				Kind string `json:"kind"`
+			}
+		}) (*struct{ Body TodoItem }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			env, err := h.Q.GetEnvironment(ctx, db.GetEnvironmentParams{ProjectID: p.ID, Name: in.Name})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "environment not found: "+in.Name)
+			}
+			kind := in.Body.Kind
+			if kind != "test" && kind != "ship" {
+				return nil, apiErr(http.StatusBadRequest, "kind must be 'test' or 'ship'")
+			}
+			key := fmt.Sprintf("env:%s:%s:%d", in.Name, kind, time.Now().UnixMilli())
+			var title, text string
+			if kind == "test" {
+				title = fmt.Sprintf("Test %s", in.Name)
+				text = fmt.Sprintf("Run tests against the %s environment (SHA: %s, branch: %s)", in.Name, env.CurrentBuildSha, env.CurrentBuildBranch)
+			} else {
+				title = fmt.Sprintf("Ship to %s", in.Name)
+				text = fmt.Sprintf("Deploy to the %s environment", in.Name)
+			}
+			todo, err := h.Q.CreateTodo(ctx, db.CreateTodoParams{
+				ProjectID:  p.ID,
+				Key:        key,
+				Title:      title,
+				Text:       text,
+				Kind:       kind,
+				TargetType: "environment",
+				TargetID:   in.Name,
+				Priority:   2,
+				Status:     "open",
+				Persona:    "owner",
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			item := TodoItem{
+				ID:         todo.ID,
+				Text:       todo.Text,
+				Title:      todo.Title,
+				Key:        todo.Key,
+				Kind:       todo.Kind,
+				TargetType: todo.TargetType,
+				TargetID:   todo.TargetID,
+				Priority:   todo.Priority,
+				Status:     todo.Status,
+				CreatedAt:  fmtTS(todo.CreatedAt),
+			}
+			return &struct{ Body TodoItem }{Body: item}, nil
 		})
 }

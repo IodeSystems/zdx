@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"regexp"
 	"strings"
 	"time"
 
@@ -14,6 +15,26 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
+
+// templatedTitleStems are case-insensitive prefixes emitted by workflow nudges
+// (see internal/workflowhints) where the discriminator before the colon
+// identifies the work's *target*. Two open tasks with the same stem are
+// duplicates regardless of body text — the test-ref nudge re-fires per
+// session and the agent writes a different "test approach" each time.
+var templatedTitleStems = []*regexp.Regexp{
+	regexp.MustCompile(`(?i)^Test spec \d+:`),
+}
+
+// titleStem returns the canonical templated-prefix stem for a title (lowercase,
+// trimmed) or "" if no templated prefix matches.
+func titleStem(title string) string {
+	for _, re := range templatedTitleStems {
+		if m := re.FindString(title); m != "" {
+			return strings.ToLower(strings.TrimSpace(m))
+		}
+	}
+	return ""
+}
 
 // deriveTitle extracts a short title from task text when no explicit title is
 // provided. Uses the first line, stripped of markdown heading prefixes, and
@@ -189,6 +210,22 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				issueFilter = *in.Body.Issue
 			}
 
+			if issueFilter != "" {
+				iss, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueFilter})
+				if err != nil {
+					return nil, apiErr(404, "issue not found: "+issueFilter)
+				}
+				if iss.Status != "open" && iss.Status != "wip" {
+					return nil, apiErr(400, issueFilter+" is "+iss.Status+" — pick an open issue or omit --issue to link by feature")
+				}
+			}
+
+			if in.Body.Feature != nil && *in.Body.Feature != "" {
+				if _, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: *in.Body.Feature}); err != nil {
+					return nil, apiErr(404, "feature not found: "+*in.Body.Feature)
+				}
+			}
+
 			if !in.Body.Force {
 				exactMatches, err := h.Q.GetTaskByExactText(ctx, db.GetTaskByExactTextParams{
 					ProjectID: p.ID,
@@ -197,6 +234,36 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				})
 				if err == nil && len(exactMatches) > 0 {
 					return nil, apiErr(409, "exact duplicate task already exists: "+exactMatches[0].ID+" ("+exactMatches[0].Status+")")
+				}
+			}
+
+			// Templated-title dedupe (IS-495). Workflow nudges like
+			// `[tech:test-ref] target=spec:N` instruct agents to file a task
+			// titled "Test spec N: ...". Different agent sessions write
+			// different bodies, so the embedding-similarity check below
+			// misses them. Match by templated stem and block on any open
+			// same-stem task. Honors --force only; --auto-ready does NOT
+			// bypass — these are sharp signals worth respecting.
+			var stemMatches []SimilarTaskItem
+			if !in.Body.Force {
+				newTitle := ptrStr(in.Body.Title)
+				if newTitle == "" {
+					newTitle = deriveTitle(in.Body.Text)
+				}
+				if stem := titleStem(newTitle); stem != "" {
+					rows, err := h.Q.ListOpenTasksByTitlePrefix(ctx, db.ListOpenTasksByTitlePrefixParams{
+						ProjectID: p.ID,
+						Prefix:    stem,
+					})
+					if err == nil && len(rows) > 0 {
+						for _, r := range rows {
+							stemMatches = append(stemMatches, SimilarTaskItem{
+								ID: r.ID, Title: r.Title, Text: r.Text,
+								Status: r.Status, Reason: r.Reason, Issue: r.Issue,
+								Score: 1.0,
+							})
+						}
+					}
 				}
 			}
 
@@ -211,17 +278,25 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 
 			var similar []SimilarTaskItem
 			var duplicateBlocked bool
-			if !in.Body.AutoReady && !in.Body.Force {
+			if len(stemMatches) > 0 {
+				similar = stemMatches
+				duplicateBlocked = true
+			} else if !in.Body.AutoReady && !in.Body.Force {
 				similar, _ = h.findSimilarTasks(ctx, p.ID, in.Body.Text, 5)
 				for _, s := range similar {
-					if s.Score <= 0.85 {
+					if s.Score < 0.90 {
+						continue
+					}
+					// Only open tasks block — closed dupes are informational
+					// (they often explain why the work re-fires) and can't
+					// be picked up anyway.
+					if s.Status != "wip" && s.Status != "ready" && s.Status != "active" {
 						continue
 					}
 					// When the new task is scoped to an issue, only same-issue
 					// dupes block; cross-issue overlap may be coincidental.
-					// When unscoped (e.g. test-ref candidates), any high-similarity
-					// match in any state blocks — these tasks have no issue to
-					// disambiguate on.
+					// When unscoped (e.g. test-ref candidates), any open
+					// high-similarity match blocks.
 					if issueFilter == "" || s.Issue == issueFilter {
 						duplicateBlocked = true
 						break

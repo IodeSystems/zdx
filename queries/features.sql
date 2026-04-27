@@ -120,6 +120,19 @@ WHERE f.project_id = $1
   )
 ORDER BY f.name, s.id;
 
+-- name: ListTasksForSpec :many
+-- Tasks (any status) whose title or text references spec N by ID ("spec N" word boundary).
+SELECT t.id, t.title, t.status
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+JOIN zdx_tasks t ON t.project_id = f.project_id
+WHERE s.id = $1
+  AND (
+    t.title ~* ('\mspec\s+' || s.id::text || '\M')
+    OR t.text ~* ('\mspec\s+' || s.id::text || '\M')
+  )
+ORDER BY t.created_at;
+
 -- name: UpdateSpecConcernType :exec
 UPDATE zdx_specs SET concern_type = @concern_type WHERE id = @id;
 

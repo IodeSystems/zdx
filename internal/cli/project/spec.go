@@ -280,7 +280,7 @@ func specDeferCmd() *cobra.Command {
 func specShowCmd() *cobra.Command {
 	return &cobra.Command{
 		Use:   "show <spec-id>",
-		Short: "Show a spec, its linked issues, and any issue-backed deferrals",
+		Short: "Show a spec, its linked tests, open tasks, linked issues, and deferrals",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			specID, err := strconv.Atoi(args[0])
@@ -303,6 +303,34 @@ func specShowCmd() *cobra.Command {
 			s := specResp.JSON200.Spec
 			fmt.Printf("Spec %d  [%s / %s]\n", s.Id, s.Kind, s.ConcernType)
 			fmt.Printf("  %s\n", s.Description)
+
+			testsResp, err := c.ListSpecTestsWithResponse(ctx, &dxclient.ListSpecTestsParams{SpecId: int32(specID)})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(testsResp.StatusCode(), testsResp.Body); err != nil {
+				return err
+			}
+			if testsResp.JSON200 != nil && testsResp.JSON200.Tests != nil && len(*testsResp.JSON200.Tests) > 0 {
+				fmt.Println("\nLinked tests:")
+				for _, t := range *testsResp.JSON200.Tests {
+					fmt.Printf("  [%s] %s/%s (%s)\n", t.Status, t.Component, t.Name, t.Layer)
+				}
+			}
+
+			tasksResp, err := c.ListSpecTasksWithResponse(ctx, &dxclient.ListSpecTasksParams{SpecId: int32(specID)})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(tasksResp.StatusCode(), tasksResp.Body); err != nil {
+				return err
+			}
+			if tasksResp.JSON200 != nil && tasksResp.JSON200.Tasks != nil && len(*tasksResp.JSON200.Tasks) > 0 {
+				fmt.Println("\nReferencing tasks:")
+				for _, t := range *tasksResp.JSON200.Tasks {
+					fmt.Printf("  %s (%s) — %s\n", t.Id, t.Status, t.Title)
+				}
+			}
 
 			defResp, err := c.ListSpecDeferralsWithResponse(ctx, &dxclient.ListSpecDeferralsParams{SpecId: int32(specID)})
 			if err != nil {

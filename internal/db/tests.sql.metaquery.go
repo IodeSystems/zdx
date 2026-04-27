@@ -102,7 +102,8 @@ var MetaGetTest = metaquery.Query{
 	Name:   "GetTest",
 	Cmd:    ":one",
 	Source: "tests.sql",
-	SQL: `SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+	SQL: `SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+       last_run_branch, last_run_sha, last_failed_at, last_failed_branch
 FROM zdx_tests WHERE project_id = $1 AND component = $2 AND name = $3`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
@@ -114,6 +115,10 @@ FROM zdx_tests WHERE project_id = $1 AND component = $2 AND name = $3`,
 		{Name: "duration_ms", OriginalName: "duration_ms", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
 		{Name: "last_run_at", OriginalName: "last_run_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_branch", OriginalName: "last_run_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_sha", OriginalName: "last_run_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_failed_at", OriginalName: "last_failed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
+		{Name: "last_failed_branch", OriginalName: "last_failed_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -129,32 +134,41 @@ func WrapGetTest(arg GetTestParams) *metaquery.Builder {
 
 // GetTestCols gives typed, name-safe access to GetTest's output columns.
 var GetTestCols = struct {
-	ID         metaquery.IntCol
-	ProjectID  metaquery.IntCol
-	Component  metaquery.TextCol
-	Name       metaquery.TextCol
-	Layer      metaquery.TextCol
-	Status     metaquery.TextCol
-	DurationMs metaquery.IntCol
-	LastRunAt  metaquery.TimeCol
-	CreatedAt  metaquery.TimeCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Component        metaquery.TextCol
+	Name             metaquery.TextCol
+	Layer            metaquery.TextCol
+	Status           metaquery.TextCol
+	DurationMs       metaquery.IntCol
+	LastRunAt        metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	LastRunBranch    metaquery.TextCol
+	LastRunSha       metaquery.TextCol
+	LastFailedAt     metaquery.TimeCol
+	LastFailedBranch metaquery.TextCol
 }{
-	ID:         metaquery.NewIntCol("id"),
-	ProjectID:  metaquery.NewIntCol("project_id"),
-	Component:  metaquery.NewTextCol("component"),
-	Name:       metaquery.NewTextCol("name"),
-	Layer:      metaquery.NewTextCol("layer"),
-	Status:     metaquery.NewTextCol("status"),
-	DurationMs: metaquery.NewIntCol("duration_ms"),
-	LastRunAt:  metaquery.NewTimeCol("last_run_at"),
-	CreatedAt:  metaquery.NewTimeCol("created_at"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Component:        metaquery.NewTextCol("component"),
+	Name:             metaquery.NewTextCol("name"),
+	Layer:            metaquery.NewTextCol("layer"),
+	Status:           metaquery.NewTextCol("status"),
+	DurationMs:       metaquery.NewIntCol("duration_ms"),
+	LastRunAt:        metaquery.NewTimeCol("last_run_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	LastRunBranch:    metaquery.NewTextCol("last_run_branch"),
+	LastRunSha:       metaquery.NewTextCol("last_run_sha"),
+	LastFailedAt:     metaquery.NewTimeCol("last_failed_at"),
+	LastFailedBranch: metaquery.NewTextCol("last_failed_branch"),
 }
 
 var MetaGetTestByID = metaquery.Query{
 	Name:   "GetTestByID",
 	Cmd:    ":one",
 	Source: "tests.sql",
-	SQL: `SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+	SQL: `SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+       last_run_branch, last_run_sha, last_failed_at, last_failed_branch
 FROM zdx_tests WHERE project_id = $1 AND id = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
@@ -166,6 +180,10 @@ FROM zdx_tests WHERE project_id = $1 AND id = $2`,
 		{Name: "duration_ms", OriginalName: "duration_ms", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
 		{Name: "last_run_at", OriginalName: "last_run_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_branch", OriginalName: "last_run_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_sha", OriginalName: "last_run_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_failed_at", OriginalName: "last_failed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
+		{Name: "last_failed_branch", OriginalName: "last_failed_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -180,25 +198,33 @@ func WrapGetTestByID(arg GetTestByIDParams) *metaquery.Builder {
 
 // GetTestByIDCols gives typed, name-safe access to GetTestByID's output columns.
 var GetTestByIDCols = struct {
-	ID         metaquery.IntCol
-	ProjectID  metaquery.IntCol
-	Component  metaquery.TextCol
-	Name       metaquery.TextCol
-	Layer      metaquery.TextCol
-	Status     metaquery.TextCol
-	DurationMs metaquery.IntCol
-	LastRunAt  metaquery.TimeCol
-	CreatedAt  metaquery.TimeCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Component        metaquery.TextCol
+	Name             metaquery.TextCol
+	Layer            metaquery.TextCol
+	Status           metaquery.TextCol
+	DurationMs       metaquery.IntCol
+	LastRunAt        metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	LastRunBranch    metaquery.TextCol
+	LastRunSha       metaquery.TextCol
+	LastFailedAt     metaquery.TimeCol
+	LastFailedBranch metaquery.TextCol
 }{
-	ID:         metaquery.NewIntCol("id"),
-	ProjectID:  metaquery.NewIntCol("project_id"),
-	Component:  metaquery.NewTextCol("component"),
-	Name:       metaquery.NewTextCol("name"),
-	Layer:      metaquery.NewTextCol("layer"),
-	Status:     metaquery.NewTextCol("status"),
-	DurationMs: metaquery.NewIntCol("duration_ms"),
-	LastRunAt:  metaquery.NewTimeCol("last_run_at"),
-	CreatedAt:  metaquery.NewTimeCol("created_at"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Component:        metaquery.NewTextCol("component"),
+	Name:             metaquery.NewTextCol("name"),
+	Layer:            metaquery.NewTextCol("layer"),
+	Status:           metaquery.NewTextCol("status"),
+	DurationMs:       metaquery.NewIntCol("duration_ms"),
+	LastRunAt:        metaquery.NewTimeCol("last_run_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	LastRunBranch:    metaquery.NewTextCol("last_run_branch"),
+	LastRunSha:       metaquery.NewTextCol("last_run_sha"),
+	LastFailedAt:     metaquery.NewTimeCol("last_failed_at"),
+	LastFailedBranch: metaquery.NewTextCol("last_failed_branch"),
 }
 
 var MetaInsertTestResultHistory = metaquery.Query{
@@ -450,7 +476,8 @@ var MetaListTests = metaquery.Query{
 	Name:   "ListTests",
 	Cmd:    ":many",
 	Source: "tests.sql",
-	SQL: `SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+	SQL: `SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+       last_run_branch, last_run_sha, last_failed_at, last_failed_branch
 FROM zdx_tests WHERE project_id = $1 ORDER BY component, name`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
@@ -462,6 +489,10 @@ FROM zdx_tests WHERE project_id = $1 ORDER BY component, name`,
 		{Name: "duration_ms", OriginalName: "duration_ms", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
 		{Name: "last_run_at", OriginalName: "last_run_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_branch", OriginalName: "last_run_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_sha", OriginalName: "last_run_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_failed_at", OriginalName: "last_failed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
+		{Name: "last_failed_branch", OriginalName: "last_failed_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -475,32 +506,41 @@ func WrapListTests(projectID int32) *metaquery.Builder {
 
 // ListTestsCols gives typed, name-safe access to ListTests's output columns.
 var ListTestsCols = struct {
-	ID         metaquery.IntCol
-	ProjectID  metaquery.IntCol
-	Component  metaquery.TextCol
-	Name       metaquery.TextCol
-	Layer      metaquery.TextCol
-	Status     metaquery.TextCol
-	DurationMs metaquery.IntCol
-	LastRunAt  metaquery.TimeCol
-	CreatedAt  metaquery.TimeCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Component        metaquery.TextCol
+	Name             metaquery.TextCol
+	Layer            metaquery.TextCol
+	Status           metaquery.TextCol
+	DurationMs       metaquery.IntCol
+	LastRunAt        metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	LastRunBranch    metaquery.TextCol
+	LastRunSha       metaquery.TextCol
+	LastFailedAt     metaquery.TimeCol
+	LastFailedBranch metaquery.TextCol
 }{
-	ID:         metaquery.NewIntCol("id"),
-	ProjectID:  metaquery.NewIntCol("project_id"),
-	Component:  metaquery.NewTextCol("component"),
-	Name:       metaquery.NewTextCol("name"),
-	Layer:      metaquery.NewTextCol("layer"),
-	Status:     metaquery.NewTextCol("status"),
-	DurationMs: metaquery.NewIntCol("duration_ms"),
-	LastRunAt:  metaquery.NewTimeCol("last_run_at"),
-	CreatedAt:  metaquery.NewTimeCol("created_at"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Component:        metaquery.NewTextCol("component"),
+	Name:             metaquery.NewTextCol("name"),
+	Layer:            metaquery.NewTextCol("layer"),
+	Status:           metaquery.NewTextCol("status"),
+	DurationMs:       metaquery.NewIntCol("duration_ms"),
+	LastRunAt:        metaquery.NewTimeCol("last_run_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	LastRunBranch:    metaquery.NewTextCol("last_run_branch"),
+	LastRunSha:       metaquery.NewTextCol("last_run_sha"),
+	LastFailedAt:     metaquery.NewTimeCol("last_failed_at"),
+	LastFailedBranch: metaquery.NewTextCol("last_failed_branch"),
 }
 
 var MetaListTestsByLayer = metaquery.Query{
 	Name:   "ListTestsByLayer",
 	Cmd:    ":many",
 	Source: "tests.sql",
-	SQL: `SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+	SQL: `SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+       last_run_branch, last_run_sha, last_failed_at, last_failed_branch
 FROM zdx_tests WHERE project_id = $1 AND layer = $2 ORDER BY component, name`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
@@ -512,6 +552,10 @@ FROM zdx_tests WHERE project_id = $1 AND layer = $2 ORDER BY component, name`,
 		{Name: "duration_ms", OriginalName: "duration_ms", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
 		{Name: "last_run_at", OriginalName: "last_run_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_branch", OriginalName: "last_run_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_sha", OriginalName: "last_run_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_failed_at", OriginalName: "last_failed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
+		{Name: "last_failed_branch", OriginalName: "last_failed_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -526,32 +570,41 @@ func WrapListTestsByLayer(arg ListTestsByLayerParams) *metaquery.Builder {
 
 // ListTestsByLayerCols gives typed, name-safe access to ListTestsByLayer's output columns.
 var ListTestsByLayerCols = struct {
-	ID         metaquery.IntCol
-	ProjectID  metaquery.IntCol
-	Component  metaquery.TextCol
-	Name       metaquery.TextCol
-	Layer      metaquery.TextCol
-	Status     metaquery.TextCol
-	DurationMs metaquery.IntCol
-	LastRunAt  metaquery.TimeCol
-	CreatedAt  metaquery.TimeCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Component        metaquery.TextCol
+	Name             metaquery.TextCol
+	Layer            metaquery.TextCol
+	Status           metaquery.TextCol
+	DurationMs       metaquery.IntCol
+	LastRunAt        metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	LastRunBranch    metaquery.TextCol
+	LastRunSha       metaquery.TextCol
+	LastFailedAt     metaquery.TimeCol
+	LastFailedBranch metaquery.TextCol
 }{
-	ID:         metaquery.NewIntCol("id"),
-	ProjectID:  metaquery.NewIntCol("project_id"),
-	Component:  metaquery.NewTextCol("component"),
-	Name:       metaquery.NewTextCol("name"),
-	Layer:      metaquery.NewTextCol("layer"),
-	Status:     metaquery.NewTextCol("status"),
-	DurationMs: metaquery.NewIntCol("duration_ms"),
-	LastRunAt:  metaquery.NewTimeCol("last_run_at"),
-	CreatedAt:  metaquery.NewTimeCol("created_at"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Component:        metaquery.NewTextCol("component"),
+	Name:             metaquery.NewTextCol("name"),
+	Layer:            metaquery.NewTextCol("layer"),
+	Status:           metaquery.NewTextCol("status"),
+	DurationMs:       metaquery.NewIntCol("duration_ms"),
+	LastRunAt:        metaquery.NewTimeCol("last_run_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	LastRunBranch:    metaquery.NewTextCol("last_run_branch"),
+	LastRunSha:       metaquery.NewTextCol("last_run_sha"),
+	LastFailedAt:     metaquery.NewTimeCol("last_failed_at"),
+	LastFailedBranch: metaquery.NewTextCol("last_failed_branch"),
 }
 
 var MetaListTestsForSpec = metaquery.Query{
 	Name:   "ListTestsForSpec",
 	Cmd:    ":many",
 	Source: "tests.sql",
-	SQL: `SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.duration_ms, t.last_run_at, t.created_at
+	SQL: `SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.duration_ms, t.last_run_at, t.created_at,
+       t.last_run_branch, t.last_run_sha, t.last_failed_at, t.last_failed_branch
 FROM zdx_tests t
 JOIN zdx_spec_tests st ON st.test_id = t.id
 WHERE st.spec_id = $1 ORDER BY t.component, t.name`,
@@ -565,6 +618,10 @@ WHERE st.spec_id = $1 ORDER BY t.component, t.name`,
 		{Name: "duration_ms", OriginalName: "duration_ms", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
 		{Name: "last_run_at", OriginalName: "last_run_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_branch", OriginalName: "last_run_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_sha", OriginalName: "last_run_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_failed_at", OriginalName: "last_failed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
+		{Name: "last_failed_branch", OriginalName: "last_failed_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "spec_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -578,25 +635,33 @@ func WrapListTestsForSpec(specID int32) *metaquery.Builder {
 
 // ListTestsForSpecCols gives typed, name-safe access to ListTestsForSpec's output columns.
 var ListTestsForSpecCols = struct {
-	ID         metaquery.IntCol
-	ProjectID  metaquery.IntCol
-	Component  metaquery.TextCol
-	Name       metaquery.TextCol
-	Layer      metaquery.TextCol
-	Status     metaquery.TextCol
-	DurationMs metaquery.IntCol
-	LastRunAt  metaquery.TimeCol
-	CreatedAt  metaquery.TimeCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Component        metaquery.TextCol
+	Name             metaquery.TextCol
+	Layer            metaquery.TextCol
+	Status           metaquery.TextCol
+	DurationMs       metaquery.IntCol
+	LastRunAt        metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	LastRunBranch    metaquery.TextCol
+	LastRunSha       metaquery.TextCol
+	LastFailedAt     metaquery.TimeCol
+	LastFailedBranch metaquery.TextCol
 }{
-	ID:         metaquery.NewIntCol("id"),
-	ProjectID:  metaquery.NewIntCol("project_id"),
-	Component:  metaquery.NewTextCol("component"),
-	Name:       metaquery.NewTextCol("name"),
-	Layer:      metaquery.NewTextCol("layer"),
-	Status:     metaquery.NewTextCol("status"),
-	DurationMs: metaquery.NewIntCol("duration_ms"),
-	LastRunAt:  metaquery.NewTimeCol("last_run_at"),
-	CreatedAt:  metaquery.NewTimeCol("created_at"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Component:        metaquery.NewTextCol("component"),
+	Name:             metaquery.NewTextCol("name"),
+	Layer:            metaquery.NewTextCol("layer"),
+	Status:           metaquery.NewTextCol("status"),
+	DurationMs:       metaquery.NewIntCol("duration_ms"),
+	LastRunAt:        metaquery.NewTimeCol("last_run_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	LastRunBranch:    metaquery.NewTextCol("last_run_branch"),
+	LastRunSha:       metaquery.NewTextCol("last_run_sha"),
+	LastFailedAt:     metaquery.NewTimeCol("last_failed_at"),
+	LastFailedBranch: metaquery.NewTextCol("last_failed_branch"),
 }
 
 var MetaUnlinkSpecTest = metaquery.Query{
@@ -619,14 +684,23 @@ var MetaUpsertTest = metaquery.Query{
 	Name:   "UpsertTest",
 	Cmd:    ":one",
 	Source: "tests.sql",
-	SQL: `INSERT INTO zdx_tests (project_id, component, name, layer, status, duration_ms, last_run_at)
-VALUES ($1, $2, $3, $4, $5, $6, NOW())
+	SQL: `INSERT INTO zdx_tests (project_id, component, name, layer, status, duration_ms, last_run_at,
+                       last_run_branch, last_run_sha, last_failed_at, last_failed_branch)
+VALUES ($1, $2, $3, $4, $5, $6, NOW(),
+        $7, $8,
+        CASE WHEN $5::text = 'fail' THEN NOW() ELSE NULL END,
+        CASE WHEN $5::text = 'fail' THEN $7::text ELSE '' END)
 ON CONFLICT (project_id, component, name) DO UPDATE
-SET layer       = EXCLUDED.layer,
-    status      = EXCLUDED.status,
-    duration_ms = EXCLUDED.duration_ms,
-    last_run_at = NOW()
-RETURNING id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at`,
+SET layer              = EXCLUDED.layer,
+    status             = EXCLUDED.status,
+    duration_ms        = EXCLUDED.duration_ms,
+    last_run_at        = NOW(),
+    last_run_branch    = EXCLUDED.last_run_branch,
+    last_run_sha       = EXCLUDED.last_run_sha,
+    last_failed_at     = CASE WHEN EXCLUDED.status = 'fail' THEN NOW() ELSE zdx_tests.last_failed_at END,
+    last_failed_branch = CASE WHEN EXCLUDED.status = 'fail' THEN EXCLUDED.last_run_branch ELSE zdx_tests.last_failed_branch END
+RETURNING id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+          last_run_branch, last_run_sha, last_failed_at, last_failed_branch`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
@@ -637,6 +711,10 @@ RETURNING id, project_id, component, name, layer, status, duration_ms, last_run_
 		{Name: "duration_ms", OriginalName: "duration_ms", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tests"},
 		{Name: "last_run_at", OriginalName: "last_run_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_branch", OriginalName: "last_run_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_run_sha", OriginalName: "last_run_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
+		{Name: "last_failed_at", OriginalName: "last_failed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tests"},
+		{Name: "last_failed_branch", OriginalName: "last_failed_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tests"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -645,36 +723,46 @@ RETURNING id, project_id, component, name, layer, status, duration_ms, last_run_
 		{Position: 4, Name: "layer", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 5, Name: "status", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 6, Name: "duration_ms", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 7, Name: "last_run_branch", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 8, Name: "last_run_sha", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_tests"},
 }
 
 // WrapUpsertTest returns a metaquery.Builder over MetaUpsertTest, pre-bound with typed arguments.
 func WrapUpsertTest(arg UpsertTestParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaUpsertTest, arg.ProjectID, arg.Component, arg.Name, arg.Layer, arg.Status, arg.DurationMs)
+	return metaquery.Wrap(&MetaUpsertTest, arg.ProjectID, arg.Component, arg.Name, arg.Layer, arg.Status, arg.DurationMs, arg.LastRunBranch, arg.LastRunSha)
 }
 
 // UpsertTestCols gives typed, name-safe access to UpsertTest's output columns.
 var UpsertTestCols = struct {
-	ID         metaquery.IntCol
-	ProjectID  metaquery.IntCol
-	Component  metaquery.TextCol
-	Name       metaquery.TextCol
-	Layer      metaquery.TextCol
-	Status     metaquery.TextCol
-	DurationMs metaquery.IntCol
-	LastRunAt  metaquery.TimeCol
-	CreatedAt  metaquery.TimeCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Component        metaquery.TextCol
+	Name             metaquery.TextCol
+	Layer            metaquery.TextCol
+	Status           metaquery.TextCol
+	DurationMs       metaquery.IntCol
+	LastRunAt        metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	LastRunBranch    metaquery.TextCol
+	LastRunSha       metaquery.TextCol
+	LastFailedAt     metaquery.TimeCol
+	LastFailedBranch metaquery.TextCol
 }{
-	ID:         metaquery.NewIntCol("id"),
-	ProjectID:  metaquery.NewIntCol("project_id"),
-	Component:  metaquery.NewTextCol("component"),
-	Name:       metaquery.NewTextCol("name"),
-	Layer:      metaquery.NewTextCol("layer"),
-	Status:     metaquery.NewTextCol("status"),
-	DurationMs: metaquery.NewIntCol("duration_ms"),
-	LastRunAt:  metaquery.NewTimeCol("last_run_at"),
-	CreatedAt:  metaquery.NewTimeCol("created_at"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Component:        metaquery.NewTextCol("component"),
+	Name:             metaquery.NewTextCol("name"),
+	Layer:            metaquery.NewTextCol("layer"),
+	Status:           metaquery.NewTextCol("status"),
+	DurationMs:       metaquery.NewIntCol("duration_ms"),
+	LastRunAt:        metaquery.NewTimeCol("last_run_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	LastRunBranch:    metaquery.NewTextCol("last_run_branch"),
+	LastRunSha:       metaquery.NewTextCol("last_run_sha"),
+	LastFailedAt:     metaquery.NewTimeCol("last_failed_at"),
+	LastFailedBranch: metaquery.NewTextCol("last_failed_branch"),
 }
 
 var MetaUpsertTestDemo = metaquery.Query{

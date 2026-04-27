@@ -2,6 +2,8 @@ package project
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -9,12 +11,21 @@ import (
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 )
 
+func gitOutput(args ...string) string {
+	out, err := exec.Command("git", args...).Output()
+	if err != nil {
+		return ""
+	}
+	return strings.TrimSpace(string(out))
+}
+
 func EnvCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "env", Short: "Environment management"}
 	cmd.AddCommand(
 		envListCmd(),
 		envAddCmd(),
 		envShowCmd(),
+		envDeployCmd(),
 		envEditCmd(),
 		envRmCmd(),
 	)
@@ -103,6 +114,14 @@ func envShowCmd() *cobra.Command {
 			fmt.Printf("Deployed:   %s\n", e.DeployedAt)
 			fmt.Printf("Branch:     %s\n", e.CurrentBuildBranch)
 			fmt.Printf("SHA:        %s\n", e.CurrentBuildSha)
+			if e.CurrentBuildSha != "" {
+				ahead := gitOutput("rev-list", e.CurrentBuildSha+"..HEAD", "--count")
+				if ahead != "" && ahead != "0" {
+					fmt.Printf("Behind:     %s commit(s) behind HEAD\n", ahead)
+				} else if ahead == "0" {
+					fmt.Printf("Behind:     up to date\n")
+				}
+			}
 
 			deploys, err := c.ListEnvironmentDeploysWithResponse(cmd.Context(), slug, name, &dxclient.ListEnvironmentDeploysParams{})
 			if err != nil {
@@ -122,6 +141,53 @@ func envShowCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func envDeployCmd() *cobra.Command {
+	var sha, branch, status string
+	cmd := &cobra.Command{
+		Use:   "deploy <name>",
+		Short: "Record a deployment to an environment",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if sha == "" {
+				sha = gitOutput("rev-parse", "HEAD")
+			}
+			if branch == "" {
+				branch = gitOutput("rev-parse", "--abbrev-ref", "HEAD")
+			}
+			if status == "" {
+				status = "success"
+			}
+			c := cli.MustClient()
+			req := dxclient.CreateEnvironmentDeployRequest{
+				BuildSha:    sha,
+				BuildBranch: &branch,
+				Status:      &status,
+			}
+			resp, err := c.CreateEnvironmentDeployWithResponse(cmd.Context(), c.SlugOrDie(), args[0], req)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			d := resp.JSON200
+			shortSHA := d.BuildSha
+			if len(shortSHA) > 8 {
+				shortSHA = shortSHA[:8]
+			}
+			fmt.Printf("recorded  %s  %s  %s\n", d.Status, d.BuildBranch, shortSHA)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&sha, "sha", "", "build SHA (default: current HEAD)")
+	cmd.Flags().StringVar(&branch, "branch", "", "build branch (default: current branch)")
+	cmd.Flags().StringVar(&status, "status", "", "deploy status: success|failure (default: success)")
+	return cmd
 }
 
 func envEditCmd() *cobra.Command {

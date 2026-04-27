@@ -396,6 +396,31 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			}{Tests: out}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-spec-tasks", Method: http.MethodGet, Path: "/api/dx/specs/tasks"},
+		func(ctx context.Context, in *struct {
+			SpecID int32 `query:"spec_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Tasks []SpecTaskItem `json:"tasks"`
+			}
+		}, error) {
+			rows, err := h.Q.ListTasksForSpec(ctx, in.SpecID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]SpecTaskItem, len(rows))
+			for i, r := range rows {
+				out[i] = SpecTaskItem{ID: r.ID, Title: r.Title, Status: r.Status}
+			}
+			return &struct {
+				Body struct {
+					Tasks []SpecTaskItem `json:"tasks"`
+				}
+			}{Body: struct {
+				Tasks []SpecTaskItem `json:"tasks"`
+			}{Tasks: out}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "list-spec-demos", Method: http.MethodGet, Path: "/api/dx/specs/demos"},
 		func(ctx context.Context, in *struct {
 			SpecID int32 `query:"spec_id" required:"true"`

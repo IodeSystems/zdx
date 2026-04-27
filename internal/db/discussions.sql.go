@@ -188,6 +188,56 @@ func (q *Queries) ListDiscussions(ctx context.Context, arg ListDiscussionsParams
 	return items, nil
 }
 
+const listDiscussionsAwaitingResponse = `-- name: ListDiscussionsAwaitingResponse :many
+SELECT d.id, d.title, m.id AS message_id, m.content
+FROM zdx_discussions d
+JOIN LATERAL (
+    SELECT id, role, content
+    FROM zdx_discussion_messages
+    WHERE discussion_id = d.id
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+) m ON TRUE
+WHERE d.project_id = $1
+  AND d.status = 'active'
+  AND m.role = 'user'
+`
+
+type ListDiscussionsAwaitingResponseRow struct {
+	ID        int32  `db:"id" json:"id"`
+	Title     string `db:"title" json:"title"`
+	MessageID int32  `db:"message_id" json:"message_id"`
+	Content   string `db:"content" json:"content"`
+}
+
+// Active discussions whose most-recent message is from the user — i.e. the
+// assistant has not yet replied. Drives a solo-queue todo so an agent can pick
+// up the dangling thread (typically left over from a failed LLM send).
+func (q *Queries) ListDiscussionsAwaitingResponse(ctx context.Context, projectID int32) ([]ListDiscussionsAwaitingResponseRow, error) {
+	rows, err := q.db.Query(ctx, listDiscussionsAwaitingResponse, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListDiscussionsAwaitingResponseRow
+	for rows.Next() {
+		var i ListDiscussionsAwaitingResponseRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.MessageID,
+			&i.Content,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateDiscussionSession = `-- name: UpdateDiscussionSession :one
 UPDATE zdx_discussions
 SET claude_session_id = $3, openai_thread_id = $4, updated_at = NOW()

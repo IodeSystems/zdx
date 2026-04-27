@@ -2225,7 +2225,11 @@ CREATE TABLE public.zdx_tests (
     status text DEFAULT 'unknown'::text NOT NULL,
     last_run_at timestamp with time zone,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    duration_ms integer DEFAULT 0 NOT NULL
+    duration_ms integer DEFAULT 0 NOT NULL,
+    last_run_branch text DEFAULT ''::text NOT NULL,
+    last_run_sha text DEFAULT ''::text NOT NULL,
+    last_failed_at timestamp with time zone,
+    last_failed_branch text DEFAULT ''::text NOT NULL
 );
 
 

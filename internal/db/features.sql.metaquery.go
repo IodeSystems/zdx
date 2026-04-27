@@ -767,6 +767,46 @@ var ListStaleFeaturesCols = struct {
 	LastReviewedAt:  metaquery.NewTimeCol("last_reviewed_at"),
 }
 
+var MetaListTasksForSpec = metaquery.Query{
+	Name:   "ListTasksForSpec",
+	Cmd:    ":many",
+	Source: "features.sql",
+	SQL: `SELECT t.id, t.title, t.status
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+JOIN zdx_tasks t ON t.project_id = f.project_id
+WHERE s.id = $1
+  AND (
+    t.title ~* ('\mspec\s+' || s.id::text || '\M')
+    OR t.text ~* ('\mspec\s+' || s.id::text || '\M')
+  )
+ORDER BY t.created_at`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListTasksForSpec returns a metaquery.Builder over MetaListTasksForSpec, pre-bound with typed arguments.
+func WrapListTasksForSpec(id int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListTasksForSpec, id)
+}
+
+// ListTasksForSpecCols gives typed, name-safe access to ListTasksForSpec's output columns.
+var ListTasksForSpecCols = struct {
+	ID     metaquery.TextCol
+	Title  metaquery.TextCol
+	Status metaquery.TextCol
+}{
+	ID:     metaquery.NewTextCol("id"),
+	Title:  metaquery.NewTextCol("title"),
+	Status: metaquery.NewTextCol("status"),
+}
+
 var MetaListUncoveredSpecs = metaquery.Query{
 	Name:   "ListUncoveredSpecs",
 	Cmd:    ":many",

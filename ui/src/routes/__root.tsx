@@ -42,6 +42,7 @@ import {
   TextSnippet as TextSnippetIcon,
   Timer as TimerIcon,
   Tune as TuneIcon,
+  Layers as LayersIcon,
   Science as ScienceIcon,
   WarningAmber as WarningAmberIcon,
   ExpandLess as ExpandLessIcon,
@@ -52,7 +53,7 @@ import {
 } from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { useProjects, useMe, useLogout, useUnreadCount, useUnreadThreads, useDismissAllNotifications, useZdxConfig, type UnreadThread } from '../api'
+import { useProjects, useMe, useLogout, useUnreadCount, useUnreadThreads, useDismissAllNotifications, useZdxConfig, useBlockerQuestions, useProposals, type UnreadThread } from '../api'
 import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
 import { IssueReportFab } from '../components/IssueReportFab'
@@ -88,6 +89,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Standup', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
       { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
       { label: 'Tests', icon: <ScienceIcon fontSize="small" />, path: 'tests' },
+      { label: 'Environments', icon: <LayersIcon fontSize="small" />, path: 'environments' },
     ],
   },
   {
@@ -189,19 +191,51 @@ function NavGroupList({ currentSlug, activePath, isQueueActive, onNavigate }: {
     setCollapsed(prev => ({ ...prev, [group]: !prev[group] }))
   }, [])
 
-  const renderItem = (s: NavItem) => (
-    <ListItemButton
-      key={s.path}
-      selected={activePath === s.path}
-      component={Link as any}
-      to={`/project/$slug/${s.path}` as any}
-      params={{ slug: currentSlug }}
-      onClick={onNavigate}
-    >
-      <ListItemIcon sx={{ minWidth: 36 }}>{s.icon}</ListItemIcon>
-      <ListItemText primary={s.label} />
-    </ListItemButton>
-  )
+  const { data: pendingBlockers } = useBlockerQuestions(currentSlug, 'pending')
+  const { data: proposedProposals } = useProposals(currentSlug, 'proposed')
+  const counts: Record<string, number> = {
+    'blocker-questions': pendingBlockers?.total ?? 0,
+    'proposals': proposedProposals?.length ?? 0,
+  }
+
+  const renderItem = (s: NavItem) => {
+    const count = counts[s.path] ?? 0
+    return (
+      <ListItemButton
+        key={s.path}
+        selected={activePath === s.path}
+        component={Link as any}
+        to={`/project/$slug/${s.path}` as any}
+        params={{ slug: currentSlug }}
+        onClick={onNavigate}
+      >
+        <ListItemIcon sx={{ minWidth: 36 }}>{s.icon}</ListItemIcon>
+        <ListItemText primary={s.label} />
+        {count > 0 && (
+          <Box
+            component="span"
+            sx={{
+              ml: 1,
+              minWidth: 20,
+              height: 18,
+              px: 0.75,
+              borderRadius: 9,
+              bgcolor: 'warning.main',
+              color: 'warning.contrastText',
+              fontSize: '0.7rem',
+              fontWeight: 600,
+              display: 'inline-flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              lineHeight: 1,
+            }}
+          >
+            {count}
+          </Box>
+        )}
+      </ListItemButton>
+    )
+  }
 
   return (
     <List dense>
@@ -267,7 +301,7 @@ function DrawerNav({ onNavigate }: { onNavigate?: () => void }) {
   const currentSlug = (projectMatch?.params as { slug?: string })?.slug
   const lastPath = matches[matches.length - 1]?.pathname ?? ''
   const lastRouteId = (matches[matches.length - 1]?.routeId as string) || ''
-  const isAdminActive = lastPath.startsWith('/admin')
+  const isAdminActive = lastPath.startsWith('/admin') && lastPath !== '/admin/activity'
   const { component, setComponent } = useComponentFilter()
 
   // User's manual expand/collapse choices (null = user collapsed explicitly)
@@ -379,7 +413,21 @@ function DrawerNav({ onNavigate }: { onNavigate?: () => void }) {
         })}
         <Divider sx={{ my: 0.5 }} />
         <ListItemButton
-          selected={isAdminActive}
+          selected={lastPath === '/admin/activity'}
+          component={Link as any}
+          to={'/admin/activity' as any}
+          onClick={() => {
+            setManualProject(null)
+            onNavigate?.()
+          }}
+        >
+          <ListItemIcon sx={{ minWidth: 36 }}>
+            <SmartToyIcon fontSize="small" />
+          </ListItemIcon>
+          <ListItemText primary="Activity" />
+        </ListItemButton>
+        <ListItemButton
+          selected={isAdminActive && lastPath !== '/admin/activity'}
           component={Link as any}
           to={'/admin' as any}
           onClick={() => {

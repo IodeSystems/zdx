@@ -278,6 +278,10 @@ type Querier interface {
 	ListDeploys(ctx context.Context, environmentID int32) ([]ZdxDeploy, error)
 	ListDiscussionMessages(ctx context.Context, discussionID int32) ([]ZdxDiscussionMessage, error)
 	ListDiscussions(ctx context.Context, arg ListDiscussionsParams) ([]ZdxDiscussion, error)
+	// Active discussions whose most-recent message is from the user — i.e. the
+	// assistant has not yet replied. Drives a solo-queue todo so an agent can pick
+	// up the dangling thread (typically left over from a failed LLM send).
+	ListDiscussionsAwaitingResponse(ctx context.Context, projectID int32) ([]ListDiscussionsAwaitingResponseRow, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
 	ListEnvironments(ctx context.Context, projectID int32) ([]ZdxEnvironment, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
@@ -319,6 +323,10 @@ type Querier interface {
 	// cascade-close narrow-slice links (and full duplicates) when the target closes.
 	ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIssuesParams) ([]ZdxIssue, error)
 	ListOpenMaturityItems(ctx context.Context, projectID int32) ([]ZdxMaturityItem, error)
+	// Open wip/ready/active tasks whose title starts with the given prefix
+	// (case-insensitive). Used to detect templated-title duplicates such as
+	// "Test spec N: ..." across sessions.
+	ListOpenTasksByTitlePrefix(ctx context.Context, arg ListOpenTasksByTitlePrefixParams) ([]ListOpenTasksByTitlePrefixRow, error)
 	// Ready tasks with no parent issue — invisible to the normal solo queue.
 	ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]ListOrphanReadyTasksRow, error)
 	ListPatterns(ctx context.Context, projectID int32) ([]ZdxPattern, error)
@@ -378,6 +386,8 @@ type Querier interface {
 	ListTasksByAgent(ctx context.Context, claimedBy string) ([]ListTasksByAgentRow, error)
 	ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error)
 	ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error)
+	// Tasks (any status) whose title or text references spec N by ID ("spec N" word boundary).
+	ListTasksForSpec(ctx context.Context, id int32) ([]ListTasksForSpecRow, error)
 	ListTestDemos(ctx context.Context, testID int32) ([]ListTestDemosRow, error)
 	// metaquery: off
 	ListTestResultHistory(ctx context.Context, arg ListTestResultHistoryParams) ([]ListTestResultHistoryRow, error)
@@ -395,9 +405,9 @@ type Querier interface {
 	ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
 	// Specs without linked tests AND without an open task in flight for them.
 	// The "in-flight" check matches any open task (wip/ready/active) whose title
-	// references the spec by id ("spec N" with word boundaries) — agents file
-	// with varied titles ("Test spec 55: ...", "Add test for spec 55", etc.),
-	// so a strict prefix anchor was too narrow and produced duplicate drafts.
+	// or text references the spec by id ("spec N" with word boundaries) — agents file
+	// with varied titles or put the spec reference in the task body, so both fields
+	// are checked to avoid re-emitting the nudge when work is already queued.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
 	// metaquery: off
 	// Returns distinct threads where the user has commented and others have replied unread.

@@ -639,6 +639,46 @@ func (q *Queries) ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesPa
 	return items, nil
 }
 
+const listTasksForSpec = `-- name: ListTasksForSpec :many
+SELECT t.id, t.title, t.status
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+JOIN zdx_tasks t ON t.project_id = f.project_id
+WHERE s.id = $1
+  AND (
+    t.title ~* ('\mspec\s+' || s.id::text || '\M')
+    OR t.text ~* ('\mspec\s+' || s.id::text || '\M')
+  )
+ORDER BY t.created_at
+`
+
+type ListTasksForSpecRow struct {
+	ID     string `db:"id" json:"id"`
+	Title  string `db:"title" json:"title"`
+	Status string `db:"status" json:"status"`
+}
+
+// Tasks (any status) whose title or text references spec N by ID ("spec N" word boundary).
+func (q *Queries) ListTasksForSpec(ctx context.Context, id int32) ([]ListTasksForSpecRow, error) {
+	rows, err := q.db.Query(ctx, listTasksForSpec, id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTasksForSpecRow
+	for rows.Next() {
+		var i ListTasksForSpecRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listUncoveredSpecs = `-- name: ListUncoveredSpecs :many
 SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, f.name AS feature_name
 FROM zdx_specs s

@@ -548,6 +548,61 @@ func (q *Queries) ListActiveTaskClaims(ctx context.Context, projectID int32) ([]
 	return items, nil
 }
 
+const listOpenTasksByTitlePrefix = `-- name: ListOpenTasksByTitlePrefix :many
+SELECT id, title, text, status, reason, issue, created_at
+FROM zdx_tasks
+WHERE project_id = $1
+  AND status IN ('wip', 'ready', 'active')
+  AND lower(title) LIKE lower($2::text) || '%'
+ORDER BY created_at DESC
+`
+
+type ListOpenTasksByTitlePrefixParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Prefix    string `db:"prefix" json:"prefix"`
+}
+
+type ListOpenTasksByTitlePrefixRow struct {
+	ID        string             `db:"id" json:"id"`
+	Title     string             `db:"title" json:"title"`
+	Text      string             `db:"text" json:"text"`
+	Status    string             `db:"status" json:"status"`
+	Reason    string             `db:"reason" json:"reason"`
+	Issue     string             `db:"issue" json:"issue"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+// Open wip/ready/active tasks whose title starts with the given prefix
+// (case-insensitive). Used to detect templated-title duplicates such as
+// "Test spec N: ..." across sessions.
+func (q *Queries) ListOpenTasksByTitlePrefix(ctx context.Context, arg ListOpenTasksByTitlePrefixParams) ([]ListOpenTasksByTitlePrefixRow, error) {
+	rows, err := q.db.Query(ctx, listOpenTasksByTitlePrefix, arg.ProjectID, arg.Prefix)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOpenTasksByTitlePrefixRow
+	for rows.Next() {
+		var i ListOpenTasksByTitlePrefixRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Title,
+			&i.Text,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOrphanReadyTasks = `-- name: ListOrphanReadyTasks :many
 SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, created_at, completed_at, updated_at
 FROM zdx_tasks

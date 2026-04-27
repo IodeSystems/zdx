@@ -748,15 +748,19 @@ type ZdxTaskReview struct {
 }
 
 type ZdxTest struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	Component  string             `db:"component" json:"component"`
-	Name       string             `db:"name" json:"name"`
-	Layer      string             `db:"layer" json:"layer"`
-	Status     string             `db:"status" json:"status"`
-	LastRunAt  pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	DurationMs int32              `db:"duration_ms" json:"duration_ms"`
+	ID               int32              `db:"id" json:"id"`
+	ProjectID        int32              `db:"project_id" json:"project_id"`
+	Component        string             `db:"component" json:"component"`
+	Name             string             `db:"name" json:"name"`
+	Layer            string             `db:"layer" json:"layer"`
+	Status           string             `db:"status" json:"status"`
+	LastRunAt        pgtype.Timestamptz `db:"last_run_at" json:"last_run_at"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	DurationMs       int32              `db:"duration_ms" json:"duration_ms"`
+	LastRunBranch    string             `db:"last_run_branch" json:"last_run_branch"`
+	LastRunSha       string             `db:"last_run_sha" json:"last_run_sha"`
+	LastFailedAt     pgtype.Timestamptz `db:"last_failed_at" json:"last_failed_at"`
+	LastFailedBranch string             `db:"last_failed_branch" json:"last_failed_branch"`
 }
 
 type ZdxTestCodeRef struct {

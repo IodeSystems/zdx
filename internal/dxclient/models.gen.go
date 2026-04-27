@@ -3167,7 +3167,7 @@ type SimilarQuestionItem struct {
 type SimilarTaskItem struct {
 	Id     string  `json:"id"`
 	Issue  string  `json:"issue"`
-	Reason *string `json:"reason,omitempty"`
+	Reason string  `json:"reason"`
 	Score  float32 `json:"score"`
 	Status string  `json:"status"`
 	Text   string  `json:"text"`

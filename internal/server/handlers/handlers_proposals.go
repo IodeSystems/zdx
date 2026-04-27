@@ -155,7 +155,7 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 					return nil, apiErr(http.StatusUnprocessableEntity, "invalid or expired duplicates review token")
 				}
 			} else {
-				similar, _ := h.findSimilarProposals(ctx, p.ID, in.Body.Title+" "+in.Body.Body, 10)
+				similar, _ := h.findSimilarProposals(ctx, p.ID, in.Body.Title+" "+in.Body.Body, 10, 0)
 				if len(similar) > 0 {
 					token := proposalReviewToken(h.WSSecret, p.ID, in.Body.Title, in.Body.Body)
 					return &struct{ Body createProposalBody }{Body: createProposalBody{Similar: similar, DuplicatesReviewToken: &token}}, nil
@@ -401,5 +401,35 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body ProposalItem }{Body: toProposalItem(updated)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "reevaluate-proposal", Method: http.MethodPost, Path: "/api/dx/proposals/{id}/reevaluate"},
+		func(ctx context.Context, in *struct {
+			ID   int32 `path:"id"`
+			Body struct {
+				Slug string `json:"slug"`
+			}
+		}) (*struct {
+			Body struct {
+				Duplicates     []SimilarProposalItem `json:"duplicates"`
+				ExistingIssues []SimilarIssueItem    `json:"existing_issues"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			proposal, err := h.Q.GetProposal(ctx, db.GetProposalParams{ProjectID: p.ID, ID: in.ID})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, fmt.Sprintf("proposal %d not found", in.ID))
+			}
+			queryText := proposal.Title + " " + proposal.Body
+			duplicates, _ := h.findSimilarProposals(ctx, p.ID, queryText, 10, in.ID)
+			issues, _ := h.findSimilarIssues(ctx, p.ID, queryText, 5)
+			type respBody = struct {
+				Duplicates     []SimilarProposalItem `json:"duplicates"`
+				ExistingIssues []SimilarIssueItem    `json:"existing_issues"`
+			}
+			return &struct{ Body respBody }{Body: respBody{Duplicates: duplicates, ExistingIssues: issues}}, nil
 		})
 }

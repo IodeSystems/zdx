@@ -20,6 +20,7 @@ func DiscussionCmd() *cobra.Command {
 		discussionListCmd(),
 		discussionShowCmd(),
 		discussionSendCmd(),
+		discussionReplyCmd(),
 	)
 	return cmd
 }
@@ -144,6 +145,37 @@ func discussionShowCmd() *cobra.Command {
 			return nil
 		},
 	}
+	return cmd
+}
+
+func discussionReplyCmd() *cobra.Command {
+	var message string
+	cmd := &cobra.Command{
+		Use:   "reply <DS-N>",
+		Short: "Add an assistant reply to a discussion (no LLM call)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			id, err := parseDiscussionID(args[0])
+			if err != nil {
+				return err
+			}
+			resp, err := c.AddDiscussionMessageWithResponse(cmd.Context(), id, dxclient.AddDiscussionMessageRequest{
+				Slug:    c.SlugOrDie(),
+				Role:    "assistant",
+				Content: message,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&message, "message", "", "reply text")
+	_ = cmd.MarkFlagRequired("message")
 	return cmd
 }
 

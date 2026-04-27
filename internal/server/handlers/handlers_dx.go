@@ -157,12 +157,14 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					component = "demo"
 				}
 				test, _ := h.Q.UpsertTest(ctx, db.UpsertTestParams{
-					ProjectID:  p.ID,
-					Component:  component,
-					Name:       r.TestName,
-					Layer:      "integration",
-					Status:     r.Status,
-					DurationMs: r.DurationMS,
+					ProjectID:     p.ID,
+					Component:     component,
+					Name:          r.TestName,
+					Layer:         "integration",
+					Status:        r.Status,
+					DurationMs:    r.DurationMS,
+					LastRunBranch: r.Branch,
+					LastRunSha:    r.GitSHA,
 				})
 				_ = h.Q.UpsertTestResult(ctx, db.UpsertTestResultParams{
 					ProjectID:  p.ID,
@@ -201,13 +203,17 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 		})
 
 	type TestItem struct {
-		ID         int32   `json:"id"`
-		Component  string  `json:"component"`
-		Name       string  `json:"name"`
-		Layer      string  `json:"layer"`
-		Status     string  `json:"status"`
-		DurationMs int32   `json:"duration_ms"`
-		LastRunAt  *string `json:"last_run_at,omitempty"`
+		ID               int32   `json:"id"`
+		Component        string  `json:"component"`
+		Name             string  `json:"name"`
+		Layer            string  `json:"layer"`
+		Status           string  `json:"status"`
+		DurationMs       int32   `json:"duration_ms"`
+		LastRunAt        *string `json:"last_run_at,omitempty"`
+		LastRunBranch    string  `json:"last_run_branch"`
+		LastRunSha       string  `json:"last_run_sha"`
+		LastFailedAt     *string `json:"last_failed_at,omitempty"`
+		LastFailedBranch string  `json:"last_failed_branch"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-tests", Method: http.MethodGet, Path: "/api/dx/tests"},
@@ -235,7 +241,17 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					s := r.LastRunAt.Time.Format("2006-01-02T15:04:05Z07:00")
 					lastRunAt = &s
 				}
-				out[i] = TestItem{ID: r.ID, Component: r.Component, Name: r.Name, Layer: r.Layer, Status: r.Status, DurationMs: r.DurationMs, LastRunAt: lastRunAt}
+				var lastFailedAt *string
+				if r.LastFailedAt.Valid {
+					s := r.LastFailedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+					lastFailedAt = &s
+				}
+				out[i] = TestItem{
+					ID: r.ID, Component: r.Component, Name: r.Name, Layer: r.Layer,
+					Status: r.Status, DurationMs: r.DurationMs, LastRunAt: lastRunAt,
+					LastRunBranch: r.LastRunBranch, LastRunSha: r.LastRunSha,
+					LastFailedAt: lastFailedAt, LastFailedBranch: r.LastFailedBranch,
+				}
 			}
 			return &struct {
 				Body struct {
@@ -329,9 +345,16 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				s := t.LastRunAt.Time.Format("2006-01-02T15:04:05Z07:00")
 				lastRunAt = &s
 			}
+			var lastFailedAt *string
+			if t.LastFailedAt.Valid {
+				s := t.LastFailedAt.Time.Format("2006-01-02T15:04:05Z07:00")
+				lastFailedAt = &s
+			}
 			return &struct{ Body TestItem }{Body: TestItem{
 				ID: t.ID, Component: t.Component, Name: t.Name, Layer: t.Layer,
 				Status: t.Status, DurationMs: t.DurationMs, LastRunAt: lastRunAt,
+				LastRunBranch: t.LastRunBranch, LastRunSha: t.LastRunSha,
+				LastFailedAt: lastFailedAt, LastFailedBranch: t.LastFailedBranch,
 			}}, nil
 		})
 

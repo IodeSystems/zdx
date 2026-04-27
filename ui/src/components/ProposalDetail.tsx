@@ -1,13 +1,16 @@
 import { useState, useEffect } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import {
+  Alert,
   Box,
   Button,
   Chip,
+  CircularProgress,
   Dialog,
   DialogActions,
   DialogContent,
   DialogTitle,
+  Divider,
   IconButton,
   Stack,
   TextField,
@@ -19,6 +22,7 @@ import {
   Edit as EditIcon,
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
+  Refresh as RefreshIcon,
 } from '@mui/icons-material'
 import {
   useProposal,
@@ -26,6 +30,8 @@ import {
   useApproveProposal,
   useRejectProposal,
   useSnoozeProposal,
+  useReevaluateProposal,
+  type ReevaluateProposalResponse,
 } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { MarkdownContent } from './MarkdownContent'
@@ -65,6 +71,8 @@ export function ProposalDetail({
   const approveProposal = useApproveProposal()
   const rejectProposal = useRejectProposal()
   const snoozeProposal = useSnoozeProposal()
+  const reevaluateProposal = useReevaluateProposal()
+  const rejectDuplicate = useRejectProposal()
   const router = useRouter()
 
   const proposal = data?.proposal
@@ -87,6 +95,9 @@ export function ProposalDetail({
   const [snoozeUntil, setSnoozeUntil] = useState(() => isoToLocalInput(isoPlusDays(7)))
 
   const [versionsOpen, setVersionsOpen] = useState(false)
+
+  const [reevaluateOpen, setReevaluateOpen] = useState(false)
+  const [reevaluateData, setReevaluateData] = useState<ReevaluateProposalResponse | null>(null)
 
   useEffect(() => {
     if (!proposal) return
@@ -157,6 +168,36 @@ export function ProposalDetail({
     )
   }
 
+  function doReevaluate() {
+    setReevaluateData(null)
+    setReevaluateOpen(true)
+    reevaluateProposal.mutate(
+      { slug, id: proposal!.id },
+      { onSuccess: (res) => setReevaluateData(res) },
+    )
+  }
+
+  function rejectAsDuplicate(duplicateId: number) {
+    rejectDuplicate.mutate(
+      { slug, id: duplicateId, reason: `Duplicate of PR-${proposal!.id}: ${proposal!.title}` },
+      {
+        onSuccess: () => {
+          setReevaluateData(prev => prev ? {
+            ...prev,
+            duplicates: (prev.duplicates ?? []).filter(d => d.id !== duplicateId),
+          } : null)
+        },
+      },
+    )
+  }
+
+  function rejectAsAddressed(issueId: string, issueTitle: string) {
+    rejectProposal.mutate(
+      { slug, id: proposal!.id, reason: `Already addressed by ${issueId}: ${issueTitle}` },
+      { onSuccess: () => setReevaluateOpen(false) },
+    )
+  }
+
   return (
     <Box>
       <Button
@@ -194,7 +235,7 @@ export function ProposalDetail({
         </Box>
       )}
 
-      <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center', flexWrap: 'wrap' }}>
+      <Box sx={{ display: 'flex', gap: 1, mb: 1, alignItems: 'center', flexWrap: 'wrap' }}>
         <Chip
           label={proposal.status}
           size="small"
@@ -220,25 +261,28 @@ export function ProposalDetail({
             sx={{ textDecoration: 'none' }}
           />
         )}
-        {proposal.status === 'proposed' && (
-          <>
-            <Button size="small" variant="contained" color="success" onClick={() => setApproveOpen(true)}>
-              Approve
-            </Button>
-            <Button size="small" variant="outlined" color="warning" onClick={() => { setRejectReason(''); setRejectOpen(true) }}>
-              Reject
-            </Button>
+      </Box>
+
+      {(proposal.status === 'proposed' || proposal.status === 'snoozed') && (
+        <Stack direction="row" spacing={1} sx={{ mb: 2, flexWrap: 'wrap' }}>
+          <Button size="small" variant="contained" color="success" onClick={() => setApproveOpen(true)}>
+            {proposal.status === 'snoozed' ? 'Approve now' : 'Approve'}
+          </Button>
+          <Button size="small" variant="outlined" color="warning" onClick={() => { setRejectReason(''); setRejectOpen(true) }}>
+            Reject
+          </Button>
+          {proposal.status === 'proposed' && (
             <Button size="small" variant="outlined" onClick={() => setSnoozeOpen(true)}>
               Snooze
             </Button>
-          </>
-        )}
-        {proposal.status === 'snoozed' && (
-          <Button size="small" variant="contained" color="success" onClick={() => setApproveOpen(true)}>
-            Approve now
-          </Button>
-        )}
-      </Box>
+          )}
+          <Tooltip title="Find duplicates and check if already addressed">
+            <Button size="small" variant="outlined" startIcon={<RefreshIcon />} onClick={doReevaluate}>
+              Re-evaluate
+            </Button>
+          </Tooltip>
+        </Stack>
+      )}
 
       {approvedIssueId && (
         <Box sx={{ mb: 2 }}>
@@ -429,6 +473,104 @@ export function ProposalDetail({
           >
             Snooze
           </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={reevaluateOpen} onClose={() => setReevaluateOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Re-evaluate proposal #{proposal.id}</DialogTitle>
+        <DialogContent>
+          {reevaluateProposal.isPending && (
+            <Box sx={{ display: 'flex', justifyContent: 'center', py: 3 }}>
+              <CircularProgress size={32} />
+            </Box>
+          )}
+          {reevaluateData && (() => {
+            const duplicates = reevaluateData.duplicates ?? []
+            const existingIssues = reevaluateData.existing_issues ?? []
+            return (
+            <Stack spacing={2} sx={{ mt: 1 }}>
+              {duplicates.length === 0 && existingIssues.length === 0 && (
+                <Alert severity="success">No duplicates found. Proposal looks unique.</Alert>
+              )}
+
+              {duplicates.length > 0 && (
+                <Box>
+                  <Typography variant="subtitle2" gutterBottom>
+                    Similar proposals ({duplicates.length})
+                  </Typography>
+                  <Stack spacing={1}>
+                    {duplicates.map(dup => (
+                      <Box key={dup.id} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              PR-{dup.id}: {dup.title}
+                            </Typography>
+                            {dup.body && (
+                              <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+                                {dup.body.slice(0, 120)}{dup.body.length > 120 ? '…' : ''}
+                              </Typography>
+                            )}
+                          </Box>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            disabled={rejectDuplicate.isPending}
+                            onClick={() => rejectAsDuplicate(dup.id)}
+                          >
+                            Reject duplicate
+                          </Button>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+
+              {existingIssues.length > 0 && (
+                <Box>
+                  {duplicates.length > 0 && <Divider sx={{ my: 1 }} />}
+                  <Typography variant="subtitle2" gutterBottom>
+                    Possibly already addressed by existing issues
+                  </Typography>
+                  <Stack spacing={1}>
+                    {existingIssues.map(iss => (
+                      <Box key={iss.id} sx={{ border: 1, borderColor: 'divider', borderRadius: 1, p: 1.5 }}>
+                        <Box sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
+                          <Box sx={{ flex: 1, minWidth: 0 }}>
+                            <Typography variant="body2" sx={{ fontWeight: 500 }}>
+                              <Link
+                                to="/project/$slug/issues/$id"
+                                params={{ slug, id: iss.id }}
+                                style={{ textDecoration: 'none', color: 'inherit' }}
+                              >
+                                {iss.id}: {iss.title}
+                              </Link>
+                            </Typography>
+                            <Chip label={iss.status} size="small" variant="outlined" sx={{ mt: 0.5 }} />
+                          </Box>
+                          <Button
+                            size="small"
+                            variant="outlined"
+                            color="warning"
+                            disabled={rejectProposal.isPending}
+                            onClick={() => rejectAsAddressed(iss.id, iss.title)}
+                          >
+                            Reject (addressed)
+                          </Button>
+                        </Box>
+                      </Box>
+                    ))}
+                  </Stack>
+                </Box>
+              )}
+            </Stack>
+            )
+          })()}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setReevaluateOpen(false)}>Close</Button>
         </DialogActions>
       </Dialog>
     </Box>

@@ -83,9 +83,23 @@ export function TestDetail({ slug, testId }: { slug: string; testId: number }) {
         <Chip label={test.layer} size="small" variant="outlined" />
         <Chip label={test.status} size="small" color={STATUS_COLOR[test.status] ?? 'default'} />
         <Typography variant="body2" sx={{ fontFamily: 'monospace' }}>{formatDuration(test.duration_ms)}</Typography>
+        {test.last_run_branch && (
+          <Chip
+            label={test.last_run_branch}
+            size="small"
+            variant={(test.last_run_branch === 'main' || test.last_run_branch === 'master') ? 'filled' : 'outlined'}
+            color={(test.last_run_branch === 'main' || test.last_run_branch === 'master') ? 'primary' : 'default'}
+            sx={{ fontFamily: 'monospace', fontSize: '0.75rem' }}
+          />
+        )}
         {test.last_run_at && (
           <Typography variant="caption" color="text.secondary">
             Last run: {formatRelativeTime(test.last_run_at)}
+          </Typography>
+        )}
+        {test.last_failed_at && (
+          <Typography variant="caption" color="warning.main">
+            Last failed: {formatRelativeTime(test.last_failed_at)}{test.last_failed_branch ? ` on ${test.last_failed_branch}` : ''}
           </Typography>
         )}
       </Box>
@@ -105,6 +119,7 @@ export function TestDetail({ slug, testId }: { slug: string; testId: number }) {
                 <TableRow>
                   <TableCell>Status</TableCell>
                   <TableCell>Duration</TableCell>
+                  <TableCell>Branch</TableCell>
                   <TableCell>Run At</TableCell>
                 </TableRow>
               </TableHead>
@@ -116,6 +131,9 @@ export function TestDetail({ slug, testId }: { slug: string; testId: number }) {
                     </TableCell>
                     <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.8rem' }}>
                       {formatDuration(h.duration_ms)}
+                    </TableCell>
+                    <TableCell sx={{ fontFamily: 'monospace', fontSize: '0.75rem', color: 'text.secondary' }}>
+                      {h.branch || '—'}
                     </TableCell>
                     <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
                       {formatRelativeTime(h.run_at)}

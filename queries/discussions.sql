@@ -36,3 +36,20 @@ RETURNING id, discussion_id, role, content, created_at;
 SELECT id, discussion_id, role, content, created_at
 FROM zdx_discussion_messages WHERE discussion_id = $1
 ORDER BY created_at ASC;
+
+-- name: ListDiscussionsAwaitingResponse :many
+-- Active discussions whose most-recent message is from the user — i.e. the
+-- assistant has not yet replied. Drives a solo-queue todo so an agent can pick
+-- up the dangling thread (typically left over from a failed LLM send).
+SELECT d.id, d.title, m.id AS message_id, m.content
+FROM zdx_discussions d
+JOIN LATERAL (
+    SELECT id, role, content
+    FROM zdx_discussion_messages
+    WHERE discussion_id = d.id
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+) m ON TRUE
+WHERE d.project_id = $1
+  AND d.status = 'active'
+  AND m.role = 'user';

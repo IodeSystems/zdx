@@ -1121,6 +1121,9 @@ func todoDevDoneCmd() *cobra.Command {
 		Short: "Mark task done",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			if cli.GitTreeDirty() {
+				return fmt.Errorf("git tree is dirty — commit or stash changes before marking a task done")
+			}
 			if err := cli.RunCloseHooks(); err != nil {
 				return err
 			}
@@ -1692,7 +1695,7 @@ func todoTechAddCmd() *cobra.Command {
 			if !autoReady && hasSimilar {
 				fmt.Println("\nSimilar tasks:")
 				for _, s := range *r.Similar {
-					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.Id, s.Score*100, s.Text, taskStatusLabel(s.Status, s.Reason))
+					fmt.Printf("  %s  (%.0f%%)  %s  [%s]\n", s.Id, s.Score*100, s.Text, taskStatusLabel(s.Status, &s.Reason))
 				}
 				fmt.Printf("\nTask created as draft (wip). To promote:\n")
 				fmt.Printf("  dx task ready %s\n", clitypes.TaskIDStr(r.Id))

@@ -199,6 +199,30 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 	}
 
+	// Active discussions whose tail message is from the user — surface a todo
+	// so an agent picks up the dangling thread (e.g. when an LLM send failed
+	// after the user turn was persisted but before the assistant turn).
+	if issueFilter == "" {
+		pending, _ := h.Q.ListDiscussionsAwaitingResponse(ctx, projectID)
+		for _, d := range pending {
+			title := d.Title
+			if title == "" {
+				title = "Untitled discussion"
+			}
+			candidates = append(candidates, soloCandidate{
+				Key:         fmt.Sprintf("discussion-%d", d.ID),
+				Title:       fmt.Sprintf("Reply in DS-%d: %s", d.ID, title),
+				Description: d.Content,
+				Text:        d.Content,
+				Kind:        "respond:discussion",
+				TargetType:  "discussion",
+				TargetID:    fmt.Sprintf("DS-%d", d.ID),
+				Priority:    10,
+				Persona:     "dev",
+			})
+		}
+	}
+
 	// Stale unread comments — batched per target, not per comment.
 	// Key is stable per target so the todo doesn't regenerate as new comments age in.
 	if issueFilter == "" {
@@ -362,6 +386,17 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 
 		uncoveredSpecs, _ := h.Q.ListUncoveredSpecs(ctx, projectID)
 		for _, sp := range uncoveredSpecs {
+			// IS-495: skip the nudge if a wip/ready/active task already
+			// exists for this spec. Without this the nudge re-fires each
+			// session and (without server-side dedupe) historically spawned
+			// duplicate tasks per spec.
+			existing, _ := h.Q.ListOpenTasksByTitlePrefix(ctx, db.ListOpenTasksByTitlePrefixParams{
+				ProjectID: projectID,
+				Prefix:    fmt.Sprintf("Test spec %d:", sp.ID),
+			})
+			if len(existing) > 0 {
+				continue
+			}
 			nth := workflowhints.NoTestRefsText(sp.ID, sp.Description, sp.FeatureName)
 			candidates = append(candidates, soloCandidate{
 				Key:         fmt.Sprintf("test-ref-%d", sp.ID),
@@ -641,6 +676,8 @@ func suggestedActionForKind(kind, targetType, targetID string) string {
 		return "dx question answer " + targetID + " --answer=\"...\""
 	case "answer":
 		return "dx qa answer " + targetID + " --answer=\"...\""
+	case "respond:discussion":
+		return "dx discussion show " + targetID + " && dx discussion reply " + targetID + " --message=\"...\""
 	case "read:comments":
 		return "dx comment mark-read " + targetType + " " + targetID + " --role=llm"
 	case "respond:stale":

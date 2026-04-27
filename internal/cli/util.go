@@ -36,6 +36,16 @@ func GitRepoRoot() (string, error) {
 	return strings.TrimSpace(string(out)), nil
 }
 
+// GitTreeDirty returns true if the working tree has staged, unstaged, or
+// untracked changes.
+func GitTreeDirty() bool {
+	out, err := exec.Command("git", "status", "--porcelain").Output()
+	if err != nil {
+		return false // can't tell — don't block
+	}
+	return len(strings.TrimSpace(string(out))) > 0
+}
+
 // Truncate returns s if shorter than n, otherwise s[:n-3]+"...".
 func Truncate(s string, n int) string {
 	if len(s) <= n {

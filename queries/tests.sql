@@ -10,34 +10,48 @@ INSERT INTO zdx_test_result_history (project_id, driver, test_name, feature, sta
 VALUES (@project_id, @driver, @test_name, @feature, @status, @duration_ms, @branch, @git_sha);
 
 -- name: UpsertTest :one
-INSERT INTO zdx_tests (project_id, component, name, layer, status, duration_ms, last_run_at)
-VALUES (@project_id, @component, @name, @layer, @status, @duration_ms, NOW())
+INSERT INTO zdx_tests (project_id, component, name, layer, status, duration_ms, last_run_at,
+                       last_run_branch, last_run_sha, last_failed_at, last_failed_branch)
+VALUES (@project_id, @component, @name, @layer, @status, @duration_ms, NOW(),
+        @last_run_branch, @last_run_sha,
+        CASE WHEN @status::text = 'fail' THEN NOW() ELSE NULL END,
+        CASE WHEN @status::text = 'fail' THEN @last_run_branch::text ELSE '' END)
 ON CONFLICT (project_id, component, name) DO UPDATE
-SET layer       = EXCLUDED.layer,
-    status      = EXCLUDED.status,
-    duration_ms = EXCLUDED.duration_ms,
-    last_run_at = NOW()
-RETURNING id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at;
+SET layer              = EXCLUDED.layer,
+    status             = EXCLUDED.status,
+    duration_ms        = EXCLUDED.duration_ms,
+    last_run_at        = NOW(),
+    last_run_branch    = EXCLUDED.last_run_branch,
+    last_run_sha       = EXCLUDED.last_run_sha,
+    last_failed_at     = CASE WHEN EXCLUDED.status = 'fail' THEN NOW() ELSE zdx_tests.last_failed_at END,
+    last_failed_branch = CASE WHEN EXCLUDED.status = 'fail' THEN EXCLUDED.last_run_branch ELSE zdx_tests.last_failed_branch END
+RETURNING id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+          last_run_branch, last_run_sha, last_failed_at, last_failed_branch;
 
 -- name: GetTest :one
-SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+       last_run_branch, last_run_sha, last_failed_at, last_failed_branch
 FROM zdx_tests WHERE project_id = @project_id AND component = @component AND name = @name;
 
 -- name: GetTestByID :one
-SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+       last_run_branch, last_run_sha, last_failed_at, last_failed_branch
 FROM zdx_tests WHERE project_id = @project_id AND id = @id;
 
 -- name: ListTests :many
-SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+       last_run_branch, last_run_sha, last_failed_at, last_failed_branch
 FROM zdx_tests WHERE project_id = $1 ORDER BY component, name;
 
 
 -- name: ListTestsByLayer :many
-SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at
+SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
+       last_run_branch, last_run_sha, last_failed_at, last_failed_branch
 FROM zdx_tests WHERE project_id = $1 AND layer = $2 ORDER BY component, name;
 
 -- name: ListTestsForSpec :many
-SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.duration_ms, t.last_run_at, t.created_at
+SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.duration_ms, t.last_run_at, t.created_at,
+       t.last_run_branch, t.last_run_sha, t.last_failed_at, t.last_failed_branch
 FROM zdx_tests t
 JOIN zdx_spec_tests st ON st.test_id = t.id
 WHERE st.spec_id = $1 ORDER BY t.component, t.name;

@@ -665,6 +665,55 @@ var ListActiveTaskClaimsCols = struct {
 	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
 }
 
+var MetaListOpenTasksByTitlePrefix = metaquery.Query{
+	Name:   "ListOpenTasksByTitlePrefix",
+	Cmd:    ":many",
+	Source: "tasks.sql",
+	SQL: `SELECT id, title, text, status, reason, issue, created_at
+FROM zdx_tasks
+WHERE project_id = $1
+  AND status IN ('wip', 'ready', 'active')
+  AND lower(title) LIKE lower($2::text) || '%'
+ORDER BY created_at DESC`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "text", OriginalName: "text", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "reason", OriginalName: "reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "issue", OriginalName: "issue", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "prefix", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListOpenTasksByTitlePrefix returns a metaquery.Builder over MetaListOpenTasksByTitlePrefix, pre-bound with typed arguments.
+func WrapListOpenTasksByTitlePrefix(arg ListOpenTasksByTitlePrefixParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListOpenTasksByTitlePrefix, arg.ProjectID, arg.Prefix)
+}
+
+// ListOpenTasksByTitlePrefixCols gives typed, name-safe access to ListOpenTasksByTitlePrefix's output columns.
+var ListOpenTasksByTitlePrefixCols = struct {
+	ID        metaquery.TextCol
+	Title     metaquery.TextCol
+	Text      metaquery.TextCol
+	Status    metaquery.TextCol
+	Reason    metaquery.TextCol
+	Issue     metaquery.TextCol
+	CreatedAt metaquery.TimeCol
+}{
+	ID:        metaquery.NewTextCol("id"),
+	Title:     metaquery.NewTextCol("title"),
+	Text:      metaquery.NewTextCol("text"),
+	Status:    metaquery.NewTextCol("status"),
+	Reason:    metaquery.NewTextCol("reason"),
+	Issue:     metaquery.NewTextCol("issue"),
+	CreatedAt: metaquery.NewTimeCol("created_at"),
+}
+
 var MetaListOrphanReadyTasks = metaquery.Query{
 	Name:   "ListOrphanReadyTasks",
 	Cmd:    ":many",

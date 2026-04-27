@@ -17,9 +17,10 @@ function TaskIcon({ status }: { status: string }) {
 const STATUS_COLORS: Record<string, 'success' | 'error' | 'warning' | 'default'> = {
   done: 'success',
   blocked: 'error',
+  active: 'warning',
 }
 
-const STATUSES = ['ready', 'active', 'blocked', 'done']
+const STATUSES = ['wip', 'ready', 'active', 'blocked', 'done']
 
 export function TasksTab({
   slug,

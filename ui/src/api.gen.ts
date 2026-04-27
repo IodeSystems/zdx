@@ -4,6 +4,38 @@
  */
 
 export interface paths {
+    "/api/admin/activity/sessions": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-activity-sessions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/activity/worklog": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-activity-worklog"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/integration-tokens": {
         parameters: {
             query?: never;
@@ -2230,6 +2262,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/projects/{slug}/environments/{name}/request": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["request-environment-todo"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/projects/{slug}/issues/{id}/claim": {
         parameters: {
             query?: never;
@@ -2368,6 +2416,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["approve-proposal"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/proposals/{id}/reevaluate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reevaluate-proposal"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2960,6 +3024,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["move-spec"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/tasks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-spec-tasks"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4357,6 +4437,32 @@ export interface components {
             issue: components["schemas"]["IssueItem"];
             proposal: components["schemas"]["QuestionProposalItem"];
         };
+        ActivitySessionItem: {
+            closed_at?: string;
+            created_at: string;
+            /** Format: int64 */
+            event_count: number;
+            header: string;
+            /** Format: int64 */
+            id: number;
+            issue_id: string;
+            lifecycle: string;
+            project_name: string;
+            project_slug: string;
+            session_id: string;
+            status: string;
+            title: string;
+            updated_at: string;
+        };
+        ActivityWorklogEntry: {
+            agent: string;
+            created_at: string;
+            issue_id: string;
+            issue_title: string;
+            note: string;
+            project_name: string;
+            project_slug: string;
+        };
         "Add-blocker-questionRequest": {
             /**
              * Format: uri
@@ -5349,10 +5455,22 @@ export interface components {
              */
             readonly $schema?: string;
             body: string;
+            duplicates_reviewed?: string;
             slug: string;
             source_ref?: string;
             source_type: string;
             title: string;
+        };
+        CreateProposalBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateProposalBody.json
+             */
+            readonly $schema?: string;
+            duplicates_review_token?: string;
+            proposal?: components["schemas"]["ProposalItem"];
+            similar?: components["schemas"]["SimilarProposalItem"][] | null;
         };
         "Defer-doctor-checkRequest": {
             /**
@@ -5844,10 +5962,12 @@ export interface components {
              */
             readonly $schema?: string;
             classification: string;
+            description: string;
             /** Format: int32 */
             id: number;
             name: string;
             slug: string;
+            title: string;
         };
         "Get-review-dataResponse": {
             /**
@@ -6340,6 +6460,24 @@ export interface components {
             spec_id: number;
             /** Format: int32 */
             test_id: number;
+        };
+        "List-activity-sessionsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-activity-sessionsResponse.json
+             */
+            readonly $schema?: string;
+            sessions: components["schemas"]["ActivitySessionItem"][] | null;
+        };
+        "List-activity-worklogResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-activity-worklogResponse.json
+             */
+            readonly $schema?: string;
+            entries: components["schemas"]["ActivityWorklogEntry"][] | null;
         };
         "List-admin-usersResponse": {
             /**
@@ -6939,6 +7077,15 @@ export interface components {
              */
             readonly $schema?: string;
             demos: components["schemas"]["SpecDemoItem"][] | null;
+        };
+        "List-spec-tasksResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-spec-tasksResponse.json
+             */
+            readonly $schema?: string;
+            tasks: components["schemas"]["SpecTaskItem"][] | null;
         };
         "List-spec-testsResponse": {
             /**
@@ -7640,6 +7787,25 @@ export interface components {
             resolution_id: string;
             source: string;
         };
+        "Reevaluate-proposalRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reevaluate-proposalRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+        };
+        "Reevaluate-proposalResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reevaluate-proposalResponse.json
+             */
+            readonly $schema?: string;
+            duplicates: components["schemas"]["SimilarProposalItem"][] | null;
+            existing_issues: components["schemas"]["SimilarIssueItem"][] | null;
+        };
         "Register-agentRequest": {
             /**
              * Format: uri
@@ -7789,6 +7955,15 @@ export interface components {
             slug: string;
             sql_hash: string;
             sql_text: string;
+        };
+        "Request-environment-todoRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Request-environment-todoRequest.json
+             */
+            readonly $schema?: string;
+            kind: string;
         };
         ReservationItem: {
             /**
@@ -8134,6 +8309,15 @@ export interface components {
             /** Format: double */
             score: number;
         };
+        SimilarProposalItem: {
+            body: string;
+            /** Format: int32 */
+            id: number;
+            /** Format: float */
+            score: number;
+            status: string;
+            title: string;
+        };
         SimilarQuestionItem: {
             answer: string;
             /** Format: int32 */
@@ -8145,10 +8329,12 @@ export interface components {
         SimilarTaskItem: {
             id: string;
             issue: string;
+            reason: string;
             /** Format: float */
             score: number;
             status: string;
             text: string;
+            title: string;
         };
         SlowQueryItem: {
             /**
@@ -8353,6 +8539,11 @@ export interface components {
             id: number;
             kind: string;
         };
+        SpecTaskItem: {
+            id: string;
+            status: string;
+            title: string;
+        };
         SpecTestItem: {
             component: string;
             /** Format: int32 */
@@ -8540,7 +8731,11 @@ export interface components {
             duration_ms: number;
             /** Format: int32 */
             id: number;
+            last_failed_at?: string;
+            last_failed_branch: string;
             last_run_at?: string;
+            last_run_branch: string;
+            last_run_sha: string;
             layer: string;
             name: string;
             status: string;
@@ -9008,6 +9203,70 @@ export interface components {
 }
 export type $defs = Record<string, never>;
 export interface operations {
+    "list-activity-sessions": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-activity-sessionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-activity-worklog": {
+        parameters: {
+            query?: {
+                limit?: number;
+                offset?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-activity-worklogResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-integration-tokens": {
         parameters: {
             query?: {
@@ -14134,6 +14393,42 @@ export interface operations {
             };
         };
     };
+    "request-environment-todo": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Request-environment-todoRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "claim-issue": {
         parameters: {
             query?: never;
@@ -14385,7 +14680,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["ProposalItem"];
+                    "application/json": components["schemas"]["CreateProposalBody"];
                 };
             };
             /** @description Error */
@@ -14489,6 +14784,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Approve-proposalResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "reevaluate-proposal": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reevaluate-proposalRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reevaluate-proposalResponse"];
                 };
             };
             /** @description Error */
@@ -15701,6 +16031,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-spec-tasks": {
+        parameters: {
+            query: {
+                spec_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-spec-tasksResponse"];
                 };
             };
             /** @description Error */

@@ -106,30 +106,33 @@ export function ProposalsTab({
               to="/project/$slug/proposals/$id"
               params={{ slug, id: String(p.id) }}
             >
-              <CardContent sx={{ py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
-                <Typography variant="caption" color="text.secondary" sx={{ minWidth: 56 }}>
-                  #{p.id}
-                </Typography>
-                <Typography variant="body2" sx={{ flex: 1 }}>
+              <CardContent sx={{ py: 1.25 }}>
+                <Typography variant="body2" sx={{ mb: 0.5 }}>
                   {proposalDisplayTitle(p.title, p.body)}
                 </Typography>
-                {p.source_type && (
+                <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, flexWrap: 'wrap' }}>
+                  <Typography variant="caption" color="text.secondary">
+                    #{p.id}
+                  </Typography>
+                  {p.source_type && (
+                    <Chip
+                      label={p.source_type}
+                      size="small"
+                      variant="outlined"
+                      sx={{ maxWidth: 160 }}
+                    />
+                  )}
+                  <Box sx={{ flex: 1 }} />
+                  <Typography variant="caption" color="text.secondary">
+                    {ageLabel(p.created_at)}
+                  </Typography>
                   <Chip
-                    label={p.source_type}
+                    label={p.status}
                     size="small"
+                    color={STATUS_COLORS[p.status] || 'default'}
                     variant="outlined"
-                    sx={{ maxWidth: 160 }}
                   />
-                )}
-                <Typography variant="caption" color="text.secondary" sx={{ minWidth: 40, textAlign: 'right' }}>
-                  {ageLabel(p.created_at)}
-                </Typography>
-                <Chip
-                  label={p.status}
-                  size="small"
-                  color={STATUS_COLORS[p.status] || 'default'}
-                  variant="outlined"
-                />
+                </Box>
               </CardContent>
             </CardActionArea>
           </Card>

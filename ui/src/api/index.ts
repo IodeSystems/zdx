@@ -2280,6 +2280,10 @@ export interface TestItem {
   status: string
   duration_ms: number
   last_run_at?: string
+  last_run_branch: string
+  last_run_sha: string
+  last_failed_at?: string
+  last_failed_branch: string
 }
 
 export interface TestHistoryItem {
@@ -2289,6 +2293,8 @@ export interface TestHistoryItem {
   status: string
   duration_ms: number
   run_at: string
+  branch: string
+  git_sha: string
 }
 
 export const useTests = (slug: string, limit?: number, offset?: number) =>
@@ -2427,6 +2433,7 @@ export const useDeletePattern = () => {
 export type ProposalItem = components['schemas']['ProposalItem']
 export type ShowProposalResponse = components['schemas']['Show-proposalResponse']
 export type ApproveProposalResponse = components['schemas']['Approve-proposalResponse']
+export type CreateProposalBody = components['schemas']['CreateProposalBody']
 
 export const useProposals = (slug: string, status?: string) =>
   useQuery<ProposalItem[]>({
@@ -2443,7 +2450,7 @@ export const useProposals = (slug: string, status?: string) =>
 
 export const useCreateProposal = () => {
   const qc = useQueryClient()
-  return useMutation<ProposalItem, Error, { slug: string; title: string; body: string; source_type?: string; source_ref?: string }>({
+  return useMutation<CreateProposalBody, Error, { slug: string; title: string; body: string; source_type?: string; source_ref?: string }>({
     mutationFn: async ({ slug, title, body, source_type, source_ref }) => {
       const reqBody = { slug, title, body, source_type: source_type ?? 'discussion', source_ref } as never
       const { data, error } = await client.POST('/api/dx/proposals', { body: reqBody })
@@ -2547,6 +2554,21 @@ export const useSnoozeProposal = () => {
   })
 }
 
+export type ReevaluateProposalResponse = components['schemas']['Reevaluate-proposalResponse']
+
+export const useReevaluateProposal = () => {
+  return useMutation<ReevaluateProposalResponse, Error, { slug: string; id: number }>({
+    mutationFn: async ({ slug, id }) => {
+      const { data, error } = await client.POST('/api/dx/proposals/{id}/reevaluate', {
+        params: { path: { id } },
+        body: { slug },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+  })
+}
+
 // ── discussions ───────────────────────────────────────────────────────────────
 
 export interface DiscussionItem {
@@ -2638,6 +2660,87 @@ export const useAddDiscussionMessage = () => {
     },
     onSuccess: (_, v) => {
       qc.invalidateQueries({ queryKey: ['discussion-messages', v.slug, v.id] })
+    },
+  })
+}
+
+// ── environments ──────────────────────────────────────────────────────────────
+
+export type EnvironmentItem = components['schemas']['EnvironmentItem']
+
+export const useEnvironments = (slug: string) =>
+  useQuery<EnvironmentItem[]>({
+    queryKey: ['environments', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/projects/{slug}/environments', {
+        params: { path: { slug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.items ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useRequestEnvironmentTodo = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; name: string; kind: 'test' | 'ship' }>({
+    mutationFn: async ({ slug, name, kind }) => {
+      const { error } = await client.POST('/api/dx/projects/{slug}/environments/{name}/request' as never, {
+        params: { path: { slug, name } },
+        body: { kind },
+      } as never)
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['todos', v.slug] })
+    },
+  })
+}
+
+export const useCreateEnvironment = () => {
+  const qc = useQueryClient()
+  return useMutation<EnvironmentItem, Error, { slug: string; name: string; url?: string }>({
+    mutationFn: async ({ slug, name, url }) => {
+      const { data, error } = await client.POST('/api/dx/projects/{slug}/environments', {
+        params: { path: { slug } },
+        body: { name, url: url ?? '' },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['environments', v.slug] })
+    },
+  })
+}
+
+export const useUpdateEnvironment = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; name: string; url: string }>({
+    mutationFn: async ({ slug, name, url }) => {
+      const { error } = await client.PUT('/api/dx/projects/{slug}/environments/{name}', {
+        params: { path: { slug, name } },
+        body: { url },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['environments', v.slug] })
+    },
+  })
+}
+
+export const useDeleteEnvironment = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; name: string }>({
+    mutationFn: async ({ slug, name }) => {
+      const { error } = await client.DELETE('/api/dx/projects/{slug}/environments/{name}', {
+        params: { path: { slug, name } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['environments', v.slug] })
     },
   })
 }

@@ -275,6 +275,51 @@ var ListDiscussionsCols = struct {
 	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
 }
 
+var MetaListDiscussionsAwaitingResponse = metaquery.Query{
+	Name:   "ListDiscussionsAwaitingResponse",
+	Cmd:    ":many",
+	Source: "discussions.sql",
+	SQL: `SELECT d.id, d.title, m.id AS message_id, m.content
+FROM zdx_discussions d
+JOIN LATERAL (
+    SELECT id, role, content
+    FROM zdx_discussion_messages
+    WHERE discussion_id = d.id
+    ORDER BY created_at DESC, id DESC
+    LIMIT 1
+) m ON TRUE
+WHERE d.project_id = $1
+  AND d.status = 'active'
+  AND m.role = 'user'`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_discussions"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_discussions"},
+		{Name: "message_id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_discussion_messages"},
+		{Name: "content", OriginalName: "content", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_discussion_messages"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListDiscussionsAwaitingResponse returns a metaquery.Builder over MetaListDiscussionsAwaitingResponse, pre-bound with typed arguments.
+func WrapListDiscussionsAwaitingResponse(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListDiscussionsAwaitingResponse, projectID)
+}
+
+// ListDiscussionsAwaitingResponseCols gives typed, name-safe access to ListDiscussionsAwaitingResponse's output columns.
+var ListDiscussionsAwaitingResponseCols = struct {
+	ID        metaquery.IntCol
+	Title     metaquery.TextCol
+	MessageID metaquery.IntCol
+	Content   metaquery.TextCol
+}{
+	ID:        metaquery.NewIntCol("id"),
+	Title:     metaquery.NewTextCol("title"),
+	MessageID: metaquery.NewIntCol("id"),
+	Content:   metaquery.NewTextCol("content"),
+}
+
 var MetaUpdateDiscussionSession = metaquery.Query{
 	Name:   "UpdateDiscussionSession",
 	Cmd:    ":one",

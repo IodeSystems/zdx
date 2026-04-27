@@ -174,6 +174,17 @@ WHERE project_id = @project_id
   AND (@issue::text = '' OR issue = @issue)
 ORDER BY created_at DESC;
 
+-- name: ListOpenTasksByTitlePrefix :many
+-- Open wip/ready/active tasks whose title starts with the given prefix
+-- (case-insensitive). Used to detect templated-title duplicates such as
+-- "Test spec N: ..." across sessions.
+SELECT id, title, text, status, reason, issue, created_at
+FROM zdx_tasks
+WHERE project_id = @project_id
+  AND status IN ('wip', 'ready', 'active')
+  AND lower(title) LIKE lower(@prefix::text) || '%'
+ORDER BY created_at DESC;
+
 -- name: FlagStaleTasks :many
 UPDATE zdx_tasks
 SET stale_since = NOW(),
