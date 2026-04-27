@@ -74,6 +74,7 @@ func TodoCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "todo",
 		Short: "Workflow queue",
+		Args:  cobra.NoArgs,
 		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
 	}
 	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd())
