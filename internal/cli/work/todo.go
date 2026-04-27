@@ -650,6 +650,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 					rh := workflowhints.ReviewPendingTaskText(taskIDStr, headline, issIDStr)
 					fmt.Printf("[review]  %s  %s\n", taskIDStr, headline)
 					fmt.Printf("  issue: %s\n", issIDStr)
+					fmt.Fprintln(os.Stderr, "  hint: dx todo dev review "+taskIDStr+" --verdict=<approve|reject> [--body=\"...\"]")
 					fmt.Printf("\n%s\n", rh.Instructions)
 					return nil
 				}
