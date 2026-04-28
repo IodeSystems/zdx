@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net/http"
 	"strings"
 
@@ -141,6 +142,7 @@ func (h *Handler) registerAgentSessionRoutes(api huma.API) {
 		})
 
 		go h.summarizeSessionFromDBAsync(p.ID, sess.ID)
+		go h.analyzeSessionChurn(p.ID, p.Slug, sess)
 
 		return &struct {
 			Body struct {
@@ -349,4 +351,92 @@ func (h *Handler) summarizeSessionFromDBAsync(projectID int32, sessionPK int64) 
 		lines = append(lines, string(ev.EventJson))
 	}
 	h.summarizeSessionAsync(projectID, sessionPK, lines)
+}
+
+// analyzeSessionChurn runs after a session closes. If the session was working
+// a todo that has been claimed multiple times without resolution, it files a
+// high-priority blocker issue so the churn is visible before more sessions burn.
+func (h *Handler) analyzeSessionChurn(projectID int32, slug string, sess db.GetClaudeSessionBySessionIDRow) {
+	if !sess.TodoID.Valid || sess.TodoID.Int32 == 0 {
+		return
+	}
+	ctx := WithSource(context.Background(), "churn-analysis")
+
+	todo, err := h.Q.GetTodoByID(ctx, sess.TodoID.Int32)
+	if err != nil || todo.ID == 0 {
+		return
+	}
+
+	// Count how many times this todo has been claimed
+	claimCount, err := h.Q.CountReservationsForTodo(ctx, db.CountReservationsForTodoParams{
+		ProjectID: projectID,
+		TodoID:    sess.TodoID.Int32,
+	})
+	if err != nil || claimCount < 3 {
+		return // not enough churn to act on
+	}
+
+	// Already has a reference issue — churn was already surfaced
+	if todo.ReferenceIssueID != "" {
+		return
+	}
+
+	// Already blocked — cycle detection already caught it
+	if todo.Blocked {
+		return
+	}
+
+	// File a high-priority churn issue
+	p, err := h.Q.GetProjectByID(ctx, projectID)
+	if err != nil {
+		return
+	}
+	issueID, err := h.Q.NextIssueID(ctx)
+	if err != nil {
+		return
+	}
+
+	sourceRef := ""
+	if todo.IssueRef != "" {
+		sourceRef = fmt.Sprintf(" (source: %s)", todo.IssueRef)
+	}
+
+	title := fmt.Sprintf("Agent churn: todo %q claimed %d times without resolution", todo.Key, claimCount)
+	issueCtx := fmt.Sprintf(
+		"Todo %q [%s] has been claimed by %d agent sessions without being resolved. "+
+			"Each session burns tokens and time without progress. "+
+			"This is higher priority than the source work%s because continued churn wastes resources.\n\n"+
+			"Investigate why agents cannot complete this todo:\n"+
+			"- Is the todo description clear enough for an agent to act on?\n"+
+			"- Does the required CLI command or capability exist?\n"+
+			"- Is there a missing pattern that would guide the agent?\n"+
+			"- Should this todo be restructured, split, or marked interactive-only?\n\n"+
+			"When this issue is closed the todo's reference issue clears and it re-enters the queue.",
+		todo.Key, todo.Kind, claimCount, sourceRef,
+	)
+
+	issue, err := h.Q.CreateIssue(ctx, db.CreateIssueParams{
+		ID:        issueID,
+		ProjectID: p.ID,
+		Title:     title,
+		Context:   issueCtx,
+		IssueType: "impl",
+		Status:    "open",
+		Priority:  "1", // higher than source issue
+	})
+	if err != nil {
+		return
+	}
+
+	_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{
+		IssueID: issue.ID,
+		Agent:   "system",
+		Note: fmt.Sprintf("[auto-filed] Post-session churn analysis: todo %q claimed %d times across agent sessions. "+
+			"Last session: %s.", todo.Key, claimCount, sess.SessionID),
+	})
+	_ = h.Q.SetTodoReferenceIssue(ctx, db.SetTodoReferenceIssueParams{
+		ProjectID:        projectID,
+		Key:              todo.Key,
+		ReferenceIssueID: issue.ID,
+	})
 }

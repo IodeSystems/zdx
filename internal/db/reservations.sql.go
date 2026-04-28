@@ -11,6 +11,28 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const countReservationsForTodo = `-- name: CountReservationsForTodo :one
+SELECT count(*)::int AS claim_count
+FROM zdx_reservations r
+JOIN zdx_todos t ON r.target_type = 'todo' AND r.target_id = t.id::text
+WHERE r.project_id = $1
+  AND t.project_id = $1
+  AND t.id = $2
+`
+
+type CountReservationsForTodoParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	TodoID    int32 `db:"todo_id" json:"todo_id"`
+}
+
+// Count how many times a todo has been claimed (reservation count).
+func (q *Queries) CountReservationsForTodo(ctx context.Context, arg CountReservationsForTodoParams) (int32, error) {
+	row := q.db.QueryRow(ctx, countReservationsForTodo, arg.ProjectID, arg.TodoID)
+	var claim_count int32
+	err := row.Scan(&claim_count)
+	return claim_count, err
+}
+
 const getActiveIssueReservation = `-- name: GetActiveIssueReservation :one
 SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
 FROM zdx_reservations

@@ -44,6 +44,15 @@ WHERE r.project_id = @project_id
   AND t.key = @key
 ORDER BY r.claimed_at DESC;
 
+-- name: CountReservationsForTodo :one
+-- Count how many times a todo has been claimed (reservation count).
+SELECT count(*)::int AS claim_count
+FROM zdx_reservations r
+JOIN zdx_todos t ON r.target_type = 'todo' AND r.target_id = t.id::text
+WHERE r.project_id = @project_id
+  AND t.project_id = @project_id
+  AND t.id = @todo_id;
+
 -- name: RenewTaskReservation :exec
 -- Extend the lease on the active reservation for a task claimed by a specific agent.
 UPDATE zdx_reservations

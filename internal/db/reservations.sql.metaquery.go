@@ -11,6 +11,37 @@ import (
 
 var _ = metaquery.Query{}
 
+var MetaCountReservationsForTodo = metaquery.Query{
+	Name:   "CountReservationsForTodo",
+	Cmd:    ":one",
+	Source: "reservations.sql",
+	SQL: `SELECT count(*)::int AS claim_count
+FROM zdx_reservations r
+JOIN zdx_todos t ON r.target_type = 'todo' AND r.target_id = t.id::text
+WHERE r.project_id = $1
+  AND t.project_id = $1
+  AND t.id = $2`,
+	Columns: []metaquery.Column{
+		{Name: "claim_count", OriginalName: "claim_count", GoType: "int32"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "todo_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapCountReservationsForTodo returns a metaquery.Builder over MetaCountReservationsForTodo, pre-bound with typed arguments.
+func WrapCountReservationsForTodo(arg CountReservationsForTodoParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaCountReservationsForTodo, arg.ProjectID, arg.TodoID)
+}
+
+// CountReservationsForTodoCols gives typed, name-safe access to CountReservationsForTodo's output columns.
+var CountReservationsForTodoCols = struct {
+	ClaimCount metaquery.IntCol
+}{
+	ClaimCount: metaquery.NewIntCol("claim_count"),
+}
+
 var MetaGetActiveIssueReservation = metaquery.Query{
 	Name:   "GetActiveIssueReservation",
 	Cmd:    ":one",

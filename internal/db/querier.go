@@ -60,6 +60,8 @@ type Querier interface {
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
 	CountQuestionProposalsByQuestion(ctx context.Context, arg CountQuestionProposalsByQuestionParams) (int64, error)
+	// Count how many times a todo has been claimed (reservation count).
+	CountReservationsForTodo(ctx context.Context, arg CountReservationsForTodoParams) (int32, error)
 	// Count how many revisions were recorded by a given agent session.
 	// Used by /api/dx/solo/release to detect sessions that exited cleanly but
 	// didn't apply any durable mutation — those release without marking resolved.
