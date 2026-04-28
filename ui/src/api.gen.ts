@@ -6063,10 +6063,10 @@ export interface components {
         FocusAttribution: {
             /** @description Issue ID formatted as IS-N */
             id: string;
-            /** @description Current status of the attributed issue */
-            status: string;
             /** @description Why this issue is attributed to the focus */
             justification: string;
+            /** @description Current status of the attributed issue */
+            status: string;
         };
         FocusItem: {
             /**
@@ -6075,7 +6075,7 @@ export interface components {
              * @example https://example.com/schemas/FocusItem.json
              */
             readonly $schema?: string;
-            attributions: components["schemas"]["FocusAttribution"][];
+            attributions: components["schemas"]["FocusAttribution"][] | null;
             created_at: string;
             description: string;
             ended_at: string;

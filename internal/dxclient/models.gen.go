@@ -95,10 +95,11 @@ type AddDiscussionMessageRequest struct {
 // AddFocusBlockerRequest defines model for Add-focus-blockerRequest.
 type AddFocusBlockerRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Focus  string  `json:"focus"`
-	Issue  string  `json:"issue"`
-	Slug   string  `json:"slug"`
+	Schema        *string `json:"$schema,omitempty"`
+	Focus         string  `json:"focus"`
+	Issue         string  `json:"issue"`
+	Justification *string `json:"justification,omitempty"`
+	Slug          string  `json:"slug"`
 }
 
 // AddFocusRequest defines model for Add-focusRequest.
@@ -1231,19 +1232,31 @@ type FeatureItem struct {
 	Why             string      `json:"why"`
 }
 
+// FocusAttribution defines model for FocusAttribution.
+type FocusAttribution struct {
+	// Id Issue ID formatted as IS-N
+	Id string `json:"id"`
+
+	// Justification Why this issue is attributed to the focus
+	Justification string `json:"justification"`
+
+	// Status Current status of the attributed issue
+	Status string `json:"status"`
+}
+
 // FocusItem defines model for FocusItem.
 type FocusItem struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema      *string `json:"$schema,omitempty"`
-	Blockers    string  `json:"blockers"`
-	CreatedAt   string  `json:"created_at"`
-	Description string  `json:"description"`
-	EndedAt     string  `json:"ended_at"`
-	Id          int32   `json:"id"`
-	Name        string  `json:"name"`
-	Priority    int32   `json:"priority"`
-	StartedAt   string  `json:"started_at"`
-	Status      string  `json:"status"`
+	Schema       *string             `json:"$schema,omitempty"`
+	Attributions *[]FocusAttribution `json:"attributions"`
+	CreatedAt    string              `json:"created_at"`
+	Description  string              `json:"description"`
+	EndedAt      string              `json:"ended_at"`
+	Id           int32               `json:"id"`
+	Name         string              `json:"name"`
+	Priority     int32               `json:"priority"`
+	StartedAt    string              `json:"started_at"`
+	Status       string              `json:"status"`
 }
 
 // GetClaudeSessionEventsResponse defines model for Get-claude-session-eventsResponse.
