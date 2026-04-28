@@ -562,11 +562,12 @@ func NoTestRefsText(specID int32, description, featureName string) Hint {
 		Title:       fmt.Sprintf("No test refs: spec %d on %q", specID, featureName),
 		Description: description,
 		Instructions: fmt.Sprintf(
-			"Spec %d (%s) on feature %q has no test refs.\n\n"+
+			"These are ./bin/dx shell commands — run via Bash, NOT via any MCP tool.\n\n"+
+				"Spec %d (%s) on feature %q has no test refs.\n\n"+
 				"Option A — if a test already covers this spec:\n"+
-				"   `dx spec link %d <test-id>`\n"+
+				"   `./bin/dx spec link %d <test-id>`\n"+
 				"Option B — if no test exists, file a task for it:\n"+
-				"   `dx todo tech add --spec=%d --title=\"Test spec %d: %s\" --text=\"<test approach>\" --test-plan=\"<how the test verifies the spec>\"`\n"+
+				"   `./bin/dx todo tech add --spec=%d --title=\"Test spec %d: %s\" --text=\"<test approach>\" --test-plan=\"<how the test verifies the spec>\"`\n"+
 				"The --spec flag links the task to this spec and suppresses this nudge while the task is open.\n"+
 				"Stop after linking/filing — the test itself is a separate dev task.",
 			specID, description, featureName, specID, specID, specID, description,
