@@ -269,6 +269,90 @@ func TestAdminProjects_CreateBindExisting(t *testing.T) {
 	t.Fatal("bound project not in /api/projects list")
 }
 
+// TestDemoAPI_ProjectDescriptionPersists demonstrates spec 108: a project has a
+// description field (title + description) that captures its vision/tagline and
+// persists after being set via PUT /api/project-vision.
+func TestDemoAPI_ProjectDescriptionPersists(t *testing.T) {
+	rec := newApiRecorder(t, "project-description-persists")
+	rec.AddCoderef(coderef{FilePath: "test/e2e/admin_projects_test.go", Note: "API demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_projects.go", Note: "set-project-vision handler"})
+	t.Cleanup(rec.Save)
+
+	mustOK(t, rec.Do(http.MethodPost, "/api/project", map[string]any{
+		"slug": "demo-proj-vision",
+		"name": "Demo Project Vision",
+	}, nil))
+
+	// Verify title/description are empty before setting vision.
+	var listBefore struct {
+		Projects []struct {
+			Slug        string `json:"slug"`
+			Title       string `json:"title"`
+			Description string `json:"description"`
+		} `json:"projects"`
+	}
+	mustOK(t, rec.Do(http.MethodGet, "/api/projects", nil, &listBefore))
+	foundBefore := false
+	for _, p := range listBefore.Projects {
+		if p.Slug == "demo-proj-vision" {
+			foundBefore = true
+			if p.Title != "" {
+				t.Errorf("title before set: want empty, got %q", p.Title)
+			}
+			if p.Description != "" {
+				t.Errorf("description before set: want empty, got %q", p.Description)
+			}
+			break
+		}
+	}
+	if !foundBefore {
+		t.Fatal("project not found in /api/projects before vision set")
+	}
+
+	// Set vision and verify the response echoes back the values.
+	var vision struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+	}
+	mustOK(t, rec.Do(http.MethodPut, "/api/project-vision", map[string]any{
+		"slug":        "demo-proj-vision",
+		"title":       "Principled SDLC for everyone",
+		"description": "Ad-hoc platform giving developers product management superpowers",
+	}, &vision))
+	if vision.Title != "Principled SDLC for everyone" {
+		t.Errorf("vision response title: want %q, got %q", "Principled SDLC for everyone", vision.Title)
+	}
+	if vision.Description != "Ad-hoc platform giving developers product management superpowers" {
+		t.Errorf("vision response description: want non-empty match, got %q", vision.Description)
+	}
+
+	// Verify title/description persist in the project list.
+	var listAfter struct {
+		Projects []struct {
+			Slug        string `json:"slug"`
+			Title       string `json:"title"`
+			Description string `json:"description"`
+		} `json:"projects"`
+	}
+	mustOK(t, rec.Do(http.MethodGet, "/api/projects", nil, &listAfter))
+	foundAfter := false
+	for _, p := range listAfter.Projects {
+		if p.Slug == "demo-proj-vision" {
+			foundAfter = true
+			if p.Title != vision.Title {
+				t.Errorf("list title: want %q, got %q", vision.Title, p.Title)
+			}
+			if p.Description != vision.Description {
+				t.Errorf("list description: want %q, got %q", vision.Description, p.Description)
+			}
+			break
+		}
+	}
+	if !foundAfter {
+		t.Fatal("project not found in /api/projects after vision set")
+	}
+}
+
 func TestAdminProjects_InvalidClassification(t *testing.T) {
 	resp := apiDo(t, http.MethodPost, "/api/project", map[string]any{
 		"slug":           "e2e-admin-proj-invalid",
