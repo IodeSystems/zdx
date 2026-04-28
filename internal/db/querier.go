@@ -498,7 +498,8 @@ type Querier interface {
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
 	TouchClaudeSession(ctx context.Context, id int64) error
-	// Clear blocked flag on all blocked todos for a project.
+	// Clear blocked flag on all blocked todos for a project. Preserves cycle_count so the auto-file
+	// threshold is not reset by a manual admin unblock.
 	UnblockAllTodos(ctx context.Context, projectID int32) error
 	// When the referenced issue is closed/fixed, automatically unblock the todo.
 	UnblockTodosByReferenceIssue(ctx context.Context, arg UnblockTodosByReferenceIssueParams) error

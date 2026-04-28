@@ -893,11 +893,12 @@ func (q *Queries) SetTodoReferenceIssue(ctx context.Context, arg SetTodoReferenc
 }
 
 const unblockAllTodos = `-- name: UnblockAllTodos :exec
-UPDATE zdx_todos SET blocked = false, blocked_reason = '', cycle_count = 0, reference_issue_id = ''
+UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = ''
 WHERE project_id = $1 AND blocked = true AND status = 'open'
 `
 
-// Clear blocked flag on all blocked todos for a project.
+// Clear blocked flag on all blocked todos for a project. Preserves cycle_count so the auto-file
+// threshold is not reset by a manual admin unblock.
 func (q *Queries) UnblockAllTodos(ctx context.Context, projectID int32) error {
 	_, err := q.db.Exec(ctx, unblockAllTodos, projectID)
 	return err

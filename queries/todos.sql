@@ -157,8 +157,9 @@ UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = 
 WHERE project_id = @project_id AND reference_issue_id = @reference_issue_id AND blocked = true AND status = 'open';
 
 -- name: UnblockAllTodos :exec
--- Clear blocked flag on all blocked todos for a project.
-UPDATE zdx_todos SET blocked = false, blocked_reason = '', cycle_count = 0, reference_issue_id = ''
+-- Clear blocked flag on all blocked todos for a project. Preserves cycle_count so the auto-file
+-- threshold is not reset by a manual admin unblock.
+UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = ''
 WHERE project_id = @project_id AND blocked = true AND status = 'open';
 
 -- name: ReclaimExpiredTodos :many

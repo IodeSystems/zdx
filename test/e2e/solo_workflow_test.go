@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"strconv"
 	"strings"
 	"testing"
 	"time"
@@ -270,6 +271,106 @@ func TestSoloTriageResolveRefusedWhenUntriaged(t *testing.T) {
 	}
 	if !foundTodo {
 		t.Fatalf("could not find todo id=%d in /api/dx/todos response", claimed.ID)
+	}
+}
+
+// TestSoloCycleDetectionAutoFilesIssue covers IS-526: after two consecutive cycle detections
+// on the same todo key, the system auto-files a system-gap issue and stores its ID on the todo.
+// Closing that issue must automatically unblock the todo so it re-enters the queue.
+func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
+	d := NewApiDriver(t, "solo-cycle-autofile", "Solo Cycle Autofile")
+	Given(d).
+		Issue("Cycle test issue", "auto-file system gap").
+		HealthPrereqs().
+		Build()
+
+	claimTriage := func(agentID string) (TodoItem, bool) {
+		for i := 0; i < 10; i++ {
+			c, status := soloClaimNext(t, d.Slug, fmt.Sprintf("%s-%d", agentID, i))
+			if status != http.StatusOK {
+				t.Fatalf("solo/claim: status=%d", status)
+			}
+			if c.Kind == "triage" {
+				return c, true
+			}
+		}
+		return TodoItem{}, false
+	}
+
+	// First cycle: resolve triage without setting priority → blocked, cycle_count=1
+	claimed, ok := claimTriage("agent-a")
+	if !ok {
+		t.Fatal("no triage todo found for first attempt")
+	}
+	var rel struct {
+		OK            bool `json:"ok"`
+		CycleDetected bool `json:"cycle_detected"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+		map[string]any{"id": claimed.ID, "agent_id": "agent-a-0", "resolve": true}, &rel))
+	if !rel.CycleDetected {
+		t.Fatal("expected cycle_detected=true on first attempt")
+	}
+
+	// Unblock so the todo re-enters the queue for a second attempt.
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/unblock-all",
+		map[string]any{"slug": d.Slug}, nil))
+
+	// Second cycle: same todo, same failed resolve → blocked, cycle_count=2 → auto-files issue
+	claimed, ok = claimTriage("agent-b")
+	if !ok {
+		t.Fatal("no triage todo found for second attempt")
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+		map[string]any{"id": claimed.ID, "agent_id": "agent-b-0", "resolve": true}, &rel))
+	if !rel.CycleDetected {
+		t.Fatal("expected cycle_detected=true on second attempt")
+	}
+
+	// The blocked todo should now have reference_issue_id set.
+	var blockedTodos []struct {
+		ID               int32  `json:"id"`
+		Blocked          bool   `json:"blocked"`
+		CycleCount       int32  `json:"cycle_count"`
+		ReferenceIssueID string `json:"reference_issue_id"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet,
+		fmt.Sprintf("/api/dx/solo?slug=%s&blocked=true", d.Slug), nil, &blockedTodos))
+
+	var refIssueStr string
+	for _, td := range blockedTodos {
+		if td.ID == claimed.ID {
+			if td.CycleCount < 2 {
+				t.Errorf("expected cycle_count >= 2, got %d", td.CycleCount)
+			}
+			if td.ReferenceIssueID == "" {
+				t.Error("expected reference_issue_id to be set after second cycle detection")
+			}
+			refIssueStr = td.ReferenceIssueID
+			break
+		}
+	}
+	if refIssueStr == "" {
+		t.Fatal("blocked todo with reference_issue_id not found")
+	}
+
+	// Parse "IS-N" → N, submit a resolution (impl issues require one before closing), then close.
+	numStr := strings.TrimPrefix(refIssueStr, "IS-")
+	refIssueNum, err := strconv.Atoi(numStr)
+	if err != nil {
+		t.Fatalf("cannot parse reference_issue_id %q: %v", refIssueStr, err)
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/resolve",
+		map[string]any{"slug": d.Slug, "id": int32(refIssueNum), "shas": []string{"deadbeef"}, "source": "manual"}, nil))
+	d.CloseIssue(int32(refIssueNum))
+
+	// After closing the reference issue, the todo must be unblocked.
+	mustOK(t, apiDo(t, http.MethodGet,
+		fmt.Sprintf("/api/dx/solo?slug=%s&blocked=true", d.Slug), nil, &blockedTodos))
+	for _, td := range blockedTodos {
+		if td.ID == claimed.ID {
+			t.Error("todo should be unblocked after reference issue was closed")
+		}
 	}
 }
 

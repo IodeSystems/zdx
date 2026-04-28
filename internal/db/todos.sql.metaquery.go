@@ -1105,7 +1105,7 @@ var MetaUnblockAllTodos = metaquery.Query{
 	Name:   "UnblockAllTodos",
 	Cmd:    ":exec",
 	Source: "todos.sql",
-	SQL: `UPDATE zdx_todos SET blocked = false, blocked_reason = '', cycle_count = 0, reference_issue_id = ''
+	SQL: `UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = ''
 WHERE project_id = $1 AND blocked = true AND status = 'open'`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
