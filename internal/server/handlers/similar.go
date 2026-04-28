@@ -95,6 +95,63 @@ func (h *Handler) findSimilarProposals(ctx context.Context, projectID int32, que
 	return out, nil
 }
 
+func (h *Handler) findSimilarFeatures(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarFeatureItem, error) {
+	results, err := h.Emb.TopNFeatures(ctx, projectID, queryText, n)
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return []SimilarFeatureItem{}, nil
+	}
+	out := make([]SimilarFeatureItem, 0, len(results))
+	for _, r := range results {
+		row, err := h.Q.GetFeatureByID(ctx, int32(r.ID)) //nolint:gosec
+		if err != nil || row.ProjectID != projectID {
+			continue
+		}
+		out = append(out, SimilarFeatureItem{
+			ID:          row.ID,
+			Name:        row.Name,
+			Description: row.Description,
+			Category:    row.Category,
+			Kind:        row.Kind,
+			Score:       r.Score,
+		})
+	}
+	return out, nil
+}
+
+func (h *Handler) findSimilarSpecs(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarSpecItem, error) {
+	results, err := h.Emb.TopNSpecs(ctx, projectID, queryText, n)
+	if err != nil {
+		return nil, err
+	}
+	if len(results) == 0 {
+		return []SimilarSpecItem{}, nil
+	}
+	out := make([]SimilarSpecItem, 0, len(results))
+	for _, r := range results {
+		spec, err := h.Q.GetSpec(ctx, int32(r.ID)) //nolint:gosec
+		if err != nil {
+			continue
+		}
+		feat, err := h.Q.GetFeatureByID(ctx, spec.FeatureID)
+		if err != nil || feat.ProjectID != projectID {
+			continue
+		}
+		out = append(out, SimilarSpecItem{
+			ID:          spec.ID,
+			FeatureID:   spec.FeatureID,
+			FeatureName: feat.Name,
+			Description: spec.Description,
+			Kind:        spec.Kind,
+			ConcernType: spec.ConcernType,
+			Score:       r.Score,
+		})
+	}
+	return out, nil
+}
+
 func (h *Handler) findSimilarTasks(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarTaskItem, error) {
 	results, err := h.Emb.TopNTasks(ctx, projectID, queryText, n)
 	if err != nil {

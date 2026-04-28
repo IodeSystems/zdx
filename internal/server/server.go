@@ -267,7 +267,69 @@ func (s *Server) ReindexAllIssues() {
 		if qIndexed > 0 {
 			log.Printf("reindex: indexed %d questions for project %s", qIndexed, p.Slug)
 		}
+
+		features, err := s.q.ListFeatures(ctx, p.ID)
+		if err != nil {
+			log.Printf("reindex: list features for %s: %v", p.Slug, err)
+			continue
+		}
+		fIndexed := 0
+		featureNames := make(map[int32]string, len(features))
+		for _, f := range features {
+			featureNames[f.ID] = f.Name
+			text := featureEmbedTextSrv(f.Name, f.Description, f.What, f.Why, f.DoneWhen)
+			if text == "" {
+				continue
+			}
+			s.emb.UpsertFeature(ctx, p.ID, f.ID, text)
+			fIndexed++
+		}
+		if fIndexed > 0 {
+			log.Printf("reindex: indexed %d features for project %s", fIndexed, p.Slug)
+		}
+
+		specs, err := s.q.ListSpecsForProject(ctx, p.ID)
+		if err != nil {
+			log.Printf("reindex: list specs for %s: %v", p.Slug, err)
+			continue
+		}
+		sIndexed := 0
+		for _, sp := range specs {
+			text := specEmbedTextSrv(featureNames[sp.FeatureID], sp.Description, sp.Kind)
+			if text == "" {
+				continue
+			}
+			s.emb.UpsertSpec(ctx, p.ID, sp.ID, text)
+			sIndexed++
+		}
+		if sIndexed > 0 {
+			log.Printf("reindex: indexed %d specs for project %s", sIndexed, p.Slug)
+		}
 	}
+}
+
+func featureEmbedTextSrv(name, description, what, why, doneWhen string) string {
+	parts := []string{name}
+	for _, p := range []string{description, what, why, doneWhen} {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func specEmbedTextSrv(featureName, description, kind string) string {
+	parts := make([]string, 0, 3)
+	if featureName != "" {
+		parts = append(parts, featureName)
+	}
+	if kind != "" {
+		parts = append(parts, kind)
+	}
+	if description != "" {
+		parts = append(parts, description)
+	}
+	return strings.Join(parts, " ")
 }
 
 func (s *Server) ServeHTTP(w http.ResponseWriter, r *http.Request) {

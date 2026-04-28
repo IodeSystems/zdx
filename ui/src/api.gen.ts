@@ -1542,6 +1542,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/features/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reindex-features"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/features/search": {
         parameters: {
             query?: never;
@@ -1552,6 +1568,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["search-features"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/features/similar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["similar-features"];
         delete?: never;
         options?: never;
         head?: never;
@@ -3110,6 +3142,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/specs/reindex": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reindex-specs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/similar": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["similar-specs"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/specs/tasks": {
         parameters: {
             query?: never;
@@ -4658,6 +4722,7 @@ export interface components {
             similar?: components["schemas"]["SimilarIssueItem"][] | null;
             source: string;
             status: string;
+            target_branch?: string;
             title: string;
             updated_at: string;
             url: string;
@@ -6419,6 +6484,7 @@ export interface components {
             reopen_count?: number;
             source: string;
             status: string;
+            target_branch?: string;
             title: string;
             updated_at: string;
             url: string;
@@ -7950,6 +8016,25 @@ export interface components {
             worktree_branch: string;
             worktree_path: string;
         };
+        "Reindex-featuresRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reindex-featuresRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+        };
+        "Reindex-featuresResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reindex-featuresResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            indexed: number;
+        };
         "Reindex-patternsRequest": {
             /**
              * Format: uri
@@ -7964,6 +8049,25 @@ export interface components {
              * Format: uri
              * @description A URL to the JSON Schema for this object.
              * @example https://example.com/schemas/Reindex-patternsResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            indexed: number;
+        };
+        "Reindex-specsRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reindex-specsRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+        };
+        "Reindex-specsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reindex-specsResponse.json
              */
             readonly $schema?: string;
             /** Format: int64 */
@@ -8385,6 +8489,27 @@ export interface components {
             proposal: components["schemas"]["ProposalItem"];
             versions: components["schemas"]["ProposalVersionItem"][] | null;
         };
+        "Similar-featuresRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Similar-featuresRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            n?: number;
+            slug: string;
+            text: string;
+        };
+        "Similar-featuresResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Similar-featuresResponse.json
+             */
+            readonly $schema?: string;
+            features: components["schemas"]["SimilarFeatureItem"][] | null;
+        };
         "Similar-issuesRequest": {
             /**
              * Format: uri
@@ -8448,6 +8573,27 @@ export interface components {
             readonly $schema?: string;
             questions: components["schemas"]["SimilarQuestionItem"][] | null;
         };
+        "Similar-specsRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Similar-specsRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            n?: number;
+            slug: string;
+            text: string;
+        };
+        "Similar-specsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Similar-specsResponse.json
+             */
+            readonly $schema?: string;
+            specs: components["schemas"]["SimilarSpecItem"][] | null;
+        };
         "Similar-tasksRequest": {
             /**
              * Format: uri
@@ -8468,6 +8614,16 @@ export interface components {
              */
             readonly $schema?: string;
             tasks: components["schemas"]["SimilarTaskItem"][] | null;
+        };
+        SimilarFeatureItem: {
+            category: string;
+            description: string;
+            /** Format: int32 */
+            id: number;
+            kind: string;
+            name: string;
+            /** Format: float */
+            score: number;
         };
         SimilarIssueItem: {
             context: string;
@@ -8496,6 +8652,18 @@ export interface components {
             /** Format: int32 */
             id: number;
             question: string;
+            /** Format: float */
+            score: number;
+        };
+        SimilarSpecItem: {
+            concern_type: string;
+            description: string;
+            /** Format: int32 */
+            feature_id: number;
+            feature_name: string;
+            /** Format: int32 */
+            id: number;
+            kind: string;
             /** Format: float */
             score: number;
         };
@@ -9037,6 +9205,7 @@ export interface components {
             resolved_at?: string;
             status: string;
             suggested_action?: string;
+            target_branch?: string;
             target_id: string;
             target_type: string;
             text: string;
@@ -9081,6 +9250,7 @@ export interface components {
             /** Format: int32 */
             priority: number;
             slug: string;
+            target_branch?: string;
             theme_ids?: number[] | null;
             title?: string;
         };
@@ -12952,6 +13122,39 @@ export interface operations {
             };
         };
     };
+    "reindex-features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reindex-featuresRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reindex-featuresResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "search-features": {
         parameters: {
             query?: never;
@@ -12972,6 +13175,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Search-featuresResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "similar-features": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Similar-featuresRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Similar-featuresResponse"];
                 };
             };
             /** @description Error */
@@ -16395,6 +16631,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "reindex-specs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reindex-specsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Reindex-specsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "similar-specs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Similar-specsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Similar-specsResponse"];
                 };
             };
             /** @description Error */

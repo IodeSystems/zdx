@@ -16,8 +16,8 @@ import (
 func SimilarCmd() *cobra.Command {
 	var n int64
 	cmd := &cobra.Command{
-		Use:   "similar <IS-N | TK-N | text...>",
-		Short: "Find items similar to an ID or free text",
+		Use:   "similar <IS-N | TK-N | SP-N | text...>",
+		Short: "Find items similar to an ID or free text (issues, tasks, questions, patterns, features, specs)",
 		Args:  cobra.MinimumNArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
@@ -45,16 +45,26 @@ func SimilarCmd() *cobra.Command {
 				items []dxclient.SimilarPatternItem
 				err   error
 			}
+			type featureResult struct {
+				items []dxclient.SimilarFeatureItem
+				err   error
+			}
+			type specResult struct {
+				items []dxclient.SimilarSpecItem
+				err   error
+			}
 
 			var (
 				issuesCh    = make(chan issueResult, 1)
 				tasksCh     = make(chan taskResult, 1)
 				questionsCh = make(chan questionResult, 1)
 				patternsCh  = make(chan patternResult, 1)
+				featuresCh  = make(chan featureResult, 1)
+				specsCh     = make(chan specResult, 1)
 				wg          sync.WaitGroup
 			)
 
-			wg.Add(4)
+			wg.Add(6)
 			go func() {
 				defer wg.Done()
 				resp, err := c.SimilarIssuesWithResponse(ctx, dxclient.SimilarIssuesJSONRequestBody{Slug: slug, Text: query, N: &n})
@@ -127,16 +137,56 @@ func SimilarCmd() *cobra.Command {
 				patternsCh <- patternResult{items: items}
 			}()
 
+			go func() {
+				defer wg.Done()
+				resp, err := c.SimilarFeaturesWithResponse(ctx, dxclient.SimilarFeaturesJSONRequestBody{Slug: slug, Text: query, N: &n})
+				if err != nil {
+					featuresCh <- featureResult{err: err}
+					return
+				}
+				if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+					featuresCh <- featureResult{err: err}
+					return
+				}
+				var items []dxclient.SimilarFeatureItem
+				if resp.JSON200 != nil && resp.JSON200.Features != nil {
+					items = *resp.JSON200.Features
+				}
+				featuresCh <- featureResult{items: items}
+			}()
+
+			go func() {
+				defer wg.Done()
+				resp, err := c.SimilarSpecsWithResponse(ctx, dxclient.SimilarSpecsJSONRequestBody{Slug: slug, Text: query, N: &n})
+				if err != nil {
+					specsCh <- specResult{err: err}
+					return
+				}
+				if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+					specsCh <- specResult{err: err}
+					return
+				}
+				var items []dxclient.SimilarSpecItem
+				if resp.JSON200 != nil && resp.JSON200.Specs != nil {
+					items = *resp.JSON200.Specs
+				}
+				specsCh <- specResult{items: items}
+			}()
+
 			wg.Wait()
 			close(issuesCh)
 			close(tasksCh)
 			close(questionsCh)
 			close(patternsCh)
+			close(featuresCh)
+			close(specsCh)
 
 			issues := <-issuesCh
 			tasks := <-tasksCh
 			questions := <-questionsCh
 			patterns := <-patternsCh
+			features := <-featuresCh
+			specs := <-specsCh
 
 			printed := false
 
@@ -185,6 +235,28 @@ func SimilarCmd() *cobra.Command {
 				fmt.Println("Patterns:")
 				for _, s := range patterns.items {
 					fmt.Printf("  PT-%-5d  (%.0f%%)  %-20s  %s\n", s.Pattern.Id, s.Score*100, s.Pattern.Name, cli.Truncate(s.Pattern.Description, 60))
+				}
+				printed = true
+			}
+
+			if features.err == nil && len(features.items) > 0 {
+				if printed {
+					fmt.Println()
+				}
+				fmt.Println("Features:")
+				for _, s := range features.items {
+					fmt.Printf("  FT-%-5d  (%.0f%%)  %-30s  %s\n", s.Id, s.Score*100, cli.Truncate(s.Name, 30), cli.Truncate(s.Description, 60))
+				}
+				printed = true
+			}
+
+			if specs.err == nil && len(specs.items) > 0 {
+				if printed {
+					fmt.Println()
+				}
+				fmt.Println("Specs:")
+				for _, s := range specs.items {
+					fmt.Printf("  SP-%-5d  (%.0f%%)  %-10s  %-20s  %s\n", s.Id, s.Score*100, "["+s.Kind+"]", cli.Truncate(s.FeatureName, 20), cli.Truncate(s.Description, 60))
 				}
 				printed = true
 			}
@@ -253,6 +325,26 @@ func resolveQuery(cmd *cobra.Command, c *cli.Client, slug string, args []string)
 		}
 		fmt.Printf("query: %s  %s\n\n", id, task.Title)
 		return strings.Join(parts, "\n"), nil
+	}
+
+	if len(id) > 3 && strings.EqualFold(id[:3], "sp-") {
+		n, err := strconv.ParseInt(id[3:], 10, 32)
+		if err != nil {
+			return strings.Join(args, " "), nil
+		}
+		resp, err := c.GetSpecWithResponse(ctx, &dxclient.GetSpecParams{SpecId: int32(n)})
+		if err != nil {
+			return "", fmt.Errorf("fetch %s: %w", id, err)
+		}
+		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+			return "", fmt.Errorf("fetch %s: %w", id, err)
+		}
+		if resp.JSON200 == nil {
+			return "", fmt.Errorf("fetch %s: empty response", id)
+		}
+		spec := resp.JSON200.Spec
+		fmt.Printf("query: %s  %s\n\n", id, cli.Truncate(spec.Description, 70))
+		return spec.Description, nil
 	}
 
 	return strings.Join(args, " "), nil

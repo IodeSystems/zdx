@@ -149,13 +149,14 @@ type AddIssueResponse struct {
 	Priority        string  `json:"priority"`
 
 	// ReopenCount Number of times this issue has been reopened — a churn signal for stabilization candidates
-	ReopenCount *int32              `json:"reopen_count,omitempty"`
-	Similar     *[]SimilarIssueItem `json:"similar,omitempty"`
-	Source      string              `json:"source"`
-	Status      string              `json:"status"`
-	Title       string              `json:"title"`
-	UpdatedAt   string              `json:"updated_at"`
-	Url         string              `json:"url"`
+	ReopenCount  *int32              `json:"reopen_count,omitempty"`
+	Similar      *[]SimilarIssueItem `json:"similar,omitempty"`
+	Source       string              `json:"source"`
+	Status       string              `json:"status"`
+	TargetBranch *string             `json:"target_branch,omitempty"`
+	Title        string              `json:"title"`
+	UpdatedAt    string              `json:"updated_at"`
+	Url          string              `json:"url"`
 }
 
 // AddPatternRequest defines model for Add-patternRequest.
@@ -1576,12 +1577,13 @@ type IssueItem struct {
 	Priority        string  `json:"priority"`
 
 	// ReopenCount Number of times this issue has been reopened — a churn signal for stabilization candidates
-	ReopenCount *int32 `json:"reopen_count,omitempty"`
-	Source      string `json:"source"`
-	Status      string `json:"status"`
-	Title       string `json:"title"`
-	UpdatedAt   string `json:"updated_at"`
-	Url         string `json:"url"`
+	ReopenCount  *int32  `json:"reopen_count,omitempty"`
+	Source       string  `json:"source"`
+	Status       string  `json:"status"`
+	TargetBranch *string `json:"target_branch,omitempty"`
+	Title        string  `json:"title"`
+	UpdatedAt    string  `json:"updated_at"`
+	Url          string  `json:"url"`
 }
 
 // IssueWorkItem defines model for IssueWorkItem.
@@ -2789,6 +2791,20 @@ type RegisterAgentRequest struct {
 	WorktreePath   string  `json:"worktree_path"`
 }
 
+// ReindexFeaturesRequest defines model for Reindex-featuresRequest.
+type ReindexFeaturesRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+}
+
+// ReindexFeaturesResponse defines model for Reindex-featuresResponse.
+type ReindexFeaturesResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	Indexed int64   `json:"indexed"`
+}
+
 // ReindexPatternsRequest defines model for Reindex-patternsRequest.
 type ReindexPatternsRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2798,6 +2814,20 @@ type ReindexPatternsRequest struct {
 
 // ReindexPatternsResponse defines model for Reindex-patternsResponse.
 type ReindexPatternsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	Indexed int64   `json:"indexed"`
+}
+
+// ReindexSpecsRequest defines model for Reindex-specsRequest.
+type ReindexSpecsRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+}
+
+// ReindexSpecsResponse defines model for Reindex-specsResponse.
+type ReindexSpecsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema  *string `json:"$schema,omitempty"`
 	Indexed int64   `json:"indexed"`
@@ -3150,6 +3180,22 @@ type ShowProposalResponse struct {
 	Versions *[]ProposalVersionItem `json:"versions"`
 }
 
+// SimilarFeaturesRequest defines model for Similar-featuresRequest.
+type SimilarFeaturesRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	N      *int64  `json:"n,omitempty"`
+	Slug   string  `json:"slug"`
+	Text   string  `json:"text"`
+}
+
+// SimilarFeaturesResponse defines model for Similar-featuresResponse.
+type SimilarFeaturesResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string               `json:"$schema,omitempty"`
+	Features *[]SimilarFeatureItem `json:"features"`
+}
+
 // SimilarIssuesRequest defines model for Similar-issuesRequest.
 type SimilarIssuesRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3198,6 +3244,22 @@ type SimilarQuestionsResponse struct {
 	Questions *[]SimilarQuestionItem `json:"questions"`
 }
 
+// SimilarSpecsRequest defines model for Similar-specsRequest.
+type SimilarSpecsRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	N      *int64  `json:"n,omitempty"`
+	Slug   string  `json:"slug"`
+	Text   string  `json:"text"`
+}
+
+// SimilarSpecsResponse defines model for Similar-specsResponse.
+type SimilarSpecsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string            `json:"$schema,omitempty"`
+	Specs  *[]SimilarSpecItem `json:"specs"`
+}
+
 // SimilarTasksRequest defines model for Similar-tasksRequest.
 type SimilarTasksRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3212,6 +3274,16 @@ type SimilarTasksResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string            `json:"$schema,omitempty"`
 	Tasks  *[]SimilarTaskItem `json:"tasks"`
+}
+
+// SimilarFeatureItem defines model for SimilarFeatureItem.
+type SimilarFeatureItem struct {
+	Category    string  `json:"category"`
+	Description string  `json:"description"`
+	Id          int32   `json:"id"`
+	Kind        string  `json:"kind"`
+	Name        string  `json:"name"`
+	Score       float32 `json:"score"`
 }
 
 // SimilarIssueItem defines model for SimilarIssueItem.
@@ -3244,6 +3316,17 @@ type SimilarQuestionItem struct {
 	Id       int32   `json:"id"`
 	Question string  `json:"question"`
 	Score    float32 `json:"score"`
+}
+
+// SimilarSpecItem defines model for SimilarSpecItem.
+type SimilarSpecItem struct {
+	ConcernType string  `json:"concern_type"`
+	Description string  `json:"description"`
+	FeatureId   int32   `json:"feature_id"`
+	FeatureName string  `json:"feature_name"`
+	Id          int32   `json:"id"`
+	Kind        string  `json:"kind"`
+	Score       float32 `json:"score"`
 }
 
 // SimilarTaskItem defines model for SimilarTaskItem.
@@ -3710,6 +3793,7 @@ type TodoItem struct {
 	ResolvedAt       *string `json:"resolved_at,omitempty"`
 	Status           string  `json:"status"`
 	SuggestedAction  *string `json:"suggested_action,omitempty"`
+	TargetBranch     *string `json:"target_branch,omitempty"`
 	TargetId         string  `json:"target_id"`
 	TargetType       string  `json:"target_type"`
 	Text             string  `json:"text"`
@@ -3742,15 +3826,16 @@ type TokensStruct struct {
 // TriageIssueRequest defines model for Triage-issueRequest.
 type TriageIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema    *string  `json:"$schema,omitempty"`
-	Context   *string  `json:"context,omitempty"`
-	GoalIds   *[]int32 `json:"goal_ids,omitempty"`
-	Id        int32    `json:"id"`
-	IssueType *string  `json:"issue_type,omitempty"`
-	Priority  int32    `json:"priority"`
-	Slug      string   `json:"slug"`
-	ThemeIds  *[]int32 `json:"theme_ids,omitempty"`
-	Title     *string  `json:"title,omitempty"`
+	Schema       *string  `json:"$schema,omitempty"`
+	Context      *string  `json:"context,omitempty"`
+	GoalIds      *[]int32 `json:"goal_ids,omitempty"`
+	Id           int32    `json:"id"`
+	IssueType    *string  `json:"issue_type,omitempty"`
+	Priority     int32    `json:"priority"`
+	Slug         string   `json:"slug"`
+	TargetBranch *string  `json:"target_branch,omitempty"`
+	ThemeIds     *[]int32 `json:"theme_ids,omitempty"`
+	Title        *string  `json:"title,omitempty"`
 }
 
 // UnblockTaskRequest defines model for Unblock-taskRequest.
@@ -4956,8 +5041,14 @@ type SetFeatureGoalJSONRequestBody = SetFeatureGoalRequest
 // SetFeatureParentJSONRequestBody defines body for SetFeatureParent for application/json ContentType.
 type SetFeatureParentJSONRequestBody = SetFeatureParentRequest
 
+// ReindexFeaturesJSONRequestBody defines body for ReindexFeatures for application/json ContentType.
+type ReindexFeaturesJSONRequestBody = ReindexFeaturesRequest
+
 // SearchFeaturesJSONRequestBody defines body for SearchFeatures for application/json ContentType.
 type SearchFeaturesJSONRequestBody = SearchFeaturesRequest
+
+// SimilarFeaturesJSONRequestBody defines body for SimilarFeatures for application/json ContentType.
+type SimilarFeaturesJSONRequestBody = SimilarFeaturesRequest
 
 // AddFocusJSONRequestBody defines body for AddFocus for application/json ContentType.
 type AddFocusJSONRequestBody = AddFocusRequest
@@ -5123,6 +5214,12 @@ type LinkSpecTestJSONRequestBody = LinkSpecTestRequest
 
 // MoveSpecJSONRequestBody defines body for MoveSpec for application/json ContentType.
 type MoveSpecJSONRequestBody = MoveSpecRequest
+
+// ReindexSpecsJSONRequestBody defines body for ReindexSpecs for application/json ContentType.
+type ReindexSpecsJSONRequestBody = ReindexSpecsRequest
+
+// SimilarSpecsJSONRequestBody defines body for SimilarSpecs for application/json ContentType.
+type SimilarSpecsJSONRequestBody = SimilarSpecsRequest
 
 // UnlinkSpecIssueJSONRequestBody defines body for UnlinkSpecIssue for application/json ContentType.
 type UnlinkSpecIssueJSONRequestBody = UnlinkSpecIssueRequest
@@ -5769,10 +5866,20 @@ type ClientInterface interface {
 
 	SetFeatureParent(ctx context.Context, body SetFeatureParentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ReindexFeaturesWithBody request with any body
+	ReindexFeaturesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReindexFeatures(ctx context.Context, body ReindexFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// SearchFeaturesWithBody request with any body
 	SearchFeaturesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SearchFeatures(ctx context.Context, body SearchFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SimilarFeaturesWithBody request with any body
+	SimilarFeaturesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SimilarFeatures(ctx context.Context, body SimilarFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListStaleFeatures request
 	ListStaleFeatures(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6195,6 +6302,16 @@ type ClientInterface interface {
 	MoveSpecWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	MoveSpec(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReindexSpecsWithBody request with any body
+	ReindexSpecsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReindexSpecs(ctx context.Context, body ReindexSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SimilarSpecsWithBody request with any body
+	SimilarSpecsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SimilarSpecs(ctx context.Context, body SimilarSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSpecTasks request
 	ListSpecTasks(ctx context.Context, params *ListSpecTasksParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8435,6 +8552,30 @@ func (c *APIClient) SetFeatureParent(ctx context.Context, body SetFeatureParentJ
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) ReindexFeaturesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReindexFeaturesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReindexFeatures(ctx context.Context, body ReindexFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReindexFeaturesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) SearchFeaturesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSearchFeaturesRequestWithBody(c.Server, contentType, body)
 	if err != nil {
@@ -8449,6 +8590,30 @@ func (c *APIClient) SearchFeaturesWithBody(ctx context.Context, contentType stri
 
 func (c *APIClient) SearchFeatures(ctx context.Context, body SearchFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSearchFeaturesRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SimilarFeaturesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSimilarFeaturesRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SimilarFeatures(ctx context.Context, body SimilarFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSimilarFeaturesRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10357,6 +10522,54 @@ func (c *APIClient) MoveSpecWithBody(ctx context.Context, contentType string, bo
 
 func (c *APIClient) MoveSpec(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewMoveSpecRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReindexSpecsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReindexSpecsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReindexSpecs(ctx context.Context, body ReindexSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReindexSpecsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SimilarSpecsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSimilarSpecsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SimilarSpecs(ctx context.Context, body SimilarSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSimilarSpecsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -17835,6 +18048,46 @@ func NewSetFeatureParentRequestWithBody(server string, contentType string, body 
 	return req, nil
 }
 
+// NewReindexFeaturesRequest calls the generic ReindexFeatures builder with application/json body
+func NewReindexFeaturesRequest(server string, body ReindexFeaturesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReindexFeaturesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewReindexFeaturesRequestWithBody generates requests for ReindexFeatures with any type of body
+func NewReindexFeaturesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/features/reindex")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSearchFeaturesRequest calls the generic SearchFeatures builder with application/json body
 func NewSearchFeaturesRequest(server string, body SearchFeaturesJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -17856,6 +18109,46 @@ func NewSearchFeaturesRequestWithBody(server string, contentType string, body io
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/features/search")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSimilarFeaturesRequest calls the generic SimilarFeatures builder with application/json body
+func NewSimilarFeaturesRequest(server string, body SimilarFeaturesJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSimilarFeaturesRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSimilarFeaturesRequestWithBody generates requests for SimilarFeatures with any type of body
+func NewSimilarFeaturesRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/features/similar")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -23108,6 +23401,86 @@ func NewMoveSpecRequestWithBody(server string, contentType string, body io.Reade
 	return req, nil
 }
 
+// NewReindexSpecsRequest calls the generic ReindexSpecs builder with application/json body
+func NewReindexSpecsRequest(server string, body ReindexSpecsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReindexSpecsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewReindexSpecsRequestWithBody generates requests for ReindexSpecs with any type of body
+func NewReindexSpecsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/reindex")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSimilarSpecsRequest calls the generic SimilarSpecs builder with application/json body
+func NewSimilarSpecsRequest(server string, body SimilarSpecsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSimilarSpecsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSimilarSpecsRequestWithBody generates requests for SimilarSpecs with any type of body
+func NewSimilarSpecsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/similar")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListSpecTasksRequest generates requests for ListSpecTasks
 func NewListSpecTasksRequest(server string, params *ListSpecTasksParams) (*http.Request, error) {
 	var err error
@@ -28328,10 +28701,20 @@ type ClientWithResponsesInterface interface {
 
 	SetFeatureParentWithResponse(ctx context.Context, body SetFeatureParentJSONRequestBody, reqEditors ...RequestEditorFn) (*SetFeatureParentResponse, error)
 
+	// ReindexFeaturesWithBodyWithResponse request with any body
+	ReindexFeaturesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReindexFeaturesResponse, error)
+
+	ReindexFeaturesWithResponse(ctx context.Context, body ReindexFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReindexFeaturesResponse, error)
+
 	// SearchFeaturesWithBodyWithResponse request with any body
 	SearchFeaturesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSearchFeaturesResponse, error)
 
 	SearchFeaturesWithResponse(ctx context.Context, body SearchFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSearchFeaturesResponse, error)
+
+	// SimilarFeaturesWithBodyWithResponse request with any body
+	SimilarFeaturesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarFeaturesResponse, error)
+
+	SimilarFeaturesWithResponse(ctx context.Context, body SimilarFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSimilarFeaturesResponse, error)
 
 	// ListStaleFeaturesWithResponse request
 	ListStaleFeaturesWithResponse(ctx context.Context, params *ListStaleFeaturesParams, reqEditors ...RequestEditorFn) (*ParsedListStaleFeaturesResponse, error)
@@ -28754,6 +29137,16 @@ type ClientWithResponsesInterface interface {
 	MoveSpecWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MoveSpecResponse, error)
 
 	MoveSpecWithResponse(ctx context.Context, body MoveSpecJSONRequestBody, reqEditors ...RequestEditorFn) (*MoveSpecResponse, error)
+
+	// ReindexSpecsWithBodyWithResponse request with any body
+	ReindexSpecsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReindexSpecsResponse, error)
+
+	ReindexSpecsWithResponse(ctx context.Context, body ReindexSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReindexSpecsResponse, error)
+
+	// SimilarSpecsWithBodyWithResponse request with any body
+	SimilarSpecsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarSpecsResponse, error)
+
+	SimilarSpecsWithResponse(ctx context.Context, body SimilarSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSimilarSpecsResponse, error)
 
 	// ListSpecTasksWithResponse request
 	ListSpecTasksWithResponse(ctx context.Context, params *ListSpecTasksParams, reqEditors ...RequestEditorFn) (*ParsedListSpecTasksResponse, error)
@@ -31630,6 +32023,29 @@ func (r SetFeatureParentResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedReindexFeaturesResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ReindexFeaturesResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedReindexFeaturesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedReindexFeaturesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedSearchFeaturesResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -31647,6 +32063,29 @@ func (r ParsedSearchFeaturesResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedSearchFeaturesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedSimilarFeaturesResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SimilarFeaturesResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSimilarFeaturesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSimilarFeaturesResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -34039,6 +34478,52 @@ func (r MoveSpecResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r MoveSpecResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedReindexSpecsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ReindexSpecsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedReindexSpecsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedReindexSpecsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedSimilarSpecsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SimilarSpecsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSimilarSpecsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSimilarSpecsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -37505,6 +37990,23 @@ func (c *ClientWithResponses) SetFeatureParentWithResponse(ctx context.Context, 
 	return ParseSetFeatureParentResponse(rsp)
 }
 
+// ReindexFeaturesWithBodyWithResponse request with arbitrary body returning *ParsedReindexFeaturesResponse
+func (c *ClientWithResponses) ReindexFeaturesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReindexFeaturesResponse, error) {
+	rsp, err := c.ReindexFeaturesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReindexFeaturesResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReindexFeaturesWithResponse(ctx context.Context, body ReindexFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReindexFeaturesResponse, error) {
+	rsp, err := c.ReindexFeatures(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReindexFeaturesResponse(rsp)
+}
+
 // SearchFeaturesWithBodyWithResponse request with arbitrary body returning *ParsedSearchFeaturesResponse
 func (c *ClientWithResponses) SearchFeaturesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSearchFeaturesResponse, error) {
 	rsp, err := c.SearchFeaturesWithBody(ctx, contentType, body, reqEditors...)
@@ -37520,6 +38022,23 @@ func (c *ClientWithResponses) SearchFeaturesWithResponse(ctx context.Context, bo
 		return nil, err
 	}
 	return ParseParsedSearchFeaturesResponse(rsp)
+}
+
+// SimilarFeaturesWithBodyWithResponse request with arbitrary body returning *ParsedSimilarFeaturesResponse
+func (c *ClientWithResponses) SimilarFeaturesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarFeaturesResponse, error) {
+	rsp, err := c.SimilarFeaturesWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSimilarFeaturesResponse(rsp)
+}
+
+func (c *ClientWithResponses) SimilarFeaturesWithResponse(ctx context.Context, body SimilarFeaturesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSimilarFeaturesResponse, error) {
+	rsp, err := c.SimilarFeatures(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSimilarFeaturesResponse(rsp)
 }
 
 // ListStaleFeaturesWithResponse request returning *ParsedListStaleFeaturesResponse
@@ -38896,6 +39415,40 @@ func (c *ClientWithResponses) MoveSpecWithResponse(ctx context.Context, body Mov
 		return nil, err
 	}
 	return ParseMoveSpecResponse(rsp)
+}
+
+// ReindexSpecsWithBodyWithResponse request with arbitrary body returning *ParsedReindexSpecsResponse
+func (c *ClientWithResponses) ReindexSpecsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReindexSpecsResponse, error) {
+	rsp, err := c.ReindexSpecsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReindexSpecsResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReindexSpecsWithResponse(ctx context.Context, body ReindexSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReindexSpecsResponse, error) {
+	rsp, err := c.ReindexSpecs(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReindexSpecsResponse(rsp)
+}
+
+// SimilarSpecsWithBodyWithResponse request with arbitrary body returning *ParsedSimilarSpecsResponse
+func (c *ClientWithResponses) SimilarSpecsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarSpecsResponse, error) {
+	rsp, err := c.SimilarSpecsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSimilarSpecsResponse(rsp)
+}
+
+func (c *ClientWithResponses) SimilarSpecsWithResponse(ctx context.Context, body SimilarSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSimilarSpecsResponse, error) {
+	rsp, err := c.SimilarSpecs(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSimilarSpecsResponse(rsp)
 }
 
 // ListSpecTasksWithResponse request returning *ParsedListSpecTasksResponse
@@ -43654,6 +44207,39 @@ func ParseSetFeatureParentResponse(rsp *http.Response) (*SetFeatureParentRespons
 	return response, nil
 }
 
+// ParseParsedReindexFeaturesResponse parses an HTTP response from a ReindexFeaturesWithResponse call
+func ParseParsedReindexFeaturesResponse(rsp *http.Response) (*ParsedReindexFeaturesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedReindexFeaturesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReindexFeaturesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedSearchFeaturesResponse parses an HTTP response from a SearchFeaturesWithResponse call
 func ParseParsedSearchFeaturesResponse(rsp *http.Response) (*ParsedSearchFeaturesResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -43670,6 +44256,39 @@ func ParseParsedSearchFeaturesResponse(rsp *http.Response) (*ParsedSearchFeature
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SearchFeaturesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedSimilarFeaturesResponse parses an HTTP response from a SimilarFeaturesWithResponse call
+func ParseParsedSimilarFeaturesResponse(rsp *http.Response) (*ParsedSimilarFeaturesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSimilarFeaturesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SimilarFeaturesResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -47102,6 +47721,72 @@ func ParseMoveSpecResponse(rsp *http.Response) (*MoveSpecResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedReindexSpecsResponse parses an HTTP response from a ReindexSpecsWithResponse call
+func ParseParsedReindexSpecsResponse(rsp *http.Response) (*ParsedReindexSpecsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedReindexSpecsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReindexSpecsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedSimilarSpecsResponse parses an HTTP response from a SimilarSpecsWithResponse call
+func ParseParsedSimilarSpecsResponse(rsp *http.Response) (*ParsedSimilarSpecsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSimilarSpecsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SimilarSpecsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

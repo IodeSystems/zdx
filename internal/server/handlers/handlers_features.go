@@ -73,6 +73,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			go h.Emb.UpsertFeature(context.Background(), p.ID, row.ID, featureEmbedText(row.Name, row.Description, row.What, row.Why, row.DoneWhen))
 			return &struct{ Body FeatureItem }{Body: toFeatureItemFromUpsert(row)}, nil
 		})
 
@@ -130,6 +131,9 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				Value:     in.Body.Value,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+			if feat, err := h.Q.GetFeature(ctx, db.GetFeatureParams{ProjectID: p.ID, Name: in.Body.Feature}); err == nil {
+				go h.Emb.UpsertFeature(context.Background(), p.ID, feat.ID, featureEmbedText(feat.Name, feat.Description, feat.What, feat.Why, feat.DoneWhen))
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
@@ -264,7 +268,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				return nil, apiErr(http.StatusNotFound, "feature not found")
 			}
 			// field is the spec kind (unit_test, api_test, ui_test); value is description
-			_, err = h.Q.AddSpec(ctx, db.AddSpecParams{
+			spec, err := h.Q.AddSpec(ctx, db.AddSpecParams{
 				FeatureID:   f.ID,
 				Description: in.Body.Value,
 				Kind:        in.Body.Field,
@@ -273,6 +277,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			go h.Emb.UpsertSpec(context.Background(), p.ID, spec.ID, specEmbedText(f.Name, spec.Description, spec.Kind))
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -767,6 +772,141 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 
 	// ── Plans ─────────────────────────────────────────────────────────────────
 
+	huma.Register(api, huma.Operation{OperationID: "similar-features", Method: http.MethodPost, Path: "/api/dx/features/similar"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				Text string `json:"text"`
+				N    int    `json:"n,omitempty"`
+			}
+		}) (*struct {
+			Body struct {
+				Features []SimilarFeatureItem `json:"features"`
+			}
+		}, error) {
+			n := in.Body.N
+			if n <= 0 {
+				n = 5
+			}
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			results, err := h.findSimilarFeatures(ctx, p.ID, in.Body.Text, n)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Features []SimilarFeatureItem `json:"features"`
+				}
+			}{Body: struct {
+				Features []SimilarFeatureItem `json:"features"`
+			}{Features: results}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "similar-specs", Method: http.MethodPost, Path: "/api/dx/specs/similar"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+				Text string `json:"text"`
+				N    int    `json:"n,omitempty"`
+			}
+		}) (*struct {
+			Body struct {
+				Specs []SimilarSpecItem `json:"specs"`
+			}
+		}, error) {
+			n := in.Body.N
+			if n <= 0 {
+				n = 5
+			}
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			results, err := h.findSimilarSpecs(ctx, p.ID, in.Body.Text, n)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					Specs []SimilarSpecItem `json:"specs"`
+				}
+			}{Body: struct {
+				Specs []SimilarSpecItem `json:"specs"`
+			}{Specs: results}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "reindex-features", Method: http.MethodPost, Path: "/api/dx/features/reindex"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+			}
+		}) (*struct {
+			Body struct {
+				Indexed int `json:"indexed"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			features, err := h.Q.ListFeatures(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			for _, f := range features {
+				h.Emb.UpsertFeature(ctx, p.ID, f.ID, featureEmbedText(f.Name, f.Description, f.What, f.Why, f.DoneWhen))
+			}
+			return &struct {
+				Body struct {
+					Indexed int `json:"indexed"`
+				}
+			}{Body: struct {
+				Indexed int `json:"indexed"`
+			}{Indexed: len(features)}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "reindex-specs", Method: http.MethodPost, Path: "/api/dx/specs/reindex"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+			}
+		}) (*struct {
+			Body struct {
+				Indexed int `json:"indexed"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			specs, err := h.Q.ListSpecsForProject(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			featureNames := make(map[int32]string)
+			for _, s := range specs {
+				name, ok := featureNames[s.FeatureID]
+				if !ok {
+					feat, err := h.Q.GetFeatureByID(ctx, s.FeatureID)
+					if err == nil {
+						name = feat.Name
+						featureNames[s.FeatureID] = name
+					}
+				}
+				h.Emb.UpsertSpec(ctx, p.ID, s.ID, specEmbedText(name, s.Description, s.Kind))
+			}
+			return &struct {
+				Body struct {
+					Indexed int `json:"indexed"`
+				}
+			}{Body: struct {
+				Indexed int `json:"indexed"`
+			}{Indexed: len(specs)}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "create-plan", Method: http.MethodPost, Path: "/api/dx/plan/create"},
 		func(ctx context.Context, in *struct {
 			Body struct {
@@ -891,4 +1031,28 @@ func toFeatureItemFromStale(f db.ListStaleFeaturesRow) FeatureItem {
 		Component: f.Component, Category: f.Category,
 		Kind: f.Kind, GoalID: int4Val(f.GoalID), ParentFeatureID: int4Val(f.ParentFeatureID),
 	}
+}
+
+func featureEmbedText(name, description, what, why, doneWhen string) string {
+	parts := []string{name}
+	for _, p := range []string{description, what, why, doneWhen} {
+		if p != "" {
+			parts = append(parts, p)
+		}
+	}
+	return strings.Join(parts, " ")
+}
+
+func specEmbedText(featureName, description, kind string) string {
+	parts := make([]string, 0, 3)
+	if featureName != "" {
+		parts = append(parts, featureName)
+	}
+	if kind != "" {
+		parts = append(parts, kind)
+	}
+	if description != "" {
+		parts = append(parts, description)
+	}
+	return strings.Join(parts, " ")
 }

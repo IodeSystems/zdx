@@ -369,6 +369,102 @@ func (e *embedder) TopNProposals(ctx context.Context, projectID int32, queryText
 	return results, err
 }
 
+func (e *embedder) featureIndexPath(projectID int32) string {
+	return filepath.Join(e.dataDir, fmt.Sprintf("features-%d.zvec", projectID))
+}
+
+func (e *embedder) UpsertFeature(ctx context.Context, projectID int32, featureID int32, text string) {
+	vec, err := e.embed(ctx, text)
+	if err != nil {
+		log.Printf("embedder: embed feature %d: %v", featureID, err)
+		return
+	}
+	if vec == nil {
+		return
+	}
+	path := e.featureIndexPath(projectID)
+	start := time.Now()
+	idx, err := e.loadOrCreate(path, len(vec))
+	if err != nil {
+		log.Printf("embedder: open feature index %s: %v", path, err)
+		return
+	}
+	if err := idx.Upsert(path, uint64(featureID), vec); err != nil { //nolint:gosec
+		log.Printf("embedder: upsert feature %d: %v", featureID, err)
+	}
+	e.sink.track(ctx, "zvec:upsert-feature", start)
+}
+
+func (e *embedder) TopNFeatures(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+	vec, err := e.embed(ctx, queryText)
+	if err != nil {
+		return nil, fmt.Errorf("embed query: %w", err)
+	}
+	if vec == nil {
+		return nil, nil
+	}
+	path := e.featureIndexPath(projectID)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, nil
+	}
+	start := time.Now()
+	idx, err := zvec.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open feature index: %w", err)
+	}
+	results, err := idx.TopN(vec, n)
+	e.sink.track(ctx, "zvec:search-features", start)
+	return results, err
+}
+
+func (e *embedder) specIndexPath(projectID int32) string {
+	return filepath.Join(e.dataDir, fmt.Sprintf("specs-%d.zvec", projectID))
+}
+
+func (e *embedder) UpsertSpec(ctx context.Context, projectID int32, specID int32, text string) {
+	vec, err := e.embed(ctx, text)
+	if err != nil {
+		log.Printf("embedder: embed spec %d: %v", specID, err)
+		return
+	}
+	if vec == nil {
+		return
+	}
+	path := e.specIndexPath(projectID)
+	start := time.Now()
+	idx, err := e.loadOrCreate(path, len(vec))
+	if err != nil {
+		log.Printf("embedder: open spec index %s: %v", path, err)
+		return
+	}
+	if err := idx.Upsert(path, uint64(specID), vec); err != nil { //nolint:gosec
+		log.Printf("embedder: upsert spec %d: %v", specID, err)
+	}
+	e.sink.track(ctx, "zvec:upsert-spec", start)
+}
+
+func (e *embedder) TopNSpecs(ctx context.Context, projectID int32, queryText string, n int) ([]zvec.SearchResult, error) {
+	vec, err := e.embed(ctx, queryText)
+	if err != nil {
+		return nil, fmt.Errorf("embed query: %w", err)
+	}
+	if vec == nil {
+		return nil, nil
+	}
+	path := e.specIndexPath(projectID)
+	if _, err := os.Stat(path); os.IsNotExist(err) {
+		return nil, nil
+	}
+	start := time.Now()
+	idx, err := zvec.Open(path)
+	if err != nil {
+		return nil, fmt.Errorf("open spec index: %w", err)
+	}
+	results, err := idx.TopN(vec, n)
+	e.sink.track(ctx, "zvec:search-specs", start)
+	return results, err
+}
+
 // issueNumericID converts "IS-42" → 42.
 func issueNumericID(id string) uint64 {
 	s := strings.TrimPrefix(id, "IS-")

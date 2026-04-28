@@ -337,6 +337,25 @@ type SearchFocusItem struct {
 	Status      string `json:"status"`
 }
 
+type SimilarFeatureItem struct {
+	ID          int32   `json:"id"`
+	Name        string  `json:"name"`
+	Description string  `json:"description"`
+	Category    string  `json:"category"`
+	Kind        string  `json:"kind"`
+	Score       float32 `json:"score"`
+}
+
+type SimilarSpecItem struct {
+	ID          int32   `json:"id"`
+	FeatureID   int32   `json:"feature_id"`
+	FeatureName string  `json:"feature_name"`
+	Description string  `json:"description"`
+	Kind        string  `json:"kind"`
+	ConcernType string  `json:"concern_type"`
+	Score       float32 `json:"score"`
+}
+
 type SimilarProposalItem struct {
 	ID     int32   `json:"id"`
 	Title  string  `json:"title"`
