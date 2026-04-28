@@ -123,7 +123,7 @@ export function IssueDetail({
 
   const linkedTasks: TaskItem[] = allTasks?.tasks ?? []
   const workEntries: IssueWorkItem[] = data?.work ?? []
-  const blockingFocuses = (allFocuses ?? []).filter(t => t.blockers.split(',').includes(issueId))
+  const blockingFocuses = (allFocuses ?? []).filter(t => (t.attributions ?? []).some(a => a.id === issueId))
   const blockingFocusIds = new Set(blockingFocuses.map(t => t.id))
   const availableFocuses = (allFocuses ?? []).filter(t => t.status !== 'archived' && !blockingFocusIds.has(t.id))
 

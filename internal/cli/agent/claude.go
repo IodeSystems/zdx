@@ -479,13 +479,15 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 	if vision != "" {
 		prompt = "Project vision: " + vision + "\n\n"
 	}
-	if issueID != "" {
-		prompt += fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
-	} else if todo != nil {
+	if todo != nil {
 		// Pass the todo text directly as the prompt — the work instructions
-		// are already embedded in the todo by the queue generator.
+		// are already embedded in the todo by the queue generator (IS-382).
+		// This must take precedence over the issueID-only fallback so that
+		// kind-specific playbooks (triage, decompose, etc.) reach the agent.
 		prompt += fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
+	} else if issueID != "" {
+		prompt += fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
 	}
 
 	adapter := &claudeAdapter{
@@ -518,11 +520,11 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 	_ = os.MkdirAll(projDir, 0o755)
 
 	taskPrompt := ""
-	if issueID != "" {
-		taskPrompt = fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
-	} else if todo != nil {
+	if todo != nil {
 		taskPrompt = fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
+	} else if issueID != "" {
+		taskPrompt = fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
 	}
 	prompt := fmt.Sprintf("%s\n\nThis session is a continuation of a stalled session. The previous session was automatically terminated because it stopped producing output (likely a stuck tool call). Below is a summary of what it accomplished. Continue the work from where it left off — do NOT repeat already-completed steps.\n\n%s", taskPrompt, summary)
 

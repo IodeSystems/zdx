@@ -12,17 +12,18 @@ import (
 )
 
 const addFocusBlocker = `-- name: AddFocusBlocker :exec
-INSERT INTO zdx_focus_blockers (focus_id, issue_id) VALUES ($1, $2)
-ON CONFLICT DO NOTHING
+INSERT INTO zdx_focus_blockers (focus_id, issue_id, justification) VALUES ($1, $2, $3)
+ON CONFLICT (focus_id, issue_id) DO UPDATE SET justification = EXCLUDED.justification
 `
 
 type AddFocusBlockerParams struct {
-	FocusID int32  `db:"focus_id" json:"focus_id"`
-	IssueID string `db:"issue_id" json:"issue_id"`
+	FocusID       int32  `db:"focus_id" json:"focus_id"`
+	IssueID       string `db:"issue_id" json:"issue_id"`
+	Justification string `db:"justification" json:"justification"`
 }
 
 func (q *Queries) AddFocusBlocker(ctx context.Context, arg AddFocusBlockerParams) error {
-	_, err := q.db.Exec(ctx, addFocusBlocker, arg.FocusID, arg.IssueID)
+	_, err := q.db.Exec(ctx, addFocusBlocker, arg.FocusID, arg.IssueID, arg.Justification)
 	return err
 }
 
@@ -217,23 +218,33 @@ func (q *Queries) ListFocusFeatures(ctx context.Context, focusID int32) ([]ListF
 const listFocuses = `-- name: ListFocuses :many
 SELECT f.id, f.name, f.description, f.priority, f.status, f.created_at,
        f.started_at, f.ended_at,
-       COALESCE(STRING_AGG(fb.issue_id, ','), '') AS blockers
+       COALESCE(
+         JSON_AGG(
+           JSON_BUILD_OBJECT(
+             'id', fb.issue_id,
+             'status', COALESCE(i.status, 'open'),
+             'justification', fb.justification
+           )
+         ) FILTER (WHERE fb.issue_id IS NOT NULL),
+         '[]'::json
+       ) AS attributions
 FROM zdx_focuses f
 LEFT JOIN zdx_focus_blockers fb ON fb.focus_id = f.id
+LEFT JOIN zdx_issues i ON i.id = fb.issue_id
 WHERE f.project_id = $1
 GROUP BY f.id ORDER BY f.priority, f.name
 `
 
 type ListFocusesRow struct {
-	ID          int32              `db:"id" json:"id"`
-	Name        string             `db:"name" json:"name"`
-	Description string             `db:"description" json:"description"`
-	Priority    int32              `db:"priority" json:"priority"`
-	Status      string             `db:"status" json:"status"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	StartedAt   pgtype.Timestamptz `db:"started_at" json:"started_at"`
-	EndedAt     pgtype.Timestamptz `db:"ended_at" json:"ended_at"`
-	Blockers    interface{}        `db:"blockers" json:"blockers"`
+	ID           int32              `db:"id" json:"id"`
+	Name         string             `db:"name" json:"name"`
+	Description  string             `db:"description" json:"description"`
+	Priority     int32              `db:"priority" json:"priority"`
+	Status       string             `db:"status" json:"status"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	StartedAt    pgtype.Timestamptz `db:"started_at" json:"started_at"`
+	EndedAt      pgtype.Timestamptz `db:"ended_at" json:"ended_at"`
+	Attributions interface{}        `db:"attributions" json:"attributions"`
 }
 
 // metaquery: off
@@ -255,7 +266,7 @@ func (q *Queries) ListFocuses(ctx context.Context, projectID int32) ([]ListFocus
 			&i.CreatedAt,
 			&i.StartedAt,
 			&i.EndedAt,
-			&i.Blockers,
+			&i.Attributions,
 		); err != nil {
 			return nil, err
 		}

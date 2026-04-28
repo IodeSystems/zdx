@@ -754,7 +754,8 @@ ALTER SEQUENCE public.zdx_files_id_seq OWNED BY public.zdx_files.id;
 
 CREATE TABLE public.zdx_focus_blockers (
     focus_id integer NOT NULL,
-    issue_id text NOT NULL
+    issue_id text NOT NULL,
+    justification text DEFAULT '' NOT NULL
 );
 
 

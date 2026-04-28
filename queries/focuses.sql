@@ -2,9 +2,19 @@
 -- metaquery: off
 SELECT f.id, f.name, f.description, f.priority, f.status, f.created_at,
        f.started_at, f.ended_at,
-       COALESCE(STRING_AGG(fb.issue_id, ','), '') AS blockers
+       COALESCE(
+         JSON_AGG(
+           JSON_BUILD_OBJECT(
+             'id', fb.issue_id,
+             'status', COALESCE(i.status, 'open'),
+             'justification', fb.justification
+           )
+         ) FILTER (WHERE fb.issue_id IS NOT NULL),
+         '[]'::json
+       ) AS attributions
 FROM zdx_focuses f
 LEFT JOIN zdx_focus_blockers fb ON fb.focus_id = f.id
+LEFT JOIN zdx_issues i ON i.id = fb.issue_id
 WHERE f.project_id = $1
 GROUP BY f.id ORDER BY f.priority, f.name;
 
@@ -29,8 +39,8 @@ UPDATE zdx_focuses SET started_at = @started_at, ended_at = @ended_at
 WHERE project_id = @project_id AND id = @id;
 
 -- name: AddFocusBlocker :exec
-INSERT INTO zdx_focus_blockers (focus_id, issue_id) VALUES ($1, $2)
-ON CONFLICT DO NOTHING;
+INSERT INTO zdx_focus_blockers (focus_id, issue_id, justification) VALUES ($1, $2, $3)
+ON CONFLICT (focus_id, issue_id) DO UPDATE SET justification = EXCLUDED.justification;
 
 -- name: RemoveFocusBlocker :exec
 DELETE FROM zdx_focus_blockers WHERE focus_id = $1 AND issue_id = $2;

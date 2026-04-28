@@ -17,6 +17,7 @@ export type ProjectItem = components['schemas']['ProjectItem']
 export type MeItem = components['schemas']['MeItem']
 export type OKBody = components['schemas']['OKBody']
 export type FocusItem = components['schemas']['FocusItem']
+export type FocusAttribution = components['schemas']['FocusAttribution']
 
 export interface SoloItem {
   id: number
@@ -214,14 +215,15 @@ export const useCreateProject = () => {
 
 // ── issues ────────────────────────────────────────────────────────────────────
 
-export const useIssues = (slug: string, limit?: number, offset?: number, component?: string) =>
+export const useIssues = (slug: string, limit?: number, offset?: number, component?: string, status?: string) =>
   useQuery<{ issues: IssueItem[]; total: number; statusCounts: Record<string, number> }>({
-    queryKey: ['issues', slug, limit, offset, component ?? ''],
+    queryKey: ['issues', slug, limit, offset, component ?? '', status ?? ''],
     queryFn: async () => {
       const params: Record<string, string> = { slug }
       if (limit != null) params.limit = String(limit)
       if (offset != null) params.offset = String(offset)
       if (component) params.component = component
+      if (status) params.status = status
       const { data, error } = await client.GET('/api/dx/todo/issue/list', { params: { query: params as any } })
       if (error) throw new Error(JSON.stringify(error))
       return {
@@ -2327,7 +2329,7 @@ export const useListFocuses = (slug: string) =>
 
 export const useAddFocusBlocker = () => {
   const qc = useQueryClient()
-  return useMutation<OKBody, Error, { slug: string; focus: string; issue: string }>({
+  return useMutation<OKBody, Error, { slug: string; focus: string; issue: string; justification?: string }>({
     mutationFn: async (body) => {
       const { data, error } = await client.POST('/api/dx/focuses/block', { body })
       if (error) throw new Error(JSON.stringify(error))

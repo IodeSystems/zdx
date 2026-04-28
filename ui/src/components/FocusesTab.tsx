@@ -69,13 +69,13 @@ export function FocusesTab({ slug }: { slug: string }) {
               <TableCell>Name</TableCell>
               <TableCell>Priority</TableCell>
               <TableCell>Status</TableCell>
-              <TableCell align="right">Blockers</TableCell>
+              <TableCell align="right">Concerns</TableCell>
             </TableRow>
           </TableHead>
           <TableBody>
             {items.map(t => {
               const pLabel = PRIORITY_LABELS[t.priority] ?? 'medium'
-              const blockerCount = t.blockers ? t.blockers.split(',').filter(Boolean).length : 0
+              const concernCount = (t.attributions ?? []).filter(a => a.status === 'open').length
               return (
                 <TableRow
                   key={t.id}
@@ -91,7 +91,7 @@ export function FocusesTab({ slug }: { slug: string }) {
                   <TableCell>
                     <Chip label={t.status} size="small" variant="outlined" color={STATUS_COLORS[t.status] || 'default'} />
                   </TableCell>
-                  <TableCell align="right">{blockerCount}</TableCell>
+                  <TableCell align="right">{concernCount || ''}</TableCell>
                 </TableRow>
               )
             })}

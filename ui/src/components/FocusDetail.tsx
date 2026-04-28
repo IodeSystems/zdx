@@ -16,6 +16,7 @@ import {
   useRemoveFocusBlocker,
   useSearchIssues,
   type IssueItem,
+  type FocusAttribution,
 } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 
@@ -32,6 +33,10 @@ const STATUS_COLORS: Record<string, 'success' | 'info' | 'default'> = {
   archived: 'default',
 }
 
+function isConcern(a: FocusAttribution) {
+  return a.status === 'open'
+}
+
 export function FocusDetail({ slug, name }: { slug: string; name: string }) {
   const router = useRouter()
   const { data: allFocuses, isLoading } = useListFocuses(slug)
@@ -39,6 +44,7 @@ export function FocusDetail({ slug, name }: { slug: string; name: string }) {
   const addBlocker = useAddFocusBlocker()
   const removeBlocker = useRemoveFocusBlocker()
   const [issueSearch, setIssueSearch] = useState('')
+  const [justification, setJustification] = useState('')
   const { data: searchResults } = useSearchIssues(slug, issueSearch, issueSearch.length > 1)
 
   const focus = allFocuses?.find(t => t.name === name)
@@ -55,7 +61,9 @@ export function FocusDetail({ slug, name }: { slug: string; name: string }) {
     )
   }
 
-  const blockerIds = focus.blockers ? focus.blockers.split(',').filter(Boolean) : []
+  const attributions = focus.attributions ?? []
+  const attributionIds = attributions.map(a => a.id)
+  const concernCount = attributions.filter(isConcern).length
   const pLabel = PRIORITY_LABELS[focus.priority] ?? 'medium'
   const availableStatuses = ['active', 'done', 'archived'].filter(s => s !== focus.status)
 
@@ -96,47 +104,71 @@ export function FocusDetail({ slug, name }: { slug: string; name: string }) {
 
       <Box sx={{ mb: 3 }}>
         <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>
-          Blocking Issues ({blockerIds.length})
+          Attributions ({attributions.length}){concernCount > 0 && ` — ${concernCount} concern${concernCount !== 1 ? 's' : ''}`}
         </Typography>
-        {blockerIds.length === 0 && (
+        {attributions.length === 0 && (
           <Typography variant="body2" color="text.secondary">No issues linked.</Typography>
         )}
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-          {blockerIds.map(id => (
-            <Box key={id} sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+          {attributions.map(a => (
+            <Box key={a.id} sx={{ display: 'flex', alignItems: 'flex-start', gap: 1 }}>
               <Chip
-                label={id}
+                label={a.id}
                 size="small"
-                variant="outlined"
+                variant={isConcern(a) ? 'filled' : 'outlined'}
+                color={isConcern(a) ? 'warning' : 'default'}
                 component={Link as any}
                 to="/project/$slug/issues/$id"
-                params={{ slug, id }}
+                params={{ slug, id: a.id }}
                 clickable
-                sx={{ textDecoration: 'none' }}
-                onDelete={() => removeBlocker.mutate({ slug, focus: `FO-${focus.id}`, issue: id })}
+                sx={{ textDecoration: 'none', mt: a.justification ? 0.25 : 0 }}
+                onDelete={() => removeBlocker.mutate({ slug, focus: `FO-${focus.id}`, issue: a.id })}
               />
+              <Box>
+                <Chip
+                  label={a.status}
+                  size="small"
+                  variant="outlined"
+                  color={isConcern(a) ? 'warning' : 'success'}
+                  sx={{ mr: 0.5 }}
+                />
+                {a.justification && (
+                  <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.25 }}>
+                    {a.justification}
+                  </Typography>
+                )}
+              </Box>
             </Box>
           ))}
         </Box>
 
-        <Box sx={{ mt: 1 }}>
+        <Box sx={{ mt: 1, display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
           <Autocomplete<IssueItem>
             size="small"
-            options={(searchResults ?? []).filter(i => !blockerIds.includes(`IS-${i.id}`))}
+            options={(searchResults ?? []).filter(i => !attributionIds.includes(`IS-${i.id}`))}
             getOptionLabel={(o) => `IS-${o.id}: ${o.title || o.context?.slice(0, 60) || '(no title)'}`}
             inputValue={issueSearch}
             onInputChange={(_, v) => setIssueSearch(v)}
             onChange={(_, v) => {
               if (v) {
-                addBlocker.mutate({ slug, focus: `FO-${focus.id}`, issue: `IS-${v.id}` })
+                addBlocker.mutate({ slug, focus: `FO-${focus.id}`, issue: `IS-${v.id}`, justification })
                 setIssueSearch('')
+                setJustification('')
               }
             }}
             value={null}
-            renderInput={(params) => <TextField {...params} label="Add blocker issue" placeholder="Search issues..." />}
-            sx={{ maxWidth: 400 }}
+            renderInput={(params) => <TextField {...params} label="Add attribution" placeholder="Search issues..." />}
+            sx={{ minWidth: 280 }}
             noOptionsText={issueSearch.length < 2 ? 'Type to search...' : 'No issues found'}
             isOptionEqualToValue={(o, v) => o.id === v.id}
+          />
+          <TextField
+            size="small"
+            label="Justification (optional)"
+            value={justification}
+            onChange={e => setJustification(e.target.value)}
+            sx={{ minWidth: 220 }}
+            placeholder="Why is this attributed?"
           />
         </Box>
       </Box>

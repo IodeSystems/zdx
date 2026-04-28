@@ -255,8 +255,9 @@ type ZdxFile struct {
 }
 
 type ZdxFocusBlocker struct {
-	FocusID int32  `db:"focus_id" json:"focus_id"`
-	IssueID string `db:"issue_id" json:"issue_id"`
+	FocusID       int32  `db:"focus_id" json:"focus_id"`
+	IssueID       string `db:"issue_id" json:"issue_id"`
+	Justification string `db:"justification" json:"justification"`
 }
 
 type ZdxFocusFeature struct {

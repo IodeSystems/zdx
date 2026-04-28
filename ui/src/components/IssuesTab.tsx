@@ -11,15 +11,16 @@ import {
   DialogTitle,
   IconButton,
   InputAdornment,
+  Pagination,
   Stack,
   TextField,
   Typography,
 } from '@mui/material'
 import { Search as SearchIcon, Close as CloseIcon } from '@mui/icons-material'
 import { useIssues, useSearchIssues, useSimilarIssues, type IssueItem, type SimilarIssueItem } from '../api'
-import { useLoadMore } from '../api/pagination'
-import { LoadMore } from './LoadMore'
 import { useComponentFilter } from './ComponentContext'
+
+const ISSUES_PAGE_SIZE = 25
 
 type Issue = IssueItem
 
@@ -243,35 +244,44 @@ export function IssuesTab({
   slug,
   statusFilter,
   onStatusFilter,
+  page,
+  onPageChange,
 }: {
   slug: string
   statusFilter: string | null
   onStatusFilter: (status: string | null) => void
+  page: number
+  onPageChange: (page: number) => void
 }) {
   const { component } = useComponentFilter()
-  const { offset, loadMore, pageSize } = useLoadMore()
-  const { data, isLoading } = useIssues(slug, pageSize, offset, component)
+  const offset = (page - 1) * ISSUES_PAGE_SIZE
+  const { data, isLoading } = useIssues(slug, ISSUES_PAGE_SIZE, offset, component, statusFilter ?? undefined)
 
   if (isLoading && !data) return <Typography color="text.secondary">Loading...</Typography>
 
-  const allItems: Issue[] = data?.issues ?? []
+  const items: Issue[] = data?.issues ?? []
   const total = data?.total ?? 0
   const statusCounts: Record<string, number> = data?.statusCounts ?? {}
-  const filteredTotal = Object.values(statusCounts).reduce((a, b) => a + b, 0)
+  const overallTotal = Object.values(statusCounts).reduce((a, b) => a + b, 0)
+  const pageCount = Math.max(1, Math.ceil(total / ISSUES_PAGE_SIZE))
+  const showingFrom = total === 0 ? 0 : offset + 1
+  const showingTo = Math.min(offset + items.length, total)
 
-  const items = statusFilter ? allItems.filter(i => i.status === statusFilter) : allItems
+  function selectFilter(status: string | null) {
+    onStatusFilter(status)
+    onPageChange(1)
+  }
 
   function toggleFilter(status: string) {
-    onStatusFilter(statusFilter === status ? null : status)
+    selectFilter(statusFilter === status ? null : status)
   }
 
   return (
     <Box>
       <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 1, mb: 2 }}>
         <Typography variant="subtitle2" color="text.secondary">
-          {statusFilter ? `${statusCounts[statusFilter] ?? 0} of ${filteredTotal}` : `${filteredTotal}`} issues
+          {statusFilter ? `${total} ${statusFilter}` : `${overallTotal}`} issues
           {component && ` (component=${component})`}
-          {statusFilter && ` — filtered: ${statusFilter}`}
         </Typography>
         <Stack direction="row" spacing={0.5} sx={{ flexWrap: 'wrap' }}>
           {Object.entries(statusCounts)
@@ -292,7 +302,7 @@ export function IssuesTab({
               label="clear"
               size="small"
               variant="outlined"
-              onClick={() => onStatusFilter(null)}
+              onClick={() => selectFilter(null)}
               sx={{ cursor: 'pointer' }}
             />
           )}
@@ -347,7 +357,21 @@ export function IssuesTab({
         {items.length === 0 && !isLoading && (
           <Typography variant="body2" color="text.secondary">No issues.</Typography>
         )}
-        <LoadMore loaded={allItems.length} total={total} onLoadMore={loadMore} />
+        {total > ISSUES_PAGE_SIZE && (
+          <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+            <Typography variant="caption" color="text.secondary">
+              Showing {showingFrom}–{showingTo} of {total}
+            </Typography>
+            <Pagination
+              count={pageCount}
+              page={page}
+              onChange={(_, p) => onPageChange(p)}
+              size="small"
+              siblingCount={1}
+              boundaryCount={1}
+            />
+          </Box>
+        )}
       </Box>
     </Box>
   )

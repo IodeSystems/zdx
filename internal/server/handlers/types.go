@@ -157,15 +157,21 @@ type UncoveredSpecItem struct {
 }
 
 type FocusItem struct {
-	ID          int32  `json:"id"`
-	Name        string `json:"name"`
-	Description string `json:"description"`
-	Priority    int32  `json:"priority"`
-	Status      string `json:"status"`
-	Blockers    string `json:"blockers"`
-	StartedAt   string `json:"started_at"`
-	EndedAt     string `json:"ended_at"`
-	CreatedAt   string `json:"created_at"`
+	ID           int32              `json:"id"`
+	Name         string             `json:"name"`
+	Description  string             `json:"description"`
+	Priority     int32              `json:"priority"`
+	Status       string             `json:"status"`
+	Attributions []FocusAttribution `json:"attributions"`
+	StartedAt    string             `json:"started_at"`
+	EndedAt      string             `json:"ended_at"`
+	CreatedAt    string             `json:"created_at"`
+}
+
+type FocusAttribution struct {
+	ID            string `json:"id" doc:"Issue ID formatted as IS-N"`
+	Status        string `json:"status" doc:"Current status of the attributed issue"`
+	Justification string `json:"justification" doc:"Why this issue is attributed to the focus"`
 }
 
 type TodoItem struct {

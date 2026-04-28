@@ -46,6 +46,9 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if in.Component != "" {
 				b = b.Where("component", metaquery.OpEq, in.Component)
 			}
+			if in.Status != "" {
+				b = b.Where("status", metaquery.OpEq, in.Status)
+			}
 			b = b.ApplyPagination(metaquery.PageRequest{Page: int(offset / limit), Size: int(limit), Total: true})
 			res, err := mqpgx.Scan[db.ZdxIssue](ctx, h.Pool, b)
 			if err != nil {

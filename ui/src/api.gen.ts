@@ -4655,6 +4655,7 @@ export interface components {
             readonly $schema?: string;
             focus: string;
             issue: string;
+            justification?: string;
             slug: string;
         };
         "Add-focusRequest": {
@@ -6059,6 +6060,14 @@ export interface components {
             what: string;
             why: string;
         };
+        FocusAttribution: {
+            /** @description Issue ID formatted as IS-N */
+            id: string;
+            /** @description Current status of the attributed issue */
+            status: string;
+            /** @description Why this issue is attributed to the focus */
+            justification: string;
+        };
         FocusItem: {
             /**
              * Format: uri
@@ -6066,7 +6075,7 @@ export interface components {
              * @example https://example.com/schemas/FocusItem.json
              */
             readonly $schema?: string;
-            blockers: string;
+            attributions: components["schemas"]["FocusAttribution"][];
             created_at: string;
             description: string;
             ended_at: string;

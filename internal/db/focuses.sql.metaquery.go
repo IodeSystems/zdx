@@ -15,18 +15,19 @@ var MetaAddFocusBlocker = metaquery.Query{
 	Name:   "AddFocusBlocker",
 	Cmd:    ":exec",
 	Source: "focuses.sql",
-	SQL: `INSERT INTO zdx_focus_blockers (focus_id, issue_id) VALUES ($1, $2)
-ON CONFLICT DO NOTHING`,
+	SQL: `INSERT INTO zdx_focus_blockers (focus_id, issue_id, justification) VALUES ($1, $2, $3)
+ON CONFLICT (focus_id, issue_id) DO UPDATE SET justification = EXCLUDED.justification`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "focus_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 		{Position: 2, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "justification", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_focus_blockers"},
 }
 
 // WrapAddFocusBlocker returns a metaquery.Builder over MetaAddFocusBlocker, pre-bound with typed arguments.
 func WrapAddFocusBlocker(arg AddFocusBlockerParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaAddFocusBlocker, arg.FocusID, arg.IssueID)
+	return metaquery.Wrap(&MetaAddFocusBlocker, arg.FocusID, arg.IssueID, arg.Justification)
 }
 
 var MetaAddFocusFeature = metaquery.Query{

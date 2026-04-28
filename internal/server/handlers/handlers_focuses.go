@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 
@@ -27,17 +28,25 @@ func (h *Handler) registerFocusRoutes(api huma.API) {
 			}
 			out := make([]FocusItem, len(rows))
 			for i, r := range rows {
-				blockers, _ := r.Blockers.(string)
+				var attributions []FocusAttribution
+				if raw, ok := r.Attributions.([]byte); ok {
+					_ = json.Unmarshal(raw, &attributions)
+				} else if rawStr, ok := r.Attributions.(string); ok {
+					_ = json.Unmarshal([]byte(rawStr), &attributions)
+				}
+				if attributions == nil {
+					attributions = []FocusAttribution{}
+				}
 				out[i] = FocusItem{
-					ID:          r.ID,
-					Name:        r.Name,
-					Description: r.Description,
-					Priority:    r.Priority,
-					Status:      r.Status,
-					Blockers:    blockers,
-					StartedAt:   fmtTS(r.StartedAt),
-					EndedAt:     fmtTS(r.EndedAt),
-					CreatedAt:   fmtTS(r.CreatedAt),
+					ID:           r.ID,
+					Name:         r.Name,
+					Description:  r.Description,
+					Priority:     r.Priority,
+					Status:       r.Status,
+					Attributions: attributions,
+					StartedAt:    fmtTS(r.StartedAt),
+					EndedAt:      fmtTS(r.EndedAt),
+					CreatedAt:    fmtTS(r.CreatedAt),
 				}
 			}
 			return &struct {
@@ -143,9 +152,10 @@ func (h *Handler) registerFocusRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "add-focus-blocker", Method: http.MethodPost, Path: "/api/dx/focuses/block"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug  string `json:"slug"`
-				Focus string `json:"focus"`
-				Issue string `json:"issue"`
+				Slug          string `json:"slug"`
+				Focus         string `json:"focus"`
+				Issue         string `json:"issue"`
+				Justification string `json:"justification,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -157,8 +167,9 @@ func (h *Handler) registerFocusRoutes(api huma.API) {
 				return nil, err
 			}
 			if err := h.Q.AddFocusBlocker(ctx, db.AddFocusBlockerParams{
-				FocusID: focus.ID,
-				IssueID: in.Body.Issue,
+				FocusID:       focus.ID,
+				IssueID:       in.Body.Issue,
+				Justification: in.Body.Justification,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
