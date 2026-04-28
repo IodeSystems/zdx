@@ -113,6 +113,21 @@ func DefaultClient() (*Client, error) {
 	return c, nil
 }
 
+// NewClientWithSlug returns a project-scoped Client. Useful for tests and
+// callers that already know the slug without reading local config.
+func NewClientWithSlug(base, token, slug string) *Client {
+	c := &Client{
+		base:  base,
+		token: token,
+		slug:  slug,
+		http:  &http.Client{},
+	}
+	if err := c.initTyped(); err != nil {
+		return c
+	}
+	return c
+}
+
 // NewClient returns a Client talking to base with the given token. The slug
 // is empty; callers that need project-scoped operations must supply it via a
 // different constructor or fall back to DefaultClient. Used by setup/integrate
