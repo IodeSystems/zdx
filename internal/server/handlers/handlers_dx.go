@@ -199,6 +199,9 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					}
 				}
 			}
+			// Test-gated sync: if this is a full passing run on main, queue sync todos
+			// for every environment that has a release_branch configured.
+			go h.maybeQueueReleaseSyncs(context.Background(), p.ID, in.Body.Results)
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -827,23 +830,26 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 
 func toTodoItemFromRow(r db.ListTodosRow) TodoItem {
 	return TodoItem{
-		ID:              r.ID,
-		Text:            r.Text,
-		Title:           r.Title,
-		Description:     r.Description,
-		Key:             r.Key,
-		Persona:         r.Persona,
-		Priority:        r.Priority,
-		Status:          r.Status,
-		TargetType:      r.TargetType,
-		TargetID:        r.TargetID,
-		Kind:            r.Kind,
-		IssueRef:        r.IssueRef,
-		Blocked:         r.Blocked,
-		SuggestedAction: suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
-		ClaimedBy:       r.ClaimedBy,
-		ClaimedAt:       fmtTS(r.ClaimedAt),
-		CreatedAt:       fmtTS(r.CreatedAt),
-		ResolvedAt:      fmtTS(r.ResolvedAt),
+		ID:               r.ID,
+		Text:             r.Text,
+		Title:            r.Title,
+		Description:      r.Description,
+		Key:              r.Key,
+		Persona:          r.Persona,
+		Priority:         r.Priority,
+		Status:           r.Status,
+		TargetType:       r.TargetType,
+		TargetID:         r.TargetID,
+		Kind:             r.Kind,
+		IssueRef:         r.IssueRef,
+		Blocked:          r.Blocked,
+		BlockedReason:    r.BlockedReason,
+		CycleCount:       r.CycleCount,
+		ReferenceIssueID: r.ReferenceIssueID,
+		SuggestedAction:  suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
+		ClaimedBy:        r.ClaimedBy,
+		ClaimedAt:        fmtTS(r.ClaimedAt),
+		CreatedAt:        fmtTS(r.CreatedAt),
+		ResolvedAt:       fmtTS(r.ResolvedAt),
 	}
 }

@@ -504,6 +504,12 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 					}
 				}
 			}
+			// Auto-unblock todos that reference this issue as their system-gap issue.
+			_ = h.Q.UnblockTodosByReferenceIssue(ctx, db.UnblockTodosByReferenceIssueParams{
+				ProjectID:        p.ID,
+				ReferenceIssueID: issueID,
+			})
+
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 

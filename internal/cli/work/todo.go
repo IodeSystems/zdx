@@ -77,7 +77,7 @@ func TodoCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
 	}
-	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd())
+	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd(), todoUnblockAllCmd())
 	return cmd
 }
 
@@ -138,6 +138,11 @@ func todoTakeRun(cmd *cobra.Command, agentID string, leaseMinutes int32) error {
 	if todo.Instructions != nil && *todo.Instructions != "" {
 		fmt.Printf("\nInstructions:\n%s\n", *todo.Instructions)
 	}
+	searchText := title
+	if todo.Description != nil && *todo.Description != "" {
+		searchText += " " + *todo.Description
+	}
+	printSimilarPatterns(cmd, c, slug, searchText)
 	return nil
 }
 
@@ -1629,6 +1634,24 @@ func todoTechAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			ctx := cmd.Context()
 			c := cli.MustClient()
+			if issue != "" {
+				issResp, err := c.ShowIssueWithResponse(ctx, &dxclient.ShowIssueParams{
+					Slug: c.SlugOrDie(),
+					Id:   issue,
+				})
+				if err != nil {
+					return fmt.Errorf("checking issue %s: %w", issue, err)
+				}
+				if err := c.CheckStatus(issResp.StatusCode(), issResp.Body); err != nil {
+					return fmt.Errorf("checking issue %s: %w", issue, err)
+				}
+				if issResp.JSON200 != nil {
+					iss := issResp.JSON200.Issue
+					if iss.Status != "open" {
+						return fmt.Errorf("%s is %s — pick an open issue or omit --issue to link by feature", issue, iss.Status)
+					}
+				}
+			}
 			body := dxclient.AddTaskRequest{
 				Slug: c.SlugOrDie(),
 				Text: text,
@@ -1907,6 +1930,30 @@ func todoReleaseRun(cmd *cobra.Command, arg string, force bool) error {
 	}
 	fmt.Printf("%s released\n", arg)
 	return nil
+}
+
+// ── unblock-all ───────────────────────────────────────────────────────────────
+
+func todoUnblockAllCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "unblock-all",
+		Short: "Clear blocked flag on all open blocked todos",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+			resp, err := c.SoloUnblockAllWithResponse(cmd.Context(), dxclient.SoloUnblockAllRequest{
+				Slug: slug,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Println("all blocked todos unblocked")
+			return nil
+		},
+	}
 }
 
 func todoReservationsCmd() *cobra.Command {

@@ -188,12 +188,12 @@ type ZdxEnvironment struct {
 	ProjectID          int32              `db:"project_id" json:"project_id"`
 	Name               string             `db:"name" json:"name"`
 	Url                string             `db:"url" json:"url"`
-	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
 	CurrentBuildSha    string             `db:"current_build_sha" json:"current_build_sha"`
 	CurrentBuildBranch string             `db:"current_build_branch" json:"current_build_branch"`
 	DeployedAt         pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
 	DeployedByUserID   pgtype.Int4        `db:"deployed_by_user_id" json:"deployed_by_user_id"`
 	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
 }
 
 type ZdxErrorEvent struct {
@@ -835,26 +835,29 @@ type ZdxTimedEvent struct {
 }
 
 type ZdxTodo struct {
-	ID             int32              `db:"id" json:"id"`
-	ProjectID      int32              `db:"project_id" json:"project_id"`
-	Text           string             `db:"text" json:"text"`
-	Key            string             `db:"key" json:"key"`
-	Persona        string             `db:"persona" json:"persona"`
-	Priority       int32              `db:"priority" json:"priority"`
-	Status         string             `db:"status" json:"status"`
-	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	ResolvedAt     pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
-	TargetType     string             `db:"target_type" json:"target_type"`
-	TargetID       string             `db:"target_id" json:"target_id"`
-	Kind           string             `db:"kind" json:"kind"`
-	IssueRef       string             `db:"issue_ref" json:"issue_ref"`
-	Blocked        bool               `db:"blocked" json:"blocked"`
-	ClaimedBy      string             `db:"claimed_by" json:"claimed_by"`
-	ClaimedAt      pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
-	LeaseExpiresAt pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
-	ReopenCount    int32              `db:"reopen_count" json:"reopen_count"`
-	Title          string             `db:"title" json:"title"`
-	Description    string             `db:"description" json:"description"`
+	ID               int32              `db:"id" json:"id"`
+	ProjectID        int32              `db:"project_id" json:"project_id"`
+	Text             string             `db:"text" json:"text"`
+	Key              string             `db:"key" json:"key"`
+	Persona          string             `db:"persona" json:"persona"`
+	Priority         int32              `db:"priority" json:"priority"`
+	Status           string             `db:"status" json:"status"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
+	TargetType       string             `db:"target_type" json:"target_type"`
+	TargetID         string             `db:"target_id" json:"target_id"`
+	Kind             string             `db:"kind" json:"kind"`
+	IssueRef         string             `db:"issue_ref" json:"issue_ref"`
+	Blocked          bool               `db:"blocked" json:"blocked"`
+	ClaimedBy        string             `db:"claimed_by" json:"claimed_by"`
+	ClaimedAt        pgtype.Timestamptz `db:"claimed_at" json:"claimed_at"`
+	LeaseExpiresAt   pgtype.Timestamptz `db:"lease_expires_at" json:"lease_expires_at"`
+	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	Title            string             `db:"title" json:"title"`
+	Description      string             `db:"description" json:"description"`
+	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
+	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
+	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
 }
 
 type ZdxUser struct {

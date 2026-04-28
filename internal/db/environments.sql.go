@@ -59,14 +59,27 @@ type CreateEnvironmentParams struct {
 	ReleaseBranch string `db:"release_branch" json:"release_branch"`
 }
 
-func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) (ZdxEnvironment, error) {
+type CreateEnvironmentRow struct {
+	ID                 int32              `db:"id" json:"id"`
+	ProjectID          int32              `db:"project_id" json:"project_id"`
+	Name               string             `db:"name" json:"name"`
+	Url                string             `db:"url" json:"url"`
+	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
+	CurrentBuildSha    string             `db:"current_build_sha" json:"current_build_sha"`
+	CurrentBuildBranch string             `db:"current_build_branch" json:"current_build_branch"`
+	DeployedAt         pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
+	DeployedByUserID   pgtype.Int4        `db:"deployed_by_user_id" json:"deployed_by_user_id"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) (CreateEnvironmentRow, error) {
 	row := q.db.QueryRow(ctx, createEnvironment,
 		arg.ProjectID,
 		arg.Name,
 		arg.Url,
 		arg.ReleaseBranch,
 	)
-	var i ZdxEnvironment
+	var i CreateEnvironmentRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -106,9 +119,22 @@ type GetEnvironmentParams struct {
 	Name      string `db:"name" json:"name"`
 }
 
-func (q *Queries) GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (ZdxEnvironment, error) {
+type GetEnvironmentRow struct {
+	ID                 int32              `db:"id" json:"id"`
+	ProjectID          int32              `db:"project_id" json:"project_id"`
+	Name               string             `db:"name" json:"name"`
+	Url                string             `db:"url" json:"url"`
+	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
+	CurrentBuildSha    string             `db:"current_build_sha" json:"current_build_sha"`
+	CurrentBuildBranch string             `db:"current_build_branch" json:"current_build_branch"`
+	DeployedAt         pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
+	DeployedByUserID   pgtype.Int4        `db:"deployed_by_user_id" json:"deployed_by_user_id"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (GetEnvironmentRow, error) {
 	row := q.db.QueryRow(ctx, getEnvironment, arg.ProjectID, arg.Name)
-	var i ZdxEnvironment
+	var i GetEnvironmentRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -162,15 +188,28 @@ SELECT id, project_id, name, url, release_branch, current_build_sha, current_bui
 FROM zdx_environments WHERE project_id = $1 ORDER BY name ASC
 `
 
-func (q *Queries) ListEnvironments(ctx context.Context, projectID int32) ([]ZdxEnvironment, error) {
+type ListEnvironmentsRow struct {
+	ID                 int32              `db:"id" json:"id"`
+	ProjectID          int32              `db:"project_id" json:"project_id"`
+	Name               string             `db:"name" json:"name"`
+	Url                string             `db:"url" json:"url"`
+	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
+	CurrentBuildSha    string             `db:"current_build_sha" json:"current_build_sha"`
+	CurrentBuildBranch string             `db:"current_build_branch" json:"current_build_branch"`
+	DeployedAt         pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
+	DeployedByUserID   pgtype.Int4        `db:"deployed_by_user_id" json:"deployed_by_user_id"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListEnvironments(ctx context.Context, projectID int32) ([]ListEnvironmentsRow, error) {
 	rows, err := q.db.Query(ctx, listEnvironments, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxEnvironment
+	var items []ListEnvironmentsRow
 	for rows.Next() {
-		var i ZdxEnvironment
+		var i ListEnvironmentsRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,

@@ -1,4 +1,4 @@
-import { useState, useRef, useEffect } from 'react'
+import { useState } from 'react'
 import { Link } from '@tanstack/react-router'
 import {
   Box,
@@ -112,11 +112,6 @@ export function DiscussionDetail({
   const [promoteMsg, setPromoteMsg] = useState<DiscussionMessageItem | null>(null)
   const [propTitle, setPropTitle] = useState('')
   const [propValue, setPropValue] = useState('')
-  const messagesEndRef = useRef<HTMLDivElement>(null)
-
-  useEffect(() => {
-    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' })
-  }, [messages?.length])
 
   if (loadingDiscussion && !discussion)
     return <Typography color="text.secondary">Loading...</Typography>
@@ -181,19 +176,19 @@ export function DiscussionDetail({
         />
       </Box>
 
-      {/* Message thread */}
+      {/* column-reverse anchors scroll at the newest message without manual scroll mgmt */}
       <Box
         sx={{
           flex: 1,
+          minHeight: 0,
           overflowY: 'auto',
           display: 'flex',
-          flexDirection: 'column',
+          flexDirection: 'column-reverse',
           gap: 1.5,
           p: 1,
           border: '1px solid',
           borderColor: 'divider',
           borderRadius: 1,
-          minHeight: 200,
         }}
       >
         {loadingMessages && !messages ? (
@@ -203,11 +198,10 @@ export function DiscussionDetail({
             No messages yet.
           </Typography>
         ) : (
-          (messages ?? []).map(m => (
-            <MessageBubble key={m.id} msg={m} onPromote={handlePromote} />
-          ))
+          [...(messages ?? [])]
+            .reverse()
+            .map(m => <MessageBubble key={m.id} msg={m} onPromote={handlePromote} />)
         )}
-        <div ref={messagesEndRef} />
       </Box>
 
       {/* Input */}

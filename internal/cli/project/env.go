@@ -50,7 +50,11 @@ func envListCmd() *cobra.Command {
 				return nil
 			}
 			for _, e := range *resp.JSON200.Items {
-				fmt.Printf("%-20s  %s\n", e.Name, e.Url)
+				branch := e.ReleaseBranch
+				if branch == "" {
+					branch = "(no release branch)"
+				}
+				fmt.Printf("%-20s  %-30s  %s\n", e.Name, branch, e.Url)
 			}
 			return nil
 		},
@@ -58,7 +62,7 @@ func envListCmd() *cobra.Command {
 }
 
 func envAddCmd() *cobra.Command {
-	var url string
+	var url, releaseBranch string
 	cmd := &cobra.Command{
 		Use:   "add <name>",
 		Short: "Add an environment",
@@ -68,6 +72,9 @@ func envAddCmd() *cobra.Command {
 			req := dxclient.CreateEnvironmentRequest{Name: args[0]}
 			if url != "" {
 				req.Url = &url
+			}
+			if releaseBranch != "" {
+				req.ReleaseBranch = &releaseBranch
 			}
 			resp, err := c.CreateEnvironmentWithResponse(cmd.Context(), c.SlugOrDie(), req)
 			if err != nil {
@@ -79,11 +86,12 @@ func envAddCmd() *cobra.Command {
 			if resp.JSON200 == nil {
 				return fmt.Errorf("empty response")
 			}
-			fmt.Printf("%d  %s  %s\n", resp.JSON200.Id, resp.JSON200.Name, resp.JSON200.Url)
+			fmt.Printf("%d  %s  %s  %s\n", resp.JSON200.Id, resp.JSON200.Name, resp.JSON200.ReleaseBranch, resp.JSON200.Url)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&url, "url", "", "environment URL")
+	cmd.Flags().StringVar(&releaseBranch, "release-branch", "", "git branch to deploy from (e.g. release/production)")
 	return cmd
 }
 
@@ -108,12 +116,13 @@ func envShowCmd() *cobra.Command {
 				return fmt.Errorf("empty response")
 			}
 			e := resp.JSON200
-			fmt.Printf("Name:       %s\n", e.Name)
-			fmt.Printf("URL:        %s\n", e.Url)
-			fmt.Printf("Created:    %s\n", e.CreatedAt)
-			fmt.Printf("Deployed:   %s\n", e.DeployedAt)
-			fmt.Printf("Branch:     %s\n", e.CurrentBuildBranch)
-			fmt.Printf("SHA:        %s\n", e.CurrentBuildSha)
+			fmt.Printf("Name:           %s\n", e.Name)
+			fmt.Printf("URL:            %s\n", e.Url)
+			fmt.Printf("Release branch: %s\n", e.ReleaseBranch)
+			fmt.Printf("Created:        %s\n", e.CreatedAt)
+			fmt.Printf("Deployed:       %s\n", e.DeployedAt)
+			fmt.Printf("Branch:         %s\n", e.CurrentBuildBranch)
+			fmt.Printf("SHA:            %s\n", e.CurrentBuildSha)
 			if e.CurrentBuildSha != "" {
 				ahead := gitOutput("rev-list", e.CurrentBuildSha+"..HEAD", "--count")
 				if ahead != "" && ahead != "0" {
@@ -191,7 +200,7 @@ func envDeployCmd() *cobra.Command {
 }
 
 func envEditCmd() *cobra.Command {
-	var url string
+	var url, releaseBranch string
 	cmd := &cobra.Command{
 		Use:   "edit <name>",
 		Short: "Edit an environment",
@@ -201,6 +210,9 @@ func envEditCmd() *cobra.Command {
 			req := dxclient.UpdateEnvironmentRequest{}
 			if url != "" {
 				req.Url = &url
+			}
+			if releaseBranch != "" {
+				req.ReleaseBranch = &releaseBranch
 			}
 			resp, err := c.UpdateEnvironmentWithResponse(cmd.Context(), c.SlugOrDie(), args[0], req)
 			if err != nil {
@@ -214,6 +226,7 @@ func envEditCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&url, "url", "", "environment URL")
+	cmd.Flags().StringVar(&releaseBranch, "release-branch", "", "git branch to deploy from (e.g. release/production)")
 	return cmd
 }
 

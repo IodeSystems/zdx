@@ -881,6 +881,20 @@ type CreateProposalBody struct {
 	Similar               *[]SimilarProposalItem `json:"similar,omitempty"`
 }
 
+// DeduplicateProposalsRequest defines model for Deduplicate-proposalsRequest.
+type DeduplicateProposalsRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+}
+
+// DeduplicateProposalsResponse defines model for Deduplicate-proposalsResponse.
+type DeduplicateProposalsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string               `json:"$schema,omitempty"`
+	Groups *[]ProposalDedupGroup `json:"groups"`
+}
+
 // DeferDoctorCheckRequest defines model for Defer-doctor-checkRequest.
 type DeferDoctorCheckRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2595,6 +2609,13 @@ type ProjectItem struct {
 	Title          *string `json:"title,omitempty"`
 }
 
+// ProposalDedupGroup defines model for ProposalDedupGroup.
+type ProposalDedupGroup struct {
+	Duplicates     *[]SimilarProposalItem `json:"duplicates"`
+	ExistingIssues *[]SimilarIssueItem    `json:"existing_issues"`
+	Proposal       ProposalItem           `json:"proposal"`
+}
+
 // ProposalItem defines model for ProposalItem.
 type ProposalItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3349,9 +3370,24 @@ type SoloRenewRequest struct {
 	LeaseMinutes *int32  `json:"lease_minutes,omitempty"`
 }
 
+// SoloUnblockAllRequest defines model for Solo-unblock-allRequest.
+type SoloUnblockAllRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+}
+
+// SoloUnblockAllResponse defines model for Solo-unblock-allResponse.
+type SoloUnblockAllResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Ok     bool    `json:"ok"`
+}
+
 // SoloQueueItem defines model for SoloQueueItem.
 type SoloQueueItem struct {
 	Blocked         bool    `json:"blocked"`
+	BlockedReason   *string `json:"blocked_reason,omitempty"`
 	Description     *string `json:"description,omitempty"`
 	IssueRef        string  `json:"issue_ref"`
 	Key             string  `json:"key"`
@@ -3654,27 +3690,30 @@ type TodoDetailBody struct {
 // TodoItem defines model for TodoItem.
 type TodoItem struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema          *string `json:"$schema,omitempty"`
-	Blocked         bool    `json:"blocked"`
-	ClaimedAt       *string `json:"claimed_at,omitempty"`
-	ClaimedBy       *string `json:"claimed_by,omitempty"`
-	CreatedAt       string  `json:"created_at"`
-	Description     *string `json:"description,omitempty"`
-	Id              int32   `json:"id"`
-	Instructions    *string `json:"instructions,omitempty"`
-	IssueRef        string  `json:"issue_ref"`
-	Key             string  `json:"key"`
-	Kind            string  `json:"kind"`
-	Persona         string  `json:"persona"`
-	Priority        int32   `json:"priority"`
-	ProjectSlug     *string `json:"project_slug,omitempty"`
-	ResolvedAt      *string `json:"resolved_at,omitempty"`
-	Status          string  `json:"status"`
-	SuggestedAction *string `json:"suggested_action,omitempty"`
-	TargetId        string  `json:"target_id"`
-	TargetType      string  `json:"target_type"`
-	Text            string  `json:"text"`
-	Title           *string `json:"title,omitempty"`
+	Schema           *string `json:"$schema,omitempty"`
+	Blocked          bool    `json:"blocked"`
+	BlockedReason    *string `json:"blocked_reason,omitempty"`
+	ClaimedAt        *string `json:"claimed_at,omitempty"`
+	ClaimedBy        *string `json:"claimed_by,omitempty"`
+	CreatedAt        string  `json:"created_at"`
+	CycleCount       *int32  `json:"cycle_count,omitempty"`
+	Description      *string `json:"description,omitempty"`
+	Id               int32   `json:"id"`
+	Instructions     *string `json:"instructions,omitempty"`
+	IssueRef         string  `json:"issue_ref"`
+	Key              string  `json:"key"`
+	Kind             string  `json:"kind"`
+	Persona          string  `json:"persona"`
+	Priority         int32   `json:"priority"`
+	ProjectSlug      *string `json:"project_slug,omitempty"`
+	ReferenceIssueId *string `json:"reference_issue_id,omitempty"`
+	ResolvedAt       *string `json:"resolved_at,omitempty"`
+	Status           string  `json:"status"`
+	SuggestedAction  *string `json:"suggested_action,omitempty"`
+	TargetId         string  `json:"target_id"`
+	TargetType       string  `json:"target_type"`
+	Text             string  `json:"text"`
+	Title            *string `json:"title,omitempty"`
 }
 
 // TodoSessionItem defines model for TodoSessionItem.
@@ -5010,6 +5049,9 @@ type RenewIssueLeaseJSONRequestBody = RenewIssueLeaseRequest
 // CreateProposalJSONRequestBody defines body for CreateProposal for application/json ContentType.
 type CreateProposalJSONRequestBody = CreateProposalRequest
 
+// DeduplicateProposalsJSONRequestBody defines body for DeduplicateProposals for application/json ContentType.
+type DeduplicateProposalsJSONRequestBody = DeduplicateProposalsRequest
+
 // UpdateProposalJSONRequestBody defines body for UpdateProposal for application/json ContentType.
 type UpdateProposalJSONRequestBody = UpdateProposalRequest
 
@@ -5060,6 +5102,9 @@ type SoloReleaseJSONRequestBody = SoloReleaseRequest
 
 // SoloRenewJSONRequestBody defines body for SoloRenew for application/json ContentType.
 type SoloRenewJSONRequestBody = SoloRenewRequest
+
+// SoloUnblockAllJSONRequestBody defines body for SoloUnblockAll for application/json ContentType.
+type SoloUnblockAllJSONRequestBody = SoloUnblockAllRequest
 
 // AddSpecDeferralJSONRequestBody defines body for AddSpecDeferral for application/json ContentType.
 type AddSpecDeferralJSONRequestBody = AddSpecDeferralRequest
@@ -5972,6 +6017,11 @@ type ClientInterface interface {
 
 	CreateProposal(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeduplicateProposalsWithBody request with any body
+	DeduplicateProposalsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	DeduplicateProposals(ctx context.Context, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ShowProposal request
 	ShowProposal(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -6092,6 +6142,11 @@ type ClientInterface interface {
 
 	// SoloListReservations request
 	SoloListReservations(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SoloUnblockAllWithBody request with any body
+	SoloUnblockAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SoloUnblockAll(ctx context.Context, body SoloUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSpecsBlockerResolved request
 	ListSpecsBlockerResolved(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9496,6 +9551,30 @@ func (c *APIClient) CreateProposal(ctx context.Context, body CreateProposalJSONR
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) DeduplicateProposalsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeduplicateProposalsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) DeduplicateProposals(ctx context.Context, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeduplicateProposalsRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ShowProposal(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewShowProposalRequest(c.Server, id, params)
 	if err != nil {
@@ -10038,6 +10117,30 @@ func (c *APIClient) SoloRenew(ctx context.Context, body SoloRenewJSONRequestBody
 
 func (c *APIClient) SoloListReservations(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSoloListReservationsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SoloUnblockAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSoloUnblockAllRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SoloUnblockAll(ctx context.Context, body SoloUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSoloUnblockAllRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -20829,6 +20932,46 @@ func NewCreateProposalRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
+// NewDeduplicateProposalsRequest calls the generic DeduplicateProposals builder with application/json body
+func NewDeduplicateProposalsRequest(server string, body DeduplicateProposalsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewDeduplicateProposalsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewDeduplicateProposalsRequestWithBody generates requests for DeduplicateProposals with any type of body
+func NewDeduplicateProposalsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/proposals/deduplicate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewShowProposalRequest generates requests for ShowProposal
 func NewShowProposalRequest(server string, id int32, params *ShowProposalParams) (*http.Request, error) {
 	var err error
@@ -22411,6 +22554,46 @@ func NewSoloListReservationsRequest(server string, params *SoloListReservationsP
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewSoloUnblockAllRequest calls the generic SoloUnblockAll builder with application/json body
+func NewSoloUnblockAllRequest(server string, body SoloUnblockAllJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSoloUnblockAllRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSoloUnblockAllRequestWithBody generates requests for SoloUnblockAll with any type of body
+func NewSoloUnblockAllRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/solo/unblock-all")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -28393,6 +28576,11 @@ type ClientWithResponsesInterface interface {
 
 	CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error)
 
+	// DeduplicateProposalsWithBodyWithResponse request with any body
+	DeduplicateProposalsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error)
+
+	DeduplicateProposalsWithResponse(ctx context.Context, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error)
+
 	// ShowProposalWithResponse request
 	ShowProposalWithResponse(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*ParsedShowProposalResponse, error)
 
@@ -28513,6 +28701,11 @@ type ClientWithResponsesInterface interface {
 
 	// SoloListReservationsWithResponse request
 	SoloListReservationsWithResponse(ctx context.Context, params *SoloListReservationsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListReservationsResponse, error)
+
+	// SoloUnblockAllWithBodyWithResponse request with any body
+	SoloUnblockAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSoloUnblockAllResponse, error)
+
+	SoloUnblockAllWithResponse(ctx context.Context, body SoloUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSoloUnblockAllResponse, error)
 
 	// ListSpecsBlockerResolvedWithResponse request
 	ListSpecsBlockerResolvedWithResponse(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsBlockerResolvedResponse, error)
@@ -32863,6 +33056,29 @@ func (r CreateProposalResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedDeduplicateProposalsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *DeduplicateProposalsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedDeduplicateProposalsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedDeduplicateProposalsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedShowProposalResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -33524,6 +33740,29 @@ func (r ParsedSoloListReservationsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedSoloListReservationsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedSoloUnblockAllResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *SoloUnblockAllResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedSoloUnblockAllResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedSoloUnblockAllResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -38072,6 +38311,23 @@ func (c *ClientWithResponses) CreateProposalWithResponse(ctx context.Context, bo
 	return ParseCreateProposalResponse(rsp)
 }
 
+// DeduplicateProposalsWithBodyWithResponse request with arbitrary body returning *ParsedDeduplicateProposalsResponse
+func (c *ClientWithResponses) DeduplicateProposalsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error) {
+	rsp, err := c.DeduplicateProposalsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedDeduplicateProposalsResponse(rsp)
+}
+
+func (c *ClientWithResponses) DeduplicateProposalsWithResponse(ctx context.Context, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error) {
+	rsp, err := c.DeduplicateProposals(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedDeduplicateProposalsResponse(rsp)
+}
+
 // ShowProposalWithResponse request returning *ParsedShowProposalResponse
 func (c *ClientWithResponses) ShowProposalWithResponse(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*ParsedShowProposalResponse, error) {
 	rsp, err := c.ShowProposal(ctx, id, params, reqEditors...)
@@ -38467,6 +38723,23 @@ func (c *ClientWithResponses) SoloListReservationsWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseParsedSoloListReservationsResponse(rsp)
+}
+
+// SoloUnblockAllWithBodyWithResponse request with arbitrary body returning *ParsedSoloUnblockAllResponse
+func (c *ClientWithResponses) SoloUnblockAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSoloUnblockAllResponse, error) {
+	rsp, err := c.SoloUnblockAllWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSoloUnblockAllResponse(rsp)
+}
+
+func (c *ClientWithResponses) SoloUnblockAllWithResponse(ctx context.Context, body SoloUnblockAllJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSoloUnblockAllResponse, error) {
+	rsp, err := c.SoloUnblockAll(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedSoloUnblockAllResponse(rsp)
 }
 
 // ListSpecsBlockerResolvedWithResponse request returning *ParsedListSpecsBlockerResolvedResponse
@@ -45427,6 +45700,39 @@ func ParseCreateProposalResponse(rsp *http.Response) (*CreateProposalResponse, e
 	return response, nil
 }
 
+// ParseParsedDeduplicateProposalsResponse parses an HTTP response from a DeduplicateProposalsWithResponse call
+func ParseParsedDeduplicateProposalsResponse(rsp *http.Response) (*ParsedDeduplicateProposalsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedDeduplicateProposalsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DeduplicateProposalsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedShowProposalResponse parses an HTTP response from a ShowProposalWithResponse call
 func ParseParsedShowProposalResponse(rsp *http.Response) (*ParsedShowProposalResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -46367,6 +46673,39 @@ func ParseParsedSoloListReservationsResponse(rsp *http.Response) (*ParsedSoloLis
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SoloListReservationsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedSoloUnblockAllResponse parses an HTTP response from a SoloUnblockAllWithResponse call
+func ParseParsedSoloUnblockAllResponse(rsp *http.Response) (*ParsedSoloUnblockAllResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedSoloUnblockAllResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest SoloUnblockAllResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -557,12 +557,12 @@ CREATE TABLE public.zdx_environments (
     project_id integer NOT NULL,
     name text NOT NULL,
     url text DEFAULT ''::text NOT NULL,
-    release_branch text DEFAULT ''::text NOT NULL,
     current_build_sha text DEFAULT ''::text NOT NULL,
     current_build_branch text DEFAULT ''::text NOT NULL,
     deployed_at timestamp with time zone,
     deployed_by_user_id integer,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    release_branch text DEFAULT ''::text NOT NULL
 );
 
 
@@ -2354,7 +2354,10 @@ CREATE TABLE public.zdx_todos (
     lease_expires_at timestamp with time zone,
     reopen_count integer DEFAULT 0 NOT NULL,
     title text DEFAULT ''::text NOT NULL,
-    description text DEFAULT ''::text NOT NULL
+    description text DEFAULT ''::text NOT NULL,
+    blocked_reason text DEFAULT ''::text NOT NULL,
+    cycle_count integer DEFAULT 0 NOT NULL,
+    reference_issue_id text DEFAULT ''::text NOT NULL
 );
 
 

@@ -36,7 +36,33 @@ type DeployItem struct {
 	Status           string `json:"status"`
 }
 
-func toEnvironmentItem(e db.ZdxEnvironment) EnvironmentItem {
+func toEnvironmentItemFromList(e db.ListEnvironmentsRow) EnvironmentItem {
+	return EnvironmentItem{
+		ID:                 e.ID,
+		Name:               e.Name,
+		URL:                e.Url,
+		ReleaseBranch:      e.ReleaseBranch,
+		CurrentBuildSha:    e.CurrentBuildSha,
+		CurrentBuildBranch: e.CurrentBuildBranch,
+		DeployedAt:         fmtTS(e.DeployedAt),
+		CreatedAt:          fmtTS(e.CreatedAt),
+	}
+}
+
+func toEnvironmentItemFromGet(e db.GetEnvironmentRow) EnvironmentItem {
+	return EnvironmentItem{
+		ID:                 e.ID,
+		Name:               e.Name,
+		URL:                e.Url,
+		ReleaseBranch:      e.ReleaseBranch,
+		CurrentBuildSha:    e.CurrentBuildSha,
+		CurrentBuildBranch: e.CurrentBuildBranch,
+		DeployedAt:         fmtTS(e.DeployedAt),
+		CreatedAt:          fmtTS(e.CreatedAt),
+	}
+}
+
+func toEnvironmentItemFromCreate(e db.CreateEnvironmentRow) EnvironmentItem {
 	return EnvironmentItem{
 		ID:                 e.ID,
 		Name:               e.Name,
@@ -80,7 +106,7 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 			}
 			items := make([]EnvironmentItem, len(rows))
 			for i, r := range rows {
-				items[i] = toEnvironmentItem(r)
+				items[i] = toEnvironmentItemFromList(r)
 			}
 			out := &struct {
 				Body struct {
@@ -104,7 +130,7 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(http.StatusNotFound, "environment not found: "+in.Name)
 			}
-			return &struct{ Body EnvironmentItem }{Body: toEnvironmentItem(env)}, nil
+			return &struct{ Body EnvironmentItem }{Body: toEnvironmentItemFromGet(env)}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "create-environment", Method: http.MethodPost, Path: "/api/dx/projects/{slug}/environments"},
@@ -129,7 +155,7 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body EnvironmentItem }{Body: toEnvironmentItem(env)}, nil
+			return &struct{ Body EnvironmentItem }{Body: toEnvironmentItemFromCreate(env)}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "update-environment", Method: http.MethodPut, Path: "/api/dx/projects/{slug}/environments/{name}"},
@@ -273,17 +299,63 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				return nil, apiErr(http.StatusNotFound, "environment not found: "+in.Name)
 			}
 			kind := in.Body.Kind
-			if kind != "test" && kind != "ship" {
-				return nil, apiErr(http.StatusBadRequest, "kind must be 'test' or 'ship'")
+			if kind != "test" && kind != "ship" && kind != "sync" {
+				return nil, apiErr(http.StatusBadRequest, "kind must be 'test', 'ship', or 'sync'")
 			}
 			key := fmt.Sprintf("env:%s:%s:%d", in.Name, kind, time.Now().UnixMilli())
 			var title, text string
-			if kind == "test" {
+			switch kind {
+			case "test":
 				title = fmt.Sprintf("Test %s", in.Name)
 				text = fmt.Sprintf("Run tests against the %s environment (SHA: %s, branch: %s)", in.Name, env.CurrentBuildSha, env.CurrentBuildBranch)
-			} else {
-				title = fmt.Sprintf("Ship to %s", in.Name)
-				text = fmt.Sprintf("Deploy to the %s environment", in.Name)
+			case "ship":
+				if env.ReleaseBranch != "" {
+					title = fmt.Sprintf("Ship to %s from %s", in.Name, env.ReleaseBranch)
+					text = fmt.Sprintf(
+						"Deploy to the %s environment from release branch %s:\n"+
+							"1. Ensure all tests pass on the main branch\n"+
+							"2. Merge main into %s (fast-forward preferred)\n"+
+							"3. Build from %s\n"+
+							"4. Deploy the build to %s\n"+
+							"5. Record the deploy: dx env deploy %s --branch=%s\n"+
+							"\nCurrent deployed: %s @ %s",
+						in.Name, env.ReleaseBranch,
+						env.ReleaseBranch,
+						env.ReleaseBranch,
+						in.Name,
+						in.Name, env.ReleaseBranch,
+						env.CurrentBuildSha, env.CurrentBuildBranch,
+					)
+				} else {
+					title = fmt.Sprintf("Ship to %s", in.Name)
+					text = fmt.Sprintf(
+						"Deploy to the %s environment:\n"+
+							"1. Build from the current main branch\n"+
+							"2. Deploy the build\n"+
+							"3. Record the deploy: dx env deploy %s\n"+
+							"\nCurrent deployed: %s @ %s",
+						in.Name, in.Name,
+						env.CurrentBuildSha, env.CurrentBuildBranch,
+					)
+				}
+			case "sync":
+				if env.ReleaseBranch == "" {
+					return nil, apiErr(http.StatusBadRequest, "environment has no release_branch configured — set one before syncing")
+				}
+				title = fmt.Sprintf("Sync %s → %s", "main", env.ReleaseBranch)
+				text = fmt.Sprintf(
+					"Sync main into the %s release branch (%s) — only if all tests pass on main:\n"+
+						"1. Verify all tests are passing on the main branch (check dx test results or run tests)\n"+
+						"2. If tests pass: git fetch origin && git checkout %s && git merge --ff-only origin/main\n"+
+						"3. Push the updated release branch: git push origin %s\n"+
+						"4. If fast-forward fails (diverged), create an issue describing the conflict\n"+
+						"\nCurrent deployed: %s @ %s\n"+
+						"This sync makes the release branch eligible for the next ship.",
+					in.Name, env.ReleaseBranch,
+					env.ReleaseBranch,
+					env.ReleaseBranch,
+					env.CurrentBuildSha, env.CurrentBuildBranch,
+				)
 			}
 			todo, err := h.Q.CreateTodo(ctx, db.CreateTodoParams{
 				ProjectID:  p.ID,
@@ -314,4 +386,55 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 			}
 			return &struct{ Body TodoItem }{Body: item}, nil
 		})
+}
+
+// maybeQueueReleaseSyncs creates sync todos for all environments with a release_branch
+// when a batch of test results on the main branch are all passing. Called in a goroutine.
+func (h *Handler) maybeQueueReleaseSyncs(ctx context.Context, projectID int32, results []TestResultInput) {
+	if len(results) == 0 {
+		return
+	}
+	branch := results[0].Branch
+	if branch != "main" && branch != "master" {
+		return
+	}
+	for _, r := range results {
+		if r.Status != "pass" && r.Status != "passed" {
+			return // any failure → no sync
+		}
+	}
+	envs, err := h.Q.ListEnvironments(ctx, projectID)
+	if err != nil {
+		return
+	}
+	sha := results[0].GitSHA
+	for _, env := range envs {
+		if env.ReleaseBranch == "" {
+			return
+		}
+		key := fmt.Sprintf("env-sync:%s:%s", env.Name, sha)
+		title := fmt.Sprintf("Sync %s → %s", branch, env.ReleaseBranch)
+		text := fmt.Sprintf(
+			"All tests passed on %s (SHA: %s). Sync into the %s release branch (%s):\n"+
+				"1. git fetch origin && git checkout %s && git merge --ff-only origin/%s\n"+
+				"2. Push: git push origin %s\n"+
+				"3. If fast-forward fails (diverged), file an issue describing the conflict.\n"+
+				"\nThis was auto-created by test-gated sync after a green main build.",
+			branch, sha, env.Name, env.ReleaseBranch,
+			env.ReleaseBranch, branch,
+			env.ReleaseBranch,
+		)
+		_, _ = h.Q.CreateTodo(ctx, db.CreateTodoParams{
+			ProjectID:  projectID,
+			Key:        key,
+			Title:      title,
+			Text:       text,
+			Kind:       "sync",
+			TargetType: "environment",
+			TargetID:   env.Name,
+			Priority:   3,
+			Status:     "open",
+			Persona:    "agent",
+		})
+	}
 }

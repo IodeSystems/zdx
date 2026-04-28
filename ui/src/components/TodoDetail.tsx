@@ -88,7 +88,28 @@ export function TodoDetail({ slug, todoKey }: { slug: string; todoKey: string })
         <Chip label={todo.kind} size="small" color={KIND_COLORS[todo.kind] || 'default'} variant="outlined" />
         <Chip label={`priority ${todo.priority}`} size="small" variant="outlined" />
         {todo.persona && <Chip label={todo.persona} size="small" variant="outlined" />}
-        {todo.blocked && <Chip label="blocked" size="small" color="error" variant="outlined" />}
+        {todo.blocked && todo.reference_issue_id ? (
+          <Chip
+            label={todo.blocked_reason ? `blocked: ${todo.blocked_reason}` : `blocked → ${todo.reference_issue_id}`}
+            size="small"
+            color="error"
+            variant="outlined"
+            component={Link as any}
+            to="/project/$slug/issues/$id"
+            params={{ slug, id: todo.reference_issue_id }}
+            clickable
+          />
+        ) : todo.blocked ? (
+          <Chip
+            label={todo.blocked_reason ? `blocked: ${todo.blocked_reason}` : 'blocked'}
+            size="small"
+            color="error"
+            variant="outlined"
+          />
+        ) : null}
+        {(todo.cycle_count ?? 0) > 0 && (
+          <Chip label={`cycle ×${todo.cycle_count}`} size="small" color="warning" variant="outlined" />
+        )}
         <Chip label={todo.status} size="small" variant="outlined" />
         {link ? (
           <Chip

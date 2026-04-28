@@ -23,6 +23,7 @@ import {
   useBlockerQuestions,
   useEvaluateSolo,
   useApplySolo,
+  useUnblockAllTodos,
   type SoloItem,
   type EvaluateDiff,
 } from '../api'
@@ -102,7 +103,25 @@ function TodoRow({ slug, item }: { slug: string; item: SoloItem }) {
               clickable
             />
           )}
-          {item.blocked && <Chip label="blocked" size="small" color="error" variant="outlined" />}
+          {item.blocked && item.reference_issue_id ? (
+            <Chip
+              label={item.blocked_reason ? `blocked: ${item.blocked_reason}` : `blocked → ${item.reference_issue_id}`}
+              size="small"
+              color="error"
+              variant="outlined"
+              component={Link as any}
+              to="/project/$slug/issues/$id"
+              params={{ slug, id: item.reference_issue_id }}
+              clickable
+            />
+          ) : item.blocked ? (
+            <Chip
+              label={item.blocked_reason ? `blocked: ${item.blocked_reason}` : 'blocked'}
+              size="small"
+              color="error"
+              variant="outlined"
+            />
+          ) : null}
           {item.persona && <Chip label={item.persona} size="small" variant="outlined" sx={{ fontSize: '0.7rem' }} />}
         </Box>
       )}
@@ -195,6 +214,7 @@ export function QueueView({ slug }: { slug: string }) {
   const { data: bqData } = useBlockerQuestions(slug, 'pending')
   const evaluate = useEvaluateSolo()
   const apply = useApplySolo()
+  const unblockAll = useUnblockAllTodos()
   const [showBlocked, setShowBlocked] = useState(false)
   const [diffOpen, setDiffOpen] = useState(false)
   const [diff, setDiff] = useState<EvaluateDiff | null>(null)
@@ -238,10 +258,23 @@ export function QueueView({ slug }: { slug: string }) {
           {evaluate.isPending ? 'Evaluating...' : 'Re-evaluate'}
         </Button>
         {blockedCount > 0 && (
-          <FormControlLabel
-            control={<Switch size="small" checked={showBlocked} onChange={(_, v) => setShowBlocked(v)} />}
-            label={<Typography variant="body2">Show blocked ({blockedCount})</Typography>}
-          />
+          <>
+            <FormControlLabel
+              control={<Switch size="small" checked={showBlocked} onChange={(_, v) => setShowBlocked(v)} />}
+              label={<Typography variant="body2">Show blocked ({blockedCount})</Typography>}
+            />
+            {showBlocked && (
+              <Button
+                size="small"
+                color="warning"
+                variant="outlined"
+                onClick={() => unblockAll.mutate({ slug })}
+                disabled={unblockAll.isPending}
+              >
+                {unblockAll.isPending ? 'Unblocking...' : 'Unblock all'}
+              </Button>
+            )}
+          </>
         )}
         <Typography variant="body2" color="text.secondary" sx={{ ml: 'auto' }}>
           {allItems.length} items

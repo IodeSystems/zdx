@@ -801,15 +801,19 @@ function AppShell() {
         sx={{
           flexGrow: 1,
           minWidth: 0,
-          p: 3,
-          overflowX: 'hidden',
+          height: '100dvh',
+          display: 'flex',
+          flexDirection: 'column',
+          overflow: 'hidden',
           transition: 'margin 225ms cubic-bezier(0, 0, 0.2, 1)',
         }}
       >
         <Toolbar variant="dense" />
-        <ErrorBoundary>
-          <Outlet />
-        </ErrorBoundary>
+        <Box sx={{ flex: 1, minHeight: 0, overflowY: 'auto', overflowX: 'hidden', p: 3 }}>
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
+        </Box>
       </Box>
       <ReportFab />
     </Box>

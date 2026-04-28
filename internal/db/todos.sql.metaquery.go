@@ -13,19 +13,99 @@ var _ = metaquery.Query{}
 
 var MetaBlockTodoByKey = metaquery.Query{
 	Name:   "BlockTodoByKey",
-	Cmd:    ":exec",
+	Cmd:    ":one",
 	Source: "todos.sql",
-	SQL: `UPDATE zdx_todos SET blocked = true
-WHERE project_id = $1 AND key = $2`,
+	SQL: `UPDATE zdx_todos SET blocked = true, blocked_reason = $1, cycle_count = cycle_count + 1
+WHERE project_id = $2 AND key = $3
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "text", OriginalName: "text", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "key", OriginalName: "key", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
+		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
+		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
+		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+	},
 	Args: []metaquery.Arg{
-		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 2, Name: "key", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 1, Name: "reason", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 2, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 3, Name: "key", GoType: "string", DBType: "text", NotNull: true},
 	},
 }
 
 // WrapBlockTodoByKey returns a metaquery.Builder over MetaBlockTodoByKey, pre-bound with typed arguments.
 func WrapBlockTodoByKey(arg BlockTodoByKeyParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaBlockTodoByKey, arg.ProjectID, arg.Key)
+	return metaquery.Wrap(&MetaBlockTodoByKey, arg.Reason, arg.ProjectID, arg.Key)
+}
+
+// BlockTodoByKeyCols gives typed, name-safe access to BlockTodoByKey's output columns.
+var BlockTodoByKeyCols = struct {
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
+}{
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }
 
 var MetaClaimNextTodo = metaquery.Query{
@@ -47,7 +127,7 @@ WHERE id = (
   FOR UPDATE SKIP LOCKED
 )
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -64,6 +144,9 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
@@ -85,47 +168,53 @@ func WrapClaimNextTodo(arg ClaimNextTodoParams) *metaquery.Builder {
 
 // ClaimNextTodoCols gives typed, name-safe access to ClaimNextTodo's output columns.
 var ClaimNextTodoCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	Text           metaquery.TextCol
-	Title          metaquery.TextCol
-	Description    metaquery.TextCol
-	Key            metaquery.TextCol
-	Persona        metaquery.TextCol
-	Priority       metaquery.IntCol
-	Status         metaquery.TextCol
-	TargetType     metaquery.TextCol
-	TargetID       metaquery.TextCol
-	Kind           metaquery.TextCol
-	IssueRef       metaquery.TextCol
-	Blocked        metaquery.BoolCol
-	ClaimedBy      metaquery.TextCol
-	ClaimedAt      metaquery.TimeCol
-	LeaseExpiresAt metaquery.TimeCol
-	CreatedAt      metaquery.TimeCol
-	ResolvedAt     metaquery.TimeCol
-	ReopenCount    metaquery.IntCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Text:           metaquery.NewTextCol("text"),
-	Title:          metaquery.NewTextCol("title"),
-	Description:    metaquery.NewTextCol("description"),
-	Key:            metaquery.NewTextCol("key"),
-	Persona:        metaquery.NewTextCol("persona"),
-	Priority:       metaquery.NewIntCol("priority"),
-	Status:         metaquery.NewTextCol("status"),
-	TargetType:     metaquery.NewTextCol("target_type"),
-	TargetID:       metaquery.NewTextCol("target_id"),
-	Kind:           metaquery.NewTextCol("kind"),
-	IssueRef:       metaquery.NewTextCol("issue_ref"),
-	Blocked:        metaquery.NewBoolCol("blocked"),
-	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
-	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
-	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	ResolvedAt:     metaquery.NewTimeCol("resolved_at"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }
 
 var MetaCreateTodo = metaquery.Query{
@@ -133,11 +222,11 @@ var MetaCreateTodo = metaquery.Query{
 	Cmd:    ":one",
 	Source: "todos.sql",
 	SQL: `INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked)
+                       target_type, target_id, kind, issue_ref, blocked, blocked_reason)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12, $13)
+        $9, $10, $11, $12, $13, $14)
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -154,6 +243,9 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
@@ -175,58 +267,65 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Position: 11, Name: "kind", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 12, Name: "issue_ref", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 13, Name: "blocked", GoType: "bool", DBType: "pg_catalog.bool", NotNull: true},
+		{Position: 14, Name: "blocked_reason", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_todos"},
 }
 
 // WrapCreateTodo returns a metaquery.Builder over MetaCreateTodo, pre-bound with typed arguments.
 func WrapCreateTodo(arg CreateTodoParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateTodo, arg.ProjectID, arg.Text, arg.Title, arg.Description, arg.Key, arg.Persona, arg.Priority, arg.Status, arg.TargetType, arg.TargetID, arg.Kind, arg.IssueRef, arg.Blocked)
+	return metaquery.Wrap(&MetaCreateTodo, arg.ProjectID, arg.Text, arg.Title, arg.Description, arg.Key, arg.Persona, arg.Priority, arg.Status, arg.TargetType, arg.TargetID, arg.Kind, arg.IssueRef, arg.Blocked, arg.BlockedReason)
 }
 
 // CreateTodoCols gives typed, name-safe access to CreateTodo's output columns.
 var CreateTodoCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	Text           metaquery.TextCol
-	Title          metaquery.TextCol
-	Description    metaquery.TextCol
-	Key            metaquery.TextCol
-	Persona        metaquery.TextCol
-	Priority       metaquery.IntCol
-	Status         metaquery.TextCol
-	TargetType     metaquery.TextCol
-	TargetID       metaquery.TextCol
-	Kind           metaquery.TextCol
-	IssueRef       metaquery.TextCol
-	Blocked        metaquery.BoolCol
-	ClaimedBy      metaquery.TextCol
-	ClaimedAt      metaquery.TimeCol
-	LeaseExpiresAt metaquery.TimeCol
-	CreatedAt      metaquery.TimeCol
-	ResolvedAt     metaquery.TimeCol
-	ReopenCount    metaquery.IntCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Text:           metaquery.NewTextCol("text"),
-	Title:          metaquery.NewTextCol("title"),
-	Description:    metaquery.NewTextCol("description"),
-	Key:            metaquery.NewTextCol("key"),
-	Persona:        metaquery.NewTextCol("persona"),
-	Priority:       metaquery.NewIntCol("priority"),
-	Status:         metaquery.NewTextCol("status"),
-	TargetType:     metaquery.NewTextCol("target_type"),
-	TargetID:       metaquery.NewTextCol("target_id"),
-	Kind:           metaquery.NewTextCol("kind"),
-	IssueRef:       metaquery.NewTextCol("issue_ref"),
-	Blocked:        metaquery.NewBoolCol("blocked"),
-	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
-	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
-	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	ResolvedAt:     metaquery.NewTimeCol("resolved_at"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }
 
 var MetaDeleteTodosForProject = metaquery.Query{
@@ -275,7 +374,7 @@ var MetaGetTodoByID = metaquery.Query{
 	Cmd:    ":one",
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE id = $1`,
 	Columns: []metaquery.Column{
@@ -293,6 +392,9 @@ FROM zdx_todos WHERE id = $1`,
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
@@ -312,47 +414,53 @@ func WrapGetTodoByID(id int32) *metaquery.Builder {
 
 // GetTodoByIDCols gives typed, name-safe access to GetTodoByID's output columns.
 var GetTodoByIDCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	Text           metaquery.TextCol
-	Title          metaquery.TextCol
-	Description    metaquery.TextCol
-	Key            metaquery.TextCol
-	Persona        metaquery.TextCol
-	Priority       metaquery.IntCol
-	Status         metaquery.TextCol
-	TargetType     metaquery.TextCol
-	TargetID       metaquery.TextCol
-	Kind           metaquery.TextCol
-	IssueRef       metaquery.TextCol
-	Blocked        metaquery.BoolCol
-	ClaimedBy      metaquery.TextCol
-	ClaimedAt      metaquery.TimeCol
-	LeaseExpiresAt metaquery.TimeCol
-	CreatedAt      metaquery.TimeCol
-	ResolvedAt     metaquery.TimeCol
-	ReopenCount    metaquery.IntCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Text:           metaquery.NewTextCol("text"),
-	Title:          metaquery.NewTextCol("title"),
-	Description:    metaquery.NewTextCol("description"),
-	Key:            metaquery.NewTextCol("key"),
-	Persona:        metaquery.NewTextCol("persona"),
-	Priority:       metaquery.NewIntCol("priority"),
-	Status:         metaquery.NewTextCol("status"),
-	TargetType:     metaquery.NewTextCol("target_type"),
-	TargetID:       metaquery.NewTextCol("target_id"),
-	Kind:           metaquery.NewTextCol("kind"),
-	IssueRef:       metaquery.NewTextCol("issue_ref"),
-	Blocked:        metaquery.NewBoolCol("blocked"),
-	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
-	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
-	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	ResolvedAt:     metaquery.NewTimeCol("resolved_at"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }
 
 var MetaGetTodoByKey = metaquery.Query{
@@ -360,7 +468,7 @@ var MetaGetTodoByKey = metaquery.Query{
 	Cmd:    ":one",
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 AND key = $2`,
 	Columns: []metaquery.Column{
@@ -378,6 +486,9 @@ FROM zdx_todos WHERE project_id = $1 AND key = $2`,
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
@@ -398,47 +509,53 @@ func WrapGetTodoByKey(arg GetTodoByKeyParams) *metaquery.Builder {
 
 // GetTodoByKeyCols gives typed, name-safe access to GetTodoByKey's output columns.
 var GetTodoByKeyCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	Text           metaquery.TextCol
-	Title          metaquery.TextCol
-	Description    metaquery.TextCol
-	Key            metaquery.TextCol
-	Persona        metaquery.TextCol
-	Priority       metaquery.IntCol
-	Status         metaquery.TextCol
-	TargetType     metaquery.TextCol
-	TargetID       metaquery.TextCol
-	Kind           metaquery.TextCol
-	IssueRef       metaquery.TextCol
-	Blocked        metaquery.BoolCol
-	ClaimedBy      metaquery.TextCol
-	ClaimedAt      metaquery.TimeCol
-	LeaseExpiresAt metaquery.TimeCol
-	CreatedAt      metaquery.TimeCol
-	ResolvedAt     metaquery.TimeCol
-	ReopenCount    metaquery.IntCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Text:           metaquery.NewTextCol("text"),
-	Title:          metaquery.NewTextCol("title"),
-	Description:    metaquery.NewTextCol("description"),
-	Key:            metaquery.NewTextCol("key"),
-	Persona:        metaquery.NewTextCol("persona"),
-	Priority:       metaquery.NewIntCol("priority"),
-	Status:         metaquery.NewTextCol("status"),
-	TargetType:     metaquery.NewTextCol("target_type"),
-	TargetID:       metaquery.NewTextCol("target_id"),
-	Kind:           metaquery.NewTextCol("kind"),
-	IssueRef:       metaquery.NewTextCol("issue_ref"),
-	Blocked:        metaquery.NewBoolCol("blocked"),
-	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
-	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
-	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	ResolvedAt:     metaquery.NewTimeCol("resolved_at"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }
 
 var MetaListActiveTodoClaims = metaquery.Query{
@@ -446,7 +563,7 @@ var MetaListActiveTodoClaims = metaquery.Query{
 	Cmd:    ":many",
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
 WHERE project_id = $1
@@ -468,6 +585,9 @@ ORDER BY claimed_at DESC`,
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
@@ -487,47 +607,53 @@ func WrapListActiveTodoClaims(projectID int32) *metaquery.Builder {
 
 // ListActiveTodoClaimsCols gives typed, name-safe access to ListActiveTodoClaims's output columns.
 var ListActiveTodoClaimsCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	Text           metaquery.TextCol
-	Title          metaquery.TextCol
-	Description    metaquery.TextCol
-	Key            metaquery.TextCol
-	Persona        metaquery.TextCol
-	Priority       metaquery.IntCol
-	Status         metaquery.TextCol
-	TargetType     metaquery.TextCol
-	TargetID       metaquery.TextCol
-	Kind           metaquery.TextCol
-	IssueRef       metaquery.TextCol
-	Blocked        metaquery.BoolCol
-	ClaimedBy      metaquery.TextCol
-	ClaimedAt      metaquery.TimeCol
-	LeaseExpiresAt metaquery.TimeCol
-	CreatedAt      metaquery.TimeCol
-	ResolvedAt     metaquery.TimeCol
-	ReopenCount    metaquery.IntCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Text:           metaquery.NewTextCol("text"),
-	Title:          metaquery.NewTextCol("title"),
-	Description:    metaquery.NewTextCol("description"),
-	Key:            metaquery.NewTextCol("key"),
-	Persona:        metaquery.NewTextCol("persona"),
-	Priority:       metaquery.NewIntCol("priority"),
-	Status:         metaquery.NewTextCol("status"),
-	TargetType:     metaquery.NewTextCol("target_type"),
-	TargetID:       metaquery.NewTextCol("target_id"),
-	Kind:           metaquery.NewTextCol("kind"),
-	IssueRef:       metaquery.NewTextCol("issue_ref"),
-	Blocked:        metaquery.NewBoolCol("blocked"),
-	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
-	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
-	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	ResolvedAt:     metaquery.NewTimeCol("resolved_at"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }
 
 var MetaListTodos = metaquery.Query{
@@ -535,7 +661,7 @@ var MetaListTodos = metaquery.Query{
 	Cmd:    ":many",
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at`,
 	Columns: []metaquery.Column{
@@ -553,6 +679,9 @@ FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at`,
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
@@ -572,47 +701,53 @@ func WrapListTodos(projectID int32) *metaquery.Builder {
 
 // ListTodosCols gives typed, name-safe access to ListTodos's output columns.
 var ListTodosCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	Text           metaquery.TextCol
-	Title          metaquery.TextCol
-	Description    metaquery.TextCol
-	Key            metaquery.TextCol
-	Persona        metaquery.TextCol
-	Priority       metaquery.IntCol
-	Status         metaquery.TextCol
-	TargetType     metaquery.TextCol
-	TargetID       metaquery.TextCol
-	Kind           metaquery.TextCol
-	IssueRef       metaquery.TextCol
-	Blocked        metaquery.BoolCol
-	ClaimedBy      metaquery.TextCol
-	ClaimedAt      metaquery.TimeCol
-	LeaseExpiresAt metaquery.TimeCol
-	CreatedAt      metaquery.TimeCol
-	ResolvedAt     metaquery.TimeCol
-	ReopenCount    metaquery.IntCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Text:           metaquery.NewTextCol("text"),
-	Title:          metaquery.NewTextCol("title"),
-	Description:    metaquery.NewTextCol("description"),
-	Key:            metaquery.NewTextCol("key"),
-	Persona:        metaquery.NewTextCol("persona"),
-	Priority:       metaquery.NewIntCol("priority"),
-	Status:         metaquery.NewTextCol("status"),
-	TargetType:     metaquery.NewTextCol("target_type"),
-	TargetID:       metaquery.NewTextCol("target_id"),
-	Kind:           metaquery.NewTextCol("kind"),
-	IssueRef:       metaquery.NewTextCol("issue_ref"),
-	Blocked:        metaquery.NewBoolCol("blocked"),
-	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
-	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
-	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	ResolvedAt:     metaquery.NewTimeCol("resolved_at"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }
 
 var MetaListTodosFiltered = metaquery.Query{
@@ -620,7 +755,7 @@ var MetaListTodosFiltered = metaquery.Query{
 	Cmd:    ":many",
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
 WHERE project_id = $1
@@ -644,6 +779,9 @@ ORDER BY priority, created_at`,
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
@@ -667,47 +805,53 @@ func WrapListTodosFiltered(arg ListTodosFilteredParams) *metaquery.Builder {
 
 // ListTodosFilteredCols gives typed, name-safe access to ListTodosFiltered's output columns.
 var ListTodosFilteredCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	Text           metaquery.TextCol
-	Title          metaquery.TextCol
-	Description    metaquery.TextCol
-	Key            metaquery.TextCol
-	Persona        metaquery.TextCol
-	Priority       metaquery.IntCol
-	Status         metaquery.TextCol
-	TargetType     metaquery.TextCol
-	TargetID       metaquery.TextCol
-	Kind           metaquery.TextCol
-	IssueRef       metaquery.TextCol
-	Blocked        metaquery.BoolCol
-	ClaimedBy      metaquery.TextCol
-	ClaimedAt      metaquery.TimeCol
-	LeaseExpiresAt metaquery.TimeCol
-	CreatedAt      metaquery.TimeCol
-	ResolvedAt     metaquery.TimeCol
-	ReopenCount    metaquery.IntCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Text:           metaquery.NewTextCol("text"),
-	Title:          metaquery.NewTextCol("title"),
-	Description:    metaquery.NewTextCol("description"),
-	Key:            metaquery.NewTextCol("key"),
-	Persona:        metaquery.NewTextCol("persona"),
-	Priority:       metaquery.NewIntCol("priority"),
-	Status:         metaquery.NewTextCol("status"),
-	TargetType:     metaquery.NewTextCol("target_type"),
-	TargetID:       metaquery.NewTextCol("target_id"),
-	Kind:           metaquery.NewTextCol("kind"),
-	IssueRef:       metaquery.NewTextCol("issue_ref"),
-	Blocked:        metaquery.NewBoolCol("blocked"),
-	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
-	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
-	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	ResolvedAt:     metaquery.NewTimeCol("resolved_at"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }
 
 var MetaReclaimExpiredTodos = metaquery.Query{
@@ -722,7 +866,7 @@ WHERE project_id = $1
   AND claimed_by != ''
   AND lease_expires_at < NOW()
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -739,6 +883,9 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
@@ -758,47 +905,53 @@ func WrapReclaimExpiredTodos(projectID int32) *metaquery.Builder {
 
 // ReclaimExpiredTodosCols gives typed, name-safe access to ReclaimExpiredTodos's output columns.
 var ReclaimExpiredTodosCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	Text           metaquery.TextCol
-	Title          metaquery.TextCol
-	Description    metaquery.TextCol
-	Key            metaquery.TextCol
-	Persona        metaquery.TextCol
-	Priority       metaquery.IntCol
-	Status         metaquery.TextCol
-	TargetType     metaquery.TextCol
-	TargetID       metaquery.TextCol
-	Kind           metaquery.TextCol
-	IssueRef       metaquery.TextCol
-	Blocked        metaquery.BoolCol
-	ClaimedBy      metaquery.TextCol
-	ClaimedAt      metaquery.TimeCol
-	LeaseExpiresAt metaquery.TimeCol
-	CreatedAt      metaquery.TimeCol
-	ResolvedAt     metaquery.TimeCol
-	ReopenCount    metaquery.IntCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Text:           metaquery.NewTextCol("text"),
-	Title:          metaquery.NewTextCol("title"),
-	Description:    metaquery.NewTextCol("description"),
-	Key:            metaquery.NewTextCol("key"),
-	Persona:        metaquery.NewTextCol("persona"),
-	Priority:       metaquery.NewIntCol("priority"),
-	Status:         metaquery.NewTextCol("status"),
-	TargetType:     metaquery.NewTextCol("target_type"),
-	TargetID:       metaquery.NewTextCol("target_id"),
-	Kind:           metaquery.NewTextCol("kind"),
-	IssueRef:       metaquery.NewTextCol("issue_ref"),
-	Blocked:        metaquery.NewBoolCol("blocked"),
-	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
-	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
-	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	ResolvedAt:     metaquery.NewTimeCol("resolved_at"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }
 
 var MetaReleaseTodo = metaquery.Query{
@@ -930,14 +1083,65 @@ func WrapSetState(arg SetStateParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaSetState, arg.ProjectID, arg.Key, arg.Value)
 }
 
+var MetaSetTodoReferenceIssue = metaquery.Query{
+	Name:   "SetTodoReferenceIssue",
+	Cmd:    ":exec",
+	Source: "todos.sql",
+	SQL: `UPDATE zdx_todos SET reference_issue_id = $1
+WHERE project_id = $2 AND key = $3`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 2, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 3, Name: "key", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapSetTodoReferenceIssue returns a metaquery.Builder over MetaSetTodoReferenceIssue, pre-bound with typed arguments.
+func WrapSetTodoReferenceIssue(arg SetTodoReferenceIssueParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaSetTodoReferenceIssue, arg.ReferenceIssueID, arg.ProjectID, arg.Key)
+}
+
+var MetaUnblockAllTodos = metaquery.Query{
+	Name:   "UnblockAllTodos",
+	Cmd:    ":exec",
+	Source: "todos.sql",
+	SQL: `UPDATE zdx_todos SET blocked = false, blocked_reason = '', cycle_count = 0, reference_issue_id = ''
+WHERE project_id = $1 AND blocked = true AND status = 'open'`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapUnblockAllTodos returns a metaquery.Builder over MetaUnblockAllTodos, pre-bound with typed arguments.
+func WrapUnblockAllTodos(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUnblockAllTodos, projectID)
+}
+
+var MetaUnblockTodosByReferenceIssue = metaquery.Query{
+	Name:   "UnblockTodosByReferenceIssue",
+	Cmd:    ":exec",
+	Source: "todos.sql",
+	SQL: `UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = ''
+WHERE project_id = $1 AND reference_issue_id = $2 AND blocked = true AND status = 'open'`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapUnblockTodosByReferenceIssue returns a metaquery.Builder over MetaUnblockTodosByReferenceIssue, pre-bound with typed arguments.
+func WrapUnblockTodosByReferenceIssue(arg UnblockTodosByReferenceIssueParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUnblockTodosByReferenceIssue, arg.ProjectID, arg.ReferenceIssueID)
+}
+
 var MetaUpsertTodo = metaquery.Query{
 	Name:   "UpsertTodo",
 	Cmd:    ":one",
 	Source: "todos.sql",
 	SQL: `INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked)
+                       target_type, target_id, kind, issue_ref, blocked, blocked_reason)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
-        $9, $10, $11, $12, $13)
+        $9, $10, $11, $12, $13, $14)
 ON CONFLICT (project_id, key) DO UPDATE SET
   text = EXCLUDED.text,
   title = EXCLUDED.title,
@@ -949,18 +1153,26 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   target_id = EXCLUDED.target_id,
   kind = EXCLUDED.kind,
   issue_ref = EXCLUDED.issue_ref,
+  -- blocked: churn-guard (reopen_count >= 3) sticks; cycle-detection blocks
+  -- naturally clear when the fresh candidate is not blocked. EXCLUDED.blocked
+  -- otherwise wins so re-evaluation reflects current state.
   blocked = CASE
-    WHEN zdx_todos.blocked = true THEN true
     WHEN zdx_todos.status = 'resolved' AND zdx_todos.reopen_count + 1 >= 3 THEN true
+    WHEN zdx_todos.reopen_count >= 3 THEN true
     ELSE EXCLUDED.blocked
+  END,
+  blocked_reason = CASE
+    WHEN zdx_todos.status = 'resolved' AND zdx_todos.reopen_count + 1 >= 3 THEN 'Reopened 3+ times: manually review and unblock when ready'
+    WHEN zdx_todos.reopen_count >= 3 THEN 'Reopened 3+ times: manually review and unblock when ready'
+    ELSE EXCLUDED.blocked_reason
   END,
   reopen_count = CASE
     WHEN zdx_todos.status = 'resolved' THEN zdx_todos.reopen_count + 1
     ELSE zdx_todos.reopen_count
   END
-  -- claimed_by, claimed_at, lease_expires_at intentionally NOT updated
+  -- claimed_by, claimed_at, lease_expires_at, cycle_count, reference_issue_id intentionally NOT updated
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -977,6 +1189,9 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
@@ -998,56 +1213,63 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Position: 11, Name: "kind", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 12, Name: "issue_ref", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 13, Name: "blocked", GoType: "bool", DBType: "pg_catalog.bool", NotNull: true},
+		{Position: 14, Name: "blocked_reason", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_todos"},
 }
 
 // WrapUpsertTodo returns a metaquery.Builder over MetaUpsertTodo, pre-bound with typed arguments.
 func WrapUpsertTodo(arg UpsertTodoParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaUpsertTodo, arg.ProjectID, arg.Text, arg.Title, arg.Description, arg.Key, arg.Persona, arg.Priority, arg.Status, arg.TargetType, arg.TargetID, arg.Kind, arg.IssueRef, arg.Blocked)
+	return metaquery.Wrap(&MetaUpsertTodo, arg.ProjectID, arg.Text, arg.Title, arg.Description, arg.Key, arg.Persona, arg.Priority, arg.Status, arg.TargetType, arg.TargetID, arg.Kind, arg.IssueRef, arg.Blocked, arg.BlockedReason)
 }
 
 // UpsertTodoCols gives typed, name-safe access to UpsertTodo's output columns.
 var UpsertTodoCols = struct {
-	ID             metaquery.IntCol
-	ProjectID      metaquery.IntCol
-	Text           metaquery.TextCol
-	Title          metaquery.TextCol
-	Description    metaquery.TextCol
-	Key            metaquery.TextCol
-	Persona        metaquery.TextCol
-	Priority       metaquery.IntCol
-	Status         metaquery.TextCol
-	TargetType     metaquery.TextCol
-	TargetID       metaquery.TextCol
-	Kind           metaquery.TextCol
-	IssueRef       metaquery.TextCol
-	Blocked        metaquery.BoolCol
-	ClaimedBy      metaquery.TextCol
-	ClaimedAt      metaquery.TimeCol
-	LeaseExpiresAt metaquery.TimeCol
-	CreatedAt      metaquery.TimeCol
-	ResolvedAt     metaquery.TimeCol
-	ReopenCount    metaquery.IntCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Text             metaquery.TextCol
+	Title            metaquery.TextCol
+	Description      metaquery.TextCol
+	Key              metaquery.TextCol
+	Persona          metaquery.TextCol
+	Priority         metaquery.IntCol
+	Status           metaquery.TextCol
+	TargetType       metaquery.TextCol
+	TargetID         metaquery.TextCol
+	Kind             metaquery.TextCol
+	IssueRef         metaquery.TextCol
+	Blocked          metaquery.BoolCol
+	BlockedReason    metaquery.TextCol
+	CycleCount       metaquery.IntCol
+	ReferenceIssueID metaquery.TextCol
+	ClaimedBy        metaquery.TextCol
+	ClaimedAt        metaquery.TimeCol
+	LeaseExpiresAt   metaquery.TimeCol
+	CreatedAt        metaquery.TimeCol
+	ResolvedAt       metaquery.TimeCol
+	ReopenCount      metaquery.IntCol
 }{
-	ID:             metaquery.NewIntCol("id"),
-	ProjectID:      metaquery.NewIntCol("project_id"),
-	Text:           metaquery.NewTextCol("text"),
-	Title:          metaquery.NewTextCol("title"),
-	Description:    metaquery.NewTextCol("description"),
-	Key:            metaquery.NewTextCol("key"),
-	Persona:        metaquery.NewTextCol("persona"),
-	Priority:       metaquery.NewIntCol("priority"),
-	Status:         metaquery.NewTextCol("status"),
-	TargetType:     metaquery.NewTextCol("target_type"),
-	TargetID:       metaquery.NewTextCol("target_id"),
-	Kind:           metaquery.NewTextCol("kind"),
-	IssueRef:       metaquery.NewTextCol("issue_ref"),
-	Blocked:        metaquery.NewBoolCol("blocked"),
-	ClaimedBy:      metaquery.NewTextCol("claimed_by"),
-	ClaimedAt:      metaquery.NewTimeCol("claimed_at"),
-	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
-	CreatedAt:      metaquery.NewTimeCol("created_at"),
-	ResolvedAt:     metaquery.NewTimeCol("resolved_at"),
-	ReopenCount:    metaquery.NewIntCol("reopen_count"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Text:             metaquery.NewTextCol("text"),
+	Title:            metaquery.NewTextCol("title"),
+	Description:      metaquery.NewTextCol("description"),
+	Key:              metaquery.NewTextCol("key"),
+	Persona:          metaquery.NewTextCol("persona"),
+	Priority:         metaquery.NewIntCol("priority"),
+	Status:           metaquery.NewTextCol("status"),
+	TargetType:       metaquery.NewTextCol("target_type"),
+	TargetID:         metaquery.NewTextCol("target_id"),
+	Kind:             metaquery.NewTextCol("kind"),
+	IssueRef:         metaquery.NewTextCol("issue_ref"),
+	Blocked:          metaquery.NewBoolCol("blocked"),
+	BlockedReason:    metaquery.NewTextCol("blocked_reason"),
+	CycleCount:       metaquery.NewIntCol("cycle_count"),
+	ReferenceIssueID: metaquery.NewTextCol("reference_issue_id"),
+	ClaimedBy:        metaquery.NewTextCol("claimed_by"),
+	ClaimedAt:        metaquery.NewTimeCol("claimed_at"),
+	LeaseExpiresAt:   metaquery.NewTimeCol("lease_expires_at"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
+	ReopenCount:      metaquery.NewIntCol("reopen_count"),
 }

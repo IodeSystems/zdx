@@ -162,18 +162,22 @@ export function ProjectDashboard({ slug }: { slug: string }) {
                   to="/project/$slug/issues/$id"
                   params={{ slug, id: `IS-${i.id}` }}
                 >
-                  <CardContent sx={{ py: 1.25, display: 'flex', alignItems: 'center', gap: 1 }}>
-                    <Chip
-                      label={pLabel}
-                      size="small"
-                      color={PRIORITY_COLORS[pLabel] || 'default'}
-                      sx={{ minWidth: 70 }}
-                    />
-                    <Typography variant="body2" sx={{ flex: 1 }}>
-                      IS-{i.id}: {i.title || (i.context ? i.context.slice(0, 60) + (i.context.length > 60 ? '…' : '') : '(no title)')}
-                    </Typography>
-                    <Typography variant="caption" color="text.secondary">
-                      {new Date(i.created_at).toLocaleString()}
+                  <CardContent sx={{ py: 1.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
+                      <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                        IS-{i.id}
+                      </Typography>
+                      <Chip
+                        label={pLabel}
+                        size="small"
+                        color={PRIORITY_COLORS[pLabel] || 'default'}
+                      />
+                      <Typography variant="caption" color="text.secondary" sx={{ ml: 'auto' }}>
+                        {new Date(i.created_at).toLocaleString()}
+                      </Typography>
+                    </Box>
+                    <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
+                      {i.title || (i.context ? i.context.slice(0, 60) + (i.context.length > 60 ? '…' : '') : '(no title)')}
                     </Typography>
                   </CardContent>
                 </CardActionArea>

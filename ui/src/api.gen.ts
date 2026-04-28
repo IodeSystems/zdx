@@ -2438,6 +2438,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/proposals/deduplicate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["deduplicate-proposals"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/proposals/{id}": {
         parameters: {
             query?: never;
@@ -2880,6 +2896,22 @@ export interface paths {
         get: operations["solo-list-reservations"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/solo/unblock-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["solo-unblock-all"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5525,6 +5557,24 @@ export interface components {
             proposal?: components["schemas"]["ProposalItem"];
             similar?: components["schemas"]["SimilarProposalItem"][] | null;
         };
+        "Deduplicate-proposalsRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Deduplicate-proposalsRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+        };
+        "Deduplicate-proposalsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Deduplicate-proposalsResponse.json
+             */
+            readonly $schema?: string;
+            groups: components["schemas"]["ProposalDedupGroup"][] | null;
+        };
         "Defer-doctor-checkRequest": {
             /**
              * Format: uri
@@ -7678,6 +7728,11 @@ export interface components {
             stage: string;
             title?: string;
         };
+        ProposalDedupGroup: {
+            duplicates: components["schemas"]["SimilarProposalItem"][] | null;
+            existing_issues: components["schemas"]["SimilarIssueItem"][] | null;
+            proposal: components["schemas"]["ProposalItem"];
+        };
         ProposalItem: {
             /**
              * Format: uri
@@ -8603,8 +8658,27 @@ export interface components {
             /** Format: int32 */
             lease_minutes?: number;
         };
+        "Solo-unblock-allRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-unblock-allRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+        };
+        "Solo-unblock-allResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Solo-unblock-allResponse.json
+             */
+            readonly $schema?: string;
+            ok: boolean;
+        };
         SoloQueueItem: {
             blocked: boolean;
+            blocked_reason?: string;
             description?: string;
             issue_ref: string;
             key: string;
@@ -8942,9 +9016,12 @@ export interface components {
              */
             readonly $schema?: string;
             blocked: boolean;
+            blocked_reason?: string;
             claimed_at?: string;
             claimed_by?: string;
             created_at: string;
+            /** Format: int32 */
+            cycle_count?: number;
             description?: string;
             /** Format: int32 */
             id: number;
@@ -8956,6 +9033,7 @@ export interface components {
             /** Format: int32 */
             priority: number;
             project_slug?: string;
+            reference_issue_id?: string;
             resolved_at?: string;
             status: string;
             suggested_action?: string;
@@ -14914,6 +14992,39 @@ export interface operations {
             };
         };
     };
+    "deduplicate-proposals": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Deduplicate-proposalsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Deduplicate-proposalsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "show-proposal": {
         parameters: {
             query: {
@@ -15867,6 +15978,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Solo-list-reservationsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "solo-unblock-all": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Solo-unblock-allRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Solo-unblock-allResponse"];
                 };
             };
             /** @description Error */

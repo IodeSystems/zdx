@@ -31,6 +31,8 @@ export interface SoloItem {
   priority: number
   blocked: boolean
   blocked_reason?: string
+  cycle_count?: number
+  reference_issue_id?: string
   persona: string
   instructions?: string
   claimed_by?: string
@@ -635,6 +637,22 @@ export const useApplySolo = () => {
     mutationFn: async ({ slug, items }) => {
       const { data, error } = await client.POST('/api/dx/solo/apply', {
         body: { slug, items } as any,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as { ok: boolean }
+    },
+    onSuccess: (_, { slug }) => {
+      qc.invalidateQueries({ queryKey: ['solo', slug] })
+    },
+  })
+}
+
+export const useUnblockAllTodos = () => {
+  const qc = useQueryClient()
+  return useMutation<{ ok: boolean }, Error, { slug: string }>({
+    mutationFn: async ({ slug }) => {
+      const { data, error } = await client.POST('/api/dx/solo/unblock-all', {
+        body: { slug } as any,
       })
       if (error) throw new Error(JSON.stringify(error))
       return (data as unknown) as { ok: boolean }
@@ -2489,6 +2507,21 @@ export const useAddPattern = () => {
   })
 }
 
+export const useUpdatePattern = () => {
+  const qc = useQueryClient()
+  return useMutation<PatternItem, Error, { slug: string; id: number; name: string; description: string; code_refs?: { path: string }[] }>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/patterns/update', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as PatternItem
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['patterns', v.slug] })
+      qc.invalidateQueries({ queryKey: ['pattern', v.slug, v.id] })
+    },
+  })
+}
+
 export const useDeletePattern = () => {
   const qc = useQueryClient()
   return useMutation<{ ok: boolean }, Error, { slug: string; id: number }>({
@@ -2782,7 +2815,7 @@ export const useEnvironments = (slug: string) =>
 
 export const useRequestEnvironmentTodo = () => {
   const qc = useQueryClient()
-  return useMutation<void, Error, { slug: string; name: string; kind: 'test' | 'ship' }>({
+  return useMutation<void, Error, { slug: string; name: string; kind: 'test' | 'ship' | 'sync' }>({
     mutationFn: async ({ slug, name, kind }) => {
       const { error } = await client.POST('/api/dx/projects/{slug}/environments/{name}/request' as never, {
         params: { path: { slug, name } },

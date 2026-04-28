@@ -1,12 +1,12 @@
 -- name: ListTodos :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at;
 
 -- name: ListTodosFiltered :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
 WHERE project_id = @project_id
@@ -21,11 +21,11 @@ DELETE FROM zdx_todos WHERE project_id = $1;
 
 -- name: CreateTodo :one
 INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked)
+                       target_type, target_id, kind, issue_ref, blocked, blocked_reason)
 VALUES (@project_id, @text, @title, @description, @key, @persona, @priority, @status,
-        @target_type, @target_id, @kind, @issue_ref, @blocked)
+        @target_type, @target_id, @kind, @issue_ref, @blocked, @blocked_reason)
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
 -- name: UpsertTodo :one
@@ -33,9 +33,9 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 -- Tracks resolve→open churn: reopen_count increments each time a resolved key is re-emitted.
 -- Auto-blocks at 3+ reopens so agents don't churn indefinitely on an untriageable item.
 INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
-                       target_type, target_id, kind, issue_ref, blocked)
+                       target_type, target_id, kind, issue_ref, blocked, blocked_reason)
 VALUES (@project_id, @text, @title, @description, @key, @persona, @priority, @status,
-        @target_type, @target_id, @kind, @issue_ref, @blocked)
+        @target_type, @target_id, @kind, @issue_ref, @blocked, @blocked_reason)
 ON CONFLICT (project_id, key) DO UPDATE SET
   text = EXCLUDED.text,
   title = EXCLUDED.title,
@@ -47,18 +47,26 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   target_id = EXCLUDED.target_id,
   kind = EXCLUDED.kind,
   issue_ref = EXCLUDED.issue_ref,
+  -- blocked: churn-guard (reopen_count >= 3) sticks; cycle-detection blocks
+  -- naturally clear when the fresh candidate is not blocked. EXCLUDED.blocked
+  -- otherwise wins so re-evaluation reflects current state.
   blocked = CASE
-    WHEN zdx_todos.blocked = true THEN true
     WHEN zdx_todos.status = 'resolved' AND zdx_todos.reopen_count + 1 >= 3 THEN true
+    WHEN zdx_todos.reopen_count >= 3 THEN true
     ELSE EXCLUDED.blocked
+  END,
+  blocked_reason = CASE
+    WHEN zdx_todos.status = 'resolved' AND zdx_todos.reopen_count + 1 >= 3 THEN 'Reopened 3+ times: manually review and unblock when ready'
+    WHEN zdx_todos.reopen_count >= 3 THEN 'Reopened 3+ times: manually review and unblock when ready'
+    ELSE EXCLUDED.blocked_reason
   END,
   reopen_count = CASE
     WHEN zdx_todos.status = 'resolved' THEN zdx_todos.reopen_count + 1
     ELSE zdx_todos.reopen_count
   END
-  -- claimed_by, claimed_at, lease_expires_at intentionally NOT updated
+  -- claimed_by, claimed_at, lease_expires_at, cycle_count, reference_issue_id intentionally NOT updated
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
 -- name: ResolveTodo :exec
@@ -67,13 +75,13 @@ WHERE project_id = $1 AND key = $2;
 
 -- name: GetTodoByKey :one
 SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE project_id = $1 AND key = $2;
 
 -- name: GetTodoByID :one
 SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos WHERE id = $1;
 
@@ -99,7 +107,7 @@ WHERE id = (
   FOR UPDATE SKIP LOCKED
 )
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
 -- name: ReleaseTodo :exec
@@ -129,11 +137,29 @@ UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW(),
   claimed_by = '', claimed_at = NULL, lease_expires_at = NULL
 WHERE id = $1;
 
--- name: BlockTodoByKey :exec
--- Block a todo by its key (cycle detection). Prevents the queue from re-issuing
--- a todo that the agent resolved but cannot actually fix.
-UPDATE zdx_todos SET blocked = true
+-- name: BlockTodoByKey :one
+-- Block a todo by its key (cycle detection). Increments cycle_count each time.
+-- Returns the updated row so callers can check whether to auto-file an issue.
+UPDATE zdx_todos SET blocked = true, blocked_reason = @reason, cycle_count = cycle_count + 1
+WHERE project_id = @project_id AND key = @key
+RETURNING id, project_id, text, title, description, key, persona, priority, status,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
+
+-- name: SetTodoReferenceIssue :exec
+-- Store the auto-filed issue ID on a blocked todo so the UI can link to it.
+UPDATE zdx_todos SET reference_issue_id = @reference_issue_id
 WHERE project_id = @project_id AND key = @key;
+
+-- name: UnblockTodosByReferenceIssue :exec
+-- When the referenced issue is closed/fixed, automatically unblock the todo.
+UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = ''
+WHERE project_id = @project_id AND reference_issue_id = @reference_issue_id AND blocked = true AND status = 'open';
+
+-- name: UnblockAllTodos :exec
+-- Clear blocked flag on all blocked todos for a project.
+UPDATE zdx_todos SET blocked = false, blocked_reason = '', cycle_count = 0, reference_issue_id = ''
+WHERE project_id = @project_id AND blocked = true AND status = 'open';
 
 -- name: ReclaimExpiredTodos :many
 -- Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
@@ -145,13 +171,13 @@ WHERE project_id = $1
   AND claimed_by != ''
   AND lease_expires_at < NOW()
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked,
+          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
           claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count;
 
 -- name: ListActiveTodoClaims :many
 -- Return all todos that are currently claimed and whose lease has not expired.
 SELECT id, project_id, text, title, description, key, persona, priority, status,
-       target_type, target_id, kind, issue_ref, blocked,
+       target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
        claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 FROM zdx_todos
 WHERE project_id = $1

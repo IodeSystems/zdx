@@ -168,27 +168,29 @@ type FocusItem struct {
 }
 
 type TodoItem struct {
-	ID              int32  `json:"id"`
-	Text            string `json:"text"`
-	Title           string `json:"title,omitempty"`
-	Description     string `json:"description,omitempty"`
-	Key             string `json:"key"`
-	Persona         string `json:"persona"`
-	Priority        int32  `json:"priority"`
-	Status          string `json:"status"`
-	TargetType      string `json:"target_type"`
-	TargetID        string `json:"target_id"`
-	Kind            string `json:"kind"`
-	IssueRef        string `json:"issue_ref"`
-	ProjectSlug     string `json:"project_slug,omitempty"`
-	Blocked         bool   `json:"blocked"`
-	BlockedReason   string `json:"blocked_reason,omitempty"`
-	Instructions    string `json:"instructions,omitempty"`
-	SuggestedAction string `json:"suggested_action,omitempty"`
-	ClaimedBy       string `json:"claimed_by,omitempty"`
-	ClaimedAt       string `json:"claimed_at,omitempty"`
-	CreatedAt       string `json:"created_at"`
-	ResolvedAt      string `json:"resolved_at,omitempty"`
+	ID               int32  `json:"id"`
+	Text             string `json:"text"`
+	Title            string `json:"title,omitempty"`
+	Description      string `json:"description,omitempty"`
+	Key              string `json:"key"`
+	Persona          string `json:"persona"`
+	Priority         int32  `json:"priority"`
+	Status           string `json:"status"`
+	TargetType       string `json:"target_type"`
+	TargetID         string `json:"target_id"`
+	Kind             string `json:"kind"`
+	IssueRef         string `json:"issue_ref"`
+	ProjectSlug      string `json:"project_slug,omitempty"`
+	Blocked          bool   `json:"blocked"`
+	BlockedReason    string `json:"blocked_reason,omitempty"`
+	CycleCount       int32  `json:"cycle_count,omitempty"`
+	ReferenceIssueID string `json:"reference_issue_id,omitempty"`
+	Instructions     string `json:"instructions,omitempty"`
+	SuggestedAction  string `json:"suggested_action,omitempty"`
+	ClaimedBy        string `json:"claimed_by,omitempty"`
+	ClaimedAt        string `json:"claimed_at,omitempty"`
+	CreatedAt        string `json:"created_at"`
+	ResolvedAt       string `json:"resolved_at,omitempty"`
 }
 
 type ErrorReportItem struct {

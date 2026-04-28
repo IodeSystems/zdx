@@ -223,18 +223,18 @@ function ErrorDetailRoute() {
                     {similarIssues!.map(iss => (
                       <Card key={iss.id} variant="outlined" sx={{ flexShrink: 0 }}>
                         <CardContent sx={{ py: 1, px: 1.5, '&:last-child': { pb: 1 } }}>
-                          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-                            <Link href={`/project/${slug}/issues/${iss.id}`} target="_blank" rel="noopener" variant="body2" sx={{ fontWeight: 600, whiteSpace: 'nowrap' }}>
+                          <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75, mb: 0.5 }}>
+                            <Link href={`/project/${slug}/issues/${iss.id}`} target="_blank" rel="noopener" variant="caption" sx={{ fontFamily: 'monospace', fontWeight: 600, whiteSpace: 'nowrap' }}>
                               {iss.id}
                             </Link>
-                            <Typography variant="body2" sx={{ fontWeight: 500, flex: 1, minWidth: 0 }} noWrap>
-                              {iss.title || '(untitled)'}
-                            </Typography>
                             <Chip label={iss.status || 'open'} size="small" variant="outlined" sx={{ height: 20, fontSize: '0.7rem' }} />
-                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap' }}>
+                            <Typography variant="caption" color="text.secondary" sx={{ whiteSpace: 'nowrap', ml: 'auto' }}>
                               {(iss.score * 100).toFixed(0)}%
                             </Typography>
                           </Box>
+                          <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word', mb: 0.5 }}>
+                            {iss.title || '(untitled)'}
+                          </Typography>
                           {iss.context && (
                             <Typography variant="body2" color="text.secondary" sx={{
                               overflow: 'hidden', display: '-webkit-box',

@@ -30,9 +30,9 @@ type Querier interface {
 	AttachCodeRefToTask(ctx context.Context, arg AttachCodeRefToTaskParams) error
 	AttachCodeRefToTest(ctx context.Context, arg AttachCodeRefToTestParams) error
 	AttachFileToIssue(ctx context.Context, arg AttachFileToIssueParams) error
-	// Block a todo by its key (cycle detection). Prevents the queue from re-issuing
-	// a todo that the agent resolved but cannot actually fix.
-	BlockTodoByKey(ctx context.Context, arg BlockTodoByKeyParams) error
+	// Block a todo by its key (cycle detection). Increments cycle_count each time.
+	// Returns the updated row so callers can check whether to auto-file an issue.
+	BlockTodoByKey(ctx context.Context, arg BlockTodoByKeyParams) (BlockTodoByKeyRow, error)
 	// Skip ready tasks with no test_refs: they were never verified. Those stay
 	// open so the maturity nudge can re-discover them without creating duplicates.
 	CancelOrphanedTasks(ctx context.Context) ([]CancelOrphanedTasksRow, error)
@@ -75,7 +75,7 @@ type Querier interface {
 	CreateDeploy(ctx context.Context, arg CreateDeployParams) (ZdxDeploy, error)
 	CreateDiscussion(ctx context.Context, arg CreateDiscussionParams) (ZdxDiscussion, error)
 	CreateDiscussionMessage(ctx context.Context, arg CreateDiscussionMessageParams) (ZdxDiscussionMessage, error)
-	CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) (ZdxEnvironment, error)
+	CreateEnvironment(ctx context.Context, arg CreateEnvironmentParams) (CreateEnvironmentRow, error)
 	CreateFile(ctx context.Context, arg CreateFileParams) (ZdxFile, error)
 	CreateFocus(ctx context.Context, arg CreateFocusParams) (ZdxFocuse, error)
 	CreateIntegrationToken(ctx context.Context, arg CreateIntegrationTokenParams) (CreateIntegrationTokenRow, error)
@@ -158,7 +158,7 @@ type Querier interface {
 	// resolve to the uploaded artifact instead of 404ing on handleServeDemo.
 	GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, error)
 	GetDiscussion(ctx context.Context, arg GetDiscussionParams) (ZdxDiscussion, error)
-	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (ZdxEnvironment, error)
+	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (GetEnvironmentRow, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
 	GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (GetFeatureRow, error)
@@ -289,7 +289,7 @@ type Querier interface {
 	// up the dangling thread (typically left over from a failed LLM send).
 	ListDiscussionsAwaitingResponse(ctx context.Context, projectID int32) ([]ListDiscussionsAwaitingResponseRow, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
-	ListEnvironments(ctx context.Context, projectID int32) ([]ZdxEnvironment, error)
+	ListEnvironments(ctx context.Context, projectID int32) ([]ListEnvironmentsRow, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
 	ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error)
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
@@ -492,10 +492,16 @@ type Querier interface {
 	SetProjectStage(ctx context.Context, arg SetProjectStageParams) error
 	SetProjectVision(ctx context.Context, arg SetProjectVisionParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
+	// Store the auto-filed issue ID on a blocked todo so the UI can link to it.
+	SetTodoReferenceIssue(ctx context.Context, arg SetTodoReferenceIssueParams) error
 	// metaquery: off
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
 	TouchClaudeSession(ctx context.Context, id int64) error
+	// Clear blocked flag on all blocked todos for a project.
+	UnblockAllTodos(ctx context.Context, projectID int32) error
+	// When the referenced issue is closed/fixed, automatically unblock the todo.
+	UnblockTodosByReferenceIssue(ctx context.Context, arg UnblockTodosByReferenceIssueParams) error
 	UndeferDoctorCheck(ctx context.Context, arg UndeferDoctorCheckParams) error
 	UnlinkGoalIssue(ctx context.Context, arg UnlinkGoalIssueParams) error
 	UnlinkSpecIssue(ctx context.Context, arg UnlinkSpecIssueParams) error

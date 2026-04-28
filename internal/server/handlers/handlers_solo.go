@@ -17,17 +17,18 @@ import (
 )
 
 type soloCandidate struct {
-	Key         string
-	Title       string
-	Description string
-	Text        string
-	Kind        string
-	TargetType  string
-	TargetID    string
-	IssueRef    string
-	Priority    int32
-	Blocked     bool
-	Persona     string
+	Key           string
+	Title         string
+	Description   string
+	Text          string
+	Kind          string
+	TargetType    string
+	TargetID      string
+	IssueRef      string
+	Priority      int32
+	Blocked       bool
+	BlockedReason string
+	Persona       string
 }
 
 // foldIssuePriority lowers a base candidate priority (lower=wins) by the
@@ -102,17 +103,18 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				if iss.ID == q.TargetID {
 					if issueFilter != "" {
 						candidates = append(candidates, soloCandidate{
-							Key:         fmt.Sprintf("bq-%d", q.ID),
-							Title:       fmt.Sprintf("Answer BQ-%d on %s", q.ID, iss.ID),
-							Description: q.Context,
-							Text:        q.Context,
-							Kind:        "clarify",
-							TargetType:  "blocker_question",
-							TargetID:    fmt.Sprintf("BQ-%d", q.ID),
-							IssueRef:    iss.ID,
-							Priority:    5,
-							Blocked:     true,
-							Persona:     "owner",
+							Key:           fmt.Sprintf("bq-%d", q.ID),
+							Title:         fmt.Sprintf("Answer BQ-%d on %s", q.ID, iss.ID),
+							Description:   q.Context,
+							Text:          q.Context,
+							Kind:          "clarify",
+							TargetType:    "blocker_question",
+							TargetID:      fmt.Sprintf("BQ-%d", q.ID),
+							IssueRef:      iss.ID,
+							Priority:      5,
+							Blocked:       true,
+							BlockedReason: fmt.Sprintf("Blocker question BQ-%d pending: owner must answer before this issue can proceed", q.ID),
+							Persona:       "owner",
 						})
 					} else {
 						bqBlocked[q.TargetID] = true
@@ -644,6 +646,7 @@ type SoloQueueItem struct {
 	IssueRef        string `json:"issue_ref"`
 	Priority        int32  `json:"priority"`
 	Blocked         bool   `json:"blocked"`
+	BlockedReason   string `json:"blocked_reason,omitempty"`
 	Persona         string `json:"persona"`
 	Status          string `json:"status"`
 	SuggestedAction string `json:"suggested_action,omitempty"`
@@ -804,7 +807,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 					Key: c.Key, Title: c.Title, Description: c.Description, Text: c.Text, Kind: c.Kind,
 					TargetType: c.TargetType, TargetID: c.TargetID,
 					IssueRef: c.IssueRef, Priority: c.Priority,
-					Blocked: c.Blocked, Persona: c.Persona, Status: "open",
+					Blocked: c.Blocked, BlockedReason: c.BlockedReason, Persona: c.Persona, Status: "open",
 					SuggestedAction: suggestedActionForKind(c.Kind, c.TargetType, c.TargetID),
 				}
 				if existing, ok := currentByKey[c.Key]; ok {
@@ -845,19 +848,20 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			for _, item := range in.Body.Items {
 				keys = append(keys, item.Key)
 				_, err := h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
-					ProjectID:   p.ID,
-					Title:       item.Title,
-					Description: item.Description,
-					Text:        item.Text,
-					Key:         item.Key,
-					Persona:     item.Persona,
-					Priority:    item.Priority,
-					Status:      "open",
-					TargetType:  item.TargetType,
-					TargetID:    item.TargetID,
-					Kind:        item.Kind,
-					IssueRef:    item.IssueRef,
-					Blocked:     item.Blocked,
+					ProjectID:     p.ID,
+					Title:         item.Title,
+					Description:   item.Description,
+					Text:          item.Text,
+					Key:           item.Key,
+					Persona:       item.Persona,
+					Priority:      item.Priority,
+					Status:        "open",
+					TargetType:    item.TargetType,
+					TargetID:      item.TargetID,
+					Kind:          item.Kind,
+					IssueRef:      item.IssueRef,
+					Blocked:       item.Blocked,
+					BlockedReason: item.BlockedReason,
 				})
 				if err != nil {
 					return nil, apiErr(500, err.Error())
@@ -910,19 +914,20 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				for _, c := range proposed {
 					keys = append(keys, c.Key)
 					_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
-						ProjectID:   p.ID,
-						Title:       c.Title,
-						Description: c.Description,
-						Text:        c.Text,
-						Key:         c.Key,
-						Persona:     c.Persona,
-						Priority:    c.Priority,
-						Status:      "open",
-						TargetType:  c.TargetType,
-						TargetID:    c.TargetID,
-						Kind:        c.Kind,
-						IssueRef:    c.IssueRef,
-						Blocked:     c.Blocked,
+						ProjectID:     p.ID,
+						Title:         c.Title,
+						Description:   c.Description,
+						Text:          c.Text,
+						Key:           c.Key,
+						Persona:       c.Persona,
+						Priority:      c.Priority,
+						Status:        "open",
+						TargetType:    c.TargetType,
+						TargetID:      c.TargetID,
+						Kind:          c.Kind,
+						IssueRef:      c.IssueRef,
+						Blocked:       c.Blocked,
+						BlockedReason: c.BlockedReason,
 					})
 				}
 				if len(keys) > 0 {
@@ -1046,10 +1051,14 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				// no priority. Auto-block and surface as cycle_detected so the
 				// agent logs the discrepancy rather than re-claiming.
 				cycleDetected = true
-				_ = h.Q.BlockTodoByKey(ctx, db.BlockTodoByKeyParams{
+				blocked, bErr := h.Q.BlockTodoByKey(ctx, db.BlockTodoByKeyParams{
 					ProjectID: todo.ProjectID,
 					Key:       todo.Key,
+					Reason:    "Triage incomplete: set a priority on " + todo.TargetID + " before resolving",
 				})
+				if bErr == nil {
+					h.maybeAutoFileBlockIssue(ctx, blocked)
+				}
 			case resolve && todo.Key != "" && todo.ProjectID != 0:
 				// Post-resolve cycle check: if we just resolved a todo, regenerate
 				// the queue and see if the same key would come back. If so, the
@@ -1059,10 +1068,14 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 					for _, c := range candidates {
 						if c.Key == todo.Key {
 							cycleDetected = true
-							_ = h.Q.BlockTodoByKey(ctx, db.BlockTodoByKeyParams{
+							blocked, bErr := h.Q.BlockTodoByKey(ctx, db.BlockTodoByKeyParams{
 								ProjectID: todo.ProjectID,
 								Key:       todo.Key,
+								Reason:    "Cycle detected: todo reappears in queue after resolve — manual intervention required",
 							})
+							if bErr == nil {
+								h.maybeAutoFileBlockIssue(ctx, blocked)
+							}
 							break
 						}
 					}
@@ -1107,24 +1120,27 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			todos := make([]TodoItem, len(todoRows))
 			for i, r := range todoRows {
 				todos[i] = TodoItem{
-					ID:              r.ID,
-					Text:            r.Text,
-					Title:           r.Title,
-					Description:     r.Description,
-					Key:             r.Key,
-					Persona:         r.Persona,
-					Priority:        r.Priority,
-					Status:          r.Status,
-					TargetType:      r.TargetType,
-					TargetID:        r.TargetID,
-					Kind:            r.Kind,
-					IssueRef:        r.IssueRef,
-					Blocked:         r.Blocked,
-					SuggestedAction: suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
-					ClaimedBy:       r.ClaimedBy,
-					ClaimedAt:       fmtTS(r.ClaimedAt),
-					CreatedAt:       fmtTS(r.CreatedAt),
-					ResolvedAt:      fmtTS(r.ResolvedAt),
+					ID:               r.ID,
+					Text:             r.Text,
+					Title:            r.Title,
+					Description:      r.Description,
+					Key:              r.Key,
+					Persona:          r.Persona,
+					Priority:         r.Priority,
+					Status:           r.Status,
+					TargetType:       r.TargetType,
+					TargetID:         r.TargetID,
+					Kind:             r.Kind,
+					IssueRef:         r.IssueRef,
+					Blocked:          r.Blocked,
+					BlockedReason:    r.BlockedReason,
+					CycleCount:       r.CycleCount,
+					ReferenceIssueID: r.ReferenceIssueID,
+					SuggestedAction:  suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
+					ClaimedBy:        r.ClaimedBy,
+					ClaimedAt:        fmtTS(r.ClaimedAt),
+					CreatedAt:        fmtTS(r.CreatedAt),
+					ResolvedAt:       fmtTS(r.ResolvedAt),
 				}
 			}
 			tasks := make([]AgentTaskItem, len(taskRows))
@@ -1151,6 +1167,33 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				Todos []TodoItem      `json:"todos"`
 				Tasks []AgentTaskItem `json:"tasks"`
 			}{Todos: todos, Tasks: tasks}}, nil
+		})
+
+	// POST /api/dx/solo/unblock-all — clear blocked flag on all open blocked todos
+	huma.Register(api, huma.Operation{OperationID: "solo-unblock-all", Method: http.MethodPost, Path: "/api/dx/solo/unblock-all"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug" required:"true"`
+			}
+		}) (*struct {
+			Body struct {
+				OK bool `json:"ok"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := h.Q.UnblockAllTodos(ctx, p.ID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct {
+				Body struct {
+					OK bool `json:"ok"`
+				}
+			}{Body: struct {
+				OK bool `json:"ok"`
+			}{OK: true}}, nil
 		})
 
 	// GET /api/dx/solo/reservations — list historical + active reservations for a project
@@ -1257,46 +1300,102 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 
 func toTodoItemFromClaim(r db.ClaimNextTodoRow) TodoItem {
 	return TodoItem{
-		ID:              r.ID,
-		Text:            r.Text,
-		Title:           r.Title,
-		Description:     r.Description,
-		Key:             r.Key,
-		Persona:         r.Persona,
-		Priority:        r.Priority,
-		Status:          r.Status,
-		TargetType:      r.TargetType,
-		TargetID:        r.TargetID,
-		Kind:            r.Kind,
-		IssueRef:        r.IssueRef,
-		Blocked:         r.Blocked,
-		SuggestedAction: suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
-		ClaimedBy:       r.ClaimedBy,
-		ClaimedAt:       fmtTS(r.ClaimedAt),
-		CreatedAt:       fmtTS(r.CreatedAt),
-		ResolvedAt:      fmtTS(r.ResolvedAt),
+		ID:               r.ID,
+		Text:             r.Text,
+		Title:            r.Title,
+		Description:      r.Description,
+		Key:              r.Key,
+		Persona:          r.Persona,
+		Priority:         r.Priority,
+		Status:           r.Status,
+		TargetType:       r.TargetType,
+		TargetID:         r.TargetID,
+		Kind:             r.Kind,
+		IssueRef:         r.IssueRef,
+		Blocked:          r.Blocked,
+		BlockedReason:    r.BlockedReason,
+		CycleCount:       r.CycleCount,
+		ReferenceIssueID: r.ReferenceIssueID,
+		SuggestedAction:  suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
+		ClaimedBy:        r.ClaimedBy,
+		ClaimedAt:        fmtTS(r.ClaimedAt),
+		CreatedAt:        fmtTS(r.CreatedAt),
+		ResolvedAt:       fmtTS(r.ResolvedAt),
 	}
 }
 
 func toTodoItemFromFiltered(r db.ListTodosFilteredRow) TodoItem {
 	return TodoItem{
-		ID:              r.ID,
-		Text:            r.Text,
-		Title:           r.Title,
-		Description:     r.Description,
-		Key:             r.Key,
-		Persona:         r.Persona,
-		Priority:        r.Priority,
-		Status:          r.Status,
-		TargetType:      r.TargetType,
-		TargetID:        r.TargetID,
-		Kind:            r.Kind,
-		IssueRef:        r.IssueRef,
-		Blocked:         r.Blocked,
-		SuggestedAction: suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
-		ClaimedBy:       r.ClaimedBy,
-		ClaimedAt:       fmtTS(r.ClaimedAt),
-		CreatedAt:       fmtTS(r.CreatedAt),
-		ResolvedAt:      fmtTS(r.ResolvedAt),
+		ID:               r.ID,
+		Text:             r.Text,
+		Title:            r.Title,
+		Description:      r.Description,
+		Key:              r.Key,
+		Persona:          r.Persona,
+		Priority:         r.Priority,
+		Status:           r.Status,
+		TargetType:       r.TargetType,
+		TargetID:         r.TargetID,
+		Kind:             r.Kind,
+		IssueRef:         r.IssueRef,
+		Blocked:          r.Blocked,
+		BlockedReason:    r.BlockedReason,
+		CycleCount:       r.CycleCount,
+		ReferenceIssueID: r.ReferenceIssueID,
+		SuggestedAction:  suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
+		ClaimedBy:        r.ClaimedBy,
+		ClaimedAt:        fmtTS(r.ClaimedAt),
+		CreatedAt:        fmtTS(r.CreatedAt),
+		ResolvedAt:       fmtTS(r.ResolvedAt),
 	}
+}
+
+// maybeAutoFileBlockIssue creates a system-gap issue when a todo hits its second
+// cycle detection. The issue ID is stored on the todo so the queue UI can link to it.
+// Threshold: cycle_count >= 2 and no reference issue already filed.
+func (h *Handler) maybeAutoFileBlockIssue(ctx context.Context, blocked db.BlockTodoByKeyRow) {
+	if blocked.CycleCount < 2 || blocked.ReferenceIssueID != "" {
+		return
+	}
+	p, err := h.Q.GetProjectByID(ctx, blocked.ProjectID)
+	if err != nil {
+		return
+	}
+	issueID, err := h.Q.NextIssueID(ctx)
+	if err != nil {
+		return
+	}
+	area := blocked.TargetType
+	if blocked.TargetID != "" {
+		area = blocked.TargetType + " " + blocked.TargetID
+	}
+	title := fmt.Sprintf("System gap: todo %q cannot be satisfied by agents", blocked.Key)
+	context := fmt.Sprintf(
+		"Todo %q (key: %s) has been cycle-detected %d times — agents resolve it but the queue regenerates it unchanged. "+
+			"This may indicate a system gap in [%s]: the satisfaction criteria are broken, a check is incorrect, or the todo describes work that requires a capability zdx does not yet have. "+
+			"Investigate the area and fix the root cause. When this issue is closed the todo will automatically unblock and re-enter the queue.",
+		blocked.Title, blocked.Key, blocked.CycleCount, area,
+	)
+	issue, err := h.Q.CreateIssue(ctx, db.CreateIssueParams{
+		ID:        issueID,
+		ProjectID: p.ID,
+		Title:     title,
+		Context:   context,
+		IssueType: "impl",
+		Status:    "open",
+	})
+	if err != nil {
+		return
+	}
+	_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{
+		IssueID: issue.ID,
+		Agent:   "system",
+		Note: fmt.Sprintf("[auto-filed] Cycle detection fired %d times on todo %q. Blocked todo will auto-unblock when this issue is closed.",
+			blocked.CycleCount, blocked.Key),
+	})
+	_ = h.Q.SetTodoReferenceIssue(ctx, db.SetTodoReferenceIssueParams{
+		ProjectID:        p.ID,
+		Key:              blocked.Key,
+		ReferenceIssueID: issue.ID,
+	})
 }

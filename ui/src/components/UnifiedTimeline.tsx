@@ -58,10 +58,10 @@ type HistoryGroup = {
   events: HistoryEvent[]
 }
 
-type TodoEventKind = 'created' | 'claimed' | 'resolved'
+type TodoEventKind = 'created' | 'claimed' | 'released' | 'resolved'
 
 type TimelineEvent =
-  | { kind: 'todo'; subKind: TodoEventKind; ts: number; payload: SoloItem }
+  | { kind: 'todo'; subKind: TodoEventKind; ts: number; payload: SoloItem; releasedBy?: string }
   | { kind: 'reservation'; ts: number; payload: ReservationItem }
   | { kind: 'resolution'; ts: number; payload: ResolutionItem }
   | { kind: 'work'; ts: number; payload: IssueWorkItem; idx: number }
@@ -143,19 +143,21 @@ function DiffModal({ event, onClose }: { event: HistoryEvent; onClose: () => voi
   )
 }
 
-const TODO_EVENT_COLOR: Record<TodoEventKind, 'default' | 'primary' | 'success' | 'info'> = {
+const TODO_EVENT_COLOR: Record<TodoEventKind, 'default' | 'primary' | 'success' | 'info' | 'warning'> = {
   created: 'primary',
   claimed: 'info',
+  released: 'warning',
   resolved: 'success',
 }
 
 const TODO_EVENT_LABEL: Record<TodoEventKind, string> = {
   created: 'created',
   claimed: 'claimed',
+  released: 'released',
   resolved: 'resolved',
 }
 
-function TodoRow({ t, subKind }: { t: SoloItem; subKind: TodoEventKind }) {
+function TodoRow({ t, subKind, releasedBy }: { t: SoloItem; subKind: TodoEventKind; releasedBy?: string }) {
   const eventColor = TODO_EVENT_COLOR[subKind]
   return (
     <Box sx={{ display: 'flex', gap: 1, alignItems: 'flex-start', flexWrap: 'wrap' }}>
@@ -163,7 +165,18 @@ function TodoRow({ t, subKind }: { t: SoloItem; subKind: TodoEventKind }) {
       {subKind === 'claimed' && t.claimed_by && (
         <Chip label={t.claimed_by} size="small" color="info" variant="filled" sx={{ fontSize: '0.65rem' }} />
       )}
-      {t.blocked && <Chip label="blocked" size="small" color="error" variant="outlined" sx={{ fontSize: '0.65rem' }} />}
+      {subKind === 'released' && releasedBy && (
+        <Chip label={releasedBy} size="small" color="warning" variant="filled" sx={{ fontSize: '0.65rem' }} />
+      )}
+      {t.blocked && (
+        <Chip
+          label={t.blocked_reason ? `blocked: ${t.blocked_reason}` : 'blocked'}
+          size="small"
+          color="error"
+          variant="outlined"
+          sx={{ fontSize: '0.65rem' }}
+        />
+      )}
       <Box sx={{ flex: 1 }}>
         <Typography variant="body2">{t.title || t.text.slice(0, 80)}</Typography>
         <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>{t.key}</Typography>
@@ -421,6 +434,7 @@ export function UnifiedTimeline({
 
   const events = useMemo<TimelineEvent[]>(() => {
     const out: TimelineEvent[] = []
+    const todoById = new Map(todos.map(t => [String(t.id), t]))
     for (const t of todos) {
       out.push({ kind: 'todo', subKind: 'created', ts: new Date(t.created_at).getTime(), payload: t })
       if (t.claimed_at) {
@@ -432,6 +446,12 @@ export function UnifiedTimeline({
     }
     for (const r of reservations) {
       out.push({ kind: 'reservation', ts: new Date(r.claimed_at).getTime(), payload: r })
+      if (r.target_type === 'todo' && r.released_at) {
+        const todo = todoById.get(r.target_id)
+        if (todo) {
+          out.push({ kind: 'todo', subKind: 'released', ts: new Date(r.released_at).getTime(), payload: todo, releasedBy: r.claimed_by })
+        }
+      }
     }
     for (const r of resols) {
       out.push({ kind: 'resolution', ts: new Date(r.resolved_at).getTime(), payload: r })
@@ -555,7 +575,7 @@ export function UnifiedTimeline({
                     {ts.toLocaleString()}
                   </Typography>
                 </Box>
-                {ev.kind === 'todo' && <TodoRow t={ev.payload} subKind={ev.subKind} />}
+                {ev.kind === 'todo' && <TodoRow t={ev.payload} subKind={ev.subKind} releasedBy={'releasedBy' in ev ? ev.releasedBy : undefined} />}
                 {ev.kind === 'reservation' && <ReservationRow r={ev.payload} slug={slug} />}
                 {ev.kind === 'resolution' && <ResolutionRow r={ev.payload} />}
                 {ev.kind === 'work' && <WorkRow e={ev.payload} />}

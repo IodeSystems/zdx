@@ -101,20 +101,25 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
       ) : (
         <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
           {issues.map((issue: SpecIssueItem) => (
-            <Box key={issue.issue_id} sx={{ display: 'flex', alignItems: 'center', gap: 1, py: 0.5, borderBottom: 1, borderColor: 'divider' }}>
-              <Chip
-                label={issue.status}
-                size="small"
-                color={issue.status === 'closed' ? 'success' : issue.status === 'wip' ? 'warning' : 'default'}
-                variant="outlined"
-              />
+            <Box key={issue.issue_id} sx={{ display: 'flex', flexDirection: 'column', gap: 0.5, py: 0.75, borderBottom: 1, borderColor: 'divider' }}>
+              <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
+                <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                  {issue.issue_id}
+                </Typography>
+                <Chip
+                  label={issue.status}
+                  size="small"
+                  color={issue.status === 'closed' ? 'success' : issue.status === 'wip' ? 'warning' : 'default'}
+                  variant="outlined"
+                />
+              </Box>
               <Link
                 to="/project/$slug/issues/$id"
                 params={{ slug, id: issue.issue_id }}
                 style={{ textDecoration: 'none', color: 'inherit' }}
               >
-                <Typography variant="body2" sx={{ '&:hover': { textDecoration: 'underline' } }}>
-                  {issue.issue_id}: {issue.title}
+                <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word', '&:hover': { textDecoration: 'underline' } }}>
+                  {issue.title}
                 </Typography>
               </Link>
             </Box>

@@ -25,6 +25,7 @@ import {
 import {
   Science as ScienceIcon,
   RocketLaunch as RocketLaunchIcon,
+  Sync as SyncIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
@@ -161,7 +162,7 @@ function EnvironmentRow({ slug, env }: { slug: string; env: EnvironmentItem }) {
   const [toast, setToast] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
 
-  const handleRequest = (kind: 'test' | 'ship') => {
+  const handleRequest = (kind: 'test' | 'ship' | 'sync') => {
     request.mutate({ slug, name: env.name, kind }, {
       onSuccess: () => setToast(`${kind === 'test' ? 'Test' : 'Ship'} todo created for ${env.name}`),
       onError: (e) => setToast(`Error: ${e.message}`),
@@ -243,7 +244,21 @@ function EnvironmentRow({ slug, env }: { slug: string; env: EnvironmentItem }) {
                 Test
               </Button>
             </Tooltip>
-            <Tooltip title="Create a ship todo for this environment">
+            {env.release_branch && (
+              <Tooltip title={`Sync main → ${env.release_branch} (test-gated)`}>
+                <Button
+                  size="small"
+                  variant="outlined"
+                  startIcon={<SyncIcon fontSize="small" />}
+                  onClick={() => handleRequest('sync')}
+                  disabled={request.isPending}
+                  sx={{ fontSize: '0.75rem', py: 0.25 }}
+                >
+                  Sync
+                </Button>
+              </Tooltip>
+            )}
+            <Tooltip title={env.release_branch ? `Deploy from ${env.release_branch}` : 'Create a ship todo for this environment'}>
               <Button
                 size="small"
                 variant="outlined"

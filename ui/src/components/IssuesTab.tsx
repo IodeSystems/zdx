@@ -311,9 +311,12 @@ export function IssuesTab({
                 to="/project/$slug/issues/$id"
                 params={{ slug, id: `IS-${i.id}` }}
               >
-                <CardContent sx={{ py: 1.25, display: 'flex', flexDirection: 'column', gap: 0.5 }}>
-                  <Box sx={{ display: 'flex', alignItems: 'center', flexWrap: 'wrap', gap: 0.75 }}>
-                    <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace' }}>
+                <CardContent sx={{ py: 1.25, '&:last-child': { pb: 1.25 } }}>
+                  <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word', mb: 0.5 }}>
+                    {issueDisplayTitle(i.title, i.context)}
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 0.5 }}>
+                    <Typography variant="caption" color="text.secondary" sx={{ fontFamily: 'monospace', lineHeight: '24px' }}>
                       IS-{i.id}
                     </Typography>
                     <Chip
@@ -336,9 +339,6 @@ export function IssuesTab({
                       variant="outlined"
                     />
                   </Box>
-                  <Typography variant="body2" sx={{ fontWeight: 500, wordBreak: 'break-word' }}>
-                    {issueDisplayTitle(i.title, i.context)}
-                  </Typography>
                 </CardContent>
               </CardActionArea>
             </Card>
