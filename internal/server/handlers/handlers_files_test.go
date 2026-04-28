@@ -81,6 +81,9 @@ func TestHandleServeDemo_SetsContentDisposition(t *testing.T) {
 	if err := os.MkdirAll(filepath.Join(dir, "cli"), 0o755); err != nil {
 		t.Fatal(err)
 	}
+	if err := os.MkdirAll(filepath.Join(dir, "api"), 0o755); err != nil {
+		t.Fatal(err)
+	}
 	if err := os.MkdirAll(filepath.Join(dir, "video"), 0o755); err != nil {
 		t.Fatal(err)
 	}
@@ -90,6 +93,7 @@ func TestHandleServeDemo_SetsContentDisposition(t *testing.T) {
 		}
 	}
 	mustWrite("cli/abc123.json", `{"steps":[]}`)
+	mustWrite("api/legacy001.json", `{"steps":[]}`)
 	mustWrite("video/vid42.webm", "WEBM-FAKE")
 	mustWrite("video/vid43.mp4", "MP4-FAKE")
 
@@ -104,6 +108,7 @@ func TestHandleServeDemo_SetsContentDisposition(t *testing.T) {
 		wantDispExt string
 	}{
 		{"cli json", "cli", "abc123", http.StatusOK, "application/json", ".json"},
+		{"api legacy json", "api", "legacy001", http.StatusOK, "application/json", ".json"},
 		{"video webm", "video", "vid42", http.StatusOK, "video/webm", ".webm"},
 		{"video mp4", "video", "vid43", http.StatusOK, "video/mp4", ".mp4"},
 	}

@@ -383,7 +383,8 @@ var maintenancePage = []byte(`<!doctype html>
 func isSignedAssetPath(path string) bool {
 	return strings.HasPrefix(path, "/api/files/") ||
 		strings.HasPrefix(path, "/api/dx/demos/cli/") ||
-		strings.HasPrefix(path, "/api/dx/demos/video/")
+		strings.HasPrefix(path, "/api/dx/demos/video/") ||
+		strings.HasPrefix(path, "/api/dx/demos/api/")
 }
 
 // apiKeyMiddleware validates X-Api-Key on /api/* requests, except health, openapi, and setup/bootstrap.

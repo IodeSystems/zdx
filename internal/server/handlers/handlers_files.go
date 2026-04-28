@@ -176,9 +176,13 @@ func (h *Handler) handleListDemos(w http.ResponseWriter, r *http.Request) {
 		} else {
 			assetPath = fmt.Sprintf("/api/dx/demos/%s/%s", row.DemoType, name)
 		}
+		responseType := row.DemoType
+		if responseType != "cli" && responseType != "video" {
+			responseType = "cli"
+		}
 		items = append(items, DemoListItem{
 			ID:             row.ID,
-			Type:           row.DemoType,
+			Type:           responseType,
 			Name:           name,
 			TestComponent:  row.TestComponent,
 			TestName:       row.TestName,
@@ -196,7 +200,11 @@ func (h *Handler) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 	demoType := chi.URLParam(r, "type")
 	demoName := chi.URLParam(r, "name")
 
-	if demoType != "cli" && demoType != "video" {
+	if strings.Contains(demoType, "/") || strings.Contains(demoType, "..") {
+		http.NotFound(w, r)
+		return
+	}
+	if demoType != "cli" && demoType != "video" && demoType != "api" {
 		http.NotFound(w, r)
 		return
 	}
@@ -208,8 +216,9 @@ func (h *Handler) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 	base := h.demosDir()
 	var absPath string
 	switch demoType {
-	case "cli":
-		absPath = filepath.Join(base, "cli", demoName+".json")
+	case "cli", "api":
+		// "api" is a legacy alias for cli-style JSON recordings.
+		absPath = filepath.Join(base, demoType, demoName+".json")
 	case "video":
 		// Video files are content-addressed; try with known extensions.
 		for _, ext := range []string{".webm", ".mp4"} {
@@ -228,7 +237,7 @@ func (h *Handler) handleServeDemo(w http.ResponseWriter, r *http.Request) {
 
 	var dispExt string
 	switch demoType {
-	case "cli":
+	case "cli", "api":
 		w.Header().Set("Content-Type", "application/json")
 		dispExt = ".json"
 	case "video":
@@ -443,10 +452,14 @@ func (h *Handler) handleGetDemo(w http.ResponseWriter, r *http.Request) {
 		assetPath = fmt.Sprintf("/api/dx/demos/%s/%s", row.DemoType, name)
 	}
 
+	responseType := row.DemoType
+	if responseType != "cli" && responseType != "video" {
+		responseType = "cli"
+	}
 	item := DemoListItem{
 		ID:             row.ID,
 		TestID:         row.TestID,
-		Type:           row.DemoType,
+		Type:           responseType,
 		Name:           name,
 		TestComponent:  row.TestComponent,
 		TestName:       row.TestName,
