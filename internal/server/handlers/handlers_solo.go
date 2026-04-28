@@ -718,6 +718,44 @@ type EvaluateDiff struct {
 	Unchanged []SoloQueueItem  `json:"unchanged"`
 }
 
+// refreshQueueAsync regenerates and applies the solo queue for a project in the background.
+// Call fire-and-forget after any state mutation that affects queue composition.
+func (h *Handler) refreshQueueAsync(projectID int32) {
+	go func() {
+		ctx := context.Background()
+		proposed, err := h.generateSoloQueue(ctx, projectID, "", false)
+		if err != nil {
+			return
+		}
+		keys := make([]string, 0, len(proposed))
+		for _, c := range proposed {
+			keys = append(keys, c.Key)
+			_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
+				ProjectID:     projectID,
+				Title:         c.Title,
+				Description:   c.Description,
+				Text:          c.Text,
+				Key:           c.Key,
+				Persona:       c.Persona,
+				Priority:      c.Priority,
+				Status:        "open",
+				TargetType:    c.TargetType,
+				TargetID:      c.TargetID,
+				Kind:          c.Kind,
+				IssueRef:      c.IssueRef,
+				Blocked:       c.Blocked,
+				BlockedReason: c.BlockedReason,
+			})
+		}
+		if len(keys) > 0 {
+			_ = h.Q.ResolveTodosNotInKeys(ctx, db.ResolveTodosNotInKeysParams{
+				ProjectID: projectID,
+				Keys:      keys,
+			})
+		}
+	}()
+}
+
 func (h *Handler) registerSoloRoutes(api huma.API) {
 
 	// GET /api/dx/solo — return persisted todo queue
@@ -1187,6 +1225,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			if err := h.Q.UnblockAllTodos(ctx, p.ID); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			h.refreshQueueAsync(p.ID)
 			return &struct {
 				Body struct {
 					OK bool `json:"ok"`

@@ -447,6 +447,9 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				})
 			}
 			h.publishTaskByID(ctx, id, "task.done", map[string]any{"id": id})
+			if haveOld && oldTask.ProjectID != 0 {
+				h.refreshQueueAsync(oldTask.ProjectID)
+			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -458,13 +461,18 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
 			prev := ""
+			var taskProjectID int32
 			if t, gErr := h.Q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
+				taskProjectID = t.ProjectID
 			}
 			if err := h.Q.MarkTaskUndone(ctx, id); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			h.recordTaskStatusChange(ctx, id, prev, "ready", "")
+			if taskProjectID != 0 {
+				h.refreshQueueAsync(taskProjectID)
+			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -507,8 +515,10 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 		}) (*struct{ Body OKBody }, error) {
 			id := taskIDFromInt(in.Body.ID)
 			prev := ""
+			var taskProjectID int32
 			if t, gErr := h.Q.GetTask(ctx, id); gErr == nil {
 				prev = t.Status
+				taskProjectID = t.ProjectID
 			}
 			if err := h.Q.UpdateTaskStatus(ctx, db.UpdateTaskStatusParams{
 				ID:     id,
@@ -517,6 +527,9 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			h.recordTaskStatusChange(ctx, id, prev, "ready", "")
+			if taskProjectID != 0 {
+				h.refreshQueueAsync(taskProjectID)
+			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 

@@ -187,6 +187,7 @@ func (h *Handler) registerFocusRoutes(api huma.API) {
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			h.refreshQueueAsync(p.ID)
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 }

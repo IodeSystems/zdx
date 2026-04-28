@@ -222,6 +222,9 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			go h.Emb.UpsertIssue(context.Background(), p.ID, row.ID, issueText)
 			item := toIssueItem(row)
 			h.Broker.PublishIssue(in.Body.Slug, row.ID, "issue.created", item)
+			if in.Body.AutoReady {
+				h.refreshQueueAsync(p.ID)
+			}
 			return &struct {
 				Body struct {
 					IssueItem
@@ -296,6 +299,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			for _, gid := range in.Body.GoalIDs {
 				_ = h.Q.LinkGoalIssue(ctx, db.LinkGoalIssueParams{GoalID: gid, IssueID: issueID})
 			}
+			h.refreshQueueAsync(p.ID)
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -509,7 +513,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				ProjectID:        p.ID,
 				ReferenceIssueID: issueID,
 			})
-
+			h.refreshQueueAsync(p.ID)
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -815,6 +819,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			h.recordRevision(ctx, p.ID, "issue", issueID, "status", "wip", "open")
+			h.refreshQueueAsync(p.ID)
 			return &struct{ Body struct{ OK bool } }{Body: struct{ OK bool }{OK: true}}, nil
 		})
 
