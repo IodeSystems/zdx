@@ -354,6 +354,27 @@ func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 		t.Fatal("blocked todo with reference_issue_id not found")
 	}
 
+	// IS-546 regression: the auto-filed system-gap issue must itself carry a priority,
+	// otherwise it becomes a fresh triage candidate and recursively auto-files another
+	// system-gap issue on its own cycle. Force a queue regen via evaluate, then assert
+	// no triage candidate targets the auto-filed issue.
+	var evalResp struct {
+		Added     []SoloQueueItem `json:"added"`
+		Unchanged []SoloQueueItem `json:"unchanged"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/evaluate",
+		map[string]any{"slug": d.Slug, "issue": ""}, &evalResp))
+	checkCascade := func(items []SoloQueueItem) {
+		for _, it := range items {
+			if it.Kind == "triage" && it.TargetID == refIssueStr {
+				t.Errorf("auto-filed issue %s spawned its own triage candidate %q — system-gap issues must be created with a priority to break the cascade",
+					refIssueStr, it.Key)
+			}
+		}
+	}
+	checkCascade(evalResp.Added)
+	checkCascade(evalResp.Unchanged)
+
 	// Parse "IS-N" → N, submit a resolution (impl issues require one before closing), then close.
 	numStr := strings.TrimPrefix(refIssueStr, "IS-")
 	refIssueNum, err := strconv.Atoi(numStr)

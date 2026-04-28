@@ -1416,6 +1416,9 @@ func (h *Handler) maybeAutoFileBlockIssue(ctx context.Context, blocked db.BlockT
 			"Investigate the area and fix the root cause. When this issue is closed the todo will automatically unblock and re-enter the queue.",
 		blocked.Title, blocked.Key, blocked.CycleCount, area,
 	)
+	// Priority must be non-empty: open + empty-priority issues are themselves triage
+	// candidates, so an auto-filed gap with no priority would spawn its own triage cycle
+	// and recursively auto-file another gap (IS-546 cascade).
 	issue, err := h.Q.CreateIssue(ctx, db.CreateIssueParams{
 		ID:        issueID,
 		ProjectID: p.ID,
@@ -1423,6 +1426,7 @@ func (h *Handler) maybeAutoFileBlockIssue(ctx context.Context, blocked db.BlockT
 		Context:   context,
 		IssueType: "impl",
 		Status:    "open",
+		Priority:  "2",
 	})
 	if err != nil {
 		return
