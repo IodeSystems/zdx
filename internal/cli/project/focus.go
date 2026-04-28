@@ -2,6 +2,7 @@ package project
 
 import (
 	"fmt"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -43,12 +44,16 @@ func focusListCmd() *cobra.Command {
 				return nil
 			}
 			for _, t := range *resp.JSON200.Focuses {
-				blockers := ""
-				if t.Blockers != "" {
-					blockers = "  blocked:" + t.Blockers
+				attribution := ""
+				if t.Attributions != nil && len(*t.Attributions) > 0 {
+					ids := make([]string, 0, len(*t.Attributions))
+					for _, a := range *t.Attributions {
+						ids = append(ids, a.Id)
+					}
+					attribution = "  attributed:" + strings.Join(ids, ",")
 				}
 				fmt.Printf("FO-%-3d p%-2d  %-12s  %-24s  %s%s\n",
-					t.Id, t.Priority, t.Status, t.Name, t.Description, blockers)
+					t.Id, t.Priority, t.Status, t.Name, t.Description, attribution)
 			}
 			return nil
 		},
