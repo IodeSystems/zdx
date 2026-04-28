@@ -25,11 +25,11 @@ func TestDemoCLI_AgentContainerResourceLimits(t *testing.T) {
 		t.Skipf("docker not available: %v", err)
 	}
 
-	writeDemoCoderefs(t, t.Name(), []coderef{
-		{FilePath: "test/e2e/demo_agent_resource_limits_test.go", Note: "agent container resource-limit demo source"},
-		{FilePath: "internal/cli/agent/container.go", LineStart: 122, LineEnd: 128, Note: "buildContainerArgs adds --memory and --cpus from AgentConfig"},
-		{FilePath: "internal/cli/agent/container.go", LineStart: 174, LineEnd: 181, Note: "runContainerLoop applies 4g/2 defaults so srcless mode never runs unbounded"},
-	})
+	rec := newDockerRecorder(t)
+	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_agent_resource_limits_test.go", Note: "agent container resource-limit demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/cli/agent/container.go", LineStart: 122, LineEnd: 128, Note: "buildContainerArgs adds --memory and --cpus from AgentConfig"})
+	rec.AddCoderef(coderef{FilePath: "internal/cli/agent/container.go", LineStart: 174, LineEnd: 181, Note: "runContainerLoop applies 4g/2 defaults so srcless mode never runs unbounded"})
+	t.Cleanup(rec.Save)
 
 	const (
 		image       = "alpine:3.20"
@@ -52,7 +52,7 @@ func TestDemoCLI_AgentContainerResourceLimits(t *testing.T) {
 		image,
 		"sleep", "30",
 	}
-	if out, err := exec.Command("docker", createArgs...).CombinedOutput(); err != nil {
+	if out, err := rec.Run(createArgs...); err != nil {
 		t.Fatalf("docker create: %s: %v", strings.TrimSpace(string(out)), err)
 	}
 	defer func() {
@@ -60,8 +60,7 @@ func TestDemoCLI_AgentContainerResourceLimits(t *testing.T) {
 	}()
 
 	// 1) Daemon-level: docker inspect reports the limits we asked for.
-	inspectOut, err := exec.Command("docker", "inspect",
-		"--format", "{{.HostConfig.Memory}}/{{.HostConfig.NanoCpus}}", name).CombinedOutput()
+	inspectOut, err := rec.Run("inspect", "--format", "{{.HostConfig.Memory}}/{{.HostConfig.NanoCpus}}", name)
 	if err != nil {
 		t.Fatalf("docker inspect: %s: %v", strings.TrimSpace(string(inspectOut)), err)
 	}
@@ -75,12 +74,12 @@ func TestDemoCLI_AgentContainerResourceLimits(t *testing.T) {
 	// inside. cgroup v2 exposes memory.max / cpu.max under /sys/fs/cgroup;
 	// cgroup v1 exposes memory.limit_in_bytes / cpu.cfs_quota_us under the
 	// per-controller subdirs. The test accepts either layout.
-	if out, err := exec.Command("docker", "start", name).CombinedOutput(); err != nil {
+	if out, err := rec.Run("start", name); err != nil {
 		t.Fatalf("docker start: %s: %v", strings.TrimSpace(string(out)), err)
 	}
 
-	memCmd := "cat /sys/fs/cgroup/memory.max 2>/dev/null || cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null"
-	memOut, err := exec.Command("docker", "exec", name, "sh", "-c", memCmd).CombinedOutput()
+	memOut, err := rec.Run("exec", name, "sh", "-c",
+		"cat /sys/fs/cgroup/memory.max 2>/dev/null || cat /sys/fs/cgroup/memory/memory.limit_in_bytes 2>/dev/null")
 	if err != nil {
 		t.Fatalf("docker exec memory cgroup: %s: %v", strings.TrimSpace(string(memOut)), err)
 	}
@@ -88,8 +87,8 @@ func TestDemoCLI_AgentContainerResourceLimits(t *testing.T) {
 		t.Errorf("kernel cgroup memory limit = %q, want %q (%s)", mem, strconv.Itoa(memoryBytes), memoryFlag)
 	}
 
-	cpuCmd := "cat /sys/fs/cgroup/cpu.max 2>/dev/null || cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us 2>/dev/null"
-	cpuOut, err := exec.Command("docker", "exec", name, "sh", "-c", cpuCmd).CombinedOutput()
+	cpuOut, err := rec.Run("exec", name, "sh", "-c",
+		"cat /sys/fs/cgroup/cpu.max 2>/dev/null || cat /sys/fs/cgroup/cpu/cpu.cfs_quota_us 2>/dev/null")
 	if err != nil {
 		t.Fatalf("docker exec cpu cgroup: %s: %v", strings.TrimSpace(string(cpuOut)), err)
 	}

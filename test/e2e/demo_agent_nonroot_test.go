@@ -22,10 +22,10 @@ func TestDemoCLI_AgentContainerNonRoot(t *testing.T) {
 		t.Skipf("docker not available: %v", err)
 	}
 
-	writeDemoCoderefs(t, t.Name(), []coderef{
-		{FilePath: "test/e2e/demo_agent_nonroot_test.go", Note: "agent non-root + capability-drop demo source"},
-		{FilePath: "internal/cli/agent/container.go", LineStart: 117, LineEnd: 120, Note: "buildContainerArgs: --user agent, --cap-drop all, --security-opt no-new-privileges"},
-	})
+	rec := newDockerRecorder(t)
+	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_agent_nonroot_test.go", Note: "agent non-root + capability-drop demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/cli/agent/container.go", LineStart: 117, LineEnd: 120, Note: "buildContainerArgs: --user agent, --cap-drop all, --security-opt no-new-privileges"})
+	t.Cleanup(rec.Save)
 
 	const (
 		image = "alpine:3.20"
@@ -46,7 +46,7 @@ func TestDemoCLI_AgentContainerNonRoot(t *testing.T) {
 		image,
 		"sleep", "30",
 	}
-	if out, err := exec.Command("docker", createArgs...).CombinedOutput(); err != nil {
+	if out, err := rec.Run(createArgs...); err != nil {
 		t.Fatalf("docker create: %s: %v", strings.TrimSpace(string(out)), err)
 	}
 	defer func() {
@@ -54,8 +54,7 @@ func TestDemoCLI_AgentContainerNonRoot(t *testing.T) {
 	}()
 
 	// 1) Daemon-level: docker inspect reports the requested security options.
-	secOptOut, err := exec.Command("docker", "inspect",
-		"--format", "{{.HostConfig.SecurityOpt}}", name).CombinedOutput()
+	secOptOut, err := rec.Run("inspect", "--format", "{{.HostConfig.SecurityOpt}}", name)
 	if err != nil {
 		t.Fatalf("docker inspect SecurityOpt: %s: %v", strings.TrimSpace(string(secOptOut)), err)
 	}
@@ -65,12 +64,12 @@ func TestDemoCLI_AgentContainerNonRoot(t *testing.T) {
 	}
 
 	// 2) Kernel-level: start the container and read /proc/1/status from inside.
-	if out, err := exec.Command("docker", "start", name).CombinedOutput(); err != nil {
+	if out, err := rec.Run("start", name); err != nil {
 		t.Fatalf("docker start: %s: %v", strings.TrimSpace(string(out)), err)
 	}
 
 	// 2a) UID must be non-root.
-	uidOut, err := exec.Command("docker", "exec", name, "id", "-u").CombinedOutput()
+	uidOut, err := rec.Run("exec", name, "id", "-u")
 	if err != nil {
 		t.Fatalf("docker exec id -u: %s: %v", strings.TrimSpace(string(uidOut)), err)
 	}
@@ -79,8 +78,7 @@ func TestDemoCLI_AgentContainerNonRoot(t *testing.T) {
 	}
 
 	// 2b) All effective capabilities must be zeroed.
-	capCmd := `grep '^CapEff:' /proc/1/status`
-	capOut, err := exec.Command("docker", "exec", name, "sh", "-c", capCmd).CombinedOutput()
+	capOut, err := rec.Run("exec", name, "sh", "-c", `grep '^CapEff:' /proc/1/status`)
 	if err != nil {
 		t.Fatalf("docker exec CapEff: %s: %v", strings.TrimSpace(string(capOut)), err)
 	}
@@ -96,8 +94,7 @@ func TestDemoCLI_AgentContainerNonRoot(t *testing.T) {
 	}
 
 	// 2c) no-new-privileges bit must be set.
-	nnpCmd := `grep '^NoNewPrivs:' /proc/1/status`
-	nnpOut, err := exec.Command("docker", "exec", name, "sh", "-c", nnpCmd).CombinedOutput()
+	nnpOut, err := rec.Run("exec", name, "sh", "-c", `grep '^NoNewPrivs:' /proc/1/status`)
 	if err != nil {
 		t.Fatalf("docker exec NoNewPrivs: %s: %v", strings.TrimSpace(string(nnpOut)), err)
 	}
