@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
+-- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -755,7 +755,7 @@ ALTER SEQUENCE public.zdx_files_id_seq OWNED BY public.zdx_files.id;
 CREATE TABLE public.zdx_focus_blockers (
     focus_id integer NOT NULL,
     issue_id text NOT NULL,
-    justification text DEFAULT '' NOT NULL
+    justification text DEFAULT ''::text NOT NULL
 );
 
 

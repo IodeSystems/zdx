@@ -383,8 +383,8 @@ type Querier interface {
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error)
 	ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ZdxSpec, error)
 	// metaquery: off
-	// Specs linked to tests but where none of those tests have demo artifacts.
-	// Non-deferred specs only.
+	// Specs linked to tests but where none of those tests are demo-component tests
+	// (TestDemo* prefix) and none have recorded demo artifacts. Non-deferred specs only.
 	ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error)
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ListStaleFeaturesRow, error)
 	ListStaleOpenClaudeSessions(ctx context.Context, arg ListStaleOpenClaudeSessionsParams) ([]ListStaleOpenClaudeSessionsRow, error)

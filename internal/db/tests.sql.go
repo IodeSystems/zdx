@@ -386,6 +386,7 @@ SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 JOIN zdx_spec_tests st ON st.spec_id = s.id
+JOIN zdx_tests t ON t.id = st.test_id
 LEFT JOIN zdx_test_demos td ON td.test_id = st.test_id
 WHERE f.project_id = $1
   AND NOT EXISTS (
@@ -394,7 +395,7 @@ WHERE f.project_id = $1
     WHERE sd.spec_id = s.id AND i.status = 'open'
   )
 GROUP BY s.id, s.feature_id, s.description, s.kind, f.name
-HAVING COUNT(td.id) = 0
+HAVING COUNT(td.id) = 0 AND COUNT(CASE WHEN t.component = 'demo' THEN 1 END) = 0
 ORDER BY f.name, s.id
 `
 
@@ -407,8 +408,8 @@ type ListSpecsWithoutDemosRow struct {
 }
 
 // metaquery: off
-// Specs linked to tests but where none of those tests have demo artifacts.
-// Non-deferred specs only.
+// Specs linked to tests but where none of those tests are demo-component tests
+// (TestDemo* prefix) and none have recorded demo artifacts. Non-deferred specs only.
 func (q *Queries) ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error) {
 	rows, err := q.db.Query(ctx, listSpecsWithoutDemos, projectID)
 	if err != nil {
