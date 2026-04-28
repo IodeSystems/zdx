@@ -52,12 +52,12 @@ func ensureProjectClone(workDir, slug, remoteURL string) (string, error) {
 	return projectPath, nil
 }
 
-// createSessionWorktree fetches origin and creates a per-session worktree
-// branched from origin/main (or origin/HEAD when main is missing — empty
-// repos and non-main default branches).
+// createSessionWorktree fetches origin and creates a per-session worktree.
+// baseBranch is the upstream branch to branch from (e.g. "dev", "main",
+// "v1.0.x"). When empty, resolveDefaultBase picks the best available ref.
 //
 // Returns the worktree path and branch name. Branch is `agent/${sessionID}`.
-func createSessionWorktree(projectPath, workDir, slug, sessionID string) (string, string, error) {
+func createSessionWorktree(projectPath, workDir, slug, sessionID, baseBranch string) (string, string, error) {
 	if projectPath == "" || sessionID == "" {
 		return "", "", fmt.Errorf("createSessionWorktree: empty projectPath/sessionID")
 	}
@@ -72,7 +72,13 @@ func createSessionWorktree(projectPath, workDir, slug, sessionID string) (string
 	}
 	branch := "agent/" + sessionID
 
-	base := resolveDefaultBase(projectPath)
+	var base string
+	if baseBranch != "" {
+		base = resolveRemoteRef(projectPath, baseBranch)
+	}
+	if base == "" {
+		base = resolveDefaultBase(projectPath)
+	}
 
 	args := []string{"-C", projectPath, "worktree", "add", "-b", branch, worktreePath}
 	if base != "" {
@@ -85,11 +91,21 @@ func createSessionWorktree(projectPath, workDir, slug, sessionID string) (string
 	return worktreePath, branch, nil
 }
 
+// resolveRemoteRef returns "origin/<branch>" if the ref exists on the remote,
+// otherwise "".
+func resolveRemoteRef(projectPath, branch string) string {
+	ref := "origin/" + branch
+	if err := exec.Command("git", "-C", projectPath, "rev-parse", "--verify", ref).Run(); err == nil {
+		return ref
+	}
+	return ""
+}
+
 // resolveDefaultBase returns the upstream ref to branch from. Prefers
-// origin/main, then origin/HEAD, then "" (let git pick HEAD — appropriate for
-// a brand-new repo without any remote refs yet).
+// origin/dev, then origin/main, then origin/HEAD, then "" (let git pick HEAD —
+// appropriate for brand-new repos without remote refs).
 func resolveDefaultBase(projectPath string) string {
-	for _, ref := range []string{"origin/main", "origin/HEAD"} {
+	for _, ref := range []string{"origin/dev", "origin/main", "origin/HEAD"} {
 		if err := exec.Command("git", "-C", projectPath, "rev-parse", "--verify", ref).Run(); err == nil {
 			return ref
 		}
@@ -119,15 +135,19 @@ func removeSessionWorktree(projectPath, worktreePath, branch string) error {
 }
 
 // pushSessionBranch pushes the session branch to origin if it has commits
-// ahead of origin/main. Returns nil + skipped=true when there is nothing to
+// ahead of the base branch (target_branch, e.g. "dev"). baseBranch defaults
+// to "dev" when empty. Returns nil + skipped=true when there is nothing to
 // push (avoids creating empty remote refs for sessions that produced no work).
-func pushSessionBranch(worktreePath, branch string) (skipped bool, err error) {
+func pushSessionBranch(worktreePath, branch, baseBranch string) (skipped bool, err error) {
 	if worktreePath == "" || branch == "" {
 		return true, nil
 	}
-	// Count commits unique to this branch vs origin/main. If the base ref
-	// doesn't exist (fresh repo), assume the branch has work.
-	out, _ := exec.Command("git", "-C", worktreePath, "rev-list", "--count", "origin/main.."+branch).CombinedOutput()
+	if baseBranch == "" {
+		baseBranch = "dev"
+	}
+	// Count commits unique to this branch vs origin/<baseBranch>. If the base
+	// ref doesn't exist (fresh repo), assume the branch has work.
+	out, _ := exec.Command("git", "-C", worktreePath, "rev-list", "--count", "origin/"+baseBranch+".."+branch).CombinedOutput()
 	if n := strings.TrimSpace(string(out)); n == "0" {
 		return true, nil
 	}

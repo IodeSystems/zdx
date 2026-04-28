@@ -85,23 +85,31 @@ func (q *Queries) BlockTodoByKey(ctx context.Context, arg BlockTodoByKeyParams) 
 }
 
 const claimNextTodo = `-- name: ClaimNextTodo :one
-UPDATE zdx_todos SET
-  claimed_by = $1,
-  claimed_at = NOW(),
-  lease_expires_at = NOW() + ($2::int || ' minutes')::interval
-WHERE id = (
-  SELECT t.id FROM zdx_todos t
-  WHERE t.project_id = $3
-    AND t.status = 'open'
-    AND t.blocked = false
-    AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
-  ORDER BY t.priority, t.created_at
-  LIMIT 1
-  FOR UPDATE SKIP LOCKED
+WITH claimed AS (
+  UPDATE zdx_todos SET
+    claimed_by = $1,
+    claimed_at = NOW(),
+    lease_expires_at = NOW() + ($2::int || ' minutes')::interval
+  WHERE id = (
+    SELECT t.id FROM zdx_todos t
+    WHERE t.project_id = $3
+      AND t.status = 'open'
+      AND t.blocked = false
+      AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
+    ORDER BY t.priority, t.created_at
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  )
+  RETURNING id, project_id, text, title, description, key, persona, priority, status,
+            target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
+            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 )
-RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
+       c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
+       c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
+       COALESCE(i.target_branch, 'dev') AS target_branch
+FROM claimed c
+LEFT JOIN zdx_issues i ON i.id = c.issue_ref
 `
 
 type ClaimNextTodoParams struct {
@@ -134,10 +142,12 @@ type ClaimNextTodoRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	TargetBranch     string             `db:"target_branch" json:"target_branch"`
 }
 
 // Atomically claim the highest-priority unclaimed open todo for an agent.
 // Skips locked rows (concurrent agents get different items).
+// target_branch is resolved from the referenced issue (default 'dev').
 func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error) {
 	row := q.db.QueryRow(ctx, claimNextTodo, arg.AgentID, arg.LeaseMinutes, arg.ProjectID)
 	var i ClaimNextTodoRow
@@ -165,6 +175,7 @@ func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (C
 		&i.CreatedAt,
 		&i.ResolvedAt,
 		&i.ReopenCount,
+		&i.TargetBranch,
 	)
 	return i, err
 }

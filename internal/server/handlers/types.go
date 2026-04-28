@@ -18,6 +18,7 @@ type IssueItem struct {
 	LinkOf          string            `json:"link_of,omitempty"`
 	ReopenCount     int32             `json:"reopen_count,omitempty" doc:"Number of times this issue has been reopened — a churn signal for stabilization candidates"`
 	InteractiveOnly bool              `json:"interactive_only,omitempty"`
+	TargetBranch    string            `json:"target_branch,omitempty"`
 	URL             string            `json:"url"`
 	CreatedAt       string            `json:"created_at"`
 	UpdatedAt       string            `json:"updated_at"`
@@ -180,6 +181,7 @@ type TodoItem struct {
 	TargetID         string `json:"target_id"`
 	Kind             string `json:"kind"`
 	IssueRef         string `json:"issue_ref"`
+	TargetBranch     string `json:"target_branch,omitempty"`
 	ProjectSlug      string `json:"project_slug,omitempty"`
 	Blocked          bool   `json:"blocked"`
 	BlockedReason    string `json:"blocked_reason,omitempty"`

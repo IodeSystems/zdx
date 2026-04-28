@@ -120,7 +120,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 			os.Remove(cfg.StateFile)
 			return TakeResult{Err: fmt.Errorf("srcless init: %w", ierr)}
 		}
-		wt, br, err := createSessionWorktree(pp, cfg.WorkDir, activeTodo.ProjectSlug, sid)
+		wt, br, err := createSessionWorktree(pp, cfg.WorkDir, activeTodo.ProjectSlug, sid, activeTodo.TargetBranch)
 		if err != nil {
 			log("srcless: worktree for %s failed: %v", activeTodo.ProjectSlug, err)
 			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, false)
@@ -262,7 +262,11 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 
 	// ── Srcless: push session branch on success ────────────────────────
 	if srclessWorktreePath != "" && sessionErr == nil {
-		skipped, perr := pushSessionBranch(srclessWorktreePath, srclessBranch)
+		targetBranch := ""
+		if activeTodo != nil {
+			targetBranch = activeTodo.TargetBranch
+		}
+		skipped, perr := pushSessionBranch(srclessWorktreePath, srclessBranch, targetBranch)
 		switch {
 		case perr != nil:
 			log("srcless: push %s failed: %v", srclessBranch, perr)

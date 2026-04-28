@@ -1351,6 +1351,7 @@ func toTodoItemFromClaim(r db.ClaimNextTodoRow) TodoItem {
 		TargetID:         r.TargetID,
 		Kind:             r.Kind,
 		IssueRef:         r.IssueRef,
+		TargetBranch:     r.TargetBranch,
 		Blocked:          r.Blocked,
 		BlockedReason:    r.BlockedReason,
 		CycleCount:       r.CycleCount,

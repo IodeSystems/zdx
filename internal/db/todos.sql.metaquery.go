@@ -112,47 +112,56 @@ var MetaClaimNextTodo = metaquery.Query{
 	Name:   "ClaimNextTodo",
 	Cmd:    ":one",
 	Source: "todos.sql",
-	SQL: `UPDATE zdx_todos SET
-  claimed_by = $1,
-  claimed_at = NOW(),
-  lease_expires_at = NOW() + ($2::int || ' minutes')::interval
-WHERE id = (
-  SELECT t.id FROM zdx_todos t
-  WHERE t.project_id = $3
-    AND t.status = 'open'
-    AND t.blocked = false
-    AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
-  ORDER BY t.priority, t.created_at
-  LIMIT 1
-  FOR UPDATE SKIP LOCKED
+	SQL: `WITH claimed AS (
+  UPDATE zdx_todos SET
+    claimed_by = $1,
+    claimed_at = NOW(),
+    lease_expires_at = NOW() + ($2::int || ' minutes')::interval
+  WHERE id = (
+    SELECT t.id FROM zdx_todos t
+    WHERE t.project_id = $3
+      AND t.status = 'open'
+      AND t.blocked = false
+      AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
+    ORDER BY t.priority, t.created_at
+    LIMIT 1
+    FOR UPDATE SKIP LOCKED
+  )
+  RETURNING id, project_id, text, title, description, key, persona, priority, status,
+            target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
+            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
 )
-RETURNING id, project_id, text, title, description, key, persona, priority, status,
-          target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
+SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
+       c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
+       c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
+       COALESCE(i.target_branch, 'dev') AS target_branch
+FROM claimed c
+LEFT JOIN zdx_issues i ON i.id = c.issue_ref`,
 	Columns: []metaquery.Column{
-		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
-		{Name: "text", OriginalName: "text", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "key", OriginalName: "key", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_todos"},
-		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
-		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
-		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
-		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
-		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
-		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
-		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "text", OriginalName: "text", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "key", OriginalName: "key", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "persona", OriginalName: "persona", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "priority", OriginalName: "priority", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "issue_ref", OriginalName: "issue_ref", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "blocked", OriginalName: "blocked", GoType: "bool", DBType: "bool", NotNull: true, Table: "claimed"},
+		{Name: "blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "cycle_count", OriginalName: "cycle_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "reference_issue_id", OriginalName: "reference_issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "claimed_by", OriginalName: "claimed_by", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "claimed_at", OriginalName: "claimed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "claimed"},
+		{Name: "lease_expires_at", OriginalName: "lease_expires_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "claimed"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "claimed"},
+		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "claimed"},
+		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "agent_id", GoType: "string", DBType: "text", NotNull: true},
@@ -191,6 +200,7 @@ var ClaimNextTodoCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	TargetBranch     metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -215,6 +225,7 @@ var ClaimNextTodoCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	TargetBranch:     metaquery.NewTextCol("target_branch"),
 }
 
 var MetaCreateTodo = metaquery.Query{

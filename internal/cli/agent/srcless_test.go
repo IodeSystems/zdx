@@ -88,7 +88,7 @@ func TestCreateSessionWorktree(t *testing.T) {
 	if err != nil {
 		t.Fatalf("clone: %v", err)
 	}
-	wt, branch, err := createSessionWorktree(pp, workDir, "p2", "abc123")
+	wt, branch, err := createSessionWorktree(pp, workDir, "p2", "abc123", "")
 	if err != nil {
 		t.Fatalf("worktree: %v", err)
 	}

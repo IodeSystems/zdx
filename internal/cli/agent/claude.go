@@ -1198,16 +1198,17 @@ func extractIssueID(text string) string {
 // ── Todo claiming helpers ─────────────────────────────────────────────────
 
 type claimedTodo struct {
-	ID          int32  `json:"id"`
-	Text        string `json:"text"`
-	Key         string `json:"key"`
-	Kind        string `json:"kind"`
-	TargetType  string `json:"target_type"`
-	TargetID    string `json:"target_id"`
-	IssueRef    string `json:"issue_ref"`
-	Priority    int32  `json:"priority"`
-	ClaimedBy   string `json:"claimed_by"`
-	ProjectSlug string `json:"project_slug,omitempty"`
+	ID           int32  `json:"id"`
+	Text         string `json:"text"`
+	Key          string `json:"key"`
+	Kind         string `json:"kind"`
+	TargetType   string `json:"target_type"`
+	TargetID     string `json:"target_id"`
+	IssueRef     string `json:"issue_ref"`
+	TargetBranch string `json:"target_branch,omitempty"`
+	Priority     int32  `json:"priority"`
+	ClaimedBy    string `json:"claimed_by"`
+	ProjectSlug  string `json:"project_slug,omitempty"`
 }
 
 func claimNextTodo(rc remoteConfig, agentID string, leaseMinutes int32) (*claimedTodo, error) {

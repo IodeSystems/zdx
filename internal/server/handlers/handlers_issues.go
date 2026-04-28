@@ -239,14 +239,15 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "triage-issue", Method: http.MethodPost, Path: "/api/dx/todo/owner/triage"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug      string  `json:"slug"`
-				ID        int32   `json:"id"`
-				Priority  int32   `json:"priority"`
-				Title     *string `json:"title,omitempty"`
-				IssueType *string `json:"issue_type,omitempty"`
-				Context   *string `json:"context,omitempty"`
-				ThemeIDs  []int32 `json:"theme_ids,omitempty"`
-				GoalIDs   []int32 `json:"goal_ids,omitempty"`
+				Slug         string  `json:"slug"`
+				ID           int32   `json:"id"`
+				Priority     int32   `json:"priority"`
+				Title        *string `json:"title,omitempty"`
+				IssueType    *string `json:"issue_type,omitempty"`
+				Context      *string `json:"context,omitempty"`
+				TargetBranch *string `json:"target_branch,omitempty"`
+				ThemeIDs     []int32 `json:"theme_ids,omitempty"`
+				GoalIDs      []int32 `json:"goal_ids,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -268,9 +269,10 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				h.recordRevision(ctx, p.ID, "issue", issueID, "priority", oldIssue.Priority, newPriority)
 			}
 			for field, val := range map[string]*string{
-				"title":      in.Body.Title,
-				"issue_type": in.Body.IssueType,
-				"context":    in.Body.Context,
+				"title":         in.Body.Title,
+				"issue_type":    in.Body.IssueType,
+				"context":       in.Body.Context,
+				"target_branch": in.Body.TargetBranch,
 			} {
 				if val != nil && *val != "" {
 					if err := h.Q.SetIssueField(ctx, db.SetIssueFieldParams{
@@ -289,6 +291,8 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 						oldVal = oldIssue.IssueType
 					case "context":
 						oldVal = oldIssue.Context
+					case "target_branch":
+						oldVal = oldIssue.TargetBranch
 					}
 					h.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val)
 				}
@@ -1308,6 +1312,7 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		LinkOf:          r.LinkOf,
 		ReopenCount:     r.ReopenCount,
 		InteractiveOnly: r.InteractiveOnly,
+		TargetBranch:    r.TargetBranch,
 		URL:             r.Url,
 		CreatedAt:       fmtTS(r.CreatedAt),
 		UpdatedAt:       fmtTS(r.UpdatedAt),

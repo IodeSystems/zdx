@@ -38,6 +38,7 @@ type Querier interface {
 	CancelOrphanedTasks(ctx context.Context) ([]CancelOrphanedTasksRow, error)
 	// Atomically claim the highest-priority unclaimed open todo for an agent.
 	// Skips locked rows (concurrent agents get different items).
+	// target_branch is resolved from the referenced issue (default 'dev').
 	ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error)
 	// Atomically mark a ready, unclaimed task as active. The caller must
 	// separately INSERT a zdx_reservations row to record who claimed it.
