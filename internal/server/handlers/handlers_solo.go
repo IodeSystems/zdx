@@ -1058,7 +1058,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			triageIncomplete := false
 			if resolve && todo.ID != 0 && todo.Kind == "triage" && todo.TargetType == "issue" && todo.TargetID != "" {
 				iss, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: todo.ProjectID, ID: todo.TargetID})
-				if err == nil && iss.Priority == "" {
+				if err == nil && iss.Priority == "" && iss.Status == "open" {
 					triageIncomplete = true
 					resolve = false
 				}
