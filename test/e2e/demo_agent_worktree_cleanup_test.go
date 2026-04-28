@@ -24,12 +24,12 @@ import (
 // After both paths run, no agent branches and no worktree directories remain
 // on the host.
 func TestDemoCLI_AgentWorktreeCleanup(t *testing.T) {
-	writeDemoCoderefs(t, t.Name(), []coderef{
-		{FilePath: "test/e2e/demo_agent_worktree_cleanup_test.go", Note: "agent worktree cleanup demo source"},
-		{FilePath: "internal/cli/agent/srcless.go", LineStart: 100, LineEnd: 119, Note: "removeSessionWorktree: per-session teardown (worktree dir + branch)"},
-		{FilePath: "internal/cli/agent/srcless.go", LineStart: 184, LineEnd: 220, Note: "gcStaleWorktrees: mtime-based sweep for crashed/abandoned sessions"},
-		{FilePath: "internal/cli/agent/take.go", LineStart: 142, LineEnd: 152, Note: "deferred cleanup: removeSessionWorktree runs when a session returns"},
-	})
+	rec := newGitRecorder(t)
+	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_agent_worktree_cleanup_test.go", Note: "agent worktree cleanup demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/cli/agent/srcless.go", LineStart: 100, LineEnd: 119, Note: "removeSessionWorktree: per-session teardown (worktree dir + branch)"})
+	rec.AddCoderef(coderef{FilePath: "internal/cli/agent/srcless.go", LineStart: 184, LineEnd: 220, Note: "gcStaleWorktrees: mtime-based sweep for crashed/abandoned sessions"})
+	rec.AddCoderef(coderef{FilePath: "internal/cli/agent/take.go", LineStart: 142, LineEnd: 152, Note: "deferred cleanup: removeSessionWorktree runs when a session returns"})
+	t.Cleanup(rec.Save)
 
 	const slug = "cleanup-demo"
 	workDir := t.TempDir()
@@ -43,25 +43,25 @@ func TestDemoCLI_AgentWorktreeCleanup(t *testing.T) {
 	if err := os.MkdirAll(bareRepo, 0o755); err != nil {
 		t.Fatalf("mkdir bare: %v", err)
 	}
-	gitRun(t, "", "git", "init", "--bare", "--initial-branch=main", bareRepo)
+	rec.Run("", "init", "--bare", "--initial-branch=main", bareRepo)
 
 	seed := filepath.Join(bareRoot, "seed")
-	gitRun(t, "", "git", "clone", bareRepo, seed)
-	gitRun(t, seed, "git", "config", "user.email", "test@example.com")
-	gitRun(t, seed, "git", "config", "user.name", "test")
-	gitRun(t, seed, "git", "checkout", "-b", "main")
+	rec.Run("", "clone", bareRepo, seed)
+	rec.Run(seed, "config", "user.email", "test@example.com")
+	rec.Run(seed, "config", "user.name", "test")
+	rec.Run(seed, "checkout", "-b", "main")
 	if err := os.WriteFile(filepath.Join(seed, "README.md"), []byte("project root\n"), 0o644); err != nil {
 		t.Fatal(err)
 	}
-	gitRun(t, seed, "git", "add", ".")
-	gitRun(t, seed, "git", "commit", "-m", "init")
-	gitRun(t, seed, "git", "push", "origin", "main")
+	rec.Run(seed, "add", ".")
+	rec.Run(seed, "commit", "-m", "init")
+	rec.Run(seed, "push", "origin", "main")
 
 	projectPath := filepath.Join(workDir, slug, "main")
 	if err := os.MkdirAll(filepath.Dir(projectPath), 0o755); err != nil {
 		t.Fatalf("mkdir clone parent: %v", err)
 	}
-	gitRun(t, "", "git", "clone", bareRepo, projectPath)
+	rec.Run("", "clone", bareRepo, projectPath)
 
 	worktreesDir := filepath.Join(workDir, slug, "worktrees")
 	if err := os.MkdirAll(worktreesDir, 0o755); err != nil {
@@ -71,12 +71,12 @@ func TestDemoCLI_AgentWorktreeCleanup(t *testing.T) {
 	// Create two session worktrees + branches. session-clean follows the happy
 	// path (session ends → deferred cleanup runs). session-crashed simulates a
 	// crash that skipped its defer — the GC pass must catch it.
-	gitRun(t, projectPath, "git", "fetch", "origin")
+	rec.Run(projectPath, "fetch", "origin")
 	wtClean := filepath.Join(worktreesDir, "session-clean")
-	gitRun(t, projectPath, "git", "worktree", "add", "-b", "agent/session-clean", wtClean, "origin/main")
+	rec.Run(projectPath, "worktree", "add", "-b", "agent/session-clean", wtClean, "origin/main")
 
 	wtCrashed := filepath.Join(worktreesDir, "session-crashed")
-	gitRun(t, projectPath, "git", "worktree", "add", "-b", "agent/session-crashed", wtCrashed, "origin/main")
+	rec.Run(projectPath, "worktree", "add", "-b", "agent/session-crashed", wtCrashed, "origin/main")
 
 	// Sanity: both worktrees and both branches exist before cleanup runs.
 	for _, wt := range []string{wtClean, wtCrashed} {
@@ -93,8 +93,8 @@ func TestDemoCLI_AgentWorktreeCleanup(t *testing.T) {
 	// ── Path 1: session-end teardown ─────────────────────────────────────────
 	// Mirror the deferred removeSessionWorktree call in take.go: remove the
 	// worktree directory then delete its branch.
-	gitRun(t, projectPath, "git", "worktree", "remove", "--force", wtClean)
-	gitRun(t, projectPath, "git", "branch", "-D", "agent/session-clean")
+	rec.Run(projectPath, "worktree", "remove", "--force", wtClean)
+	rec.Run(projectPath, "branch", "-D", "agent/session-clean")
 
 	if _, err := os.Stat(wtClean); !os.IsNotExist(err) {
 		t.Errorf("session-clean worktree dir still present after session-end cleanup: %v", err)
@@ -125,10 +125,7 @@ func TestDemoCLI_AgentWorktreeCleanup(t *testing.T) {
 	}
 
 	// ── Final assertion: no agent/* branches and no worktree dirs remain.
-	branchOut, err := exec.Command("git", "-C", projectPath, "branch", "--list", "agent/*").CombinedOutput()
-	if err != nil {
-		t.Fatalf("git branch --list: %v", err)
-	}
+	branchOut := rec.RunOutput(projectPath, "branch", "--list", "agent/*")
 	if leftover := strings.TrimSpace(string(branchOut)); leftover != "" {
 		t.Errorf("leaked agent branches after cleanup: %s", leftover)
 	}
