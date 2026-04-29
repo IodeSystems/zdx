@@ -392,3 +392,101 @@ var MetaMarkJournalEntryReviewed = metaquery.Query{
 func WrapMarkJournalEntryReviewed(id int32) *metaquery.Builder {
 	return metaquery.Wrap(&MetaMarkJournalEntryReviewed, id)
 }
+
+var MetaStandupOwnerYield = metaquery.Query{
+	Name:   "StandupOwnerYield",
+	Cmd:    ":one",
+	Source: "journal.sql",
+	SQL: `SELECT
+  (SELECT count(*) FROM zdx_issues    i WHERE i.project_id = $1 AND i.updated_at > NOW() - INTERVAL '30 days' AND (i.closed_at IS NULL OR i.closed_at < NOW() - INTERVAL '30 days')) AS issues_touched_not_closed,
+  (SELECT count(*) FROM zdx_issues    i WHERE i.project_id = $1 AND i.closed_at > NOW() - INTERVAL '30 days')                                                                         AS closed_30d,
+  (SELECT count(*) FROM zdx_features  f WHERE f.project_id = $1 AND f.goal_id IS NOT NULL AND f.metric_name = '')                                                                     AS features_without_metric`,
+	Columns: []metaquery.Column{
+		{Name: "issues_touched_not_closed", OriginalName: "issues_touched_not_closed", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "closed_30d", OriginalName: "closed_30d", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "features_without_metric", OriginalName: "features_without_metric", GoType: "int64", DBType: "bigint", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapStandupOwnerYield returns a metaquery.Builder over MetaStandupOwnerYield, pre-bound with typed arguments.
+func WrapStandupOwnerYield(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaStandupOwnerYield, projectID)
+}
+
+// StandupOwnerYieldCols gives typed, name-safe access to StandupOwnerYield's output columns.
+var StandupOwnerYieldCols = struct {
+	IssuesTouchedNotClosed metaquery.IntCol
+	Closed30d              metaquery.IntCol
+	FeaturesWithoutMetric  metaquery.IntCol
+}{
+	IssuesTouchedNotClosed: metaquery.NewIntCol("issues_touched_not_closed"),
+	Closed30d:              metaquery.NewIntCol("closed_30d"),
+	FeaturesWithoutMetric:  metaquery.NewIntCol("features_without_metric"),
+}
+
+var MetaStandupTechYield = metaquery.Query{
+	Name:   "StandupTechYield",
+	Cmd:    ":one",
+	Source: "journal.sql",
+	SQL: `SELECT
+  (SELECT count(*) FROM zdx_claude_sessions s WHERE s.project_id = $1 AND s.created_at >= $2) AS sessions_in_period,
+  (SELECT count(*) FROM zdx_issues          i WHERE i.project_id = $1 AND i.closed_at  >= $2) AS closed_in_period`,
+	Columns: []metaquery.Column{
+		{Name: "sessions_in_period", OriginalName: "sessions_in_period", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "closed_in_period", OriginalName: "closed_in_period", GoType: "int64", DBType: "bigint", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "created_at", GoType: "pgtype.Timestamptz", DBType: "pg_catalog.timestamptz", NotNull: true},
+	},
+}
+
+// WrapStandupTechYield returns a metaquery.Builder over MetaStandupTechYield, pre-bound with typed arguments.
+func WrapStandupTechYield(arg StandupTechYieldParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaStandupTechYield, arg.ProjectID, arg.CreatedAt)
+}
+
+// StandupTechYieldCols gives typed, name-safe access to StandupTechYield's output columns.
+var StandupTechYieldCols = struct {
+	SessionsInPeriod metaquery.IntCol
+	ClosedInPeriod   metaquery.IntCol
+}{
+	SessionsInPeriod: metaquery.NewIntCol("sessions_in_period"),
+	ClosedInPeriod:   metaquery.NewIntCol("closed_in_period"),
+}
+
+var MetaStandupTopReopenedIssues = metaquery.Query{
+	Name:   "StandupTopReopenedIssues",
+	Cmd:    ":many",
+	Source: "journal.sql",
+	SQL: `SELECT id, title, reopen_count FROM zdx_issues
+WHERE project_id = $1 AND reopen_count > 0
+ORDER BY reopen_count DESC LIMIT 3`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapStandupTopReopenedIssues returns a metaquery.Builder over MetaStandupTopReopenedIssues, pre-bound with typed arguments.
+func WrapStandupTopReopenedIssues(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaStandupTopReopenedIssues, projectID)
+}
+
+// StandupTopReopenedIssuesCols gives typed, name-safe access to StandupTopReopenedIssues's output columns.
+var StandupTopReopenedIssuesCols = struct {
+	ID          metaquery.TextCol
+	Title       metaquery.TextCol
+	ReopenCount metaquery.IntCol
+}{
+	ID:          metaquery.NewTextCol("id"),
+	Title:       metaquery.NewTextCol("title"),
+	ReopenCount: metaquery.NewIntCol("reopen_count"),
+}

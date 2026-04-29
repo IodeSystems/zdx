@@ -613,7 +613,10 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				}
 			}
 
+			const standupMinClosedForRatios = 3
+
 			var tldr, assessment, concerns, next string
+			var ownerBreaches, techBreaches []string
 
 			if role == "owner" {
 				goals, _ := h.Q.ListProjectGoals(ctx, p.ID)
@@ -624,6 +627,9 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 						goalsWithMetric++
 					}
 				}
+
+				ownerYield, _ := h.Q.StandupOwnerYield(ctx, p.ID)
+				topReopened, _ := h.Q.StandupTopReopenedIssues(ctx, p.ID)
 
 				tldr = fmt.Sprintf("Owner check-in: %d goal(s) (%d measured), velocity %d/%d closed (7d/30d), %d open issues",
 					len(goals), goalsWithMetric, velocity.Closed7d, velocity.Closed30d, summary.OpenIssues)
@@ -647,6 +653,13 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					}
 					assessParts = append(assessParts, strings.Join(goalLines, "\n"))
 				}
+				if len(topReopened) > 0 {
+					reopenLines := []string{"**Recurring issues:**"}
+					for _, r := range topReopened {
+						reopenLines = append(reopenLines, fmt.Sprintf("- %s %s (reopened %d×)", r.ID, r.Title, r.ReopenCount))
+					}
+					assessParts = append(assessParts, strings.Join(reopenLines, "\n"))
+				}
 				assessment = strings.Join(assessParts, "\n\n")
 
 				var concernParts []string
@@ -655,6 +668,19 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				}
 				if velocity.FeaturesWithoutGoal > 0 {
 					concernParts = append(concernParts, fmt.Sprintf("%d feature(s) have no goal attribution — value delivery may be unmeasured.", velocity.FeaturesWithoutGoal))
+				}
+				if ownerYield.Closed30d >= standupMinClosedForRatios {
+					touchedRatio := float64(ownerYield.IssuesTouchedNotClosed) / float64(ownerYield.Closed30d)
+					if touchedRatio > 3.0 {
+						msg := fmt.Sprintf("scope churn: %.1f× touched/closed (threshold 3.0) — consider narrowing focus.", touchedRatio)
+						concernParts = append(concernParts, "**Scope churn:** "+msg)
+						ownerBreaches = append(ownerBreaches, fmt.Sprintf("scope churn: %.1f× touched/closed", touchedRatio))
+					}
+				}
+				if ownerYield.FeaturesWithoutMetric > 0 {
+					msg := fmt.Sprintf("features without metric: %d", ownerYield.FeaturesWithoutMetric)
+					concernParts = append(concernParts, fmt.Sprintf("%d feature(s) have goal attribution but no metric — value is unverifiable.", ownerYield.FeaturesWithoutMetric))
+					ownerBreaches = append(ownerBreaches, msg)
 				}
 				if churnNote != "" {
 					concernParts = append(concernParts, "**Process churn:** "+churnNote)
@@ -681,6 +707,8 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 
 			} else {
 				// tech role
+				techYield, _ := h.Q.StandupTechYield(ctx, db.StandupTechYieldParams{ProjectID: p.ID, CreatedAt: since})
+
 				tldr = fmt.Sprintf("Tech check-in: %d commits, %d files changed, %d open issues, %d closed (30d)",
 					metrics.GitCommits, metrics.GitFilesChanged, summary.OpenIssues, velocity.Closed30d)
 
@@ -700,6 +728,20 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				}
 				if churnNote != "" {
 					concernParts = append(concernParts, "**Process churn:** "+churnNote)
+				}
+				if techYield.ClosedInPeriod >= standupMinClosedForRatios {
+					sessionsPerClose := float64(techYield.SessionsInPeriod) / float64(techYield.ClosedInPeriod)
+					if sessionsPerClose > 5.0 {
+						msg := fmt.Sprintf("sessions/closed: %.1f (threshold 5.0)", sessionsPerClose)
+						concernParts = append(concernParts, "**Agent efficiency:** "+msg+" — high session count per close may indicate thrashing.")
+						techBreaches = append(techBreaches, msg)
+					}
+					commitsPerClose := float64(metrics.GitCommits) / float64(techYield.ClosedInPeriod)
+					if commitsPerClose > 20.0 {
+						msg := fmt.Sprintf("commits/closed: %.1f (threshold 20.0)", commitsPerClose)
+						concernParts = append(concernParts, "**Commit density:** "+msg+" — high commit count per close may indicate scope creep.")
+						techBreaches = append(techBreaches, msg)
+					}
 				}
 				concerns = strings.Join(concernParts, "\n")
 
@@ -724,6 +766,25 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+
+			for _, breach := range append(ownerBreaches, techBreaches...) {
+				title := "Yield alert: " + breach
+				n, _ := h.Q.CountOpenIssuesByTitle(ctx, db.CountOpenIssuesByTitleParams{ProjectID: p.ID, Title: title})
+				if n == 0 {
+					issueID, err2 := h.Q.NextIssueID(ctx)
+					if err2 == nil {
+						_, _ = h.Q.CreateIssue(ctx, db.CreateIssueParams{
+							ID:        issueID,
+							ProjectID: p.ID,
+							Title:     title,
+							Context:   fmt.Sprintf("Auto-filed from standup entry %d on %s.\n\n%s", inserted.ID, today, breach),
+							Priority:  "3",
+							IssueType: "ask",
+							Status:    "open",
+						})
+					}
+				}
 			}
 
 			entry := JournalEntryItem{

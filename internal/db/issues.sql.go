@@ -86,6 +86,22 @@ func (q *Queries) CountIssuesByStatus(ctx context.Context, arg CountIssuesByStat
 	return items, nil
 }
 
+const countOpenIssuesByTitle = `-- name: CountOpenIssuesByTitle :one
+SELECT count(*) FROM zdx_issues WHERE project_id = $1 AND title = $2 AND closed_at IS NULL
+`
+
+type CountOpenIssuesByTitleParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Title     string `db:"title" json:"title"`
+}
+
+func (q *Queries) CountOpenIssuesByTitle(ctx context.Context, arg CountOpenIssuesByTitleParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOpenIssuesByTitle, arg.ProjectID, arg.Title)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

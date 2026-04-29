@@ -320,3 +320,78 @@ func (q *Queries) MarkJournalEntryReviewed(ctx context.Context, id int32) error 
 	_, err := q.db.Exec(ctx, markJournalEntryReviewed, id)
 	return err
 }
+
+const standupOwnerYield = `-- name: StandupOwnerYield :one
+SELECT
+  (SELECT count(*) FROM zdx_issues    i WHERE i.project_id = $1 AND i.updated_at > NOW() - INTERVAL '30 days' AND (i.closed_at IS NULL OR i.closed_at < NOW() - INTERVAL '30 days')) AS issues_touched_not_closed,
+  (SELECT count(*) FROM zdx_issues    i WHERE i.project_id = $1 AND i.closed_at > NOW() - INTERVAL '30 days')                                                                         AS closed_30d,
+  (SELECT count(*) FROM zdx_features  f WHERE f.project_id = $1 AND f.goal_id IS NOT NULL AND f.metric_name = '')                                                                     AS features_without_metric
+`
+
+type StandupOwnerYieldRow struct {
+	IssuesTouchedNotClosed int64 `db:"issues_touched_not_closed" json:"issues_touched_not_closed"`
+	Closed30d              int64 `db:"closed_30d" json:"closed_30d"`
+	FeaturesWithoutMetric  int64 `db:"features_without_metric" json:"features_without_metric"`
+}
+
+func (q *Queries) StandupOwnerYield(ctx context.Context, projectID int32) (StandupOwnerYieldRow, error) {
+	row := q.db.QueryRow(ctx, standupOwnerYield, projectID)
+	var i StandupOwnerYieldRow
+	err := row.Scan(&i.IssuesTouchedNotClosed, &i.Closed30d, &i.FeaturesWithoutMetric)
+	return i, err
+}
+
+const standupTechYield = `-- name: StandupTechYield :one
+SELECT
+  (SELECT count(*) FROM zdx_claude_sessions s WHERE s.project_id = $1 AND s.created_at >= $2) AS sessions_in_period,
+  (SELECT count(*) FROM zdx_issues          i WHERE i.project_id = $1 AND i.closed_at  >= $2) AS closed_in_period
+`
+
+type StandupTechYieldParams struct {
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type StandupTechYieldRow struct {
+	SessionsInPeriod int64 `db:"sessions_in_period" json:"sessions_in_period"`
+	ClosedInPeriod   int64 `db:"closed_in_period" json:"closed_in_period"`
+}
+
+func (q *Queries) StandupTechYield(ctx context.Context, arg StandupTechYieldParams) (StandupTechYieldRow, error) {
+	row := q.db.QueryRow(ctx, standupTechYield, arg.ProjectID, arg.CreatedAt)
+	var i StandupTechYieldRow
+	err := row.Scan(&i.SessionsInPeriod, &i.ClosedInPeriod)
+	return i, err
+}
+
+const standupTopReopenedIssues = `-- name: StandupTopReopenedIssues :many
+SELECT id, title, reopen_count FROM zdx_issues
+WHERE project_id = $1 AND reopen_count > 0
+ORDER BY reopen_count DESC LIMIT 3
+`
+
+type StandupTopReopenedIssuesRow struct {
+	ID          string `db:"id" json:"id"`
+	Title       string `db:"title" json:"title"`
+	ReopenCount int32  `db:"reopen_count" json:"reopen_count"`
+}
+
+func (q *Queries) StandupTopReopenedIssues(ctx context.Context, projectID int32) ([]StandupTopReopenedIssuesRow, error) {
+	rows, err := q.db.Query(ctx, standupTopReopenedIssues, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StandupTopReopenedIssuesRow
+	for rows.Next() {
+		var i StandupTopReopenedIssuesRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.ReopenCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

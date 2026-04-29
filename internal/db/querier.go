@@ -59,6 +59,7 @@ type Querier interface {
 	CountIssueResolutions(ctx context.Context, issueID string) (int64, error)
 	// metaquery: off
 	CountIssuesByStatus(ctx context.Context, arg CountIssuesByStatusParams) ([]CountIssuesByStatusRow, error)
+	CountOpenIssuesByTitle(ctx context.Context, arg CountOpenIssuesByTitleParams) (int64, error)
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
 	CountQuestionProposalsByQuestion(ctx context.Context, arg CountQuestionProposalsByQuestionParams) (int64, error)
@@ -499,6 +500,9 @@ type Querier interface {
 	SetState(ctx context.Context, arg SetStateParams) error
 	// Store the auto-filed issue ID on a blocked todo so the UI can link to it.
 	SetTodoReferenceIssue(ctx context.Context, arg SetTodoReferenceIssueParams) error
+	StandupOwnerYield(ctx context.Context, projectID int32) (StandupOwnerYieldRow, error)
+	StandupTechYield(ctx context.Context, arg StandupTechYieldParams) (StandupTechYieldRow, error)
+	StandupTopReopenedIssues(ctx context.Context, projectID int32) ([]StandupTopReopenedIssuesRow, error)
 	// metaquery: off
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error

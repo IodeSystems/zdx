@@ -47,6 +47,32 @@ func WrapCloseIssue(arg CloseIssueParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaCloseIssue, arg.DuplicateOf, arg.LinkOf, arg.ProjectID, arg.ID)
 }
 
+var MetaCountOpenIssuesByTitle = metaquery.Query{
+	Name:   "CountOpenIssuesByTitle",
+	Cmd:    ":one",
+	Source: "issues.sql",
+	SQL:    `SELECT count(*) FROM zdx_issues WHERE project_id = $1 AND title = $2 AND closed_at IS NULL`,
+	Columns: []metaquery.Column{
+		{Name: "count", OriginalName: "count", GoType: "int64"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "title", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapCountOpenIssuesByTitle returns a metaquery.Builder over MetaCountOpenIssuesByTitle, pre-bound with typed arguments.
+func WrapCountOpenIssuesByTitle(arg CountOpenIssuesByTitleParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaCountOpenIssuesByTitle, arg.ProjectID, arg.Title)
+}
+
+// CountOpenIssuesByTitleCols gives typed, name-safe access to CountOpenIssuesByTitle's output columns.
+var CountOpenIssuesByTitleCols = struct {
+	Count metaquery.IntCol
+}{
+	Count: metaquery.NewIntCol("count"),
+}
+
 var MetaCreateIssue = metaquery.Query{
 	Name:   "CreateIssue",
 	Cmd:    ":one",

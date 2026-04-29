@@ -129,3 +129,6 @@ ORDER BY w.created_at DESC
 LIMIT $1 OFFSET $2;
 
 
+
+-- name: CountOpenIssuesByTitle :one
+SELECT count(*) FROM zdx_issues WHERE project_id = $1 AND title = $2 AND closed_at IS NULL;

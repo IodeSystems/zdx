@@ -22,6 +22,22 @@ FROM zdx_journal_entries WHERE id = $1 AND project_id = $2;
 -- name: MarkJournalEntryReviewed :exec
 UPDATE zdx_journal_entries SET needs_review = false WHERE id = $1;
 
+-- name: StandupOwnerYield :one
+SELECT
+  (SELECT count(*) FROM zdx_issues    i WHERE i.project_id = $1 AND i.updated_at > NOW() - INTERVAL '30 days' AND (i.closed_at IS NULL OR i.closed_at < NOW() - INTERVAL '30 days')) AS issues_touched_not_closed,
+  (SELECT count(*) FROM zdx_issues    i WHERE i.project_id = $1 AND i.closed_at > NOW() - INTERVAL '30 days')                                                                         AS closed_30d,
+  (SELECT count(*) FROM zdx_features  f WHERE f.project_id = $1 AND f.goal_id IS NOT NULL AND f.metric_name = '')                                                                     AS features_without_metric;
+
+-- name: StandupTopReopenedIssues :many
+SELECT id, title, reopen_count FROM zdx_issues
+WHERE project_id = $1 AND reopen_count > 0
+ORDER BY reopen_count DESC LIMIT 3;
+
+-- name: StandupTechYield :one
+SELECT
+  (SELECT count(*) FROM zdx_claude_sessions s WHERE s.project_id = $1 AND s.created_at >= $2) AS sessions_in_period,
+  (SELECT count(*) FROM zdx_issues          i WHERE i.project_id = $1 AND i.closed_at  >= $2) AS closed_in_period;
+
 -- name: JournalVelocity :one
 -- closed_at is set by CloseIssue and cleared by ReopenIssue/ReadyIssue, so
 -- filtering by closed_at measures actual close events — updated_at conflates
