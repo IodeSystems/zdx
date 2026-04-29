@@ -10,10 +10,11 @@ RUN apt-get update \
     gnupg \
  && rm -rf /var/lib/apt/lists/*
 
-# Node.js (frontend build)
+# Node.js + pnpm (frontend build)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - \
  && apt-get install -y --no-install-recommends nodejs \
- && rm -rf /var/lib/apt/lists/*
+ && rm -rf /var/lib/apt/lists/* \
+ && npm install -g pnpm
 
 # sqlc (query codegen)
 RUN go install github.com/sqlc-dev/sqlc/cmd/sqlc@latest
