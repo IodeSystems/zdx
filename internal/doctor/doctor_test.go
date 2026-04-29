@@ -185,7 +185,6 @@ func TestRunCheckGoalsQuantified(t *testing.T) {
 	}
 }
 
-
 // TestFindingAutoFixable verifies spec 128 (detection layer):
 // a failing check with an auto-fix produces a non-nil FixFunc.
 func TestFindingAutoFixable(t *testing.T) {
@@ -354,7 +353,6 @@ func TestEvaluateFindingsGroupedByRung(t *testing.T) {
 		}
 	}
 }
-
 
 // TestRunCheckHasDeployConfigGateBranch verifies spec 166:
 // Given a project shipping to production from the dev branch directly,
