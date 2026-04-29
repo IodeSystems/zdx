@@ -92,6 +92,25 @@ func issueAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Create an issue",
+		Long: `Create an issue — a unit of tracked work or decision.
+
+Issue types (--type):
+  impl    implementation work (default if unclear)
+  ops     operational / infrastructure work
+  ask     question or decision that needs an answer
+  tracker rollup / parent for a group of related issues
+
+A good issue title is specific and outcome-oriented:
+  - "Add --metric-name flag to dx goal add" (impl)
+  - "Deploy pgvector extension on prod" (ops)
+  - "Decide: store agent logs in DB or object storage?" (ask)
+
+Use --context to capture motivation and constraints — this is what agents read.
+Use --parent to nest under a tracker issue when decomposing large work.
+
+Example:
+  dx issue add --title="Add inline guidance to entity-creation CLI commands" \
+    --type=impl --context="Spec 110: users need examples when running --help"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			body := dxclient.AddIssueRequest{

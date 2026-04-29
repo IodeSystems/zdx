@@ -84,6 +84,21 @@ func specAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a spec statement to a feature",
+		Long: `Add a spec statement to a feature — a verifiable requirement in BDD style.
+
+Importance tiers (--importance):
+  must          blocking: feature is not shippable without this
+  should        high-value: degrades the feature if missing
+  nice-to-have  polish: good to have but not blocking
+
+A good spec is written in BDD style: "given X, when Y, then Z":
+  - "Given a cold process, when the user runs dx, then startup completes in <500ms"
+  - "Given an active focus, when dx doctor runs, then the focus rung passes"
+  - "Given no metric on a goal, when dx doctor runs, then a should-level gap is reported"
+
+Example:
+  dx spec add --feature=fast-cold-start --importance=must \
+    --text="Given a cold process, when the user runs dx, then startup completes in <500ms"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			// The update-specs endpoint uses field=kind, value=description.

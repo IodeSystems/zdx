@@ -61,7 +61,22 @@ func featureAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <name>",
 		Short: "Create or update a feature",
-		Args:  cobra.ExactArgs(1),
+		Long: `Create or update a feature — a demonstrable unit of value delivered toward a goal.
+
+Feature kinds:
+  direct      deposits value directly into the goal currency (e.g. a user-visible capability)
+  multiplier  amplifies other features; requires metric + baseline + target + graph_url
+
+A good feature name is kebab-case and outcome-oriented:
+  - "fast-cold-start"          (direct: speeds up the thing users wait on)
+  - "test-parallelism"         (multiplier: makes the whole test suite faster)
+  - "solo-agent-queue"         (direct: enables unattended work)
+
+Over-specced features (>8 specs) are a signal to decompose using --parent-feature.
+
+Example:
+  dx feature add fast-cold-start --desc="Sub-500ms startup on first invocation"`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			resp, err := c.UpsertFeatureWithResponse(cmd.Context(), dxclient.UpsertFeatureRequest{

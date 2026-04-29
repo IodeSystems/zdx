@@ -56,7 +56,19 @@ func goalAddCmd() *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "add <title>",
 		Short: "Add a project goal",
-		Args:  cobra.ExactArgs(1),
+		Long: `Add a project goal — a measurable outcome the project is working toward.
+
+A good goal is outcome-oriented and, where possible, measurable:
+  - "Reduce API p99 latency below 200ms" (metric: latency, unit: ms)
+  - "Achieve 99.9% uptime over rolling 30 days" (metric: uptime, unit: percent)
+  - "Onboard 50 paying customers by Q3" (metric: customers, unit: count)
+
+Use --metric-name + --metric-unit to make progress trackable. Goals without
+metrics are allowed but encourage adding them once the measure is known.
+
+Example:
+  dx goal add "Reduce cold-start time below 500ms" --metric-name=cold_start --metric-unit=ms`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			req := dxclient.CreateGoalRequest{
