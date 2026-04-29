@@ -12,7 +12,7 @@ import (
 )
 
 const getJournalEntryByID = `-- name: GetJournalEntryByID :one
-SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at
 FROM zdx_journal_entries WHERE id = $1 AND project_id = $2
 `
 
@@ -33,6 +33,7 @@ type GetJournalEntryByIDRow struct {
 	Next          string             `db:"next" json:"next"`
 	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
 	StateJson     string             `db:"state_json" json:"state_json"`
+	KpiDeltaJson  string             `db:"kpi_delta_json" json:"kpi_delta_json"`
 	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -52,6 +53,7 @@ func (q *Queries) GetJournalEntryByID(ctx context.Context, arg GetJournalEntryBy
 		&i.Next,
 		&i.ChangelogJson,
 		&i.StateJson,
+		&i.KpiDeltaJson,
 		&i.NeedsReview,
 		&i.CreatedAt,
 	)
@@ -59,7 +61,7 @@ func (q *Queries) GetJournalEntryByID(ctx context.Context, arg GetJournalEntryBy
 }
 
 const getLatestJournalEntry = `-- name: GetLatestJournalEntry :one
-SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 1
 `
 
@@ -80,6 +82,7 @@ type GetLatestJournalEntryRow struct {
 	Next          string             `db:"next" json:"next"`
 	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
 	StateJson     string             `db:"state_json" json:"state_json"`
+	KpiDeltaJson  string             `db:"kpi_delta_json" json:"kpi_delta_json"`
 	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -99,6 +102,7 @@ func (q *Queries) GetLatestJournalEntry(ctx context.Context, arg GetLatestJourna
 		&i.Next,
 		&i.ChangelogJson,
 		&i.StateJson,
+		&i.KpiDeltaJson,
 		&i.NeedsReview,
 		&i.CreatedAt,
 	)
@@ -106,7 +110,7 @@ func (q *Queries) GetLatestJournalEntry(ctx context.Context, arg GetLatestJourna
 }
 
 const getUnreviewedJournalEntry = `-- name: GetUnreviewedJournalEntry :one
-SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 AND needs_review = true ORDER BY date DESC LIMIT 1
 `
 
@@ -127,6 +131,7 @@ type GetUnreviewedJournalEntryRow struct {
 	Next          string             `db:"next" json:"next"`
 	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
 	StateJson     string             `db:"state_json" json:"state_json"`
+	KpiDeltaJson  string             `db:"kpi_delta_json" json:"kpi_delta_json"`
 	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -146,6 +151,7 @@ func (q *Queries) GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreview
 		&i.Next,
 		&i.ChangelogJson,
 		&i.StateJson,
+		&i.KpiDeltaJson,
 		&i.NeedsReview,
 		&i.CreatedAt,
 	)
@@ -153,9 +159,9 @@ func (q *Queries) GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreview
 }
 
 const insertJournalEntry = `-- name: InsertJournalEntry :one
-INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next, state_json, changelog_json, needs_review)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next, state_json, changelog_json, kpi_delta_json, needs_review)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at
 `
 
 type InsertJournalEntryParams struct {
@@ -168,6 +174,7 @@ type InsertJournalEntryParams struct {
 	Next          string `db:"next" json:"next"`
 	StateJson     string `db:"state_json" json:"state_json"`
 	ChangelogJson string `db:"changelog_json" json:"changelog_json"`
+	KpiDeltaJson  string `db:"kpi_delta_json" json:"kpi_delta_json"`
 	NeedsReview   bool   `db:"needs_review" json:"needs_review"`
 }
 
@@ -183,6 +190,7 @@ type InsertJournalEntryRow struct {
 	Next          string             `db:"next" json:"next"`
 	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
 	StateJson     string             `db:"state_json" json:"state_json"`
+	KpiDeltaJson  string             `db:"kpi_delta_json" json:"kpi_delta_json"`
 	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -198,6 +206,7 @@ func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntry
 		arg.Next,
 		arg.StateJson,
 		arg.ChangelogJson,
+		arg.KpiDeltaJson,
 		arg.NeedsReview,
 	)
 	var i InsertJournalEntryRow
@@ -213,6 +222,7 @@ func (q *Queries) InsertJournalEntry(ctx context.Context, arg InsertJournalEntry
 		&i.Next,
 		&i.ChangelogJson,
 		&i.StateJson,
+		&i.KpiDeltaJson,
 		&i.NeedsReview,
 		&i.CreatedAt,
 	)
@@ -253,7 +263,7 @@ func (q *Queries) JournalVelocity(ctx context.Context, projectID int32) (Journal
 }
 
 const listJournalEntries = `-- name: ListJournalEntries :many
-SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC
 `
 
@@ -274,6 +284,7 @@ type ListJournalEntriesRow struct {
 	Next          string             `db:"next" json:"next"`
 	ChangelogJson string             `db:"changelog_json" json:"changelog_json"`
 	StateJson     string             `db:"state_json" json:"state_json"`
+	KpiDeltaJson  string             `db:"kpi_delta_json" json:"kpi_delta_json"`
 	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
@@ -299,6 +310,7 @@ func (q *Queries) ListJournalEntries(ctx context.Context, arg ListJournalEntries
 			&i.Next,
 			&i.ChangelogJson,
 			&i.StateJson,
+			&i.KpiDeltaJson,
 			&i.NeedsReview,
 			&i.CreatedAt,
 		); err != nil {

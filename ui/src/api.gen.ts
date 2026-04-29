@@ -6598,6 +6598,16 @@ export interface components {
             state_json?: string;
             tldr: string;
         };
+        "Journal-checkinResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Journal-checkinResponse.json
+             */
+            readonly $schema?: string;
+            kpi_delta_json: string;
+            ok: boolean;
+        };
         "Journal-entryResponse": {
             /**
              * Format: uri
@@ -6662,6 +6672,7 @@ export interface components {
             date: string;
             /** Format: int32 */
             id: number;
+            kpi_delta_json: string;
             next: string;
             state_json: string;
             tldr: string;
@@ -13685,7 +13696,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OKBody"];
+                    "application/json": components["schemas"]["Journal-checkinResponse"];
                 };
             };
             /** @description Error */

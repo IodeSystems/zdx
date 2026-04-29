@@ -1647,6 +1647,14 @@ type JournalCheckinRequest struct {
 	Tldr          string  `json:"tldr"`
 }
 
+// JournalCheckinResponse defines model for Journal-checkinResponse.
+type JournalCheckinResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	KpiDeltaJson string  `json:"kpi_delta_json"`
+	Ok           bool    `json:"ok"`
+}
+
 // JournalEntryResponse defines model for Journal-entryResponse.
 type JournalEntryResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1699,6 +1707,7 @@ type JournalEntryItem struct {
 	Concerns      string `json:"concerns"`
 	Date          string `json:"date"`
 	Id            int32  `json:"id"`
+	KpiDeltaJson  string `json:"kpi_delta_json"`
 	Next          string `json:"next"`
 	StateJson     string `json:"state_json"`
 	Tldr          string `json:"tldr"`
@@ -29089,9 +29098,9 @@ type ClientWithResponsesInterface interface {
 	SimilarIssuesWithResponse(ctx context.Context, body SimilarIssuesJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSimilarIssuesResponse, error)
 
 	// JournalCheckinWithBodyWithResponse request with any body
-	JournalCheckinWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*JournalCheckinResponse, error)
+	JournalCheckinWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedJournalCheckinResponse, error)
 
-	JournalCheckinWithResponse(ctx context.Context, body JournalCheckinJSONRequestBody, reqEditors ...RequestEditorFn) (*JournalCheckinResponse, error)
+	JournalCheckinWithResponse(ctx context.Context, body JournalCheckinJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedJournalCheckinResponse, error)
 
 	// JournalEntryWithResponse request
 	JournalEntryWithResponse(ctx context.Context, params *JournalEntryParams, reqEditors ...RequestEditorFn) (*ParsedJournalEntryResponse, error)
@@ -32665,15 +32674,15 @@ func (r ParsedSimilarIssuesResponse) StatusCode() int {
 	return 0
 }
 
-type JournalCheckinResponse struct {
+type ParsedJournalCheckinResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
+	JSON200                       *JournalCheckinResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
-func (r JournalCheckinResponse) Status() string {
+func (r ParsedJournalCheckinResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -32681,7 +32690,7 @@ func (r JournalCheckinResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r JournalCheckinResponse) StatusCode() int {
+func (r ParsedJournalCheckinResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -38591,21 +38600,21 @@ func (c *ClientWithResponses) SimilarIssuesWithResponse(ctx context.Context, bod
 	return ParseParsedSimilarIssuesResponse(rsp)
 }
 
-// JournalCheckinWithBodyWithResponse request with arbitrary body returning *JournalCheckinResponse
-func (c *ClientWithResponses) JournalCheckinWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*JournalCheckinResponse, error) {
+// JournalCheckinWithBodyWithResponse request with arbitrary body returning *ParsedJournalCheckinResponse
+func (c *ClientWithResponses) JournalCheckinWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedJournalCheckinResponse, error) {
 	rsp, err := c.JournalCheckinWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseJournalCheckinResponse(rsp)
+	return ParseParsedJournalCheckinResponse(rsp)
 }
 
-func (c *ClientWithResponses) JournalCheckinWithResponse(ctx context.Context, body JournalCheckinJSONRequestBody, reqEditors ...RequestEditorFn) (*JournalCheckinResponse, error) {
+func (c *ClientWithResponses) JournalCheckinWithResponse(ctx context.Context, body JournalCheckinJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedJournalCheckinResponse, error) {
 	rsp, err := c.JournalCheckin(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseJournalCheckinResponse(rsp)
+	return ParseParsedJournalCheckinResponse(rsp)
 }
 
 // JournalEntryWithResponse request returning *ParsedJournalEntryResponse
@@ -45091,22 +45100,22 @@ func ParseParsedSimilarIssuesResponse(rsp *http.Response) (*ParsedSimilarIssuesR
 	return response, nil
 }
 
-// ParseJournalCheckinResponse parses an HTTP response from a JournalCheckinWithResponse call
-func ParseJournalCheckinResponse(rsp *http.Response) (*JournalCheckinResponse, error) {
+// ParseParsedJournalCheckinResponse parses an HTTP response from a JournalCheckinWithResponse call
+func ParseParsedJournalCheckinResponse(rsp *http.Response) (*ParsedJournalCheckinResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &JournalCheckinResponse{
+	response := &ParsedJournalCheckinResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
+		var dest JournalCheckinResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

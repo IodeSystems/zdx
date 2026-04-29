@@ -391,6 +391,7 @@ type ZdxJournalEntry struct {
 	StateJson     string             `db:"state_json" json:"state_json"`
 	CreatedAt     pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
+	KpiDeltaJson  string             `db:"kpi_delta_json" json:"kpi_delta_json"`
 }
 
 type ZdxKpiSample struct {

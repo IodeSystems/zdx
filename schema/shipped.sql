@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1064,7 +1064,8 @@ CREATE TABLE public.zdx_journal_entries (
     changelog_json text DEFAULT '{}'::text NOT NULL,
     state_json text DEFAULT '{}'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    needs_review boolean DEFAULT false NOT NULL
+    needs_review boolean DEFAULT false NOT NULL,
+    kpi_delta_json text DEFAULT '[]'::text NOT NULL
 );
 
 
@@ -1086,6 +1087,41 @@ CREATE SEQUENCE public.zdx_journal_entries_id_seq
 --
 
 ALTER SEQUENCE public.zdx_journal_entries_id_seq OWNED BY public.zdx_journal_entries.id;
+
+
+--
+-- Name: zdx_kpi_samples; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_kpi_samples (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    sampled_at timestamp with time zone DEFAULT now() NOT NULL,
+    scope text NOT NULL,
+    check_name text NOT NULL,
+    value double precision NOT NULL,
+    unit text DEFAULT ''::text NOT NULL,
+    CONSTRAINT zdx_kpi_samples_scope_check CHECK ((scope = ANY (ARRAY['tech'::text, 'owner'::text])))
+);
+
+
+--
+-- Name: zdx_kpi_samples_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_kpi_samples_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_kpi_samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_kpi_samples_id_seq OWNED BY public.zdx_kpi_samples.id;
 
 
 --
@@ -2626,6 +2662,13 @@ ALTER TABLE ONLY public.zdx_journal_entries ALTER COLUMN id SET DEFAULT nextval(
 
 
 --
+-- Name: zdx_kpi_samples id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_kpi_samples ALTER COLUMN id SET DEFAULT nextval('public.zdx_kpi_samples_id_seq'::regclass);
+
+
+--
 -- Name: zdx_llm_configs id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3198,6 +3241,14 @@ ALTER TABLE ONLY public.zdx_issues
 
 ALTER TABLE ONLY public.zdx_journal_entries
     ADD CONSTRAINT zdx_journal_entries_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_kpi_samples zdx_kpi_samples_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_kpi_samples
+    ADD CONSTRAINT zdx_kpi_samples_pkey PRIMARY KEY (id);
 
 
 --
@@ -4118,6 +4169,13 @@ CREATE INDEX zdx_integration_token_project ON public.zdx_integration_token USING
 
 
 --
+-- Name: zdx_kpi_samples_project_id_scope_check_name_sampled_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_kpi_samples_project_id_scope_check_name_sampled_at_idx ON public.zdx_kpi_samples USING btree (project_id, scope, check_name, sampled_at DESC);
+
+
+--
 -- Name: zdx_log_events_context_gin; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4608,6 +4666,14 @@ ALTER TABLE ONLY public.zdx_journal_entries
 
 
 --
+-- Name: zdx_kpi_samples zdx_kpi_samples_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_kpi_samples
+    ADD CONSTRAINT zdx_kpi_samples_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
+
+
+--
 -- Name: zdx_log_events zdx_log_events_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5069,71 +5135,6 @@ ALTER TABLE ONLY public.zdx_todos
 
 ALTER TABLE ONLY public.zdx_work_log
     ADD CONSTRAINT zdx_work_log_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
-
-
---
--- Name: zdx_kpi_samples; Type: TABLE; Schema: public; Owner: -
---
-
-CREATE TABLE public.zdx_kpi_samples (
-    id bigint NOT NULL,
-    project_id integer NOT NULL,
-    sampled_at timestamp with time zone DEFAULT now() NOT NULL,
-    scope text NOT NULL,
-    check_name text NOT NULL,
-    value double precision NOT NULL,
-    unit text DEFAULT ''::text NOT NULL,
-    CONSTRAINT zdx_kpi_samples_scope_check CHECK ((scope = ANY (ARRAY['tech'::text, 'owner'::text])))
-);
-
-
---
--- Name: zdx_kpi_samples_id_seq; Type: SEQUENCE; Schema: public; Owner: -
---
-
-CREATE SEQUENCE public.zdx_kpi_samples_id_seq
-    START WITH 1
-    INCREMENT BY 1
-    NO MINVALUE
-    NO MAXVALUE
-    CACHE 1;
-
-
---
--- Name: zdx_kpi_samples_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
---
-
-ALTER SEQUENCE public.zdx_kpi_samples_id_seq OWNED BY public.zdx_kpi_samples.id;
-
-
---
--- Name: zdx_kpi_samples id; Type: DEFAULT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_kpi_samples ALTER COLUMN id SET DEFAULT nextval('public.zdx_kpi_samples_id_seq'::regclass);
-
-
---
--- Name: zdx_kpi_samples zdx_kpi_samples_pkey; Type: CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_kpi_samples
-    ADD CONSTRAINT zdx_kpi_samples_pkey PRIMARY KEY (id);
-
-
---
--- Name: zdx_kpi_samples_project_scope_check_sampled; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX zdx_kpi_samples_project_scope_check_sampled ON public.zdx_kpi_samples USING btree (project_id, scope, check_name, sampled_at DESC);
-
-
---
--- Name: zdx_kpi_samples zdx_kpi_samples_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
---
-
-ALTER TABLE ONLY public.zdx_kpi_samples
-    ADD CONSTRAINT zdx_kpi_samples_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
 
 
 --

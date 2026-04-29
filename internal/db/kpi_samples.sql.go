@@ -7,6 +7,8 @@ package db
 
 import (
 	"context"
+
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 const insertKpiSample = `-- name: InsertKpiSample :one
@@ -42,6 +44,61 @@ func (q *Queries) InsertKpiSample(ctx context.Context, arg InsertKpiSampleParams
 		&i.Unit,
 	)
 	return i, err
+}
+
+const latestTwoKPISamplesPerCheck = `-- name: LatestTwoKPISamplesPerCheck :many
+WITH ranked AS (
+  SELECT id, project_id, sampled_at, scope, check_name, value, unit,
+    row_number() OVER (PARTITION BY check_name ORDER BY sampled_at DESC) AS rn
+  FROM zdx_kpi_samples
+  WHERE project_id = $1 AND scope = $2
+)
+SELECT id, project_id, sampled_at, scope, check_name, value, unit
+FROM ranked WHERE rn <= 2
+ORDER BY check_name, rn
+`
+
+type LatestTwoKPISamplesPerCheckParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Scope     string `db:"scope" json:"scope"`
+}
+
+type LatestTwoKPISamplesPerCheckRow struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	SampledAt pgtype.Timestamptz `db:"sampled_at" json:"sampled_at"`
+	Scope     string             `db:"scope" json:"scope"`
+	CheckName string             `db:"check_name" json:"check_name"`
+	Value     float64            `db:"value" json:"value"`
+	Unit      string             `db:"unit" json:"unit"`
+}
+
+func (q *Queries) LatestTwoKPISamplesPerCheck(ctx context.Context, arg LatestTwoKPISamplesPerCheckParams) ([]LatestTwoKPISamplesPerCheckRow, error) {
+	rows, err := q.db.Query(ctx, latestTwoKPISamplesPerCheck, arg.ProjectID, arg.Scope)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []LatestTwoKPISamplesPerCheckRow
+	for rows.Next() {
+		var i LatestTwoKPISamplesPerCheckRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.SampledAt,
+			&i.Scope,
+			&i.CheckName,
+			&i.Value,
+			&i.Unit,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
 }
 
 const listKpiTrend = `-- name: ListKpiTrend :many

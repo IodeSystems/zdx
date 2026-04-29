@@ -15,7 +15,7 @@ var MetaGetJournalEntryByID = metaquery.Query{
 	Name:   "GetJournalEntryByID",
 	Cmd:    ":one",
 	Source: "journal.sql",
-	SQL: `SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+	SQL: `SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at
 FROM zdx_journal_entries WHERE id = $1 AND project_id = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_journal_entries"},
@@ -29,6 +29,7 @@ FROM zdx_journal_entries WHERE id = $1 AND project_id = $2`,
 		{Name: "next", OriginalName: "next", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "changelog_json", OriginalName: "changelog_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "state_json", OriginalName: "state_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
+		{Name: "kpi_delta_json", OriginalName: "kpi_delta_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "needs_review", OriginalName: "needs_review", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_journal_entries"},
 	},
@@ -56,6 +57,7 @@ var GetJournalEntryByIDCols = struct {
 	Next          metaquery.TextCol
 	ChangelogJson metaquery.TextCol
 	StateJson     metaquery.TextCol
+	KpiDeltaJson  metaquery.TextCol
 	NeedsReview   metaquery.BoolCol
 	CreatedAt     metaquery.TimeCol
 }{
@@ -70,6 +72,7 @@ var GetJournalEntryByIDCols = struct {
 	Next:          metaquery.NewTextCol("next"),
 	ChangelogJson: metaquery.NewTextCol("changelog_json"),
 	StateJson:     metaquery.NewTextCol("state_json"),
+	KpiDeltaJson:  metaquery.NewTextCol("kpi_delta_json"),
 	NeedsReview:   metaquery.NewBoolCol("needs_review"),
 	CreatedAt:     metaquery.NewTimeCol("created_at"),
 }
@@ -78,7 +81,7 @@ var MetaGetLatestJournalEntry = metaquery.Query{
 	Name:   "GetLatestJournalEntry",
 	Cmd:    ":one",
 	Source: "journal.sql",
-	SQL: `SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+	SQL: `SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC LIMIT 1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_journal_entries"},
@@ -92,6 +95,7 @@ FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC 
 		{Name: "next", OriginalName: "next", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "changelog_json", OriginalName: "changelog_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "state_json", OriginalName: "state_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
+		{Name: "kpi_delta_json", OriginalName: "kpi_delta_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "needs_review", OriginalName: "needs_review", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_journal_entries"},
 	},
@@ -119,6 +123,7 @@ var GetLatestJournalEntryCols = struct {
 	Next          metaquery.TextCol
 	ChangelogJson metaquery.TextCol
 	StateJson     metaquery.TextCol
+	KpiDeltaJson  metaquery.TextCol
 	NeedsReview   metaquery.BoolCol
 	CreatedAt     metaquery.TimeCol
 }{
@@ -133,6 +138,7 @@ var GetLatestJournalEntryCols = struct {
 	Next:          metaquery.NewTextCol("next"),
 	ChangelogJson: metaquery.NewTextCol("changelog_json"),
 	StateJson:     metaquery.NewTextCol("state_json"),
+	KpiDeltaJson:  metaquery.NewTextCol("kpi_delta_json"),
 	NeedsReview:   metaquery.NewBoolCol("needs_review"),
 	CreatedAt:     metaquery.NewTimeCol("created_at"),
 }
@@ -141,7 +147,7 @@ var MetaGetUnreviewedJournalEntry = metaquery.Query{
 	Name:   "GetUnreviewedJournalEntry",
 	Cmd:    ":one",
 	Source: "journal.sql",
-	SQL: `SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+	SQL: `SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 AND needs_review = true ORDER BY date DESC LIMIT 1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_journal_entries"},
@@ -155,6 +161,7 @@ FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 AND needs_review = 
 		{Name: "next", OriginalName: "next", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "changelog_json", OriginalName: "changelog_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "state_json", OriginalName: "state_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
+		{Name: "kpi_delta_json", OriginalName: "kpi_delta_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "needs_review", OriginalName: "needs_review", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_journal_entries"},
 	},
@@ -182,6 +189,7 @@ var GetUnreviewedJournalEntryCols = struct {
 	Next          metaquery.TextCol
 	ChangelogJson metaquery.TextCol
 	StateJson     metaquery.TextCol
+	KpiDeltaJson  metaquery.TextCol
 	NeedsReview   metaquery.BoolCol
 	CreatedAt     metaquery.TimeCol
 }{
@@ -196,6 +204,7 @@ var GetUnreviewedJournalEntryCols = struct {
 	Next:          metaquery.NewTextCol("next"),
 	ChangelogJson: metaquery.NewTextCol("changelog_json"),
 	StateJson:     metaquery.NewTextCol("state_json"),
+	KpiDeltaJson:  metaquery.NewTextCol("kpi_delta_json"),
 	NeedsReview:   metaquery.NewBoolCol("needs_review"),
 	CreatedAt:     metaquery.NewTimeCol("created_at"),
 }
@@ -204,9 +213,9 @@ var MetaInsertJournalEntry = metaquery.Query{
 	Name:   "InsertJournalEntry",
 	Cmd:    ":one",
 	Source: "journal.sql",
-	SQL: `INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next, state_json, changelog_json, needs_review)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at`,
+	SQL: `INSERT INTO zdx_journal_entries (project_id, role, date, tldr, assessment, concerns, next, state_json, changelog_json, kpi_delta_json, needs_review)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
+RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_journal_entries"},
@@ -219,6 +228,7 @@ RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next
 		{Name: "next", OriginalName: "next", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "changelog_json", OriginalName: "changelog_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "state_json", OriginalName: "state_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
+		{Name: "kpi_delta_json", OriginalName: "kpi_delta_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "needs_review", OriginalName: "needs_review", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_journal_entries"},
 	},
@@ -232,14 +242,15 @@ RETURNING id, project_id, role, date, baseline, tldr, assessment, concerns, next
 		{Position: 7, Name: "next", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 8, Name: "state_json", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 9, Name: "changelog_json", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 10, Name: "needs_review", GoType: "bool", DBType: "pg_catalog.bool", NotNull: true},
+		{Position: 10, Name: "kpi_delta_json", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 11, Name: "needs_review", GoType: "bool", DBType: "pg_catalog.bool", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_journal_entries"},
 }
 
 // WrapInsertJournalEntry returns a metaquery.Builder over MetaInsertJournalEntry, pre-bound with typed arguments.
 func WrapInsertJournalEntry(arg InsertJournalEntryParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaInsertJournalEntry, arg.ProjectID, arg.Role, arg.Date, arg.Tldr, arg.Assessment, arg.Concerns, arg.Next, arg.StateJson, arg.ChangelogJson, arg.NeedsReview)
+	return metaquery.Wrap(&MetaInsertJournalEntry, arg.ProjectID, arg.Role, arg.Date, arg.Tldr, arg.Assessment, arg.Concerns, arg.Next, arg.StateJson, arg.ChangelogJson, arg.KpiDeltaJson, arg.NeedsReview)
 }
 
 // InsertJournalEntryCols gives typed, name-safe access to InsertJournalEntry's output columns.
@@ -255,6 +266,7 @@ var InsertJournalEntryCols = struct {
 	Next          metaquery.TextCol
 	ChangelogJson metaquery.TextCol
 	StateJson     metaquery.TextCol
+	KpiDeltaJson  metaquery.TextCol
 	NeedsReview   metaquery.BoolCol
 	CreatedAt     metaquery.TimeCol
 }{
@@ -269,6 +281,7 @@ var InsertJournalEntryCols = struct {
 	Next:          metaquery.NewTextCol("next"),
 	ChangelogJson: metaquery.NewTextCol("changelog_json"),
 	StateJson:     metaquery.NewTextCol("state_json"),
+	KpiDeltaJson:  metaquery.NewTextCol("kpi_delta_json"),
 	NeedsReview:   metaquery.NewBoolCol("needs_review"),
 	CreatedAt:     metaquery.NewTimeCol("created_at"),
 }
@@ -319,7 +332,7 @@ var MetaListJournalEntries = metaquery.Query{
 	Name:   "ListJournalEntries",
 	Cmd:    ":many",
 	Source: "journal.sql",
-	SQL: `SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, needs_review, created_at
+	SQL: `SELECT id, project_id, role, date, baseline, tldr, assessment, concerns, next, changelog_json, state_json, kpi_delta_json, needs_review, created_at
 FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_journal_entries"},
@@ -333,6 +346,7 @@ FROM zdx_journal_entries WHERE project_id = $1 AND role = $2 ORDER BY date DESC`
 		{Name: "next", OriginalName: "next", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "changelog_json", OriginalName: "changelog_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "state_json", OriginalName: "state_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
+		{Name: "kpi_delta_json", OriginalName: "kpi_delta_json", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "needs_review", OriginalName: "needs_review", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_journal_entries"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_journal_entries"},
 	},
@@ -360,6 +374,7 @@ var ListJournalEntriesCols = struct {
 	Next          metaquery.TextCol
 	ChangelogJson metaquery.TextCol
 	StateJson     metaquery.TextCol
+	KpiDeltaJson  metaquery.TextCol
 	NeedsReview   metaquery.BoolCol
 	CreatedAt     metaquery.TimeCol
 }{
@@ -374,6 +389,7 @@ var ListJournalEntriesCols = struct {
 	Next:          metaquery.NewTextCol("next"),
 	ChangelogJson: metaquery.NewTextCol("changelog_json"),
 	StateJson:     metaquery.NewTextCol("state_json"),
+	KpiDeltaJson:  metaquery.NewTextCol("kpi_delta_json"),
 	NeedsReview:   metaquery.NewBoolCol("needs_review"),
 	CreatedAt:     metaquery.NewTimeCol("created_at"),
 }

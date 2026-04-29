@@ -229,6 +229,7 @@ type JournalEntryItem struct {
 	Next          string `json:"next"`
 	ChangelogJSON string `json:"changelog_json"`
 	StateJSON     string `json:"state_json"`
+	KPIDeltaJSON  string `json:"kpi_delta_json"`
 }
 
 type IssueWorkItem struct {

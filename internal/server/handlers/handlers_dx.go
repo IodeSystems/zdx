@@ -14,6 +14,7 @@ import (
 	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/kpidelta"
 	"github.com/iodesystems/zdx-go/internal/techmetrics"
 )
 
@@ -380,7 +381,12 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				StateJSON     string `json:"state_json,omitempty"`
 				ChangelogJSON string `json:"changelog_json,omitempty"`
 			}
-		}) (*struct{ Body OKBody }, error) {
+		}) (*struct {
+			Body struct {
+				OK           bool   `json:"ok"`
+				KPIDeltaJSON string `json:"kpi_delta_json"`
+			}
+		}, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
@@ -393,6 +399,8 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			if changelogJSON == "" {
 				changelogJSON = "{}"
 			}
+			deltas, _ := kpidelta.Compute(ctx, h.Q, p.ID, in.Body.Role)
+			deltaJSON := kpidelta.ToJSON(deltas)
 			_, err = h.Q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
 				ProjectID:     p.ID,
 				Role:          in.Body.Role,
@@ -403,11 +411,20 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				Next:          in.Body.Next,
 				StateJson:     stateJSON,
 				ChangelogJson: changelogJSON,
+				KpiDeltaJson:  deltaJSON,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+			return &struct {
+				Body struct {
+					OK           bool   `json:"ok"`
+					KPIDeltaJSON string `json:"kpi_delta_json"`
+				}
+			}{Body: struct {
+				OK           bool   `json:"ok"`
+				KPIDeltaJSON string `json:"kpi_delta_json"`
+			}{OK: true, KPIDeltaJSON: deltaJSON}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "journal-show", Method: http.MethodGet, Path: "/api/dx/journal/show"},
@@ -439,6 +456,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					Next:          r.Next,
 					ChangelogJSON: r.ChangelogJson,
 					StateJSON:     r.StateJson,
+					KPIDeltaJSON:  r.KpiDeltaJson,
 				}
 			}
 			return &struct {
@@ -483,6 +501,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				Next:          r.Next,
 				ChangelogJSON: r.ChangelogJson,
 				StateJSON:     r.StateJson,
+				KPIDeltaJSON:  r.KpiDeltaJson,
 			}}}, nil
 		})
 
@@ -766,6 +785,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				next = strings.Join(nextItems, "\n")
 			}
 
+			genDeltas, _ := kpidelta.Compute(ctx, h.Q, p.ID, role)
 			inserted, err := h.Q.InsertJournalEntry(ctx, db.InsertJournalEntryParams{
 				ProjectID:     p.ID,
 				Role:          role,
@@ -776,6 +796,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				Next:          next,
 				StateJson:     stateJSON,
 				ChangelogJson: changelogJSON,
+				KpiDeltaJson:  kpidelta.ToJSON(genDeltas),
 				NeedsReview:   true,
 			})
 			if err != nil {
@@ -810,6 +831,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				Next:          next,
 				StateJSON:     stateJSON,
 				ChangelogJSON: changelogJSON,
+				KPIDeltaJSON:  kpidelta.ToJSON(genDeltas),
 			}
 			return &struct {
 				Body struct {

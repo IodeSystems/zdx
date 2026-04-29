@@ -241,6 +241,7 @@ type Querier interface {
 	// filtering by closed_at measures actual close events — updated_at conflates
 	// every edit (retriage, comment, resolution add) with the close event.
 	JournalVelocity(ctx context.Context, projectID int32) (JournalVelocityRow, error)
+	LatestTwoKPISamplesPerCheck(ctx context.Context, arg LatestTwoKPISamplesPerCheckParams) ([]LatestTwoKPISamplesPerCheckRow, error)
 	LinkGoalIssue(ctx context.Context, arg LinkGoalIssueParams) error
 	LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error

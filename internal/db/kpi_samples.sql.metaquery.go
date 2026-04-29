@@ -61,6 +61,58 @@ var InsertKpiSampleCols = struct {
 	Unit:      metaquery.NewTextCol("unit"),
 }
 
+var MetaLatestTwoKPISamplesPerCheck = metaquery.Query{
+	Name:   "LatestTwoKPISamplesPerCheck",
+	Cmd:    ":many",
+	Source: "kpi_samples.sql",
+	SQL: `WITH ranked AS (
+  SELECT id, project_id, sampled_at, scope, check_name, value, unit,
+    row_number() OVER (PARTITION BY check_name ORDER BY sampled_at DESC) AS rn
+  FROM zdx_kpi_samples
+  WHERE project_id = $1 AND scope = $2
+)
+SELECT id, project_id, sampled_at, scope, check_name, value, unit
+FROM ranked WHERE rn <= 2
+ORDER BY check_name, rn`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "ranked"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "ranked"},
+		{Name: "sampled_at", OriginalName: "sampled_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "ranked"},
+		{Name: "scope", OriginalName: "scope", GoType: "string", DBType: "text", NotNull: true, Table: "ranked"},
+		{Name: "check_name", OriginalName: "check_name", GoType: "string", DBType: "text", NotNull: true, Table: "ranked"},
+		{Name: "value", OriginalName: "value", GoType: "float64", DBType: "float8", NotNull: true, Table: "ranked"},
+		{Name: "unit", OriginalName: "unit", GoType: "string", DBType: "text", NotNull: true, Table: "ranked"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "scope", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapLatestTwoKPISamplesPerCheck returns a metaquery.Builder over MetaLatestTwoKPISamplesPerCheck, pre-bound with typed arguments.
+func WrapLatestTwoKPISamplesPerCheck(arg LatestTwoKPISamplesPerCheckParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaLatestTwoKPISamplesPerCheck, arg.ProjectID, arg.Scope)
+}
+
+// LatestTwoKPISamplesPerCheckCols gives typed, name-safe access to LatestTwoKPISamplesPerCheck's output columns.
+var LatestTwoKPISamplesPerCheckCols = struct {
+	ID        metaquery.IntCol
+	ProjectID metaquery.IntCol
+	SampledAt metaquery.TimeCol
+	Scope     metaquery.TextCol
+	CheckName metaquery.TextCol
+	Value     metaquery.FloatCol
+	Unit      metaquery.TextCol
+}{
+	ID:        metaquery.NewIntCol("id"),
+	ProjectID: metaquery.NewIntCol("project_id"),
+	SampledAt: metaquery.NewTimeCol("sampled_at"),
+	Scope:     metaquery.NewTextCol("scope"),
+	CheckName: metaquery.NewTextCol("check_name"),
+	Value:     metaquery.NewFloatCol("value"),
+	Unit:      metaquery.NewTextCol("unit"),
+}
+
 var MetaListKpiTrend = metaquery.Query{
 	Name:   "ListKpiTrend",
 	Cmd:    ":many",
