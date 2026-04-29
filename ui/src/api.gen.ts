@@ -1846,6 +1846,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/kpi/sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["post-kpi-sample"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/kpi/trend": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-kpi-trend"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/log-events": {
         parameters: {
             query?: never;
@@ -5945,6 +5977,10 @@ export interface components {
             current_build_branch: string;
             current_build_sha: string;
             deployed_at: string;
+            /** Format: int64 */
+            drift_count: number;
+            /** Format: int64 */
+            drift_oldest_age_secs: number;
             /** Format: int32 */
             id: number;
             name: string;
@@ -6157,6 +6193,15 @@ export interface components {
              */
             readonly $schema?: string;
             zdx_project_slug: string;
+        };
+        "Get-kpi-trendResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Get-kpi-trendResponse.json
+             */
+            readonly $schema?: string;
+            items: components["schemas"]["KpiSampleItem"][] | null;
         };
         "Get-project-infoResponse": {
             /**
@@ -6621,6 +6666,16 @@ export interface components {
             state_json: string;
             tldr: string;
         };
+        KpiSampleItem: {
+            check_name: string;
+            /** Format: int64 */
+            id: number;
+            sampled_at: string;
+            scope: string;
+            unit: string;
+            /** Format: double */
+            value: number;
+        };
         LLMConfigBody: {
             /**
              * Format: uri
@@ -7025,6 +7080,7 @@ export interface components {
              */
             readonly $schema?: string;
             goals: components["schemas"]["GoalItem"][] | null;
+            vision: components["schemas"]["VisionItem"];
         };
         "List-historyResponse": {
             /**
@@ -7810,6 +7866,31 @@ export interface components {
             step_id: number;
             target_id: string;
             target_type: string;
+        };
+        "Post-kpi-sampleRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Post-kpi-sampleRequest.json
+             */
+            readonly $schema?: string;
+            check_name: string;
+            scope: string;
+            slug: string;
+            unit: string;
+            /** Format: double */
+            value: number;
+        };
+        "Post-kpi-sampleResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Post-kpi-sampleResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            id: number;
+            sampled_at: string;
         };
         ProjectItem: {
             /**
@@ -8890,6 +8971,7 @@ export interface components {
             priority: number;
             status: string;
             suggested_action?: string;
+            target_branch?: string;
             target_id: string;
             target_type: string;
             text: string;
@@ -9143,6 +9225,7 @@ export interface components {
             duration_ms: number;
             feature: string;
             git_sha?: string;
+            layer?: string;
             status: string;
             test_name: string;
         };
@@ -9533,6 +9616,10 @@ export interface components {
             description: string;
             name: string;
             slug: string;
+        };
+        VisionItem: {
+            description: string;
+            title: string;
         };
         "Write-todosRequest": {
             /**
@@ -13761,6 +13848,73 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Journal-stateResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "post-kpi-sample": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Post-kpi-sampleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Post-kpi-sampleResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-kpi-trend": {
+        parameters: {
+            query?: {
+                slug?: string;
+                scope?: string;
+                check_name?: string;
+                n?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Get-kpi-trendResponse"];
                 };
             };
             /** @description Error */

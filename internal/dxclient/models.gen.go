@@ -1120,6 +1120,8 @@ type EnvironmentItem struct {
 	CurrentBuildBranch string  `json:"current_build_branch"`
 	CurrentBuildSha    string  `json:"current_build_sha"`
 	DeployedAt         string  `json:"deployed_at"`
+	DriftCount         int64   `json:"drift_count"`
+	DriftOldestAgeSecs int64   `json:"drift_oldest_age_secs"`
 	Id                 int32   `json:"id"`
 	Name               string  `json:"name"`
 	ReleaseBranch      string  `json:"release_branch"`
@@ -1297,6 +1299,13 @@ type GetConfigResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema         *string `json:"$schema,omitempty"`
 	ZdxProjectSlug string  `json:"zdx_project_slug"`
+}
+
+// GetKpiTrendResponse defines model for Get-kpi-trendResponse.
+type GetKpiTrendResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string          `json:"$schema,omitempty"`
+	Items  *[]KpiSampleItem `json:"items"`
 }
 
 // GetProjectInfoResponse defines model for Get-project-infoResponse.
@@ -1695,6 +1704,16 @@ type JournalEntryItem struct {
 	Tldr          string `json:"tldr"`
 }
 
+// KpiSampleItem defines model for KpiSampleItem.
+type KpiSampleItem struct {
+	CheckName string  `json:"check_name"`
+	Id        int64   `json:"id"`
+	SampledAt string  `json:"sampled_at"`
+	Scope     string  `json:"scope"`
+	Unit      string  `json:"unit"`
+	Value     float64 `json:"value"`
+}
+
 // LLMConfigBody defines model for LLMConfigBody.
 type LLMConfigBody struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2002,6 +2021,7 @@ type ListGoalsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string     `json:"$schema,omitempty"`
 	Goals  *[]GoalItem `json:"goals"`
+	Vision VisionItem  `json:"vision"`
 }
 
 // ListHistoryResponse defines model for List-historyResponse.
@@ -2615,6 +2635,25 @@ type PlanStepRefItem struct {
 	StepId     int32  `json:"step_id"`
 	TargetId   string `json:"target_id"`
 	TargetType string `json:"target_type"`
+}
+
+// PostKpiSampleRequest defines model for Post-kpi-sampleRequest.
+type PostKpiSampleRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string `json:"$schema,omitempty"`
+	CheckName string  `json:"check_name"`
+	Scope     string  `json:"scope"`
+	Slug      string  `json:"slug"`
+	Unit      string  `json:"unit"`
+	Value     float64 `json:"value"`
+}
+
+// PostKpiSampleResponse defines model for Post-kpi-sampleResponse.
+type PostKpiSampleResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string `json:"$schema,omitempty"`
+	Id        int64   `json:"id"`
+	SampledAt string  `json:"sampled_at"`
 }
 
 // ProjectItem defines model for ProjectItem.
@@ -3499,6 +3538,7 @@ type SoloQueueItem struct {
 	Priority        int32   `json:"priority"`
 	Status          string  `json:"status"`
 	SuggestedAction *string `json:"suggested_action,omitempty"`
+	TargetBranch    *string `json:"target_branch,omitempty"`
 	TargetId        string  `json:"target_id"`
 	TargetType      string  `json:"target_type"`
 	Text            string  `json:"text"`
@@ -3731,6 +3771,7 @@ type TestResultInput struct {
 	DurationMs    int32              `json:"duration_ms"`
 	Feature       string             `json:"feature"`
 	GitSha        *string            `json:"git_sha,omitempty"`
+	Layer         *string            `json:"layer,omitempty"`
 	Status        string             `json:"status"`
 	TestName      string             `json:"test_name"`
 }
@@ -4048,6 +4089,12 @@ type UpsertFeatureRequest struct {
 	Description string  `json:"description"`
 	Name        string  `json:"name"`
 	Slug        string  `json:"slug"`
+}
+
+// VisionItem defines model for VisionItem.
+type VisionItem struct {
+	Description string `json:"description"`
+	Title       string `json:"title"`
 }
 
 // WriteTodosRequest defines model for Write-todosRequest.
@@ -4461,6 +4508,14 @@ type JournalShowParams struct {
 type JournalStateParams struct {
 	Slug string `form:"slug" json:"slug"`
 	Role string `form:"role" json:"role"`
+}
+
+// GetKpiTrendParams defines parameters for GetKpiTrend.
+type GetKpiTrendParams struct {
+	Slug      *string `form:"slug,omitempty" json:"slug,omitempty"`
+	Scope     *string `form:"scope,omitempty" json:"scope,omitempty"`
+	CheckName *string `form:"check_name,omitempty" json:"check_name,omitempty"`
+	N         *int32  `form:"n,omitempty" json:"n,omitempty"`
 }
 
 // ListLogEventsParams defines parameters for ListLogEvents.
@@ -5095,6 +5150,9 @@ type JournalGenerateJSONRequestBody = JournalGenerateRequest
 
 // JournalReviewJSONRequestBody defines body for JournalReview for application/json ContentType.
 type JournalReviewJSONRequestBody = JournalReviewRequest
+
+// PostKpiSampleJSONRequestBody defines body for PostKpiSample for application/json ContentType.
+type PostKpiSampleJSONRequestBody = PostKpiSampleRequest
 
 // SubmitMaturityAnswerJSONRequestBody defines body for SubmitMaturityAnswer for application/json ContentType.
 type SubmitMaturityAnswerJSONRequestBody = SubmitMaturityAnswerRequest
@@ -5968,6 +6026,14 @@ type ClientInterface interface {
 
 	// JournalState request
 	JournalState(ctx context.Context, params *JournalStateParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostKpiSampleWithBody request with any body
+	PostKpiSampleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostKpiSample(ctx context.Context, body PostKpiSampleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetKpiTrend request
+	GetKpiTrend(ctx context.Context, params *GetKpiTrendParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListLogEvents request
 	ListLogEvents(ctx context.Context, params *ListLogEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8941,6 +9007,42 @@ func (c *APIClient) JournalShow(ctx context.Context, params *JournalShowParams, 
 
 func (c *APIClient) JournalState(ctx context.Context, params *JournalStateParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewJournalStateRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) PostKpiSampleWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostKpiSampleRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) PostKpiSample(ctx context.Context, body PostKpiSampleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostKpiSampleRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) GetKpiTrend(ctx context.Context, params *GetKpiTrendParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetKpiTrendRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -18974,6 +19076,143 @@ func NewJournalStateRequest(server string, params *JournalStateParams) (*http.Re
 	return req, nil
 }
 
+// NewPostKpiSampleRequest calls the generic PostKpiSample builder with application/json body
+func NewPostKpiSampleRequest(server string, body PostKpiSampleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostKpiSampleRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewPostKpiSampleRequestWithBody generates requests for PostKpiSample with any type of body
+func NewPostKpiSampleRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/kpi/sample")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetKpiTrendRequest generates requests for GetKpiTrend
+func NewGetKpiTrendRequest(server string, params *GetKpiTrendParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/kpi/trend")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Slug != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", *params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Scope != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "scope", *params.Scope, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.CheckName != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "check_name", *params.CheckName, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.N != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "n", *params.N, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListLogEventsRequest generates requests for ListLogEvents
 func NewListLogEventsRequest(server string, params *ListLogEventsParams) (*http.Request, error) {
 	var err error
@@ -28873,6 +29112,14 @@ type ClientWithResponsesInterface interface {
 	// JournalStateWithResponse request
 	JournalStateWithResponse(ctx context.Context, params *JournalStateParams, reqEditors ...RequestEditorFn) (*ParsedJournalStateResponse, error)
 
+	// PostKpiSampleWithBodyWithResponse request with any body
+	PostKpiSampleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedPostKpiSampleResponse, error)
+
+	PostKpiSampleWithResponse(ctx context.Context, body PostKpiSampleJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedPostKpiSampleResponse, error)
+
+	// GetKpiTrendWithResponse request
+	GetKpiTrendWithResponse(ctx context.Context, params *GetKpiTrendParams, reqEditors ...RequestEditorFn) (*ParsedGetKpiTrendResponse, error)
+
 	// ListLogEventsWithResponse request
 	ListLogEventsWithResponse(ctx context.Context, params *ListLogEventsParams, reqEditors ...RequestEditorFn) (*ParsedListLogEventsResponse, error)
 
@@ -32550,6 +32797,52 @@ func (r ParsedJournalStateResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedJournalStateResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedPostKpiSampleResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *PostKpiSampleResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedPostKpiSampleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedPostKpiSampleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedGetKpiTrendResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *GetKpiTrendResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedGetKpiTrendResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedGetKpiTrendResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -38374,6 +38667,32 @@ func (c *ClientWithResponses) JournalStateWithResponse(ctx context.Context, para
 		return nil, err
 	}
 	return ParseParsedJournalStateResponse(rsp)
+}
+
+// PostKpiSampleWithBodyWithResponse request with arbitrary body returning *ParsedPostKpiSampleResponse
+func (c *ClientWithResponses) PostKpiSampleWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedPostKpiSampleResponse, error) {
+	rsp, err := c.PostKpiSampleWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedPostKpiSampleResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostKpiSampleWithResponse(ctx context.Context, body PostKpiSampleJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedPostKpiSampleResponse, error) {
+	rsp, err := c.PostKpiSample(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedPostKpiSampleResponse(rsp)
+}
+
+// GetKpiTrendWithResponse request returning *ParsedGetKpiTrendResponse
+func (c *ClientWithResponses) GetKpiTrendWithResponse(ctx context.Context, params *GetKpiTrendParams, reqEditors ...RequestEditorFn) (*ParsedGetKpiTrendResponse, error) {
+	rsp, err := c.GetKpiTrend(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedGetKpiTrendResponse(rsp)
 }
 
 // ListLogEventsWithResponse request returning *ParsedListLogEventsResponse
@@ -44953,6 +45272,72 @@ func ParseParsedJournalStateResponse(rsp *http.Response) (*ParsedJournalStateRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest JournalStateResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedPostKpiSampleResponse parses an HTTP response from a PostKpiSampleWithResponse call
+func ParseParsedPostKpiSampleResponse(rsp *http.Response) (*ParsedPostKpiSampleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedPostKpiSampleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest PostKpiSampleResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedGetKpiTrendResponse parses an HTTP response from a GetKpiTrendWithResponse call
+func ParseParsedGetKpiTrendResponse(rsp *http.Response) (*ParsedGetKpiTrendResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedGetKpiTrendResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GetKpiTrendResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
