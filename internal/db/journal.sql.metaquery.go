@@ -427,6 +427,58 @@ var StandupOwnerYieldCols = struct {
 	FeaturesWithoutMetric:  metaquery.NewIntCol("features_without_metric"),
 }
 
+var MetaStandupSpecDelta = metaquery.Query{
+	Name:   "StandupSpecDelta",
+	Cmd:    ":one",
+	Source: "journal.sql",
+	SQL: `SELECT
+  (SELECT count(*) FROM (
+     SELECT si.spec_id, MIN(si.created_at) AS first_link
+     FROM zdx_spec_issues si
+     JOIN zdx_specs    s ON s.id = si.spec_id
+     JOIN zdx_features f ON f.id = s.feature_id
+     WHERE f.project_id = $1
+     GROUP BY si.spec_id
+   ) firsts WHERE firsts.first_link > NOW() - INTERVAL '30 days')              AS specs_added,
+  (SELECT count(DISTINCT s.id)
+     FROM zdx_specs       s
+     JOIN zdx_features    f  ON f.id  = s.feature_id
+     JOIN zdx_spec_issues si ON si.spec_id = s.id
+     JOIN zdx_issues      i  ON i.id  = si.issue_id
+     WHERE f.project_id = $1
+       AND i.closed_at > NOW() - INTERVAL '30 days')                            AS specs_covered,
+  (SELECT count(*)
+     FROM zdx_spec_deferrals sd
+     JOIN zdx_specs    s ON s.id = sd.spec_id
+     JOIN zdx_features f ON f.id = s.feature_id
+     WHERE f.project_id = $1
+       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS specs_deferred`,
+	Columns: []metaquery.Column{
+		{Name: "specs_added", OriginalName: "specs_added", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "specs_covered", OriginalName: "specs_covered", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "specs_deferred", OriginalName: "specs_deferred", GoType: "int64", DBType: "bigint", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapStandupSpecDelta returns a metaquery.Builder over MetaStandupSpecDelta, pre-bound with typed arguments.
+func WrapStandupSpecDelta(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaStandupSpecDelta, projectID)
+}
+
+// StandupSpecDeltaCols gives typed, name-safe access to StandupSpecDelta's output columns.
+var StandupSpecDeltaCols = struct {
+	SpecsAdded    metaquery.IntCol
+	SpecsCovered  metaquery.IntCol
+	SpecsDeferred metaquery.IntCol
+}{
+	SpecsAdded:    metaquery.NewIntCol("specs_added"),
+	SpecsCovered:  metaquery.NewIntCol("specs_covered"),
+	SpecsDeferred: metaquery.NewIntCol("specs_deferred"),
+}
+
 var MetaStandupTechYield = metaquery.Query{
 	Name:   "StandupTechYield",
 	Cmd:    ":one",

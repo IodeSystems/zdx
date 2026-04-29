@@ -630,6 +630,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 
 				ownerYield, _ := h.Q.StandupOwnerYield(ctx, p.ID)
 				topReopened, _ := h.Q.StandupTopReopenedIssues(ctx, p.ID)
+				specDelta, _ := h.Q.StandupSpecDelta(ctx, p.ID)
 
 				tldr = fmt.Sprintf("Owner check-in: %d goal(s) (%d measured), velocity %d/%d closed (7d/30d), %d open issues",
 					len(goals), goalsWithMetric, velocity.Closed7d, velocity.Closed30d, summary.OpenIssues)
@@ -660,6 +661,10 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					}
 					assessParts = append(assessParts, strings.Join(reopenLines, "\n"))
 				}
+				if specDelta.SpecsAdded+specDelta.SpecsCovered+specDelta.SpecsDeferred > 0 {
+					assessParts = append(assessParts, fmt.Sprintf("**Spec coverage (30d):** +%d added · %d covered · %d deferred",
+						specDelta.SpecsAdded, specDelta.SpecsCovered, specDelta.SpecsDeferred))
+				}
 				assessment = strings.Join(assessParts, "\n\n")
 
 				var concernParts []string
@@ -681,6 +686,11 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					msg := fmt.Sprintf("features without metric: %d", ownerYield.FeaturesWithoutMetric)
 					concernParts = append(concernParts, fmt.Sprintf("%d feature(s) have goal attribution but no metric — value is unverifiable.", ownerYield.FeaturesWithoutMetric))
 					ownerBreaches = append(ownerBreaches, msg)
+				}
+				if specDelta.SpecsDeferred > specDelta.SpecsCovered && specDelta.SpecsDeferred > 0 {
+					concernParts = append(concernParts, fmt.Sprintf("**Spec verification gap:** %d spec(s) deferred vs %d covered (30d) — verification gap widening.",
+						specDelta.SpecsDeferred, specDelta.SpecsCovered))
+					ownerBreaches = append(ownerBreaches, fmt.Sprintf("spec verification gap: %d deferred vs %d covered", specDelta.SpecsDeferred, specDelta.SpecsCovered))
 				}
 				if churnNote != "" {
 					concernParts = append(concernParts, "**Process churn:** "+churnNote)

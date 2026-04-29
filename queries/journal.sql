@@ -38,6 +38,35 @@ SELECT
   (SELECT count(*) FROM zdx_claude_sessions s WHERE s.project_id = $1 AND s.created_at >= $2) AS sessions_in_period,
   (SELECT count(*) FROM zdx_issues          i WHERE i.project_id = $1 AND i.closed_at  >= $2) AS closed_in_period;
 
+-- name: StandupSpecDelta :one
+-- Spec activity in a 30d window for the project's specs (joined via zdx_features → project_id).
+-- specs_added: distinct specs whose first issue link landed in the window. zdx_specs has no
+--   created_at column, so the earliest spec-issue link is used as a proxy for "newly tracked".
+-- specs_covered: specs linked to issues that closed in the window.
+-- specs_deferred: spec deferrals created in the window.
+SELECT
+  (SELECT count(*) FROM (
+     SELECT si.spec_id, MIN(si.created_at) AS first_link
+     FROM zdx_spec_issues si
+     JOIN zdx_specs    s ON s.id = si.spec_id
+     JOIN zdx_features f ON f.id = s.feature_id
+     WHERE f.project_id = $1
+     GROUP BY si.spec_id
+   ) firsts WHERE firsts.first_link > NOW() - INTERVAL '30 days')              AS specs_added,
+  (SELECT count(DISTINCT s.id)
+     FROM zdx_specs       s
+     JOIN zdx_features    f  ON f.id  = s.feature_id
+     JOIN zdx_spec_issues si ON si.spec_id = s.id
+     JOIN zdx_issues      i  ON i.id  = si.issue_id
+     WHERE f.project_id = $1
+       AND i.closed_at > NOW() - INTERVAL '30 days')                            AS specs_covered,
+  (SELECT count(*)
+     FROM zdx_spec_deferrals sd
+     JOIN zdx_specs    s ON s.id = sd.spec_id
+     JOIN zdx_features f ON f.id = s.feature_id
+     WHERE f.project_id = $1
+       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS specs_deferred;
+
 -- name: JournalVelocity :one
 -- closed_at is set by CloseIssue and cleared by ReopenIssue/ReadyIssue, so
 -- filtering by closed_at measures actual close events — updated_at conflates

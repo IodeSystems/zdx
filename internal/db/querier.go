@@ -501,6 +501,12 @@ type Querier interface {
 	// Store the auto-filed issue ID on a blocked todo so the UI can link to it.
 	SetTodoReferenceIssue(ctx context.Context, arg SetTodoReferenceIssueParams) error
 	StandupOwnerYield(ctx context.Context, projectID int32) (StandupOwnerYieldRow, error)
+	// Spec activity in a 30d window for the project's specs (joined via zdx_features → project_id).
+	// specs_added: distinct specs whose first issue link landed in the window. zdx_specs has no
+	//   created_at column, so the earliest spec-issue link is used as a proxy for "newly tracked".
+	// specs_covered: specs linked to issues that closed in the window.
+	// specs_deferred: spec deferrals created in the window.
+	StandupSpecDelta(ctx context.Context, projectID int32) (StandupSpecDeltaRow, error)
 	StandupTechYield(ctx context.Context, arg StandupTechYieldParams) (StandupTechYieldRow, error)
 	StandupTopReopenedIssues(ctx context.Context, projectID int32) ([]StandupTopReopenedIssuesRow, error)
 	// metaquery: off
