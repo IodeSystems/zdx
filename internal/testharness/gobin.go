@@ -46,24 +46,26 @@ func (a *GoBinAdapter) Layers() []Layer {
 	return a.Layer_
 }
 
+// gobinRunArgs returns the -test.* argv for the given filter.
+func gobinRunArgs(f Filter) []string {
+	runPattern := f.Name
+	if runPattern == "" {
+		runPattern = f.Feature
+	}
+	args := []string{"-test.v"}
+	if runPattern != "" {
+		args = append(args, "-test.run="+runPattern)
+	}
+	return args
+}
+
 // Run enumerates, optionally shards, filters, and runs the binary.
 func (a *GoBinAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
 	if _, err := os.Stat(a.Bin); err != nil {
 		return nil, fmt.Errorf("go bin %q not found — build first", a.Bin)
 	}
 
-	// Build -test.run pattern from filter.
-	runPattern := ""
-	if f.Name != "" {
-		runPattern = f.Name
-	} else if f.Feature != "" {
-		runPattern = f.Feature
-	}
-
-	args := []string{"-test.v"}
-	if runPattern != "" {
-		args = append(args, "-test.run="+runPattern)
-	}
+	args := gobinRunArgs(f)
 
 	env := append(os.Environ(), a.Env...)
 	if a.CoverDir != "" {

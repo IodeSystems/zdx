@@ -123,6 +123,45 @@ func TestHarness_UnifiesMultiAdapterResults(t *testing.T) {
 	}
 }
 
+type spyAdapter struct {
+	stubAdapter
+	receivedFilter testharness.Filter
+}
+
+func (s *spyAdapter) Run(ctx context.Context, f testharness.Filter) ([]testharness.Result, error) {
+	s.receivedFilter = f
+	return s.results, nil
+}
+
+func TestHarness_ForwardsFilterToAllAdapters(t *testing.T) {
+	spy1 := &spyAdapter{stubAdapter: stubAdapter{
+		id: "vitest:ui", component: "ui",
+		layers:  []testharness.Layer{testharness.LayerUnit},
+		results: []testharness.Result{makeResult("ui", "renders login", "pass")},
+	}}
+	spy2 := &spyAdapter{stubAdapter: stubAdapter{
+		id: "go:api", component: "api",
+		layers:  []testharness.Layer{testharness.LayerIntegration},
+		results: []testharness.Result{makeResult("api", "TestLogin", "pass")},
+	}}
+
+	h := testharness.New()
+	h.Register(spy1)
+	h.Register(spy2)
+
+	want := testharness.Filter{Name: "Login"}
+	if _, err := h.Run(context.Background(), want); err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+
+	if spy1.receivedFilter.Name != want.Name {
+		t.Errorf("spy1 got filter.Name=%q, want %q", spy1.receivedFilter.Name, want.Name)
+	}
+	if spy2.receivedFilter.Name != want.Name {
+		t.Errorf("spy2 got filter.Name=%q, want %q", spy2.receivedFilter.Name, want.Name)
+	}
+}
+
 func TestHarness_FilterScopesAdapters(t *testing.T) {
 	uiAdapter := &stubAdapter{
 		id:        "vitest:ui",

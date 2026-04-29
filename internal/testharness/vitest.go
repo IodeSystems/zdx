@@ -26,6 +26,20 @@ func (a *VitestAdapter) ID() string        { return "vitest:" + a.Comp }
 func (a *VitestAdapter) Component() string { return a.Comp }
 func (a *VitestAdapter) Layers() []Layer   { return []Layer{LayerUnit} }
 
+// vitestRunArgs returns the npx vitest argv for the given filter and output file.
+func vitestRunArgs(f Filter, outputFile string) []string {
+	args := []string{"vitest", "run",
+		"--reporter=json",
+		"--outputFile=" + outputFile,
+	}
+	if f.Name != "" {
+		args = append(args, "--testNamePattern="+f.Name)
+	} else if f.Feature != "" {
+		args = append(args, "--testNamePattern="+f.Feature)
+	}
+	return args
+}
+
 // Run executes `npx vitest run` and parses the JSON report.
 func (a *VitestAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
 	// Write report to a temp file; vitest's JSON reporter defaults to a file.
@@ -36,15 +50,7 @@ func (a *VitestAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
 	defer os.Remove(tmp.Name())
 	tmp.Close()
 
-	args := []string{"vitest", "run",
-		"--reporter=json",
-		"--outputFile=" + tmp.Name(),
-	}
-	if f.Name != "" {
-		args = append(args, "--testNamePattern="+f.Name)
-	} else if f.Feature != "" {
-		args = append(args, "--testNamePattern="+f.Feature)
-	}
+	args := vitestRunArgs(f, tmp.Name())
 
 	cmd := exec.CommandContext(ctx, "npx", args...)
 	cmd.Dir = filepath.Clean(a.Dir)
