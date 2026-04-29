@@ -1127,9 +1127,6 @@ func todoDevDoneCmd() *cobra.Command {
 		Short: "Mark task done",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if cli.GitTreeDirty() {
-				return fmt.Errorf("git tree is dirty — commit or stash changes before marking a task done")
-			}
 			if err := cli.RunCloseHooks(); err != nil {
 				return err
 			}
@@ -1159,6 +1156,11 @@ func todoDevDoneCmd() *cobra.Command {
 				return fmt.Errorf("task %s not found", id)
 			}
 			task := taskResp.JSON200
+
+			// Orphan tasks (no parent issue) may have no code changes, so skip the dirty check.
+			if task.IssueId != nil && cli.GitTreeDirty() {
+				return fmt.Errorf("git tree is dirty — commit or stash changes before marking a task done")
+			}
 
 			if strings.TrimSpace(testPlan) == "" && strings.TrimSpace(task.TestPlan) == "" {
 				return workflowhints.MissingTestPlanError(id)
