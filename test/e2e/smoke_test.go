@@ -134,3 +134,47 @@ func TestIssueCRUD(t *testing.T) {
 		t.Errorf("show id: want %d got %d", issue.ID, show.Issue.ID)
 	}
 }
+
+// TestIssueDefaultTargetBranch verifies spec 139: issue created without an
+// explicit branch target defaults to "dev" in both the create response and the
+// subsequent show response.
+func TestIssueDefaultTargetBranch(t *testing.T) {
+	apiDo(t, http.MethodPost, "/api/project",
+		map[string]string{"slug": "e2e-branch-default", "name": "E2E Branch Default"},
+		nil,
+	)
+
+	var created struct {
+		ID           int     `json:"id"`
+		TargetBranch *string `json:"target_branch"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/add",
+		map[string]any{"slug": "e2e-branch-default", "title": "branch default test"},
+		&created,
+	))
+	if created.TargetBranch == nil || *created.TargetBranch != "dev" {
+		got := "<nil>"
+		if created.TargetBranch != nil {
+			got = *created.TargetBranch
+		}
+		t.Errorf("create response target_branch: want %q got %q", "dev", got)
+	}
+
+	var show struct {
+		Issue struct {
+			ID           int     `json:"id"`
+			TargetBranch *string `json:"target_branch"`
+		} `json:"issue"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet,
+		fmt.Sprintf("/api/dx/todo/issue/show?slug=e2e-branch-default&id=IS-%d", created.ID),
+		nil, &show,
+	))
+	if show.Issue.TargetBranch == nil || *show.Issue.TargetBranch != "dev" {
+		got := "<nil>"
+		if show.Issue.TargetBranch != nil {
+			got = *show.Issue.TargetBranch
+		}
+		t.Errorf("show response target_branch: want %q got %q", "dev", got)
+	}
+}
