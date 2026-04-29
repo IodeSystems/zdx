@@ -324,11 +324,12 @@ func OrphanTaskText(taskID, title string) Hint {
 		Description: "Task has no parent issue.",
 		Instructions: fmt.Sprintf(
 			"Orphan task %s (no parent issue): %s.\n\n"+
-				"1. Read: `dx todo show %s`. Check if the work is already done, superseded, or still needed.\n"+
-				"2. If done/stale: `dx todo dev done %s --test-plan=\"<how verified or 'superseded by <ref>'>\".\n"+
-				"3. If still needed: file an issue to host it — `dx issue add --title=\"...\" --context=\"...\"` — then the task links to it on next triage.\n"+
+				"1. Read: `dx todo show %s`. Decide: done, superseded, or still needed?\n"+
+				"2. If done/superseded: `dx todo dev done %s --test-plan=\"<how verified or superseded by <ref>\">`.\n"+
+				"3. If still needed but no host issue exists: file one — `dx issue add --title=\"...\" --context=\"...\"` — then adopt the task: `dx task adopt %s --issue=<IS-N>`.\n"+
+				"4. If still needed and a host issue already exists: `dx task adopt %s --issue=<IS-N>` directly.\n"+
 				"Stop after handling — one orphan per session.",
-			taskID, title, taskID, taskID,
+			taskID, title, taskID, taskID, taskID, taskID,
 		),
 	}
 }
