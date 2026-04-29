@@ -355,3 +355,50 @@ func TestEvaluateFindingsGroupedByRung(t *testing.T) {
 	}
 }
 
+
+// TestRunCheckHasDeployConfigGateBranch verifies spec 166:
+// Given a project shipping to production from the dev branch directly,
+// when doctor runs, then it suggests introducing a tested gate branch.
+func TestRunCheckHasDeployConfigGateBranch(t *testing.T) {
+	cases := []struct {
+		name          string
+		shipsFromDev  bool
+		wantPass      bool
+		wantMsgPart   string
+		wantPropParts []string
+	}{
+		{
+			name:         "gate branch present — passes",
+			shipsFromDev: false,
+			wantPass:     true,
+		},
+		{
+			name:          "ships from dev directly — suggests gate branch",
+			shipsFromDev:  true,
+			wantPass:      false,
+			wantMsgPart:   "dev/main directly to production",
+			wantPropParts: []string{"gate branch", "staging", "production"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := ProjectState{ShipsFromDevDirectly: tc.shipsFromDev}
+			pass, msg, _, proposal := runCheck("has_deploy_config", &state)
+			if pass != tc.wantPass {
+				t.Fatalf("pass=%v, want %v (msg=%q)", pass, tc.wantPass, msg)
+			}
+			if tc.wantPass {
+				return
+			}
+			if !strings.Contains(msg, tc.wantMsgPart) {
+				t.Errorf("msg=%q, want substring %q", msg, tc.wantMsgPart)
+			}
+			for _, want := range tc.wantPropParts {
+				if !strings.Contains(proposal, want) {
+					t.Errorf("proposal=%q, want substring %q", proposal, want)
+				}
+			}
+		})
+	}
+}

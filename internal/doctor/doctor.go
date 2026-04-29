@@ -97,6 +97,9 @@ type ProjectState struct {
 	DemoTestResultsExist bool // at least one demo-layer test result recorded
 	UsesStepDriver       bool // codebase has StepDriver usage in test files
 
+	// Deploy pipeline
+	ShipsFromDevDirectly bool // true when project deploys from dev/main without a gate/staging branch
+
 	// Maturity questionnaire (from server)
 	MaturityQuestions []dxclient.MaturityQuestion
 	MaturityItems     []dxclient.MaturityItem
@@ -150,12 +153,36 @@ func DetectLocal(state *ProjectState) {
 
 	// StepDriver adoption
 	state.UsesStepDriver = codebaseUsesStepDriver()
+
+	// Gate-branch detection: ships from dev directly if a deploy script exists
+	// but no staging/gate/release branch is present in the repo.
+	state.ShipsFromDevDirectly = detectShipsFromDevDirectly()
 }
 
 func codebaseUsesStepDriver() bool {
 	cmd := exec.Command("grep", "-r", "--include=*_test.go", "-l", "StepDriver", ".")
 	out, err := cmd.Output()
 	return err == nil && strings.TrimSpace(string(out)) != ""
+}
+
+func detectShipsFromDevDirectly() bool {
+	if !fileExists("bin/ship") {
+		return false
+	}
+	out, err := exec.Command("git", "branch", "-a").Output()
+	if err != nil {
+		return true // has deploy script, can't check branches → assume direct
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		b := strings.TrimSpace(line)
+		b = strings.TrimPrefix(b, "* ")
+		b = strings.TrimPrefix(b, "remotes/origin/")
+		switch b {
+		case "staging", "gate", "release", "pre-production", "pre-prod":
+			return false
+		}
+	}
+	return true
 }
 
 func fileExists(path string) bool {
@@ -425,7 +452,17 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		return false, fmt.Sprintf("%d specs and demo tests present, but no StepDriver pattern in test files", state.SpecCount), nil,
 			"Adopt layered BDD test architecture: extract step interfaces with `Capability() DriverSet`, wire `given` steps to API driver always, route `when/then` to the selected driver. See `dx pattern show layered-bdd-tests` for the reference pattern."
 
-	case "has_deploy_config", "has_healthcheck", "has_auth", "has_tenant_isolation":
+	case "has_deploy_config":
+		if state.ShipsFromDevDirectly {
+			return false, "ships from dev/main directly to production (no gate branch)", nil,
+				"Introduce a tested gate branch between dev and production for safer deploys: " +
+					"create a `staging` or `gate` branch, add CI that runs your full test suite " +
+					"before any merge to the deploy branch. " +
+					"Use `git checkout -b staging && git push -u origin staging` to start."
+		}
+		return true, "deploy pipeline has a gate branch", nil, ""
+
+	case "has_healthcheck", "has_auth", "has_tenant_isolation":
 		// Placeholder — these require deeper inspection
 		return true, "not yet checked", nil, ""
 
