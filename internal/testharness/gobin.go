@@ -10,6 +10,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 	"time"
 )
@@ -35,6 +36,9 @@ type GoBinAdapter struct {
 	Env []string
 	// CoverDir, if set, is passed as both -test.gocoverdir and GOCOVERDIR to collect coverage.
 	CoverDir string
+	// Shard, if set, restricts the run to shard N/M (e.g. "2/3"). Tests are enumerated
+	// via -test.list and partitioned round-robin; invalid specs run the full suite.
+	Shard string
 }
 
 func (a *GoBinAdapter) ID() string        { return "go:" + a.Comp }
@@ -63,6 +67,19 @@ func gobinRunArgs(f Filter) []string {
 func (a *GoBinAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
 	if _, err := os.Stat(a.Bin); err != nil {
 		return nil, fmt.Errorf("go bin %q not found — build first", a.Bin)
+	}
+
+	if a.Shard != "" {
+		n, m := gobinParseShard(a.Shard)
+		tests, err := a.List(ctx)
+		if err != nil {
+			return nil, fmt.Errorf("list for shard: %w", err)
+		}
+		sharded := gobinShardTests(tests, n, m)
+		if len(sharded) == 0 {
+			return nil, fmt.Errorf("shard %d/%d: no tests assigned", n, m)
+		}
+		f.Name = "^(" + strings.Join(sharded, "|") + ")$"
 	}
 
 	args := gobinRunArgs(f)
@@ -170,6 +187,31 @@ func parseGoTestJSON(data []byte, component string, layer Layer) []Result {
 		}
 	}
 	return results
+}
+
+// gobinParseShard parses "N/M" and returns (n, m); falls back to (1,1) for invalid specs.
+func gobinParseShard(s string) (n, m int) {
+	parts := strings.SplitN(s, "/", 2)
+	if len(parts) != 2 {
+		return 1, 1
+	}
+	n, _ = strconv.Atoi(parts[0])
+	m, _ = strconv.Atoi(parts[1])
+	if n < 1 || m < 1 || n > m {
+		return 1, 1
+	}
+	return n, m
+}
+
+// gobinShardTests selects the Nth bucket of tests out of M (1-indexed, round-robin).
+func gobinShardTests(tests []string, n, m int) []string {
+	var out []string
+	for i, t := range tests {
+		if (i%m)+1 == n {
+			out = append(out, t)
+		}
+	}
+	return out
 }
 
 // CoverageDir returns a default coverage directory for the given component.

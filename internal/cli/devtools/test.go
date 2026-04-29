@@ -145,7 +145,7 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 	if f.Component == "" || f.Component == "api" {
 		if f.Layer == "" || f.Layer == testharness.LayerUnit {
 			h.Register(&testharness.GoUnitAdapter{
-				Pkgs: []string{"./internal/..."},
+				Pkgs: []string{"./internal/...", "./test/scripts/..."},
 				Comp: "api",
 			})
 		}
@@ -173,9 +173,7 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 					Layer_:   []testharness.Layer{testharness.LayerIntegration, testharness.LayerDemo},
 					Env:      env,
 					CoverDir: coverDir,
-				}
-				if shard != "" {
-					_ = shard
+					Shard:    shard,
 				}
 				h.Register(a)
 			} else {
@@ -373,7 +371,7 @@ func testListCmd() *cobra.Command {
 			// ── Go unit (source packages) ──────────────────────────────────
 			if component == "" || component == "api" {
 				if layer == "" || layer == string(testharness.LayerUnit) {
-					a := &testharness.GoUnitAdapter{Pkgs: []string{"./internal/..."}, Comp: "api"}
+					a := &testharness.GoUnitAdapter{Pkgs: []string{"./internal/...", "./test/scripts/..."}, Comp: "api"}
 					names, err := a.List(context.Background())
 					if err != nil {
 						fmt.Fprintf(os.Stderr, "  [api/unit] list failed: %v\n", err)

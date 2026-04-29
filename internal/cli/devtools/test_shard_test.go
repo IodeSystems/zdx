@@ -151,7 +151,3 @@ func TestApplyShard(t *testing.T) {
 		}
 	}
 }
-
-// TODO: testHarnessRunE reads --shard but discards it (test.go:167-169: `_ = shard`).
-// The spec targets the e2e binary path (shardTests via e2eRunArgs), which IS wired up.
-// Wire testHarnessRunE to pass shard through to the GoBinAdapter when that path is exercised.
