@@ -6,7 +6,7 @@ import (
 	"testing"
 )
 
-// TodoItem mirrors the server response shape for solo/claim.
+// TodoItem mirrors the server response shape for solo/claim and GET /api/dx/solo.
 type TodoItem struct {
 	ID              int32  `json:"id"`
 	Key             string `json:"key"`
@@ -14,6 +14,7 @@ type TodoItem struct {
 	Text            string `json:"text"`
 	Persona         string `json:"persona"`
 	Priority        int32  `json:"priority"`
+	Status          string `json:"status"`
 	TargetType      string `json:"target_type"`
 	TargetID        string `json:"target_id"`
 	IssueRef        string `json:"issue_ref"`
@@ -252,6 +253,119 @@ func TestSharedTodoQueueSemantics(t *testing.T) {
 		}
 	}
 	t.Error("expected queue exhaustion (404) after all items claimed, but never reached it")
+}
+
+// listSoloQueue returns persisted todo items from GET /api/dx/solo filtered by status.
+// Pass "open", "resolved", or "all".
+func listSoloQueue(t *testing.T, slug, status string) []TodoItem {
+	t.Helper()
+	url := "/api/dx/solo?slug=" + slug + "&status=" + status
+	var items []TodoItem
+	mustOK(t, apiDo(t, http.MethodGet, url, nil, &items))
+	return items
+}
+
+// TestSoloApplyUpsertsAndResolvesStale covers spec 67: solo --apply upserts by key and
+// resolves stale items atomically. Two untriaged issues produce items_A (both triage todos).
+// After applying items_A, issue 2 is closed so its items are excluded from items_B.
+// Applying items_B must leave items_B open and resolve items_A \ items_B — and a
+// re-evaluate must surface neither set of resolved keys in Added or Unchanged.
+func TestSoloApplyUpsertsAndResolvesStale(t *testing.T) {
+	d := NewApiDriver(t, "td-stale", "Solo Apply Stale Resolution")
+	d.AddGoal("Test goal")
+	d.AddConstraint("No breaking changes")
+
+	issueID1 := d.AddIssue("Stale test issue one", "first issue for stale test")
+	issueID2 := d.AddIssue("Stale test issue two", "second issue for stale test")
+	issue2Ref := fmt.Sprintf("IS-%d", issueID2)
+
+	// Step 1: Evaluate to get the full proposed set (items_A).
+	itemsA := d.EvaluateQueue("")
+	if len(itemsA) < 2 {
+		t.Fatalf("expected >=2 items from evaluate, got %d (need at least one per issue)", len(itemsA))
+	}
+
+	// Step 2: Apply the full set — all items upserted as open.
+	soloApply(t, d.Slug, itemsA)
+
+	// Step 3: Verify all items_A are open.
+	open := listSoloQueue(t, d.Slug, "open")
+	if len(open) < 2 {
+		t.Fatalf("after applying items_A, expected >=2 open todos, got %d", len(open))
+	}
+
+	// Step 4: Close issue 2 so the evaluator won't re-generate its candidates.
+	d.CloseIssue(issueID2)
+
+	// Step 5: Build items_B = items_A minus any item whose TargetID is issue 2.
+	var itemsB []SoloQueueItem
+	var droppedKeys []string
+	for _, item := range itemsA {
+		if item.TargetID == issue2Ref {
+			droppedKeys = append(droppedKeys, item.Key)
+		} else {
+			itemsB = append(itemsB, item)
+		}
+	}
+	if len(droppedKeys) == 0 {
+		t.Fatal("no items found targeting issue 2 — cannot test stale resolution")
+	}
+
+	// Step 6: Apply items_B — issue 2's items must be resolved atomically.
+	soloApply(t, d.Slug, itemsB)
+
+	// Step 7: Verify dropped items are resolved in the DB.
+	resolvedItems := listSoloQueue(t, d.Slug, "resolved")
+	resolvedKeySet := map[string]bool{}
+	for _, item := range resolvedItems {
+		resolvedKeySet[item.Key] = true
+	}
+	for _, key := range droppedKeys {
+		if !resolvedKeySet[key] {
+			t.Errorf("item %q (items_A \\ items_B) should be resolved after subset apply, but it's missing from resolved list", key)
+		}
+	}
+
+	// Step 8: Verify items_B are still open and dropped items are not.
+	openAfter := listSoloQueue(t, d.Slug, "open")
+	openKeySet := map[string]bool{}
+	for _, item := range openAfter {
+		openKeySet[item.Key] = true
+	}
+	for _, item := range itemsB {
+		if !openKeySet[item.Key] {
+			t.Errorf("item %q (items_B) should still be open after subset apply, but it's not", item.Key)
+		}
+	}
+	for _, key := range droppedKeys {
+		if openKeySet[key] {
+			t.Errorf("item %q (items_A \\ items_B) should NOT be open after subset apply", key)
+		}
+	}
+
+	// Step 9: Re-evaluate — dropped keys must appear neither in Added nor Unchanged.
+	// Issue 2 is closed, so the evaluator won't re-generate its candidates.
+	var reEvalResp struct {
+		Added     []SoloQueueItem `json:"added"`
+		Unchanged []SoloQueueItem `json:"unchanged"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/evaluate",
+		map[string]any{"slug": d.Slug, "issue": ""}, &reEvalResp))
+
+	reEvalKeySet := map[string]bool{}
+	for _, item := range reEvalResp.Added {
+		reEvalKeySet[item.Key] = true
+	}
+	for _, item := range reEvalResp.Unchanged {
+		reEvalKeySet[item.Key] = true
+	}
+	for _, key := range droppedKeys {
+		if reEvalKeySet[key] {
+			t.Errorf("resolved item %q appears in re-evaluate (Added or Unchanged) — stale resolution broken", key)
+		}
+	}
+
+	_ = issueID1
 }
 
 // TestClaimedTodoItemCarriesRequiredFields verifies spec 102:
