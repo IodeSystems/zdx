@@ -89,3 +89,50 @@ func TestEvaluateProposalsForNonAutoFixFailures(t *testing.T) {
 		}
 	}
 }
+
+// TestEvaluateMissingVisionIsFirstGap verifies spec 115:
+// Given a project with no vision, when doctor evaluates, then the missing
+// vision is flagged as the first maturity gap with an explanation of why a
+// guiding star matters.
+func TestEvaluateMissingVisionIsFirstGap(t *testing.T) {
+	state := &ProjectState{
+		// scaffold rung: all pass so identity rung is reached first
+		ZdxDirExists:     true,
+		ConfigValid:      true,
+		CredentialsExist: true,
+		RemoteReachable:  true,
+
+		// identity rung: vision missing — the gap under test
+		HasVision: false,
+	}
+
+	findings := Evaluate(state)
+	if len(findings) == 0 {
+		t.Fatal("expected non-empty findings")
+	}
+
+	var firstGap *Finding
+	for i := range findings {
+		if findings[i].Status == StatusFail {
+			firstGap = &findings[i]
+			break
+		}
+	}
+	if firstGap == nil {
+		t.Fatal("expected at least one failing check, got none")
+	}
+
+	if firstGap.Check.Name != "has_vision" {
+		t.Errorf("expected first gap to be %q, got %q (msg=%q)",
+			"has_vision", firstGap.Check.Name, firstGap.Message)
+	}
+	if firstGap.Rung != "identity" {
+		t.Errorf("expected first gap on rung %q, got %q", "identity", firstGap.Rung)
+	}
+	if !strings.Contains(firstGap.Proposal, "guiding star") {
+		t.Errorf("expected proposal to explain why a guiding star matters, got %q", firstGap.Proposal)
+	}
+	if !strings.Contains(firstGap.Proposal, "dx vision set") {
+		t.Errorf("expected proposal to recommend `dx vision set`, got %q", firstGap.Proposal)
+	}
+}
