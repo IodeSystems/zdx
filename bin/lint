@@ -18,6 +18,7 @@ run() {
     rc=$?
     t1=$(date +%s%N)
     awk -v t0="$t0" -v t1="$t1" 'BEGIN { printf "%.1fs", (t1 - t0) / 1e9 }' > "$LOGS_DIR/$label.dur"
+    echo $(( (t1 - t0) / 1000000 )) > "$LOGS_DIR/$label.dur_ms"
     exit $rc
   ) &
   PIDS+=($!)
@@ -180,6 +181,10 @@ for i in "${!PIDS[@]}"; do
     fi
   else
     echo "OK:   $LABEL ($DUR)"
+  fi
+  if command -v ./bin/dx >/dev/null 2>&1; then
+    DUR_MS=$(cat "$LOGS_DIR/$LABEL.dur_ms" 2>/dev/null || echo 0)
+    ./bin/dx kpi sample --check-name="lint_time_ms.$LABEL" --value="$DUR_MS" --unit=ms --scope=tech >/dev/null 2>&1 || true
   fi
 done
 
