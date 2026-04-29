@@ -681,6 +681,110 @@ func TestConstraintCRUD(t *testing.T) {
 	}
 }
 
+// TestDemoAPI_GoalConstraintListOrdering demonstrates spec 50: given existing
+// goals and constraints, when listed for a project, they are returned ordered
+// by priority (ascending) then title (alphabetical) within each priority tier.
+func TestDemoAPI_GoalConstraintListOrdering(t *testing.T) {
+	rec := newApiRecorder(t, "goal-constraint-list-ordering")
+	rec.AddCoderef(coderef{FilePath: "test/e2e/goals_test.go", Note: "API demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_projects.go", Note: "list-goals and list-constraints handlers"})
+	t.Cleanup(rec.Save)
+
+	mustOK(t, rec.Do(http.MethodPost, "/api/project",
+		map[string]any{"slug": "demo-list-ordering", "name": "Demo List Ordering"}, nil))
+
+	// Goals: create out-of-order; expect priority-first, then alpha within tier.
+	for _, g := range []map[string]any{
+		{"slug": "demo-list-ordering", "title": "Zebra", "description": "", "priority": 2, "status": "active"},
+		{"slug": "demo-list-ordering", "title": "Alpha", "description": "", "priority": 2, "status": "active"},
+		{"slug": "demo-list-ordering", "title": "Top priority", "description": "", "priority": 1, "status": "active"},
+	} {
+		mustOK(t, rec.Do(http.MethodPost, "/api/goal", g, nil))
+	}
+
+	var goals struct {
+		Goals []struct {
+			Title    string `json:"title"`
+			Priority int    `json:"priority"`
+		} `json:"goals"`
+	}
+	mustOK(t, rec.Do(http.MethodGet, "/api/goals?slug=demo-list-ordering", nil, &goals))
+	if len(goals.Goals) < 3 {
+		t.Fatalf("goals: want ≥3 got %d", len(goals.Goals))
+	}
+	if goals.Goals[0].Title != "Top priority" {
+		t.Errorf("goals[0]: want %q got %q", "Top priority", goals.Goals[0].Title)
+	}
+	if goals.Goals[1].Title != "Alpha" {
+		t.Errorf("goals[1]: want %q got %q", "Alpha", goals.Goals[1].Title)
+	}
+	if goals.Goals[2].Title != "Zebra" {
+		t.Errorf("goals[2]: want %q got %q", "Zebra", goals.Goals[2].Title)
+	}
+
+	// Constraints: same ordering rule.
+	for _, c := range []map[string]any{
+		{"slug": "demo-list-ordering", "title": "Zebra", "description": "", "priority": 2, "status": "active"},
+		{"slug": "demo-list-ordering", "title": "Alpha", "description": "", "priority": 2, "status": "active"},
+		{"slug": "demo-list-ordering", "title": "Top priority", "description": "", "priority": 1, "status": "active"},
+	} {
+		mustOK(t, rec.Do(http.MethodPost, "/api/constraint", c, nil))
+	}
+
+	var constraints struct {
+		Constraints []struct {
+			Title    string `json:"title"`
+			Priority int    `json:"priority"`
+		} `json:"constraints"`
+	}
+	mustOK(t, rec.Do(http.MethodGet, "/api/constraints?slug=demo-list-ordering", nil, &constraints))
+	if len(constraints.Constraints) < 3 {
+		t.Fatalf("constraints: want ≥3 got %d", len(constraints.Constraints))
+	}
+	if constraints.Constraints[0].Title != "Top priority" {
+		t.Errorf("constraints[0]: want %q got %q", "Top priority", constraints.Constraints[0].Title)
+	}
+	if constraints.Constraints[1].Title != "Alpha" {
+		t.Errorf("constraints[1]: want %q got %q", "Alpha", constraints.Constraints[1].Title)
+	}
+	if constraints.Constraints[2].Title != "Zebra" {
+		t.Errorf("constraints[2]: want %q got %q", "Zebra", constraints.Constraints[2].Title)
+	}
+}
+
+func TestConstraintListOrdering(t *testing.T) {
+	apiDo(t, http.MethodPost, "/api/project",
+		map[string]string{"slug": "e2e-constraint-order", "name": "E2E Constraint Order"}, nil)
+
+	mustOK(t, apiDo(t, http.MethodPost, "/api/constraint",
+		map[string]any{"slug": "e2e-constraint-order", "title": "Zebra", "description": "", "priority": 2, "status": "active"}, nil))
+	mustOK(t, apiDo(t, http.MethodPost, "/api/constraint",
+		map[string]any{"slug": "e2e-constraint-order", "title": "Alpha", "description": "", "priority": 2, "status": "active"}, nil))
+	mustOK(t, apiDo(t, http.MethodPost, "/api/constraint",
+		map[string]any{"slug": "e2e-constraint-order", "title": "Top priority", "description": "", "priority": 1, "status": "active"}, nil))
+
+	var list struct {
+		Constraints []struct {
+			Title    string `json:"title"`
+			Priority int    `json:"priority"`
+		} `json:"constraints"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet, "/api/constraints?slug=e2e-constraint-order", nil, &list))
+
+	if len(list.Constraints) < 3 {
+		t.Fatalf("expected at least 3 constraints, got %d", len(list.Constraints))
+	}
+	if list.Constraints[0].Title != "Top priority" {
+		t.Errorf("first constraint should be highest priority, got %q", list.Constraints[0].Title)
+	}
+	if list.Constraints[1].Title != "Alpha" {
+		t.Errorf("second constraint should be Alpha (p2, alphabetical), got %q", list.Constraints[1].Title)
+	}
+	if list.Constraints[2].Title != "Zebra" {
+		t.Errorf("third constraint should be Zebra (p2, alphabetical), got %q", list.Constraints[2].Title)
+	}
+}
+
 func TestGoalListOrdering(t *testing.T) {
 	apiDo(t, http.MethodPost, "/api/project",
 		map[string]string{"slug": "e2e-goal-order", "name": "E2E Goal Order"}, nil)
