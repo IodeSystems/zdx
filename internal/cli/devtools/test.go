@@ -206,6 +206,12 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 
 	syncTestResults(results, metas)
 
+	if kc, err := cli.DefaultClient(); err == nil {
+		if slug := kc.Slug(); slug != "" {
+			postKpiSamples(context.Background(), kc, slug, results)
+		}
+	}
+
 	if coverage {
 		for _, comp := range []string{"api"} {
 			dir := testharness.CoverageDir(comp)
@@ -1113,6 +1119,71 @@ func attachCodeRefsFromSidecars(c *cli.Client, slug string, results []testharnes
 // keyed on (test_component, test_name, artifact_path) so that UpsertTestDemo's
 // ON CONFLICT clause updates the file_id of the row that SubmitTestResults
 // just created (rather than inserting a duplicate).
+// postKpiSamples aggregates results by (component, layer) and posts four KPI
+// samples per suite (test_time_ms / pass / fail / skip) via the typed POST
+// helper. Best-effort: errors are logged to stderr but never abort the run.
+// Caller is responsible for client bootstrap (so dx test still works without a
+// configured server — see testHarnessRunE).
+func postKpiSamples(ctx context.Context, c *cli.Client, slug string, results []testharness.Result) {
+	if c == nil || slug == "" || len(results) == 0 {
+		return
+	}
+
+	type key struct{ component, layer string }
+	type agg struct {
+		durationMs       int64
+		pass, fail, skip int
+	}
+	suites := make(map[key]*agg)
+	var order []key
+
+	for _, r := range results {
+		comp := r.Component
+		if strings.HasPrefix(r.Test, "TestDemo") {
+			comp = "demo"
+		}
+		if comp == "" {
+			comp = "unknown"
+		}
+		layer := string(r.Layer)
+		if layer == "" {
+			layer = "unknown"
+		}
+		k := key{component: comp, layer: layer}
+		a, ok := suites[k]
+		if !ok {
+			a = &agg{}
+			suites[k] = a
+			order = append(order, k)
+		}
+		a.durationMs += r.DurationMs
+		switch r.Status {
+		case "pass":
+			a.pass++
+		case "fail":
+			a.fail++
+		case "skip":
+			a.skip++
+		}
+	}
+
+	for _, k := range order {
+		a := suites[k]
+		suffix := k.component + "." + k.layer
+		samples := []kpiSampleParams{
+			{Slug: slug, Scope: "tech", CheckName: "test_time_ms." + suffix, Value: float64(a.durationMs), Unit: "ms", RegressionThresholdMs: 15000},
+			{Slug: slug, Scope: "tech", CheckName: "test_pass_count." + suffix, Value: float64(a.pass), Unit: "count"},
+			{Slug: slug, Scope: "tech", CheckName: "test_fail_count." + suffix, Value: float64(a.fail), Unit: "count"},
+			{Slug: slug, Scope: "tech", CheckName: "test_skip_count." + suffix, Value: float64(a.skip), Unit: "count"},
+		}
+		for _, p := range samples {
+			if err := runKpiSample(ctx, c, p); err != nil {
+				fmt.Fprintf(os.Stderr, "[kpi] post failed: %v\n", err)
+			}
+		}
+	}
+}
+
 func uploadDemoArtifact(c *cli.Client, slug, component, testName, demoType, artifactPath string) error {
 	data, err := os.ReadFile(artifactPath)
 	if err != nil {
