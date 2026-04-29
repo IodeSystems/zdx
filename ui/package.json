@@ -6,7 +6,8 @@
     "dev": "vite",
     "build": "tsc -b && vite build",
     "lint": "eslint --cache --fix",
-    "lint:knip": "knip"
+    "lint:knip": "knip",
+    "test": "jest"
   },
   "dependencies": {
     "@emotion/react": "^11.14.0",
@@ -27,13 +28,21 @@
   },
   "devDependencies": {
     "@eslint/js": "^10.0.1",
+    "@swc/core": "^1.15.32",
+    "@swc/jest": "^0.2.39",
     "@tanstack/router-cli": "^1.166.33",
     "@tanstack/router-plugin": "^1.167.22",
+    "@testing-library/dom": "^10.4.1",
+    "@testing-library/jest-dom": "^6.9.1",
+    "@testing-library/react": "^16.3.2",
+    "@types/jest": "^30.0.0",
     "@types/react": "^19.2.14",
     "@types/react-dom": "^19.2.3",
     "@vitejs/plugin-react": "^6.0.1",
     "eslint": "^10.2.1",
     "eslint-plugin-react-hooks": "^7.1.1",
+    "jest": "^30.3.0",
+    "jest-environment-jsdom": "^30.3.0",
     "knip": "^6.6.0",
     "openapi-typescript": "^7.13.0",
     "typescript": "~6.0.3",
