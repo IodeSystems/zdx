@@ -2800,7 +2800,10 @@ export const useAddDiscussionMessage = () => {
 
 // ── environments ──────────────────────────────────────────────────────────────
 
-export type EnvironmentItem = components['schemas']['EnvironmentItem']
+export type EnvironmentItem = components['schemas']['EnvironmentItem'] & {
+  drift_count?: number
+  drift_oldest_age_secs?: number
+}
 
 export const useEnvironments = (slug: string) =>
   useQuery<EnvironmentItem[]>({

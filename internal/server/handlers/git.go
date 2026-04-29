@@ -5,6 +5,7 @@ import (
 	"os"
 	"os/exec"
 	"path/filepath"
+	"strconv"
 	"strings"
 )
 
@@ -205,6 +206,36 @@ func ReadSnippet(dir, gitURL, defaultBranch, hash, path string, start, end, pad 
 		HashUsed:   used,
 		Truncated:  truncated,
 	}, nil
+}
+
+// CommitDrift returns the number of commits reachable from tip but not from
+// base, plus the Unix timestamp of the oldest such commit (0 when count is 0).
+// Returns (0, 0, err) when git fails (missing repo or branch).
+func CommitDrift(dir, base, tip string) (count int, oldestUnix int64, err error) {
+	cmd := exec.Command("git", "-C", dir, "rev-list", "--count", base+".."+tip)
+	cmd.Env = GitEnv()
+	out, err := cmd.Output()
+	if err != nil {
+		return 0, 0, fmt.Errorf("git rev-list: %w", err)
+	}
+	n, err := strconv.Atoi(strings.TrimSpace(string(out)))
+	if err != nil {
+		return 0, 0, fmt.Errorf("parse count: %w", err)
+	}
+	if n == 0 {
+		return 0, 0, nil
+	}
+	logCmd := exec.Command("git", "-C", dir, "log", base+".."+tip, "--format=%at", "--reverse")
+	logCmd.Env = GitEnv()
+	out, err = logCmd.Output()
+	if err != nil {
+		return n, 0, nil
+	}
+	lines := strings.SplitN(strings.TrimSpace(string(out)), "\n", 2)
+	if len(lines) > 0 && lines[0] != "" {
+		oldestUnix, _ = strconv.ParseInt(lines[0], 10, 64)
+	}
+	return n, oldestUnix, nil
 }
 
 // RecentCommits returns the last n commits on the default remote branch.

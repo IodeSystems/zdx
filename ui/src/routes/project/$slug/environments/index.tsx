@@ -59,6 +59,16 @@ function shortSha(sha: string): string {
   return sha.length > 8 ? sha.slice(0, 8) : sha
 }
 
+function formatDriftAge(unixSecs: number): string {
+  if (!unixSecs) return ''
+  const diffSecs = Math.floor(Date.now() / 1000) - unixSecs
+  const days = Math.floor(diffSecs / 86400)
+  const hrs = Math.floor(diffSecs / 3600)
+  if (days > 0) return `${days}d`
+  if (hrs > 0) return `${hrs}h`
+  return '<1h'
+}
+
 function AddEnvironmentDialog({ slug, open, onClose }: { slug: string; open: boolean; onClose: () => void }) {
   const create = useCreateEnvironment()
   const [name, setName] = useState('')
@@ -205,6 +215,22 @@ function EnvironmentRow({ slug, env }: { slug: string; env: EnvironmentItem }) {
           )}
         </TableCell>
         <TableCell>
+          {(env.drift_count ?? 0) > 0 ? (
+            <Tooltip title={`release branch is ${env.drift_count} commit${env.drift_count === 1 ? '' : 's'} behind dev, oldest ${formatDriftAge(env.drift_oldest_age_secs ?? 0)} ago`}>
+              <Chip
+                label={`${env.drift_count} behind`}
+                size="small"
+                color="warning"
+                variant="filled"
+                sx={{ fontSize: '0.7rem', height: 18 }}
+                data-testid="drift-chip"
+              />
+            </Tooltip>
+          ) : (
+            <Typography variant="body2" color="text.disabled" data-testid="drift-none">—</Typography>
+          )}
+        </TableCell>
+        <TableCell>
           {env.current_build_sha ? (
             <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
               <Chip
@@ -337,6 +363,7 @@ function EnvironmentsPage() {
                 <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>URL</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Release Branch</TableCell>
+                <TableCell sx={{ fontWeight: 600 }}>Drift</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Version</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Deployed</TableCell>
                 <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>

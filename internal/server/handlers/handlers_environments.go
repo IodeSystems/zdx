@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"path/filepath"
 	"time"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -24,6 +25,8 @@ type EnvironmentItem struct {
 	CurrentBuildBranch string `json:"current_build_branch"`
 	DeployedAt         string `json:"deployed_at"`
 	CreatedAt          string `json:"created_at"`
+	DriftCount         int    `json:"drift_count"`
+	DriftOldestAgeSecs int64  `json:"drift_oldest_age_secs"`
 }
 
 type DeployItem struct {
@@ -104,9 +107,16 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			bareDir := filepath.Join(h.ReposDir, in.Slug+".git")
 			items := make([]EnvironmentItem, len(rows))
 			for i, r := range rows {
-				items[i] = toEnvironmentItemFromList(r)
+				item := toEnvironmentItemFromList(r)
+				if r.ReleaseBranch != "" {
+					count, oldest, _ := CommitDrift(bareDir, r.ReleaseBranch, "dev")
+					item.DriftCount = count
+					item.DriftOldestAgeSecs = oldest
+				}
+				items[i] = item
 			}
 			out := &struct {
 				Body struct {
