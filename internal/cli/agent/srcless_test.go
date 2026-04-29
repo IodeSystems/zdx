@@ -115,6 +115,54 @@ func TestCreateSessionWorktree(t *testing.T) {
 	}
 }
 
+func TestCreateSessionWorktree_TargetBranch(t *testing.T) {
+	remoteBase, bareRepo := fakeRemote(t, "p2b")
+	workDir := t.TempDir()
+
+	// Push a v1.0.x branch carrying a sentinel file that does not exist on
+	// main, so the worktree's contents prove which branch it was based on.
+	side := filepath.Join(t.TempDir(), "side")
+	run(t, "", "git", "clone", bareRepo, side)
+	run(t, side, "git", "config", "user.email", "test@example.com")
+	run(t, side, "git", "config", "user.name", "test")
+	run(t, side, "git", "checkout", "-b", "v1.0.x")
+	if err := os.WriteFile(filepath.Join(side, "v1_sentinel.txt"), []byte("v1\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	run(t, side, "git", "add", "v1_sentinel.txt")
+	run(t, side, "git", "commit", "-m", "v1.0.x sentinel")
+	run(t, side, "git", "push", "origin", "v1.0.x")
+
+	pp, err := ensureProjectClone(workDir, "p2b", remoteBase)
+	if err != nil {
+		t.Fatalf("clone: %v", err)
+	}
+	wt, branch, err := createSessionWorktree(pp, workDir, "p2b", "tgt123", "v1.0.x")
+	if err != nil {
+		t.Fatalf("worktree: %v", err)
+	}
+	if branch != "agent/tgt123" {
+		t.Fatalf("branch = %q, want agent/tgt123", branch)
+	}
+	if _, err := os.Stat(filepath.Join(wt, "v1_sentinel.txt")); err != nil {
+		t.Fatalf("worktree not based on v1.0.x — sentinel missing: %v", err)
+	}
+
+	// Confirm HEAD is a descendant of origin/v1.0.x (merge-base equals it).
+	mb, err := exec.Command("git", "-C", wt, "merge-base", "HEAD", "origin/v1.0.x").CombinedOutput()
+	if err != nil {
+		t.Fatalf("merge-base: %s: %v", mb, err)
+	}
+	tip, err := exec.Command("git", "-C", wt, "rev-parse", "origin/v1.0.x").CombinedOutput()
+	if err != nil {
+		t.Fatalf("rev-parse: %s: %v", tip, err)
+	}
+	if strings.TrimSpace(string(mb)) != strings.TrimSpace(string(tip)) {
+		t.Fatalf("HEAD not descended from origin/v1.0.x: merge-base=%s tip=%s",
+			strings.TrimSpace(string(mb)), strings.TrimSpace(string(tip)))
+	}
+}
+
 func TestEnsureProjectInit_AlreadyConfigured(t *testing.T) {
 	remoteBase, _ := fakeRemote(t, "p3")
 	workDir := t.TempDir()
