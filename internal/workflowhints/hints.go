@@ -565,6 +565,8 @@ func NoTestRefsText(specID int32, description, featureName string) Hint {
 		Instructions: fmt.Sprintf(
 			"These are ./bin/dx shell commands — run via Bash, NOT via any MCP tool.\n\n"+
 				"Spec %d (%s) on feature %q has no test refs.\n\n"+
+				"Discover test IDs in the DB:\n"+
+				"   `./bin/dx test list --from-db | grep <keyword>`\n"+
 				"Option A — if a test already covers this spec:\n"+
 				"   `./bin/dx spec link %d <test-id>`\n"+
 				"Option B — if no test exists, file a task for it:\n"+
