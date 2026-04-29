@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"net/http"
 	"testing"
+	"time"
 )
 
 func TestQueueKindTriage(t *testing.T) {
@@ -679,4 +680,133 @@ func kindsOf(items []SoloQueueItem) []string {
 		kinds[i] = it.Kind
 	}
 	return kinds
+}
+
+// TestSoloEvaluateDiff covers spec 66: the evaluate endpoint returns a full
+// diff (added/removed/changed/unchanged) against the persisted todo set.
+//
+// Strategy: soloApply with a manually crafted divergent state, then evaluate.
+// This avoids the refreshQueueAsync race (which re-syncs the DB after every
+// issue mutation) by placing soloApply as the last write before evaluate.
+func TestSoloEvaluateDiff(t *testing.T) {
+	d := NewApiDriver(t, "eval-diff", "Solo Evaluate Diff")
+
+	// Three untriaged issues → each generates a "triage-IS-N" candidate.
+	idX := d.AddIssue("Issue X unchanged", "will be applied with correct values")
+	idY := d.AddIssue("Issue Y stale", "will be applied with a wrong priority")
+	idZ := d.AddIssue("Issue Z new", "will be omitted from apply → Added")
+
+	keyX := fmt.Sprintf("triage-IS-%d", idX)
+	keyY := fmt.Sprintf("triage-IS-%d", idY)
+	keyZ := fmt.Sprintf("triage-IS-%d", idZ)
+	keyFake := "eval-diff-stale-sentinel" // never generated → Removed
+
+	// Let background refreshQueueAsync goroutines from AddIssue settle before
+	// we overwrite the DB via soloApply.
+	time.Sleep(50 * time.Millisecond)
+
+	// Get the current proposed items (X, Y, Z will be here with correct values).
+	initial := d.EvaluateQueue("")
+
+	// Build the apply payload with one deliberate divergence per bucket:
+	//   X: exact copy → Unchanged
+	//   Y: priority changed to 99 → Changed (proposed will have priority 20)
+	//   Z: omitted → Added (evaluate proposes it but it's not persisted)
+	//   fake: novel key → Removed (in persisted, not in proposed)
+	//   all others (globals): exact copy → Unchanged
+	var applyItems []SoloQueueItem
+	for _, it := range initial {
+		switch it.Key {
+		case keyX:
+			applyItems = append(applyItems, it) // exact → Unchanged
+		case keyY:
+			stale := it
+			stale.Priority = 99 // deliberately wrong
+			applyItems = append(applyItems, stale)
+		case keyZ:
+			// omit → Added
+		default:
+			applyItems = append(applyItems, it) // globals → Unchanged
+		}
+	}
+	applyItems = append(applyItems, SoloQueueItem{
+		Key: keyFake, Kind: "triage", Text: "sentinel",
+		TargetType: "project", TargetID: d.Slug,
+		Priority: 50, Persona: "owner", Status: "open",
+	})
+
+	// Persist our crafted state. soloApply does NOT trigger refreshQueueAsync,
+	// so the state is stable until evaluate runs.
+	soloApply(t, d.Slug, applyItems)
+
+	// Evaluate immediately — no mutations between here and soloApply.
+	diff := d.EvaluateDiff("")
+
+	diffKey := func(items []SoloQueueItem) []string {
+		keys := make([]string, len(items))
+		for i, it := range items {
+			keys[i] = it.Key
+		}
+		return keys
+	}
+	diffKeyRemoved := func(items []TodoItem) []string {
+		keys := make([]string, len(items))
+		for i, it := range items {
+			keys[i] = it.Key
+		}
+		return keys
+	}
+	diffKeyChanged := func(items []EvaluateChange) []string {
+		keys := make([]string, len(items))
+		for i, it := range items {
+			keys[i] = it.After.Key
+		}
+		return keys
+	}
+
+	inAdded := func(key string) bool {
+		for _, it := range diff.Added {
+			if it.Key == key {
+				return true
+			}
+		}
+		return false
+	}
+	inRemoved := func(key string) bool {
+		for _, it := range diff.Removed {
+			if it.Key == key {
+				return true
+			}
+		}
+		return false
+	}
+	inChanged := func(key string) bool {
+		for _, it := range diff.Changed {
+			if it.After.Key == key {
+				return true
+			}
+		}
+		return false
+	}
+	inUnchanged := func(key string) bool {
+		for _, it := range diff.Unchanged {
+			if it.Key == key {
+				return true
+			}
+		}
+		return false
+	}
+
+	if !inAdded(keyZ) {
+		t.Errorf("Added: want key %q, got %v", keyZ, diffKey(diff.Added))
+	}
+	if !inRemoved(keyFake) {
+		t.Errorf("Removed: want key %q, got %v", keyFake, diffKeyRemoved(diff.Removed))
+	}
+	if !inChanged(keyY) {
+		t.Errorf("Changed: want key %q, got %v", keyY, diffKeyChanged(diff.Changed))
+	}
+	if !inUnchanged(keyX) {
+		t.Errorf("Unchanged: want key %q, got %v", keyX, diffKey(diff.Unchanged))
+	}
 }

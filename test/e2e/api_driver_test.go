@@ -373,6 +373,26 @@ func (d *ApiDriver) EvaluateQueue(issue string) []SoloQueueItem {
 	return all
 }
 
+type EvaluateChange struct {
+	Before TodoItem      `json:"before"`
+	After  SoloQueueItem `json:"after"`
+}
+
+type EvaluateDiffResult struct {
+	Added     []SoloQueueItem  `json:"added"`
+	Removed   []TodoItem       `json:"removed"`
+	Changed   []EvaluateChange `json:"changed"`
+	Unchanged []SoloQueueItem  `json:"unchanged"`
+}
+
+func (d *ApiDriver) EvaluateDiff(issue string) EvaluateDiffResult {
+	d.t.Helper()
+	body := map[string]any{"slug": d.Slug, "issue": issue}
+	var resp EvaluateDiffResult
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/solo/evaluate", body, &resp))
+	return resp
+}
+
 func findKind(items []SoloQueueItem, kind string) *SoloQueueItem {
 	for i := range items {
 		if items[i].Kind == kind {

@@ -9,6 +9,7 @@ import (
 // TodoItem mirrors the server response shape for solo/claim.
 type TodoItem struct {
 	ID              int32  `json:"id"`
+	Key             string `json:"key"`
 	Kind            string `json:"kind"`
 	Text            string `json:"text"`
 	Persona         string `json:"persona"`
