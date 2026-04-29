@@ -1,6 +1,9 @@
 package agent
 
 import (
+	"encoding/json"
+	"net/http"
+	"net/http/httptest"
 	"strings"
 	"testing"
 )
@@ -192,4 +195,146 @@ func contains(s []string, needle string) bool {
 		}
 	}
 	return false
+}
+
+func projectsHandler(projects []map[string]any) http.HandlerFunc {
+	return func(w http.ResponseWriter, r *http.Request) {
+		w.Header().Set("Content-Type", "application/json")
+		_ = json.NewEncoder(w).Encode(map[string]any{"projects": projects})
+	}
+}
+
+func TestFetchProjectVision(t *testing.T) {
+	title := "My App"
+	desc := "Does great things"
+
+	cases := []struct {
+		name    string
+		handler http.HandlerFunc
+		rc      func(url string) remoteConfig
+		want    string
+	}{
+		{
+			name:    "title and description joined",
+			handler: projectsHandler([]map[string]any{{"slug": "my-app", "title": &title, "description": &desc}}),
+			rc:      func(url string) remoteConfig { return remoteConfig{url: url, slug: "my-app", key: "k"} },
+			want:    "My App — Does great things",
+		},
+		{
+			name:    "title only when description nil",
+			handler: projectsHandler([]map[string]any{{"slug": "my-app", "title": &title, "description": nil}}),
+			rc:      func(url string) remoteConfig { return remoteConfig{url: url, slug: "my-app", key: "k"} },
+			want:    "My App",
+		},
+		{
+			name:    "empty string when slug not found",
+			handler: projectsHandler([]map[string]any{{"slug": "other", "title": &title, "description": &desc}}),
+			rc:      func(url string) remoteConfig { return remoteConfig{url: url, slug: "my-app", key: "k"} },
+			want:    "",
+		},
+		{
+			name: "empty string on non-200",
+			handler: func(w http.ResponseWriter, r *http.Request) {
+				w.WriteHeader(http.StatusInternalServerError)
+			},
+			rc:   func(url string) remoteConfig { return remoteConfig{url: url, slug: "my-app", key: "k"} },
+			want: "",
+		},
+		{
+			name:    "empty string when remoteConfig invalid",
+			handler: projectsHandler(nil),
+			rc:      func(_ string) remoteConfig { return remoteConfig{} },
+			want:    "",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			srv := httptest.NewServer(tc.handler)
+			defer srv.Close()
+			rc := tc.rc(srv.URL)
+			got := fetchProjectVision(rc)
+			if got != tc.want {
+				t.Fatalf("got %q, want %q", got, tc.want)
+			}
+		})
+	}
+}
+
+func TestBuildSessionPrompt(t *testing.T) {
+	todo := &claimedTodo{ID: 42, Kind: "dev", TargetType: "task", TargetID: "TK-1", Text: "Do the thing"}
+
+	cases := []struct {
+		name    string
+		vision  string
+		issueID string
+		todo    *claimedTodo
+		check   func(t *testing.T, got string)
+	}{
+		{
+			name:   "vision prepends prefix",
+			vision: "Great platform",
+			check: func(t *testing.T, got string) {
+				if !strings.HasPrefix(got, "Project vision: Great platform\n\n") {
+					t.Fatalf("missing vision prefix, got %q", got)
+				}
+			},
+		},
+		{
+			name:   "empty vision omits prefix",
+			vision: "",
+			check: func(t *testing.T, got string) {
+				if strings.Contains(got, "Project vision") {
+					t.Fatalf("unexpected vision prefix, got %q", got)
+				}
+			},
+		},
+		{
+			name:   "todo text follows vision",
+			vision: "V",
+			todo:   todo,
+			check: func(t *testing.T, got string) {
+				if !strings.HasPrefix(got, "Project vision: V\n\n") {
+					t.Fatalf("missing vision prefix, got %q", got)
+				}
+				if !strings.Contains(got, "Claimed todo 42 [dev] target=task:TK-1") {
+					t.Fatalf("missing todo header, got %q", got)
+				}
+				if !strings.Contains(got, "Do the thing") {
+					t.Fatalf("missing todo text, got %q", got)
+				}
+			},
+		},
+		{
+			name:    "issue fallback without todo",
+			vision:  "",
+			issueID: "IS-99",
+			check: func(t *testing.T, got string) {
+				if !strings.HasPrefix(got, "Work on issue IS-99") {
+					t.Fatalf("missing issue prompt, got %q", got)
+				}
+			},
+		},
+		{
+			name:    "todo takes precedence over issueID",
+			vision:  "",
+			issueID: "IS-99",
+			todo:    todo,
+			check: func(t *testing.T, got string) {
+				if strings.Contains(got, "Work on issue") {
+					t.Fatalf("todo should win over issueID, got %q", got)
+				}
+				if !strings.Contains(got, "Claimed todo 42") {
+					t.Fatalf("missing todo header, got %q", got)
+				}
+			},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := buildSessionPrompt(tc.vision, tc.issueID, tc.todo)
+			tc.check(t, got)
+		})
+	}
 }
