@@ -201,6 +201,151 @@ func TestSoloTriage(t *testing.T) {
 	d.CloseIssue(issueID)
 }
 
+// TestSoloOwnerTriageRevisions covers spec 72: when owner triage runs with
+// --priority and optional --title/--context/--issue_type, the issue is
+// classified and a zdx_revisions row is recorded for *each changed field*.
+// Verifies the handler short-circuits at handlers_issues.go (val != nil &&
+// *val != "") and that re-sending an unchanged value records no revision.
+func TestSoloOwnerTriageRevisions(t *testing.T) {
+	d := NewApiDriver(t, "solo-triage-rev", "Solo Triage Revisions")
+	sc := Given(d).Issue("Original title", "Original context").Build()
+	issueID := sc.Issues[0]
+	targetID := fmt.Sprintf("IS-%d", issueID)
+
+	type revEntry struct {
+		ID         int32  `json:"id"`
+		TargetType string `json:"target_type"`
+		TargetID   string `json:"target_id"`
+		Field      string `json:"field"`
+		OldVal     string `json:"old_val"`
+		NewVal     string `json:"new_val"`
+	}
+
+	triage := func(body map[string]any) {
+		body["slug"] = d.Slug
+		body["id"] = issueID
+		mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/owner/triage", body, nil))
+	}
+
+	listRevisions := func() []revEntry {
+		var resp struct {
+			Revisions []revEntry `json:"revisions"`
+		}
+		mustOK(t, apiDo(t, http.MethodGet,
+			fmt.Sprintf("/api/dx/revisions?slug=%s&target_type=issue&target_id=%s&limit=200",
+				d.Slug, targetID), nil, &resp))
+		// The list endpoint filters by target_type/target_id at the SQL layer;
+		// double-check nothing leaked across.
+		for _, r := range resp.Revisions {
+			if r.TargetType != "issue" || r.TargetID != targetID {
+				t.Fatalf("revision %d leaked: %s/%s != issue/%s", r.ID, r.TargetType, r.TargetID, targetID)
+			}
+		}
+		return resp.Revisions
+	}
+
+	diffSince := func(before []revEntry) []revEntry {
+		seen := map[int32]bool{}
+		for _, r := range before {
+			seen[r.ID] = true
+		}
+		var added []revEntry
+		for _, r := range listRevisions() {
+			if !seen[r.ID] {
+				added = append(added, r)
+			}
+		}
+		return added
+	}
+
+	byField := func(rs []revEntry) map[string]revEntry {
+		m := map[string]revEntry{}
+		for _, r := range rs {
+			m[r.Field] = r
+		}
+		return m
+	}
+
+	// (a) priority-only: 1 revision (priority "" → "2"), nothing else.
+	before := listRevisions()
+	triage(map[string]any{"priority": int32(2)})
+	added := diffSince(before)
+	if len(added) != 1 {
+		t.Fatalf("priority-only: expected 1 revision, got %d (%+v)", len(added), added)
+	}
+	if r := byField(added)["priority"]; r.OldVal != "" || r.NewVal != "2" {
+		t.Errorf("priority-only revision: old=%q new=%q want \"\"→\"2\"", r.OldVal, r.NewVal)
+	}
+
+	// (b) priority + title + context + issue_type all changed: 4 revisions.
+	before = listRevisions()
+	triage(map[string]any{
+		"priority":   int32(3),
+		"title":      "Triaged title",
+		"context":    "Triaged context",
+		"issue_type": "bug",
+	})
+	added = diffSince(before)
+	if len(added) != 4 {
+		t.Fatalf("all-fields: expected 4 revisions, got %d (%+v)", len(added), added)
+	}
+	want := map[string][2]string{
+		"priority":   {"2", "3"},
+		"title":      {"Original title", "Triaged title"},
+		"context":    {"Original context", "Triaged context"},
+		"issue_type": {"unknown", "bug"},
+	}
+	got := byField(added)
+	for f, exp := range want {
+		r, ok := got[f]
+		if !ok {
+			t.Errorf("all-fields: missing revision for %s", f)
+			continue
+		}
+		if r.OldVal != exp[0] || r.NewVal != exp[1] {
+			t.Errorf("all-fields revision %s: old=%q new=%q want %q→%q",
+				f, r.OldVal, r.NewVal, exp[0], exp[1])
+		}
+	}
+
+	// (c) priority unchanged + only issue_type changed: 1 revision (issue_type).
+	// Proves the priority short-circuit at the oldIssue.Priority != newPriority guard.
+	before = listRevisions()
+	triage(map[string]any{
+		"priority":   int32(3), // unchanged
+		"issue_type": "feature",
+	})
+	added = diffSince(before)
+	if len(added) != 1 {
+		t.Fatalf("type-only: expected 1 revision, got %d (%+v)", len(added), added)
+	}
+	if r := byField(added)["issue_type"]; r.OldVal != "bug" || r.NewVal != "feature" {
+		t.Errorf("type-only revision: old=%q new=%q want \"bug\"→\"feature\"", r.OldVal, r.NewVal)
+	}
+
+	// (d) no-op call: every value identical to current state → 0 revisions.
+	before = listRevisions()
+	triage(map[string]any{
+		"priority":   int32(3),
+		"title":      "Triaged title",
+		"context":    "Triaged context",
+		"issue_type": "feature",
+	})
+	added = diffSince(before)
+	if len(added) != 0 {
+		t.Fatalf("no-op: expected 0 revisions, got %d (%+v)", len(added), added)
+	}
+
+	// Final issue priority must reflect the last triage.
+	for _, iss := range d.ListIssues() {
+		if iss.ID == issueID && iss.Priority != "3" {
+			t.Errorf("final priority: want 3, got %q", iss.Priority)
+		}
+	}
+
+	d.CloseIssue(issueID)
+}
+
 // TestSoloTriageResolveRefusedWhenUntriaged covers IS-514: a triage todo
 // must not be marked resolved unless the underlying issue actually has a
 // priority. The agent's "session succeeded" path used to silently flip

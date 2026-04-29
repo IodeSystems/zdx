@@ -297,7 +297,9 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 					case "target_branch":
 						oldVal = oldIssue.TargetBranch
 					}
-					h.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val)
+					if oldVal != *val {
+						h.recordRevision(ctx, p.ID, "issue", issueID, field, oldVal, *val)
+					}
 				}
 			}
 			for _, tid := range in.Body.ThemeIDs {
