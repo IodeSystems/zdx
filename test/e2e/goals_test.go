@@ -6,6 +6,77 @@ import (
 	"time"
 )
 
+// TestDemoAPI_GoalListVision demonstrates spec 109: when goals are listed for a
+// project that has a vision set, the response includes the vision (title +
+// description) so agents and reviewers can evaluate goals against project purpose.
+// A project with no vision set returns empty vision fields without error.
+func TestDemoAPI_GoalListVision(t *testing.T) {
+	rec := newApiRecorder(t, "goal-list-vision")
+	rec.AddCoderef(coderef{FilePath: "test/e2e/goals_test.go", Note: "API demo source"})
+	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_projects.go", Note: "list-goals handler"})
+	t.Cleanup(rec.Save)
+
+	mustOK(t, rec.Do(http.MethodPost, "/api/project",
+		map[string]any{"slug": "demo-goal-vision", "name": "Demo Goal Vision"}, nil))
+
+	mustOK(t, rec.Do(http.MethodPut, "/api/project-vision", map[string]any{
+		"slug":        "demo-goal-vision",
+		"title":       "Principled SDLC for every developer",
+		"description": "Give any developer product management superpowers without requiring a PM background",
+	}, nil))
+
+	mustOK(t, rec.Do(http.MethodPost, "/api/goal", map[string]any{
+		"slug":        "demo-goal-vision",
+		"title":       "100% developer adoption",
+		"description": "Every developer uses zdx daily",
+		"priority":    1,
+		"status":      "active",
+	}, nil))
+
+	var list struct {
+		Goals []struct {
+			Title string `json:"title"`
+		} `json:"goals"`
+		Vision struct {
+			Title       string `json:"title"`
+			Description string `json:"description"`
+		} `json:"vision"`
+	}
+	mustOK(t, rec.Do(http.MethodGet, "/api/goals?slug=demo-goal-vision", nil, &list))
+
+	if list.Vision.Title != "Principled SDLC for every developer" {
+		t.Errorf("vision.title: want %q got %q", "Principled SDLC for every developer", list.Vision.Title)
+	}
+	if list.Vision.Description == "" {
+		t.Error("vision.description: want non-empty")
+	}
+	if len(list.Goals) == 0 {
+		t.Error("goals: want at least one goal")
+	}
+
+	// Project with no vision set — empty vision fields, no error.
+	mustOK(t, rec.Do(http.MethodPost, "/api/project",
+		map[string]any{"slug": "demo-goal-no-vision", "name": "Demo Goal No Vision"}, nil))
+	mustOK(t, rec.Do(http.MethodPost, "/api/goal", map[string]any{
+		"slug":        "demo-goal-no-vision",
+		"title":       "Some goal",
+		"description": "",
+		"priority":    1,
+		"status":      "active",
+	}, nil))
+
+	var listNoVision struct {
+		Vision struct {
+			Title       string `json:"title"`
+			Description string `json:"description"`
+		} `json:"vision"`
+	}
+	mustOK(t, rec.Do(http.MethodGet, "/api/goals?slug=demo-goal-no-vision", nil, &listNoVision))
+	if listNoVision.Vision.Title != "" {
+		t.Errorf("no-vision project: vision.title want empty, got %q", listNoVision.Vision.Title)
+	}
+}
+
 // TestDemoAPI_GoalCreatePersists demonstrates spec 48: when a goal is created
 // with title/description/priority/status, the response carries every field
 // (including server-set created_at/updated_at) and a follow-up list query

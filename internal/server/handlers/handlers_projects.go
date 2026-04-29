@@ -24,6 +24,11 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 		UpdatedAt   string `json:"updated_at"`
 	}
 
+	type VisionItem struct {
+		Title       string `json:"title"`
+		Description string `json:"description"`
+	}
+
 	type ConstraintItem struct {
 		ID          int32  `json:"id"`
 		Title       string `json:"title"`
@@ -37,7 +42,8 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "list-goals", Method: http.MethodGet, Path: "/api/goals"},
 		func(ctx context.Context, in *IssueSlugInput) (*struct {
 			Body struct {
-				Goals []GoalItem `json:"goals"`
+				Goals  []GoalItem `json:"goals"`
+				Vision VisionItem `json:"vision"`
 			}
 		}, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
@@ -54,11 +60,13 @@ func (h *Handler) registerProjectRoutes(api huma.API) {
 			}
 			return &struct {
 				Body struct {
-					Goals []GoalItem `json:"goals"`
+					Goals  []GoalItem `json:"goals"`
+					Vision VisionItem `json:"vision"`
 				}
 			}{Body: struct {
-				Goals []GoalItem `json:"goals"`
-			}{Goals: out}}, nil
+				Goals  []GoalItem `json:"goals"`
+				Vision VisionItem `json:"vision"`
+			}{Goals: out, Vision: VisionItem{Title: p.Title, Description: p.Description}}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "create-goal", Method: http.MethodPost, Path: "/api/goal"},
