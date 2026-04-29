@@ -26,6 +26,7 @@ import { Route as ProjectSlugTimingsRouteImport } from './routes/project/$slug/t
 import { Route as ProjectSlugTestsRouteImport } from './routes/project/$slug/tests'
 import { Route as ProjectSlugTasksRouteImport } from './routes/project/$slug/tasks'
 import { Route as ProjectSlugSettingsRouteImport } from './routes/project/$slug/settings'
+import { Route as ProjectSlugReleasesRouteImport } from './routes/project/$slug/releases'
 import { Route as ProjectSlugQueueRouteImport } from './routes/project/$slug/queue'
 import { Route as ProjectSlugProposalsRouteImport } from './routes/project/$slug/proposals'
 import { Route as ProjectSlugProfileRouteImport } from './routes/project/$slug/profile'
@@ -42,6 +43,7 @@ import { Route as ProjectSlugBlockerQuestionsRouteImport } from './routes/projec
 import { Route as ProjectSlugAgentsRouteImport } from './routes/project/$slug/agents'
 import { Route as ProjectSlugTestsIndexRouteImport } from './routes/project/$slug/tests/index'
 import { Route as ProjectSlugTasksIndexRouteImport } from './routes/project/$slug/tasks/index'
+import { Route as ProjectSlugReleasesIndexRouteImport } from './routes/project/$slug/releases/index'
 import { Route as ProjectSlugQuestionsIndexRouteImport } from './routes/project/$slug/questions/index'
 import { Route as ProjectSlugProposalsIndexRouteImport } from './routes/project/$slug/proposals/index'
 import { Route as ProjectSlugPatternsIndexRouteImport } from './routes/project/$slug/patterns/index'
@@ -155,6 +157,11 @@ const ProjectSlugSettingsRoute = ProjectSlugSettingsRouteImport.update({
   path: '/settings',
   getParentRoute: () => ProjectSlugRoute,
 } as any)
+const ProjectSlugReleasesRoute = ProjectSlugReleasesRouteImport.update({
+  id: '/releases',
+  path: '/releases',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
 const ProjectSlugQueueRoute = ProjectSlugQueueRouteImport.update({
   id: '/queue',
   path: '/queue',
@@ -236,6 +243,12 @@ const ProjectSlugTasksIndexRoute = ProjectSlugTasksIndexRouteImport.update({
   path: '/',
   getParentRoute: () => ProjectSlugTasksRoute,
 } as any)
+const ProjectSlugReleasesIndexRoute =
+  ProjectSlugReleasesIndexRouteImport.update({
+    id: '/',
+    path: '/',
+    getParentRoute: () => ProjectSlugReleasesRoute,
+  } as any)
 const ProjectSlugQuestionsIndexRoute =
   ProjectSlugQuestionsIndexRouteImport.update({
     id: '/questions/',
@@ -406,6 +419,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/profile': typeof ProjectSlugProfileRoute
   '/project/$slug/proposals': typeof ProjectSlugProposalsRouteWithChildren
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
+  '/project/$slug/releases': typeof ProjectSlugReleasesRouteWithChildren
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug/tasks': typeof ProjectSlugTasksRouteWithChildren
   '/project/$slug/tests': typeof ProjectSlugTestsRouteWithChildren
@@ -439,6 +453,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/patterns/': typeof ProjectSlugPatternsIndexRoute
   '/project/$slug/proposals/': typeof ProjectSlugProposalsIndexRoute
   '/project/$slug/questions/': typeof ProjectSlugQuestionsIndexRoute
+  '/project/$slug/releases/': typeof ProjectSlugReleasesIndexRoute
   '/project/$slug/tasks/': typeof ProjectSlugTasksIndexRoute
   '/project/$slug/tests/': typeof ProjectSlugTestsIndexRoute
 }
@@ -490,6 +505,7 @@ export interface FileRoutesByTo {
   '/project/$slug/patterns': typeof ProjectSlugPatternsIndexRoute
   '/project/$slug/proposals': typeof ProjectSlugProposalsIndexRoute
   '/project/$slug/questions': typeof ProjectSlugQuestionsIndexRoute
+  '/project/$slug/releases': typeof ProjectSlugReleasesIndexRoute
   '/project/$slug/tasks': typeof ProjectSlugTasksIndexRoute
   '/project/$slug/tests': typeof ProjectSlugTestsIndexRoute
 }
@@ -520,6 +536,7 @@ export interface FileRoutesById {
   '/project/$slug/profile': typeof ProjectSlugProfileRoute
   '/project/$slug/proposals': typeof ProjectSlugProposalsRouteWithChildren
   '/project/$slug/queue': typeof ProjectSlugQueueRoute
+  '/project/$slug/releases': typeof ProjectSlugReleasesRouteWithChildren
   '/project/$slug/settings': typeof ProjectSlugSettingsRoute
   '/project/$slug/tasks': typeof ProjectSlugTasksRouteWithChildren
   '/project/$slug/tests': typeof ProjectSlugTestsRouteWithChildren
@@ -553,6 +570,7 @@ export interface FileRoutesById {
   '/project/$slug/patterns/': typeof ProjectSlugPatternsIndexRoute
   '/project/$slug/proposals/': typeof ProjectSlugProposalsIndexRoute
   '/project/$slug/questions/': typeof ProjectSlugQuestionsIndexRoute
+  '/project/$slug/releases/': typeof ProjectSlugReleasesIndexRoute
   '/project/$slug/tasks/': typeof ProjectSlugTasksIndexRoute
   '/project/$slug/tests/': typeof ProjectSlugTestsIndexRoute
 }
@@ -584,6 +602,7 @@ export interface FileRouteTypes {
     | '/project/$slug/profile'
     | '/project/$slug/proposals'
     | '/project/$slug/queue'
+    | '/project/$slug/releases'
     | '/project/$slug/settings'
     | '/project/$slug/tasks'
     | '/project/$slug/tests'
@@ -617,6 +636,7 @@ export interface FileRouteTypes {
     | '/project/$slug/patterns/'
     | '/project/$slug/proposals/'
     | '/project/$slug/questions/'
+    | '/project/$slug/releases/'
     | '/project/$slug/tasks/'
     | '/project/$slug/tests/'
   fileRoutesByTo: FileRoutesByTo
@@ -668,6 +688,7 @@ export interface FileRouteTypes {
     | '/project/$slug/patterns'
     | '/project/$slug/proposals'
     | '/project/$slug/questions'
+    | '/project/$slug/releases'
     | '/project/$slug/tasks'
     | '/project/$slug/tests'
   id:
@@ -697,6 +718,7 @@ export interface FileRouteTypes {
     | '/project/$slug/profile'
     | '/project/$slug/proposals'
     | '/project/$slug/queue'
+    | '/project/$slug/releases'
     | '/project/$slug/settings'
     | '/project/$slug/tasks'
     | '/project/$slug/tests'
@@ -730,6 +752,7 @@ export interface FileRouteTypes {
     | '/project/$slug/patterns/'
     | '/project/$slug/proposals/'
     | '/project/$slug/questions/'
+    | '/project/$slug/releases/'
     | '/project/$slug/tasks/'
     | '/project/$slug/tests/'
   fileRoutesById: FileRoutesById
@@ -869,6 +892,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugSettingsRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
+    '/project/$slug/releases': {
+      id: '/project/$slug/releases'
+      path: '/releases'
+      fullPath: '/project/$slug/releases'
+      preLoaderRoute: typeof ProjectSlugReleasesRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
     '/project/$slug/queue': {
       id: '/project/$slug/queue'
       path: '/queue'
@@ -980,6 +1010,13 @@ declare module '@tanstack/react-router' {
       fullPath: '/project/$slug/tasks/'
       preLoaderRoute: typeof ProjectSlugTasksIndexRouteImport
       parentRoute: typeof ProjectSlugTasksRoute
+    }
+    '/project/$slug/releases/': {
+      id: '/project/$slug/releases/'
+      path: '/'
+      fullPath: '/project/$slug/releases/'
+      preLoaderRoute: typeof ProjectSlugReleasesIndexRouteImport
+      parentRoute: typeof ProjectSlugReleasesRoute
     }
     '/project/$slug/questions/': {
       id: '/project/$slug/questions/'
@@ -1287,6 +1324,17 @@ const ProjectSlugProposalsRouteChildren: ProjectSlugProposalsRouteChildren = {
 const ProjectSlugProposalsRouteWithChildren =
   ProjectSlugProposalsRoute._addFileChildren(ProjectSlugProposalsRouteChildren)
 
+interface ProjectSlugReleasesRouteChildren {
+  ProjectSlugReleasesIndexRoute: typeof ProjectSlugReleasesIndexRoute
+}
+
+const ProjectSlugReleasesRouteChildren: ProjectSlugReleasesRouteChildren = {
+  ProjectSlugReleasesIndexRoute: ProjectSlugReleasesIndexRoute,
+}
+
+const ProjectSlugReleasesRouteWithChildren =
+  ProjectSlugReleasesRoute._addFileChildren(ProjectSlugReleasesRouteChildren)
+
 interface ProjectSlugTasksRouteChildren {
   ProjectSlugTasksIdRoute: typeof ProjectSlugTasksIdRoute
   ProjectSlugTasksIndexRoute: typeof ProjectSlugTasksIndexRoute
@@ -1328,6 +1376,7 @@ interface ProjectSlugRouteChildren {
   ProjectSlugProfileRoute: typeof ProjectSlugProfileRoute
   ProjectSlugProposalsRoute: typeof ProjectSlugProposalsRouteWithChildren
   ProjectSlugQueueRoute: typeof ProjectSlugQueueRoute
+  ProjectSlugReleasesRoute: typeof ProjectSlugReleasesRouteWithChildren
   ProjectSlugSettingsRoute: typeof ProjectSlugSettingsRoute
   ProjectSlugTasksRoute: typeof ProjectSlugTasksRouteWithChildren
   ProjectSlugTestsRoute: typeof ProjectSlugTestsRouteWithChildren
@@ -1361,6 +1410,7 @@ const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
   ProjectSlugProfileRoute: ProjectSlugProfileRoute,
   ProjectSlugProposalsRoute: ProjectSlugProposalsRouteWithChildren,
   ProjectSlugQueueRoute: ProjectSlugQueueRoute,
+  ProjectSlugReleasesRoute: ProjectSlugReleasesRouteWithChildren,
   ProjectSlugSettingsRoute: ProjectSlugSettingsRoute,
   ProjectSlugTasksRoute: ProjectSlugTasksRouteWithChildren,
   ProjectSlugTestsRoute: ProjectSlugTestsRouteWithChildren,
