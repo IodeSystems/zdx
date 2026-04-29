@@ -49,7 +49,7 @@ SKIP_BUILD=false
 ALLOW_DIRTY=false
 NON_COMPAT=false
 NO_RESUME=false
-BETA=true  # Currently in beta; flip to false when exiting beta
+BETA=${SHIP_BETA:-true}  # Currently in beta; flip to false when exiting beta
 SERVICE="zdx"
 REMOTE_HOME="/home/$SERVICE"
 MIGRATION_DIR="internal/migrate/sql"
@@ -66,8 +66,8 @@ done
 
 # ── BETA time gate for --non-compatible-migration ─────────────────────────────
 if $NON_COMPAT && ! $BETA; then
-  HOUR=$(date +%H)
-  DOW=$(date +%u)  # 1=Mon, 7=Sun
+  HOUR=${NOW_HOUR:-$(date +%H)}
+  DOW=${NOW_DOW:-$(date +%u)}  # 1=Mon, 7=Sun
   if [ "$DOW" -le 5 ] && [ "$HOUR" -ge 9 ] && [ "$HOUR" -lt 18 ]; then
     echo "[ship] REFUSING: --non-compatible-migration is blocked during business hours (weekday 09:00-18:00)."
     echo "[ship] Wait for off-hours or set BETA=true in bin/ship."
@@ -90,6 +90,23 @@ if $IS_DIRTY && ! $ALLOW_DIRTY; then
   echo "[ship] Commit or stash your changes first, then ship."
   echo "[ship] --allow-dirty is a PRODUCTION EMERGENCY ESCAPE HATCH."
   exit 1
+fi
+
+# ── Release-branch gate ───────────────────────────────────────────────────────
+# Optional: when deploy.release_branch is set in home/deploy.secret.properties,
+# refuse to ship from any other branch. Prevents shipping a feature branch to
+# an environment whose release branch is e.g. main.
+
+if [ -f "$DEPLOY_PROPS" ]; then
+  RELEASE_BRANCH=$(grep "^deploy.release_branch=" "$DEPLOY_PROPS" | cut -d= -f2- | tr -d '[:space:]')
+  if [ -n "$RELEASE_BRANCH" ]; then
+    CURRENT_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+    if [ "$CURRENT_BRANCH" != "$RELEASE_BRANCH" ]; then
+      echo "[ship] REFUSING: current branch '$CURRENT_BRANCH' does not match deploy.release_branch '$RELEASE_BRANCH'."
+      echo "[ship] Switch to '$RELEASE_BRANCH' or update deploy.release_branch in $DEPLOY_PROPS."
+      exit 1
+    fi
+  fi
 fi
 
 # ── Config loader ─────────────────────────────────────────────────────────────
