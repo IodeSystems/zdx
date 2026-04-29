@@ -445,6 +445,7 @@ type TestResultInput struct {
 	Driver        string            `json:"driver"`
 	TestName      string            `json:"test_name"`
 	Feature       string            `json:"feature"`
+	Layer         string            `json:"layer,omitempty"`
 	Status        string            `json:"status"`
 	DurationMS    int32             `json:"duration_ms"`
 	Branch        string            `json:"branch,omitempty"`

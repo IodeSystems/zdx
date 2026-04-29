@@ -232,13 +232,19 @@ func (d *ApiDriver) CheckinJournal(role, date string) {
 }
 
 func (d *ApiDriver) RegisterTest(name string) int32 {
+	return d.RegisterTestWithLayer(name, "")
+}
+
+func (d *ApiDriver) RegisterTestWithLayer(name, layer string) int32 {
 	d.t.Helper()
+	result := map[string]any{"driver": "go", "test_name": name, "feature": "test", "status": "pass", "duration_ms": 100}
+	if layer != "" {
+		result["layer"] = layer
+	}
 	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/test-results/submit",
 		map[string]any{
-			"slug": d.Slug,
-			"results": []map[string]any{
-				{"driver": "go", "test_name": name, "feature": "test", "status": "pass", "duration_ms": 100},
-			},
+			"slug":    d.Slug,
+			"results": []map[string]any{result},
 		}, nil))
 	var resp struct {
 		Tests []struct {
@@ -325,6 +331,30 @@ func (d *ApiDriver) LinkTestToSpec(specID, testID int32) {
 	d.t.Helper()
 	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/specs/link-test",
 		map[string]any{"spec_id": specID, "test_id": testID}, nil))
+}
+
+func (d *ApiDriver) UnlinkTestFromSpec(specID, testID int32) {
+	d.t.Helper()
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/specs/unlink-test",
+		map[string]any{"spec_id": specID, "test_id": testID}, nil))
+}
+
+type SpecTestRow struct {
+	ID        int32  `json:"id"`
+	Component string `json:"component"`
+	Name      string `json:"name"`
+	Layer     string `json:"layer"`
+	Status    string `json:"status"`
+}
+
+func (d *ApiDriver) ListSpecTests(specID int32) []SpecTestRow {
+	d.t.Helper()
+	var resp struct {
+		Tests []SpecTestRow `json:"tests"`
+	}
+	mustOK(d.t, apiDo(d.t, http.MethodGet,
+		fmt.Sprintf("/api/dx/specs/tests?spec_id=%d", specID), nil, &resp))
+	return resp.Tests
 }
 
 type StaleTaskInfo struct {
