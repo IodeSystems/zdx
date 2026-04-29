@@ -1,6 +1,7 @@
 package doctor
 
 import (
+	"os"
 	"strings"
 	"testing"
 )
@@ -184,3 +185,82 @@ func TestRunCheckGoalsQuantified(t *testing.T) {
 	}
 }
 
+
+// TestFindingAutoFixable verifies spec 128 (detection layer):
+// a failing check with an auto-fix produces a non-nil FixFunc.
+func TestFindingAutoFixable(t *testing.T) {
+	state := &ProjectState{ZdxDirExists: false, ConfigValid: true}
+	findings := Evaluate(state)
+	byName := make(map[string]Finding, len(findings))
+	for _, f := range findings {
+		byName[f.Check.Name] = f
+	}
+	f, ok := byName["zdx_dir_exists"]
+	if !ok {
+		t.Fatal("zdx_dir_exists not present in findings")
+	}
+	if f.Status != StatusFail {
+		t.Fatalf("expected StatusFail, got %s", f.Status)
+	}
+	if f.FixFunc == nil {
+		t.Error("expected non-nil FixFunc for auto-fixable check")
+	}
+}
+
+// TestFixFuncApplied verifies spec 128 (fix application):
+// calling FixFunc() creates the expected artifact on disk.
+func TestFixFuncApplied(t *testing.T) {
+	dir := t.TempDir()
+	orig, err := os.Getwd()
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.Chdir(dir); err != nil {
+		t.Fatal(err)
+	}
+	t.Cleanup(func() { _ = os.Chdir(orig) })
+
+	state := &ProjectState{ZdxDirExists: false, ConfigValid: true}
+	findings := Evaluate(state)
+	byName := make(map[string]Finding, len(findings))
+	for _, f := range findings {
+		byName[f.Check.Name] = f
+	}
+	f, ok := byName["zdx_dir_exists"]
+	if !ok {
+		t.Fatal("zdx_dir_exists not present in findings")
+	}
+	if f.FixFunc == nil {
+		t.Fatal("expected non-nil FixFunc")
+	}
+	if err := f.FixFunc(); err != nil {
+		t.Fatalf("FixFunc() error: %v", err)
+	}
+	info, statErr := os.Stat(".zdx")
+	if statErr != nil || !info.IsDir() {
+		t.Error("expected .zdx/ directory to be created by FixFunc")
+	}
+}
+
+// TestPassingCheckNoFixFunc verifies spec 128 (passing path):
+// a passing check has nil FixFunc and StatusPass.
+func TestPassingCheckNoFixFunc(t *testing.T) {
+	state := &ProjectState{ZdxDirExists: true, ConfigValid: true}
+	findings := Evaluate(state)
+	byName := make(map[string]Finding, len(findings))
+	for _, f := range findings {
+		byName[f.Check.Name] = f
+	}
+	f, ok := byName["zdx_dir_exists"]
+	if !ok {
+		t.Fatal("zdx_dir_exists not present in findings")
+	}
+	if f.Status != StatusPass {
+		t.Fatalf("expected StatusPass, got %s", f.Status)
+	}
+	if f.FixFunc != nil {
+		t.Error("expected nil FixFunc for passing check")
+	}
+}
+
+// TestEvaluateCheckDeferred verifies spec 131:
