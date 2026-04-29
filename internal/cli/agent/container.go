@@ -105,6 +105,20 @@ func (m *containerManager) stopAll() {
 	}
 }
 
+// enforceContainerExecution gates the host-process agent path behind a
+// dev-only escape hatch. Spec 117 requires every agent session to run inside
+// a Docker container. When DX_AGENT_FORCE_CONTAINER is set (e.g. in srcless
+// agent images, CI workers, or any operator who wants the spec enforced),
+// invoking the agent without --container is a hard error: the host path is
+// not allowed to spawn claude. When unset, the host path remains available
+// for local dev so this rollout is opt-in until the default flips.
+func enforceContainerExecution(container bool) error {
+	if !container && os.Getenv("DX_AGENT_FORCE_CONTAINER") != "" {
+		return fmt.Errorf("spec-117: agent must run inside a Docker container; pass --container or unset DX_AGENT_FORCE_CONTAINER")
+	}
+	return nil
+}
+
 // buildContainerArgs constructs the `docker run` argv for an agent slot.
 // Pure function so the security-critical flag set is unit-testable.
 func buildContainerArgs(name, imageTag, cwd string, slot int, alias string, agentCfg config.AgentConfig, keepOnExit bool, envPairs []string) []string {

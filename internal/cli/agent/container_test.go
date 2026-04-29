@@ -65,3 +65,61 @@ func TestBuildContainerArgs_EnvPairsForwarded(t *testing.T) {
 		t.Errorf("env pairs not forwarded: %s", joined)
 	}
 }
+
+// Spec 117: agent sessions must run inside a Docker container; no direct
+// execution on the host. enforceContainerExecution gates the host path behind
+// DX_AGENT_FORCE_CONTAINER so operators can require container isolation.
+func TestEnforceContainerExecution_GateUnsetAllowsHost(t *testing.T) {
+	t.Setenv("DX_AGENT_FORCE_CONTAINER", "")
+	if err := enforceContainerExecution(false); err != nil {
+		t.Fatalf("gate unset + no --container should not error: %v", err)
+	}
+}
+
+func TestEnforceContainerExecution_GateSetBlocksHost(t *testing.T) {
+	t.Setenv("DX_AGENT_FORCE_CONTAINER", "1")
+	err := enforceContainerExecution(false)
+	if err == nil {
+		t.Fatal("expected error when DX_AGENT_FORCE_CONTAINER is set and --container is omitted")
+	}
+	for _, want := range []string{"spec-117", "container", "DX_AGENT_FORCE_CONTAINER"} {
+		if !strings.Contains(err.Error(), want) {
+			t.Errorf("error missing %q: %v", want, err)
+		}
+	}
+}
+
+func TestEnforceContainerExecution_GateSetAllowsContainer(t *testing.T) {
+	t.Setenv("DX_AGENT_FORCE_CONTAINER", "1")
+	if err := enforceContainerExecution(true); err != nil {
+		t.Fatalf("gate set + --container should not error: %v", err)
+	}
+}
+
+// buildContainerArgs is the only way the agent harness reaches docker — its
+// argv must always begin with `run` so a session is dispatched through
+// `docker run`. Inside the container the entrypoint is `./bin/dx agent
+// claude --loop`, which keeps the claude binary execution scoped to the
+// container's filesystem (not the host's PATH).
+func TestBuildContainerArgs_DispatchesViaDockerRun(t *testing.T) {
+	args := buildContainerArgs("n", "img", "/c", 0, "a", config.AgentConfig{}, false, nil)
+	if len(args) == 0 || args[0] != "run" {
+		t.Fatalf("docker dispatch must start with `run`, got: %v", args)
+	}
+	// The image tag must precede the entrypoint so subsequent argv runs
+	// inside the container, not on the host.
+	imgIdx := -1
+	for i, a := range args {
+		if a == "img" {
+			imgIdx = i
+			break
+		}
+	}
+	if imgIdx < 0 || imgIdx+3 >= len(args) {
+		t.Fatalf("expected image tag followed by container entrypoint: %v", args)
+	}
+	entry := strings.Join(args[imgIdx+1:imgIdx+5], " ")
+	if !strings.HasPrefix(entry, "./bin/dx agent claude --loop") {
+		t.Errorf("container entrypoint must be `./bin/dx agent claude --loop` (runs inside container), got: %s", entry)
+	}
+}

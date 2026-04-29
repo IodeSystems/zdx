@@ -86,6 +86,10 @@ func agentClaudeCmd() *cobra.Command {
 				return runContainerLoop(alias, agentCfg, keepContainer)
 			}
 
+			if err := enforceContainerExecution(container); err != nil {
+				return err
+			}
+
 			sel := modelSelector{modelFlag: model, levelFlag: level, agentCfg: agentCfg}
 
 			if loop {
@@ -464,17 +468,9 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 	}
 }
 
-// runSession launches a single Claude CLI session and drives its lifecycle
-// through the provider-agnostic RunLifecycle runner. Event tailing, WS
-// streaming, and close are all owned by the shared runner — this wrapper
-// only constructs a claudeAdapter and prints the post-session token summary.
-func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string, todoID int32, todo *claimedTodo, srcless bool) error {
-	projDir := claudeProjectDir()
-	_ = os.MkdirAll(projDir, 0o755)
-
-	// Fetch project vision to provide context for the session.
-	vision := fetchProjectVision(rc)
-
+// buildSessionPrompt assembles the -p prompt for a Claude session from the
+// project vision, optional issue ID, and optional claimed todo.
+func buildSessionPrompt(vision, issueID string, todo *claimedTodo) string {
 	prompt := ""
 	if vision != "" {
 		prompt = "Project vision: " + vision + "\n\n"
@@ -489,6 +485,20 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 	} else if issueID != "" {
 		prompt += fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
 	}
+	return prompt
+}
+
+// runSession launches a single Claude CLI session and drives its lifecycle
+// through the provider-agnostic RunLifecycle runner. Event tailing, WS
+// streaming, and close are all owned by the shared runner — this wrapper
+// only constructs a claudeAdapter and prints the post-session token summary.
+func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string, chrome bool, prevSID string, resumed bool, model string, todoID int32, todo *claimedTodo, srcless bool) error {
+	projDir := claudeProjectDir()
+	_ = os.MkdirAll(projDir, 0o755)
+
+	// Fetch project vision to provide context for the session.
+	vision := fetchProjectVision(rc)
+	prompt := buildSessionPrompt(vision, issueID, todo)
 
 	adapter := &claudeAdapter{
 		projDir: projDir,
