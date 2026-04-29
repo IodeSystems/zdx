@@ -136,3 +136,51 @@ func TestEvaluateMissingVisionIsFirstGap(t *testing.T) {
 		t.Errorf("expected proposal to recommend `dx vision set`, got %q", firstGap.Proposal)
 	}
 }
+
+// TestRunCheckGoalsQuantified verifies spec 112:
+// goals_quantified passes when every goal has a metric, and fails with a
+// concrete X/Y count and a `dx goal add` proposal that names --metric-name
+// and --metric-unit when goals are missing metrics.
+func TestRunCheckGoalsQuantified(t *testing.T) {
+	cases := []struct {
+		name         string
+		state        ProjectState
+		wantPass     bool
+		wantMsgPart  string
+		wantPropPart []string
+	}{
+		{
+			name:     "all goals quantified",
+			state:    ProjectState{GoalsTotal: 2, GoalsQuantified: 2},
+			wantPass: true,
+		},
+		{
+			name:         "partial coverage fails",
+			state:        ProjectState{GoalsTotal: 3, GoalsQuantified: 1},
+			wantPass:     false,
+			wantMsgPart:  "1/3 goals have metrics",
+			wantPropPart: []string{"dx goal add", "--metric-name", "--metric-unit"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pass, msg, _, proposal := runCheck("goals_quantified", &tc.state)
+			if pass != tc.wantPass {
+				t.Fatalf("pass=%v, want %v (msg=%q)", pass, tc.wantPass, msg)
+			}
+			if tc.wantPass {
+				return
+			}
+			if !strings.Contains(msg, tc.wantMsgPart) {
+				t.Errorf("msg=%q, want substring %q", msg, tc.wantMsgPart)
+			}
+			for _, want := range tc.wantPropPart {
+				if !strings.Contains(proposal, want) {
+					t.Errorf("proposal=%q, want substring %q", proposal, want)
+				}
+			}
+		})
+	}
+}
+
