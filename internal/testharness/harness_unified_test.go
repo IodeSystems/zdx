@@ -191,3 +191,40 @@ func TestHarness_FilterScopesAdapters(t *testing.T) {
 		t.Errorf("expected component ui, got %q", results[0].Component)
 	}
 }
+
+func TestHarness_FilterScopesAdaptersByLayer(t *testing.T) {
+	unitAdapter := &stubAdapter{
+		id:        "vitest:ui",
+		component: "ui",
+		layers:    []testharness.Layer{testharness.LayerUnit},
+		results:   []testharness.Result{makeResult("ui", "renders dashboard", "pass")},
+	}
+	integrationAdapter := &stubAdapter{
+		id:        "go:api",
+		component: "api",
+		layers:    []testharness.Layer{testharness.LayerIntegration},
+		results:   []testharness.Result{makeResult("api", "GET /api/issues returns 200", "pass")},
+	}
+	demoAdapter := &stubAdapter{
+		id:        "demo:cli",
+		component: "cli",
+		layers:    []testharness.Layer{testharness.LayerDemo},
+		results:   []testharness.Result{makeResult("cli", "dx todo take flow", "pass")},
+	}
+
+	h := testharness.New()
+	h.Register(unitAdapter)
+	h.Register(integrationAdapter)
+	h.Register(demoAdapter)
+
+	results, err := h.Run(context.Background(), testharness.Filter{Layer: testharness.LayerUnit})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(results) != 1 {
+		t.Fatalf("expected 1 result (unit only), got %d", len(results))
+	}
+	if results[0].Component != "ui" {
+		t.Errorf("expected component ui, got %q", results[0].Component)
+	}
+}
