@@ -119,8 +119,8 @@ function renderDetail(slug = 'test-project', name = 'example-feature') {
 describe('FeatureDetail', () => {
   test('spec 40: specs, tasks, what/why/done-when criteria are displayed', () => {
     const specs: SpecItem[] = [
-      makeSpec({ id: 10, description: 'Given a feature, when viewed, then name is shown', kind: 'must' }),
-      makeSpec({ id: 11, description: 'Given specs, when listed, then kind chip appears', kind: 'should' }),
+      makeSpec({ id: 10, description: 'Given a feature, when viewed, then name is shown', importance: 'must' }),
+      makeSpec({ id: 11, description: 'Given specs, when listed, then importance chip appears', importance: 'should' }),
     ]
     const feature: FeatureItem = makeFeature({
       what: 'WHAT: users can view feature detail',
@@ -148,7 +148,7 @@ describe('FeatureDetail', () => {
     expect(screen.getByText(`Specs (${specs.length})`)).toBeInTheDocument()
     for (const s of specs) {
       expect(screen.getByText(s.description)).toBeInTheDocument()
-      expect(screen.getAllByText(s.kind).length).toBeGreaterThan(0)
+      expect(screen.getAllByText(s.importance).length).toBeGreaterThan(0)
     }
 
     expect(screen.getByText(`Tasks (${tasks.length})`)).toBeInTheDocument()
