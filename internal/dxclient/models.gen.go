@@ -314,6 +314,15 @@ type AdminUserItem struct {
 	Role      string `json:"role"`
 }
 
+// AdoptTaskRequest defines model for Adopt-taskRequest.
+type AdoptTaskRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	IssueId string  `json:"issue_id"`
+	Slug    string  `json:"slug"`
+	TaskId  string  `json:"task_id"`
+}
+
 // AgentItem defines model for AgentItem.
 type AgentItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -5243,6 +5252,9 @@ type UpdateSpecsJSONRequestBody = UpdateSpecsRequest
 // SetStateJSONRequestBody defines body for SetState for application/json ContentType.
 type SetStateJSONRequestBody = SetStateRequest
 
+// AdoptTaskJSONRequestBody defines body for AdoptTask for application/json ContentType.
+type AdoptTaskJSONRequestBody = AdoptTaskRequest
+
 // SimilarTasksJSONRequestBody defines body for SimilarTasks for application/json ContentType.
 type SimilarTasksJSONRequestBody = SimilarTasksRequest
 
@@ -6357,6 +6369,11 @@ type ClientInterface interface {
 
 	// ListTaskReviews request
 	ListTaskReviews(ctx context.Context, params *ListTaskReviewsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AdoptTaskWithBody request with any body
+	AdoptTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AdoptTask(ctx context.Context, body AdoptTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SimilarTasksWithBody request with any body
 	SimilarTasksWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -10736,6 +10753,30 @@ func (c *APIClient) SetState(ctx context.Context, body SetStateJSONRequestBody, 
 
 func (c *APIClient) ListTaskReviews(ctx context.Context, params *ListTaskReviewsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListTaskReviewsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AdoptTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdoptTaskRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AdoptTask(ctx context.Context, body AdoptTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAdoptTaskRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -23900,6 +23941,46 @@ func NewListTaskReviewsRequest(server string, params *ListTaskReviewsParams) (*h
 	return req, nil
 }
 
+// NewAdoptTaskRequest calls the generic AdoptTask builder with application/json body
+func NewAdoptTaskRequest(server string, body AdoptTaskJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAdoptTaskRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAdoptTaskRequestWithBody generates requests for AdoptTask with any type of body
+func NewAdoptTaskRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/tasks/adopt")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSimilarTasksRequest calls the generic SimilarTasks builder with application/json body
 func NewSimilarTasksRequest(server string, body SimilarTasksJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -29192,6 +29273,11 @@ type ClientWithResponsesInterface interface {
 
 	// ListTaskReviewsWithResponse request
 	ListTaskReviewsWithResponse(ctx context.Context, params *ListTaskReviewsParams, reqEditors ...RequestEditorFn) (*ParsedListTaskReviewsResponse, error)
+
+	// AdoptTaskWithBodyWithResponse request with any body
+	AdoptTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdoptTaskResponse, error)
+
+	AdoptTaskWithResponse(ctx context.Context, body AdoptTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*AdoptTaskResponse, error)
 
 	// SimilarTasksWithBodyWithResponse request with any body
 	SimilarTasksWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarTasksResponse, error)
@@ -34747,6 +34833,29 @@ func (r ParsedListTaskReviewsResponse) StatusCode() int {
 	return 0
 }
 
+type AdoptTaskResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *TaskItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AdoptTaskResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AdoptTaskResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedSimilarTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -39572,6 +39681,23 @@ func (c *ClientWithResponses) ListTaskReviewsWithResponse(ctx context.Context, p
 		return nil, err
 	}
 	return ParseParsedListTaskReviewsResponse(rsp)
+}
+
+// AdoptTaskWithBodyWithResponse request with arbitrary body returning *AdoptTaskResponse
+func (c *ClientWithResponses) AdoptTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdoptTaskResponse, error) {
+	rsp, err := c.AdoptTaskWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdoptTaskResponse(rsp)
+}
+
+func (c *ClientWithResponses) AdoptTaskWithResponse(ctx context.Context, body AdoptTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*AdoptTaskResponse, error) {
+	rsp, err := c.AdoptTask(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAdoptTaskResponse(rsp)
 }
 
 // SimilarTasksWithBodyWithResponse request with arbitrary body returning *ParsedSimilarTasksResponse
@@ -48094,6 +48220,39 @@ func ParseParsedListTaskReviewsResponse(rsp *http.Response) (*ParsedListTaskRevi
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListTaskReviewsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAdoptTaskResponse parses an HTTP response from a AdoptTaskWithResponse call
+func ParseAdoptTaskResponse(rsp *http.Response) (*AdoptTaskResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AdoptTaskResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TaskItem
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

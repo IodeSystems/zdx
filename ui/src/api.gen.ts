@@ -3302,6 +3302,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/tasks/adopt": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["adopt-task"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/tasks/similar": {
         parameters: {
             query?: never;
@@ -4917,6 +4933,17 @@ export interface components {
             id: number;
             name: string;
             role: string;
+        };
+        "Adopt-taskRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Adopt-taskRequest.json
+             */
+            readonly $schema?: string;
+            issue_id: string;
+            slug: string;
+            task_id: string;
         };
         AgentItem: {
             /**
@@ -16992,6 +17019,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-task-reviewsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "adopt-task": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Adopt-taskRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TaskItem"];
                 };
             };
             /** @description Error */

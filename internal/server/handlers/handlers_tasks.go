@@ -687,6 +687,64 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	// ── Task adopt (link orphan task to issue) ───────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "adopt-task", Method: http.MethodPost, Path: "/api/dx/tasks/adopt"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug    string `json:"slug"`
+				TaskID  string `json:"task_id"`
+				IssueID string `json:"issue_id"`
+			}
+		}) (*struct{ Body TaskItem }, error) {
+			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if !strings.HasPrefix(in.Body.TaskID, "TK-") {
+				return nil, apiErr(400, "expected task_id like TK-N, got "+in.Body.TaskID)
+			}
+			if !strings.HasPrefix(in.Body.IssueID, "IS-") {
+				return nil, apiErr(400, "expected issue_id like IS-N, got "+in.Body.IssueID)
+			}
+			task, err := h.Q.GetTask(ctx, in.Body.TaskID)
+			if err != nil {
+				return nil, apiErr(404, "task not found: "+in.Body.TaskID)
+			}
+			if task.ProjectID != p.ID {
+				return nil, apiErr(404, "task not found: "+in.Body.TaskID)
+			}
+			switch task.Status {
+			case "ready", "wip", "active", "blocked":
+			default:
+				return nil, apiErr(409, in.Body.TaskID+" is "+task.Status+" — adopt is only allowed for ready/wip/active/blocked tasks")
+			}
+			if task.Issue != "" {
+				return nil, apiErr(409, in.Body.TaskID+" is already linked to "+task.Issue+" — release the link before re-adopting")
+			}
+			iss, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: in.Body.IssueID})
+			if err != nil {
+				return nil, apiErr(404, "issue not found: "+in.Body.IssueID)
+			}
+			if iss.Status != "open" && iss.Status != "wip" {
+				return nil, apiErr(400, in.Body.IssueID+" is "+iss.Status+" — pick an open issue")
+			}
+			if err := h.Q.AdoptTaskToIssue(ctx, db.AdoptTaskToIssueParams{ID: in.Body.TaskID, Issue: in.Body.IssueID}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			h.refreshQueueAsync(p.ID)
+			row, err := h.Q.GetTask(ctx, in.Body.TaskID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body TaskItem }{Body: toTaskItem(db.ZdxTask{
+				ID: row.ID, ProjectID: row.ProjectID, Title: row.Title, Text: row.Text, Feature: row.Feature,
+				Status: row.Status, Reason: row.Reason, Issue: row.Issue, Depends: row.Depends,
+				TestPlan: row.TestPlan, TestRefs: row.TestRefs, Spec: row.Spec, TaskGroup: row.TaskGroup,
+				CreatedAt: row.CreatedAt, CompletedAt: row.CompletedAt, UpdatedAt: row.UpdatedAt,
+			})}, nil
+		})
+
 	// ── Task delete (wip drafts only) ────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "delete-draft-task", Method: http.MethodPost, Path: "/api/dx/todo/task/delete"},

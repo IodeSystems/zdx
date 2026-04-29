@@ -3,6 +3,7 @@ package project
 import (
 	"fmt"
 	"strconv"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -15,6 +16,46 @@ func TaskCmd() *cobra.Command {
 	cmd.AddCommand(taskReadyCmd())
 	cmd.AddCommand(taskDeleteCmd())
 	cmd.AddCommand(taskReleaseCmd())
+	cmd.AddCommand(taskAdoptCmd())
+	return cmd
+}
+
+func taskAdoptCmd() *cobra.Command {
+	var issueFlag string
+	cmd := &cobra.Command{
+		Use:   "adopt <TK-N> --issue=<IS-N>",
+		Short: "Link an orphan task to a parent issue",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskID := args[0]
+			if !strings.HasPrefix(taskID, "TK-") {
+				return fmt.Errorf("expected TK-N, got %q", taskID)
+			}
+			if issueFlag == "" {
+				return fmt.Errorf("--issue is required")
+			}
+			if !strings.HasPrefix(issueFlag, "IS-") {
+				return fmt.Errorf("expected --issue=IS-N, got %q", issueFlag)
+			}
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+			resp, err := c.AdoptTaskWithResponse(cmd.Context(), dxclient.AdoptTaskRequest{
+				Slug:    slug,
+				TaskId:  taskID,
+				IssueId: issueFlag,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("linked %s → %s\n", taskID, issueFlag)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&issueFlag, "issue", "", "parent issue (IS-N)")
+	_ = cmd.MarkFlagRequired("issue")
 	return cmd
 }
 

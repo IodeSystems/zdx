@@ -11,6 +11,22 @@ import (
 
 var _ = metaquery.Query{}
 
+var MetaAdoptTaskToIssue = metaquery.Query{
+	Name:   "AdoptTaskToIssue",
+	Cmd:    ":exec",
+	Source: "tasks.sql",
+	SQL:    `UPDATE zdx_tasks SET issue = $1::text, updated_at = NOW() WHERE id = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "issue", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 2, Name: "id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapAdoptTaskToIssue returns a metaquery.Builder over MetaAdoptTaskToIssue, pre-bound with typed arguments.
+func WrapAdoptTaskToIssue(arg AdoptTaskToIssueParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaAdoptTaskToIssue, arg.Issue, arg.ID)
+}
+
 var MetaCancelOrphanedTasks = metaquery.Query{
 	Name:   "CancelOrphanedTasks",
 	Cmd:    ":many",

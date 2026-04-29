@@ -247,3 +247,7 @@ WHERE project_id = $1
   AND status = 'ready'
   AND (issue = '' OR issue IS NULL)
 ORDER BY created_at;
+
+-- name: AdoptTaskToIssue :exec
+-- Link an orphan task to a parent issue (zdx_tasks.issue = $2).
+UPDATE zdx_tasks SET issue = @issue::text, updated_at = NOW() WHERE id = @id;

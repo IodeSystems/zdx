@@ -11,6 +11,21 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const adoptTaskToIssue = `-- name: AdoptTaskToIssue :exec
+UPDATE zdx_tasks SET issue = $1::text, updated_at = NOW() WHERE id = $2
+`
+
+type AdoptTaskToIssueParams struct {
+	Issue string `db:"issue" json:"issue"`
+	ID    string `db:"id" json:"id"`
+}
+
+// Link an orphan task to a parent issue (zdx_tasks.issue = $2).
+func (q *Queries) AdoptTaskToIssue(ctx context.Context, arg AdoptTaskToIssueParams) error {
+	_, err := q.db.Exec(ctx, adoptTaskToIssue, arg.Issue, arg.ID)
+	return err
+}
+
 const cancelOrphanedTasks = `-- name: CancelOrphanedTasks :many
 UPDATE zdx_tasks t
 SET status = 'done',

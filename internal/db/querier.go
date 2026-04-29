@@ -22,6 +22,8 @@ type Querier interface {
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddSpecDeferral(ctx context.Context, arg AddSpecDeferralParams) error
+	// Link an orphan task to a parent issue (zdx_tasks.issue = $2).
+	AdoptTaskToIssue(ctx context.Context, arg AdoptTaskToIssueParams) error
 	AnswerBlockerQuestion(ctx context.Context, arg AnswerBlockerQuestionParams) error
 	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
