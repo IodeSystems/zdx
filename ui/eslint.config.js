@@ -47,6 +47,6 @@ export default tseslint.config(
     },
   },
   {
-    ignores: ['dist/', 'src/routeTree.gen.ts', 'src/api.gen.ts'],
+    ignores: ['dist/', 'src/routeTree.gen.ts', 'src/api.gen.ts', '*.cjs'],
   },
 )
