@@ -226,6 +226,7 @@ type Querier interface {
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
 	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (InsertJournalEntryRow, error)
+	InsertKpiSample(ctx context.Context, arg InsertKpiSampleParams) (ZdxKpiSample, error)
 	InsertLogEvent(ctx context.Context, arg InsertLogEventParams) error
 	InsertPattern(ctx context.Context, arg InsertPatternParams) (ZdxPattern, error)
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
@@ -322,6 +323,7 @@ type Querier interface {
 	// Excludes agent-authored comments (author_alias != '') so agents don't review their own replies.
 	ListIssuesWithUnreadComments(ctx context.Context, arg ListIssuesWithUnreadCommentsParams) ([]ListIssuesWithUnreadCommentsRow, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ListJournalEntriesRow, error)
+	ListKpiTrend(ctx context.Context, arg ListKpiTrendParams) ([]ZdxKpiSample, error)
 	ListLLMConfigs(ctx context.Context) ([]ListLLMConfigsRow, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
 	ListLogEvents(ctx context.Context, arg ListLogEventsParams) ([]ZdxLogEvent, error)

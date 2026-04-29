@@ -393,6 +393,16 @@ type ZdxJournalEntry struct {
 	NeedsReview   bool               `db:"needs_review" json:"needs_review"`
 }
 
+type ZdxKpiSample struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	SampledAt pgtype.Timestamptz `db:"sampled_at" json:"sampled_at"`
+	Scope     string             `db:"scope" json:"scope"`
+	CheckName string             `db:"check_name" json:"check_name"`
+	Value     float64            `db:"value" json:"value"`
+	Unit      string             `db:"unit" json:"unit"`
+}
+
 type ZdxLlmConfig struct {
 	Type           string             `db:"type" json:"type"`
 	Url            string             `db:"url" json:"url"`

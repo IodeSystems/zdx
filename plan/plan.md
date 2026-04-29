@@ -154,8 +154,11 @@ Initial set (extensible):
 - `agent_action` — agent did something (claimed todo, posted PR, ran command); `summary_json` is one-liner, `detail_json` includes full transcript ref
 - `metric_update` — feature metric changed (where applicable)
 - `link` — cross-reference created (issue↔proposal, plan step↔issue)
+- `reaction` — emoji reaction. Hidden from UI by default; included in agent `summary_json` so LLMs can read sentiment/endorsement. Replaces the `zdx_comment_reactions` table.
 
-Each lives in `internal/events/types/<type>.go` with a `Renderer` interface (Summary, Detail, ReactComponentName).
+Each event type declares an `audience` set ∈ {ui, agent}. Default `{ui, agent}`; `reaction` defaults to `{agent}` only. The `<EventStream />` filters by audience; agent serializers include all events regardless.
+
+Each lives in `internal/events/types/<type>.go` with a `Renderer` interface (Summary, Detail, ReactComponentName, Audience).
 
 ## UI
 
@@ -206,6 +209,9 @@ Migration NNN (next free number):
 
 ## Open questions (resolve before step 1)
 
-- Reactions: keep current emoji-reaction model on events, or fold into a dedicated `reaction` event type? (Default: keep table, retarget.)
 - Status changes today are inferred from row updates, not logged. Do we backfill from `updated_at` (lossy) or accept that pre-migration history shows no status_change events?
 - Is `zdx_comment_reads` (read-state tracking) preserved as-is, retargeted to events?
+
+## Resolved
+
+- Reactions are a `reaction` event type, not a separate table. Hidden from UI by default; visible to agents via `summary_json`. Drops `zdx_comment_reactions` on migration. (2026-04-29)
