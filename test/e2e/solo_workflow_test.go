@@ -1048,3 +1048,52 @@ func TestSoloDevDone(t *testing.T) {
 
 	d.CloseIssue(sc.Issues[0])
 }
+
+func TestTaskUndoneRequeues(t *testing.T) {
+	d := NewApiDriver(t, "task-undone-requeues", "Task Undone Requeues")
+	sc := Given(d).
+		TriagedIssue("Spec 77 issue", "verify undone reverts and requeues", 3).
+		Task(0, "Implement the feature").
+		Build()
+	issueID := sc.Issues[0]
+	taskID := sc.Tasks[0]
+
+	d.MarkTaskDone(taskID)
+
+	tasks := d.ListTasks(issueID)
+	var found bool
+	for _, tk := range tasks {
+		if tk.ID == taskID {
+			found = true
+			if tk.Status != "done" {
+				t.Errorf("status after done: want done, got %q", tk.Status)
+			}
+		}
+	}
+	if !found {
+		t.Fatal("task not found after MarkTaskDone")
+	}
+
+	d.MarkTaskUndone(taskID)
+
+	tasks = d.ListTasks(issueID)
+	for _, tk := range tasks {
+		if tk.ID == taskID && tk.Status != "ready" {
+			t.Errorf("status after undone: want ready, got %q", tk.Status)
+		}
+	}
+
+	queue := d.EvaluateQueue("")
+	var inQueue bool
+	for _, item := range queue {
+		if item.TargetID == fmt.Sprintf("TK-%d", taskID) {
+			inQueue = true
+			break
+		}
+	}
+	if !inQueue {
+		t.Errorf("task TK-%d not found in queue after undone", taskID)
+	}
+
+	d.CloseIssue(issueID)
+}

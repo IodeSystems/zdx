@@ -77,6 +77,12 @@ func (d *ApiDriver) MarkTaskDone(taskID int32) {
 		map[string]any{"id": taskID}, nil))
 }
 
+func (d *ApiDriver) MarkTaskUndone(taskID int32) {
+	d.t.Helper()
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/dev/undone",
+		map[string]any{"id": taskID}, nil))
+}
+
 func (d *ApiDriver) GetTask(taskID int32) TaskInfo {
 	d.t.Helper()
 	var resp TaskInfo

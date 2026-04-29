@@ -1133,6 +1133,57 @@ func TestDemoCLI_TriageClarifyQuestions(t *testing.T) {
 	}
 }
 
+// TestDemoCLI_TodoDevUndone is the demo for spec 77: given a completed task, when
+// dev undone is run with TK-N, then the task status reverts to pending and it
+// re-enters the queue.
+func TestDemoCLI_TodoDevUndone(t *testing.T) {
+	rec := newRecorder(t, "todo-dev-undone", "bin/dx")
+	t.Cleanup(rec.Save)
+
+	rec.Run("issue", "add", "--title=Fix memory leak in cache layer", "--auto-ready")
+	issueID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if issueID == "" {
+		t.Fatal("could not extract issue ID")
+	}
+	rec.Run("todo", "owner", "triage", issueID, "--priority=2")
+
+	rec.Run("todo", "tech", "add", "--issue="+issueID, "--text=Profile and patch the cache eviction path")
+	taskID := extractFirstID(rec.steps[len(rec.steps)-1].Stdout)
+	if taskID == "" {
+		t.Fatal("could not extract task ID")
+	}
+
+	// Mark the task done so we have a completed task to revert.
+	rec.Run("todo", "dev", "done", taskID, "--test-plan=Ran heap profiler; confirmed eviction no longer leaks")
+	rec.Run("todo", "show", taskID)
+	showDone := rec.steps[len(rec.steps)-1].Stdout
+	if !strings.Contains(showDone, "done") {
+		t.Errorf("expected status 'done' before undone, got:\n%s", showDone)
+	}
+
+	// Revert: undone should flip status back to pending and re-queue the task.
+	rec.Run("todo", "dev", "undone", taskID)
+
+	rec.Run("todo", "show", taskID)
+	showAfter := rec.steps[len(rec.steps)-1].Stdout
+	if strings.Contains(showAfter, "done") && !strings.Contains(showAfter, "undone") {
+		t.Errorf("expected status to revert from 'done' after undone, got:\n%s", showAfter)
+	}
+
+	// Confirm the task re-enters the issue-scoped queue.
+	rec.Run("todo", "solo", "--issue="+issueID)
+	queueOut := rec.steps[len(rec.steps)-1].Stdout
+	if !strings.Contains(queueOut, taskID) {
+		t.Errorf("expected %s in queue output after undone, got:\n%s", taskID, queueOut)
+	}
+
+	for _, s := range rec.steps {
+		if s.ExitCode != 0 {
+			t.Errorf("step %q exited %d:\n%s", s.Cmd, s.ExitCode, s.Stderr)
+		}
+	}
+}
+
 // TestDemoCLI_TodoDevDone is the demo for spec 76: given a pending or in-progress
 // task, when dev done is run with TK-N, then the task status becomes done with
 // completed_at set. Exercises both the pending→done and in-progress→done paths.
