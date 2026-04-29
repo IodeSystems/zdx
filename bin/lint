@@ -46,11 +46,11 @@ run "sqlcvet" bash -c '
   "$SQLC" vet
 '
 
-run "tsc" bash -c 'cd ui && npx tsc --noEmit'
+run "tsc" bash -c 'cd ui && pnpm exec tsc --noEmit'
 
-run "eslint" bash -c 'cd ui && npm run lint'
+run "eslint" bash -c 'cd ui && pnpm run lint'
 
-run "knip" bash -c 'cd ui && npm run lint:knip'
+run "knip" bash -c 'cd ui && pnpm run lint:knip'
 
 run "sqlc-drift" bash -c '
   SQLC=$(command -v sqlc || echo "$HOME/go/bin/sqlc")

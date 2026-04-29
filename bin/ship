@@ -156,7 +156,7 @@ if ! $SKIP_BUILD; then
     echo "[ship] UI unchanged (${UI_HASH:0:8}) — skipping rebuild."
   else
     echo "[ship] Building UI..."
-    (cd ui && npm ci --silent --legacy-peer-deps && npm run build 2>&1 | tail -3)
+    (cd ui && pnpm install --frozen-lockfile && pnpm run build 2>&1 | tail -3)
     echo "$UI_HASH" > "$UI_HASH_FILE"
   fi
 

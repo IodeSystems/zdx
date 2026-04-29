@@ -9,7 +9,7 @@ gen-dxclient:
 	go run ./cmd/dx-client-gen
 
 ui:
-	cd ui && npm ci && npm run build
+	cd ui && pnpm install --frozen-lockfile && pnpm run build
 
 test:
 	go test ./...
