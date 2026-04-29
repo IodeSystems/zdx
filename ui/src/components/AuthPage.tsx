@@ -3,12 +3,14 @@ import {
   Box,
   Button,
   CircularProgress,
+  Divider,
   Tab,
   Tabs,
   TextField,
   Typography,
 } from '@mui/material'
 import { useLogin, useRegister, useTokenLogin } from '../api'
+import { OAuthLoginButtons } from './OAuthLoginButtons'
 
 export function AuthPage() {
   const [tab, setTab] = useState<'login' | 'token' | 'register'>('login')
@@ -45,6 +47,8 @@ function LoginTab() {
       <Button fullWidth variant="contained" type="submit" disabled={isPending}>
         {isPending ? <CircularProgress size={20} /> : 'Log in'}
       </Button>
+      <Divider sx={{ my: 2 }} />
+      <OAuthLoginButtons redirectTo="/" />
     </Box>
   )
 }
