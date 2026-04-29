@@ -4,6 +4,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"io"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -96,12 +97,8 @@ func agentStartCmd() *cobra.Command {
 			if agentCfg.LLMProvider == "claude" && !state.ClaudeInstalled {
 				return fmt.Errorf("claude CLI not found in PATH; install it before using the claude agent provider")
 			}
-			needsDocker := state.Classification == doctor.ClassService || state.Classification == doctor.ClassSaaS
-			if !state.DockerAvailable {
-				if needsDocker {
-					return fmt.Errorf("docker daemon is not running; %s projects require docker for agent isolation", state.Classification)
-				}
-				fmt.Fprintf(os.Stderr, "warning: docker not available — compose-based isolation will be unavailable\n")
+			if err := checkDockerRequirement(state, os.Stderr); err != nil {
+				return err
 			}
 
 			// Check worktree slot availability.
@@ -203,6 +200,19 @@ func agentStartCmd() *cobra.Command {
 	cmd.Flags().StringVar(&taskGroup, "task-group", "", "task group filter")
 	cmd.Flags().Int32Var(&serverPort, "port", 0, "server port (auto-assigned if 0)")
 	return cmd
+}
+
+// checkDockerRequirement returns an error for isolated classifications when
+// Docker is unavailable, and emits a warning to stderr for non-isolated ones.
+func checkDockerRequirement(state *doctor.ProjectState, stderr io.Writer) error {
+	needsDocker := state.Classification == doctor.ClassService || state.Classification == doctor.ClassSaaS
+	if !state.DockerAvailable {
+		if needsDocker {
+			return fmt.Errorf("docker daemon is not running; %s projects require docker for agent isolation", state.Classification)
+		}
+		fmt.Fprintf(stderr, "warning: docker not available — compose-based isolation will be unavailable\n")
+	}
+	return nil
 }
 
 func agentListCmd() *cobra.Command {
