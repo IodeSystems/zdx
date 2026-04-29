@@ -18,6 +18,7 @@ type TodoItem struct {
 	TargetType      string `json:"target_type"`
 	TargetID        string `json:"target_id"`
 	IssueRef        string `json:"issue_ref"`
+	TargetBranch    string `json:"target_branch"`
 	ProjectSlug     string `json:"project_slug"`
 	SuggestedAction string `json:"suggested_action"`
 	ClaimedBy       string `json:"claimed_by"`

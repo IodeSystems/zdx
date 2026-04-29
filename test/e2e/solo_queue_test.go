@@ -674,6 +674,56 @@ func TestQueueUnifiedMixedSources(t *testing.T) {
 	requireKind(t, scopedItems, "clarify")
 }
 
+// TestQueueBackportTargetBranch covers spec 177: given backport tasks for supported
+// version branches, when the solo queue evaluates, then backport tasks surface with
+// the target branch name and version context so agents know which branch to work on.
+func TestQueueBackportTargetBranch(t *testing.T) {
+	d := NewApiDriver(t, "q-backport-branch", "Queue Backport Target Branch")
+
+	// Build the backport scenario: triaged issue with a ready task, then set target_branch.
+	sc := Given(d).
+		HealthPrereqs().
+		TriagedIssue("Backport fix to v1.2", "cherry-pick the login fix onto the v1.2 release branch", 2).
+		Task(0, "Cherry-pick the login fix onto v1.2").
+		Build()
+
+	// Set target_branch on the already-triaged issue.
+	issueID := sc.Issues[0]
+	d.TriageIssueWithBranch(issueID, 2, "v1.2")
+
+	issueRef := fmt.Sprintf("IS-%d", issueID)
+
+	// Evaluate scoped to this issue: the dev item must carry TargetBranch="v1.2".
+	items := d.EvaluateQueue(issueRef)
+	item := requireKind(t, items, "dev")
+	if item.TargetBranch != "v1.2" {
+		t.Errorf("evaluate dev item target_branch: want %q got %q", "v1.2", item.TargetBranch)
+	}
+
+	// Claim: the claimed TodoItem must also carry TargetBranch="v1.2".
+	claimed, status := soloClaimNext(t, d.Slug, "test-agent-backport")
+	if status != 200 {
+		t.Fatalf("solo/claim: want 200, got %d", status)
+	}
+	if claimed.Kind != "dev" {
+		t.Fatalf("claimed kind: want %q got %q", "dev", claimed.Kind)
+	}
+	if claimed.TargetBranch != "v1.2" {
+		t.Errorf("claimed todo target_branch: want %q got %q", "v1.2", claimed.TargetBranch)
+	}
+
+	// Negative case: a plain issue without explicit branch defaults to "dev".
+	d2 := NewApiDriver(t, "q-backport-branch-dev", "Queue Backport Default Dev Branch")
+	sc2 := Given(d2).HealthPrereqs().TriagedIssue("Normal fix on dev", "no explicit branch", 2).Task(0, "Implement the fix").Build()
+	issue2Ref := fmt.Sprintf("IS-%d", sc2.Issues[0])
+
+	items2 := d2.EvaluateQueue(issue2Ref)
+	item2 := requireKind(t, items2, "dev")
+	if item2.TargetBranch != "dev" {
+		t.Errorf("default branch dev item target_branch: want %q got %q", "dev", item2.TargetBranch)
+	}
+}
+
 func kindsOf(items []SoloQueueItem) []string {
 	kinds := make([]string, len(items))
 	for i, it := range items {

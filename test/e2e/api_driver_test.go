@@ -41,6 +41,12 @@ func (d *ApiDriver) TriageIssue(id, priority int32) {
 		map[string]any{"slug": d.Slug, "id": id, "priority": priority}, nil))
 }
 
+func (d *ApiDriver) TriageIssueWithBranch(id, priority int32, branch string) {
+	d.t.Helper()
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/owner/triage",
+		map[string]any{"slug": d.Slug, "id": id, "priority": priority, "target_branch": branch}, nil))
+}
+
 func (d *ApiDriver) CloseIssue(id int32) {
 	d.t.Helper()
 	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/issue/close",
@@ -351,16 +357,17 @@ func (d *ApiDriver) SweepStaleTasks(staleDays int32) int {
 }
 
 type SoloQueueItem struct {
-	Key        string `json:"key"`
-	Text       string `json:"text"`
-	Kind       string `json:"kind"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	IssueRef   string `json:"issue_ref"`
-	Priority   int32  `json:"priority"`
-	Blocked    bool   `json:"blocked"`
-	Persona    string `json:"persona"`
-	Status     string `json:"status"`
+	Key          string `json:"key"`
+	Text         string `json:"text"`
+	Kind         string `json:"kind"`
+	TargetType   string `json:"target_type"`
+	TargetID     string `json:"target_id"`
+	IssueRef     string `json:"issue_ref"`
+	TargetBranch string `json:"target_branch"`
+	Priority     int32  `json:"priority"`
+	Blocked      bool   `json:"blocked"`
+	Persona      string `json:"persona"`
+	Status       string `json:"status"`
 }
 
 func (d *ApiDriver) EvaluateQueue(issue string) []SoloQueueItem {

@@ -25,6 +25,7 @@ type soloCandidate struct {
 	TargetType    string
 	TargetID      string
 	IssueRef      string
+	TargetBranch  string
 	Priority      int32
 	Blocked       bool
 	BlockedReason string
@@ -556,30 +557,32 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if len(tasks) > 0 && allDone {
 				clh := workflowhints.ClosableIssueText(iss.ID, iss.Title)
 				candidates = append(candidates, soloCandidate{
-					Key:         fmt.Sprintf("closable-%s", iss.ID),
-					Title:       clh.Title,
-					Description: clh.Description,
-					Text:        clh.Instructions,
-					Kind:        "closable",
-					TargetType:  "issue",
-					TargetID:    iss.ID,
-					IssueRef:    iss.ID,
-					Priority:    foldIssuePriority(35, iss.Priority),
-					Persona:     "dev",
+					Key:          fmt.Sprintf("closable-%s", iss.ID),
+					Title:        clh.Title,
+					Description:  clh.Description,
+					Text:         clh.Instructions,
+					Kind:         "closable",
+					TargetType:   "issue",
+					TargetID:     iss.ID,
+					IssueRef:     iss.ID,
+					TargetBranch: iss.TargetBranch,
+					Priority:     foldIssuePriority(35, iss.Priority),
+					Persona:      "dev",
 				})
 			} else if len(tasks) == 0 {
 				dih := workflowhints.DecomposeIssueText(iss.ID, iss.Title)
 				candidates = append(candidates, soloCandidate{
-					Key:         fmt.Sprintf("add-%s", iss.ID),
-					Title:       dih.Title,
-					Description: dih.Description,
-					Text:        dih.Instructions,
-					Kind:        "add",
-					TargetType:  "issue",
-					TargetID:    iss.ID,
-					IssueRef:    iss.ID,
-					Priority:    foldIssuePriority(38, iss.Priority),
-					Persona:     "dev",
+					Key:          fmt.Sprintf("add-%s", iss.ID),
+					Title:        dih.Title,
+					Description:  dih.Description,
+					Text:         dih.Instructions,
+					Kind:         "add",
+					TargetType:   "issue",
+					TargetID:     iss.ID,
+					IssueRef:     iss.ID,
+					TargetBranch: iss.TargetBranch,
+					Priority:     foldIssuePriority(38, iss.Priority),
+					Persona:      "dev",
 				})
 			}
 		}
@@ -592,16 +595,17 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			if t.Status == "ready" {
 				dth := workflowhints.DevTaskText(t.ID, t.Title, iss.ID)
 				candidates = append(candidates, soloCandidate{
-					Key:         fmt.Sprintf("dev-%s", t.ID),
-					Title:       dth.Title,
-					Description: dth.Description,
-					Text:        dth.Instructions,
-					Kind:        "dev",
-					TargetType:  "task",
-					TargetID:    t.ID,
-					IssueRef:    iss.ID,
-					Priority:    foldIssuePriority(40, iss.Priority),
-					Persona:     "dev",
+					Key:          fmt.Sprintf("dev-%s", t.ID),
+					Title:        dth.Title,
+					Description:  dth.Description,
+					Text:         dth.Instructions,
+					Kind:         "dev",
+					TargetType:   "task",
+					TargetID:     t.ID,
+					IssueRef:     iss.ID,
+					TargetBranch: iss.TargetBranch,
+					Priority:     foldIssuePriority(40, iss.Priority),
+					Persona:      "dev",
 				})
 			}
 		}
@@ -626,10 +630,23 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 	}
 
-	// Stable sort by priority ascending (lower = wins). Generation order is
-	// preserved on ties so the diff in the evaluate endpoint stays readable.
+	// Sort by priority ascending; within equal priority, dev-targeted items lead
+	// and same-branch items stay contiguous (spec 178).
 	sort.SliceStable(candidates, func(i, j int) bool {
-		return candidates[i].Priority < candidates[j].Priority
+		if candidates[i].Priority != candidates[j].Priority {
+			return candidates[i].Priority < candidates[j].Priority
+		}
+		bi, bj := candidates[i].TargetBranch, candidates[j].TargetBranch
+		if bi == "" {
+			bi = "dev"
+		}
+		if bj == "" {
+			bj = "dev"
+		}
+		if (bi == "dev") != (bj == "dev") {
+			return bi == "dev"
+		}
+		return bi < bj
 	})
 
 	return candidates, nil
@@ -644,6 +661,7 @@ type SoloQueueItem struct {
 	TargetType      string `json:"target_type"`
 	TargetID        string `json:"target_id"`
 	IssueRef        string `json:"issue_ref"`
+	TargetBranch    string `json:"target_branch,omitempty"`
 	Priority        int32  `json:"priority"`
 	Blocked         bool   `json:"blocked"`
 	BlockedReason   string `json:"blocked_reason,omitempty"`
@@ -844,7 +862,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				item := SoloQueueItem{
 					Key: c.Key, Title: c.Title, Description: c.Description, Text: c.Text, Kind: c.Kind,
 					TargetType: c.TargetType, TargetID: c.TargetID,
-					IssueRef: c.IssueRef, Priority: c.Priority,
+					IssueRef: c.IssueRef, TargetBranch: c.TargetBranch, Priority: c.Priority,
 					Blocked: c.Blocked, BlockedReason: c.BlockedReason, Persona: c.Persona, Status: "open",
 					SuggestedAction: suggestedActionForKind(c.Kind, c.TargetType, c.TargetID),
 				}
