@@ -178,3 +178,62 @@ func TestIssueDefaultTargetBranch(t *testing.T) {
 		t.Errorf("show response target_branch: want %q got %q", "dev", got)
 	}
 }
+
+func TestKpiSampleAndTrend(t *testing.T) {
+	apiDo(t, http.MethodPost, "/api/project",
+		map[string]string{"slug": "e2e-kpi", "name": "E2E KPI"},
+		nil,
+	)
+
+	var s1 struct {
+		ID        int64  `json:"id"`
+		SampledAt string `json:"sampled_at"`
+	}
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/kpi/sample",
+		map[string]any{"slug": "e2e-kpi", "scope": "tech", "check_name": "coverage", "value": 82.5, "unit": "%"},
+		&s1,
+	))
+	if s1.ID == 0 {
+		t.Error("first sample: id should be non-zero")
+	}
+	if s1.SampledAt == "" {
+		t.Error("first sample: sampled_at should be non-empty")
+	}
+
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/kpi/sample",
+		map[string]any{"slug": "e2e-kpi", "scope": "tech", "check_name": "coverage", "value": 83.0, "unit": "%"},
+		nil,
+	))
+
+	var trend struct {
+		Items []struct {
+			ID        int64   `json:"id"`
+			SampledAt string  `json:"sampled_at"`
+			Scope     string  `json:"scope"`
+			CheckName string  `json:"check_name"`
+			Value     float64 `json:"value"`
+			Unit      string  `json:"unit"`
+		} `json:"items"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet,
+		"/api/dx/kpi/trend?slug=e2e-kpi&scope=tech&check_name=coverage&n=5",
+		nil, &trend,
+	))
+	if len(trend.Items) != 2 {
+		t.Errorf("trend items: want 2, got %d", len(trend.Items))
+	}
+	if len(trend.Items) >= 2 && trend.Items[0].Value < trend.Items[1].Value {
+		t.Error("trend: items should be ordered by sampled_at desc (newest first)")
+	}
+
+	var empty struct {
+		Items []struct{} `json:"items"`
+	}
+	mustOK(t, apiDo(t, http.MethodGet,
+		"/api/dx/kpi/trend?slug=e2e-kpi&scope=tech&check_name=unknown-check&n=5",
+		nil, &empty,
+	))
+	if len(empty.Items) != 0 {
+		t.Errorf("unknown check_name: want 0 items, got %d", len(empty.Items))
+	}
+}
