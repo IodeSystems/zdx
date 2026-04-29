@@ -93,7 +93,7 @@ type ProjectState struct {
 	RawAPICallsFiles int // total files with raw callsites
 
 	// Layered BDD test architecture
-	UXSpecCount          int  // specs with concern_type=ux
+	SpecCount            int  // total spec count across features
 	DemoTestResultsExist bool // at least one demo-layer test result recorded
 	UsesStepDriver       bool // codebase has StepDriver usage in test files
 
@@ -413,8 +413,8 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		if c != ClassService && c != ClassSaaS && c != ClassSite {
 			return true, "not applicable for this classification", nil, ""
 		}
-		if state.UXSpecCount < 5 {
-			return true, fmt.Sprintf("%d UX specs (need 5+)", state.UXSpecCount), nil, ""
+		if state.SpecCount < 5 {
+			return true, fmt.Sprintf("%d specs (need 5+)", state.SpecCount), nil, ""
 		}
 		if !state.DemoTestResultsExist {
 			return true, "no demo-layer test results recorded yet", nil, ""
@@ -422,7 +422,7 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		if state.UsesStepDriver {
 			return true, "StepDriver pattern already in use", nil, ""
 		}
-		return false, fmt.Sprintf("%d UX specs and demo tests present, but no StepDriver pattern in test files", state.UXSpecCount), nil,
+		return false, fmt.Sprintf("%d specs and demo tests present, but no StepDriver pattern in test files", state.SpecCount), nil,
 			"Adopt layered BDD test architecture: extract step interfaces with `Capability() DriverSet`, wire `given` steps to API driver always, route `when/then` to the selected driver. See `dx pattern show layered-bdd-tests` for the reference pattern."
 
 	case "has_deploy_config", "has_healthcheck", "has_auth", "has_tenant_isolation":

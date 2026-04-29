@@ -670,8 +670,7 @@ type ZdxSpec struct {
 	ID          int32  `db:"id" json:"id"`
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
+	Importance  string `db:"importance" json:"importance"`
 }
 
 type ZdxSpecCodeRef struct {

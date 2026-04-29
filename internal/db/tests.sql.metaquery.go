@@ -392,7 +392,7 @@ var MetaListSpecsCoveredByTest = metaquery.Query{
 	Name:   "ListSpecsCoveredByTest",
 	Cmd:    ":many",
 	Source: "tests.sql",
-	SQL: `SELECT s.id, s.feature_id, s.description, s.kind
+	SQL: `SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE st.test_id = $1 ORDER BY s.id`,
@@ -400,7 +400,7 @@ WHERE st.test_id = $1 ORDER BY s.id`,
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "test_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -417,12 +417,12 @@ var ListSpecsCoveredByTestCols = struct {
 	ID          metaquery.IntCol
 	FeatureID   metaquery.IntCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaListTestDemos = metaquery.Query{

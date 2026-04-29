@@ -5659,14 +5659,13 @@ export interface components {
         };
         DeferredSpecItem: {
             blockers: components["schemas"]["SpecDeferralItem"][] | null;
-            concern_type: string;
             description: string;
             /** Format: int32 */
             feature_id: number;
             feature_name: string;
             /** Format: int32 */
             id: number;
-            kind: string;
+            importance: string;
         };
         "Delete-code-refRequest": {
             /**
@@ -8665,14 +8664,13 @@ export interface components {
             score: number;
         };
         SimilarSpecItem: {
-            concern_type: string;
             description: string;
             /** Format: int32 */
             feature_id: number;
             feature_name: string;
             /** Format: int32 */
             id: number;
-            kind: string;
+            importance: string;
             /** Format: float */
             score: number;
         };
@@ -8902,11 +8900,10 @@ export interface components {
             title: string;
         };
         SpecItem: {
-            concern_type: string;
             description: string;
             /** Format: int32 */
             id: number;
-            kind: string;
+            importance: string;
         };
         SpecTaskItem: {
             id: string;
@@ -9280,7 +9277,7 @@ export interface components {
             feature_name: string;
             /** Format: int32 */
             id: number;
-            kind: string;
+            importance: string;
         };
         "Unlink-spec-issueRequest": {
             /**

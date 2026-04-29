@@ -123,8 +123,7 @@ func FeatureToCli(f dxclient.FeatureItem) clitypes.FeatureItem {
 			specs = append(specs, clitypes.SpecItem{
 				ID:          s.Id,
 				Description: s.Description,
-				Kind:        s.Kind,
-				ConcernType: s.ConcernType,
+				Importance:  s.Importance,
 			})
 		}
 	}

@@ -342,34 +342,27 @@ func (q *Queries) ListDemosForSpec(ctx context.Context, specID int32) ([]ListDem
 }
 
 const listSpecsCoveredByTest = `-- name: ListSpecsCoveredByTest :many
-SELECT s.id, s.feature_id, s.description, s.kind
+SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE st.test_id = $1 ORDER BY s.id
 `
 
-type ListSpecsCoveredByTestRow struct {
-	ID          int32  `db:"id" json:"id"`
-	FeatureID   int32  `db:"feature_id" json:"feature_id"`
-	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-}
-
 // Used to show what breaks if a test is deleted.
-func (q *Queries) ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ListSpecsCoveredByTestRow, error) {
+func (q *Queries) ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ZdxSpec, error) {
 	rows, err := q.db.Query(ctx, listSpecsCoveredByTest, testID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListSpecsCoveredByTestRow
+	var items []ZdxSpec
 	for rows.Next() {
-		var i ListSpecsCoveredByTestRow
+		var i ZdxSpec
 		if err := rows.Scan(
 			&i.ID,
 			&i.FeatureID,
 			&i.Description,
-			&i.Kind,
+			&i.Importance,
 		); err != nil {
 			return nil, err
 		}
@@ -382,7 +375,7 @@ func (q *Queries) ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]L
 }
 
 const listSpecsWithoutDemos = `-- name: ListSpecsWithoutDemos :many
-SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
+SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 JOIN zdx_spec_tests st ON st.spec_id = s.id
@@ -394,7 +387,7 @@ WHERE f.project_id = $1
     JOIN zdx_issues i ON i.id = sd.issue_id
     WHERE sd.spec_id = s.id AND i.status = 'open'
   )
-GROUP BY s.id, s.feature_id, s.description, s.kind, f.name
+GROUP BY s.id, s.feature_id, s.description, s.importance, f.name
 HAVING COUNT(td.id) = 0 AND COUNT(CASE WHEN t.component = 'demo' THEN 1 END) = 0
 ORDER BY f.name, s.id
 `
@@ -403,7 +396,7 @@ type ListSpecsWithoutDemosRow struct {
 	ID          int32  `db:"id" json:"id"`
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
+	Importance  string `db:"importance" json:"importance"`
 	FeatureName string `db:"feature_name" json:"feature_name"`
 }
 
@@ -423,7 +416,7 @@ func (q *Queries) ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([
 			&i.ID,
 			&i.FeatureID,
 			&i.Description,
-			&i.Kind,
+			&i.Importance,
 			&i.FeatureName,
 		); err != nil {
 			return nil, err

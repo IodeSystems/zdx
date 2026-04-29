@@ -422,7 +422,7 @@ func (h *Handler) handleDemoUpload(w http.ResponseWriter, r *http.Request) {
 type DemoSpec struct {
 	ID          int32  `json:"id"`
 	Description string `json:"description"`
-	Kind        string `json:"kind"`
+	Importance  string `json:"importance"`
 	FeatureID   int32  `json:"feature_id"`
 }
 
@@ -479,7 +479,7 @@ func (h *Handler) handleGetDemo(w http.ResponseWriter, r *http.Request) {
 		demoSpecs = append(demoSpecs, DemoSpec{
 			ID:          s.ID,
 			Description: s.Description,
-			Kind:        string(s.Kind),
+			Importance:  string(s.Importance),
 			FeatureID:   s.FeatureID,
 		})
 	}

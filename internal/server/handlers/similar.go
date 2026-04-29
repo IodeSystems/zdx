@@ -144,8 +144,7 @@ func (h *Handler) findSimilarSpecs(ctx context.Context, projectID int32, queryTe
 			FeatureID:   spec.FeatureID,
 			FeatureName: feat.Name,
 			Description: spec.Description,
-			Kind:        spec.Kind,
-			ConcernType: spec.ConcernType,
+			Importance:  spec.Importance,
 			Score:       r.Score,
 		})
 	}

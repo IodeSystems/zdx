@@ -127,12 +127,28 @@ func PrintFeatureItem(f clitypes.FeatureItem) {
 	}
 	if len(f.Specs) > 0 {
 		fmt.Printf("\nSpecs (%d):\n", len(f.Specs))
-		for _, s := range f.Specs {
-			ct := ""
-			if s.ConcernType != "" && s.ConcernType != "functional" {
-				ct = " " + s.ConcernType
+		tiers := []struct {
+			name  string
+			label string
+		}{
+			{"must", "MUST (deal-breaker)"},
+			{"should", "SHOULD (friction)"},
+			{"nice-to-have", "NICE-TO-HAVE (polish)"},
+		}
+		for _, tier := range tiers {
+			var matched []clitypes.SpecItem
+			for _, s := range f.Specs {
+				if s.Importance == tier.name {
+					matched = append(matched, s)
+				}
 			}
-			fmt.Printf("  %-4d [%-12s%s]  %s\n", s.ID, s.Kind, ct, s.Description)
+			if len(matched) == 0 {
+				continue
+			}
+			fmt.Printf("  %s\n", tier.label)
+			for _, s := range matched {
+				fmt.Printf("    %-4d  %s\n", s.ID, s.Description)
+			}
 		}
 	}
 }

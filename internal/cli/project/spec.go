@@ -105,7 +105,7 @@ func specAddCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&feature, "feature", "", "feature name")
 	cmd.Flags().StringVar(&text, "text", "", "spec statement (BDD style: 'given X, when Y, then Z')")
-	cmd.Flags().StringVar(&kind, "kind", "must", "requirement tier: must | should | nice-to-have")
+	cmd.Flags().StringVar(&kind, "importance", "must", "value-loss tier: must | should | nice-to-have")
 	cmd.MarkFlagRequired("feature")
 	cmd.MarkFlagRequired("text")
 	return cmd
@@ -134,7 +134,7 @@ func specListCmd() *cobra.Command {
 					return nil
 				}
 				for _, s := range *resp.JSON200.Specs {
-					fmt.Printf("%-4d [%-14s]  %s\n  feature: %s\n", s.Id, s.Kind, s.Description, s.FeatureName)
+					fmt.Printf("%-4d [%-14s]  %s\n  feature: %s\n", s.Id, s.Importance, s.Description, s.FeatureName)
 					if s.Blockers != nil {
 						for _, b := range *s.Blockers {
 							line := fmt.Sprintf("  - %s (%s) — %s", b.IssueId, b.IssueStatus, b.IssueTitle)
@@ -170,7 +170,7 @@ func specListCmd() *cobra.Command {
 					return nil
 				}
 				for _, s := range *f.Specs {
-					fmt.Printf("%-4d [%-14s]  %s\n", s.Id, s.Kind, s.Description)
+					fmt.Printf("%-4d [%-14s]  %s\n", s.Id, s.Importance, s.Description)
 				}
 				return nil
 			}
@@ -301,7 +301,7 @@ func specShowCmd() *cobra.Command {
 				return fmt.Errorf("spec %d not found", specID)
 			}
 			s := specResp.JSON200.Spec
-			fmt.Printf("Spec %d  [%s / %s]\n", s.Id, s.Kind, s.ConcernType)
+			fmt.Printf("Spec %d  [%s]\n", s.Id, s.Importance)
 			fmt.Printf("  %s\n", s.Description)
 
 			testsResp, err := c.ListSpecTestsWithResponse(ctx, &dxclient.ListSpecTestsParams{SpecId: int32(specID)})

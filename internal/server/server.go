@@ -295,7 +295,7 @@ func (s *Server) ReindexAllIssues() {
 		}
 		sIndexed := 0
 		for _, sp := range specs {
-			text := specEmbedTextSrv(featureNames[sp.FeatureID], sp.Description, sp.Kind)
+			text := specEmbedTextSrv(featureNames[sp.FeatureID], sp.Description, sp.Importance)
 			if text == "" {
 				continue
 			}
@@ -318,13 +318,13 @@ func featureEmbedTextSrv(name, description, what, why, doneWhen string) string {
 	return strings.Join(parts, " ")
 }
 
-func specEmbedTextSrv(featureName, description, kind string) string {
+func specEmbedTextSrv(featureName, description, importance string) string {
 	parts := make([]string, 0, 3)
 	if featureName != "" {
 		parts = append(parts, featureName)
 	}
-	if kind != "" {
-		parts = append(parts, kind)
+	if importance != "" {
+		parts = append(parts, importance)
 	}
 	if description != "" {
 		parts = append(parts, description)

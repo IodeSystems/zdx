@@ -14,7 +14,7 @@ WHERE sd.spec_id = $1
 ORDER BY sd.created_at;
 
 -- name: ListDeferredSpecs :many
-SELECT DISTINCT s.id, s.feature_id, s.description, s.kind, s.concern_type
+SELECT DISTINCT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_spec_deferrals sd ON sd.spec_id = s.id
 JOIN zdx_issues i ON i.id = sd.issue_id
@@ -22,7 +22,7 @@ WHERE i.status = 'open'
 ORDER BY s.id;
 
 -- name: ListDeferredSpecsWithFeatureForProject :many
-SELECT DISTINCT s.id, s.feature_id, f.name AS feature_name, s.description, s.kind, s.concern_type
+SELECT DISTINCT s.id, s.feature_id, f.name AS feature_name, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 JOIN zdx_spec_deferrals sd ON sd.spec_id = s.id
@@ -32,7 +32,7 @@ WHERE f.project_id = @project_id
 ORDER BY f.name, s.id;
 
 -- name: ListSpecsWithAllBlockersClosed :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 WHERE EXISTS (SELECT 1 FROM zdx_spec_deferrals sd WHERE sd.spec_id = s.id)
   AND NOT EXISTS (

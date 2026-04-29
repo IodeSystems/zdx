@@ -271,13 +271,12 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			spec, err := h.Q.AddSpec(ctx, db.AddSpecParams{
 				FeatureID:   f.ID,
 				Description: in.Body.Value,
-				Kind:        in.Body.Field,
-				ConcernType: "functional",
+				Importance:  in.Body.Field,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			go h.Emb.UpsertSpec(context.Background(), p.ID, spec.ID, specEmbedText(f.Name, spec.Description, spec.Kind))
+			go h.Emb.UpsertSpec(context.Background(), p.ID, spec.ID, specEmbedText(f.Name, spec.Description, spec.Importance))
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
@@ -343,8 +342,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				Spec: SpecItem{
 					ID:          spec.ID,
 					Description: spec.Description,
-					Kind:        spec.Kind,
-					ConcernType: spec.ConcernType,
+					Importance:  spec.Importance,
 				},
 				Issues: issues,
 			}}, nil
@@ -568,7 +566,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 					FeatureID:   r.FeatureID,
 					FeatureName: r.FeatureName,
 					Description: r.Description,
-					Kind:        r.Kind,
+					Importance:  r.Importance,
 				}
 			}
 			return &struct {
@@ -601,7 +599,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 					FeatureID:   r.FeatureID,
 					FeatureName: r.FeatureName,
 					Description: r.Description,
-					Kind:        r.Kind,
+					Importance:  r.Importance,
 				}
 			}
 			return &struct {
@@ -629,7 +627,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 					ID:          r.ID,
 					FeatureID:   r.FeatureID,
 					Description: r.Description,
-					Kind:        r.Kind,
+					Importance:  r.Importance,
 				}
 			}
 			return &struct {
@@ -756,8 +754,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 					FeatureID:   r.FeatureID,
 					FeatureName: r.FeatureName,
 					Description: r.Description,
-					Kind:        r.Kind,
-					ConcernType: r.ConcernType,
+					Importance:  r.Importance,
 					Blockers:    blockers,
 				})
 			}
@@ -896,7 +893,7 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 						featureNames[s.FeatureID] = name
 					}
 				}
-				h.Emb.UpsertSpec(ctx, p.ID, s.ID, specEmbedText(name, s.Description, s.Kind))
+				h.Emb.UpsertSpec(ctx, p.ID, s.ID, specEmbedText(name, s.Description, s.Importance))
 			}
 			return &struct {
 				Body struct {
@@ -959,8 +956,7 @@ func (h *Handler) featuresWithSpecs(ctx context.Context, slug string) (*struct {
 	specsByFeature := make(map[int32][]SpecItem, len(allSpecs))
 	for _, sp := range allSpecs {
 		specsByFeature[sp.FeatureID] = append(specsByFeature[sp.FeatureID], SpecItem{
-			ID: sp.ID, Description: sp.Description, Kind: sp.Kind,
-			ConcernType: sp.ConcernType,
+			ID: sp.ID, Description: sp.Description, Importance: sp.Importance,
 		})
 	}
 	out := make([]FeatureItem, len(rows))
@@ -996,7 +992,7 @@ func toFeatureItemFromGet(f db.GetFeatureRow, specs []db.ZdxSpec) FeatureItem {
 		Specs: make([]SpecItem, len(specs)),
 	}
 	for i, sp := range specs {
-		item.Specs[i] = SpecItem{ID: sp.ID, Description: sp.Description, Kind: sp.Kind, ConcernType: sp.ConcernType}
+		item.Specs[i] = SpecItem{ID: sp.ID, Description: sp.Description, Importance: sp.Importance}
 	}
 	return item
 }
@@ -1043,13 +1039,13 @@ func featureEmbedText(name, description, what, why, doneWhen string) string {
 	return strings.Join(parts, " ")
 }
 
-func specEmbedText(featureName, description, kind string) string {
+func specEmbedText(featureName, description, importance string) string {
 	parts := make([]string, 0, 3)
 	if featureName != "" {
 		parts = append(parts, featureName)
 	}
-	if kind != "" {
-		parts = append(parts, kind)
+	if importance != "" {
+		parts = append(parts, importance)
 	}
 	if description != "" {
 		parts = append(parts, description)

@@ -80,7 +80,7 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
       <Typography variant="h5" sx={{ mb: 1 }}>Spec #{specId}</Typography>
 
       <Box sx={{ display: 'flex', gap: 1, mb: 2, alignItems: 'center' }}>
-        <Chip label={spec.kind} size="small" variant="outlined" color="info" />
+        <Chip label={spec.importance} size="small" variant="outlined" color="info" />
       </Box>
 
       <Typography variant="body1" sx={{ mb: 2 }}>{spec.description}</Typography>

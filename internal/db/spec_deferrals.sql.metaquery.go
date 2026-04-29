@@ -119,7 +119,7 @@ var MetaListDeferredSpecs = metaquery.Query{
 	Name:   "ListDeferredSpecs",
 	Cmd:    ":many",
 	Source: "spec_deferrals.sql",
-	SQL: `SELECT DISTINCT s.id, s.feature_id, s.description, s.kind, s.concern_type
+	SQL: `SELECT DISTINCT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_spec_deferrals sd ON sd.spec_id = s.id
 JOIN zdx_issues i ON i.id = sd.issue_id
@@ -129,8 +129,7 @@ ORDER BY s.id`,
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 }
 
@@ -144,21 +143,19 @@ var ListDeferredSpecsCols = struct {
 	ID          metaquery.IntCol
 	FeatureID   metaquery.IntCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaListDeferredSpecsWithFeatureForProject = metaquery.Query{
 	Name:   "ListDeferredSpecsWithFeatureForProject",
 	Cmd:    ":many",
 	Source: "spec_deferrals.sql",
-	SQL: `SELECT DISTINCT s.id, s.feature_id, f.name AS feature_name, s.description, s.kind, s.concern_type
+	SQL: `SELECT DISTINCT s.id, s.feature_id, f.name AS feature_name, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 JOIN zdx_spec_deferrals sd ON sd.spec_id = s.id
@@ -171,8 +168,7 @@ ORDER BY f.name, s.id`,
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_features"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -190,15 +186,13 @@ var ListDeferredSpecsWithFeatureForProjectCols = struct {
 	FeatureID   metaquery.IntCol
 	FeatureName metaquery.TextCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	FeatureName: metaquery.NewTextCol("name"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaListSpecDeferrals = metaquery.Query{
@@ -249,7 +243,7 @@ var MetaListSpecsWithAllBlockersClosed = metaquery.Query{
 	Name:   "ListSpecsWithAllBlockersClosed",
 	Cmd:    ":many",
 	Source: "spec_deferrals.sql",
-	SQL: `SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+	SQL: `SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 WHERE EXISTS (SELECT 1 FROM zdx_spec_deferrals sd WHERE sd.spec_id = s.id)
   AND NOT EXISTS (
@@ -262,8 +256,7 @@ ORDER BY s.id`,
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 }
 
@@ -277,14 +270,12 @@ var ListSpecsWithAllBlockersClosedCols = struct {
 	ID          metaquery.IntCol
 	FeatureID   metaquery.IntCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaRemoveSpecDeferral = metaquery.Query{

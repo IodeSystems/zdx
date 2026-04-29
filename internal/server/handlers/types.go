@@ -89,8 +89,7 @@ type FeatureItem struct {
 type SpecItem struct {
 	ID          int32  `json:"id"`
 	Description string `json:"description"`
-	Kind        string `json:"kind"`
-	ConcernType string `json:"concern_type"`
+	Importance  string `json:"importance"`
 }
 
 type SpecIssueItem struct {
@@ -112,8 +111,7 @@ type DeferredSpecItem struct {
 	FeatureID   int32              `json:"feature_id"`
 	FeatureName string             `json:"feature_name"`
 	Description string             `json:"description"`
-	Kind        string             `json:"kind"`
-	ConcernType string             `json:"concern_type"`
+	Importance  string             `json:"importance"`
 	Blockers    []SpecDeferralItem `json:"blockers"`
 }
 
@@ -153,7 +151,7 @@ type UncoveredSpecItem struct {
 	FeatureID   int32  `json:"feature_id"`
 	FeatureName string `json:"feature_name"`
 	Description string `json:"description"`
-	Kind        string `json:"kind"`
+	Importance  string `json:"importance"`
 }
 
 type FocusItem struct {
@@ -357,8 +355,7 @@ type SimilarSpecItem struct {
 	FeatureID   int32   `json:"feature_id"`
 	FeatureName string  `json:"feature_name"`
 	Description string  `json:"description"`
-	Kind        string  `json:"kind"`
-	ConcernType string  `json:"concern_type"`
+	Importance  string  `json:"importance"`
 	Score       float32 `json:"score"`
 }
 

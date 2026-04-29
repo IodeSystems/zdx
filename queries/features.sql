@@ -83,23 +83,23 @@ ORDER BY name;
 -- ── Specs ────────────────────────────────────────────────────────────────────
 
 -- name: ListSpecs :many
-SELECT id, feature_id, description, kind, concern_type
+SELECT id, feature_id, description, importance
 FROM zdx_specs WHERE feature_id = $1 ORDER BY id;
 
 -- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
 ORDER BY s.feature_id, s.id;
 
 -- name: GetSpec :one
-SELECT id, feature_id, description, kind, concern_type
+SELECT id, feature_id, description, importance
 FROM zdx_specs WHERE id = $1;
 
 -- name: GetSpecForProject :one
 -- Fetch a spec by id, validating it belongs to the given project.
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE s.id = $1 AND f.project_id = $2;
@@ -110,7 +110,7 @@ WHERE s.id = $1 AND f.project_id = $2;
 -- or text references the spec by id ("spec N" with word boundaries) — agents file
 -- with varied titles or put the spec reference in the task body, so both fields
 -- are checked to avoid re-emitting the nudge when work is already queued.
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, f.name AS feature_name
+SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
@@ -141,9 +141,6 @@ WHERE s.id = $1
   )
 ORDER BY t.created_at;
 
--- name: UpdateSpecConcernType :exec
-UPDATE zdx_specs SET concern_type = @concern_type WHERE id = @id;
-
 -- name: UpdateSpecFeature :exec
 UPDATE zdx_specs SET feature_id = @feature_id WHERE id = @id;
 
@@ -164,7 +161,7 @@ WHERE si.spec_id = $1
 ORDER BY si.created_at;
 
 -- name: ListIssueSpecs :many
-SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type
+SELECT si.spec_id, si.issue_id, s.description, s.importance
 FROM zdx_spec_issues si
 JOIN zdx_specs s ON s.id = si.spec_id
 WHERE si.issue_id = $1
@@ -183,8 +180,8 @@ WHERE project_id = @project_id
 ORDER BY last_reviewed_at NULLS FIRST, name;
 
 -- name: AddSpec :one
-INSERT INTO zdx_specs (feature_id, description, kind, concern_type) VALUES ($1, $2, $3, $4)
-RETURNING id, feature_id, description, kind, concern_type;
+INSERT INTO zdx_specs (feature_id, description, importance) VALUES ($1, $2, $3)
+RETURNING id, feature_id, description, importance;
 
 -- name: SearchFeatures :many
 -- metaquery: off

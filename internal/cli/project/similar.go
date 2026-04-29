@@ -256,7 +256,7 @@ func SimilarCmd() *cobra.Command {
 				}
 				fmt.Println("Specs:")
 				for _, s := range specs.items {
-					fmt.Printf("  SP-%-5d  (%.0f%%)  %-10s  %-20s  %s\n", s.Id, s.Score*100, "["+s.Kind+"]", cli.Truncate(s.FeatureName, 20), cli.Truncate(s.Description, 60))
+					fmt.Printf("  SP-%-5d  (%.0f%%)  %-10s  %-20s  %s\n", s.Id, s.Score*100, "["+s.Importance+"]", cli.Truncate(s.FeatureName, 20), cli.Truncate(s.Description, 60))
 				}
 				printed = true
 			}

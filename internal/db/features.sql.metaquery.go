@@ -34,27 +34,25 @@ var MetaAddSpec = metaquery.Query{
 	Name:   "AddSpec",
 	Cmd:    ":one",
 	Source: "features.sql",
-	SQL: `INSERT INTO zdx_specs (feature_id, description, kind, concern_type) VALUES ($1, $2, $3, $4)
-RETURNING id, feature_id, description, kind, concern_type`,
+	SQL: `INSERT INTO zdx_specs (feature_id, description, importance) VALUES ($1, $2, $3)
+RETURNING id, feature_id, description, importance`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "feature_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 		{Position: 2, Name: "description", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 3, Name: "kind", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 4, Name: "concern_type", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "importance", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_specs"},
 }
 
 // WrapAddSpec returns a metaquery.Builder over MetaAddSpec, pre-bound with typed arguments.
 func WrapAddSpec(arg AddSpecParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaAddSpec, arg.FeatureID, arg.Description, arg.Kind, arg.ConcernType)
+	return metaquery.Wrap(&MetaAddSpec, arg.FeatureID, arg.Description, arg.Importance)
 }
 
 // AddSpecCols gives typed, name-safe access to AddSpec's output columns.
@@ -62,14 +60,12 @@ var AddSpecCols = struct {
 	ID          metaquery.IntCol
 	FeatureID   metaquery.IntCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaClearFeatureParent = metaquery.Query{
@@ -282,14 +278,13 @@ var MetaGetSpec = metaquery.Query{
 	Name:   "GetSpec",
 	Cmd:    ":one",
 	Source: "features.sql",
-	SQL: `SELECT id, feature_id, description, kind, concern_type
+	SQL: `SELECT id, feature_id, description, importance
 FROM zdx_specs WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -306,21 +301,19 @@ var GetSpecCols = struct {
 	ID          metaquery.IntCol
 	FeatureID   metaquery.IntCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaGetSpecForProject = metaquery.Query{
 	Name:   "GetSpecForProject",
 	Cmd:    ":one",
 	Source: "features.sql",
-	SQL: `SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+	SQL: `SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE s.id = $1 AND f.project_id = $2`,
@@ -328,8 +321,7 @@ WHERE s.id = $1 AND f.project_id = $2`,
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -347,14 +339,12 @@ var GetSpecForProjectCols = struct {
 	ID          metaquery.IntCol
 	FeatureID   metaquery.IntCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaLinkSpecIssue = metaquery.Query{
@@ -586,7 +576,7 @@ var MetaListIssueSpecs = metaquery.Query{
 	Name:   "ListIssueSpecs",
 	Cmd:    ":many",
 	Source: "features.sql",
-	SQL: `SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type
+	SQL: `SELECT si.spec_id, si.issue_id, s.description, s.importance
 FROM zdx_spec_issues si
 JOIN zdx_specs s ON s.id = si.spec_id
 WHERE si.issue_id = $1
@@ -595,8 +585,7 @@ ORDER BY si.spec_id`,
 		{Name: "spec_id", OriginalName: "spec_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_spec_issues"},
 		{Name: "issue_id", OriginalName: "issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_spec_issues"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
@@ -613,14 +602,12 @@ var ListIssueSpecsCols = struct {
 	SpecID      metaquery.IntCol
 	IssueID     metaquery.TextCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	SpecID:      metaquery.NewIntCol("spec_id"),
 	IssueID:     metaquery.NewTextCol("issue_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaListSpecIssues = metaquery.Query{
@@ -666,14 +653,13 @@ var MetaListSpecs = metaquery.Query{
 	Cmd:    ":many",
 	Source: "features.sql",
 	SQL: `
-SELECT id, feature_id, description, kind, concern_type
+SELECT id, feature_id, description, importance
 FROM zdx_specs WHERE feature_id = $1 ORDER BY id`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "feature_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -690,21 +676,19 @@ var ListSpecsCols = struct {
 	ID          metaquery.IntCol
 	FeatureID   metaquery.IntCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaListSpecsForProject = metaquery.Query{
 	Name:   "ListSpecsForProject",
 	Cmd:    ":many",
 	Source: "features.sql",
-	SQL: `SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+	SQL: `SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
@@ -713,8 +697,7 @@ ORDER BY s.feature_id, s.id`,
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -731,14 +714,12 @@ var ListSpecsForProjectCols = struct {
 	ID          metaquery.IntCol
 	FeatureID   metaquery.IntCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 }
 
 var MetaListStaleFeatures = metaquery.Query{
@@ -852,7 +833,7 @@ var MetaListUncoveredSpecs = metaquery.Query{
 	Name:   "ListUncoveredSpecs",
 	Cmd:    ":many",
 	Source: "features.sql",
-	SQL: `SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, f.name AS feature_name
+	SQL: `SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
@@ -873,8 +854,7 @@ ORDER BY f.name, s.id`,
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
 		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
-		{Name: "concern_type", OriginalName: "concern_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
 		{Name: "feature_name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_features"},
 	},
 	Args: []metaquery.Arg{
@@ -892,15 +872,13 @@ var ListUncoveredSpecsCols = struct {
 	ID          metaquery.IntCol
 	FeatureID   metaquery.IntCol
 	Description metaquery.TextCol
-	Kind        metaquery.TextCol
-	ConcernType metaquery.TextCol
+	Importance  metaquery.TextCol
 	FeatureName metaquery.TextCol
 }{
 	ID:          metaquery.NewIntCol("id"),
 	FeatureID:   metaquery.NewIntCol("feature_id"),
 	Description: metaquery.NewTextCol("description"),
-	Kind:        metaquery.NewTextCol("kind"),
-	ConcernType: metaquery.NewTextCol("concern_type"),
+	Importance:  metaquery.NewTextCol("importance"),
 	FeatureName: metaquery.NewTextCol("name"),
 }
 
@@ -1014,22 +992,6 @@ var MetaUpdateFeatureParent = metaquery.Query{
 // WrapUpdateFeatureParent returns a metaquery.Builder over MetaUpdateFeatureParent, pre-bound with typed arguments.
 func WrapUpdateFeatureParent(arg UpdateFeatureParentParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaUpdateFeatureParent, arg.ParentFeatureID, arg.ID)
-}
-
-var MetaUpdateSpecConcernType = metaquery.Query{
-	Name:   "UpdateSpecConcernType",
-	Cmd:    ":exec",
-	Source: "features.sql",
-	SQL:    `UPDATE zdx_specs SET concern_type = $1 WHERE id = $2`,
-	Args: []metaquery.Arg{
-		{Position: 1, Name: "concern_type", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 2, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-	},
-}
-
-// WrapUpdateSpecConcernType returns a metaquery.Builder over MetaUpdateSpecConcernType, pre-bound with typed arguments.
-func WrapUpdateSpecConcernType(arg UpdateSpecConcernTypeParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaUpdateSpecConcernType, arg.ConcernType, arg.ID)
 }
 
 var MetaUpdateSpecFeature = metaquery.Query{

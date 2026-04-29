@@ -108,7 +108,7 @@ func (q *Queries) ListCloseGateOffenders(ctx context.Context, arg ListCloseGateO
 }
 
 const listDeferredSpecs = `-- name: ListDeferredSpecs :many
-SELECT DISTINCT s.id, s.feature_id, s.description, s.kind, s.concern_type
+SELECT DISTINCT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_spec_deferrals sd ON sd.spec_id = s.id
 JOIN zdx_issues i ON i.id = sd.issue_id
@@ -129,8 +129,7 @@ func (q *Queries) ListDeferredSpecs(ctx context.Context) ([]ZdxSpec, error) {
 			&i.ID,
 			&i.FeatureID,
 			&i.Description,
-			&i.Kind,
-			&i.ConcernType,
+			&i.Importance,
 		); err != nil {
 			return nil, err
 		}
@@ -143,7 +142,7 @@ func (q *Queries) ListDeferredSpecs(ctx context.Context) ([]ZdxSpec, error) {
 }
 
 const listDeferredSpecsWithFeatureForProject = `-- name: ListDeferredSpecsWithFeatureForProject :many
-SELECT DISTINCT s.id, s.feature_id, f.name AS feature_name, s.description, s.kind, s.concern_type
+SELECT DISTINCT s.id, s.feature_id, f.name AS feature_name, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 JOIN zdx_spec_deferrals sd ON sd.spec_id = s.id
@@ -158,8 +157,7 @@ type ListDeferredSpecsWithFeatureForProjectRow struct {
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	FeatureName string `db:"feature_name" json:"feature_name"`
 	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
+	Importance  string `db:"importance" json:"importance"`
 }
 
 func (q *Queries) ListDeferredSpecsWithFeatureForProject(ctx context.Context, projectID int32) ([]ListDeferredSpecsWithFeatureForProjectRow, error) {
@@ -176,8 +174,7 @@ func (q *Queries) ListDeferredSpecsWithFeatureForProject(ctx context.Context, pr
 			&i.FeatureID,
 			&i.FeatureName,
 			&i.Description,
-			&i.Kind,
-			&i.ConcernType,
+			&i.Importance,
 		); err != nil {
 			return nil, err
 		}
@@ -234,7 +231,7 @@ func (q *Queries) ListSpecDeferrals(ctx context.Context, specID int32) ([]ListSp
 }
 
 const listSpecsWithAllBlockersClosed = `-- name: ListSpecsWithAllBlockersClosed :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 WHERE EXISTS (SELECT 1 FROM zdx_spec_deferrals sd WHERE sd.spec_id = s.id)
   AND NOT EXISTS (
@@ -258,8 +255,7 @@ func (q *Queries) ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ZdxSpec
 			&i.ID,
 			&i.FeatureID,
 			&i.Description,
-			&i.Kind,
-			&i.ConcernType,
+			&i.Importance,
 		); err != nil {
 			return nil, err
 		}

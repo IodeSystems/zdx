@@ -67,7 +67,7 @@ LIMIT @max_results;
 
 -- name: ListSpecsCoveredByTest :many
 -- Used to show what breaks if a test is deleted.
-SELECT s.id, s.feature_id, s.description, s.kind
+SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE st.test_id = $1 ORDER BY s.id;
@@ -160,7 +160,7 @@ ORDER BY td.demo_type, t.component, t.name;
 -- metaquery: off
 -- Specs linked to tests but where none of those tests are demo-component tests
 -- (TestDemo* prefix) and none have recorded demo artifacts. Non-deferred specs only.
-SELECT s.id, s.feature_id, s.description, s.kind, f.name AS feature_name
+SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 JOIN zdx_spec_tests st ON st.spec_id = s.id
@@ -172,6 +172,6 @@ WHERE f.project_id = $1
     JOIN zdx_issues i ON i.id = sd.issue_id
     WHERE sd.spec_id = s.id AND i.status = 'open'
   )
-GROUP BY s.id, s.feature_id, s.description, s.kind, f.name
+GROUP BY s.id, s.feature_id, s.description, s.importance, f.name
 HAVING COUNT(td.id) = 0 AND COUNT(CASE WHEN t.component = 'demo' THEN 1 END) = 0
 ORDER BY f.name, s.id;

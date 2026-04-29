@@ -27,31 +27,24 @@ func (q *Queries) AddFeatureMultiplier(ctx context.Context, arg AddFeatureMultip
 }
 
 const addSpec = `-- name: AddSpec :one
-INSERT INTO zdx_specs (feature_id, description, kind, concern_type) VALUES ($1, $2, $3, $4)
-RETURNING id, feature_id, description, kind, concern_type
+INSERT INTO zdx_specs (feature_id, description, importance) VALUES ($1, $2, $3)
+RETURNING id, feature_id, description, importance
 `
 
 type AddSpecParams struct {
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
+	Importance  string `db:"importance" json:"importance"`
 }
 
 func (q *Queries) AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error) {
-	row := q.db.QueryRow(ctx, addSpec,
-		arg.FeatureID,
-		arg.Description,
-		arg.Kind,
-		arg.ConcernType,
-	)
+	row := q.db.QueryRow(ctx, addSpec, arg.FeatureID, arg.Description, arg.Importance)
 	var i ZdxSpec
 	err := row.Scan(
 		&i.ID,
 		&i.FeatureID,
 		&i.Description,
-		&i.Kind,
-		&i.ConcernType,
+		&i.Importance,
 	)
 	return i, err
 }
@@ -199,7 +192,7 @@ func (q *Queries) GetFeatureByID(ctx context.Context, id int32) (GetFeatureByIDR
 }
 
 const getSpec = `-- name: GetSpec :one
-SELECT id, feature_id, description, kind, concern_type
+SELECT id, feature_id, description, importance
 FROM zdx_specs WHERE id = $1
 `
 
@@ -210,14 +203,13 @@ func (q *Queries) GetSpec(ctx context.Context, id int32) (ZdxSpec, error) {
 		&i.ID,
 		&i.FeatureID,
 		&i.Description,
-		&i.Kind,
-		&i.ConcernType,
+		&i.Importance,
 	)
 	return i, err
 }
 
 const getSpecForProject = `-- name: GetSpecForProject :one
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE s.id = $1 AND f.project_id = $2
@@ -236,8 +228,7 @@ func (q *Queries) GetSpecForProject(ctx context.Context, arg GetSpecForProjectPa
 		&i.ID,
 		&i.FeatureID,
 		&i.Description,
-		&i.Kind,
-		&i.ConcernType,
+		&i.Importance,
 	)
 	return i, err
 }
@@ -453,7 +444,7 @@ func (q *Queries) ListFeaturesByGoal(ctx context.Context, goalID pgtype.Int4) ([
 }
 
 const listIssueSpecs = `-- name: ListIssueSpecs :many
-SELECT si.spec_id, si.issue_id, s.description, s.kind, s.concern_type
+SELECT si.spec_id, si.issue_id, s.description, s.importance
 FROM zdx_spec_issues si
 JOIN zdx_specs s ON s.id = si.spec_id
 WHERE si.issue_id = $1
@@ -464,8 +455,7 @@ type ListIssueSpecsRow struct {
 	SpecID      int32  `db:"spec_id" json:"spec_id"`
 	IssueID     string `db:"issue_id" json:"issue_id"`
 	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
+	Importance  string `db:"importance" json:"importance"`
 }
 
 func (q *Queries) ListIssueSpecs(ctx context.Context, issueID string) ([]ListIssueSpecsRow, error) {
@@ -481,8 +471,7 @@ func (q *Queries) ListIssueSpecs(ctx context.Context, issueID string) ([]ListIss
 			&i.SpecID,
 			&i.IssueID,
 			&i.Description,
-			&i.Kind,
-			&i.ConcernType,
+			&i.Importance,
 		); err != nil {
 			return nil, err
 		}
@@ -536,7 +525,7 @@ func (q *Queries) ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecI
 
 const listSpecs = `-- name: ListSpecs :many
 
-SELECT id, feature_id, description, kind, concern_type
+SELECT id, feature_id, description, importance
 FROM zdx_specs WHERE feature_id = $1 ORDER BY id
 `
 
@@ -554,8 +543,7 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, er
 			&i.ID,
 			&i.FeatureID,
 			&i.Description,
-			&i.Kind,
-			&i.ConcernType,
+			&i.Importance,
 		); err != nil {
 			return nil, err
 		}
@@ -568,7 +556,7 @@ func (q *Queries) ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, er
 }
 
 const listSpecsForProject = `-- name: ListSpecsForProject :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type
+SELECT s.id, s.feature_id, s.description, s.importance
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 WHERE f.project_id = $1
@@ -588,8 +576,7 @@ func (q *Queries) ListSpecsForProject(ctx context.Context, projectID int32) ([]Z
 			&i.ID,
 			&i.FeatureID,
 			&i.Description,
-			&i.Kind,
-			&i.ConcernType,
+			&i.Importance,
 		); err != nil {
 			return nil, err
 		}
@@ -706,7 +693,7 @@ func (q *Queries) ListTasksForSpec(ctx context.Context, id int32) ([]ListTasksFo
 }
 
 const listUncoveredSpecs = `-- name: ListUncoveredSpecs :many
-SELECT s.id, s.feature_id, s.description, s.kind, s.concern_type, f.name AS feature_name
+SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
 FROM zdx_specs s
 JOIN zdx_features f ON f.id = s.feature_id
 LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
@@ -729,8 +716,7 @@ type ListUncoveredSpecsRow struct {
 	ID          int32  `db:"id" json:"id"`
 	FeatureID   int32  `db:"feature_id" json:"feature_id"`
 	Description string `db:"description" json:"description"`
-	Kind        string `db:"kind" json:"kind"`
-	ConcernType string `db:"concern_type" json:"concern_type"`
+	Importance  string `db:"importance" json:"importance"`
 	FeatureName string `db:"feature_name" json:"feature_name"`
 }
 
@@ -752,8 +738,7 @@ func (q *Queries) ListUncoveredSpecs(ctx context.Context, projectID int32) ([]Li
 			&i.ID,
 			&i.FeatureID,
 			&i.Description,
-			&i.Kind,
-			&i.ConcernType,
+			&i.Importance,
 			&i.FeatureName,
 		); err != nil {
 			return nil, err
@@ -917,20 +902,6 @@ type UpdateFeatureParentParams struct {
 
 func (q *Queries) UpdateFeatureParent(ctx context.Context, arg UpdateFeatureParentParams) error {
 	_, err := q.db.Exec(ctx, updateFeatureParent, arg.ParentFeatureID, arg.ID)
-	return err
-}
-
-const updateSpecConcernType = `-- name: UpdateSpecConcernType :exec
-UPDATE zdx_specs SET concern_type = $1 WHERE id = $2
-`
-
-type UpdateSpecConcernTypeParams struct {
-	ConcernType string `db:"concern_type" json:"concern_type"`
-	ID          int32  `db:"id" json:"id"`
-}
-
-func (q *Queries) UpdateSpecConcernType(ctx context.Context, arg UpdateSpecConcernTypeParams) error {
-	_, err := q.db.Exec(ctx, updateSpecConcernType, arg.ConcernType, arg.ID)
 	return err
 }
 

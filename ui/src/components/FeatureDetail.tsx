@@ -47,7 +47,7 @@ function SpecRow({ spec, slug }: { spec: Spec; slug: string }) {
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flex: 1 }}>
-          <Chip label={spec.kind} size="small" variant="outlined" color="info" />
+          <Chip label={spec.importance} size="small" variant="outlined" color="info" />
           <Link
             to="/project/$slug/specs/$specId"
             params={{ slug, specId: String(spec.id) }}

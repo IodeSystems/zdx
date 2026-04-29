@@ -287,11 +287,7 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 			specCount := 0
 			if f.Specs != nil {
 				specCount = len(*f.Specs)
-				for _, spec := range *f.Specs {
-					if spec.ConcernType == "ux" {
-						state.UXSpecCount++
-					}
-				}
+				state.SpecCount += specCount
 			}
 			if specCount > 0 {
 				state.FeaturesWithSpecs++

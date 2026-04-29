@@ -916,12 +916,11 @@ type DeferralItem struct {
 // DeferredSpecItem defines model for DeferredSpecItem.
 type DeferredSpecItem struct {
 	Blockers    *[]SpecDeferralItem `json:"blockers"`
-	ConcernType string              `json:"concern_type"`
 	Description string              `json:"description"`
 	FeatureId   int32               `json:"feature_id"`
 	FeatureName string              `json:"feature_name"`
 	Id          int32               `json:"id"`
-	Kind        string              `json:"kind"`
+	Importance  string              `json:"importance"`
 }
 
 // DeleteCodeRefRequest defines model for Delete-code-refRequest.
@@ -3333,12 +3332,11 @@ type SimilarQuestionItem struct {
 
 // SimilarSpecItem defines model for SimilarSpecItem.
 type SimilarSpecItem struct {
-	ConcernType string  `json:"concern_type"`
 	Description string  `json:"description"`
 	FeatureId   int32   `json:"feature_id"`
 	FeatureName string  `json:"feature_name"`
 	Id          int32   `json:"id"`
-	Kind        string  `json:"kind"`
+	Importance  string  `json:"importance"`
 	Score       float32 `json:"score"`
 }
 
@@ -3535,10 +3533,9 @@ type SpecIssueItem struct {
 
 // SpecItem defines model for SpecItem.
 type SpecItem struct {
-	ConcernType string `json:"concern_type"`
 	Description string `json:"description"`
 	Id          int32  `json:"id"`
-	Kind        string `json:"kind"`
+	Importance  string `json:"importance"`
 }
 
 // SpecTaskItem defines model for SpecTaskItem.
@@ -3864,7 +3861,7 @@ type UncoveredSpecItem struct {
 	FeatureId   int32  `json:"feature_id"`
 	FeatureName string `json:"feature_name"`
 	Id          int32  `json:"id"`
-	Kind        string `json:"kind"`
+	Importance  string `json:"importance"`
 }
 
 // UnlinkSpecIssueRequest defines model for Unlink-spec-issueRequest.

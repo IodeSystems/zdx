@@ -87,9 +87,8 @@ function makeTask(overrides: Partial<TaskItem> = {}): TaskItem {
 function makeSpec(overrides: Partial<SpecItem> = {}): SpecItem {
   return {
     id: 1,
-    kind: 'must',
+    importance: 'must',
     description: 'Given X, when Y, then Z',
-    concern_type: 'functional',
     ...overrides,
   }
 }

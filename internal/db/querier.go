@@ -379,7 +379,7 @@ type Querier interface {
 	// ── Specs ────────────────────────────────────────────────────────────────────
 	ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error)
 	// Used to show what breaks if a test is deleted.
-	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ListSpecsCoveredByTestRow, error)
+	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ZdxSpec, error)
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error)
 	ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ZdxSpec, error)
 	// metaquery: off
@@ -534,7 +534,6 @@ type Querier interface {
 	UpdateProjectGoal(ctx context.Context, arg UpdateProjectGoalParams) error
 	UpdateProposal(ctx context.Context, arg UpdateProposalParams) (ZdxProposal, error)
 	UpdateProposalStatus(ctx context.Context, arg UpdateProposalStatusParams) (ZdxProposal, error)
-	UpdateSpecConcernType(ctx context.Context, arg UpdateSpecConcernTypeParams) error
 	UpdateSpecFeature(ctx context.Context, arg UpdateSpecFeatureParams) error
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error

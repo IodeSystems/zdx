@@ -128,8 +128,7 @@ type FeatureItem struct {
 type SpecItem struct {
 	ID          int32  `json:"id"`
 	Description string `json:"description"`
-	Kind        string `json:"kind"`
-	ConcernType string `json:"concern_type"`
+	Importance  string `json:"importance"`
 }
 
 type CommentItem struct {

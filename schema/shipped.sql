@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1951,8 +1951,7 @@ CREATE TABLE public.zdx_specs (
     id integer NOT NULL,
     feature_id integer NOT NULL,
     description text NOT NULL,
-    kind text DEFAULT 'must'::text NOT NULL,
-    concern_type text DEFAULT 'functional'::text NOT NULL
+    importance text DEFAULT 'must'::text NOT NULL
 );
 
 
