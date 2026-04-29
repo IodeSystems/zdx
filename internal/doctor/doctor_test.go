@@ -264,3 +264,34 @@ func TestPassingCheckNoFixFunc(t *testing.T) {
 }
 
 // TestEvaluateCheckDeferred verifies spec 131:
+// TestEvaluateCheckDeferred verifies spec 131:
+// evaluateCheck returns StatusDeferred when the check name is in state.Deferred,
+// and returns StatusFail after clearing the deferral.
+func TestEvaluateCheckDeferred(t *testing.T) {
+	check := Check{Name: "credentials_exist", Action: ActionPropose}
+
+	// Deferred: must skip and return StatusDeferred.
+	f := evaluateCheck(check, "scaffold", &ProjectState{
+		ZdxDirExists:     true,
+		ConfigValid:      true,
+		CredentialsExist: false,
+		Deferred:         map[string]bool{"credentials_exist": true},
+	})
+	if f.Status != StatusDeferred {
+		t.Errorf("expected StatusDeferred, got %s (msg=%q)", f.Status, f.Message)
+	}
+
+	// Cleared: must return StatusFail again.
+	f2 := evaluateCheck(check, "scaffold", &ProjectState{
+		ZdxDirExists:     true,
+		ConfigValid:      true,
+		CredentialsExist: false,
+		Deferred:         map[string]bool{},
+	})
+	if f2.Status != StatusFail {
+		t.Errorf("expected StatusFail after deferral cleared, got %s (msg=%q)", f2.Status, f2.Message)
+	}
+}
+
+// TestEvaluateFindingsGroupedByRung verifies spec 132:
+// Evaluate() returns findings grouped and ordered by rung — all scaffold
