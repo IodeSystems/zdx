@@ -724,6 +724,79 @@ func TestQueueBackportTargetBranch(t *testing.T) {
 	}
 }
 
+// TestQueueGlobalGroupsByTargetBranch covers spec 178: given a project with
+// multiple version branches, when the solo queue evaluates in global mode, then
+// dev-targeted items precede version-branch backports and same-branch items are
+// contiguous (no interleaving).
+func TestQueueGlobalGroupsByTargetBranch(t *testing.T) {
+	d := NewApiDriver(t, "q-branch-groups", "Queue Branch Groups")
+	Given(d).HealthPrereqs().Build()
+
+	// Dev-targeted issue: no explicit branch → TargetBranch defaults to "dev".
+	sc := Given(d).
+		TriagedIssue("Dev fix", "normal dev work", 2).
+		Task(0, "Implement dev fix").
+		Build()
+	_ = sc
+
+	// Backport issue targeting v1.0.x.
+	scV1 := Given(d).
+		TriagedIssue("Backport to v1.0.x", "cherry-pick onto v1.0.x", 2).
+		Task(0, "Cherry-pick onto v1.0.x").
+		Build()
+	d.TriageIssueWithBranch(scV1.Issues[0], 2, "v1.0.x")
+
+	// Backport issue targeting v2.0.x.
+	scV2 := Given(d).
+		TriagedIssue("Backport to v2.0.x", "cherry-pick onto v2.0.x", 2).
+		Task(0, "Cherry-pick onto v2.0.x").
+		Build()
+	d.TriageIssueWithBranch(scV2.Issues[0], 2, "v2.0.x")
+
+	items := d.EvaluateQueue("")
+
+	// Collect TargetBranch values for "dev" kind items only.
+	var branches []string
+	for _, it := range items {
+		if it.Kind == "dev" {
+			b := it.TargetBranch
+			if b == "" {
+				b = "dev"
+			}
+			branches = append(branches, b)
+		}
+	}
+
+	if len(branches) < 3 {
+		t.Fatalf("expected at least 3 dev items (one per branch), got %d: %v", len(branches), branches)
+	}
+
+	// Every "dev" branch value must precede every non-"dev" branch value.
+	seenNonDev := false
+	for _, b := range branches {
+		if b != "dev" {
+			seenNonDev = true
+		} else if seenNonDev {
+			t.Errorf("dev-targeted item follows a version-branch item: branch sequence %v", branches)
+			break
+		}
+	}
+
+	// Same-branch items must be contiguous (no interleaving).
+	seen := map[string]bool{}
+	prev := ""
+	for _, b := range branches {
+		if b != prev {
+			if seen[b] {
+				t.Errorf("branch %q appears non-contiguously in sequence %v", b, branches)
+				break
+			}
+			seen[prev] = true
+			prev = b
+		}
+	}
+}
+
 func kindsOf(items []SoloQueueItem) []string {
 	kinds := make([]string, len(items))
 	for i, it := range items {
