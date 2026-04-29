@@ -87,6 +87,9 @@ type ProjectState struct {
 	HasDevDockerfile bool
 	HasDevCompose    bool
 
+	// Feature quality
+	FeaturesImplDetail int // features whose name/desc looks like a code module
+
 	// Code quality
 	RawAPICallsGo    int // raw URL callsites in Go CLI
 	RawAPICallsUI    int // raw fetch/post callsites in UI
@@ -183,6 +186,28 @@ func detectShipsFromDevDirectly() bool {
 		}
 	}
 	return true
+}
+
+// implDetailKeywords are technical implementation words that signal a feature
+// is describing code structure rather than a user-visible capability.
+var implDetailKeywords = []string{
+	"layer", "middleware", "handler", "module", "refactor", "migration",
+	"infrastructure", "impl", "implementation", "schema", "endpoint",
+	"service-layer", "cache-layer", "api-gateway", "backend", "worker",
+	"pipeline", "scheduler", "cleanup", "cron", "webhook",
+}
+
+// IsImplDetailFeature returns true when the feature name or description
+// contains implementation-detail keywords, indicating the feature describes
+// code structure rather than a user-visible outcome.
+func IsImplDetailFeature(name, desc string) bool {
+	lower := strings.ToLower(name + " " + desc)
+	for _, kw := range implDetailKeywords {
+		if strings.Contains(lower, kw) {
+			return true
+		}
+	}
+	return false
 }
 
 func fileExists(path string) bool {
@@ -335,6 +360,15 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "", nil, ""
 		}
 		return false, fmt.Sprintf("%d untriaged issues", state.UntriagedIssues), nil, ""
+
+	case "features_are_user_visible":
+		if state.FeaturesImplDetail == 0 {
+			return true, "", nil, ""
+		}
+		return false,
+			fmt.Sprintf("%d feature(s) describe implementation details (code modules) rather than user-visible capabilities", state.FeaturesImplDetail),
+			nil,
+			"Features are demonstrable value drivers, not code modules — rename to describe the user benefit (e.g. 'faster search' not 'redis-cache-layer')"
 
 	// ── verification ──
 	case "specs_have_tests":

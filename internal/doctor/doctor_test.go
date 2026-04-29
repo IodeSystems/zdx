@@ -354,6 +354,88 @@ func TestEvaluateFindingsGroupedByRung(t *testing.T) {
 	}
 }
 
+// TestRunCheckFeaturesAreUserVisible verifies spec 113:
+// features_are_user_visible passes when no features look like code modules,
+// and fails with a count + proposal containing "demonstrable value driver"
+// guidance when impl-detail features are present.
+func TestRunCheckFeaturesAreUserVisible(t *testing.T) {
+	cases := []struct {
+		name         string
+		state        ProjectState
+		wantPass     bool
+		wantMsgPart  string
+		wantPropPart []string
+	}{
+		{
+			name:     "no impl-detail features — passes",
+			state:    ProjectState{FeaturesImplDetail: 0},
+			wantPass: true,
+		},
+		{
+			name:         "one impl-detail feature — fails with guidance",
+			state:        ProjectState{FeaturesImplDetail: 1},
+			wantPass:     false,
+			wantMsgPart:  "1 feature(s) describe implementation details",
+			wantPropPart: []string{"demonstrable value driver", "not code modules"},
+		},
+		{
+			name:         "multiple impl-detail features — count in message",
+			state:        ProjectState{FeaturesImplDetail: 3},
+			wantPass:     false,
+			wantMsgPart:  "3 feature(s) describe implementation details",
+			wantPropPart: []string{"demonstrable value driver"},
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pass, msg, _, proposal := runCheck("features_are_user_visible", &tc.state)
+			if pass != tc.wantPass {
+				t.Fatalf("pass=%v, want %v (msg=%q)", pass, tc.wantPass, msg)
+			}
+			if tc.wantPass {
+				return
+			}
+			if !strings.Contains(msg, tc.wantMsgPart) {
+				t.Errorf("msg=%q, want substring %q", msg, tc.wantMsgPart)
+			}
+			for _, want := range tc.wantPropPart {
+				if !strings.Contains(proposal, want) {
+					t.Errorf("proposal=%q, want substring %q", proposal, want)
+				}
+			}
+		})
+	}
+}
+
+// TestIsImplDetailFeature verifies spec 113 (detection layer):
+// IsImplDetailFeature correctly classifies feature names and descriptions.
+func TestIsImplDetailFeature(t *testing.T) {
+	yes := []struct{ name, desc string }{
+		{"redis-cache-layer", "Add Redis caching to the service layer"},
+		{"auth-middleware", "JWT validation middleware"},
+		{"db-migration-service", ""},
+		{"refactor-handler", ""},
+		{"", "Add a cron scheduler for cleanup jobs"},
+	}
+	no := []struct{ name, desc string }{
+		{"faster search", "Users can find results in under 200ms"},
+		{"onboarding flow", "New users complete setup in one step"},
+		{"multi-tenant billing", "Each tenant sees their own invoices"},
+	}
+
+	for _, tc := range yes {
+		if !IsImplDetailFeature(tc.name, tc.desc) {
+			t.Errorf("IsImplDetailFeature(%q, %q) = false, want true", tc.name, tc.desc)
+		}
+	}
+	for _, tc := range no {
+		if IsImplDetailFeature(tc.name, tc.desc) {
+			t.Errorf("IsImplDetailFeature(%q, %q) = true, want false", tc.name, tc.desc)
+		}
+	}
+}
+
 // TestRunCheckHasDeployConfigGateBranch verifies spec 166:
 // Given a project shipping to production from the dev branch directly,
 // when doctor runs, then it suggests introducing a tested gate branch.

@@ -300,6 +300,9 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 			if specCount > 8 {
 				state.OverspeccedCount++
 			}
+			if doctor.IsImplDetailFeature(f.Name, f.Description) {
+				state.FeaturesImplDetail++
+			}
 		}
 	}
 
