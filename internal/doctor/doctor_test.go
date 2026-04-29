@@ -295,3 +295,63 @@ func TestEvaluateCheckDeferred(t *testing.T) {
 
 // TestEvaluateFindingsGroupedByRung verifies spec 132:
 // Evaluate() returns findings grouped and ordered by rung — all scaffold
+
+// TestEvaluateFindingsGroupedByRung verifies spec 132:
+// Evaluate() returns findings grouped and ordered by rung — all scaffold
+// findings appear before any identity finding, identity before planning, etc.,
+// with classification-specific rungs appended after the common ones.
+func TestEvaluateFindingsGroupedByRung(t *testing.T) {
+	// SaaS has the richest vine: scaffold → identity → planning → verification →
+	// agents → operations → multi-tenancy. Use it to cover common + two
+	// classification-specific rungs.
+	state := &ProjectState{
+		Classification: ClassSaaS,
+		// all fields left at zero/false → every check can fire, giving us
+		// findings on every rung including the classification-specific ones.
+	}
+
+	findings := Evaluate(state)
+	if len(findings) == 0 {
+		t.Fatal("expected non-empty findings for SaaS with empty state")
+	}
+
+	// Build canonical rung order from the vine itself.
+	vine := Vine(ClassSaaS)
+	rungIndex := make(map[string]int, len(vine))
+	for i, r := range vine {
+		rungIndex[r.Name] = i
+	}
+
+	// Walk findings: each finding's rung position must be >= the previous one,
+	// and all findings with the same rung name must be contiguous.
+	prevRungPos := -1
+	prevRungName := ""
+	seenRungs := make(map[string]bool)
+
+	for _, f := range findings {
+		pos, ok := rungIndex[f.Rung]
+		if !ok {
+			t.Errorf("finding %q has rung %q not present in vine", f.Check.Name, f.Rung)
+			continue
+		}
+		if pos < prevRungPos {
+			t.Errorf("finding %q (rung %q, pos %d) appears after rung %q (pos %d) — not ordered",
+				f.Check.Name, f.Rung, pos, prevRungName, prevRungPos)
+		}
+		if pos > prevRungPos && seenRungs[f.Rung] {
+			t.Errorf("finding %q (rung %q) appears after a later rung — not grouped",
+				f.Check.Name, f.Rung)
+		}
+		seenRungs[f.Rung] = true
+		prevRungPos = pos
+		prevRungName = f.Rung
+	}
+
+	// Every vine rung must contribute at least one finding.
+	for _, r := range vine {
+		if !seenRungs[r.Name] {
+			t.Errorf("rung %q produced no findings — expected at least one", r.Name)
+		}
+	}
+}
+
