@@ -4,6 +4,7 @@ import (
 	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"os"
 	"strings"
 
@@ -45,7 +46,7 @@ func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool) error {
 
 	// 3. If no classification, ask
 	if state.Classification == "" {
-		class, err := promptClassification()
+		class, err := promptClassification(os.Stdin)
 		if err != nil {
 			return err
 		}
@@ -345,13 +346,13 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 	}
 }
 
-func promptClassification() (doctor.Classification, error) {
+func promptClassification(in io.Reader) (doctor.Classification, error) {
 	fmt.Println("What kind of project is this?")
 	for i, c := range doctor.AllClassifications {
 		fmt.Printf("  %d. %s\n", i+1, doctor.ClassificationLabel(c))
 	}
 	fmt.Print("\nChoice [1-5]: ")
-	reader := bufio.NewReader(os.Stdin)
+	reader := bufio.NewReader(in)
 	line, err := reader.ReadString('\n')
 	if err != nil {
 		return "", err
