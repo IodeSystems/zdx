@@ -45,6 +45,8 @@ func mustOK(t *testing.T, resp *http.Response) {
 
 // ── Tests ──────────────────────────────────────────────────────────────────
 
+// TestHealth verifies spec 59: GET /api/health returns the build SHA and
+// status so deployments can be probed.
 func TestHealth(t *testing.T) {
 	resp, err := http.Get(srv.URL + "/api/health")
 	if err != nil {
@@ -53,6 +55,19 @@ func TestHealth(t *testing.T) {
 	defer resp.Body.Close()
 	if resp.StatusCode != http.StatusOK {
 		t.Fatalf("want 200, got %d", resp.StatusCode)
+	}
+	var body struct {
+		Status   string `json:"status"`
+		BuildSHA string `json:"build_sha"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		t.Fatalf("decode: %v", err)
+	}
+	if body.Status != "ok" {
+		t.Errorf("status: want %q got %q", "ok", body.Status)
+	}
+	if body.BuildSHA == "" {
+		t.Error("build_sha: empty (ldflags wiring lost)")
 	}
 }
 
