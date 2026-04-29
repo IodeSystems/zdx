@@ -140,6 +140,9 @@ func journalCheckinCmd() *cobra.Command {
 			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
+			if resp.JSON200 != nil {
+				printKPIDeltaSummary(resp.JSON200.KpiDeltaJson)
+			}
 			fmt.Println("ok")
 			return nil
 		},
@@ -204,6 +207,15 @@ func journalShowCmd() *cobra.Command {
 							if line != "" {
 								fmt.Printf("  %s\n", line)
 							}
+						}
+					}
+				}
+				if e.KpiDeltaJson != "" && e.KpiDeltaJson != "[]" {
+					var kpiDeltas []kpiDelta
+					if err := json.Unmarshal([]byte(e.KpiDeltaJson), &kpiDeltas); err == nil && len(kpiDeltas) > 0 {
+						fmt.Println("  kpi:")
+						for _, d := range kpiDeltas {
+							fmt.Printf("  %s\n", formatKPIDeltaLine(d))
 						}
 					}
 				}
