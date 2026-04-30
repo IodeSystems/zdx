@@ -22,6 +22,20 @@ func IssueCmd() *cobra.Command {
 	return cmd
 }
 
+// parseIssueID validates an "IS-N" identifier and returns the numeric portion.
+// Returns an error rather than panicking on malformed/empty input — the prior
+// inline `id[3:]` slice panicked on any input shorter than 3 chars.
+func parseIssueID(id string) (int32, error) {
+	if !strings.HasPrefix(id, "IS-") {
+		return 0, fmt.Errorf("invalid issue ID %q: expected IS-N", id)
+	}
+	n, err := strconv.ParseInt(id[3:], 10, 32)
+	if err != nil {
+		return 0, fmt.Errorf("invalid issue ID %q: %w", id, err)
+	}
+	return int32(n), nil
+}
+
 func issueListCmd() *cobra.Command {
 	var status, branch string
 	cmd := &cobra.Command{
@@ -330,7 +344,10 @@ func issueCloseCmd() *cobra.Command {
 				return fmt.Errorf("--duplicate-of and --link-of are mutually exclusive")
 			}
 			id := args[0]
-			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			n, err := parseIssueID(id)
+			if err != nil {
+				return err
+			}
 			c := cli.MustClient()
 
 			// Test gate: run targeted tests before closing as "done".
@@ -592,7 +609,10 @@ func issueReopenCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			n, err := parseIssueID(id)
+			if err != nil {
+				return err
+			}
 			c := cli.MustClient()
 			resp, err := c.ReopenIssueWithResponse(cmd.Context(), dxclient.IssueIntIDInput{
 				Id: int32(n),
@@ -618,7 +638,10 @@ func issueBlockCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			n, err := parseIssueID(id)
+			if err != nil {
+				return err
+			}
 			c := cli.MustClient()
 			resp, err := c.IssueAddBlockWithResponse(cmd.Context(), dxclient.IssueAddBlockRequest{
 				Slug:      c.SlugOrDie(),
@@ -648,7 +671,10 @@ func issueUnblockCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			n, err := parseIssueID(id)
+			if err != nil {
+				return err
+			}
 			c := cli.MustClient()
 			body := dxclient.IssueRemoveBlockRequest{
 				Slug: c.SlugOrDie(),
@@ -686,7 +712,10 @@ func issueEditCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			n, err := parseIssueID(id)
+			if err != nil {
+				return err
+			}
 			c := cli.MustClient()
 			body := dxclient.EditIssueRequest{
 				Slug: c.SlugOrDie(),
@@ -739,7 +768,10 @@ func issueResolveCmd() *cobra.Command {
 		Args:  cobra.MinimumNArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
-			n, _ := strconv.ParseInt(id[3:], 10, 32)
+			n, err := parseIssueID(id)
+			if err != nil {
+				return err
+			}
 			shas := args[1:]
 			for _, sha := range shas {
 				out, err := exec.Command("git", "cat-file", "-t", sha).Output()
