@@ -192,7 +192,7 @@ Migration NNN (next free number):
    - If `parent_id IS NOT NULL`: ensure a thread row exists for the root (`root_event_id = parent's new event id`); insert child with that `thread_id`.
 3. For each row in `zdx_proposal_versions` (and any sibling version tables): insert as `revision` event on the corresponding target.
 4. `agent_process_result` is `NULL` for all backfilled events (treat existing thread as pre-revamp; agent loop won't retroactively process).
-5. Repoint `zdx_comment_reactions.comment_id` → `zdx_events.id` via id mapping.
+5. Drop `zdx_comment_reactions` (reactions become events going forward; existing reactions are not migrated).
 6. Drop `zdx_comments`, `zdx_comment_reads`, version tables in a follow-up migration after callsites updated.
 
 ## Execution order
@@ -207,11 +207,8 @@ Migration NNN (next free number):
 8. Wire proposal-stream agent loop (closes the original "comments don't refine the proposal" gap).
 9. Generalize the agent loop to all streams (any target with unprocessed user messages).
 
-## Open questions (resolve before step 1)
-
-- Status changes today are inferred from row updates, not logged. Do we backfill from `updated_at` (lossy) or accept that pre-migration history shows no status_change events?
-- Is `zdx_comment_reads` (read-state tracking) preserved as-is, retargeted to events?
-
 ## Resolved
 
 - Reactions are a `reaction` event type, not a separate table. Hidden from UI by default; visible to agents via `summary_json`. Drops `zdx_comment_reactions` on migration. (2026-04-29)
+- No status_change backfill. `status_change` events start being logged at migration time; pre-migration history shows no status_change events. (2026-04-29)
+- Drop `zdx_comment_reads` entirely. Read-state tracking is not carried into the new model. (2026-04-29)
