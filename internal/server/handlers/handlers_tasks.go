@@ -771,6 +771,69 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	// ── Task convert-to-blocker (wip drafts only) ────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "convert-task-to-blocker", Method: http.MethodPost, Path: "/api/dx/tasks/convert-to-blocker"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID              int32   `json:"id"`
+				BlockedByIssueID string `json:"blocked_by_issue_id"`
+				Reason          *string `json:"reason,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			taskID := taskIDFromInt(in.Body.ID)
+			if !strings.HasPrefix(in.Body.BlockedByIssueID, "IS-") {
+				return nil, apiErr(400, "blocked_by_issue_id must be IS-N format, got "+in.Body.BlockedByIssueID)
+			}
+			t, gErr := h.Q.GetTask(ctx, taskID)
+			if gErr != nil {
+				return nil, apiErr(404, "task not found: "+taskID)
+			}
+			if t.Status != "wip" {
+				return nil, apiErr(409, taskID+" is "+t.Status+" — convert-to-blocker requires wip status")
+			}
+			if t.Issue == "" {
+				return nil, apiErr(400, taskID+" has no parent issue — cannot add a blocker without a parent issue to block")
+			}
+			blockerIssue, bErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: t.ProjectID, ID: in.Body.BlockedByIssueID})
+			if bErr != nil {
+				return nil, apiErr(404, "blocked-by issue not found: "+in.Body.BlockedByIssueID)
+			}
+			_ = blockerIssue
+			tx, tErr := h.Pool.Begin(ctx)
+			if tErr != nil {
+				return nil, apiErr(500, tErr.Error())
+			}
+			defer tx.Rollback(ctx)
+			q := h.Q.WithTx(tx)
+			if err := q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: t.Issue, BlockedByID: in.Body.BlockedByIssueID}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			n, err := q.DeleteDraftTask(ctx, taskID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if n == 0 {
+				return nil, apiErr(409, "cannot delete "+taskID+": possible race")
+			}
+			reason := ptrStr(in.Body.Reason)
+			note := "[blocker added] " + in.Body.BlockedByIssueID + " (from " + taskID + ")"
+			if reason != "" {
+				note += ": " + reason
+			}
+			agent := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, uErr := h.Q.GetUserByID(ctx, uid); uErr == nil {
+					agent = u.Email
+				}
+			}
+			_ = q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: t.Issue, Agent: agent, Note: note})
+			if err := tx.Commit(ctx); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
 	// ── Task similarity ──────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "similar-tasks", Method: http.MethodPost, Path: "/api/dx/tasks/similar"},

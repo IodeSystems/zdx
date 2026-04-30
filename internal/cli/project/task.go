@@ -17,6 +17,7 @@ func TaskCmd() *cobra.Command {
 	cmd.AddCommand(taskDeleteCmd())
 	cmd.AddCommand(taskReleaseCmd())
 	cmd.AddCommand(taskAdoptCmd())
+	cmd.AddCommand(taskBlockCmd())
 	return cmd
 }
 
@@ -157,4 +158,49 @@ func taskDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func taskBlockCmd() *cobra.Command {
+	var byFlag string
+	var reasonFlag string
+	cmd := &cobra.Command{
+		Use:   "block <TK-N> --by=IS-M",
+		Short: "Convert a wip task into a blocker on its parent issue, then delete the task",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskID := args[0]
+			if !strings.HasPrefix(taskID, "TK-") {
+				return fmt.Errorf("expected TK-N, got %q", taskID)
+			}
+			if !strings.HasPrefix(byFlag, "IS-") {
+				return fmt.Errorf("expected --by=IS-N, got %q", byFlag)
+			}
+			n, err := strconv.ParseInt(taskID[3:], 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid task id %q: %w", taskID, err)
+			}
+			c := cli.MustClient()
+			var reason *string
+			if reasonFlag != "" {
+				reason = &reasonFlag
+			}
+			resp, err := c.ConvertTaskToBlockerWithResponse(cmd.Context(), dxclient.ConvertTaskToBlockerRequest{
+				Id:               int32(n),
+				BlockedByIssueId: byFlag,
+				Reason:           reason,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("%s deleted; parent issue blocked-by %s\n", taskID, byFlag)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&byFlag, "by", "", "issue that blocks the parent (IS-N)")
+	_ = cmd.MarkFlagRequired("by")
+	cmd.Flags().StringVar(&reasonFlag, "reason", "", "reason for the dependency (optional but encouraged)")
+	return cmd
 }

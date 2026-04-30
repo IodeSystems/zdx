@@ -338,6 +338,7 @@ type Querier interface {
 	// cascade-close narrow-slice links (and full duplicates) when the target closes.
 	ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIssuesParams) ([]ZdxIssue, error)
 	ListOpenMaturityItems(ctx context.Context, projectID int32) ([]ZdxMaturityItem, error)
+	ListOpenTasksByIssue(ctx context.Context, arg ListOpenTasksByIssueParams) ([]ListOpenTasksByIssueRow, error)
 	// Open wip/ready/active tasks whose title starts with the given prefix
 	// (case-insensitive). Used to detect templated-title duplicates such as
 	// "Test spec N: ..." across sessions.

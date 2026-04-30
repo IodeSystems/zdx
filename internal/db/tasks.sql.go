@@ -584,6 +584,43 @@ func (q *Queries) ListActiveTaskClaims(ctx context.Context, projectID int32) ([]
 	return items, nil
 }
 
+const listOpenTasksByIssue = `-- name: ListOpenTasksByIssue :many
+SELECT id, title, status FROM zdx_tasks
+WHERE issue = $1 AND project_id = $2 AND status IN ('wip','ready','active')
+ORDER BY id
+`
+
+type ListOpenTasksByIssueParams struct {
+	Issue     string `db:"issue" json:"issue"`
+	ProjectID int32  `db:"project_id" json:"project_id"`
+}
+
+type ListOpenTasksByIssueRow struct {
+	ID     string `db:"id" json:"id"`
+	Title  string `db:"title" json:"title"`
+	Status string `db:"status" json:"status"`
+}
+
+func (q *Queries) ListOpenTasksByIssue(ctx context.Context, arg ListOpenTasksByIssueParams) ([]ListOpenTasksByIssueRow, error) {
+	rows, err := q.db.Query(ctx, listOpenTasksByIssue, arg.Issue, arg.ProjectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListOpenTasksByIssueRow
+	for rows.Next() {
+		var i ListOpenTasksByIssueRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenTasksByTitlePrefix = `-- name: ListOpenTasksByTitlePrefix :many
 SELECT id, title, text, status, reason, issue, created_at
 FROM zdx_tasks

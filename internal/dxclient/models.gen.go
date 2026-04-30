@@ -696,6 +696,15 @@ type ConstraintItem struct {
 	UpdatedAt   string  `json:"updated_at"`
 }
 
+// ConvertTaskToBlockerRequest defines model for Convert-task-to-blockerRequest.
+type ConvertTaskToBlockerRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string `json:"$schema,omitempty"`
+	BlockedByIssueId string  `json:"blocked_by_issue_id"`
+	Id               int32   `json:"id"`
+	Reason           *string `json:"reason,omitempty"`
+}
+
 // CountedGroupedItem defines model for CountedGroupedItem.
 type CountedGroupedItem struct {
 	AvgValue      int32  `json:"avg_value"`
@@ -5323,6 +5332,9 @@ type SetStateJSONRequestBody = SetStateRequest
 // AdoptTaskJSONRequestBody defines body for AdoptTask for application/json ContentType.
 type AdoptTaskJSONRequestBody = AdoptTaskRequest
 
+// ConvertTaskToBlockerJSONRequestBody defines body for ConvertTaskToBlocker for application/json ContentType.
+type ConvertTaskToBlockerJSONRequestBody = ConvertTaskToBlockerRequest
+
 // SimilarTasksJSONRequestBody defines body for SimilarTasks for application/json ContentType.
 type SimilarTasksJSONRequestBody = SimilarTasksRequest
 
@@ -6450,6 +6462,11 @@ type ClientInterface interface {
 	AdoptTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	AdoptTask(ctx context.Context, body AdoptTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ConvertTaskToBlockerWithBody request with any body
+	ConvertTaskToBlockerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ConvertTaskToBlocker(ctx context.Context, body ConvertTaskToBlockerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SimilarTasksWithBody request with any body
 	SimilarTasksWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -10889,6 +10906,30 @@ func (c *APIClient) AdoptTaskWithBody(ctx context.Context, contentType string, b
 
 func (c *APIClient) AdoptTask(ctx context.Context, body AdoptTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdoptTaskRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ConvertTaskToBlockerWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConvertTaskToBlockerRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ConvertTaskToBlocker(ctx context.Context, body ConvertTaskToBlockerJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewConvertTaskToBlockerRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -24230,6 +24271,46 @@ func NewAdoptTaskRequestWithBody(server string, contentType string, body io.Read
 	return req, nil
 }
 
+// NewConvertTaskToBlockerRequest calls the generic ConvertTaskToBlocker builder with application/json body
+func NewConvertTaskToBlockerRequest(server string, body ConvertTaskToBlockerJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewConvertTaskToBlockerRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewConvertTaskToBlockerRequestWithBody generates requests for ConvertTaskToBlocker with any type of body
+func NewConvertTaskToBlockerRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/tasks/convert-to-blocker")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSimilarTasksRequest calls the generic SimilarTasks builder with application/json body
 func NewSimilarTasksRequest(server string, body SimilarTasksJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -29535,6 +29616,11 @@ type ClientWithResponsesInterface interface {
 	AdoptTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AdoptTaskResponse, error)
 
 	AdoptTaskWithResponse(ctx context.Context, body AdoptTaskJSONRequestBody, reqEditors ...RequestEditorFn) (*AdoptTaskResponse, error)
+
+	// ConvertTaskToBlockerWithBodyWithResponse request with any body
+	ConvertTaskToBlockerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConvertTaskToBlockerResponse, error)
+
+	ConvertTaskToBlockerWithResponse(ctx context.Context, body ConvertTaskToBlockerJSONRequestBody, reqEditors ...RequestEditorFn) (*ConvertTaskToBlockerResponse, error)
 
 	// SimilarTasksWithBodyWithResponse request with any body
 	SimilarTasksWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarTasksResponse, error)
@@ -35159,6 +35245,29 @@ func (r AdoptTaskResponse) StatusCode() int {
 	return 0
 }
 
+type ConvertTaskToBlockerResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ConvertTaskToBlockerResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ConvertTaskToBlockerResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedSimilarTasksResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -40027,6 +40136,23 @@ func (c *ClientWithResponses) AdoptTaskWithResponse(ctx context.Context, body Ad
 		return nil, err
 	}
 	return ParseAdoptTaskResponse(rsp)
+}
+
+// ConvertTaskToBlockerWithBodyWithResponse request with arbitrary body returning *ConvertTaskToBlockerResponse
+func (c *ClientWithResponses) ConvertTaskToBlockerWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ConvertTaskToBlockerResponse, error) {
+	rsp, err := c.ConvertTaskToBlockerWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConvertTaskToBlockerResponse(rsp)
+}
+
+func (c *ClientWithResponses) ConvertTaskToBlockerWithResponse(ctx context.Context, body ConvertTaskToBlockerJSONRequestBody, reqEditors ...RequestEditorFn) (*ConvertTaskToBlockerResponse, error) {
+	rsp, err := c.ConvertTaskToBlocker(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseConvertTaskToBlockerResponse(rsp)
 }
 
 // SimilarTasksWithBodyWithResponse request with arbitrary body returning *ParsedSimilarTasksResponse
@@ -48648,6 +48774,39 @@ func ParseAdoptTaskResponse(rsp *http.Response) (*AdoptTaskResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest TaskItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseConvertTaskToBlockerResponse parses an HTTP response from a ConvertTaskToBlockerWithResponse call
+func ParseConvertTaskToBlockerResponse(rsp *http.Response) (*ConvertTaskToBlockerResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ConvertTaskToBlockerResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -151,6 +151,11 @@ WHERE t.issue = i.id
   )
 RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at;
 
+-- name: ListOpenTasksByIssue :many
+SELECT id, title, status FROM zdx_tasks
+WHERE issue = $1 AND project_id = $2 AND status IN ('wip','ready','active')
+ORDER BY id;
+
 -- name: ListReadyTasksWithoutTestRefsByIssue :many
 -- Ready tasks linked to an issue that have no test_refs. CancelOrphanedTasks
 -- skips these; surface them at close time so agents know to adopt rather than

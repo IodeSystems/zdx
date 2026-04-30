@@ -424,6 +424,32 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				}
 			}
 			if reason == "done" || reason == "" {
+				// Close-gate: refuse while open tasks (wip/ready/active) remain.
+				openTasks, _ := h.Q.ListOpenTasksByIssue(ctx, db.ListOpenTasksByIssueParams{
+					Issue:     issueID,
+					ProjectID: p.ID,
+				})
+				if len(openTasks) > 0 {
+					var sb strings.Builder
+					fmt.Fprintf(&sb, "%s has %d open task(s); resolve each before closing:\n", issueID, len(openTasks))
+					for _, t := range openTasks {
+						fmt.Fprintf(&sb, "\n  %s (%s) %q\n", t.ID, t.Status, t.Title)
+						switch t.Status {
+						case "wip":
+							fmt.Fprintf(&sb, "    dx task ready %s\n", t.ID)
+							fmt.Fprintf(&sb, "    dx task delete %s\n", t.ID)
+							fmt.Fprintf(&sb, "    dx task convert %s --to-issue\n", t.ID)
+							fmt.Fprintf(&sb, "    dx task block %s --by=IS-M --reason=...\n", t.ID)
+						case "ready":
+							fmt.Fprintf(&sb, "    dx todo dev done %s --test-plan=\"...\" --file ...\n", t.ID)
+							fmt.Fprintf(&sb, "    dx task release %s\n", t.ID)
+						case "active":
+							fmt.Fprintf(&sb, "    dx task release %s\n", t.ID)
+						}
+					}
+					return nil, apiErr(422, sb.String())
+				}
+
 				issue, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID})
 				if gErr == nil && issue.IssueType == "impl" {
 					count, _ := h.Q.CountIssueResolutions(ctx, issueID)

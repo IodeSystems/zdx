@@ -706,6 +706,40 @@ var ListActiveTaskClaimsCols = struct {
 	LeaseExpiresAt: metaquery.NewTimeCol("lease_expires_at"),
 }
 
+var MetaListOpenTasksByIssue = metaquery.Query{
+	Name:   "ListOpenTasksByIssue",
+	Cmd:    ":many",
+	Source: "tasks.sql",
+	SQL: `SELECT id, title, status FROM zdx_tasks
+WHERE issue = $1 AND project_id = $2 AND status IN ('wip','ready','active')
+ORDER BY id`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "issue", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 2, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListOpenTasksByIssue returns a metaquery.Builder over MetaListOpenTasksByIssue, pre-bound with typed arguments.
+func WrapListOpenTasksByIssue(arg ListOpenTasksByIssueParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListOpenTasksByIssue, arg.Issue, arg.ProjectID)
+}
+
+// ListOpenTasksByIssueCols gives typed, name-safe access to ListOpenTasksByIssue's output columns.
+var ListOpenTasksByIssueCols = struct {
+	ID     metaquery.TextCol
+	Title  metaquery.TextCol
+	Status metaquery.TextCol
+}{
+	ID:     metaquery.NewTextCol("id"),
+	Title:  metaquery.NewTextCol("title"),
+	Status: metaquery.NewTextCol("status"),
+}
+
 var MetaListOpenTasksByTitlePrefix = metaquery.Query{
 	Name:   "ListOpenTasksByTitlePrefix",
 	Cmd:    ":many",
