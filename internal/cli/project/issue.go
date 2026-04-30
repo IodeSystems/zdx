@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 
@@ -330,6 +331,9 @@ func issueCloseCmd() *cobra.Command {
 				if err == nil && showResp.JSON200 != nil {
 					issueType := showResp.JSON200.Issue.IssueType
 					if issueType != "tracker" && issueType != "ops" {
+						if err := runDecompositionPathGate(cmd, c, id, showResp.JSON200.Issue.Context, showResp.JSON200.Issue.Title); err != nil {
+							return err
+						}
 						if err := runSpecCoverageGate(cmd, c, id); err != nil {
 							return err
 						}
@@ -370,6 +374,95 @@ func issueCloseCmd() *cobra.Command {
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
 	cmd.Flags().StringVar(&linkOf, "link-of", "", "issue ID this is a narrow-slice link of (required when --reason=link; cascade-closes with target, no reopen-cascade)")
 	return cmd
+}
+
+// runDecompositionPathGate blocks close-as-done when the issue context
+// describes unfinished work (list items, future-tense signals, or an explicit
+// DECOMPOSITION section) without those items being filed as child issues.
+// Pure function over the already-fetched context — no extra round-trip.
+func runDecompositionPathGate(cmd *cobra.Command, c *cli.Client, issueID, issueContext, issueTitle string) error {
+	_ = cmd
+	_ = c
+	_ = issueTitle
+	candidates := extractDecompositionCandidates(issueContext)
+	if len(candidates) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "cannot close %s as done — context describes unfinished work:\n", issueID)
+	for _, ch := range candidates {
+		fmt.Fprintf(&b, "  - %s\n", ch)
+	}
+	b.WriteString("File children, then retry close:\n")
+	for _, ch := range candidates {
+		fmt.Fprintf(&b, "  dx issue add --parent=%s --type=impl --title=%q\n", issueID, ch)
+	}
+	b.WriteString("Or override:\n")
+	b.WriteString("  - --reason=wontfix to abandon, --reason=duplicate --duplicate-of=IS-X to dedupe\n")
+	fmt.Fprintf(&b, "  - dx issue edit %s --issue-type=tracker if this is a tracker, not an impl\n", issueID)
+	return fmt.Errorf("%s", b.String())
+}
+
+var (
+	decompListItemRe = regexp.MustCompile(`^\s*(?:\d+\.|[-*])\s+(.+)$`)
+	decompHeaderRe   = regexp.MustCompile(`(?i)^\s*#*\s*DECOMPOSITION\b`)
+	decompAnyHeader  = regexp.MustCompile(`^\s*#+\s+\S`)
+)
+
+// decompFutureSignals are case-insensitive substrings that flag a line as
+// describing pending work even when it is not in a list.
+var decompFutureSignals = []string{"will ", "should ", "needs to ", "todo", "next step"}
+
+const decompCandidateCap = 20
+
+// extractDecompositionCandidates inspects an issue context for unfinished-work
+// signals and returns deduped candidate child-issue titles, capped at
+// decompCandidateCap. Detected signals: list items (numbered or bulleted),
+// future-tense lines, and any non-empty non-header line under an explicit
+// DECOMPOSITION header.
+func extractDecompositionCandidates(context string) []string {
+	if strings.TrimSpace(context) == "" {
+		return nil
+	}
+	var candidates []string
+	seen := map[string]bool{}
+	add := func(s string) {
+		s = strings.TrimSpace(s)
+		if s == "" || seen[s] || len(candidates) >= decompCandidateCap {
+			return
+		}
+		seen[s] = true
+		candidates = append(candidates, s)
+	}
+	inDecomp := false
+	for _, line := range strings.Split(context, "\n") {
+		if decompHeaderRe.MatchString(line) {
+			inDecomp = true
+			continue
+		}
+		isHeader := decompAnyHeader.MatchString(line)
+		if inDecomp && isHeader {
+			inDecomp = false
+		}
+		if m := decompListItemRe.FindStringSubmatch(line); m != nil {
+			add(m[1])
+			continue
+		}
+		if inDecomp {
+			if !isHeader && strings.TrimSpace(line) != "" {
+				add(line)
+			}
+			continue
+		}
+		lc := strings.ToLower(line)
+		for _, sig := range decompFutureSignals {
+			if strings.Contains(lc, sig) {
+				add(line)
+				break
+			}
+		}
+	}
+	return candidates
 }
 
 // runSpecCoverageGate blocks close-as-done when any spec on a linked feature
