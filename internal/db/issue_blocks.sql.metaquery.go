@@ -30,6 +30,53 @@ func WrapAddIssueBlock(arg AddIssueBlockParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaAddIssueBlock, arg.IssueID, arg.BlockedByID, arg.Kind)
 }
 
+var MetaListAncestorSequencingBlockers = metaquery.Query{
+	Name:   "ListAncestorSequencingBlockers",
+	Cmd:    ":many",
+	Source: "issue_blocks.sql",
+	SQL: `WITH RECURSIVE ancestry(child_id, ancestor_id) AS (
+  SELECT seed.id, seed.id FROM zdx_issues AS seed WHERE seed.project_id = $1
+  UNION
+  SELECT a.child_id, b.issue_id
+  FROM ancestry a
+  JOIN zdx_issue_blocks b ON b.blocked_by_id = a.ancestor_id
+  WHERE b.kind = 'composition'
+)
+SELECT DISTINCT
+  a.child_id      AS child_id,
+  b.blocked_by_id AS blocker_id,
+  a.ancestor_id   AS gated_ancestor
+FROM ancestry a
+JOIN zdx_issue_blocks b ON b.issue_id = a.ancestor_id
+JOIN zdx_issues i        ON i.id = b.blocked_by_id
+WHERE b.kind = 'sequencing'
+  AND COALESCE(i.status, 'open') = 'open'`,
+	Columns: []metaquery.Column{
+		{Name: "child_id", OriginalName: "child_id", GoType: "string", DBType: "text", NotNull: true, Table: "ancestry"},
+		{Name: "blocker_id", OriginalName: "blocked_by_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issue_blocks"},
+		{Name: "gated_ancestor", OriginalName: "ancestor_id", GoType: "string", DBType: "text", NotNull: true, Table: "ancestry"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListAncestorSequencingBlockers returns a metaquery.Builder over MetaListAncestorSequencingBlockers, pre-bound with typed arguments.
+func WrapListAncestorSequencingBlockers(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListAncestorSequencingBlockers, projectID)
+}
+
+// ListAncestorSequencingBlockersCols gives typed, name-safe access to ListAncestorSequencingBlockers's output columns.
+var ListAncestorSequencingBlockersCols = struct {
+	ChildID       metaquery.TextCol
+	BlockerID     metaquery.TextCol
+	GatedAncestor metaquery.TextCol
+}{
+	ChildID:       metaquery.NewTextCol("child_id"),
+	BlockerID:     metaquery.NewTextCol("blocked_by_id"),
+	GatedAncestor: metaquery.NewTextCol("ancestor_id"),
+}
+
 var MetaListIssueBlockers = metaquery.Query{
 	Name:   "ListIssueBlockers",
 	Cmd:    ":many",

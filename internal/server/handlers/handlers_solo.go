@@ -96,6 +96,25 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		issues = filtered
 	}
 
+	// Build ancestor-sequencing-blocked set: an issue is gated if any of its
+	// composition ancestors (or itself) has an open sequencing blocker. This is
+	// what makes `dx issue block IS-tracker --by IS-blocker` actually gate the
+	// tracker's children's claim-eligibility — without it, blocking a tracker
+	// has no operational effect on the queue. (IS-656 Half B / TK-1435.)
+	ancestorBlocked := map[string]string{} // issue_id -> reason
+	if rows, err := h.Q.ListAncestorSequencingBlockers(ctx, projectID); err == nil {
+		for _, r := range rows {
+			if _, exists := ancestorBlocked[r.ChildID]; exists {
+				continue // first blocker wins for the reason string
+			}
+			if r.GatedAncestor == r.ChildID {
+				ancestorBlocked[r.ChildID] = fmt.Sprintf("blocked by %s", r.BlockerID)
+			} else {
+				ancestorBlocked[r.ChildID] = fmt.Sprintf("ancestor %s blocked by %s", r.GatedAncestor, r.BlockerID)
+			}
+		}
+	}
+
 	// Build blocked-by-BQ set
 	bqBlocked := map[string]bool{}
 	pendingBQs, _ := h.Q.ListPendingBlockerQuestions(ctx, projectID)
@@ -132,6 +151,39 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		var filtered []db.ZdxIssue
 		for _, iss := range issues {
 			if !bqBlocked[iss.ID] {
+				filtered = append(filtered, iss)
+			}
+		}
+		issues = filtered
+	}
+
+	// Surface / filter ancestor-sequencing-blocked issues. In issueFilter mode emit
+	// a candidate so the user sees why their target is gated; in global mode filter
+	// the issue out so unclaimable work doesn't bubble up.
+	if issueFilter != "" && len(ancestorBlocked) > 0 {
+		for _, iss := range issues {
+			if reason, blocked := ancestorBlocked[iss.ID]; blocked {
+				candidates = append(candidates, soloCandidate{
+					Key:           fmt.Sprintf("ancestor-blocked-%s", iss.ID),
+					Title:         fmt.Sprintf("%s gated: %s", iss.ID, reason),
+					Description:   reason,
+					Text:          fmt.Sprintf("%s cannot be claimed: %s. Resolve the upstream blocker, then this work re-enters the queue.", iss.ID, reason),
+					Kind:          "ancestor-blocked",
+					TargetType:    "issue",
+					TargetID:      iss.ID,
+					IssueRef:      iss.ID,
+					Priority:      99,
+					Blocked:       true,
+					BlockedReason: reason,
+					Persona:       "owner",
+				})
+			}
+		}
+	}
+	if issueFilter == "" && len(ancestorBlocked) > 0 {
+		var filtered []db.ZdxIssue
+		for _, iss := range issues {
+			if _, blocked := ancestorBlocked[iss.ID]; !blocked {
 				filtered = append(filtered, iss)
 			}
 		}

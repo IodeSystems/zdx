@@ -258,6 +258,14 @@ type Querier interface {
 	ListActiveTodoClaims(ctx context.Context, projectID int32) ([]ListActiveTodoClaimsRow, error)
 	ListAgentAuditEvents(ctx context.Context, agentID string) ([]ZdxSessionAuditEvent, error)
 	ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error)
+	// For every issue in the project, walk up the composition chain (issue → parents)
+	// and return any open sequencing blockers found anywhere in the ancestry, INCLUDING
+	// the issue itself. Used by the queue's claim-check to gate composition children of
+	// a blocked tracker without per-leaf wiring.
+	//
+	// Composition edge layout (per --parent flow): (issue_id=parent, blocked_by_id=child).
+	// So to walk from a child up, recurse: child's parent = (rows where blocked_by_id = child).id_field=issue_id.
+	ListAncestorSequencingBlockers(ctx context.Context, projectID int32) ([]ListAncestorSequencingBlockersRow, error)
 	ListApiKeysByUser(ctx context.Context, userID int32) ([]ListApiKeysByUserRow, error)
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
