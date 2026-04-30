@@ -56,6 +56,14 @@ type AgentAdapter interface {
 	RenderEvent(eventJSON []byte) string
 }
 
+// AuditExtractor is an optional interface adapters may implement to emit
+// synthetic audit events (tool_call/file_edit/shell_cmd) derived from raw
+// JSONL lines. If an adapter implements this, handleTranscriptLine calls it
+// and enqueues the returned events alongside the original.
+type AuditExtractor interface {
+	ExtractAuditEvents(line []byte, agentID string) []AgentEvent
+}
+
 // AgentEvent is the wire-level event RunLifecycle persists and streams.
 // EventJSON is the opaque adapter-specific payload the server stores as-is;
 // it must be valid JSON.
@@ -468,6 +476,18 @@ func handleTranscriptLine(
 		}
 	}
 	flusher.enqueue(ev, sourceKey, offset)
+
+	if ae, ok := adapter.(AuditExtractor); ok {
+		for _, auditEv := range ae.ExtractAuditEvents(line, agentID) {
+			if auditEv.AgentID == "" && agentID != "" {
+				auditEv.AgentID = agentID
+			}
+			if auditEv.AgentType == "" && agentType != "" {
+				auditEv.AgentType = agentType
+			}
+			flusher.enqueue(auditEv, sourceKey, offset)
+		}
+	}
 }
 
 // watchSubagents polls the adapter's subagent dir and spawns a tailer for

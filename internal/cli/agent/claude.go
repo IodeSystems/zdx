@@ -692,6 +692,55 @@ func (a *claudeAdapter) ParseLine(line []byte, agentID string) (AgentEvent, erro
 	}, nil
 }
 
+// ExtractAuditEvents implements AuditExtractor. It parses tool_use blocks from
+// assistant events and returns synthetic audit AgentEvents with event_type
+// tool_call / file_edit / shell_cmd for the HTTP ingestion fallback path.
+func (a *claudeAdapter) ExtractAuditEvents(line []byte, agentID string) []AgentEvent {
+	var evt struct {
+		Type    string `json:"type"`
+		Message struct {
+			Content []struct {
+				Type  string          `json:"type"`
+				Name  string          `json:"name"`
+				Input json.RawMessage `json:"input"`
+			} `json:"content"`
+		} `json:"message"`
+	}
+	if json.Unmarshal(line, &evt) != nil || evt.Type != "assistant" {
+		return nil
+	}
+	var events []AgentEvent
+	for _, c := range evt.Message.Content {
+		if c.Type != "tool_use" {
+			continue
+		}
+		payload, err := json.Marshal(map[string]any{
+			"tool":  c.Name,
+			"input": c.Input,
+		})
+		if err != nil {
+			continue
+		}
+		events = append(events, AgentEvent{
+			EventType: claudeClassifyToolUse(c.Name),
+			EventJSON: json.RawMessage(payload),
+			AgentID:   agentID,
+		})
+	}
+	return events
+}
+
+func claudeClassifyToolUse(name string) string {
+	switch name {
+	case "Write", "Edit", "MultiEdit", "NotebookEdit":
+		return "file_edit"
+	case "Bash":
+		return "shell_cmd"
+	default:
+		return "tool_call"
+	}
+}
+
 func (a *claudeAdapter) RenderEvent(eventJSON []byte) string {
 	a.toolNamesMu.Lock()
 	if a.toolNames == nil {

@@ -70,6 +70,11 @@ type Daemon struct {
 	// now is injectable for tests; defaults to time.Now.
 	now func() time.Time
 
+	// connMu guards wsConn. Separate from mu so WS sends don't contend with
+	// pause/resume state updates.
+	connMu sync.Mutex
+	wsConn *websocket.Conn
+
 	// paused state, guarded by mu. Set on "pause", cleared on "resume".
 	// pauseHoldStop signals the hold goroutine to exit; pauseHoldDone is
 	// closed when the hold goroutine returns (used by tests for synchronization).
@@ -117,6 +122,15 @@ func (d *Daemon) Run(ctx context.Context) error {
 		return fmt.Errorf("read ack: %w", err)
 	}
 	log.Printf("registered with server as %s", d.AgentID)
+
+	d.connMu.Lock()
+	d.wsConn = conn
+	d.connMu.Unlock()
+	defer func() {
+		d.connMu.Lock()
+		d.wsConn = nil
+		d.connMu.Unlock()
+	}()
 
 	// Pump reads using a background context so parent-ctx cancellation does not
 	// cause nhooyr.io/websocket to tear down the connection before the close
@@ -343,6 +357,18 @@ func (d *Daemon) removePauseState() {
 	if err := os.Remove(d.StateFile); err != nil && !os.IsNotExist(err) {
 		log.Printf("pause: remove state file %s: %v", d.StateFile, err)
 	}
+}
+
+// SendMsg sends a raw JSON message over the active WS connection. Returns an
+// error if the daemon is not connected. Implements AgentConn.
+func (d *Daemon) SendMsg(ctx context.Context, data []byte) error {
+	d.connMu.Lock()
+	c := d.wsConn
+	d.connMu.Unlock()
+	if c == nil {
+		return fmt.Errorf("not connected")
+	}
+	return c.Write(ctx, websocket.MessageText, data)
 }
 
 // toWSURL converts an http/https base URL to ws/wss.
