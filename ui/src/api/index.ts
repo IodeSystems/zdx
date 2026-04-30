@@ -804,6 +804,41 @@ export const useReplyToEvent = () => {
   })
 }
 
+/** @public */
+export const useSetThreadTitle = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { slug: string; threadId: number; title: string; targetType: string; targetId: string }) => {
+      const { error } = await client.PATCH('/api/events/threads/{id}/title', {
+        params: { path: { id: p.threadId } },
+        body: { slug: p.slug, title: p.title } as any,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['events', vars.slug, vars.targetType, vars.targetId] })
+    },
+  })
+}
+
+/** @public */
+export const usePostEventVerdict = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { slug: string; eventId: number; agentProcessResult: unknown; targetType: string; targetId: string }) => {
+      const { data, error } = await client.POST('/api/events/{id}/verdict', {
+        params: { path: { id: p.eventId } },
+        body: { slug: p.slug, agent_process_result: p.agentProcessResult } as any,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data as EventItem
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['events', vars.slug, vars.targetType, vars.targetId] })
+    },
+  })
+}
+
 // ── notifications ────────────────────────────────────────────────────────────
 
 export const useUnreadCount = (slug: string) =>
