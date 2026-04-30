@@ -65,3 +65,29 @@ WHERE project_id = @project_id
   AND target_type = @target_type
   AND target_id = @target_id
 ORDER BY created_at, id;
+
+-- name: GetEventByID :one
+SELECT id, project_id, target_type, target_id, thread_id, event_type,
+       author, author_kind, summary_json, detail_json,
+       agent_process_result, created_at
+FROM zdx_events
+WHERE id = @id;
+
+-- name: GetThreadByRoot :one
+SELECT id, project_id, target_type, target_id, root_event_id, title, created_at
+FROM zdx_event_threads
+WHERE root_event_id = @root_event_id;
+
+-- name: SetEventVerdict :one
+UPDATE zdx_events
+SET agent_process_result = @agent_process_result
+WHERE id = @id
+RETURNING id, project_id, target_type, target_id, thread_id, event_type,
+          author, author_kind, summary_json, detail_json,
+          agent_process_result, created_at;
+
+-- name: SetThreadTitle :one
+UPDATE zdx_event_threads
+SET title = @title
+WHERE id = @id
+RETURNING id, project_id, target_type, target_id, root_event_id, title, created_at;

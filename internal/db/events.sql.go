@@ -48,6 +48,34 @@ func (q *Queries) CreateThread(ctx context.Context, arg CreateThreadParams) (Zdx
 	return i, err
 }
 
+const getEventByID = `-- name: GetEventByID :one
+SELECT id, project_id, target_type, target_id, thread_id, event_type,
+       author, author_kind, summary_json, detail_json,
+       agent_process_result, created_at
+FROM zdx_events
+WHERE id = $1
+`
+
+func (q *Queries) GetEventByID(ctx context.Context, id int64) (ZdxEvent, error) {
+	row := q.db.QueryRow(ctx, getEventByID, id)
+	var i ZdxEvent
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.ThreadID,
+		&i.EventType,
+		&i.Author,
+		&i.AuthorKind,
+		&i.SummaryJson,
+		&i.DetailJson,
+		&i.AgentProcessResult,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getStreamByTarget = `-- name: GetStreamByTarget :one
 SELECT id, project_id, target_type, target_id,
        last_evaluated_at, last_evaluated_by
@@ -73,6 +101,27 @@ func (q *Queries) GetStreamByTarget(ctx context.Context, arg GetStreamByTargetPa
 		&i.TargetID,
 		&i.LastEvaluatedAt,
 		&i.LastEvaluatedBy,
+	)
+	return i, err
+}
+
+const getThreadByRoot = `-- name: GetThreadByRoot :one
+SELECT id, project_id, target_type, target_id, root_event_id, title, created_at
+FROM zdx_event_threads
+WHERE root_event_id = $1
+`
+
+func (q *Queries) GetThreadByRoot(ctx context.Context, rootEventID int64) (ZdxEventThread, error) {
+	row := q.db.QueryRow(ctx, getThreadByRoot, rootEventID)
+	var i ZdxEventThread
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.RootEventID,
+		&i.Title,
+		&i.CreatedAt,
 	)
 	return i, err
 }
@@ -283,6 +332,67 @@ func (q *Queries) ListThreadsByTarget(ctx context.Context, arg ListThreadsByTarg
 		return nil, err
 	}
 	return items, nil
+}
+
+const setEventVerdict = `-- name: SetEventVerdict :one
+UPDATE zdx_events
+SET agent_process_result = $1
+WHERE id = $2
+RETURNING id, project_id, target_type, target_id, thread_id, event_type,
+          author, author_kind, summary_json, detail_json,
+          agent_process_result, created_at
+`
+
+type SetEventVerdictParams struct {
+	AgentProcessResult []byte `db:"agent_process_result" json:"agent_process_result"`
+	ID                 int64  `db:"id" json:"id"`
+}
+
+func (q *Queries) SetEventVerdict(ctx context.Context, arg SetEventVerdictParams) (ZdxEvent, error) {
+	row := q.db.QueryRow(ctx, setEventVerdict, arg.AgentProcessResult, arg.ID)
+	var i ZdxEvent
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.ThreadID,
+		&i.EventType,
+		&i.Author,
+		&i.AuthorKind,
+		&i.SummaryJson,
+		&i.DetailJson,
+		&i.AgentProcessResult,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
+const setThreadTitle = `-- name: SetThreadTitle :one
+UPDATE zdx_event_threads
+SET title = $1
+WHERE id = $2
+RETURNING id, project_id, target_type, target_id, root_event_id, title, created_at
+`
+
+type SetThreadTitleParams struct {
+	Title pgtype.Text `db:"title" json:"title"`
+	ID    int64       `db:"id" json:"id"`
+}
+
+func (q *Queries) SetThreadTitle(ctx context.Context, arg SetThreadTitleParams) (ZdxEventThread, error) {
+	row := q.db.QueryRow(ctx, setThreadTitle, arg.Title, arg.ID)
+	var i ZdxEventThread
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.TargetType,
+		&i.TargetID,
+		&i.RootEventID,
+		&i.Title,
+		&i.CreatedAt,
+	)
+	return i, err
 }
 
 const upsertStream = `-- name: UpsertStream :one

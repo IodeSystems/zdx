@@ -169,6 +169,7 @@ type Querier interface {
 	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (GetEnvironmentRow, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
 	GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error)
+	GetEventByID(ctx context.Context, id int64) (ZdxEvent, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (GetFeatureRow, error)
 	GetFeatureByID(ctx context.Context, id int32) (GetFeatureByIDRow, error)
 	GetFile(ctx context.Context, id int32) (ZdxFile, error)
@@ -217,6 +218,7 @@ type Querier interface {
 	GetTaskWithReview(ctx context.Context, id string) (GetTaskWithReviewRow, error)
 	GetTest(ctx context.Context, arg GetTestParams) (GetTestRow, error)
 	GetTestByID(ctx context.Context, arg GetTestByIDParams) (GetTestByIDRow, error)
+	GetThreadByRoot(ctx context.Context, rootEventID int64) (ZdxEventThread, error)
 	GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, error)
 	GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error)
 	GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (GetUnreviewedJournalEntryRow, error)
@@ -528,6 +530,7 @@ type Querier interface {
 	// metaquery: off
 	SearchProposals(ctx context.Context, arg SearchProposalsParams) ([]ZdxProposal, error)
 	SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error)
+	SetEventVerdict(ctx context.Context, arg SetEventVerdictParams) (ZdxEvent, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
 	SetIssueInteractiveOnly(ctx context.Context, arg SetIssueInteractiveOnlyParams) error
 	SetIssuePriority(ctx context.Context, arg SetIssuePriorityParams) error
@@ -537,6 +540,7 @@ type Querier interface {
 	SetProjectStage(ctx context.Context, arg SetProjectStageParams) error
 	SetProjectVision(ctx context.Context, arg SetProjectVisionParams) error
 	SetState(ctx context.Context, arg SetStateParams) error
+	SetThreadTitle(ctx context.Context, arg SetThreadTitleParams) (ZdxEventThread, error)
 	// Store the auto-filed issue ID on a blocked todo so the UI can link to it.
 	SetTodoReferenceIssue(ctx context.Context, arg SetTodoReferenceIssueParams) error
 	StandupOwnerYield(ctx context.Context, projectID int32) (StandupOwnerYieldRow, error)

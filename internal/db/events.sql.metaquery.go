@@ -63,6 +63,68 @@ var CreateThreadCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
+var MetaGetEventByID = metaquery.Query{
+	Name:   "GetEventByID",
+	Cmd:    ":one",
+	Source: "events.sql",
+	SQL: `SELECT id, project_id, target_type, target_id, thread_id, event_type,
+       author, author_kind, summary_json, detail_json,
+       agent_process_result, created_at
+FROM zdx_events
+WHERE id = $1`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_events"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_events"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "thread_id", OriginalName: "thread_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_events"},
+		{Name: "event_type", OriginalName: "event_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "author", OriginalName: "author", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "author_kind", OriginalName: "author_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "summary_json", OriginalName: "summary_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
+		{Name: "detail_json", OriginalName: "detail_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
+		{Name: "agent_process_result", OriginalName: "agent_process_result", GoType: "[]byte", DBType: "jsonb", Table: "zdx_events"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_events"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "id", GoType: "int64", DBType: "pg_catalog.int8", NotNull: true},
+	},
+}
+
+// WrapGetEventByID returns a metaquery.Builder over MetaGetEventByID, pre-bound with typed arguments.
+func WrapGetEventByID(id int64) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetEventByID, id)
+}
+
+// GetEventByIDCols gives typed, name-safe access to GetEventByID's output columns.
+var GetEventByIDCols = struct {
+	ID                 metaquery.IntCol
+	ProjectID          metaquery.IntCol
+	TargetType         metaquery.TextCol
+	TargetID           metaquery.TextCol
+	ThreadID           metaquery.IntCol
+	EventType          metaquery.TextCol
+	Author             metaquery.TextCol
+	AuthorKind         metaquery.TextCol
+	SummaryJson        metaquery.BytesCol
+	DetailJson         metaquery.BytesCol
+	AgentProcessResult metaquery.BytesCol
+	CreatedAt          metaquery.TimeCol
+}{
+	ID:                 metaquery.NewIntCol("id"),
+	ProjectID:          metaquery.NewIntCol("project_id"),
+	TargetType:         metaquery.NewTextCol("target_type"),
+	TargetID:           metaquery.NewTextCol("target_id"),
+	ThreadID:           metaquery.NewIntCol("thread_id"),
+	EventType:          metaquery.NewTextCol("event_type"),
+	Author:             metaquery.NewTextCol("author"),
+	AuthorKind:         metaquery.NewTextCol("author_kind"),
+	SummaryJson:        metaquery.NewBytesCol("summary_json"),
+	DetailJson:         metaquery.NewBytesCol("detail_json"),
+	AgentProcessResult: metaquery.NewBytesCol("agent_process_result"),
+	CreatedAt:          metaquery.NewTimeCol("created_at"),
+}
+
 var MetaGetStreamByTarget = metaquery.Query{
 	Name:   "GetStreamByTarget",
 	Cmd:    ":one",
@@ -108,6 +170,51 @@ var GetStreamByTargetCols = struct {
 	TargetID:        metaquery.NewTextCol("target_id"),
 	LastEvaluatedAt: metaquery.NewTimeCol("last_evaluated_at"),
 	LastEvaluatedBy: metaquery.NewTextCol("last_evaluated_by"),
+}
+
+var MetaGetThreadByRoot = metaquery.Query{
+	Name:   "GetThreadByRoot",
+	Cmd:    ":one",
+	Source: "events.sql",
+	SQL: `SELECT id, project_id, target_type, target_id, root_event_id, title, created_at
+FROM zdx_event_threads
+WHERE root_event_id = $1`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "root_event_id", OriginalName: "root_event_id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_event_threads"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_event_threads"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "root_event_id", GoType: "int64", DBType: "pg_catalog.int8", NotNull: true},
+	},
+}
+
+// WrapGetThreadByRoot returns a metaquery.Builder over MetaGetThreadByRoot, pre-bound with typed arguments.
+func WrapGetThreadByRoot(rootEventID int64) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetThreadByRoot, rootEventID)
+}
+
+// GetThreadByRootCols gives typed, name-safe access to GetThreadByRoot's output columns.
+var GetThreadByRootCols = struct {
+	ID          metaquery.IntCol
+	ProjectID   metaquery.IntCol
+	TargetType  metaquery.TextCol
+	TargetID    metaquery.TextCol
+	RootEventID metaquery.IntCol
+	Title       metaquery.TextCol
+	CreatedAt   metaquery.TimeCol
+}{
+	ID:          metaquery.NewIntCol("id"),
+	ProjectID:   metaquery.NewIntCol("project_id"),
+	TargetType:  metaquery.NewTextCol("target_type"),
+	TargetID:    metaquery.NewTextCol("target_id"),
+	RootEventID: metaquery.NewIntCol("root_event_id"),
+	Title:       metaquery.NewTextCol("title"),
+	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
 var MetaInsertEvent = metaquery.Query{
@@ -357,6 +464,117 @@ func WrapListThreadsByTarget(arg ListThreadsByTargetParams) *metaquery.Builder {
 
 // ListThreadsByTargetCols gives typed, name-safe access to ListThreadsByTarget's output columns.
 var ListThreadsByTargetCols = struct {
+	ID          metaquery.IntCol
+	ProjectID   metaquery.IntCol
+	TargetType  metaquery.TextCol
+	TargetID    metaquery.TextCol
+	RootEventID metaquery.IntCol
+	Title       metaquery.TextCol
+	CreatedAt   metaquery.TimeCol
+}{
+	ID:          metaquery.NewIntCol("id"),
+	ProjectID:   metaquery.NewIntCol("project_id"),
+	TargetType:  metaquery.NewTextCol("target_type"),
+	TargetID:    metaquery.NewTextCol("target_id"),
+	RootEventID: metaquery.NewIntCol("root_event_id"),
+	Title:       metaquery.NewTextCol("title"),
+	CreatedAt:   metaquery.NewTimeCol("created_at"),
+}
+
+var MetaSetEventVerdict = metaquery.Query{
+	Name:   "SetEventVerdict",
+	Cmd:    ":one",
+	Source: "events.sql",
+	SQL: `UPDATE zdx_events
+SET agent_process_result = $1
+WHERE id = $2
+RETURNING id, project_id, target_type, target_id, thread_id, event_type,
+          author, author_kind, summary_json, detail_json,
+          agent_process_result, created_at`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_events"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_events"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "thread_id", OriginalName: "thread_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_events"},
+		{Name: "event_type", OriginalName: "event_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "author", OriginalName: "author", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "author_kind", OriginalName: "author_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "summary_json", OriginalName: "summary_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
+		{Name: "detail_json", OriginalName: "detail_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
+		{Name: "agent_process_result", OriginalName: "agent_process_result", GoType: "[]byte", DBType: "jsonb", Table: "zdx_events"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_events"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "agent_process_result", GoType: "[]byte", DBType: "jsonb"},
+		{Position: 2, Name: "id", GoType: "int64", DBType: "pg_catalog.int8", NotNull: true},
+	},
+}
+
+// WrapSetEventVerdict returns a metaquery.Builder over MetaSetEventVerdict, pre-bound with typed arguments.
+func WrapSetEventVerdict(arg SetEventVerdictParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaSetEventVerdict, arg.AgentProcessResult, arg.ID)
+}
+
+// SetEventVerdictCols gives typed, name-safe access to SetEventVerdict's output columns.
+var SetEventVerdictCols = struct {
+	ID                 metaquery.IntCol
+	ProjectID          metaquery.IntCol
+	TargetType         metaquery.TextCol
+	TargetID           metaquery.TextCol
+	ThreadID           metaquery.IntCol
+	EventType          metaquery.TextCol
+	Author             metaquery.TextCol
+	AuthorKind         metaquery.TextCol
+	SummaryJson        metaquery.BytesCol
+	DetailJson         metaquery.BytesCol
+	AgentProcessResult metaquery.BytesCol
+	CreatedAt          metaquery.TimeCol
+}{
+	ID:                 metaquery.NewIntCol("id"),
+	ProjectID:          metaquery.NewIntCol("project_id"),
+	TargetType:         metaquery.NewTextCol("target_type"),
+	TargetID:           metaquery.NewTextCol("target_id"),
+	ThreadID:           metaquery.NewIntCol("thread_id"),
+	EventType:          metaquery.NewTextCol("event_type"),
+	Author:             metaquery.NewTextCol("author"),
+	AuthorKind:         metaquery.NewTextCol("author_kind"),
+	SummaryJson:        metaquery.NewBytesCol("summary_json"),
+	DetailJson:         metaquery.NewBytesCol("detail_json"),
+	AgentProcessResult: metaquery.NewBytesCol("agent_process_result"),
+	CreatedAt:          metaquery.NewTimeCol("created_at"),
+}
+
+var MetaSetThreadTitle = metaquery.Query{
+	Name:   "SetThreadTitle",
+	Cmd:    ":one",
+	Source: "events.sql",
+	SQL: `UPDATE zdx_event_threads
+SET title = $1
+WHERE id = $2
+RETURNING id, project_id, target_type, target_id, root_event_id, title, created_at`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "root_event_id", OriginalName: "root_event_id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_event_threads"},
+		{Name: "title", OriginalName: "title", GoType: "pgtype.Text", DBType: "text", Table: "zdx_event_threads"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_event_threads"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "title", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 2, Name: "id", GoType: "int64", DBType: "pg_catalog.int8", NotNull: true},
+	},
+}
+
+// WrapSetThreadTitle returns a metaquery.Builder over MetaSetThreadTitle, pre-bound with typed arguments.
+func WrapSetThreadTitle(arg SetThreadTitleParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaSetThreadTitle, arg.Title, arg.ID)
+}
+
+// SetThreadTitleCols gives typed, name-safe access to SetThreadTitle's output columns.
+var SetThreadTitleCols = struct {
 	ID          metaquery.IntCol
 	ProjectID   metaquery.IntCol
 	TargetType  metaquery.TextCol

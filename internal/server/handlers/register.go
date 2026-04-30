@@ -18,6 +18,7 @@ func Register(api huma.API, deps *Deps) *Handler {
 	h.registerDxRoutes(api)
 	h.registerErrorRoutes(api)
 	h.registerCommentRoutes(api)
+	h.registerEventRoutes(api)
 	h.registerAdminRoutes(api)
 	h.registerCodeRefRoutes(api)
 	h.registerQARoutes(api)
