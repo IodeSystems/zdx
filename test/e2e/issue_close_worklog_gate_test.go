@@ -104,16 +104,16 @@ func TestIssueCloseWorklogGate(t *testing.T) {
 		}
 	})
 
-	// 3. Impl issue, --reason=wontfix → succeeds (no worklog required).
+	// 3. Impl issue, --reason=wontfix --force → succeeds (no worklog required).
 	t.Run("reason_wontfix_bypasses", func(t *testing.T) {
 		id := addIssue("impl")
-		resp := closeIssue(id, map[string]any{"reason": "wontfix"})
+		resp := closeIssue(id, map[string]any{"reason": "wontfix", "force": true})
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("want 200, got %d: %s", resp.StatusCode, readBody(resp))
 		}
 	})
 
-	// 4. Impl issue, --reason=duplicate → succeeds.
+	// 4. Impl issue, --reason=duplicate --force → succeeds.
 	t.Run("reason_duplicate_bypasses", func(t *testing.T) {
 		target := addIssue("impl")
 		addResolution(target)
@@ -124,6 +124,7 @@ func TestIssueCloseWorklogGate(t *testing.T) {
 		resp := closeIssue(dup, map[string]any{
 			"reason":       "duplicate",
 			"duplicate_of": fmt.Sprintf("IS-%d", target),
+			"force":        true,
 		})
 		if resp.StatusCode != http.StatusOK {
 			t.Fatalf("want 200, got %d: %s", resp.StatusCode, readBody(resp))
