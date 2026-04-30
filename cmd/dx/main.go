@@ -40,6 +40,7 @@ func main() {
 		project.DoctorCmd(),
 		devtools.BuildCmd(),
 		devtools.TestCmd(),
+		devtools.ShipCmd(),
 		devtools.LintCmd(),
 		devtools.UICmd(),
 		devtools.CheckCmd(),

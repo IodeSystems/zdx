@@ -97,6 +97,9 @@ fi
 # refuse to ship from any other branch. Prevents shipping a feature branch to
 # an environment whose release branch is e.g. main.
 
+RELEASE_BRANCH=""
+CURRENT_BRANCH=""
+
 if [ -f "$DEPLOY_PROPS" ]; then
   RELEASE_BRANCH=$(grep "^deploy.release_branch=" "$DEPLOY_PROPS" | cut -d= -f2- | tr -d '[:space:]' || true)
   if [ -n "$RELEASE_BRANCH" ]; then
@@ -152,6 +155,32 @@ if ! $SKIP_BUILD; then
     echo "[ship] Fix the failing checks above (or run ./bin/db gen / ./bin/dx ui gen-api for drift)."
     exit 1
   fi
+fi
+
+# ── Must-spec gate ────────────────────────────────────────────────────────────
+# Block deploy on must-tier spec demo failures. When on the release branch,
+# auto-file a blocker issue so regressions are tracked rather than silently
+# retried by the next ship attempt.
+
+if ! $SKIP_BUILD; then
+  echo "[ship] Checking must-spec demos..."
+  GATE_OUT=$(mktemp)
+  if ! ./bin/dx ship gate > "$GATE_OUT" 2>&1; then
+    cat "$GATE_OUT"
+    if [ -n "$RELEASE_BRANCH" ]; then
+      FILED=$(./bin/dx issue add \
+        --title="ship blocked: must-spec demo gaps on ${CURRENT_BRANCH}" \
+        --type=impl \
+        --auto-ready \
+        --context="$(cat "$GATE_OUT")" 2>&1 | grep -oE 'IS-[0-9]+' | head -1 || true)
+      [ -n "$FILED" ] && echo "[ship] Filed blocker issue: $FILED"
+    fi
+    rm -f "$GATE_OUT"
+    echo "[ship] REFUSING TO SHIP: must-spec gate failed."
+    exit 1
+  fi
+  cat "$GATE_OUT"
+  rm -f "$GATE_OUT"
 fi
 
 # ── Build ─────────────────────────────────────────────────────────────────────
@@ -414,11 +443,6 @@ else
   echo "[ship] Skipping compat check (--non-compatible-migration)."
   echo "[ship] Will use maintenance-mode deploy."
 fi
-
-# ── Must-tier demo gate ───────────────────────────────────────────────────────
-
-echo "[ship] Running must-tier tests..."
-./bin/dx test --importance=must --layer=demo --no-ephemeral
 
 # ── Deploy helpers ────────────────────────────────────────────────────────────
 
