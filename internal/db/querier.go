@@ -16,7 +16,9 @@ type Querier interface {
 	AddFeatureMultiplier(ctx context.Context, arg AddFeatureMultiplierParams) error
 	AddFocusBlocker(ctx context.Context, arg AddFocusBlockerParams) error
 	AddFocusFeature(ctx context.Context, arg AddFocusFeatureParams) error
-	// kind: 'sequencing' (default) for "X waits for Y" deps; 'composition' for tracker → child relationships
+	// kind: 'sequencing' (default) for "X waits for Y" deps; 'composition' for tracker → child relationships.
+	// ON CONFLICT updates kind so existing edges can be reclassified (e.g. backfilling pre-migration
+	// tracker edges from 'sequencing' to 'composition').
 	AddIssueBlock(ctx context.Context, arg AddIssueBlockParams) error
 	AddResolutionCommit(ctx context.Context, arg AddResolutionCommitParams) error
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
