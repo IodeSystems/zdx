@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"time"
 
@@ -852,21 +853,26 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 
-			for _, breach := range append(ownerBreaches, techBreaches...) {
-				title := "Yield alert: " + breach
-				n, _ := h.Q.CountOpenIssuesByTitle(ctx, db.CountOpenIssuesByTitleParams{ProjectID: p.ID, Title: title})
-				if n == 0 {
-					issueID, err2 := h.Q.NextIssueID(ctx)
-					if err2 == nil {
-						_, _ = h.Q.CreateIssue(ctx, db.CreateIssueParams{
-							ID:        issueID,
-							ProjectID: p.ID,
-							Title:     title,
-							Context:   fmt.Sprintf("Auto-filed from standup entry %d on %s.\n\n%s", inserted.ID, today, breach),
-							Priority:  "3",
-							IssueType: "ask",
-							Status:    "open",
-						})
+			// Auto-file is gated off until the enrichment in IS-684 lands — current titles/bodies
+			// are cryptic shorthand (e.g. "sessions/closed: 6.6") that cannot be triaged without
+			// source-diving. Re-enable by setting STANDUP_AUTO_FILE_ALERTS=true.
+			if os.Getenv("STANDUP_AUTO_FILE_ALERTS") == "true" {
+				for _, breach := range append(ownerBreaches, techBreaches...) {
+					title := "Yield alert: " + breach
+					n, _ := h.Q.CountOpenIssuesByTitle(ctx, db.CountOpenIssuesByTitleParams{ProjectID: p.ID, Title: title})
+					if n == 0 {
+						issueID, err2 := h.Q.NextIssueID(ctx)
+						if err2 == nil {
+							_, _ = h.Q.CreateIssue(ctx, db.CreateIssueParams{
+								ID:        issueID,
+								ProjectID: p.ID,
+								Title:     title,
+								Context:   fmt.Sprintf("Auto-filed from standup entry %d on %s.\n\n%s", inserted.ID, today, breach),
+								Priority:  "3",
+								IssueType: "ask",
+								Status:    "open",
+							})
+						}
 					}
 				}
 			}
