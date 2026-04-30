@@ -420,16 +420,6 @@ type QuestionProposalItem struct {
 	UpdatedAt      string `json:"updated_at"`
 }
 
-type StaleCommentItem struct {
-	ID          int32  `json:"id"`
-	TargetType  string `json:"target_type"`
-	TargetID    string `json:"target_id"`
-	Author      string `json:"author"`
-	AuthorAlias string `json:"author_alias,omitempty"`
-	Body        string `json:"body"`
-	CreatedAt   string `json:"created_at"`
-	ParentID    *int32 `json:"parent_id,omitempty"`
-}
 
 type WriteTodoInput struct {
 	Title       string `json:"title,omitempty"`

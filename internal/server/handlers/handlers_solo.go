@@ -137,52 +137,8 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		issues = filtered
 	}
 
-	// Check for unread LLM comments on issues (any status, not just open)
-	unreadIssues, _ := h.Q.ListIssuesWithUnreadComments(ctx, db.ListIssuesWithUnreadCommentsParams{
-		ProjectID: projectID, Role: "llm",
-	})
-	for _, ui := range unreadIssues {
-		if issueFilter != "" && ui.ID != issueFilter {
-			continue
-		}
-		h := workflowhints.UnreadCommentsText(ui.ID, ui.Title)
-		candidates = append(candidates, soloCandidate{
-			Key:         fmt.Sprintf("comment-issue-%s", ui.ID),
-			Title:       h.Title,
-			Description: h.Description,
-			Text:        h.Instructions,
-			Kind:        "read:comments",
-			TargetType:  "issue",
-			TargetID:    ui.ID,
-			IssueRef:    ui.ID,
-			Priority:    5,
-			Persona:     "dev",
-		})
-	}
-
-	// Check for unread LLM comments on features
+	// Check for unread LLM comments on features (read tracking removed in IS-670; zdx_comment_reads dropped in migration 122)
 	features, _ := h.Q.ListFeatures(ctx, projectID)
-	if issueFilter == "" {
-		for _, f := range features {
-			hasUnread, _ := h.Q.HasUnreadCommentsForTarget(ctx, db.HasUnreadCommentsForTargetParams{
-				ProjectID: projectID, TargetType: "feature", TargetID: f.Name, Role: "llm",
-			})
-			if hasUnread {
-				h := workflowhints.UnreadFeatureCommentsText(f.Name)
-				candidates = append(candidates, soloCandidate{
-					Key:         fmt.Sprintf("comment-feature-%s", f.Name),
-					Title:       h.Title,
-					Description: h.Description,
-					Text:        h.Instructions,
-					Kind:        "read:comments",
-					TargetType:  "feature",
-					TargetID:    f.Name,
-					Priority:    8,
-					Persona:     "dev",
-				})
-			}
-		}
-	}
 
 	// Unanswered QA questions
 	if issueFilter == "" {
@@ -222,52 +178,6 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				TargetType:  "discussion",
 				TargetID:    dsID,
 				Priority:    10,
-				Persona:     "dev",
-			})
-		}
-	}
-
-	// Stale unread comments — batched per target, not per comment.
-	// Key is stable per target so the todo doesn't regenerate as new comments age in.
-	if issueFilter == "" {
-		stale, _ := h.Q.ListStaleUnreadComments(ctx, db.ListStaleUnreadCommentsParams{
-			ProjectID: projectID, Role: "llm", AgeHours: 24,
-		})
-		// Group by target to emit one todo per target with the latest comment ID.
-		type staleTarget struct {
-			targetType    string
-			targetID      string
-			lastCommentID int32
-			count         int
-		}
-		seen := map[string]*staleTarget{}
-		for _, c := range stale {
-			key := c.TargetType + ":" + c.TargetID
-			if t, ok := seen[key]; ok {
-				t.count++
-				if c.ID > t.lastCommentID {
-					t.lastCommentID = c.ID
-				}
-			} else {
-				seen[key] = &staleTarget{
-					targetType:    c.TargetType,
-					targetID:      c.TargetID,
-					lastCommentID: c.ID,
-					count:         1,
-				}
-			}
-		}
-		for _, t := range seen {
-			h := workflowhints.StaleCommentsText(t.count, t.targetType, t.targetID, t.lastCommentID)
-			candidates = append(candidates, soloCandidate{
-				Key:         fmt.Sprintf("stale-comments-%s-%s", t.targetType, t.targetID),
-				Title:       h.Title,
-				Description: h.Description,
-				Text:        h.Instructions,
-				Kind:        "respond:stale",
-				TargetType:  t.targetType,
-				TargetID:    t.targetID,
-				Priority:    12,
 				Persona:     "dev",
 			})
 		}

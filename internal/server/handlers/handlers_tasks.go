@@ -1063,12 +1063,6 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			if in.Body.Verdict == "approve" {
-				_ = h.Q.UpsertCommentRead(ctx, db.UpsertCommentReadParams{
-					ProjectID:  p.ID,
-					TargetType: "review",
-					TargetID:   reviewIDStr(rev.ID),
-					Role:       "llm",
-				})
 			}
 			h.Broker.PublishTask(p.Slug, id, "task.reviewed", map[string]any{"id": id, "verdict": in.Body.Verdict, "review_id": rev.ID})
 			return &struct {

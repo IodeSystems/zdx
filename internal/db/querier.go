@@ -13,7 +13,6 @@ import (
 type Querier interface {
 	AcceptQuestionProposal(ctx context.Context, arg AcceptQuestionProposalParams) (ZdxQuestionProposal, error)
 	AddComment(ctx context.Context, arg AddCommentParams) (AddCommentRow, error)
-	AddCommentReaction(ctx context.Context, arg AddCommentReactionParams) (ZdxCommentReaction, error)
 	AddFeatureMultiplier(ctx context.Context, arg AddFeatureMultiplierParams) error
 	AddFocusBlocker(ctx context.Context, arg AddFocusBlockerParams) error
 	AddFocusFeature(ctx context.Context, arg AddFocusFeatureParams) error
@@ -70,10 +69,6 @@ type Querier interface {
 	// didn't apply any durable mutation — those release without marking resolved.
 	CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error)
 	CountStaleOpenClaudeSessions(ctx context.Context, arg CountStaleOpenClaudeSessionsParams) (int64, error)
-	CountUnreadForRole(ctx context.Context, arg CountUnreadForRoleParams) (int32, error)
-	// Counts comments on targets where the user has previously commented,
-	// excluding the user's own comments, that are newer than the user's last read.
-	CountUnreadResponsesForUser(ctx context.Context, arg CountUnreadResponsesForUserParams) (int32, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
 	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)
@@ -109,7 +104,6 @@ type Querier interface {
 	DeleteAgent(ctx context.Context, id string) error
 	DeleteApiKey(ctx context.Context, arg DeleteApiKeyParams) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
-	DeleteCommentReaction(ctx context.Context, arg DeleteCommentReactionParams) error
 	DeleteCounterEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteDiscussion(ctx context.Context, arg DeleteDiscussionParams) error
 	DeleteDraftTask(ctx context.Context, id string) (int64, error)
@@ -140,8 +134,6 @@ type Querier interface {
 	DetachCodeRefFromSpec(ctx context.Context, arg DetachCodeRefFromSpecParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error
-	// Marks all unread response threads as read for the user by upserting comment reads.
-	DismissAllUnreadResponsesForUser(ctx context.Context, arg DismissAllUnreadResponsesForUserParams) error
 	FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) ([]FlagStaleTasksRow, error)
 	// Flip snoozed items whose snooze_until has passed back to 'open' so they
 	// resurface in the solo queue.
@@ -159,7 +151,6 @@ type Querier interface {
 	GetClaudeSessionTokenUsageByAgent(ctx context.Context, sessionPk int64) ([]GetClaudeSessionTokenUsageByAgentRow, error)
 	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
 	GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error)
-	GetCommentRead(ctx context.Context, arg GetCommentReadParams) (pgtype.Timestamptz, error)
 	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
 	// file_id falls back to any sibling row with the same (demo_type, artifact_path)
 	// that does have a file_id, so legacy rows linked to non-recorder tests still
@@ -224,8 +215,6 @@ type Querier interface {
 	GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (GetUnreviewedJournalEntryRow, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
-	// Excludes agent-authored comments (author_alias != '') so agents don't review their own replies.
-	HasUnreadCommentsForTarget(ctx context.Context, arg HasUnreadCommentsForTargetParams) (bool, error)
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
@@ -277,7 +266,6 @@ type Querier interface {
 	ListCodeRefsBySpec(ctx context.Context, specID int32) ([]ZdxCodeRef, error)
 	ListCodeRefsByTask(ctx context.Context, taskID string) ([]ZdxCodeRef, error)
 	ListCodeRefsByTest(ctx context.Context, testID int32) ([]ZdxCodeRef, error)
-	ListCommentReactions(ctx context.Context, commentID int32) ([]ZdxCommentReaction, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
 	ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_value, value) sum(sum_total_value, total_value) sum(sum_count, count)
@@ -329,9 +317,6 @@ type Querier interface {
 	ListIssueSpecs(ctx context.Context, issueID string) ([]ListIssueSpecsRow, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesBlockedBy(ctx context.Context, blockedByID string) ([]string, error)
-	// Returns issues (any status) that have unread comments for the given role.
-	// Excludes agent-authored comments (author_alias != '') so agents don't review their own replies.
-	ListIssuesWithUnreadComments(ctx context.Context, arg ListIssuesWithUnreadCommentsParams) ([]ListIssuesWithUnreadCommentsRow, error)
 	ListJournalEntries(ctx context.Context, arg ListJournalEntriesParams) ([]ListJournalEntriesRow, error)
 	ListKpiTrend(ctx context.Context, arg ListKpiTrendParams) ([]ZdxKpiSample, error)
 	ListLLMConfigs(ctx context.Context) ([]ListLLMConfigsRow, error)
@@ -407,10 +392,6 @@ type Querier interface {
 	ListStaleOpenClaudeSessions(ctx context.Context, arg ListStaleOpenClaudeSessionsParams) ([]ListStaleOpenClaudeSessionsRow, error)
 	ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error)
 	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
-	// metaquery: off
-	// Returns comments that are unread for the given role and older than the given age threshold.
-	// Excludes comments authored by agents (author_alias != '') so agents don't review their own replies.
-	ListStaleUnreadComments(ctx context.Context, arg ListStaleUnreadCommentsParams) ([]ListStaleUnreadCommentsRow, error)
 	ListTaskReviews(ctx context.Context, arg ListTaskReviewsParams) ([]ListTaskReviewsRow, error)
 	ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTasksRow, error)
 	ListTasksByAgent(ctx context.Context, claimedBy string) ([]ListTasksByAgentRow, error)
@@ -440,9 +421,6 @@ type Querier interface {
 	// with varied titles or put the spec reference in the task body, so both fields
 	// are checked to avoid re-emitting the nudge when work is already queued.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
-	// metaquery: off
-	// Returns distinct threads where the user has commented and others have replied unread.
-	ListUnreadResponseThreadsForUser(ctx context.Context, arg ListUnreadResponseThreadsForUserParams) ([]ListUnreadResponseThreadsForUserRow, error)
 	ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error)
 	ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
@@ -594,7 +572,6 @@ type Querier interface {
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error
-	UpsertCommentRead(ctx context.Context, arg UpsertCommentReadParams) error
 	UpsertCounted(ctx context.Context, arg UpsertCountedParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (UpsertFeatureRow, error)
 	UpsertMaturityAnswer(ctx context.Context, arg UpsertMaturityAnswerParams) (ZdxMaturityAnswer, error)

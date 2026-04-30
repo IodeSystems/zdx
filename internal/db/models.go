@@ -101,22 +101,32 @@ type ZdxComment struct {
 	AuthorAlias string             `db:"author_alias" json:"author_alias"`
 }
 
-type ZdxCommentReaction struct {
-	ID        int32              `db:"id" json:"id"`
-	ProjectID int32              `db:"project_id" json:"project_id"`
-	CommentID int32              `db:"comment_id" json:"comment_id"`
-	Emoji     string             `db:"emoji" json:"emoji"`
-	Reactor   string             `db:"reactor" json:"reactor"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+type ZdxConcern struct {
+	ID          int32              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Name        string             `db:"name" json:"name"`
+	Description string             `db:"description" json:"description"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
-type ZdxCommentRead struct {
-	ID         int32              `db:"id" json:"id"`
-	ProjectID  int32              `db:"project_id" json:"project_id"`
-	TargetType string             `db:"target_type" json:"target_type"`
-	TargetID   string             `db:"target_id" json:"target_id"`
-	Role       string             `db:"role" json:"role"`
-	LastReadAt pgtype.Timestamptz `db:"last_read_at" json:"last_read_at"`
+type ZdxConcernFeature struct {
+	ConcernID int32 `db:"concern_id" json:"concern_id"`
+	FeatureID int32 `db:"feature_id" json:"feature_id"`
+}
+
+type ZdxConcernIssue struct {
+	ConcernID int32  `db:"concern_id" json:"concern_id"`
+	IssueID   string `db:"issue_id" json:"issue_id"`
+}
+
+type ZdxConcernPattern struct {
+	ConcernID int32 `db:"concern_id" json:"concern_id"`
+	PatternID int32 `db:"pattern_id" json:"pattern_id"`
+}
+
+type ZdxConcernSpec struct {
+	ConcernID int32 `db:"concern_id" json:"concern_id"`
+	SpecID    int32 `db:"spec_id" json:"spec_id"`
 }
 
 type ZdxCounted struct {
