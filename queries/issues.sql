@@ -136,6 +136,93 @@ LIMIT $1 OFFSET $2;
 -- name: CountOpenIssuesByTitle :one
 SELECT count(*) FROM zdx_issues WHERE project_id = $1 AND title = $2 AND closed_at IS NULL;
 
+-- name: ListHistoricalCloseGateOffenders :many
+-- IS-632 retroactive close-gate audit. For each closed issue where
+-- close_reason is empty (not force-closed) and issue_type is not
+-- 'tracker'/'ops', evaluate the IS-560 close-gate predicates and emit
+-- one row per (issue, gate) offense:
+--   no-worklog   — zero substantive work-log entries (notes not '[...]')
+--   open-tasks   — has any task still in ready/wip/active
+--   missing-demo — impl issue with must-specs lacking a passing demo
+SELECT i.id::text   AS issue_id,
+       'no-worklog'::text AS gate,
+       ''::text     AS detail
+FROM zdx_issues i
+WHERE i.project_id = @project_id
+  AND i.status = 'closed'
+  AND i.close_reason = ''
+  AND i.issue_type NOT IN ('tracker','ops')
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_issue_work w
+    WHERE w.issue_id = i.id AND w.note NOT LIKE '[%'
+  )
+UNION ALL
+SELECT i.id::text   AS issue_id,
+       'open-tasks'::text AS gate,
+       (SELECT t.id || ' (' || t.status || ')'
+          FROM zdx_tasks t
+         WHERE t.issue = i.id AND t.project_id = @project_id
+           AND t.status IN ('ready','wip','active')
+         ORDER BY t.id LIMIT 1) AS detail
+FROM zdx_issues i
+WHERE i.project_id = @project_id
+  AND i.status = 'closed'
+  AND i.close_reason = ''
+  AND i.issue_type NOT IN ('tracker','ops')
+  AND EXISTS (
+    SELECT 1 FROM zdx_tasks t
+    WHERE t.issue = i.id AND t.project_id = @project_id
+      AND t.status IN ('ready','wip','active')
+  )
+UNION ALL
+SELECT i.id::text   AS issue_id,
+       'missing-demo'::text AS gate,
+       (SELECT s.id::text
+          FROM zdx_tasks t
+          JOIN zdx_features f ON f.name = t.feature AND f.project_id = @project_id
+          JOIN zdx_specs s ON s.feature_id = f.id AND s.importance = 'must'
+         WHERE t.issue = i.id AND t.project_id = @project_id
+           AND NOT EXISTS (
+             SELECT 1 FROM zdx_spec_deferrals sd
+             JOIN zdx_issues di ON di.id = sd.issue_id
+             WHERE sd.spec_id = s.id AND di.status = 'open'
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM zdx_spec_tests st
+             JOIN zdx_tests tt ON tt.id = st.test_id
+             WHERE st.spec_id = s.id AND tt.status = 'pass'
+               AND (tt.component = 'demo' OR EXISTS (
+                 SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id
+               ))
+           )
+         ORDER BY s.id LIMIT 1) AS detail
+FROM zdx_issues i
+WHERE i.project_id = @project_id
+  AND i.status = 'closed'
+  AND i.close_reason = ''
+  AND i.issue_type = 'impl'
+  AND EXISTS (
+    SELECT 1
+    FROM zdx_tasks t
+    JOIN zdx_features f ON f.name = t.feature AND f.project_id = @project_id
+    JOIN zdx_specs s ON s.feature_id = f.id AND s.importance = 'must'
+    WHERE t.issue = i.id AND t.project_id = @project_id
+      AND NOT EXISTS (
+        SELECT 1 FROM zdx_spec_deferrals sd
+        JOIN zdx_issues di ON di.id = sd.issue_id
+        WHERE sd.spec_id = s.id AND di.status = 'open'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM zdx_spec_tests st
+        JOIN zdx_tests tt ON tt.id = st.test_id
+        WHERE st.spec_id = s.id AND tt.status = 'pass'
+          AND (tt.component = 'demo' OR EXISTS (
+            SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id
+          ))
+      )
+  )
+ORDER BY issue_id, gate;
+
 -- name: ListForceClosedNoSubstance :many
 -- Closed issues with a non-done close reason (wontfix/duplicate/link) in their
 -- work-log and zero substantive work-log entries (notes that don't start with

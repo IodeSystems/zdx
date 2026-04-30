@@ -365,6 +365,121 @@ func (q *Queries) ListForceClosedNoSubstance(ctx context.Context, projectID int3
 	return items, nil
 }
 
+const listHistoricalCloseGateOffenders = `-- name: ListHistoricalCloseGateOffenders :many
+SELECT i.id::text   AS issue_id,
+       'no-worklog'::text AS gate,
+       ''::text     AS detail
+FROM zdx_issues i
+WHERE i.project_id = $1
+  AND i.status = 'closed'
+  AND i.close_reason = ''
+  AND i.issue_type NOT IN ('tracker','ops')
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_issue_work w
+    WHERE w.issue_id = i.id AND w.note NOT LIKE '[%'
+  )
+UNION ALL
+SELECT i.id::text   AS issue_id,
+       'open-tasks'::text AS gate,
+       (SELECT t.id || ' (' || t.status || ')'
+          FROM zdx_tasks t
+         WHERE t.issue = i.id AND t.project_id = $1
+           AND t.status IN ('ready','wip','active')
+         ORDER BY t.id LIMIT 1) AS detail
+FROM zdx_issues i
+WHERE i.project_id = $1
+  AND i.status = 'closed'
+  AND i.close_reason = ''
+  AND i.issue_type NOT IN ('tracker','ops')
+  AND EXISTS (
+    SELECT 1 FROM zdx_tasks t
+    WHERE t.issue = i.id AND t.project_id = $1
+      AND t.status IN ('ready','wip','active')
+  )
+UNION ALL
+SELECT i.id::text   AS issue_id,
+       'missing-demo'::text AS gate,
+       (SELECT s.id::text
+          FROM zdx_tasks t
+          JOIN zdx_features f ON f.name = t.feature AND f.project_id = $1
+          JOIN zdx_specs s ON s.feature_id = f.id AND s.importance = 'must'
+         WHERE t.issue = i.id AND t.project_id = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM zdx_spec_deferrals sd
+             JOIN zdx_issues di ON di.id = sd.issue_id
+             WHERE sd.spec_id = s.id AND di.status = 'open'
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM zdx_spec_tests st
+             JOIN zdx_tests tt ON tt.id = st.test_id
+             WHERE st.spec_id = s.id AND tt.status = 'pass'
+               AND (tt.component = 'demo' OR EXISTS (
+                 SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id
+               ))
+           )
+         ORDER BY s.id LIMIT 1) AS detail
+FROM zdx_issues i
+WHERE i.project_id = $1
+  AND i.status = 'closed'
+  AND i.close_reason = ''
+  AND i.issue_type = 'impl'
+  AND EXISTS (
+    SELECT 1
+    FROM zdx_tasks t
+    JOIN zdx_features f ON f.name = t.feature AND f.project_id = $1
+    JOIN zdx_specs s ON s.feature_id = f.id AND s.importance = 'must'
+    WHERE t.issue = i.id AND t.project_id = $1
+      AND NOT EXISTS (
+        SELECT 1 FROM zdx_spec_deferrals sd
+        JOIN zdx_issues di ON di.id = sd.issue_id
+        WHERE sd.spec_id = s.id AND di.status = 'open'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM zdx_spec_tests st
+        JOIN zdx_tests tt ON tt.id = st.test_id
+        WHERE st.spec_id = s.id AND tt.status = 'pass'
+          AND (tt.component = 'demo' OR EXISTS (
+            SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id
+          ))
+      )
+  )
+ORDER BY issue_id, gate
+`
+
+type ListHistoricalCloseGateOffendersRow struct {
+	IssueID string `db:"issue_id" json:"issue_id"`
+	Gate    string `db:"gate" json:"gate"`
+	Detail  string `db:"detail" json:"detail"`
+}
+
+// IS-632 retroactive close-gate audit. For each closed issue where
+// close_reason is empty (not force-closed) and issue_type is not
+// 'tracker'/'ops', evaluate the IS-560 close-gate predicates and emit
+// one row per (issue, gate) offense:
+//
+//	no-worklog   — zero substantive work-log entries (notes not '[...]')
+//	open-tasks   — has any task still in ready/wip/active
+//	missing-demo — impl issue with must-specs lacking a passing demo
+func (q *Queries) ListHistoricalCloseGateOffenders(ctx context.Context, projectID int32) ([]ListHistoricalCloseGateOffendersRow, error) {
+	rows, err := q.db.Query(ctx, listHistoricalCloseGateOffenders, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListHistoricalCloseGateOffendersRow
+	for rows.Next() {
+		var i ListHistoricalCloseGateOffendersRow
+		if err := rows.Scan(&i.IssueID, &i.Gate, &i.Detail); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIssues = `-- name: ListIssues :many
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC

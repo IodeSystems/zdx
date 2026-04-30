@@ -1398,6 +1398,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/doctor/historical-close-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-historical-close-gate-offenders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/error-events": {
         parameters: {
             query?: never;
@@ -4924,6 +4940,7 @@ export interface components {
             readonly $schema?: string;
             blocked_by: string[] | null;
             blocked_by_detail: components["schemas"]["IssueBlockerRef"][] | null;
+            close_reason?: string;
             component: string;
             context: string;
             created_at: string;
@@ -5543,6 +5560,7 @@ export interface components {
              */
             readonly $schema?: string;
             duplicate_of?: string;
+            force?: boolean;
             /** Format: int32 */
             id: number;
             link_of?: string;
@@ -6561,6 +6579,11 @@ export interface components {
             title: string;
             updated_at: string;
         };
+        HistoricalCloseGateOffender: {
+            detail: string;
+            gate: string;
+            issue_id: string;
+        };
         HistoryEvent: {
             agent_id: string;
             created_at: string;
@@ -6800,6 +6823,7 @@ export interface components {
         IssueItem: {
             blocked_by: string[] | null;
             blocked_by_detail: components["schemas"]["IssueBlockerRef"][] | null;
+            close_reason?: string;
             component: string;
             context: string;
             created_at: string;
@@ -7411,6 +7435,15 @@ export interface components {
             readonly $schema?: string;
             goals: components["schemas"]["GoalItem"][] | null;
             vision: components["schemas"]["VisionItem"];
+        };
+        "List-historical-close-gate-offendersResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-historical-close-gate-offendersResponse.json
+             */
+            readonly $schema?: string;
+            offenders: components["schemas"]["HistoricalCloseGateOffender"][] | null;
         };
         "List-historyResponse": {
             /**
@@ -13317,6 +13350,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-force-closed-no-substanceResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-historical-close-gate-offenders": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-historical-close-gate-offendersResponse"];
                 };
             };
             /** @description Error */

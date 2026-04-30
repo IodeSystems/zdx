@@ -325,6 +325,14 @@ type Querier interface {
 	// '['). Used by doctor's planning rung to surface accountability gaps.
 	ListForceClosedNoSubstance(ctx context.Context, projectID int32) ([]ListForceClosedNoSubstanceRow, error)
 	ListGoalIssues(ctx context.Context, goalID int32) ([]string, error)
+	// IS-632 retroactive close-gate audit. For each closed issue where
+	// close_reason is empty (not force-closed) and issue_type is not
+	// 'tracker'/'ops', evaluate the IS-560 close-gate predicates and emit
+	// one row per (issue, gate) offense:
+	//   no-worklog   — zero substantive work-log entries (notes not '[...]')
+	//   open-tasks   — has any task still in ready/wip/active
+	//   missing-demo — impl issue with must-specs lacking a passing demo
+	ListHistoricalCloseGateOffenders(ctx context.Context, projectID int32) ([]ListHistoricalCloseGateOffendersRow, error)
 	ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error)
 	ListInvites(ctx context.Context) ([]ZdxInvite, error)
 	ListIssueBlockers(ctx context.Context, issueID string) ([]string, error)

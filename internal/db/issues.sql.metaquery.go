@@ -524,6 +524,114 @@ var ListForceClosedNoSubstanceCols = struct {
 	CloseNote: metaquery.NewTextCol("note"),
 }
 
+var MetaListHistoricalCloseGateOffenders = metaquery.Query{
+	Name:   "ListHistoricalCloseGateOffenders",
+	Cmd:    ":many",
+	Source: "issues.sql",
+	SQL: `SELECT i.id::text   AS issue_id,
+       'no-worklog'::text AS gate,
+       ''::text     AS detail
+FROM zdx_issues i
+WHERE i.project_id = $1
+  AND i.status = 'closed'
+  AND i.close_reason = ''
+  AND i.issue_type NOT IN ('tracker','ops')
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_issue_work w
+    WHERE w.issue_id = i.id AND w.note NOT LIKE '[%'
+  )
+UNION ALL
+SELECT i.id::text   AS issue_id,
+       'open-tasks'::text AS gate,
+       (SELECT t.id || ' (' || t.status || ')'
+          FROM zdx_tasks t
+         WHERE t.issue = i.id AND t.project_id = $1
+           AND t.status IN ('ready','wip','active')
+         ORDER BY t.id LIMIT 1) AS detail
+FROM zdx_issues i
+WHERE i.project_id = $1
+  AND i.status = 'closed'
+  AND i.close_reason = ''
+  AND i.issue_type NOT IN ('tracker','ops')
+  AND EXISTS (
+    SELECT 1 FROM zdx_tasks t
+    WHERE t.issue = i.id AND t.project_id = $1
+      AND t.status IN ('ready','wip','active')
+  )
+UNION ALL
+SELECT i.id::text   AS issue_id,
+       'missing-demo'::text AS gate,
+       (SELECT s.id::text
+          FROM zdx_tasks t
+          JOIN zdx_features f ON f.name = t.feature AND f.project_id = $1
+          JOIN zdx_specs s ON s.feature_id = f.id AND s.importance = 'must'
+         WHERE t.issue = i.id AND t.project_id = $1
+           AND NOT EXISTS (
+             SELECT 1 FROM zdx_spec_deferrals sd
+             JOIN zdx_issues di ON di.id = sd.issue_id
+             WHERE sd.spec_id = s.id AND di.status = 'open'
+           )
+           AND NOT EXISTS (
+             SELECT 1 FROM zdx_spec_tests st
+             JOIN zdx_tests tt ON tt.id = st.test_id
+             WHERE st.spec_id = s.id AND tt.status = 'pass'
+               AND (tt.component = 'demo' OR EXISTS (
+                 SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id
+               ))
+           )
+         ORDER BY s.id LIMIT 1) AS detail
+FROM zdx_issues i
+WHERE i.project_id = $1
+  AND i.status = 'closed'
+  AND i.close_reason = ''
+  AND i.issue_type = 'impl'
+  AND EXISTS (
+    SELECT 1
+    FROM zdx_tasks t
+    JOIN zdx_features f ON f.name = t.feature AND f.project_id = $1
+    JOIN zdx_specs s ON s.feature_id = f.id AND s.importance = 'must'
+    WHERE t.issue = i.id AND t.project_id = $1
+      AND NOT EXISTS (
+        SELECT 1 FROM zdx_spec_deferrals sd
+        JOIN zdx_issues di ON di.id = sd.issue_id
+        WHERE sd.spec_id = s.id AND di.status = 'open'
+      )
+      AND NOT EXISTS (
+        SELECT 1 FROM zdx_spec_tests st
+        JOIN zdx_tests tt ON tt.id = st.test_id
+        WHERE st.spec_id = s.id AND tt.status = 'pass'
+          AND (tt.component = 'demo' OR EXISTS (
+            SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id
+          ))
+      )
+  )
+ORDER BY issue_id, gate`,
+	Columns: []metaquery.Column{
+		{Name: "issue_id", OriginalName: "issue_id", GoType: "string", DBType: "text", NotNull: true},
+		{Name: "gate", OriginalName: "gate", GoType: "string", DBType: "text", NotNull: true},
+		{Name: "detail", OriginalName: "detail", GoType: "string", DBType: "text", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListHistoricalCloseGateOffenders returns a metaquery.Builder over MetaListHistoricalCloseGateOffenders, pre-bound with typed arguments.
+func WrapListHistoricalCloseGateOffenders(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListHistoricalCloseGateOffenders, projectID)
+}
+
+// ListHistoricalCloseGateOffendersCols gives typed, name-safe access to ListHistoricalCloseGateOffenders's output columns.
+var ListHistoricalCloseGateOffendersCols = struct {
+	IssueID metaquery.TextCol
+	Gate    metaquery.TextCol
+	Detail  metaquery.TextCol
+}{
+	IssueID: metaquery.NewTextCol("issue_id"),
+	Gate:    metaquery.NewTextCol("gate"),
+	Detail:  metaquery.NewTextCol("detail"),
+}
+
 var MetaListIssues = metaquery.Query{
 	Name:   "ListIssues",
 	Cmd:    ":many",

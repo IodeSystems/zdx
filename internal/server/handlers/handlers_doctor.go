@@ -154,6 +154,39 @@ func (h *Handler) registerDoctorRoutes(api huma.API) {
 			}{Issues: out}}, nil
 		})
 
+	// GET /api/dx/doctor/historical-close-gate — closed issues that fail the
+	// IS-560 close-gate retroactively (one row per (issue, gate) offense).
+	huma.Register(api, huma.Operation{OperationID: "list-historical-close-gate-offenders", Method: http.MethodGet, Path: "/api/dx/doctor/historical-close-gate"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Offenders []HistoricalCloseGateOffender `json:"offenders"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListHistoricalCloseGateOffenders(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]HistoricalCloseGateOffender, len(rows))
+			for i, r := range rows {
+				out[i] = HistoricalCloseGateOffender{
+					IssueID: r.IssueID,
+					Gate:    r.Gate,
+					Detail:  r.Detail,
+				}
+			}
+			return &struct {
+				Body struct {
+					Offenders []HistoricalCloseGateOffender `json:"offenders"`
+				}
+			}{Body: struct {
+				Offenders []HistoricalCloseGateOffender `json:"offenders"`
+			}{Offenders: out}}, nil
+		})
+
 	// GET /api/dx/doctor/concern-state — aggregate concern coverage counts for doctor
 	huma.Register(api, huma.Operation{OperationID: "get-concern-doctor-state", Method: http.MethodGet, Path: "/api/dx/doctor/concern-state"},
 		func(ctx context.Context, in *IssueSlugInput) (*struct {
@@ -198,4 +231,10 @@ type ForceClosedNoSubstanceItem struct {
 	ID        string `json:"id"`
 	Title     string `json:"title"`
 	CloseNote string `json:"close_note"`
+}
+
+type HistoricalCloseGateOffender struct {
+	IssueID string `json:"issue_id"`
+	Gate    string `json:"gate"`
+	Detail  string `json:"detail"`
 }

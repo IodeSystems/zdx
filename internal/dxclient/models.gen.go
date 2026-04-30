@@ -149,6 +149,7 @@ type AddIssueResponse struct {
 	Schema          *string            `json:"$schema,omitempty"`
 	BlockedBy       *[]string          `json:"blocked_by"`
 	BlockedByDetail *[]IssueBlockerRef `json:"blocked_by_detail"`
+	CloseReason     *string            `json:"close_reason,omitempty"`
 	Component       string             `json:"component"`
 	Context         string             `json:"context"`
 	CreatedAt       string             `json:"created_at"`
@@ -1471,6 +1472,13 @@ type GoalItem struct {
 	UpdatedAt   string  `json:"updated_at"`
 }
 
+// HistoricalCloseGateOffender defines model for HistoricalCloseGateOffender.
+type HistoricalCloseGateOffender struct {
+	Detail  string `json:"detail"`
+	Gate    string `json:"gate"`
+	IssueId string `json:"issue_id"`
+}
+
 // HistoryEvent defines model for HistoryEvent.
 type HistoryEvent struct {
 	AgentId    string  `json:"agent_id"`
@@ -2159,6 +2167,13 @@ type ListGoalsResponse struct {
 	Schema *string     `json:"$schema,omitempty"`
 	Goals  *[]GoalItem `json:"goals"`
 	Vision VisionItem  `json:"vision"`
+}
+
+// ListHistoricalCloseGateOffendersResponse defines model for List-historical-close-gate-offendersResponse.
+type ListHistoricalCloseGateOffendersResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string                        `json:"$schema,omitempty"`
+	Offenders *[]HistoricalCloseGateOffender `json:"offenders"`
 }
 
 // ListHistoryResponse defines model for List-historyResponse.
@@ -4586,6 +4601,11 @@ type ListForceClosedNoSubstanceParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// ListHistoricalCloseGateOffendersParams defines parameters for ListHistoricalCloseGateOffenders.
+type ListHistoricalCloseGateOffendersParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
 // ListErrorEventsParams defines parameters for ListErrorEvents.
 type ListErrorEventsParams struct {
 	Slug      *string `form:"slug,omitempty" json:"slug,omitempty"`
@@ -6118,6 +6138,9 @@ type ClientInterface interface {
 
 	// ListForceClosedNoSubstance request
 	ListForceClosedNoSubstance(ctx context.Context, params *ListForceClosedNoSubstanceParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListHistoricalCloseGateOffenders request
+	ListHistoricalCloseGateOffenders(ctx context.Context, params *ListHistoricalCloseGateOffendersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListErrorEvents request
 	ListErrorEvents(ctx context.Context, params *ListErrorEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8756,6 +8779,18 @@ func (c *APIClient) ListDoctorDeferrals(ctx context.Context, params *ListDoctorD
 
 func (c *APIClient) ListForceClosedNoSubstance(ctx context.Context, params *ListForceClosedNoSubstanceParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListForceClosedNoSubstanceRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListHistoricalCloseGateOffenders(ctx context.Context, params *ListHistoricalCloseGateOffendersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListHistoricalCloseGateOffendersRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -18017,6 +18052,51 @@ func NewListForceClosedNoSubstanceRequest(server string, params *ListForceClosed
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/doctor/force-closed-no-substance")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListHistoricalCloseGateOffendersRequest generates requests for ListHistoricalCloseGateOffenders
+func NewListHistoricalCloseGateOffendersRequest(server string, params *ListHistoricalCloseGateOffendersParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/doctor/historical-close-gate")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -30043,6 +30123,9 @@ type ClientWithResponsesInterface interface {
 	// ListForceClosedNoSubstanceWithResponse request
 	ListForceClosedNoSubstanceWithResponse(ctx context.Context, params *ListForceClosedNoSubstanceParams, reqEditors ...RequestEditorFn) (*ParsedListForceClosedNoSubstanceResponse, error)
 
+	// ListHistoricalCloseGateOffendersWithResponse request
+	ListHistoricalCloseGateOffendersWithResponse(ctx context.Context, params *ListHistoricalCloseGateOffendersParams, reqEditors ...RequestEditorFn) (*ParsedListHistoricalCloseGateOffendersResponse, error)
+
 	// ListErrorEventsWithResponse request
 	ListErrorEventsWithResponse(ctx context.Context, params *ListErrorEventsParams, reqEditors ...RequestEditorFn) (*ParsedListErrorEventsResponse, error)
 
@@ -33268,6 +33351,29 @@ func (r ParsedListForceClosedNoSubstanceResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListForceClosedNoSubstanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListHistoricalCloseGateOffendersResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListHistoricalCloseGateOffendersResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListHistoricalCloseGateOffendersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListHistoricalCloseGateOffendersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -39673,6 +39779,15 @@ func (c *ClientWithResponses) ListForceClosedNoSubstanceWithResponse(ctx context
 	return ParseParsedListForceClosedNoSubstanceResponse(rsp)
 }
 
+// ListHistoricalCloseGateOffendersWithResponse request returning *ParsedListHistoricalCloseGateOffendersResponse
+func (c *ClientWithResponses) ListHistoricalCloseGateOffendersWithResponse(ctx context.Context, params *ListHistoricalCloseGateOffendersParams, reqEditors ...RequestEditorFn) (*ParsedListHistoricalCloseGateOffendersResponse, error) {
+	rsp, err := c.ListHistoricalCloseGateOffenders(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListHistoricalCloseGateOffendersResponse(rsp)
+}
+
 // ListErrorEventsWithResponse request returning *ParsedListErrorEventsResponse
 func (c *ClientWithResponses) ListErrorEventsWithResponse(ctx context.Context, params *ListErrorEventsParams, reqEditors ...RequestEditorFn) (*ParsedListErrorEventsResponse, error) {
 	rsp, err := c.ListErrorEvents(ctx, params, reqEditors...)
@@ -45912,6 +46027,39 @@ func ParseParsedListForceClosedNoSubstanceResponse(rsp *http.Response) (*ParsedL
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListForceClosedNoSubstanceResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListHistoricalCloseGateOffendersResponse parses an HTTP response from a ListHistoricalCloseGateOffendersWithResponse call
+func ParseParsedListHistoricalCloseGateOffendersResponse(rsp *http.Response) (*ParsedListHistoricalCloseGateOffendersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListHistoricalCloseGateOffendersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListHistoricalCloseGateOffendersResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
