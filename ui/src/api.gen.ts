@@ -6674,6 +6674,7 @@ export interface components {
             id: number;
             kpi_delta_json: string;
             next: string;
+            role: string;
             state_json: string;
             tldr: string;
         };

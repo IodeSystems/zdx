@@ -1709,6 +1709,7 @@ type JournalEntryItem struct {
 	Id            int32  `json:"id"`
 	KpiDeltaJson  string `json:"kpi_delta_json"`
 	Next          string `json:"next"`
+	Role          string `json:"role"`
 	StateJson     string `json:"state_json"`
 	Tldr          string `json:"tldr"`
 }

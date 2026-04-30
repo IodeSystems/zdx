@@ -448,6 +448,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			for i, r := range rows {
 				out[i] = JournalEntryItem{
 					ID:            r.ID,
+					Role:          r.Role,
 					Date:          r.Date,
 					Baseline:      r.Baseline,
 					Tldr:          r.Tldr,
@@ -493,6 +494,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				Entry JournalEntryItem `json:"entry"`
 			}{Entry: JournalEntryItem{
 				ID:            r.ID,
+				Role:          r.Role,
 				Date:          r.Date,
 				Baseline:      r.Baseline,
 				Tldr:          r.Tldr,
@@ -824,6 +826,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 
 			entry := JournalEntryItem{
 				ID:            inserted.ID,
+				Role:          role,
 				Date:          today,
 				Tldr:          tldr,
 				Assessment:    assessment,

@@ -2269,6 +2269,7 @@ export const useDeleteConstraint = (slug: string) => {
 
 export interface JournalEntryItem {
   id: number
+  role: string
   date: string
   baseline: boolean
   tldr: string
@@ -2277,7 +2278,31 @@ export interface JournalEntryItem {
   next: string
   changelog_json: string
   state_json: string
+  kpi_delta_json: string
 }
+
+export interface KpiTrendSample {
+  timestamp: string
+  value: number
+}
+
+export const KPI_TREND_DEFAULT_N = 20
+
+export const useKpiTrend = (slug: string, scope: string, checkName: string, n: number = KPI_TREND_DEFAULT_N) =>
+  useQuery<KpiTrendSample[]>({
+    queryKey: ['kpi-trend', slug, scope, checkName, n],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/kpi/trend', {
+        params: { query: { slug, scope, check_name: checkName, n } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      const items = ((data as any)?.items ?? []) as { sampled_at: string; value: number }[]
+      return items
+        .map(s => ({ timestamp: s.sampled_at, value: s.value }))
+        .reverse()
+    },
+    enabled: !!slug && !!scope && !!checkName,
+  })
 
 export const useJournalEntries = (slug: string, role: string) =>
   useQuery<JournalEntryItem[]>({

@@ -8,6 +8,7 @@ import { ArrowBack as ArrowBackIcon, TrendingUp, TrendingDown, TrendingFlat } fr
 import { useMemo } from 'react'
 import { useJournalEntry } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { KpiSparklineRow } from './KpiSparklineRow'
 import { MarkdownContent } from './MarkdownContent'
 
 interface MetricDelta {
@@ -15,6 +16,53 @@ interface MetricDelta {
   prev: number
   curr: number
   diff: number
+}
+
+interface KpiDelta {
+  check_name: string
+  unit: string
+  prev: number
+  curr: number
+  pct: number
+}
+
+function isRegression(d: KpiDelta): boolean {
+  const u = d.unit.toLowerCase()
+  const isTime = u === 's' || u === 'ms'
+  return d.pct > 50 || (isTime && d.curr > 15)
+}
+
+function KpiDeltasSection({ slug, scope, deltaJson }: { slug: string; scope: string; deltaJson: string }) {
+  const deltas = useMemo<KpiDelta[]>(() => {
+    try {
+      const parsed = JSON.parse(deltaJson)
+      return Array.isArray(parsed) ? parsed : []
+    } catch {
+      return []
+    }
+  }, [deltaJson])
+
+  if (deltas.length === 0) return null
+
+  return (
+    <Box sx={{ mb: 2 }}>
+      <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>KPI Trends</Typography>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 0.5 }}>
+        {deltas.map(d => (
+          <KpiSparklineRow
+            key={d.check_name}
+            slug={slug}
+            scope={scope}
+            checkName={d.check_name}
+            curr={d.curr}
+            unit={d.unit}
+            pct={d.pct}
+            regression={isRegression(d)}
+          />
+        ))}
+      </Box>
+    </Box>
+  )
 }
 
 const METRIC_LABELS: Record<string, string> = {
@@ -129,6 +177,10 @@ export function JournalDetail({ slug, entryId }: { slug: string; entryId: string
           <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 0.5 }}>Metrics</Typography>
           <MetricsGrid stateJson={entry.state_json} changelogJson={entry.changelog_json} />
         </Box>
+      )}
+
+      {entry.kpi_delta_json && (
+        <KpiDeltasSection slug={slug} scope={entry.role} deltaJson={entry.kpi_delta_json} />
       )}
 
       <Section label="Assessment" content={entry.assessment} slug={slug} />
