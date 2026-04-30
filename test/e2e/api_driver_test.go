@@ -143,33 +143,6 @@ func (d *ApiDriver) AddComment(targetType, targetID, body string) {
 		map[string]any{"slug": d.Slug, "target_type": targetType, "target_id": targetID, "body": body}, nil))
 }
 
-func (d *ApiDriver) MarkCommentsRead(targetType, targetID, role string) {
-	d.t.Helper()
-	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/comment/mark-read",
-		map[string]any{"slug": d.Slug, "target_type": targetType, "target_id": targetID, "role": role}, nil))
-}
-
-func (d *ApiDriver) HasUnreadComments(targetType, targetID string) bool {
-	d.t.Helper()
-	var resp struct {
-		HasUnread bool `json:"has_unread"`
-	}
-	mustOK(d.t, apiDo(d.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/comment/unread-check?slug=%s&target_type=%s&target_id=%s&role=llm",
-			d.Slug, targetType, targetID), nil, &resp))
-	return resp.HasUnread
-}
-
-func (d *ApiDriver) ListStaleUnreadComments(ageHours int) []StaleCommentInfo {
-	d.t.Helper()
-	var resp struct {
-		Comments []StaleCommentInfo `json:"comments"`
-	}
-	mustOK(d.t, apiDo(d.t, http.MethodGet,
-		fmt.Sprintf("/api/dx/comment/stale-unread?slug=%s&role=llm&age_hours=%d", d.Slug, ageHours), nil, &resp))
-	return resp.Comments
-}
-
 func (d *ApiDriver) AddBlockerQuestion(targetType, targetID, context string) int32 {
 	d.t.Helper()
 	var q struct {

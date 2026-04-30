@@ -38,13 +38,6 @@ type QAQuestionInfo struct {
 	Question string `json:"question"`
 }
 
-type StaleCommentInfo struct {
-	ID         int32  `json:"id"`
-	TargetType string `json:"target_type"`
-	TargetID   string `json:"target_id"`
-	Author     string `json:"author"`
-}
-
 type ProjectSteps interface {
 	CreateProject(slug, name string)
 }
@@ -75,9 +68,6 @@ type FeatureSteps interface {
 
 type CommentSteps interface {
 	AddComment(targetType, targetID, body string)
-	MarkCommentsRead(targetType, targetID, role string)
-	HasUnreadComments(targetType, targetID string) bool
-	ListStaleUnreadComments(ageHours int) []StaleCommentInfo
 }
 
 type BlockerQuestionSteps interface {

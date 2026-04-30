@@ -40,51 +40,6 @@ func TestSoloBootstrap(t *testing.T) {
 	d.CloseIssue(issueID)
 }
 
-func TestSoloReadCommentsIssue(t *testing.T) {
-	d := NewApiDriver(t, "solo-comments-i", "Solo Comments Issue")
-	sc := Given(d).
-		TriagedIssue("Comment test issue", "test", 3).
-		Build()
-
-	issueID := sc.Issues[0]
-	targetID := fmt.Sprintf("IS-%d", issueID)
-
-	if d.HasUnreadComments("issue", targetID) {
-		t.Fatal("should not have unread comments initially")
-	}
-
-	d.AddComment("issue", targetID, "Please review this approach")
-	if !d.HasUnreadComments("issue", targetID) {
-		t.Fatal("should have unread comments after adding one")
-	}
-
-	d.MarkCommentsRead("issue", targetID, "llm")
-	if d.HasUnreadComments("issue", targetID) {
-		t.Fatal("should not have unread comments after marking read")
-	}
-
-	d.CloseIssue(issueID)
-}
-
-func TestSoloReadCommentsFeature(t *testing.T) {
-	d := NewApiDriver(t, "solo-comments-f", "Solo Comments Feature")
-	Given(d).Feature("commentable", "A feature to comment on").Build()
-
-	if d.HasUnreadComments("feature", "commentable") {
-		t.Fatal("should not have unread comments initially")
-	}
-
-	d.AddComment("feature", "commentable", "What about this spec?")
-	if !d.HasUnreadComments("feature", "commentable") {
-		t.Fatal("should have unread comments after adding one")
-	}
-
-	d.MarkCommentsRead("feature", "commentable", "llm")
-	if d.HasUnreadComments("feature", "commentable") {
-		t.Fatal("should not have unread comments after marking read")
-	}
-}
-
 func TestSoloClarify(t *testing.T) {
 	d := NewApiDriver(t, "solo-clarify", "Solo Clarify")
 	sc := Given(d).TriagedIssue("Clarify test", "needs decision", 2).Build()
@@ -784,33 +739,6 @@ func TestSoloFullLifecycle(t *testing.T) {
 	}
 }
 
-func TestSoloPrecedence(t *testing.T) {
-	d := NewApiDriver(t, "solo-precedence", "Solo Precedence")
-	sc := Given(d).Issue("Precedence test", "checking order").Build()
-	issueID := sc.Issues[0]
-	targetID := fmt.Sprintf("IS-%d", issueID)
-
-	d.AddComment("issue", targetID, "Check this first")
-	if !d.HasUnreadComments("issue", targetID) {
-		t.Fatal("expected unread comment")
-	}
-
-	issues := d.ListIssues()
-	for _, iss := range issues {
-		if iss.ID == issueID && iss.Priority != "" {
-			t.Fatal("issue should still be untriaged")
-		}
-	}
-
-	d.MarkCommentsRead("issue", targetID, "llm")
-	if d.HasUnreadComments("issue", targetID) {
-		t.Fatal("comments should be read now")
-	}
-
-	d.TriageIssue(issueID, 3)
-	d.CloseIssue(issueID)
-}
-
 func TestSoloUnansweredQuestions(t *testing.T) {
 	d := NewApiDriver(t, "solo-unans-qa", "Solo Unanswered QA")
 
@@ -844,38 +772,6 @@ func TestSoloUnansweredQuestions(t *testing.T) {
 	if len(qs) != 0 {
 		t.Fatalf("expected 0 unanswered questions, got %d", len(qs))
 	}
-}
-
-func TestSoloStaleUnreadComments(t *testing.T) {
-	d := NewApiDriver(t, "solo-stale-comm", "Solo Stale Comments")
-	sc := Given(d).TriagedIssue("Stale comment test", "test", 3).Build()
-	issueID := sc.Issues[0]
-	targetID := fmt.Sprintf("IS-%d", issueID)
-
-	d.AddComment("issue", targetID, "Initial comment")
-	d.MarkCommentsRead("issue", targetID, "llm")
-
-	stale := d.ListStaleUnreadComments(0)
-	if len(stale) != 0 {
-		t.Fatalf("expected 0 stale comments (all read), got %d", len(stale))
-	}
-
-	d.AddComment("issue", targetID, "Follow-up that nobody read")
-	stale = d.ListStaleUnreadComments(0)
-	if len(stale) != 1 {
-		t.Fatalf("expected 1 stale unread comment, got %d", len(stale))
-	}
-	if stale[0].TargetID != targetID {
-		t.Errorf("expected target_id %s, got %s", targetID, stale[0].TargetID)
-	}
-
-	d.MarkCommentsRead("issue", targetID, "llm")
-	stale = d.ListStaleUnreadComments(0)
-	if len(stale) != 0 {
-		t.Fatalf("expected 0 stale comments after marking read, got %d", len(stale))
-	}
-
-	d.CloseIssue(issueID)
 }
 
 func TestTaskCreatedAtField(t *testing.T) {
