@@ -48,6 +48,31 @@ func TestShipNoBranchConfigured(t *testing.T) {
 	}
 }
 
+func TestShipPropsMissingReleaseBranchKey(t *testing.T) {
+	repo := newTempShipRepo(t)
+	repo.runGit(t, "checkout", "-q", "-b", "dev")
+	// Properties file exists but does not declare deploy.release_branch.
+	homeDir := filepath.Join(repo.root, "home")
+	if err := os.MkdirAll(homeDir, 0o755); err != nil {
+		t.Fatalf("mkdir home: %v", err)
+	}
+	props := filepath.Join(homeDir, "deploy.secret.properties")
+	if err := os.WriteFile(props, []byte("deploy.host=ubuntu@example\n"), 0o644); err != nil {
+		t.Fatalf("write deploy.secret.properties: %v", err)
+	}
+
+	out, _ := repo.runShip(t)
+	if strings.Contains(out, branchRefusalMarker) {
+		t.Fatalf("absent release_branch key should skip gate; %q appeared.\noutput:\n%s", branchRefusalMarker, out)
+	}
+	// Without `|| true`, set -o pipefail kills the script silently at the gate.
+	// Assert it proceeded past the gate by checking for a marker from the next stage.
+	const pastGateMarker = "[ship] Running lint"
+	if !strings.Contains(out, pastGateMarker) {
+		t.Fatalf("expected script to proceed past gate (look for %q).\noutput:\n%s", pastGateMarker, out)
+	}
+}
+
 func (r *shipRepo) writeReleaseBranch(t *testing.T, branch string) {
 	t.Helper()
 	homeDir := filepath.Join(r.root, "home")
