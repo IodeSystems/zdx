@@ -4,8 +4,10 @@ import "github.com/danielgtaylor/huma/v2"
 
 // Register wires every API route group in this package onto the given API.
 // Callers (server.registerRoutes) pass their concrete Deps, which satisfies the
-// Broker / Reconciler / Embedder / IngestRegistrar interfaces.
-func Register(api huma.API, deps *Deps) {
+// Broker / Reconciler / Embedder / IngestRegistrar interfaces. The constructed
+// Handler is returned so callers can attach non-huma routes (e.g. the agent
+// WebSocket endpoint) to the same instance.
+func Register(api huma.API, deps *Deps) *Handler {
 	h := &Handler{Deps: deps}
 	h.registerAuthRoutes(api)
 	h.registerIssueRoutes(api)
@@ -39,4 +41,5 @@ func Register(api huma.API, deps *Deps) {
 	h.registerEnvironmentRoutes(api)
 	h.registerFileRoutes()
 	h.registerGitProxyRoutes()
+	return h
 }

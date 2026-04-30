@@ -49,6 +49,7 @@ type Broker interface {
 	PublishClaudeEvent(slug, sessionID, eventType string, payload any)
 	PublishClaudeSessionLifecycle(slug, sessionID, eventType string, payload any)
 	PublishAgentSessionLifecycle(slug, sessionID, eventType string, payload any)
+	PublishAuditEvent(agentID string, payload any)
 }
 
 type Reconciler interface {

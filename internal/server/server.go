@@ -141,14 +141,14 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	s.mux.Use(s.timingMiddleware)
 	s.api = humachi.New(s.mux, cfg)
 
-	handlers.Register(s.api, s.buildDeps())
+	h := handlers.Register(s.api, s.buildDeps())
 	s.registerIngestRoutes(s.api)
 	s.registerCounterIngestRoutes(s.api)
 	s.registerErrorIngestRoutes(s.api)
 	s.registerLogIngestRoutes(s.api)
 	s.registerPromIngestRoutes(s.api)
 	s.registerWSRoutes(s.api)
-	s.mux.Get("/api/agents/connect", handlers.HandleAgentConnect(s.agentRegistry, s.q))
+	s.mux.Get("/api/agents/connect", h.HandleAgentConnect(s.agentRegistry))
 
 	s.mux.NotFound(notFoundHandler(staticDir))
 

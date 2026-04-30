@@ -40,6 +40,13 @@ func (s *Server) PublishClaudeSessionLifecycle(slug string, sessionID string, ev
 	s.Publish(fmt.Sprintf("project:%s:claude:%s", slug, sessionID), eventType, payload)
 }
 
+// PublishAuditEvent broadcasts an agent.audit_event on the per-agent audit
+// channel so operators can subscribe to a live tool-call/file-edit/shell-cmd
+// trail without having to know the session_id ahead of time.
+func (s *Server) PublishAuditEvent(agentID string, payload any) {
+	s.Publish(fmt.Sprintf("agent:%s:audit", agentID), "agent.audit_event", payload)
+}
+
 // publishAgentSessionLifecycle broadcasts a provider-agnostic session
 // lifecycle event (agent.session-created / agent.session-closed /
 // agent.session-updated) on the per-project and per-session WS channels.
