@@ -17,6 +17,7 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/llm"
+	"github.com/iodesystems/zdx-go/internal/server/agentconn"
 	"github.com/iodesystems/zdx-go/internal/server/handlers"
 	"github.com/iodesystems/zdx-go/internal/ws"
 	"github.com/iodesystems/zdx-go/pkg/zdxclient"
@@ -28,6 +29,7 @@ type Server struct {
 	mux            *chi.Mux
 	buildSHA       string
 	zdxProjectSlug string
+	agentRegistry  *agentconn.Registry
 	uploadsDir     string
 	reposDir       string
 	slot           string // "current", "next", or "" (dev); controls WS endpoint registration
@@ -104,7 +106,8 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 		features:       detectFeatures(ctx, pool),
 		sink:           sink,
 		ingestLimiter:  newIngestRateLimiter(1000, 10000),
-		wsClients:      make(map[int64]*wsClientEntry),
+		wsClients:     make(map[int64]*wsClientEntry),
+		agentRegistry: agentconn.NewRegistry(),
 	}
 
 	// Load LLM config eagerly so embedder is ready on first request.
@@ -129,6 +132,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	s.registerLogIngestRoutes(s.api)
 	s.registerPromIngestRoutes(s.api)
 	s.registerWSRoutes(s.api)
+	s.mux.Get("/api/agents/connect", handlers.HandleAgentConnect(s.agentRegistry))
 
 	s.mux.NotFound(notFoundHandler(staticDir))
 

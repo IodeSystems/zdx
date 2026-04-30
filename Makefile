@@ -4,6 +4,7 @@ build:
 	go build -o bin/dx ./cmd/dx
 	go build -o bin/dx-server ./cmd/dx-server
 	go build -o bin/db ./cmd/db
+	go build -o bin/dx-agent ./cmd/dx-agent
 
 gen-dxclient:
 	go run ./cmd/dx-client-gen
