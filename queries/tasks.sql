@@ -119,7 +119,10 @@ WHERE r.claimed_by = $1
 ORDER BY r.claimed_at DESC;
 
 -- name: ReclaimExpiredTasks :many
--- Reset tasks that are marked active but have no live reservation.
+-- Reset tasks that are marked active but have no live reservation. Tasks
+-- claimed by an agent currently in status='paused' are exempt: a paused
+-- agent intentionally stops renewing its lease and the operator (or resume
+-- handler) is expected to bring it back. See TK-1363 / IS-602.
 UPDATE zdx_tasks
 SET status = 'ready',
     updated_at = NOW()
@@ -130,6 +133,14 @@ WHERE status = 'active'
       AND r.target_id = zdx_tasks.id
       AND r.released_at IS NULL
       AND r.lease_expires_at > NOW()
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_reservations r
+    JOIN zdx_agents a ON a.id = r.claimed_by
+    WHERE r.target_type = 'task'
+      AND r.target_id = zdx_tasks.id
+      AND r.released_at IS NULL
+      AND a.status = 'paused'
   )
   AND status != 'done'
 RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at;

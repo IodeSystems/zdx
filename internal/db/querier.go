@@ -450,7 +450,10 @@ type Querier interface {
 	ReadyIssue(ctx context.Context, arg ReadyIssueParams) error
 	ReadyTask(ctx context.Context, id string) error
 	ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error)
-	// Reset tasks that are marked active but have no live reservation.
+	// Reset tasks that are marked active but have no live reservation. Tasks
+	// claimed by an agent currently in status='paused' are exempt: a paused
+	// agent intentionally stops renewing its lease and the operator (or resume
+	// handler) is expected to bring it back. See TK-1363 / IS-602.
 	ReclaimExpiredTasks(ctx context.Context) ([]ReclaimExpiredTasksRow, error)
 	// Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
 	ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]ReclaimExpiredTodosRow, error)

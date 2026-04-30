@@ -1606,6 +1606,14 @@ WHERE status = 'active'
       AND r.released_at IS NULL
       AND r.lease_expires_at > NOW()
   )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_reservations r
+    JOIN zdx_agents a ON a.id = r.claimed_by
+    WHERE r.target_type = 'task'
+      AND r.target_id = zdx_tasks.id
+      AND r.released_at IS NULL
+      AND a.status = 'paused'
+  )
   AND status != 'done'
 RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at`,
 	Columns: []metaquery.Column{
