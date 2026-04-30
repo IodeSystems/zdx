@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1869,6 +1869,41 @@ ALTER SEQUENCE public.zdx_revisions_id_seq OWNED BY public.zdx_revisions.id;
 
 
 --
+-- Name: zdx_session_audit_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_session_audit_events (
+    id bigint NOT NULL,
+    session_pk bigint NOT NULL,
+    agent_id text DEFAULT ''::text NOT NULL,
+    todo_id integer,
+    turn_id text DEFAULT ''::text NOT NULL,
+    event_type text NOT NULL,
+    payload jsonb DEFAULT '{}'::jsonb NOT NULL,
+    occurred_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_session_audit_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_session_audit_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_session_audit_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_session_audit_events_id_seq OWNED BY public.zdx_session_audit_events.id;
+
+
+--
 -- Name: zdx_sessions; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -2803,6 +2838,13 @@ ALTER TABLE ONLY public.zdx_revisions ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: zdx_session_audit_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_session_audit_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_session_audit_events_id_seq'::regclass);
+
+
+--
 -- Name: zdx_sessions id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3490,6 +3532,14 @@ ALTER TABLE ONLY public.zdx_reservations
 
 ALTER TABLE ONLY public.zdx_revisions
     ADD CONSTRAINT zdx_revisions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_session_audit_events zdx_session_audit_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_session_audit_events
+    ADD CONSTRAINT zdx_session_audit_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -4240,6 +4290,20 @@ CREATE INDEX zdx_revisions_target ON public.zdx_revisions USING btree (project_i
 
 
 --
+-- Name: zdx_session_audit_events_agent_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_session_audit_events_agent_id_idx ON public.zdx_session_audit_events USING btree (agent_id);
+
+
+--
+-- Name: zdx_session_audit_events_session_pk_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_session_audit_events_session_pk_idx ON public.zdx_session_audit_events USING btree (session_pk);
+
+
+--
 -- Name: zdx_task_reviews_task_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4879,6 +4943,22 @@ ALTER TABLE ONLY public.zdx_reservations
 
 ALTER TABLE ONLY public.zdx_revisions
     ADD CONSTRAINT zdx_revisions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_session_audit_events zdx_session_audit_events_session_pk_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_session_audit_events
+    ADD CONSTRAINT zdx_session_audit_events_session_pk_fkey FOREIGN KEY (session_pk) REFERENCES public.zdx_claude_sessions(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_session_audit_events zdx_session_audit_events_todo_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_session_audit_events
+    ADD CONSTRAINT zdx_session_audit_events_todo_id_fkey FOREIGN KEY (todo_id) REFERENCES public.zdx_todos(id) ON DELETE SET NULL;
 
 
 --

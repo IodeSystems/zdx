@@ -667,6 +667,17 @@ type ZdxSession struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxSessionAuditEvent struct {
+	ID         int64              `db:"id" json:"id"`
+	SessionPk  int64              `db:"session_pk" json:"session_pk"`
+	AgentID    string             `db:"agent_id" json:"agent_id"`
+	TodoID     pgtype.Int4        `db:"todo_id" json:"todo_id"`
+	TurnID     string             `db:"turn_id" json:"turn_id"`
+	EventType  string             `db:"event_type" json:"event_type"`
+	Payload    []byte             `db:"payload" json:"payload"`
+	OccurredAt pgtype.Timestamptz `db:"occurred_at" json:"occurred_at"`
+}
+
 type ZdxSlowQuery struct {
 	ID          int64              `db:"id" json:"id"`
 	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`

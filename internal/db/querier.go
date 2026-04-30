@@ -99,6 +99,7 @@ type Querier interface {
 	CreateProjectGoal(ctx context.Context, arg CreateProjectGoalParams) (CreateProjectGoalRow, error)
 	CreateProposal(ctx context.Context, arg CreateProposalParams) (ZdxProposal, error)
 	CreateProposalVersion(ctx context.Context, arg CreateProposalVersionParams) (ZdxProposalVersion, error)
+	CreateSessionAuditEvent(ctx context.Context, arg CreateSessionAuditEventParams) error
 	CreateTask(ctx context.Context, arg CreateTaskParams) (CreateTaskRow, error)
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
@@ -249,6 +250,7 @@ type Querier interface {
 	ListActiveTaskClaims(ctx context.Context, projectID int32) ([]ListActiveTaskClaimsRow, error)
 	// Return all todos that are currently claimed and whose lease has not expired.
 	ListActiveTodoClaims(ctx context.Context, projectID int32) ([]ListActiveTodoClaimsRow, error)
+	ListAgentAuditEvents(ctx context.Context, agentID string) ([]ZdxSessionAuditEvent, error)
 	ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error)
 	ListApiKeysByUser(ctx context.Context, userID int32) ([]ListApiKeysByUserRow, error)
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
@@ -380,6 +382,7 @@ type Querier interface {
 	ListResolutionsByProject(ctx context.Context, projectID int32) ([]ZdxIssueResolution, error)
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
 	ListRevisionsByTarget(ctx context.Context, arg ListRevisionsByTargetParams) ([]ListRevisionsByTargetRow, error)
+	ListSessionAuditEvents(ctx context.Context, sessionPk int64) ([]ZdxSessionAuditEvent, error)
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	ListSpecDeferrals(ctx context.Context, specID int32) ([]ListSpecDeferralsRow, error)
 	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
