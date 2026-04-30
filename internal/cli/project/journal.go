@@ -1,6 +1,7 @@
 package project
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"os"
@@ -12,8 +13,10 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/devtools"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 	"github.com/iodesystems/zdx-go/internal/techmetrics"
+	"github.com/iodesystems/zdx-go/internal/trackermetrics"
 )
 
 type (
@@ -130,6 +133,10 @@ func journalCheckinCmd() *cobra.Command {
 					deltas := computeDeltas(TechMetrics{}, metrics)
 					fmt.Println("metrics (baseline):")
 					fmt.Print(formatMetricsSummary(metrics, deltas))
+				}
+			} else if role == "owner" {
+				if err := collectAndAttachOwnerMetrics(cmd.Context(), c, &body); err != nil {
+					fmt.Fprintf(os.Stderr, "warn: tracker metrics collection failed: %v\n", err)
 				}
 			}
 
@@ -347,6 +354,73 @@ func journalListCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&issue, "issue", "", "filter by issue ID (IS-N)")
 	return cmd
+}
+
+// ownerCheckinPeriodDays is the rolling window used for tracker velocity
+// metrics on owner standups. 30 matches the tech-side StandupTechYield window
+// so the two sides align.
+const ownerCheckinPeriodDays = 30
+
+// collectAndAttachOwnerMetrics is the IS-589 owner-side mirror of the tech
+// branch in journalCheckinCmd: it pulls a tracker snapshot from the server,
+// stamps StateJson + ChangelogJson on body, posts one kpi sample per metric,
+// and prints a summary.
+//
+// Failures are non-fatal — the caller logs and proceeds with the free-text
+// checkin so an outage in the snapshot endpoint doesn't block the standup.
+func collectAndAttachOwnerMetrics(ctx context.Context, c *cli.Client, body *dxclient.JournalCheckinRequest) error {
+	slug := c.SlugOrDie()
+
+	metrics, err := trackermetrics.Collect(ctx, c, slug, ownerCheckinPeriodDays)
+	if err != nil {
+		return fmt.Errorf("collect snapshot: %w", err)
+	}
+
+	var prevStateJSON string
+	showResp, _ := c.JournalShowWithResponse(ctx, &dxclient.JournalShowParams{
+		Slug: slug,
+		Role: "owner",
+	})
+	if showResp != nil && showResp.JSON200 != nil && showResp.JSON200.Entries != nil && len(*showResp.JSON200.Entries) > 0 {
+		prevStateJSON = (*showResp.JSON200.Entries)[0].StateJson
+	}
+
+	stateJSON := trackermetrics.ToJSON(metrics)
+	body.StateJson = &stateJSON
+
+	if prev, ok := trackermetrics.Parse(prevStateJSON); ok {
+		deltas := trackermetrics.ComputeDeltas(prev, metrics)
+		changelog := trackermetrics.DeltasToJSON(deltas)
+		body.ChangelogJson = &changelog
+		fmt.Println("tracker metrics (delta from last entry):")
+		fmt.Print(trackermetrics.FormatSummary(metrics, deltas))
+	} else {
+		empty := "[]"
+		body.ChangelogJson = &empty
+		deltas := trackermetrics.ComputeDeltas(trackermetrics.TrackerMetrics{}, metrics)
+		fmt.Println("tracker metrics (baseline):")
+		fmt.Print(trackermetrics.FormatSummary(metrics, deltas))
+	}
+
+	// Per-metric KPI samples drive the server-side delta surface and let the
+	// owner snapshot be queried as a time-series independently of the journal.
+	units := trackermetrics.MetricUnits()
+	for name, value := range trackermetrics.ToMetricsMap(metrics) {
+		unit := units[name]
+		if unit == "" {
+			unit = "count"
+		}
+		if err := devtools.RunKpiSample(ctx, c, devtools.KpiSampleParams{
+			Slug:      slug,
+			Scope:     "owner",
+			CheckName: name,
+			Value:     value,
+			Unit:      unit,
+		}); err != nil {
+			fmt.Fprintf(os.Stderr, "warn: kpi sample %s failed: %v\n", name, err)
+		}
+	}
+	return nil
 }
 
 // findProjectRoot walks up from dir to find the nearest ancestor containing

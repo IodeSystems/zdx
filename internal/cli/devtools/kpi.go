@@ -21,7 +21,9 @@ func KpiCmd() *cobra.Command {
 	return cmd
 }
 
-type kpiSampleParams struct {
+// KpiSampleParams is the input shape for RunKpiSample. Exported so other
+// CLI packages (e.g. dx standup checkin) can reuse the same posting logic.
+type KpiSampleParams struct {
 	Slug                  string
 	Scope                 string
 	CheckName             string
@@ -29,6 +31,10 @@ type kpiSampleParams struct {
 	Unit                  string
 	RegressionThresholdMs float64
 }
+
+// kpiSampleParams is the unexported alias kept for the local cobra command —
+// other packages must use the exported KpiSampleParams.
+type kpiSampleParams = KpiSampleParams
 
 // kpiSampleBody returns the JSON request body for POST /api/dx/kpi/sample.
 // is_regression_candidate is set when unit=ms and value exceeds the threshold —
@@ -45,6 +51,13 @@ func kpiSampleBody(p kpiSampleParams) ([]byte, error) {
 		body["is_regression_candidate"] = true
 	}
 	return json.Marshal(body)
+}
+
+// RunKpiSample posts a single KPI sample to /api/dx/kpi/sample. Scope must be
+// "tech" or "owner". Exported wrapper around the package's internal posting
+// path so dx standup checkin can persist tracker metrics the same way.
+func RunKpiSample(ctx context.Context, c *cli.Client, p KpiSampleParams) error {
+	return runKpiSample(ctx, c, p)
 }
 
 func runKpiSample(ctx context.Context, c *cli.Client, p kpiSampleParams) error {
