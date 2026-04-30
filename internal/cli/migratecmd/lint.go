@@ -2,6 +2,7 @@ package migratecmd
 
 import (
 	"fmt"
+	"os"
 	"sort"
 
 	"github.com/spf13/cobra"
@@ -9,18 +10,20 @@ import (
 
 // Defect describes a single lint finding in the migrations directory.
 type Defect struct {
-	Kind    string // "duplicate" | "missing-pair" | "gap"
+	Kind    string // "duplicate" | "missing-pair" | "gap" | "stale-schema"
 	Message string
 }
 
+const defaultShippedSQL = "schema/shipped.sql"
+
 // LintCmd returns `dx migrate lint`.
 func LintCmd() *cobra.Command {
-	var dir string
+	var dir, schemaFile string
 	cmd := &cobra.Command{
 		Use:   "lint",
 		Short: "Detect duplicate NNN_, missing pairs, and sequence gaps",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			defects := LintMigrations(dir)
+			defects := LintMigrations(dir, schemaFile)
 			for _, d := range defects {
 				fmt.Printf("%s: %s\n", d.Kind, d.Message)
 			}
@@ -32,12 +35,14 @@ func LintCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&dir, "dir", defaultMigrationsDir, "migrations directory")
+	cmd.Flags().StringVar(&schemaFile, "schema", defaultShippedSQL, "path to shipped.sql for staleness check (empty to skip)")
 	return cmd
 }
 
 // LintMigrations scans dir for migration defects: duplicate NNN prefixes,
-// missing up/down pairs, and sequence gaps.
-func LintMigrations(dir string) []Defect {
+// missing up/down pairs, sequence gaps, and (if schemaFile is non-empty)
+// whether schema/shipped.sql is older than the newest migration file.
+func LintMigrations(dir string, schemaFile string) []Defect {
 	files, err := scanMigrations(dir)
 	if err != nil {
 		return []Defect{{Kind: "error", Message: err.Error()}}
@@ -121,7 +126,55 @@ func LintMigrations(dir string) []Defect {
 		}
 	}
 
+	// 4. Stale schema: schema/shipped.sql older than the newest migration file.
+	if schemaFile != "" {
+		defects = append(defects, checkSchemaStale(dir, schemaFile, files)...)
+	}
+
 	return defects
+}
+
+// checkSchemaStale returns a stale-schema defect if schemaFile is missing or
+// older than the newest migration file in dir.
+func checkSchemaStale(dir, schemaFile string, files []migrationFile) []Defect {
+	if len(files) == 0 {
+		return nil
+	}
+	// Find the newest migration file mtime.
+	var newestMtime int64
+	var newestName string
+	for _, f := range files {
+		info, err := os.Stat(fmt.Sprintf("%s/%s", dir, f.Filename))
+		if err != nil {
+			continue
+		}
+		if t := info.ModTime().UnixNano(); t > newestMtime {
+			newestMtime = t
+			newestName = f.Filename
+		}
+	}
+	if newestMtime == 0 {
+		return nil
+	}
+
+	schemaInfo, err := os.Stat(schemaFile)
+	if os.IsNotExist(err) {
+		return []Defect{{
+			Kind:    "stale-schema",
+			Message: fmt.Sprintf("%s does not exist (run bin/ship to regenerate)", schemaFile),
+		}}
+	}
+	if err != nil {
+		return []Defect{{Kind: "stale-schema", Message: fmt.Sprintf("stat %s: %v", schemaFile, err)}}
+	}
+
+	if schemaInfo.ModTime().UnixNano() < newestMtime {
+		return []Defect{{
+			Kind:    "stale-schema",
+			Message: fmt.Sprintf("%s is older than %s (run bin/ship to regenerate)", schemaFile, newestName),
+		}}
+	}
+	return nil
 }
 
 func pairKey(n int, name, dir string) string {
