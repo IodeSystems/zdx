@@ -438,6 +438,12 @@ var (
 	decompListItemRe = regexp.MustCompile(`^\s*(?:\d+\.|[-*])\s+(.+)$`)
 	decompHeaderRe   = regexp.MustCompile(`(?i)^\s*#*\s*DECOMPOSITION\b`)
 	decompAnyHeader  = regexp.MustCompile(`^\s*#+\s+\S`)
+	// decompExemptHeaderRe matches the standard impl-issue template section
+	// headers. Lines inside these sections are descriptive prose, not pending
+	// work — list items and future-tense signals inside them must not be
+	// extracted as decomposition candidates. Matches with or without leading
+	// markdown hashes and optional trailing colon. (IS-675)
+	decompExemptHeaderRe = regexp.MustCompile(`(?i)^\s*(?:#+\s*)?(WHAT SHOULD HAPPEN|WHAT DID HAPPEN|WHAT THE TOOL SHOULD DO|IMPLEMENTATION DIRECTION|REPRO|CANDIDATE FIXES|FIX)\s*:?\s*$`)
 )
 
 // decompFutureSignals are case-insensitive substrings that flag a line as
@@ -466,14 +472,26 @@ func extractDecompositionCandidates(context string) []string {
 		candidates = append(candidates, s)
 	}
 	inDecomp := false
+	inExempt := false
 	for _, line := range strings.Split(context, "\n") {
 		if decompHeaderRe.MatchString(line) {
 			inDecomp = true
+			inExempt = false
+			continue
+		}
+		if decompExemptHeaderRe.MatchString(line) {
+			inExempt = true
+			inDecomp = false
 			continue
 		}
 		isHeader := decompAnyHeader.MatchString(line)
-		if inDecomp && isHeader {
+		if isHeader {
+			// Any other markdown header exits both modes.
 			inDecomp = false
+			inExempt = false
+		}
+		if inExempt {
+			continue
 		}
 		if m := decompListItemRe.FindStringSubmatch(line); m != nil {
 			add(m[1])

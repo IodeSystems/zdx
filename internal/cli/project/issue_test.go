@@ -91,6 +91,38 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 			input: "TODO: write the doctor rung for this concern",
 			want:  []string{"TODO: write the doctor rung for this concern"},
 		},
+		{
+			name: "standard impl template sections suppress extraction",
+			input: "WHAT SHOULD HAPPEN\n" +
+				"runDecompositionPathGate's error message should suggest a working command. The flag should read --type.\n" +
+				"\n" +
+				"WHAT DID HAPPEN\n" +
+				"Running the command yields 'unknown flag: --issue-type'.\n" +
+				"\n" +
+				"FIX\n" +
+				"  - Before: dx issue edit %s --issue-type=tracker if this is a tracker, not an impl\n" +
+				"  - After:  dx issue edit %s --type=tracker if this is a tracker, not an impl\n",
+			want: nil,
+		},
+		{
+			name: "exempt section then explicit DECOMPOSITION still extracts children",
+			input: "WHAT SHOULD HAPPEN\n" +
+				"The thing should work; needs to be fixed.\n" +
+				"\n" +
+				"## DECOMPOSITION\n" +
+				"- File child A\n" +
+				"- File child B\n",
+			want: []string{"File child A", "File child B"},
+		},
+		{
+			name: "non-exempt markdown header exits exempt mode and resumes extraction",
+			input: "WHAT SHOULD HAPPEN\n" +
+				"Description here, should not flag.\n" +
+				"\n" +
+				"## OTHER NOTES\n" +
+				"- We should ship this next.\n",
+			want: []string{"We should ship this next."},
+		},
 	}
 
 	for _, tc := range cases {
