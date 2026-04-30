@@ -233,6 +233,15 @@ func DecomposeTrackerText(issueID string) Hint {
 		Description: "Tracker has no child issues — needs decomposition.",
 		Instructions: fmt.Sprintf(
 			"Tracker %s has no child issues — decompose it.\n\n"+
+				"FIRST: check whether the tracker actually lacks children, or whether existing\n"+
+				"sequencing-edge sub-issues just need re-tagging as composition (common after\n"+
+				"the IS-656 split). Run `dx issue show %s` and look at Blocked by / Depends on.\n"+
+				"If the listed sub-issues ARE the children (filed earlier with --parent or\n"+
+				"meant as composition), retag with:\n"+
+				"   `dx issue block %s --by=IS-N --kind=composition`\n"+
+				"That reclassifies the edge in place. Re-run `dx todo solo` after — the\n"+
+				"decompose-tracker todo will clear once composition children exist.\n\n"+
+				"OTHERWISE (genuine empty tracker):\n"+
 				"1. Read the tracker context: `dx issue show %s`.\n"+
 				"2. Break into concrete child issues, one per vertical (one shippable unit each):\n"+
 				"   `dx issue add --title=\"...\" --context=\"...\" --type=impl --parent=%s`\n"+
@@ -246,7 +255,7 @@ func DecomposeTrackerText(issueID string) Hint {
 				"   Skipping this step wastes agent sessions on duplicate child issues.\n"+
 				"4. Do NOT implement tracker work inline and do NOT close the tracker manually — it auto-closes when all children close.\n"+
 				"5. Stop after decomposition. The loop will pick a child vertical next.",
-			issueID, issueID, issueID,
+			issueID, issueID, issueID, issueID, issueID,
 		) + BlockerQuestionCriteriaFragment,
 	}
 }

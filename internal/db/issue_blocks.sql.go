@@ -10,7 +10,8 @@ import (
 )
 
 const addIssueBlock = `-- name: AddIssueBlock :exec
-INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id, kind) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
+INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id, kind) VALUES ($1, $2, $3)
+ON CONFLICT (issue_id, blocked_by_id) DO UPDATE SET kind = EXCLUDED.kind
 `
 
 type AddIssueBlockParams struct {
@@ -19,7 +20,9 @@ type AddIssueBlockParams struct {
 	Kind        string `db:"kind" json:"kind"`
 }
 
-// kind: 'sequencing' (default) for "X waits for Y" deps; 'composition' for tracker → child relationships
+// kind: 'sequencing' (default) for "X waits for Y" deps; 'composition' for tracker → child relationships.
+// ON CONFLICT updates kind so existing edges can be reclassified (e.g. backfilling pre-migration
+// tracker edges from 'sequencing' to 'composition').
 func (q *Queries) AddIssueBlock(ctx context.Context, arg AddIssueBlockParams) error {
 	_, err := q.db.Exec(ctx, addIssueBlock, arg.IssueID, arg.BlockedByID, arg.Kind)
 	return err

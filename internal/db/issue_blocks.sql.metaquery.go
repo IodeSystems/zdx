@@ -15,7 +15,8 @@ var MetaAddIssueBlock = metaquery.Query{
 	Name:   "AddIssueBlock",
 	Cmd:    ":exec",
 	Source: "issue_blocks.sql",
-	SQL:    `INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id, kind) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
+	SQL: `INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id, kind) VALUES ($1, $2, $3)
+ON CONFLICT (issue_id, blocked_by_id) DO UPDATE SET kind = EXCLUDED.kind`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 2, Name: "blocked_by_id", GoType: "string", DBType: "text", NotNull: true},

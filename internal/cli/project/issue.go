@@ -714,22 +714,35 @@ func issueReopenCmd() *cobra.Command {
 }
 
 func issueBlockCmd() *cobra.Command {
-	var by string
+	var by, kind string
 	cmd := &cobra.Command{
 		Use:   "block <IS-N>",
 		Short: "Add a blocker to an issue",
-		Args:  cobra.ExactArgs(1),
+		Long: `Add a blocker edge to an issue.
+
+Kinds (--kind):
+  sequencing   (default) "X waits for Y" — Y must close before X is claimable
+  composition  tracker → child — Y is a sub-vertical that contributes to X closing
+
+Re-running with a different --kind on an existing edge re-classifies it.
+Use composition when retagging pre-migration tracker children whose edges
+defaulted to sequencing.`,
+		Args: cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			id := args[0]
 			n, err := parseIssueID(id)
 			if err != nil {
 				return err
 			}
+			if kind != "sequencing" && kind != "composition" {
+				return fmt.Errorf("--kind must be 'sequencing' or 'composition' (got %q)", kind)
+			}
 			c := cli.MustClient()
 			resp, err := c.IssueAddBlockWithResponse(cmd.Context(), dxclient.IssueAddBlockRequest{
 				Slug:      c.SlugOrDie(),
 				Id:        int32(n),
 				BlockedBy: by,
+				Kind:      &kind,
 			})
 			if err != nil {
 				return err
@@ -737,11 +750,16 @@ func issueBlockCmd() *cobra.Command {
 			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
-			fmt.Printf("%s blocked by %s\n", id, by)
+			label := "blocked by"
+			if kind == "composition" {
+				label = "is parent of"
+			}
+			fmt.Printf("%s %s %s\n", id, label, by)
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&by, "by", "", "blocking issue (IS-N)")
+	cmd.Flags().StringVar(&kind, "kind", "sequencing", "edge kind: sequencing (default) or composition")
 	cmd.MarkFlagRequired("by")
 	return cmd
 }

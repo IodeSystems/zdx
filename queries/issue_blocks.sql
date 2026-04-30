@@ -1,6 +1,9 @@
 -- name: AddIssueBlock :exec
--- kind: 'sequencing' (default) for "X waits for Y" deps; 'composition' for tracker → child relationships
-INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id, kind) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING;
+-- kind: 'sequencing' (default) for "X waits for Y" deps; 'composition' for tracker → child relationships.
+-- ON CONFLICT updates kind so existing edges can be reclassified (e.g. backfilling pre-migration
+-- tracker edges from 'sequencing' to 'composition').
+INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id, kind) VALUES ($1, $2, $3)
+ON CONFLICT (issue_id, blocked_by_id) DO UPDATE SET kind = EXCLUDED.kind;
 
 -- name: RemoveIssueBlock :exec
 DELETE FROM zdx_issue_blocks WHERE issue_id = $1 AND blocked_by_id = $2;
