@@ -1,10 +1,12 @@
 package agent
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -22,7 +24,7 @@ import (
 func AgentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "agent", Short: "Agent lifecycle management"}
 	cmd.PersistentFlags().Bool("global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
-	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd())
+	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd())
 	return cmd
 }
 
@@ -522,16 +524,7 @@ func agentPauseCmd() *cobra.Command {
 		Short: "Pause a running agent (holds task lease, no new LLM turns)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := cli.MustClient()
-			resp, err := c.SendAgentCommandWithResponse(cmd.Context(), args[0], dxclient.SendAgentCommandRequest{Command: "pause"})
-			if err != nil {
-				return err
-			}
-			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
-				return err
-			}
-			fmt.Printf("agent %s paused\n", args[0])
-			return nil
+			return sendAgentControl(cmd.Context(), cmd.OutOrStdout(), cli.MustClient(), args[0], "pause", "paused")
 		},
 	}
 }
@@ -542,18 +535,40 @@ func agentResumeCmd() *cobra.Command {
 		Short: "Resume a paused agent (re-enters task loop with existing session)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
-			c := cli.MustClient()
-			resp, err := c.SendAgentCommandWithResponse(cmd.Context(), args[0], dxclient.SendAgentCommandRequest{Command: "resume"})
-			if err != nil {
-				return err
-			}
-			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
-				return err
-			}
-			fmt.Printf("agent %s resumed\n", args[0])
-			return nil
+			return sendAgentControl(cmd.Context(), cmd.OutOrStdout(), cli.MustClient(), args[0], "resume", "resumed")
 		},
 	}
+}
+
+func agentDrainCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "drain <agent-id>",
+		Short: "Drain an agent (finishes current task, releases lease, disconnects)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return sendAgentControl(cmd.Context(), cmd.OutOrStdout(), cli.MustClient(), args[0], "drain", "draining")
+		},
+	}
+}
+
+// sendAgentControl issues a WS control command (pause/resume/drain) for an
+// agent via the server's send-command endpoint. On success it writes
+// "<verb> agent <id>" to out. A 404 is rewritten as the operator-friendly
+// "agent <id> not connected" hint so the caller does not see the raw HTTP
+// status string.
+func sendAgentControl(ctx context.Context, out io.Writer, c *cli.Client, id, command, successVerb string) error {
+	resp, err := c.SendAgentCommandWithResponse(ctx, id, dxclient.SendAgentCommandRequest{Command: command})
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode() == http.StatusNotFound {
+		return fmt.Errorf("agent %s not connected — server cannot deliver command", id)
+	}
+	if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+		return err
+	}
+	fmt.Fprintf(out, "%s agent %s\n", successVerb, id)
+	return nil
 }
 
 const defaultAgentCompose = `services:
