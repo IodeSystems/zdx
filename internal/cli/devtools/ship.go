@@ -37,8 +37,15 @@ func shipGateCmd() *cobra.Command {
 			mustResp, err := c.ListMustSpecShipGateOffendersWithResponse(ctx, &dxclient.ListMustSpecShipGateOffendersParams{
 				Slug: slug,
 			})
-			if err != nil || mustResp.JSON200 == nil {
+			if err != nil {
 				return fmt.Errorf("ship gate: could not fetch must-spec demo gaps: %v", err)
+			}
+			if mustResp.JSON200 == nil {
+				if mustResp.StatusCode() == 404 {
+					fmt.Println("[ship gate] endpoint not yet deployed — skipping must-spec check")
+					return nil
+				}
+				return fmt.Errorf("ship gate: could not fetch must-spec demo gaps: HTTP %d", mustResp.StatusCode())
 			}
 			offenders := *mustResp.JSON200.Offenders
 
