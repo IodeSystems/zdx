@@ -776,9 +776,9 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "convert-task-to-blocker", Method: http.MethodPost, Path: "/api/dx/tasks/convert-to-blocker"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ID              int32   `json:"id"`
-				BlockedByIssueID string `json:"blocked_by_issue_id"`
-				Reason          *string `json:"reason,omitempty"`
+				ID               int32   `json:"id"`
+				BlockedByIssueID string  `json:"blocked_by_issue_id"`
+				Reason           *string `json:"reason,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			taskID := taskIDFromInt(in.Body.ID)
