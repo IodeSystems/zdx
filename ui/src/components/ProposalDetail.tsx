@@ -33,7 +33,7 @@ import {
   useReevaluateProposal,
   type ReevaluateProposalResponse,
 } from '../api'
-import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { EventStream } from './EventStream'
 import { MarkdownContent } from './MarkdownContent'
 
 const STATUS_COLORS: Record<string, 'warning' | 'success' | 'default' | 'info'> = {
@@ -392,7 +392,7 @@ export function ProposalDetail({
         Created by {proposal.created_by || 'unknown'} on {new Date(proposal.created_at).toLocaleString()}
       </Typography>
 
-      <CommentsAndRevisions slug={slug} targetType="proposal" targetId={String(proposal.id)} />
+      <EventStream slug={slug} targetType="proposal" targetId={String(proposal.id)} />
 
       <Dialog open={approveOpen} onClose={() => setApproveOpen(false)} maxWidth="xs" fullWidth>
         <DialogTitle>Approve proposal #{proposal.id}</DialogTitle>

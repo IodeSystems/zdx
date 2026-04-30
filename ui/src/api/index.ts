@@ -742,6 +742,68 @@ export const useMyComments = (slug: string, limit?: number, offset?: number) =>
     enabled: !!slug,
   })
 
+// ── events (unified event stream) ────────────────────────────────────────────
+
+export type EventItem = components['schemas']['EventItem']
+
+export const useEvents = (slug: string, targetType: string, targetId: string, threadId?: number | null) =>
+  useQuery<{ events: EventItem[] }>({
+    queryKey: ['events', slug, targetType, targetId, threadId ?? null],
+    queryFn: async () => {
+      const query: Record<string, string | number> = { slug, target_type: targetType, target_id: targetId }
+      if (threadId != null) query.thread_id = threadId
+      const { data, error } = await client.GET('/api/events', { params: { query: query as any } })
+      if (error) throw new Error(JSON.stringify(error))
+      return { events: (data as any)?.events ?? [] }
+    },
+    enabled: !!slug && !!targetType && !!targetId,
+  })
+
+export const usePostComment = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { slug: string; target_type: string; target_id: string; body: string }) => {
+      const { data, error } = await client.POST('/api/events/comment', {
+        body: {
+          slug: p.slug,
+          target_type: p.target_type,
+          target_id: p.target_id,
+          event_type: 'comment',
+          summary_json: { body: p.body } as any,
+          detail_json: { body: p.body } as any,
+        } as any,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data as EventItem
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['events', vars.slug, vars.target_type, vars.target_id] })
+    },
+  })
+}
+
+export const useReplyToEvent = () => {
+  const qc = useQueryClient()
+  return useMutation({
+    mutationFn: async (p: { slug: string; target_type: string; target_id: string; event_id: number; body: string }) => {
+      const { data, error } = await client.POST('/api/events/{id}/reply', {
+        params: { path: { id: p.event_id } },
+        body: {
+          slug: p.slug,
+          event_type: 'comment',
+          summary_json: { body: p.body } as any,
+          detail_json: { body: p.body } as any,
+        } as any,
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data as EventItem
+    },
+    onSuccess: (_data, vars) => {
+      qc.invalidateQueries({ queryKey: ['events', vars.slug, vars.target_type, vars.target_id] })
+    },
+  })
+}
+
 // ── notifications ────────────────────────────────────────────────────────────
 
 export const useUnreadCount = (slug: string) =>
