@@ -390,6 +390,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agents/{id}/command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["send-agent-command"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/{id}/heartbeat": {
         parameters: {
             query?: never;
@@ -2054,6 +2070,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/owner/snapshot": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["owner-snapshot"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/patterns": {
         parameters: {
             query?: never;
@@ -3350,6 +3382,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/tasks/convert-to-blocker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["convert-task-to-blocker"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/tasks/convert-to-issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["convert-task-to-issue"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/tasks/similar": {
         parameters: {
             query?: never;
@@ -4166,6 +4230,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/events": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-events"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events/comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["add-event-comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events/threads/{id}/title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["set-event-thread-title"];
+        trace?: never;
+    };
+    "/api/events/{id}/reply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["reply-to-event"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events/{id}/verdict": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["set-event-verdict"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/feature": {
         parameters: {
             query?: never;
@@ -4694,6 +4838,21 @@ export interface components {
             role: string;
             slug: string;
         };
+        "Add-event-commentRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Add-event-commentRequest.json
+             */
+            readonly $schema?: string;
+            author_kind?: string;
+            detail_json?: unknown;
+            event_type?: string;
+            slug: string;
+            summary_json?: unknown;
+            target_id: string;
+            target_type: string;
+        };
         "Add-focus-blockerRequest": {
             /**
              * Format: uri
@@ -4985,6 +5144,8 @@ export interface components {
              */
             readonly $schema?: string;
             compose_project: string;
+            connected_at: string;
+            connection_state: string;
             created_at: string;
             database_url: string;
             id: string;
@@ -5444,6 +5605,38 @@ export interface components {
             status: string;
             title: string;
             updated_at: string;
+        };
+        "Convert-task-to-blockerRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Convert-task-to-blockerRequest.json
+             */
+            readonly $schema?: string;
+            blocked_by_issue_id: string;
+            /** Format: int32 */
+            id: number;
+            reason?: string;
+        };
+        "Convert-task-to-issueRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Convert-task-to-issueRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            id: number;
+            title?: string;
+        };
+        "Convert-task-to-issueResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Convert-task-to-issueResponse.json
+             */
+            readonly $schema?: string;
+            new_issue_id: string;
         };
         CountedGroupedItem: {
             /** Format: int32 */
@@ -6090,6 +6283,27 @@ export interface components {
             changed: components["schemas"]["EvaluateChange"][] | null;
             removed: components["schemas"]["TodoItem"][] | null;
             unchanged: components["schemas"]["SoloQueueItem"][] | null;
+        };
+        EventItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/EventItem.json
+             */
+            readonly $schema?: string;
+            agent_process_result?: unknown;
+            author: string;
+            author_kind: string;
+            created_at: string;
+            detail_json: unknown;
+            event_type: string;
+            /** Format: int64 */
+            id: number;
+            summary_json: unknown;
+            target_id: string;
+            target_type: string;
+            /** Format: int64 */
+            thread_id?: number;
         };
         FeatureItem: {
             /**
@@ -7048,6 +7262,15 @@ export interface components {
             /** Format: int64 */
             total: number;
         };
+        "List-eventsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-eventsResponse.json
+             */
+            readonly $schema?: string;
+            events: components["schemas"]["EventItem"][] | null;
+        };
         "List-features-todoResponse": {
             /**
              * Format: uri
@@ -7811,6 +8034,20 @@ export interface components {
             readonly $schema?: string;
             ok: boolean;
         };
+        OwnerSnapshotBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/OwnerSnapshotBody.json
+             */
+            readonly $schema?: string;
+            generated_at: string;
+            metrics: {
+                [key: string]: number;
+            };
+            /** Format: int32 */
+            period_days: number;
+        };
         PatternItem: {
             /**
              * Format: uri
@@ -8282,6 +8519,19 @@ export interface components {
             readonly $schema?: string;
             configs: components["schemas"]["LLMConfigBody"][] | null;
         };
+        "Reply-to-eventRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Reply-to-eventRequest.json
+             */
+            readonly $schema?: string;
+            author_kind?: string;
+            detail_json?: unknown;
+            event_type?: string;
+            slug: string;
+            summary_json?: unknown;
+        };
         "Report-errorRequest": {
             /**
              * Format: uri
@@ -8457,6 +8707,15 @@ export interface components {
             name: string;
             status: string;
         };
+        "Send-agent-commandRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Send-agent-commandRequest.json
+             */
+            readonly $schema?: string;
+            command: string;
+        };
         "Set-classificationRequest": {
             /**
              * Format: uri
@@ -8465,6 +8724,26 @@ export interface components {
              */
             readonly $schema?: string;
             classification: string;
+            slug: string;
+        };
+        "Set-event-thread-titleRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-event-thread-titleRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+            title: string;
+        };
+        "Set-event-verdictRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-event-verdictRequest.json
+             */
+            readonly $schema?: string;
+            agent_process_result: unknown;
             slug: string;
         };
         "Set-feature-fieldRequest": {
@@ -9240,6 +9519,22 @@ export interface components {
             layer?: string;
             status: string;
             test_name: string;
+        };
+        ThreadItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ThreadItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            root_event_id: number;
+            target_id: string;
+            target_type: string;
+            title?: string;
         };
         TimedEventGroupedItem: {
             /** Format: int32 */
@@ -10663,6 +10958,39 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "send-agent-command": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Send-agent-commandRequest"];
+            };
+        };
         responses: {
             /** @description No Content */
             204: {
@@ -14333,6 +14661,38 @@ export interface operations {
             };
         };
     };
+    "owner-snapshot": {
+        parameters: {
+            query: {
+                slug: string;
+                period_days?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OwnerSnapshotBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-patterns": {
         parameters: {
             query: {
@@ -17231,6 +17591,72 @@ export interface operations {
             };
         };
     };
+    "convert-task-to-blocker": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Convert-task-to-blockerRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "convert-task-to-issue": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Convert-task-to-issueRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Convert-task-to-issueResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "similar-tasks": {
         parameters: {
             query?: never;
@@ -18929,6 +19355,178 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-events": {
+        parameters: {
+            query: {
+                slug: string;
+                target_type: string;
+                target_id: string;
+                thread_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-eventsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "add-event-comment": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Add-event-commentRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-event-thread-title": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-event-thread-titleRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ThreadItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "reply-to-event": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Reply-to-eventRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-event-verdict": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-event-verdictRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["EventItem"];
+                };
             };
             /** @description Error */
             default: {

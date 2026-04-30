@@ -92,6 +92,19 @@ type AddDiscussionMessageRequest struct {
 	Slug    string  `json:"slug"`
 }
 
+// AddEventCommentRequest defines model for Add-event-commentRequest.
+type AddEventCommentRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string     `json:"$schema,omitempty"`
+	AuthorKind  *string     `json:"author_kind,omitempty"`
+	DetailJson  interface{} `json:"detail_json,omitempty"`
+	EventType   *string     `json:"event_type,omitempty"`
+	Slug        string      `json:"slug"`
+	SummaryJson interface{} `json:"summary_json,omitempty"`
+	TargetId    string      `json:"target_id"`
+	TargetType  string      `json:"target_type"`
+}
+
 // AddFocusBlockerRequest defines model for Add-focus-blockerRequest.
 type AddFocusBlockerRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1242,6 +1255,23 @@ type EvaluateDiff struct {
 	Unchanged *[]SoloQueueItem  `json:"unchanged"`
 }
 
+// EventItem defines model for EventItem.
+type EventItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema             *string     `json:"$schema,omitempty"`
+	AgentProcessResult interface{} `json:"agent_process_result,omitempty"`
+	Author             string      `json:"author"`
+	AuthorKind         string      `json:"author_kind"`
+	CreatedAt          string      `json:"created_at"`
+	DetailJson         interface{} `json:"detail_json"`
+	EventType          string      `json:"event_type"`
+	Id                 int64       `json:"id"`
+	SummaryJson        interface{} `json:"summary_json"`
+	TargetId           string      `json:"target_id"`
+	TargetType         string      `json:"target_type"`
+	ThreadId           *int64      `json:"thread_id,omitempty"`
+}
+
 // FeatureItem defines model for FeatureItem.
 type FeatureItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2022,6 +2052,13 @@ type ListErrorsResponse struct {
 	Schema *string            `json:"$schema,omitempty"`
 	Errors *[]ErrorReportItem `json:"errors"`
 	Total  int64              `json:"total"`
+}
+
+// ListEventsResponse defines model for List-eventsResponse.
+type ListEventsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string      `json:"$schema,omitempty"`
+	Events *[]EventItem `json:"events"`
 }
 
 // ListFeaturesTodoResponse defines model for List-features-todoResponse.
@@ -3000,6 +3037,17 @@ type ReorderLlmConfigsResponse struct {
 	Configs *[]LLMConfigBody `json:"configs"`
 }
 
+// ReplyToEventRequest defines model for Reply-to-eventRequest.
+type ReplyToEventRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string     `json:"$schema,omitempty"`
+	AuthorKind  *string     `json:"author_kind,omitempty"`
+	DetailJson  interface{} `json:"detail_json,omitempty"`
+	EventType   *string     `json:"event_type,omitempty"`
+	Slug        string      `json:"slug"`
+	SummaryJson interface{} `json:"summary_json,omitempty"`
+}
+
 // ReportErrorRequest defines model for Report-errorRequest.
 type ReportErrorRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3169,6 +3217,22 @@ type SetClassificationRequest struct {
 	Schema         *string `json:"$schema,omitempty"`
 	Classification string  `json:"classification"`
 	Slug           string  `json:"slug"`
+}
+
+// SetEventThreadTitleRequest defines model for Set-event-thread-titleRequest.
+type SetEventThreadTitleRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+	Title  string  `json:"title"`
+}
+
+// SetEventVerdictRequest defines model for Set-event-verdictRequest.
+type SetEventVerdictRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema             *string     `json:"$schema,omitempty"`
+	AgentProcessResult interface{} `json:"agent_process_result"`
+	Slug               string      `json:"slug"`
 }
 
 // SetFeatureFieldRequest defines model for Set-feature-fieldRequest.
@@ -3826,6 +3890,18 @@ type TestResultInput struct {
 	Layer         *string            `json:"layer,omitempty"`
 	Status        string             `json:"status"`
 	TestName      string             `json:"test_name"`
+}
+
+// ThreadItem defines model for ThreadItem.
+type ThreadItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+	Id          int64   `json:"id"`
+	RootEventId int64   `json:"root_event_id"`
+	TargetId    string  `json:"target_id"`
+	TargetType  string  `json:"target_type"`
+	Title       *string `json:"title,omitempty"`
 }
 
 // TimedEventGroupedItem defines model for TimedEventGroupedItem.
@@ -4974,6 +5050,14 @@ type ListWorklogParams struct {
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 }
 
+// ListEventsParams defines parameters for ListEvents.
+type ListEventsParams struct {
+	Slug       string `form:"slug" json:"slug"`
+	TargetType string `form:"target_type" json:"target_type"`
+	TargetId   string `form:"target_id" json:"target_id"`
+	ThreadId   *int64 `form:"thread_id,omitempty" json:"thread_id,omitempty"`
+}
+
 // ListFeaturesParams defines parameters for ListFeatures.
 type ListFeaturesParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -5463,6 +5547,18 @@ type AddTaskJSONRequestBody = AddTaskRequest
 
 // WriteTodosJSONRequestBody defines body for WriteTodos for application/json ContentType.
 type WriteTodosJSONRequestBody = WriteTodosRequest
+
+// AddEventCommentJSONRequestBody defines body for AddEventComment for application/json ContentType.
+type AddEventCommentJSONRequestBody = AddEventCommentRequest
+
+// SetEventThreadTitleJSONRequestBody defines body for SetEventThreadTitle for application/json ContentType.
+type SetEventThreadTitleJSONRequestBody = SetEventThreadTitleRequest
+
+// ReplyToEventJSONRequestBody defines body for ReplyToEvent for application/json ContentType.
+type ReplyToEventJSONRequestBody = ReplyToEventRequest
+
+// SetEventVerdictJSONRequestBody defines body for SetEventVerdict for application/json ContentType.
+type SetEventVerdictJSONRequestBody = SetEventVerdictRequest
 
 // DeleteFeatureJSONRequestBody defines body for DeleteFeature for application/json ContentType.
 type DeleteFeatureJSONRequestBody = DeleteFeatureRequest
@@ -6737,6 +6833,29 @@ type ClientInterface interface {
 
 	// TriggerError request
 	TriggerError(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListEvents request
+	ListEvents(ctx context.Context, params *ListEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// AddEventCommentWithBody request with any body
+	AddEventCommentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	AddEventComment(ctx context.Context, body AddEventCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetEventThreadTitleWithBody request with any body
+	SetEventThreadTitleWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetEventThreadTitle(ctx context.Context, id int64, body SetEventThreadTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReplyToEventWithBody request with any body
+	ReplyToEventWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReplyToEvent(ctx context.Context, id int64, body ReplyToEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetEventVerdictWithBody request with any body
+	SetEventVerdictWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetEventVerdict(ctx context.Context, id int64, body SetEventVerdictJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteFeatureWithBody request with any body
 	DeleteFeatureWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -12008,6 +12127,114 @@ func (c *APIClient) ListWorklog(ctx context.Context, params *ListWorklogParams, 
 
 func (c *APIClient) TriggerError(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewTriggerErrorRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListEvents(ctx context.Context, params *ListEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListEventsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AddEventCommentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddEventCommentRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) AddEventComment(ctx context.Context, body AddEventCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewAddEventCommentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetEventThreadTitleWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetEventThreadTitleRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetEventThreadTitle(ctx context.Context, id int64, body SetEventThreadTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetEventThreadTitleRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReplyToEventWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplyToEventRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReplyToEvent(ctx context.Context, id int64, body ReplyToEventJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReplyToEventRequest(c.Server, id, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetEventVerdictWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetEventVerdictRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetEventVerdict(ctx context.Context, id int64, body SetEventVerdictJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetEventVerdictRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -27491,6 +27718,272 @@ func NewTriggerErrorRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListEventsRequest generates requests for ListEvents
+func NewListEventsRequest(server string, params *ListEventsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/events")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "target_type", params.TargetType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "target_id", params.TargetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.ThreadId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "thread_id", *params.ThreadId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int64"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewAddEventCommentRequest calls the generic AddEventComment builder with application/json body
+func NewAddEventCommentRequest(server string, body AddEventCommentJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewAddEventCommentRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewAddEventCommentRequestWithBody generates requests for AddEventComment with any type of body
+func NewAddEventCommentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/events/comment")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetEventThreadTitleRequest calls the generic SetEventThreadTitle builder with application/json body
+func NewSetEventThreadTitleRequest(server string, id int64, body SetEventThreadTitleJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetEventThreadTitleRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetEventThreadTitleRequestWithBody generates requests for SetEventThreadTitle with any type of body
+func NewSetEventThreadTitleRequestWithBody(server string, id int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/events/threads/%s/title", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReplyToEventRequest calls the generic ReplyToEvent builder with application/json body
+func NewReplyToEventRequest(server string, id int64, body ReplyToEventJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReplyToEventRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewReplyToEventRequestWithBody generates requests for ReplyToEvent with any type of body
+func NewReplyToEventRequestWithBody(server string, id int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/events/%s/reply", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewSetEventVerdictRequest calls the generic SetEventVerdict builder with application/json body
+func NewSetEventVerdictRequest(server string, id int64, body SetEventVerdictJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetEventVerdictRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSetEventVerdictRequestWithBody generates requests for SetEventVerdict with any type of body
+func NewSetEventVerdictRequestWithBody(server string, id int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/events/%s/verdict", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewDeleteFeatureRequest calls the generic DeleteFeature builder with application/json body
 func NewDeleteFeatureRequest(server string, body DeleteFeatureJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -30112,6 +30605,29 @@ type ClientWithResponsesInterface interface {
 
 	// TriggerErrorWithResponse request
 	TriggerErrorWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*TriggerErrorResponse, error)
+
+	// ListEventsWithResponse request
+	ListEventsWithResponse(ctx context.Context, params *ListEventsParams, reqEditors ...RequestEditorFn) (*ParsedListEventsResponse, error)
+
+	// AddEventCommentWithBodyWithResponse request with any body
+	AddEventCommentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddEventCommentResponse, error)
+
+	AddEventCommentWithResponse(ctx context.Context, body AddEventCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*AddEventCommentResponse, error)
+
+	// SetEventThreadTitleWithBodyWithResponse request with any body
+	SetEventThreadTitleWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetEventThreadTitleResponse, error)
+
+	SetEventThreadTitleWithResponse(ctx context.Context, id int64, body SetEventThreadTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetEventThreadTitleResponse, error)
+
+	// ReplyToEventWithBodyWithResponse request with any body
+	ReplyToEventWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplyToEventResponse, error)
+
+	ReplyToEventWithResponse(ctx context.Context, id int64, body ReplyToEventJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplyToEventResponse, error)
+
+	// SetEventVerdictWithBodyWithResponse request with any body
+	SetEventVerdictWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetEventVerdictResponse, error)
+
+	SetEventVerdictWithResponse(ctx context.Context, id int64, body SetEventVerdictJSONRequestBody, reqEditors ...RequestEditorFn) (*SetEventVerdictResponse, error)
 
 	// DeleteFeatureWithBodyWithResponse request with any body
 	DeleteFeatureWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteFeatureResponse, error)
@@ -36810,6 +37326,121 @@ func (r TriggerErrorResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListEventsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListEventsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListEventsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListEventsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type AddEventCommentResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *EventItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r AddEventCommentResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r AddEventCommentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SetEventThreadTitleResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ThreadItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SetEventThreadTitleResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetEventThreadTitleResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ReplyToEventResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *EventItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ReplyToEventResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ReplyToEventResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SetEventVerdictResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *EventItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SetEventVerdictResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetEventVerdictResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type DeleteFeatureResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -41235,6 +41866,83 @@ func (c *ClientWithResponses) TriggerErrorWithResponse(ctx context.Context, reqE
 		return nil, err
 	}
 	return ParseTriggerErrorResponse(rsp)
+}
+
+// ListEventsWithResponse request returning *ParsedListEventsResponse
+func (c *ClientWithResponses) ListEventsWithResponse(ctx context.Context, params *ListEventsParams, reqEditors ...RequestEditorFn) (*ParsedListEventsResponse, error) {
+	rsp, err := c.ListEvents(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListEventsResponse(rsp)
+}
+
+// AddEventCommentWithBodyWithResponse request with arbitrary body returning *AddEventCommentResponse
+func (c *ClientWithResponses) AddEventCommentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddEventCommentResponse, error) {
+	rsp, err := c.AddEventCommentWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddEventCommentResponse(rsp)
+}
+
+func (c *ClientWithResponses) AddEventCommentWithResponse(ctx context.Context, body AddEventCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*AddEventCommentResponse, error) {
+	rsp, err := c.AddEventComment(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseAddEventCommentResponse(rsp)
+}
+
+// SetEventThreadTitleWithBodyWithResponse request with arbitrary body returning *SetEventThreadTitleResponse
+func (c *ClientWithResponses) SetEventThreadTitleWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetEventThreadTitleResponse, error) {
+	rsp, err := c.SetEventThreadTitleWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetEventThreadTitleResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetEventThreadTitleWithResponse(ctx context.Context, id int64, body SetEventThreadTitleJSONRequestBody, reqEditors ...RequestEditorFn) (*SetEventThreadTitleResponse, error) {
+	rsp, err := c.SetEventThreadTitle(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetEventThreadTitleResponse(rsp)
+}
+
+// ReplyToEventWithBodyWithResponse request with arbitrary body returning *ReplyToEventResponse
+func (c *ClientWithResponses) ReplyToEventWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReplyToEventResponse, error) {
+	rsp, err := c.ReplyToEventWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplyToEventResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReplyToEventWithResponse(ctx context.Context, id int64, body ReplyToEventJSONRequestBody, reqEditors ...RequestEditorFn) (*ReplyToEventResponse, error) {
+	rsp, err := c.ReplyToEvent(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseReplyToEventResponse(rsp)
+}
+
+// SetEventVerdictWithBodyWithResponse request with arbitrary body returning *SetEventVerdictResponse
+func (c *ClientWithResponses) SetEventVerdictWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetEventVerdictResponse, error) {
+	rsp, err := c.SetEventVerdictWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetEventVerdictResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetEventVerdictWithResponse(ctx context.Context, id int64, body SetEventVerdictJSONRequestBody, reqEditors ...RequestEditorFn) (*SetEventVerdictResponse, error) {
+	rsp, err := c.SetEventVerdict(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetEventVerdictResponse(rsp)
 }
 
 // DeleteFeatureWithBodyWithResponse request with arbitrary body returning *DeleteFeatureResponse
@@ -51003,6 +51711,171 @@ func ParseTriggerErrorResponse(rsp *http.Response) (*TriggerErrorResponse, error
 	}
 
 	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListEventsResponse parses an HTTP response from a ListEventsWithResponse call
+func ParseParsedListEventsResponse(rsp *http.Response) (*ParsedListEventsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListEventsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListEventsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseAddEventCommentResponse parses an HTTP response from a AddEventCommentWithResponse call
+func ParseAddEventCommentResponse(rsp *http.Response) (*AddEventCommentResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &AddEventCommentResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EventItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetEventThreadTitleResponse parses an HTTP response from a SetEventThreadTitleWithResponse call
+func ParseSetEventThreadTitleResponse(rsp *http.Response) (*SetEventThreadTitleResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetEventThreadTitleResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ThreadItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseReplyToEventResponse parses an HTTP response from a ReplyToEventWithResponse call
+func ParseReplyToEventResponse(rsp *http.Response) (*ReplyToEventResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ReplyToEventResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EventItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetEventVerdictResponse parses an HTTP response from a SetEventVerdictWithResponse call
+func ParseSetEventVerdictResponse(rsp *http.Response) (*SetEventVerdictResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetEventVerdictResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest EventItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
