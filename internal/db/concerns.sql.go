@@ -58,6 +58,50 @@ func (q *Queries) GetConcernByName(ctx context.Context, arg GetConcernByNamePara
 	return i, err
 }
 
+const getConcernDoctorState = `-- name: GetConcernDoctorState :one
+SELECT
+    (SELECT COUNT(*) FROM zdx_concerns cc WHERE cc.project_id = p.id)::int                                AS concern_count,
+    (SELECT COUNT(DISTINCT f.id)
+     FROM zdx_features f
+     WHERE f.project_id = p.id
+       AND EXISTS (SELECT 1 FROM zdx_specs WHERE feature_id = f.id)
+       AND EXISTS (
+           SELECT 1 FROM zdx_concern_features cf
+           JOIN zdx_concerns c2 ON c2.id = cf.concern_id
+           WHERE cf.feature_id = f.id AND c2.project_id = p.id
+       ))::int                                                                                              AS features_with_concerns,
+    (SELECT COUNT(DISTINCT c3.id)
+     FROM zdx_concerns c3
+     WHERE c3.project_id = p.id
+       AND EXISTS (SELECT 1 FROM zdx_concern_specs WHERE concern_id = c3.id)
+       AND NOT EXISTS (SELECT 1 FROM zdx_concern_patterns WHERE concern_id = c3.id))::int                  AS concerns_with_specs_no_pattern,
+    (SELECT COUNT(*)
+     FROM zdx_concern_specs cs
+     JOIN zdx_concerns c4 ON c4.id = cs.concern_id
+     WHERE c4.project_id = p.id AND lower(c4.name) = 'security')::int                                     AS security_concern_spec_count
+FROM zdx_projects p
+WHERE p.id = $1
+`
+
+type GetConcernDoctorStateRow struct {
+	ConcernCount               int32 `db:"concern_count" json:"concern_count"`
+	FeaturesWithConcerns       int32 `db:"features_with_concerns" json:"features_with_concerns"`
+	ConcernsWithSpecsNoPattern int32 `db:"concerns_with_specs_no_pattern" json:"concerns_with_specs_no_pattern"`
+	SecurityConcernSpecCount   int32 `db:"security_concern_spec_count" json:"security_concern_spec_count"`
+}
+
+func (q *Queries) GetConcernDoctorState(ctx context.Context, id int32) (GetConcernDoctorStateRow, error) {
+	row := q.db.QueryRow(ctx, getConcernDoctorState, id)
+	var i GetConcernDoctorStateRow
+	err := row.Scan(
+		&i.ConcernCount,
+		&i.FeaturesWithConcerns,
+		&i.ConcernsWithSpecsNoPattern,
+		&i.SecurityConcernSpecCount,
+	)
+	return i, err
+}
+
 const linkConcernFeature = `-- name: LinkConcernFeature :exec
 INSERT INTO zdx_concern_features (concern_id, feature_id)
 VALUES ($1, $2)

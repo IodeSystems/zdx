@@ -325,6 +325,14 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		}
 	}
 
+	// Concern coverage
+	if csResp, err := c.GetConcernDoctorStateWithResponse(ctx, &dxclient.GetConcernDoctorStateParams{Slug: slug}); err == nil && csResp.JSON200 != nil {
+		state.ConcernCount = int(csResp.JSON200.ConcernCount)
+		state.FeaturesWithConcerns = int(csResp.JSON200.FeaturesWithConcerns)
+		state.ConcernsWithSpecsNoPattern = int(csResp.JSON200.ConcernsWithSpecsNoPattern)
+		state.SecurityConcernSpecCount = int(csResp.JSON200.SecurityConcernSpecCount)
+	}
+
 	// Stale agent sessions (still open past the sweeper's idle threshold)
 	if sResp, err := c.ListStaleOpenClaudeSessionsWithResponse(ctx, &dxclient.ListStaleOpenClaudeSessionsParams{Slug: slug}); err == nil && sResp.JSON200 != nil {
 		state.StaleAgentSessions = int(sResp.JSON200.Total)

@@ -93,6 +93,61 @@ var GetConcernByNameCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
+var MetaGetConcernDoctorState = metaquery.Query{
+	Name:   "GetConcernDoctorState",
+	Cmd:    ":one",
+	Source: "concerns.sql",
+	SQL: `SELECT
+    (SELECT COUNT(*) FROM zdx_concerns cc WHERE cc.project_id = p.id)::int                                AS concern_count,
+    (SELECT COUNT(DISTINCT f.id)
+     FROM zdx_features f
+     WHERE f.project_id = p.id
+       AND EXISTS (SELECT 1 FROM zdx_specs WHERE feature_id = f.id)
+       AND EXISTS (
+           SELECT 1 FROM zdx_concern_features cf
+           JOIN zdx_concerns c2 ON c2.id = cf.concern_id
+           WHERE cf.feature_id = f.id AND c2.project_id = p.id
+       ))::int                                                                                              AS features_with_concerns,
+    (SELECT COUNT(DISTINCT c3.id)
+     FROM zdx_concerns c3
+     WHERE c3.project_id = p.id
+       AND EXISTS (SELECT 1 FROM zdx_concern_specs WHERE concern_id = c3.id)
+       AND NOT EXISTS (SELECT 1 FROM zdx_concern_patterns WHERE concern_id = c3.id))::int                  AS concerns_with_specs_no_pattern,
+    (SELECT COUNT(*)
+     FROM zdx_concern_specs cs
+     JOIN zdx_concerns c4 ON c4.id = cs.concern_id
+     WHERE c4.project_id = p.id AND lower(c4.name) = 'security')::int                                     AS security_concern_spec_count
+FROM zdx_projects p
+WHERE p.id = $1`,
+	Columns: []metaquery.Column{
+		{Name: "concern_count", OriginalName: "concern_count", GoType: "int32", DBType: "int4", NotNull: true},
+		{Name: "features_with_concerns", OriginalName: "features_with_concerns", GoType: "int32", DBType: "int4", NotNull: true},
+		{Name: "concerns_with_specs_no_pattern", OriginalName: "concerns_with_specs_no_pattern", GoType: "int32", DBType: "int4", NotNull: true},
+		{Name: "security_concern_spec_count", OriginalName: "security_concern_spec_count", GoType: "int32", DBType: "int4", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapGetConcernDoctorState returns a metaquery.Builder over MetaGetConcernDoctorState, pre-bound with typed arguments.
+func WrapGetConcernDoctorState(id int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetConcernDoctorState, id)
+}
+
+// GetConcernDoctorStateCols gives typed, name-safe access to GetConcernDoctorState's output columns.
+var GetConcernDoctorStateCols = struct {
+	ConcernCount               metaquery.IntCol
+	FeaturesWithConcerns       metaquery.IntCol
+	ConcernsWithSpecsNoPattern metaquery.IntCol
+	SecurityConcernSpecCount   metaquery.IntCol
+}{
+	ConcernCount:               metaquery.NewIntCol("concern_count"),
+	FeaturesWithConcerns:       metaquery.NewIntCol("features_with_concerns"),
+	ConcernsWithSpecsNoPattern: metaquery.NewIntCol("concerns_with_specs_no_pattern"),
+	SecurityConcernSpecCount:   metaquery.NewIntCol("security_concern_spec_count"),
+}
+
 var MetaLinkConcernFeature = metaquery.Query{
 	Name:   "LinkConcernFeature",
 	Cmd:    ":exec",

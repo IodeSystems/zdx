@@ -114,6 +114,16 @@ func commonVine() []Rung {
 			},
 		},
 		{
+			Name:        "concerns",
+			Description: "Concerns are defined and attributed — coverage, gaps, security",
+			Checks: []Check{
+				{"concerns_defined", "Project has at least one concern defined", ActionAutoFix},
+				{"features_have_concerns", "Every feature with specs has >=1 concern attribution", ActionPropose},
+				{"concerns_have_patterns", "Concerns with specs also have an attributed pattern", ActionPropose},
+				{"security_concern_specs", "Security concern has at least one spec", ActionPropose},
+			},
+		},
+		{
 			Name:        "verification",
 			Description: "Code is tested — specs have test refs, tests pass",
 			Checks: []Check{

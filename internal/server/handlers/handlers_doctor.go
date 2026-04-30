@@ -120,6 +120,39 @@ func (h *Handler) registerDoctorRoutes(api huma.API) {
 				Deferrals []DeferralItem `json:"deferrals"`
 			}{Deferrals: out}}, nil
 		})
+
+	// GET /api/dx/doctor/concern-state — aggregate concern coverage counts for doctor
+	huma.Register(api, huma.Operation{OperationID: "get-concern-doctor-state", Method: http.MethodGet, Path: "/api/dx/doctor/concern-state"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				ConcernCount               int32 `json:"concern_count"`
+				FeaturesWithConcerns       int32 `json:"features_with_concerns"`
+				ConcernsWithSpecsNoPattern int32 `json:"concerns_with_specs_no_pattern"`
+				SecurityConcernSpecCount   int32 `json:"security_concern_spec_count"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := h.Q.GetConcernDoctorState(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := &struct {
+				Body struct {
+					ConcernCount               int32 `json:"concern_count"`
+					FeaturesWithConcerns       int32 `json:"features_with_concerns"`
+					ConcernsWithSpecsNoPattern int32 `json:"concerns_with_specs_no_pattern"`
+					SecurityConcernSpecCount   int32 `json:"security_concern_spec_count"`
+				}
+			}{}
+			out.Body.ConcernCount = row.ConcernCount
+			out.Body.FeaturesWithConcerns = row.FeaturesWithConcerns
+			out.Body.ConcernsWithSpecsNoPattern = row.ConcernsWithSpecsNoPattern
+			out.Body.SecurityConcernSpecCount = row.SecurityConcernSpecCount
+			return out, nil
+		})
 }
 
 type DeferralItem struct {

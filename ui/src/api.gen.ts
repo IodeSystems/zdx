@@ -1062,6 +1062,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/concern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-concern"];
+        put?: never;
+        post: operations["create-concern"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/concern/link": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["link-concern"];
+        delete: operations["unlink-concern"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/concerns": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-concerns"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/concerns/feature": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-concerns-for-feature"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/concerns/spec": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-concerns-for-spec"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/counted": {
         parameters: {
             query?: never;
@@ -1248,6 +1328,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["set-classification"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/doctor/concern-state": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-concern-doctor-state"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5459,6 +5555,19 @@ export interface components {
             target_type: string;
             unread?: boolean;
         };
+        ConcernItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/ConcernItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            description: string;
+            /** Format: int32 */
+            id: number;
+            name: string;
+        };
         ConstraintItem: {
             /**
              * Format: uri
@@ -5589,6 +5698,17 @@ export interface components {
             /** Format: int64 */
             id: number;
             session_id: string;
+        };
+        "Create-concernRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-concernRequest.json
+             */
+            readonly $schema?: string;
+            description: string;
+            name: string;
+            slug: string;
         };
         "Create-constraintRequest": {
             /**
@@ -6269,6 +6389,22 @@ export interface components {
             /** Format: int64 */
             output_tokens: number;
         };
+        "Get-concern-doctor-stateResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Get-concern-doctor-stateResponse.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            concern_count: number;
+            /** Format: int32 */
+            concerns_with_specs_no_pattern: number;
+            /** Format: int32 */
+            features_with_concerns: number;
+            /** Format: int32 */
+            security_concern_spec_count: number;
+        };
         "Get-configResponse": {
             /**
              * Format: uri
@@ -6794,6 +6930,22 @@ export interface components {
             type: string;
             url: string;
         };
+        "Link-concernRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Link-concernRequest.json
+             */
+            readonly $schema?: string;
+            concern_name: string;
+            feature?: string;
+            issue?: string;
+            /** Format: int32 */
+            pattern_id?: number;
+            slug: string;
+            /** Format: int32 */
+            spec_id?: number;
+        };
         "Link-spec-issueRequest": {
             /**
              * Format: uri
@@ -6959,6 +7111,33 @@ export interface components {
             comments: components["schemas"]["CommentItem"][] | null;
             /** Format: int64 */
             total: number;
+        };
+        "List-concerns-for-featureResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-concerns-for-featureResponse.json
+             */
+            readonly $schema?: string;
+            concerns: components["schemas"]["ConcernItem"][] | null;
+        };
+        "List-concerns-for-specResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-concerns-for-specResponse.json
+             */
+            readonly $schema?: string;
+            concerns: components["schemas"]["ConcernItem"][] | null;
+        };
+        "List-concernsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-concernsResponse.json
+             */
+            readonly $schema?: string;
+            concerns: components["schemas"]["ConcernItem"][] | null;
         };
         "List-constraintsResponse": {
             /**
@@ -8748,6 +8927,8 @@ export interface components {
             /** Format: int64 */
             n?: number;
             slug: string;
+            target_id?: string;
+            target_type?: string;
             text: string;
         };
         "Similar-patternsResponse": {
@@ -8844,6 +9025,8 @@ export interface components {
             pattern: components["schemas"]["PatternItem"];
             /** Format: double */
             score: number;
+            source?: string;
+            via?: string;
         };
         SimilarProposalItem: {
             body: string;
@@ -9484,6 +9667,22 @@ export interface components {
             id: number;
             importance: string;
         };
+        "Unlink-concernRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Unlink-concernRequest.json
+             */
+            readonly $schema?: string;
+            concern_name: string;
+            feature?: string;
+            issue?: string;
+            /** Format: int32 */
+            pattern_id?: number;
+            slug: string;
+            /** Format: int32 */
+            spec_id?: number;
+        };
         "Unlink-spec-issueRequest": {
             /**
              * Format: uri
@@ -9679,6 +9878,17 @@ export interface components {
             field: string;
             slug: string;
             value: string;
+        };
+        "Update-specsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Update-specsResponse.json
+             */
+            readonly $schema?: string;
+            ok: boolean;
+            /** Format: int32 */
+            spec_id: number;
         };
         "Update-task-statusRequest": {
             /**
@@ -12217,6 +12427,231 @@ export interface operations {
             };
         };
     };
+    "get-concern": {
+        parameters: {
+            query: {
+                slug: string;
+                name: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConcernItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-concern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-concernRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConcernItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "link-concern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Link-concernRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "unlink-concern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Unlink-concernRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-concerns": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-concernsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-concerns-for-feature": {
+        parameters: {
+            query: {
+                slug: string;
+                feature: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-concerns-for-featureResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-concerns-for-spec": {
+        parameters: {
+            query: {
+                spec_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-concerns-for-specResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-counted": {
         parameters: {
             query?: {
@@ -12701,6 +13136,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-concern-doctor-state": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Get-concern-doctor-stateResponse"];
                 };
             };
             /** @description Error */
@@ -17007,7 +17473,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["OKBody"];
+                    "application/json": components["schemas"]["Update-specsResponse"];
                 };
             };
             /** @description Error */

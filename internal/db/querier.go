@@ -154,6 +154,7 @@ type Querier interface {
 	GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error)
 	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
 	GetConcernByName(ctx context.Context, arg GetConcernByNameParams) (ZdxConcern, error)
+	GetConcernDoctorState(ctx context.Context, id int32) (GetConcernDoctorStateRow, error)
 	// file_id falls back to any sibling row with the same (demo_type, artifact_path)
 	// that does have a file_id, so legacy rows linked to non-recorder tests still
 	// resolve to the uploaded artifact instead of 404ing on handleServeDemo.

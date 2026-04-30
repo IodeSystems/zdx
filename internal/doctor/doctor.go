@@ -1,7 +1,9 @@
 package doctor
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"strings"
@@ -102,6 +104,12 @@ type ProjectState struct {
 
 	// Deploy pipeline
 	ShipsFromDevDirectly bool // true when project deploys from dev/main without a gate/staging branch
+
+	// Concern coverage
+	ConcernCount               int
+	FeaturesWithConcerns       int
+	ConcernsWithSpecsNoPattern int
+	SecurityConcernSpecCount   int
 
 	// Maturity questionnaire (from server)
 	MaturityQuestions []dxclient.MaturityQuestion
@@ -495,6 +503,64 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 					"Use `git checkout -b staging && git push -u origin staging` to start."
 		}
 		return true, "deploy pipeline has a gate branch", nil, ""
+
+	// ── concerns ──
+	case "concerns_defined":
+		if state.ConcernCount > 0 {
+			return true, fmt.Sprintf("%d concerns", state.ConcernCount), nil, ""
+		}
+		return false, "no concerns defined", func() error {
+			cfg := config.Load()
+			if cfg == nil {
+				return fmt.Errorf("no config loaded")
+			}
+			slug := cfg.RemoteSlug()
+			apiKey := config.RemoteAPIKey()
+			c, err := dxclient.NewClientWithResponses(cfg.RemoteURL(),
+				dxclient.WithRequestEditorFn(func(ctx context.Context, req *http.Request) error {
+					if apiKey != "" {
+						req.Header.Set("Authorization", "Bearer "+apiKey)
+					}
+					return nil
+				}),
+			)
+			if err != nil {
+				return err
+			}
+			defaults := []string{"Security", "Latency", "Compatibility", "Operability", "Accessibility", "UX", "Functional"}
+			for _, name := range defaults {
+				if _, err := c.CreateConcernWithResponse(context.Background(), dxclient.CreateConcernJSONRequestBody{
+					Slug: slug, Name: name,
+				}); err != nil {
+					return fmt.Errorf("create concern %q: %w", name, err)
+				}
+			}
+			return nil
+		}, "Run `dx doctor --fix` to seed default concerns, or `dx concern add --name Security`"
+
+	case "features_have_concerns":
+		if state.FeaturesWithSpecs == 0 || state.FeaturesWithConcerns == state.FeaturesWithSpecs {
+			return true, "", nil, ""
+		}
+		return false, fmt.Sprintf("%d/%d specced features have concern attribution", state.FeaturesWithConcerns, state.FeaturesWithSpecs), nil,
+			"Link features to concerns: `dx concern link --concern Security --feature <name>`"
+
+	case "concerns_have_patterns":
+		if state.ConcernsWithSpecsNoPattern == 0 {
+			return true, "", nil, ""
+		}
+		return false, fmt.Sprintf("%d concern(s) have specs but no attributed pattern", state.ConcernsWithSpecsNoPattern), nil,
+			"Add pattern attribution: `dx concern link --concern <name> --pattern <id>`"
+
+	case "security_concern_specs":
+		if state.SecurityConcernSpecCount > 0 {
+			return true, fmt.Sprintf("%d security specs", state.SecurityConcernSpecCount), nil, ""
+		}
+		if state.ConcernCount == 0 {
+			return true, "no concerns defined yet", nil, ""
+		}
+		return false, "Security concern has no specs", nil,
+			"Add a security spec: `dx spec add <feature> --kind must --concern Security --desc '...'`"
 
 	case "has_healthcheck", "has_auth", "has_tenant_isolation":
 		// Placeholder — these require deeper inspection

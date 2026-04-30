@@ -1355,6 +1355,16 @@ type GetClaudeSessionTokenUsageResponse struct {
 	OutputTokens             int64   `json:"output_tokens"`
 }
 
+// GetConcernDoctorStateResponse defines model for Get-concern-doctor-stateResponse.
+type GetConcernDoctorStateResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema                     *string `json:"$schema,omitempty"`
+	ConcernCount               int32   `json:"concern_count"`
+	ConcernsWithSpecsNoPattern int32   `json:"concerns_with_specs_no_pattern"`
+	FeaturesWithConcerns       int32   `json:"features_with_concerns"`
+	SecurityConcernSpecCount   int32   `json:"security_concern_spec_count"`
+}
+
 // GetConfigResponse defines model for Get-configResponse.
 type GetConfigResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4538,6 +4548,11 @@ type ListDiscussionMessagesParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// GetConcernDoctorStateParams defines parameters for GetConcernDoctorState.
+type GetConcernDoctorStateParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
 // ListDoctorDeferralsParams defines parameters for ListDoctorDeferrals.
 type ListDoctorDeferralsParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -6055,6 +6070,9 @@ type ClientInterface interface {
 	SetClassificationWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SetClassification(ctx context.Context, body SetClassificationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetConcernDoctorState request
+	GetConcernDoctorState(ctx context.Context, params *GetConcernDoctorStateParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeferDoctorCheckWithBody request with any body
 	DeferDoctorCheckWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8638,6 +8656,18 @@ func (c *APIClient) SetClassificationWithBody(ctx context.Context, contentType s
 
 func (c *APIClient) SetClassification(ctx context.Context, body SetClassificationJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetClassificationRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) GetConcernDoctorState(ctx context.Context, params *GetConcernDoctorStateParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetConcernDoctorStateRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -17779,6 +17809,51 @@ func NewSetClassificationRequestWithBody(server string, contentType string, body
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetConcernDoctorStateRequest generates requests for GetConcernDoctorState
+func NewGetConcernDoctorStateRequest(server string, params *GetConcernDoctorStateParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/doctor/concern-state")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -29788,6 +29863,9 @@ type ClientWithResponsesInterface interface {
 
 	SetClassificationWithResponse(ctx context.Context, body SetClassificationJSONRequestBody, reqEditors ...RequestEditorFn) (*SetClassificationResponse, error)
 
+	// GetConcernDoctorStateWithResponse request
+	GetConcernDoctorStateWithResponse(ctx context.Context, params *GetConcernDoctorStateParams, reqEditors ...RequestEditorFn) (*ParsedGetConcernDoctorStateResponse, error)
+
 	// DeferDoctorCheckWithBodyWithResponse request with any body
 	DeferDoctorCheckWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeferDoctorCheckResponse, error)
 
@@ -32926,6 +33004,29 @@ func (r SetClassificationResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r SetClassificationResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedGetConcernDoctorStateResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *GetConcernDoctorStateResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedGetConcernDoctorStateResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedGetConcernDoctorStateResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -39310,6 +39411,15 @@ func (c *ClientWithResponses) SetClassificationWithResponse(ctx context.Context,
 	return ParseSetClassificationResponse(rsp)
 }
 
+// GetConcernDoctorStateWithResponse request returning *ParsedGetConcernDoctorStateResponse
+func (c *ClientWithResponses) GetConcernDoctorStateWithResponse(ctx context.Context, params *GetConcernDoctorStateParams, reqEditors ...RequestEditorFn) (*ParsedGetConcernDoctorStateResponse, error) {
+	rsp, err := c.GetConcernDoctorState(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedGetConcernDoctorStateResponse(rsp)
+}
+
 // DeferDoctorCheckWithBodyWithResponse request with arbitrary body returning *DeferDoctorCheckResponse
 func (c *ClientWithResponses) DeferDoctorCheckWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeferDoctorCheckResponse, error) {
 	rsp, err := c.DeferDoctorCheckWithBody(ctx, contentType, body, reqEditors...)
@@ -45434,6 +45544,39 @@ func ParseSetClassificationResponse(rsp *http.Response) (*SetClassificationRespo
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedGetConcernDoctorStateResponse parses an HTTP response from a GetConcernDoctorStateWithResponse call
+func ParseParsedGetConcernDoctorStateResponse(rsp *http.Response) (*ParsedGetConcernDoctorStateResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedGetConcernDoctorStateResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GetConcernDoctorStateResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
