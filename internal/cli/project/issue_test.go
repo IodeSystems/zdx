@@ -160,6 +160,17 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 				"- Whether the approach is right.\n",
 			want: nil,
 		},
+		{
+			name: "code-fenced content is not extracted",
+			input: "Here's a diff:\n" +
+				"```\n" +
+				"- -- Dumped by pg_dump version 18.3\n" +
+				"+ -- Dumped by pg_dump version 17.9\n" +
+				"```\n" +
+				"And a real candidate after the fence:\n" +
+				"- Real follow-up\n",
+			want: []string{"Real follow-up"},
+		},
 	}
 
 	for _, tc := range cases {

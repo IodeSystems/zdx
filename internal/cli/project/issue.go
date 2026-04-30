@@ -495,6 +495,12 @@ var (
 	// extracted as decomposition candidates. Matches with or without leading
 	// markdown hashes and optional trailing colon. (IS-675)
 	decompExemptHeaderRe = regexp.MustCompile(`(?i)^\s*(?:#+\s*)?(WHAT SHOULD HAPPEN|WHAT DID HAPPEN|WHAT THE TOOL SHOULD DO|IMPLEMENTATION DIRECTION|REPRO|CANDIDATE FIXES|FIX|OUT OF SCOPE)\b`)
+	// decompCodeFenceRe matches a markdown code-fence opening or closing line.
+	// Lines inside fences must not be extracted — they are example commands or
+	// quoted output, not pending work. Without this guard, a diff line like
+	// "- -- Dumped by pg_dump..." inside a code block matches decompListItemRe
+	// and shows up as a bogus candidate.
+	decompCodeFenceRe = regexp.MustCompile("^\\s*```")
 )
 
 // decompFutureSignals are case-insensitive substrings that flag a line as
@@ -524,7 +530,15 @@ func extractDecompositionCandidates(context string) []string {
 	}
 	inDecomp := false
 	inExempt := false
+	inFence := false
 	for _, line := range strings.Split(context, "\n") {
+		if decompCodeFenceRe.MatchString(line) {
+			inFence = !inFence
+			continue
+		}
+		if inFence {
+			continue
+		}
 		if decompHeaderRe.MatchString(line) {
 			inDecomp = true
 			inExempt = false
