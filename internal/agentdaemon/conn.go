@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"log"
+	"os"
 	"strings"
 	"sync"
 	"time"
@@ -13,11 +14,27 @@ import (
 )
 
 const (
-	drainTimeout    = 10 * time.Minute
-	backoffInitial  = 1 * time.Second
-	backoffMax      = 30 * time.Second
-	backoffResetAge = 10 * time.Second // connection survived this long → reset backoff
+	drainTimeout         = 10 * time.Minute
+	backoffInitial       = 1 * time.Second
+	backoffMax           = 30 * time.Second
+	backoffResetAge      = 10 * time.Second // connection survived this long → reset backoff
+	defaultPauseRenewInt = 5 * time.Minute  // mirrors take.go (lease/2 with min 1m), conservative default
 )
+
+// LeaseRenewer is invoked by the pause hold loop to keep a paused agent's task
+// lease alive while no new LLM turns are running. Wiring is left to the caller
+// — the daemon does not perform HTTP itself.
+type LeaseRenewer interface {
+	Renew(ctx context.Context, sessionID, issueID string)
+}
+
+// LeaseRenewerFunc adapts a plain func to LeaseRenewer.
+type LeaseRenewerFunc func(ctx context.Context, sessionID, issueID string)
+
+// Renew implements LeaseRenewer.
+func (f LeaseRenewerFunc) Renew(ctx context.Context, sessionID, issueID string) {
+	f(ctx, sessionID, issueID)
+}
 
 // Daemon holds the configuration for a persistent agent connection.
 type Daemon struct {
@@ -36,14 +53,32 @@ type Daemon struct {
 	// create a buffered channel (cap ≥ 4) before calling Run/RunForever.
 	ControlCh chan ControlMsg
 
+	// PauseRenewer, if non-nil, is invoked on PauseRenewInterval while the
+	// agent is paused, so the active task lease stays alive without spawning
+	// new LLM turns. Stops on "resume" or daemon shutdown.
+	PauseRenewer LeaseRenewer
+
+	// PauseRenewInterval overrides the default hold-loop tick (5m). Tests
+	// inject a short interval to observe the renewer being called.
+	PauseRenewInterval time.Duration
+
+	// StateFile, if non-empty, gets a one-line "paused\n<sid>\n<issue>\n"
+	// breadcrumb written on pause and removed on resume. A crashed/restarted
+	// daemon can read this file to know it was paused.
+	StateFile string
+
 	// now is injectable for tests; defaults to time.Now.
 	now func() time.Time
 
 	// paused state, guarded by mu. Set on "pause", cleared on "resume".
+	// pauseHoldStop signals the hold goroutine to exit; pauseHoldDone is
+	// closed when the hold goroutine returns (used by tests for synchronization).
 	mu            sync.Mutex
 	paused        bool
 	pausedSID     string
 	pausedIssueID string
+	pauseHoldStop chan struct{}
+	pauseHoldDone chan struct{}
 }
 
 // Run dials the server, sends the registration handshake, and blocks until the
@@ -105,7 +140,9 @@ func (d *Daemon) Run(ctx context.Context) error {
 	case <-ctx.Done():
 	}
 
-	// ctx cancelled — drain current task then close cleanly.
+	// ctx cancelled — stop any pause hold loop, drain current task, close cleanly.
+	d.stopPauseHold()
+
 	holder := d.Holder
 	if holder == nil {
 		holder = NoopHolder()
@@ -195,11 +232,24 @@ func (d *Daemon) handleIncoming(data []byte) {
 			issueID = task.IssueID
 		}
 		d.mu.Lock()
+		if d.paused {
+			// Already paused — ignore duplicate pause to avoid stacking hold loops.
+			d.mu.Unlock()
+			return
+		}
 		d.paused = true
 		d.pausedSID = sid
 		d.pausedIssueID = issueID
+		stop := make(chan struct{})
+		done := make(chan struct{})
+		d.pauseHoldStop = stop
+		d.pauseHoldDone = done
 		d.mu.Unlock()
-		log.Printf("agent paused (session=%s issue=%s)", sid, issueID)
+
+		log.Printf("agent paused — holding lease (session=%s issue=%s)", sid, issueID)
+		d.writePauseState(sid, issueID)
+		go d.runPauseHold(stop, done, sid, issueID)
+
 		if d.ControlCh != nil {
 			select {
 			case d.ControlCh <- ControlMsg{Type: "pause", SessionID: sid, IssueID: issueID}:
@@ -215,10 +265,18 @@ func (d *Daemon) handleIncoming(data []byte) {
 		}
 		sid := d.pausedSID
 		issueID := d.pausedIssueID
+		stop := d.pauseHoldStop
 		d.paused = false
 		d.pausedSID = ""
 		d.pausedIssueID = ""
+		d.pauseHoldStop = nil
+		d.pauseHoldDone = nil
 		d.mu.Unlock()
+
+		if stop != nil {
+			close(stop)
+		}
+		d.removePauseState()
 		log.Printf("agent resumed (session=%s issue=%s)", sid, issueID)
 		if d.ControlCh != nil {
 			select {
@@ -226,6 +284,64 @@ func (d *Daemon) handleIncoming(data []byte) {
 			default:
 			}
 		}
+	}
+}
+
+// runPauseHold renews the task lease at PauseRenewInterval until stop is closed
+// (resume or shutdown). Closes done on exit so callers can wait for teardown.
+// If PauseRenewer is nil, the goroutine still runs (so resume can join it via
+// done) but performs no work each tick.
+func (d *Daemon) runPauseHold(stop <-chan struct{}, done chan<- struct{}, sid, issueID string) {
+	defer close(done)
+	interval := d.PauseRenewInterval
+	if interval <= 0 {
+		interval = defaultPauseRenewInt
+	}
+	ticker := time.NewTicker(interval)
+	defer ticker.Stop()
+	for {
+		select {
+		case <-stop:
+			return
+		case <-ticker.C:
+			if d.PauseRenewer == nil {
+				continue
+			}
+			ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+			d.PauseRenewer.Renew(ctx, sid, issueID)
+			cancel()
+		}
+	}
+}
+
+// stopPauseHold signals any active pause hold loop to exit. Idempotent.
+func (d *Daemon) stopPauseHold() {
+	d.mu.Lock()
+	stop := d.pauseHoldStop
+	d.pauseHoldStop = nil
+	d.pauseHoldDone = nil
+	d.mu.Unlock()
+	if stop != nil {
+		close(stop)
+	}
+}
+
+func (d *Daemon) writePauseState(sid, issueID string) {
+	if d.StateFile == "" {
+		return
+	}
+	body := fmt.Sprintf("paused\n%s\n%s\n", sid, issueID)
+	if err := os.WriteFile(d.StateFile, []byte(body), 0o644); err != nil {
+		log.Printf("pause: write state file %s: %v", d.StateFile, err)
+	}
+}
+
+func (d *Daemon) removePauseState() {
+	if d.StateFile == "" {
+		return
+	}
+	if err := os.Remove(d.StateFile); err != nil && !os.IsNotExist(err) {
+		log.Printf("pause: remove state file %s: %v", d.StateFile, err)
 	}
 }
 
