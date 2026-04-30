@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"strings"
+	"sync"
 	"time"
 
 	"nhooyr.io/websocket"
@@ -30,8 +31,19 @@ type Daemon struct {
 	Capabilities   []string
 	Holder         TaskHolder
 
+	// ControlCh receives pause/resume commands forwarded from the WS channel.
+	// If nil, control messages are logged but not forwarded. Callers should
+	// create a buffered channel (cap ≥ 4) before calling Run/RunForever.
+	ControlCh chan ControlMsg
+
 	// now is injectable for tests; defaults to time.Now.
 	now func() time.Time
+
+	// paused state, guarded by mu. Set on "pause", cleared on "resume".
+	mu            sync.Mutex
+	paused        bool
+	pausedSID     string
+	pausedIssueID string
 }
 
 // Run dials the server, sends the registration handshake, and blocks until the
@@ -78,11 +90,12 @@ func (d *Daemon) Run(ctx context.Context) error {
 	readErr := make(chan error, 1)
 	go func() {
 		for {
-			_, _, err := conn.Read(context.Background())
+			_, data, err := conn.Read(context.Background())
 			if err != nil {
 				readErr <- err
 				return
 			}
+			d.handleIncoming(data)
 		}
 	}()
 
@@ -156,6 +169,62 @@ func (d *Daemon) RunForever(ctx context.Context) error {
 		backoff *= 2
 		if backoff > backoffMax {
 			backoff = backoffMax
+		}
+	}
+}
+
+// handleIncoming processes one server→agent control message. Unknown types are
+// silently ignored so future message types don't break older daemons.
+func (d *Daemon) handleIncoming(data []byte) {
+	var msg struct {
+		Type string `json:"type"`
+	}
+	if err := json.Unmarshal(data, &msg); err != nil {
+		return
+	}
+
+	switch msg.Type {
+	case "pause":
+		holder := d.Holder
+		if holder == nil {
+			holder = NoopHolder()
+		}
+		sid, issueID := "", ""
+		if task := holder.CurrentTask(); task != nil {
+			sid = task.SessionID
+			issueID = task.IssueID
+		}
+		d.mu.Lock()
+		d.paused = true
+		d.pausedSID = sid
+		d.pausedIssueID = issueID
+		d.mu.Unlock()
+		log.Printf("agent paused (session=%s issue=%s)", sid, issueID)
+		if d.ControlCh != nil {
+			select {
+			case d.ControlCh <- ControlMsg{Type: "pause", SessionID: sid, IssueID: issueID}:
+			default:
+			}
+		}
+
+	case "resume":
+		d.mu.Lock()
+		if !d.paused {
+			d.mu.Unlock()
+			return
+		}
+		sid := d.pausedSID
+		issueID := d.pausedIssueID
+		d.paused = false
+		d.pausedSID = ""
+		d.pausedIssueID = ""
+		d.mu.Unlock()
+		log.Printf("agent resumed (session=%s issue=%s)", sid, issueID)
+		if d.ControlCh != nil {
+			select {
+			case d.ControlCh <- ControlMsg{Type: "resume", SessionID: sid, IssueID: issueID}:
+			default:
+			}
 		}
 	}
 }

@@ -7,8 +7,10 @@ import (
 
 // RunningTask is a snapshot of the task currently executing inside an agent session.
 type RunningTask struct {
-	ID      string
-	Started time.Time
+	ID        string
+	SessionID string // current Claude session ID; used as prevSID on resume
+	IssueID   string // issue being worked; used as ResumeIssueID on resume
+	Started   time.Time
 }
 
 // TaskHolder is implemented by the component that owns the live agent session.

@@ -39,8 +39,9 @@ func main() {
 	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
 	defer stop()
 
-	log.Printf("dx-agent starting: id=%s server=%s (no task loop in Phase 1 — see IS-602)", *agentID, *server)
+	log.Printf("dx-agent starting: id=%s server=%s", *agentID, *server)
 
+	ctrlCh := make(chan agentdaemon.ControlMsg, 16)
 	d := &agentdaemon.Daemon{
 		ServerURL:      *server,
 		AgentID:        *agentID,
@@ -50,13 +51,29 @@ func main() {
 		Hostname:       hostname,
 		Pid:            int32(os.Getpid()),
 		Capabilities:   []string{"claude", "local"},
-		// No-op TaskHolder for Phase 1; IS-602 wires in the real session manager.
+		ControlCh:      ctrlCh,
+		// No-op TaskHolder until IS-602 wires in the real session manager.
 		Holder: agentdaemon.NoopHolder(),
 	}
+
+	// Consume control signals. When a resume arrives, log the session that
+	// should be resumed; the full task-loop wiring happens in IS-602 follow-up
+	// tasks — this goroutine ensures ControlCh never blocks.
+	go func() {
+		for msg := range ctrlCh {
+			switch msg.Type {
+			case "resume":
+				log.Printf("resume signal: session=%s issue=%s (task loop not yet wired)", msg.SessionID, msg.IssueID)
+			case "pause":
+				log.Printf("pause signal: session=%s issue=%s", msg.SessionID, msg.IssueID)
+			}
+		}
+	}()
 
 	if err := d.RunForever(ctx); err != nil {
 		log.Fatalf("daemon: %v", err)
 	}
+	close(ctrlCh)
 }
 
 // gitBranch returns the current branch of the given worktree, or "unknown" on error.
