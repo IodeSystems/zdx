@@ -134,3 +134,12 @@ WHERE project_id = @project_id
   AND target_type = 'issue'
   AND target_id = @issue_id
 ORDER BY claimed_at DESC;
+
+-- name: ExpireTaskLeaseForTest :exec
+-- Backdate the active task reservation to 1 minute ago so reclaim-expired sees it as expired.
+-- Only for use by the test-mode endpoint; never call from production paths.
+UPDATE zdx_reservations
+SET lease_expires_at = NOW() - interval '1 minute'
+WHERE target_type = 'task'
+  AND target_id = @task_id
+  AND released_at IS NULL;

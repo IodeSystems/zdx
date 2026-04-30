@@ -33,6 +33,21 @@ func (q *Queries) CountReservationsForTodo(ctx context.Context, arg CountReserva
 	return claim_count, err
 }
 
+const expireTaskLeaseForTest = `-- name: ExpireTaskLeaseForTest :exec
+UPDATE zdx_reservations
+SET lease_expires_at = NOW() - interval '1 minute'
+WHERE target_type = 'task'
+  AND target_id = $1
+  AND released_at IS NULL
+`
+
+// Backdate the active task reservation to 1 minute ago so reclaim-expired sees it as expired.
+// Only for use by the test-mode endpoint; never call from production paths.
+func (q *Queries) ExpireTaskLeaseForTest(ctx context.Context, taskID string) error {
+	_, err := q.db.Exec(ctx, expireTaskLeaseForTest, taskID)
+	return err
+}
+
 const getActiveIssueReservation = `-- name: GetActiveIssueReservation :one
 SELECT id, project_id, target_type, target_id, claimed_by, claimed_at, released_at, lease_expires_at
 FROM zdx_reservations

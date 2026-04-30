@@ -139,6 +139,9 @@ type Querier interface {
 	DetachCodeRefFromSpec(ctx context.Context, arg DetachCodeRefFromSpecParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error
+	// Backdate the active task reservation to 1 minute ago so reclaim-expired sees it as expired.
+	// Only for use by the test-mode endpoint; never call from production paths.
+	ExpireTaskLeaseForTest(ctx context.Context, taskID string) error
 	// Returns the first open issue whose title matches exactly. Used by the standup
 	// yield-alert auto-file loop to dedup across runs by stable title (the breach
 	// label, no current value) and append a fresh-reading comment instead of

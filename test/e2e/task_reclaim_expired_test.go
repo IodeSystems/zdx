@@ -1,22 +1,14 @@
 package e2e
 
 import (
-	"context"
 	"fmt"
 	"net/http"
 	"testing"
-	"time"
-
-	"github.com/jackc/pgx/v5"
 )
 
 // TestReclaimExpiredTask covers spec 69: /api/tasks/reclaim-expired resets
 // active tasks with an expired lease back to "ready" so they can be re-claimed.
 func TestReclaimExpiredTask(t *testing.T) {
-	if srv.DSN == "" {
-		t.Skip("srv.DSN unavailable (external runner mode); skipping reclaim-expired test (needs direct DB access to backdate lease)")
-	}
-
 	d := NewApiDriver(t, "task-reclaim", "Task Reclaim Expired")
 	sc := Given(d).
 		TriagedIssue("Reclaim expired test", "spec 69 recovery path", 2).
@@ -55,17 +47,9 @@ func TestReclaimExpiredTask(t *testing.T) {
 
 func expireTaskLease(t *testing.T, taskInt int32) {
 	t.Helper()
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-	defer cancel()
-	conn, err := pgx.Connect(ctx, srv.DSN)
-	if err != nil {
-		t.Fatalf("pgx connect: %v", err)
-	}
-	defer conn.Close(ctx)
-	if _, err := conn.Exec(ctx,
-		`UPDATE zdx_reservations SET lease_expires_at = NOW() - interval '1 minute'
-		 WHERE target_type = 'task' AND target_id = $1 AND released_at IS NULL`,
-		fmt.Sprintf("TK-%d", taskInt)); err != nil {
-		t.Fatalf("backdate lease: %v", err)
+	resp := apiDo(t, http.MethodPost, "/api/tasks/test/expire-lease",
+		map[string]any{"task_id": fmt.Sprintf("TK-%d", taskInt)}, nil)
+	if resp.StatusCode >= 400 {
+		t.Fatalf("expire-lease: %d", resp.StatusCode)
 	}
 }

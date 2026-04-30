@@ -393,6 +393,19 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			return &struct{}{}, nil
 		})
 
+	// Expire task lease (test-mode: backdates lease so reclaim-expired can be triggered without direct DB access)
+	huma.Register(api, huma.Operation{OperationID: "expire-task-lease-for-test", Method: http.MethodPost, Path: "/api/tasks/test/expire-lease"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				TaskID string `json:"task_id"`
+			}
+		}) (*struct{}, error) {
+			if err := h.Q.ExpireTaskLeaseForTest(ctx, in.Body.TaskID); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{}{}, nil
+		})
+
 	// Reclaim expired tasks
 	huma.Register(api, huma.Operation{OperationID: "reclaim-expired-tasks", Method: http.MethodPost, Path: "/api/tasks/reclaim-expired"},
 		func(ctx context.Context, in *struct{}) (*struct {

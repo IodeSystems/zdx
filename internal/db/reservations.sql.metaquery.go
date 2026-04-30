@@ -42,6 +42,25 @@ var CountReservationsForTodoCols = struct {
 	ClaimCount: metaquery.NewIntCol("claim_count"),
 }
 
+var MetaExpireTaskLeaseForTest = metaquery.Query{
+	Name:   "ExpireTaskLeaseForTest",
+	Cmd:    ":exec",
+	Source: "reservations.sql",
+	SQL: `UPDATE zdx_reservations
+SET lease_expires_at = NOW() - interval '1 minute'
+WHERE target_type = 'task'
+  AND target_id = $1
+  AND released_at IS NULL`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "task_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapExpireTaskLeaseForTest returns a metaquery.Builder over MetaExpireTaskLeaseForTest, pre-bound with typed arguments.
+func WrapExpireTaskLeaseForTest(taskID string) *metaquery.Builder {
+	return metaquery.Wrap(&MetaExpireTaskLeaseForTest, taskID)
+}
+
 var MetaGetActiveIssueReservation = metaquery.Query{
 	Name:   "GetActiveIssueReservation",
 	Cmd:    ":one",

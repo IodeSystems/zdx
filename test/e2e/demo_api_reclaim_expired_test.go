@@ -10,14 +10,7 @@ import (
 // by an agent whose lease has expired, when POST /api/tasks/reclaim-expired
 // runs, then the task is reset to ready with claimed_by cleared and becomes
 // available for a new claim.
-//
-// Lease expiry is simulated by backdating the reservation directly in the DB.
-// If the test database is unavailable the test is skipped.
 func TestDemoAPI_ReclaimExpiredTask(t *testing.T) {
-	if srv.DSN == "" {
-		t.Skip("srv.DSN unavailable; skipping (needs direct DB access to backdate lease)")
-	}
-
 	rec := newApiRecorder(t, "reclaim-expired-task")
 	rec.AddCoderef(coderef{FilePath: "test/e2e/demo_api_reclaim_expired_test.go", Note: "reclaim-expired demo source"})
 	rec.AddCoderef(coderef{FilePath: "internal/server/handlers/handlers_agents.go", Note: "POST /api/tasks/reclaim-expired handler"})
@@ -69,6 +62,7 @@ func TestDemoAPI_ReclaimExpiredTask(t *testing.T) {
 	mustOK(t, rec.Do(http.MethodPost, "/api/tasks/claim", map[string]any{
 		"slug":               proj.Slug,
 		"agent_id":           "demo-agent-A",
+		"task_group":         "",
 		"issue":              issueRef,
 		"lease_duration_min": 30,
 	}, &claimed))
@@ -103,6 +97,7 @@ func TestDemoAPI_ReclaimExpiredTask(t *testing.T) {
 	mustOK(t, rec.Do(http.MethodPost, "/api/tasks/claim", map[string]any{
 		"slug":               proj.Slug,
 		"agent_id":           "demo-agent-B",
+		"task_group":         "",
 		"issue":              issueRef,
 		"lease_duration_min": 30,
 	}, &reclaimed))
