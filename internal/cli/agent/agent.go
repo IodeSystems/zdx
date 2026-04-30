@@ -22,7 +22,7 @@ import (
 func AgentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "agent", Short: "Agent lifecycle management"}
 	cmd.PersistentFlags().Bool("global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
-	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentResumeCmd(), agentReleaseCmd(), agentSessionCmd())
+	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd())
 	return cmd
 }
 
@@ -369,10 +369,10 @@ func agentReapCmd() *cobra.Command {
 	return cmd
 }
 
-func agentResumeCmd() *cobra.Command {
+func agentReconnectCmd() *cobra.Command {
 	return &cobra.Command{
-		Use:   "resume <agent-id>",
-		Short: "Resume a dead agent (re-register with new PID)",
+		Use:   "reconnect <agent-id>",
+		Short: "Reconnect a dead agent (re-register with new PID)",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
@@ -511,6 +511,46 @@ func agentReleaseCmd() *cobra.Command {
 				}
 			}
 
+			return nil
+		},
+	}
+}
+
+func agentPauseCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "pause <agent-id>",
+		Short: "Pause a running agent (holds task lease, no new LLM turns)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			resp, err := c.SendAgentCommandWithResponse(cmd.Context(), args[0], dxclient.SendAgentCommandRequest{Command: "pause"})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("agent %s paused\n", args[0])
+			return nil
+		},
+	}
+}
+
+func agentResumeCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "resume <agent-id>",
+		Short: "Resume a paused agent (re-enters task loop with existing session)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			resp, err := c.SendAgentCommandWithResponse(cmd.Context(), args[0], dxclient.SendAgentCommandRequest{Command: "resume"})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("agent %s resumed\n", args[0])
 			return nil
 		},
 	}

@@ -12,6 +12,14 @@ import (
 	"github.com/iodesystems/zdx-go/pkg/zdxclient"
 )
 
+// AgentCommander routes control messages to connected agent daemons via their
+// live WebSocket connections (spec 179 — connection = liveness signal).
+type AgentCommander interface {
+	// SendAgentCommand writes raw JSON to the named agent's WS connection.
+	// Returns a non-nil error if the agent is not connected.
+	SendAgentCommand(ctx context.Context, agentID string, data []byte) error
+}
+
 type SchemaFeatures struct {
 	HasLLMConfig        bool
 	HasProjectGitConfig bool
@@ -82,6 +90,7 @@ type Deps struct {
 	Slot            string
 	WSSecret        string
 	Mux             chi.Router
+	AgentCommander  AgentCommander
 }
 
 type Handler struct {

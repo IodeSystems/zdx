@@ -202,3 +202,17 @@ func (q *Queries) UpdateAgentHeartbeat(ctx context.Context, id string) error {
 	_, err := q.db.Exec(ctx, updateAgentHeartbeat, id)
 	return err
 }
+
+const updateAgentStatus = `-- name: UpdateAgentStatus :exec
+UPDATE zdx_agents SET status = $1 WHERE id = $2
+`
+
+type UpdateAgentStatusParams struct {
+	Status string `db:"status" json:"status"`
+	ID     string `db:"id" json:"id"`
+}
+
+func (q *Queries) UpdateAgentStatus(ctx context.Context, arg UpdateAgentStatusParams) error {
+	_, err := q.db.Exec(ctx, updateAgentStatus, arg.Status, arg.ID)
+	return err
+}

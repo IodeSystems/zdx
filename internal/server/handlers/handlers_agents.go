@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"time"
 
@@ -343,6 +344,33 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 				ClaimedBy:     in.Body.AgentID,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
+			}
+			return &struct{}{}, nil
+		})
+
+	// Send control command to a connected agent daemon over its WS channel.
+	// Valid commands: "pause", "resume", "drain", "kill".
+	// Returns 404 if the agent is not currently connected.
+	huma.Register(api, huma.Operation{OperationID: "send-agent-command", Method: http.MethodPost, Path: "/api/agents/{id}/command"},
+		func(ctx context.Context, in *struct {
+			ID   string `path:"id" required:"true"`
+			Body struct {
+				Command string `json:"command" required:"true"`
+			}
+		}) (*struct{}, error) {
+			if h.AgentCommander == nil {
+				return nil, apiErr(503, "agent commander not available")
+			}
+			msg, _ := json.Marshal(map[string]string{"type": in.Body.Command})
+			if err := h.AgentCommander.SendAgentCommand(ctx, in.ID, msg); err != nil {
+				return nil, apiErr(404, "agent not connected")
+			}
+			// Update DB status so reclaim-expired correctly exempts paused agents.
+			if h.Q != nil {
+				statusFor := map[string]string{"pause": "paused", "resume": "active"}
+				if newStatus, ok := statusFor[in.Body.Command]; ok {
+					_ = h.Q.UpdateAgentStatus(ctx, db.UpdateAgentStatusParams{ID: in.ID, Status: newStatus})
+				}
 			}
 			return &struct{}{}, nil
 		})

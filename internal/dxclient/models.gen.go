@@ -3145,6 +3145,13 @@ type SearchFocusItem struct {
 	Status      string `json:"status"`
 }
 
+// SendAgentCommandRequest defines model for Send-agent-commandRequest.
+type SendAgentCommandRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	Command string  `json:"command"`
+}
+
 // SetClassificationRequest defines model for Set-classificationRequest.
 type SetClassificationRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -5050,6 +5057,9 @@ type ReapAgentsJSONRequestBody = ReapAgentsRequest
 // RegisterAgentJSONRequestBody defines body for RegisterAgent for application/json ContentType.
 type RegisterAgentJSONRequestBody = RegisterAgentRequest
 
+// SendAgentCommandJSONRequestBody defines body for SendAgentCommand for application/json ContentType.
+type SendAgentCommandJSONRequestBody = SendAgentCommandRequest
+
 // AuthLoginJSONRequestBody defines body for AuthLogin for application/json ContentType.
 type AuthLoginJSONRequestBody = AuthLoginRequest
 
@@ -5685,6 +5695,11 @@ type ClientInterface interface {
 
 	// GetAgent request
 	GetAgent(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SendAgentCommandWithBody request with any body
+	SendAgentCommandWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SendAgentCommand(ctx context.Context, id string, body SendAgentCommandJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// AgentHeartbeat request
 	AgentHeartbeat(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7353,6 +7368,30 @@ func (c *APIClient) DeleteAgent(ctx context.Context, id string, reqEditors ...Re
 
 func (c *APIClient) GetAgent(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAgentRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SendAgentCommandWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendAgentCommandRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SendAgentCommand(ctx context.Context, id string, body SendAgentCommandJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSendAgentCommandRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13804,6 +13843,53 @@ func NewGetAgentRequest(server string, id string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewSendAgentCommandRequest calls the generic SendAgentCommand builder with application/json body
+func NewSendAgentCommandRequest(server string, id string, body SendAgentCommandJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSendAgentCommandRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewSendAgentCommandRequestWithBody generates requests for SendAgentCommand with any type of body
+func NewSendAgentCommandRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agents/%s/command", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -28909,6 +28995,11 @@ type ClientWithResponsesInterface interface {
 	// GetAgentWithResponse request
 	GetAgentWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetAgentResponse, error)
 
+	// SendAgentCommandWithBodyWithResponse request with any body
+	SendAgentCommandWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendAgentCommandResponse, error)
+
+	SendAgentCommandWithResponse(ctx context.Context, id string, body SendAgentCommandJSONRequestBody, reqEditors ...RequestEditorFn) (*SendAgentCommandResponse, error)
+
 	// AgentHeartbeatWithResponse request
 	AgentHeartbeatWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*AgentHeartbeatResponse, error)
 
@@ -30759,6 +30850,28 @@ func (r GetAgentResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetAgentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SendAgentCommandResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SendAgentCommandResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SendAgentCommandResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -37670,6 +37783,23 @@ func (c *ClientWithResponses) GetAgentWithResponse(ctx context.Context, id strin
 	return ParseGetAgentResponse(rsp)
 }
 
+// SendAgentCommandWithBodyWithResponse request with arbitrary body returning *SendAgentCommandResponse
+func (c *ClientWithResponses) SendAgentCommandWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendAgentCommandResponse, error) {
+	rsp, err := c.SendAgentCommandWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendAgentCommandResponse(rsp)
+}
+
+func (c *ClientWithResponses) SendAgentCommandWithResponse(ctx context.Context, id string, body SendAgentCommandJSONRequestBody, reqEditors ...RequestEditorFn) (*SendAgentCommandResponse, error) {
+	rsp, err := c.SendAgentCommand(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSendAgentCommandResponse(rsp)
+}
+
 // AgentHeartbeatWithResponse request returning *AgentHeartbeatResponse
 func (c *ClientWithResponses) AgentHeartbeatWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*AgentHeartbeatResponse, error) {
 	rsp, err := c.AgentHeartbeat(ctx, id, reqEditors...)
@@ -42379,6 +42509,32 @@ func ParseGetAgentResponse(rsp *http.Response) (*GetAgentResponse, error) {
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSendAgentCommandResponse parses an HTTP response from a SendAgentCommandWithResponse call
+func ParseSendAgentCommandResponse(rsp *http.Response) (*SendAgentCommandResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SendAgentCommandResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {

@@ -200,6 +200,7 @@ func (s *Server) buildDeps() *handlers.Deps {
 		Slot:            s.slot,
 		WSSecret:        s.wsSecret,
 		Mux:             s.mux,
+		AgentCommander:  s.agentRegistry,
 	}
 }
 

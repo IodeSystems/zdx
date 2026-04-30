@@ -1,6 +1,7 @@
 package agentconn
 
 import (
+	"context"
 	"fmt"
 	"sync"
 	"time"
@@ -55,6 +56,16 @@ func (r *Registry) Get(agentID string) (*Conn, bool) {
 	defer r.mu.RUnlock()
 	c, ok := r.conns[agentID]
 	return c, ok
+}
+
+// SendAgentCommand writes raw JSON data to the named agent's WS connection.
+// Returns an error if the agent is not currently connected.
+func (r *Registry) SendAgentCommand(ctx context.Context, agentID string, data []byte) error {
+	c, ok := r.Get(agentID)
+	if !ok {
+		return fmt.Errorf("agent %q not connected", agentID)
+	}
+	return c.WS.Write(ctx, websocket.MessageText, data)
 }
 
 // List returns a snapshot of all connected agents.

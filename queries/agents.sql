@@ -31,3 +31,6 @@ DELETE FROM zdx_agents WHERE id = $1;
 DELETE FROM zdx_agents
 WHERE last_heartbeat < NOW() - @stale_threshold::interval
 RETURNING *;
+
+-- name: UpdateAgentStatus :exec
+UPDATE zdx_agents SET status = @status WHERE id = @id;

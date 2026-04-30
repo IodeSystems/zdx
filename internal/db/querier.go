@@ -530,6 +530,7 @@ type Querier interface {
 	UnlinkSpecIssue(ctx context.Context, arg UnlinkSpecIssueParams) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
 	UpdateAgentHeartbeat(ctx context.Context, id string) error
+	UpdateAgentStatus(ctx context.Context, arg UpdateAgentStatusParams) error
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
 	UpdateDiscussionSession(ctx context.Context, arg UpdateDiscussionSessionParams) (ZdxDiscussion, error)
 	UpdateDiscussionStatus(ctx context.Context, arg UpdateDiscussionStatusParams) error

@@ -325,3 +325,19 @@ var MetaUpdateAgentHeartbeat = metaquery.Query{
 func WrapUpdateAgentHeartbeat(id string) *metaquery.Builder {
 	return metaquery.Wrap(&MetaUpdateAgentHeartbeat, id)
 }
+
+var MetaUpdateAgentStatus = metaquery.Query{
+	Name:   "UpdateAgentStatus",
+	Cmd:    ":exec",
+	Source: "agents.sql",
+	SQL:    `UPDATE zdx_agents SET status = $1 WHERE id = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "status", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 2, Name: "id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapUpdateAgentStatus returns a metaquery.Builder over MetaUpdateAgentStatus, pre-bound with typed arguments.
+func WrapUpdateAgentStatus(arg UpdateAgentStatusParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUpdateAgentStatus, arg.Status, arg.ID)
+}
