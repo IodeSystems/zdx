@@ -9,12 +9,13 @@ import (
 	"github.com/golang-migrate/migrate/v4"
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/zdx-go/internal/cli/migratecmd"
 	dxmigrate "github.com/iodesystems/zdx-go/internal/migrate"
 )
 
 func MigrateCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "migrate", Short: "Database migrations"}
-	cmd.AddCommand(migrateUpCmd(), migrateVersionCmd())
+	cmd.AddCommand(migrateUpCmd(), migrateVersionCmd(), migratecmd.RenumberCmd())
 	return cmd
 }
 
