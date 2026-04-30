@@ -10,51 +10,10 @@ import {
 } from '@mui/material'
 import { Forum as ForumIcon, Reply as ReplyIcon } from '@mui/icons-material'
 import { useEvents, usePostComment, useReplyToEvent, type EventItem } from '../api'
-import { MarkdownContent } from './MarkdownContent'
 import { ThreadPanel } from './ThreadPanel'
+import { EVENT_RENDERERS } from './events'
 
 type RendererProps = { slug: string; event: EventItem }
-type Renderer = (p: RendererProps) => React.ReactNode
-
-function getDetail(e: EventItem): Record<string, unknown> {
-  const d = e.detail_json
-  return d && typeof d === 'object' ? (d as Record<string, unknown>) : {}
-}
-
-function CommentEvent({ slug, event }: RendererProps) {
-  const body = String(getDetail(event).body ?? '')
-  return <MarkdownContent slug={slug}>{body}</MarkdownContent>
-}
-
-function RevisionEvent({ event }: RendererProps) {
-  const d = getDetail(event)
-  const field = String(d.field ?? 'field')
-  const fromV = Number(d.from_version ?? 0)
-  const toV = Number(d.to_version ?? 0)
-  return (
-    <Typography variant="body2" color="text.secondary">
-      {field} updated (v{fromV} → v{toV})
-    </Typography>
-  )
-}
-
-function StatusChangeEvent({ event }: RendererProps) {
-  const d = getDetail(event)
-  const kind = String(d.target_kind ?? '')
-  const from = String(d.from_status ?? '')
-  const to = String(d.to_status ?? '')
-  return (
-    <Typography variant="body2" color="text.secondary">
-      {kind} {from} → {to}
-    </Typography>
-  )
-}
-
-const EVENT_RENDERERS: Record<string, Renderer> = {
-  comment: CommentEvent,
-  revision: RevisionEvent,
-  status_change: StatusChangeEvent,
-}
 
 // Reactions are hidden from the UI per IS-615 spec.
 const HIDDEN_EVENT_TYPES = new Set(['reaction'])
@@ -105,8 +64,9 @@ function EventRow({
   onSubmitReply: () => void
 }) {
   const Renderer = EVENT_RENDERERS[event.event_type] ?? FallbackEvent
+  const borderColor = event.author_kind === 'agent' ? 'info.light' : 'success.light'
   return (
-    <Box id={`E-${event.id}`} sx={{ mb: 1.5, borderLeft: 2, borderColor: 'success.light', pl: 1.5 }}>
+    <Box id={`E-${event.id}`} sx={{ mb: 1.5, borderLeft: 2, borderColor, pl: 1.5 }}>
       <Stack direction="row" spacing={1} sx={{ mb: 0.25, alignItems: 'center' }}>
         <Typography variant="caption" color="text.secondary">
           {eventLabel(event)}
