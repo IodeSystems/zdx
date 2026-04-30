@@ -5,9 +5,8 @@
 // `type: X, nullable: true`) and shell out to oapi-codegen against the
 // downgraded spec.
 //
-// Callers need oapi-codegen on PATH:
-//
-//	go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest
+// No pre-installed binary required — Generate invokes oapi-codegen via
+// `go run github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.6.0`.
 package gen
 
 import (
@@ -15,7 +14,6 @@ import (
 	"fmt"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 )
@@ -44,12 +42,11 @@ func Generate(specPath, configPath string) (string, error) {
 	}
 	tmp.Close()
 
-	bin := codegenBin()
-	cmd := exec.Command(bin, "-config", configPath, tmp.Name())
+	cmd := exec.Command("go", "run", "github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@v2.6.0", "-config", configPath, tmp.Name())
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {
-		return "", fmt.Errorf("oapi-codegen: %w (ensure it is on PATH: go install github.com/oapi-codegen/oapi-codegen/v2/cmd/oapi-codegen@latest)", err)
+		return "", fmt.Errorf("oapi-codegen: %w", err)
 	}
 
 	outPath := readOutputPath(configPath)
@@ -64,19 +61,6 @@ func Generate(specPath, configPath string) (string, error) {
 	}
 
 	return outPath, nil
-}
-
-func codegenBin() string {
-	if p, err := exec.LookPath("oapi-codegen"); err == nil {
-		return p
-	}
-	if home, err := os.UserHomeDir(); err == nil {
-		candidate := filepath.Join(home, "go", "bin", "oapi-codegen")
-		if _, err := os.Stat(candidate); err == nil {
-			return candidate
-		}
-	}
-	return "oapi-codegen"
 }
 
 func readOutputPath(configPath string) string {
