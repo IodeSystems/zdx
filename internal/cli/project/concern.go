@@ -192,4 +192,3 @@ func concernUnlinkCmd() *cobra.Command {
 	cmd.MarkFlagRequired("concern")
 	return cmd
 }
-

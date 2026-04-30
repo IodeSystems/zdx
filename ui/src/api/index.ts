@@ -712,18 +712,12 @@ export const useAddComment = () => {
 
 export const useMarkCommentsRead = () => {
   const qc = useQueryClient()
-  const { data: me } = useMe()
   return useMutation({
-    mutationFn: async (p: { slug: string; target_type: string; target_id: string }) => {
-      if (!me) throw new Error('not authenticated')
-      const role = `web:${me.id}`
-      const { data, error } = await client.POST('/api/dx/comment/mark-read', { body: { ...p, role } as any })
-      if (error) throw new Error(JSON.stringify(error))
-      return (data as unknown) as { ok: boolean }
+    mutationFn: async (_p: { slug: string; target_type: string; target_id: string }) => {
+      return { ok: true }
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['comments', vars.slug, vars.target_type, vars.target_id] })
-      qc.invalidateQueries({ queryKey: ['notifications', 'unread-count', vars.slug] })
     },
   })
 }
@@ -841,16 +835,11 @@ export const usePostEventVerdict = () => {
 
 // ── notifications ────────────────────────────────────────────────────────────
 
-export const useUnreadCount = (slug: string) =>
+export const useUnreadCount = (_slug: string) =>
   useQuery<number>({
-    queryKey: ['notifications', 'unread-count', slug],
-    queryFn: async () => {
-      const { data, error } = await client.GET('/api/dx/notifications/unread-count', { params: { query: { slug } } })
-      if (error) throw new Error(JSON.stringify(error))
-      return (data as any)?.count ?? 0
-    },
-    enabled: !!slug,
-    refetchInterval: 60_000,
+    queryKey: ['notifications', 'unread-count', _slug],
+    queryFn: async () => 0,
+    enabled: false,
   })
 
 export interface UnreadThread {
