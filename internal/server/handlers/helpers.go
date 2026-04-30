@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"fmt"
+	"math"
 	"net/http"
 	"strconv"
 	"strings"
@@ -84,4 +85,40 @@ func getProject(ctx context.Context, q *db.Queries, slug string) (db.ZdxProject,
 		return p, huma.NewError(http.StatusNotFound, "project not found: "+slug)
 	}
 	return p, nil
+}
+
+// pctRound2 returns 100*num/denom rounded to 2 decimals; 0 when denom == 0.
+func pctRound2(num, denom int64) float64 {
+	if denom == 0 {
+		return 0
+	}
+	return round2(float64(num) / float64(denom) * 100)
+}
+
+func round2(v float64) float64 {
+	return math.Round(v*100) / 100
+}
+
+// buildOwnerSnapshotMetrics assembles the IS-589 metric map from query rows.
+// Pulled out of the handler so it can be unit-tested without DB plumbing.
+func buildOwnerSnapshotMetrics(
+	feats db.OwnerSnapshotFeaturesRow,
+	cov db.OwnerSnapshotSpecCoverageRow,
+	velo db.OwnerSnapshotPeriodRow,
+	mat db.OwnerSnapshotMaturityRow,
+	avgResolutionMinutes float64,
+) map[string]float64 {
+	return map[string]float64{
+		"features_total":                          float64(feats.FeaturesTotal),
+		"features_with_specs":                     float64(feats.FeaturesWithSpecs),
+		"features_with_demos":                     float64(feats.FeaturesWithDemos),
+		"spec_coverage_must_pct":                  pctRound2(cov.SpecsMustImplemented, cov.SpecsMustTotal),
+		"spec_coverage_should_pct":                pctRound2(cov.SpecsShouldImplemented, cov.SpecsShouldTotal),
+		"spec_coverage_nice_pct":                  pctRound2(cov.SpecsNiceImplemented, cov.SpecsNiceTotal),
+		"specs_implemented_per_period":            float64(velo.SpecsImplementedInPeriod),
+		"issues_closed_per_period":                float64(velo.IssuesClosedInPeriod),
+		"maturity_rungs_passed":                   float64(mat.RungsPassed),
+		"maturity_rungs_failed":                   float64(mat.RungsFailed),
+		"blocker_question_avg_resolution_minutes": round2(avgResolutionMinutes),
+	}
 }

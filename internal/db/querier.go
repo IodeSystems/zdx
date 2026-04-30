@@ -453,6 +453,25 @@ type Querier interface {
 	MarkTaskUndone(ctx context.Context, id string) error
 	NextID(ctx context.Context, kind string) (int32, error)
 	NextLLMConfigPriority(ctx context.Context) (int32, error)
+	// Average minutes from blocker_question creation to answer for resolved
+	// (status='answered') questions. Returns 0 when no resolved questions exist.
+	OwnerSnapshotBlockerResolution(ctx context.Context, projectID int32) (float64, error)
+	// ── Owner Snapshot (IS-589) ──────────────────────────────────────────────────
+	// Tracker-state metrics surfaced to the dx standup checkin --role=owner flow.
+	// Split into 4 queries for readability; the handler aggregates them into one
+	// map[string]float64 payload.
+	// features_total / features_with_specs / features_with_demos counts.
+	// A "demo" is any zdx_test_demos row attached (via zdx_spec_tests) to a spec
+	// of the feature.
+	OwnerSnapshotFeatures(ctx context.Context, projectID int32) (OwnerSnapshotFeaturesRow, error)
+	// Maturity rungs: count of zdx_maturity_items by terminal status.
+	// 'done' counts as passed; 'open' counts as failed (still owed).
+	OwnerSnapshotMaturity(ctx context.Context, projectID int32) (OwnerSnapshotMaturityRow, error)
+	// Velocity counters in a configurable window (default caller passes 30).
+	OwnerSnapshotPeriod(ctx context.Context, arg OwnerSnapshotPeriodParams) (OwnerSnapshotPeriodRow, error)
+	// Spec coverage by importance tier. A spec is "implemented" when at least one
+	// linked issue has closed_at IS NOT NULL.
+	OwnerSnapshotSpecCoverage(ctx context.Context, projectID int32) (OwnerSnapshotSpecCoverageRow, error)
 	ProjectStateSummary(ctx context.Context, projectID int32) (ProjectStateSummaryRow, error)
 	ReadyIssue(ctx context.Context, arg ReadyIssueParams) error
 	ReadyTask(ctx context.Context, id string) error

@@ -537,6 +537,53 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			}{StateJSON: entry.StateJson}}, nil
 		})
 
+	// ── Owner Snapshot (IS-589) ──────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "owner-snapshot", Method: http.MethodGet, Path: "/api/dx/owner/snapshot"},
+		func(ctx context.Context, in *struct {
+			Slug       string `query:"slug" required:"true"`
+			PeriodDays int32  `query:"period_days"`
+		}) (*struct {
+			Body OwnerSnapshotBody
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			period := in.PeriodDays
+			if period <= 0 {
+				period = 30
+			}
+
+			feats, err := h.Q.OwnerSnapshotFeatures(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			cov, err := h.Q.OwnerSnapshotSpecCoverage(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			velo, err := h.Q.OwnerSnapshotPeriod(ctx, db.OwnerSnapshotPeriodParams{ProjectID: p.ID, PeriodDays: period})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			mat, err := h.Q.OwnerSnapshotMaturity(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			avgRes, err := h.Q.OwnerSnapshotBlockerResolution(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+
+			metrics := buildOwnerSnapshotMetrics(feats, cov, velo, mat, avgRes)
+			return &struct{ Body OwnerSnapshotBody }{Body: OwnerSnapshotBody{
+				Metrics:     metrics,
+				PeriodDays:  period,
+				GeneratedAt: time.Now().UTC().Format(time.RFC3339),
+			}}, nil
+		})
+
 	// ── Journal Generate ─────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "journal-generate", Method: http.MethodPost, Path: "/api/dx/journal/generate"},

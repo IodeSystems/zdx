@@ -333,6 +333,166 @@ func (q *Queries) MarkJournalEntryReviewed(ctx context.Context, id int32) error 
 	return err
 }
 
+const ownerSnapshotBlockerResolution = `-- name: OwnerSnapshotBlockerResolution :one
+SELECT
+  COALESCE(
+    AVG(EXTRACT(EPOCH FROM (answered_at - created_at)) / 60.0),
+    0
+  )::float8 AS avg_resolution_minutes
+FROM zdx_blocker_questions
+WHERE project_id = $1
+  AND status = 'answered'
+  AND answered_at IS NOT NULL
+`
+
+// Average minutes from blocker_question creation to answer for resolved
+// (status='answered') questions. Returns 0 when no resolved questions exist.
+func (q *Queries) OwnerSnapshotBlockerResolution(ctx context.Context, projectID int32) (float64, error) {
+	row := q.db.QueryRow(ctx, ownerSnapshotBlockerResolution, projectID)
+	var avg_resolution_minutes float64
+	err := row.Scan(&avg_resolution_minutes)
+	return avg_resolution_minutes, err
+}
+
+const ownerSnapshotFeatures = `-- name: OwnerSnapshotFeatures :one
+
+SELECT
+  (SELECT count(*)
+     FROM zdx_features f
+     WHERE f.project_id = $1)::bigint                                   AS features_total,
+  (SELECT count(DISTINCT s.feature_id)
+     FROM zdx_specs s
+     JOIN zdx_features f ON f.id = s.feature_id
+     WHERE f.project_id = $1)::bigint                                   AS features_with_specs,
+  (SELECT count(DISTINCT f.id)
+     FROM zdx_features f
+     JOIN zdx_specs s ON s.feature_id = f.id
+     JOIN zdx_spec_tests st ON st.spec_id = s.id
+     JOIN zdx_test_demos td ON td.test_id = st.test_id
+     WHERE f.project_id = $1)::bigint                                   AS features_with_demos
+`
+
+type OwnerSnapshotFeaturesRow struct {
+	FeaturesTotal     int64 `db:"features_total" json:"features_total"`
+	FeaturesWithSpecs int64 `db:"features_with_specs" json:"features_with_specs"`
+	FeaturesWithDemos int64 `db:"features_with_demos" json:"features_with_demos"`
+}
+
+// ── Owner Snapshot (IS-589) ──────────────────────────────────────────────────
+// Tracker-state metrics surfaced to the dx standup checkin --role=owner flow.
+// Split into 4 queries for readability; the handler aggregates them into one
+// map[string]float64 payload.
+// features_total / features_with_specs / features_with_demos counts.
+// A "demo" is any zdx_test_demos row attached (via zdx_spec_tests) to a spec
+// of the feature.
+func (q *Queries) OwnerSnapshotFeatures(ctx context.Context, projectID int32) (OwnerSnapshotFeaturesRow, error) {
+	row := q.db.QueryRow(ctx, ownerSnapshotFeatures, projectID)
+	var i OwnerSnapshotFeaturesRow
+	err := row.Scan(&i.FeaturesTotal, &i.FeaturesWithSpecs, &i.FeaturesWithDemos)
+	return i, err
+}
+
+const ownerSnapshotMaturity = `-- name: OwnerSnapshotMaturity :one
+SELECT
+  count(*) FILTER (WHERE status = 'done')::bigint AS rungs_passed,
+  count(*) FILTER (WHERE status = 'open')::bigint AS rungs_failed
+FROM zdx_maturity_items
+WHERE project_id = $1
+`
+
+type OwnerSnapshotMaturityRow struct {
+	RungsPassed int64 `db:"rungs_passed" json:"rungs_passed"`
+	RungsFailed int64 `db:"rungs_failed" json:"rungs_failed"`
+}
+
+// Maturity rungs: count of zdx_maturity_items by terminal status.
+// 'done' counts as passed; 'open' counts as failed (still owed).
+func (q *Queries) OwnerSnapshotMaturity(ctx context.Context, projectID int32) (OwnerSnapshotMaturityRow, error) {
+	row := q.db.QueryRow(ctx, ownerSnapshotMaturity, projectID)
+	var i OwnerSnapshotMaturityRow
+	err := row.Scan(&i.RungsPassed, &i.RungsFailed)
+	return i, err
+}
+
+const ownerSnapshotPeriod = `-- name: OwnerSnapshotPeriod :one
+SELECT
+  (SELECT count(DISTINCT s.id)
+     FROM zdx_specs s
+     JOIN zdx_features    f  ON f.id  = s.feature_id
+     JOIN zdx_spec_issues si ON si.spec_id = s.id
+     JOIN zdx_issues      i  ON i.id  = si.issue_id
+     WHERE f.project_id = $1
+       AND i.closed_at > NOW() - ($2::int || ' days')::interval)::bigint AS specs_implemented_in_period,
+  (SELECT count(*)
+     FROM zdx_issues i
+     WHERE i.project_id = $1
+       AND i.closed_at > NOW() - ($2::int || ' days')::interval)::bigint AS issues_closed_in_period
+`
+
+type OwnerSnapshotPeriodParams struct {
+	ProjectID  int32 `db:"project_id" json:"project_id"`
+	PeriodDays int32 `db:"period_days" json:"period_days"`
+}
+
+type OwnerSnapshotPeriodRow struct {
+	SpecsImplementedInPeriod int64 `db:"specs_implemented_in_period" json:"specs_implemented_in_period"`
+	IssuesClosedInPeriod     int64 `db:"issues_closed_in_period" json:"issues_closed_in_period"`
+}
+
+// Velocity counters in a configurable window (default caller passes 30).
+func (q *Queries) OwnerSnapshotPeriod(ctx context.Context, arg OwnerSnapshotPeriodParams) (OwnerSnapshotPeriodRow, error) {
+	row := q.db.QueryRow(ctx, ownerSnapshotPeriod, arg.ProjectID, arg.PeriodDays)
+	var i OwnerSnapshotPeriodRow
+	err := row.Scan(&i.SpecsImplementedInPeriod, &i.IssuesClosedInPeriod)
+	return i, err
+}
+
+const ownerSnapshotSpecCoverage = `-- name: OwnerSnapshotSpecCoverage :one
+SELECT
+  count(*) FILTER (WHERE s.importance = 'must')::bigint                                                     AS specs_must_total,
+  count(*) FILTER (WHERE s.importance = 'must' AND EXISTS (
+    SELECT 1 FROM zdx_spec_issues si JOIN zdx_issues i ON i.id = si.issue_id
+    WHERE si.spec_id = s.id AND i.closed_at IS NOT NULL
+  ))::bigint                                                                                                AS specs_must_implemented,
+  count(*) FILTER (WHERE s.importance = 'should')::bigint                                                   AS specs_should_total,
+  count(*) FILTER (WHERE s.importance = 'should' AND EXISTS (
+    SELECT 1 FROM zdx_spec_issues si JOIN zdx_issues i ON i.id = si.issue_id
+    WHERE si.spec_id = s.id AND i.closed_at IS NOT NULL
+  ))::bigint                                                                                                AS specs_should_implemented,
+  count(*) FILTER (WHERE s.importance = 'nice')::bigint                                                     AS specs_nice_total,
+  count(*) FILTER (WHERE s.importance = 'nice' AND EXISTS (
+    SELECT 1 FROM zdx_spec_issues si JOIN zdx_issues i ON i.id = si.issue_id
+    WHERE si.spec_id = s.id AND i.closed_at IS NOT NULL
+  ))::bigint                                                                                                AS specs_nice_implemented
+FROM zdx_specs s JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = $1
+`
+
+type OwnerSnapshotSpecCoverageRow struct {
+	SpecsMustTotal         int64 `db:"specs_must_total" json:"specs_must_total"`
+	SpecsMustImplemented   int64 `db:"specs_must_implemented" json:"specs_must_implemented"`
+	SpecsShouldTotal       int64 `db:"specs_should_total" json:"specs_should_total"`
+	SpecsShouldImplemented int64 `db:"specs_should_implemented" json:"specs_should_implemented"`
+	SpecsNiceTotal         int64 `db:"specs_nice_total" json:"specs_nice_total"`
+	SpecsNiceImplemented   int64 `db:"specs_nice_implemented" json:"specs_nice_implemented"`
+}
+
+// Spec coverage by importance tier. A spec is "implemented" when at least one
+// linked issue has closed_at IS NOT NULL.
+func (q *Queries) OwnerSnapshotSpecCoverage(ctx context.Context, projectID int32) (OwnerSnapshotSpecCoverageRow, error) {
+	row := q.db.QueryRow(ctx, ownerSnapshotSpecCoverage, projectID)
+	var i OwnerSnapshotSpecCoverageRow
+	err := row.Scan(
+		&i.SpecsMustTotal,
+		&i.SpecsMustImplemented,
+		&i.SpecsShouldTotal,
+		&i.SpecsShouldImplemented,
+		&i.SpecsNiceTotal,
+		&i.SpecsNiceImplemented,
+	)
+	return i, err
+}
+
 const standupOwnerYield = `-- name: StandupOwnerYield :one
 SELECT
   (SELECT count(*) FROM zdx_issues    i WHERE i.project_id = $1 AND i.updated_at > NOW() - INTERVAL '30 days' AND (i.closed_at IS NULL OR i.closed_at < NOW() - INTERVAL '30 days')) AS issues_touched_not_closed,

@@ -409,6 +409,213 @@ func WrapMarkJournalEntryReviewed(id int32) *metaquery.Builder {
 	return metaquery.Wrap(&MetaMarkJournalEntryReviewed, id)
 }
 
+var MetaOwnerSnapshotBlockerResolution = metaquery.Query{
+	Name:   "OwnerSnapshotBlockerResolution",
+	Cmd:    ":one",
+	Source: "journal.sql",
+	SQL: `SELECT
+  COALESCE(
+    AVG(EXTRACT(EPOCH FROM (answered_at - created_at)) / 60.0),
+    0
+  )::float8 AS avg_resolution_minutes
+FROM zdx_blocker_questions
+WHERE project_id = $1
+  AND status = 'answered'
+  AND answered_at IS NOT NULL`,
+	Columns: []metaquery.Column{
+		{Name: "avg_resolution_minutes", OriginalName: "avg_resolution_minutes", GoType: "float64"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapOwnerSnapshotBlockerResolution returns a metaquery.Builder over MetaOwnerSnapshotBlockerResolution, pre-bound with typed arguments.
+func WrapOwnerSnapshotBlockerResolution(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaOwnerSnapshotBlockerResolution, projectID)
+}
+
+// OwnerSnapshotBlockerResolutionCols gives typed, name-safe access to OwnerSnapshotBlockerResolution's output columns.
+var OwnerSnapshotBlockerResolutionCols = struct {
+	AvgResolutionMinutes metaquery.FloatCol
+}{
+	AvgResolutionMinutes: metaquery.NewFloatCol("avg_resolution_minutes"),
+}
+
+var MetaOwnerSnapshotFeatures = metaquery.Query{
+	Name:   "OwnerSnapshotFeatures",
+	Cmd:    ":one",
+	Source: "journal.sql",
+	SQL: `
+SELECT
+  (SELECT count(*)
+     FROM zdx_features f
+     WHERE f.project_id = $1)::bigint                                   AS features_total,
+  (SELECT count(DISTINCT s.feature_id)
+     FROM zdx_specs s
+     JOIN zdx_features f ON f.id = s.feature_id
+     WHERE f.project_id = $1)::bigint                                   AS features_with_specs,
+  (SELECT count(DISTINCT f.id)
+     FROM zdx_features f
+     JOIN zdx_specs s ON s.feature_id = f.id
+     JOIN zdx_spec_tests st ON st.spec_id = s.id
+     JOIN zdx_test_demos td ON td.test_id = st.test_id
+     WHERE f.project_id = $1)::bigint                                   AS features_with_demos`,
+	Columns: []metaquery.Column{
+		{Name: "features_total", OriginalName: "features_total", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "features_with_specs", OriginalName: "features_with_specs", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "features_with_demos", OriginalName: "features_with_demos", GoType: "int64", DBType: "int8", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapOwnerSnapshotFeatures returns a metaquery.Builder over MetaOwnerSnapshotFeatures, pre-bound with typed arguments.
+func WrapOwnerSnapshotFeatures(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaOwnerSnapshotFeatures, projectID)
+}
+
+// OwnerSnapshotFeaturesCols gives typed, name-safe access to OwnerSnapshotFeatures's output columns.
+var OwnerSnapshotFeaturesCols = struct {
+	FeaturesTotal     metaquery.IntCol
+	FeaturesWithSpecs metaquery.IntCol
+	FeaturesWithDemos metaquery.IntCol
+}{
+	FeaturesTotal:     metaquery.NewIntCol("features_total"),
+	FeaturesWithSpecs: metaquery.NewIntCol("features_with_specs"),
+	FeaturesWithDemos: metaquery.NewIntCol("features_with_demos"),
+}
+
+var MetaOwnerSnapshotMaturity = metaquery.Query{
+	Name:   "OwnerSnapshotMaturity",
+	Cmd:    ":one",
+	Source: "journal.sql",
+	SQL: `SELECT
+  count(*) FILTER (WHERE status = 'done')::bigint AS rungs_passed,
+  count(*) FILTER (WHERE status = 'open')::bigint AS rungs_failed
+FROM zdx_maturity_items
+WHERE project_id = $1`,
+	Columns: []metaquery.Column{
+		{Name: "rungs_passed", OriginalName: "rungs_passed", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "rungs_failed", OriginalName: "rungs_failed", GoType: "int64", DBType: "int8", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapOwnerSnapshotMaturity returns a metaquery.Builder over MetaOwnerSnapshotMaturity, pre-bound with typed arguments.
+func WrapOwnerSnapshotMaturity(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaOwnerSnapshotMaturity, projectID)
+}
+
+// OwnerSnapshotMaturityCols gives typed, name-safe access to OwnerSnapshotMaturity's output columns.
+var OwnerSnapshotMaturityCols = struct {
+	RungsPassed metaquery.IntCol
+	RungsFailed metaquery.IntCol
+}{
+	RungsPassed: metaquery.NewIntCol("rungs_passed"),
+	RungsFailed: metaquery.NewIntCol("rungs_failed"),
+}
+
+var MetaOwnerSnapshotPeriod = metaquery.Query{
+	Name:   "OwnerSnapshotPeriod",
+	Cmd:    ":one",
+	Source: "journal.sql",
+	SQL: `SELECT
+  (SELECT count(DISTINCT s.id)
+     FROM zdx_specs s
+     JOIN zdx_features    f  ON f.id  = s.feature_id
+     JOIN zdx_spec_issues si ON si.spec_id = s.id
+     JOIN zdx_issues      i  ON i.id  = si.issue_id
+     WHERE f.project_id = $1
+       AND i.closed_at > NOW() - ($2::int || ' days')::interval)::bigint AS specs_implemented_in_period,
+  (SELECT count(*)
+     FROM zdx_issues i
+     WHERE i.project_id = $1
+       AND i.closed_at > NOW() - ($2::int || ' days')::interval)::bigint AS issues_closed_in_period`,
+	Columns: []metaquery.Column{
+		{Name: "specs_implemented_in_period", OriginalName: "specs_implemented_in_period", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "issues_closed_in_period", OriginalName: "issues_closed_in_period", GoType: "int64", DBType: "int8", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "period_days", GoType: "int32", DBType: "int4", NotNull: true},
+	},
+}
+
+// WrapOwnerSnapshotPeriod returns a metaquery.Builder over MetaOwnerSnapshotPeriod, pre-bound with typed arguments.
+func WrapOwnerSnapshotPeriod(arg OwnerSnapshotPeriodParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaOwnerSnapshotPeriod, arg.ProjectID, arg.PeriodDays)
+}
+
+// OwnerSnapshotPeriodCols gives typed, name-safe access to OwnerSnapshotPeriod's output columns.
+var OwnerSnapshotPeriodCols = struct {
+	SpecsImplementedInPeriod metaquery.IntCol
+	IssuesClosedInPeriod     metaquery.IntCol
+}{
+	SpecsImplementedInPeriod: metaquery.NewIntCol("specs_implemented_in_period"),
+	IssuesClosedInPeriod:     metaquery.NewIntCol("issues_closed_in_period"),
+}
+
+var MetaOwnerSnapshotSpecCoverage = metaquery.Query{
+	Name:   "OwnerSnapshotSpecCoverage",
+	Cmd:    ":one",
+	Source: "journal.sql",
+	SQL: `SELECT
+  count(*) FILTER (WHERE s.importance = 'must')::bigint                                                     AS specs_must_total,
+  count(*) FILTER (WHERE s.importance = 'must' AND EXISTS (
+    SELECT 1 FROM zdx_spec_issues si JOIN zdx_issues i ON i.id = si.issue_id
+    WHERE si.spec_id = s.id AND i.closed_at IS NOT NULL
+  ))::bigint                                                                                                AS specs_must_implemented,
+  count(*) FILTER (WHERE s.importance = 'should')::bigint                                                   AS specs_should_total,
+  count(*) FILTER (WHERE s.importance = 'should' AND EXISTS (
+    SELECT 1 FROM zdx_spec_issues si JOIN zdx_issues i ON i.id = si.issue_id
+    WHERE si.spec_id = s.id AND i.closed_at IS NOT NULL
+  ))::bigint                                                                                                AS specs_should_implemented,
+  count(*) FILTER (WHERE s.importance = 'nice')::bigint                                                     AS specs_nice_total,
+  count(*) FILTER (WHERE s.importance = 'nice' AND EXISTS (
+    SELECT 1 FROM zdx_spec_issues si JOIN zdx_issues i ON i.id = si.issue_id
+    WHERE si.spec_id = s.id AND i.closed_at IS NOT NULL
+  ))::bigint                                                                                                AS specs_nice_implemented
+FROM zdx_specs s JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = $1`,
+	Columns: []metaquery.Column{
+		{Name: "specs_must_total", OriginalName: "specs_must_total", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "specs_must_implemented", OriginalName: "specs_must_implemented", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "specs_should_total", OriginalName: "specs_should_total", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "specs_should_implemented", OriginalName: "specs_should_implemented", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "specs_nice_total", OriginalName: "specs_nice_total", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "specs_nice_implemented", OriginalName: "specs_nice_implemented", GoType: "int64", DBType: "int8", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapOwnerSnapshotSpecCoverage returns a metaquery.Builder over MetaOwnerSnapshotSpecCoverage, pre-bound with typed arguments.
+func WrapOwnerSnapshotSpecCoverage(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaOwnerSnapshotSpecCoverage, projectID)
+}
+
+// OwnerSnapshotSpecCoverageCols gives typed, name-safe access to OwnerSnapshotSpecCoverage's output columns.
+var OwnerSnapshotSpecCoverageCols = struct {
+	SpecsMustTotal         metaquery.IntCol
+	SpecsMustImplemented   metaquery.IntCol
+	SpecsShouldTotal       metaquery.IntCol
+	SpecsShouldImplemented metaquery.IntCol
+	SpecsNiceTotal         metaquery.IntCol
+	SpecsNiceImplemented   metaquery.IntCol
+}{
+	SpecsMustTotal:         metaquery.NewIntCol("specs_must_total"),
+	SpecsMustImplemented:   metaquery.NewIntCol("specs_must_implemented"),
+	SpecsShouldTotal:       metaquery.NewIntCol("specs_should_total"),
+	SpecsShouldImplemented: metaquery.NewIntCol("specs_should_implemented"),
+	SpecsNiceTotal:         metaquery.NewIntCol("specs_nice_total"),
+	SpecsNiceImplemented:   metaquery.NewIntCol("specs_nice_implemented"),
+}
+
 var MetaStandupOwnerYield = metaquery.Query{
 	Name:   "StandupOwnerYield",
 	Cmd:    ":one",

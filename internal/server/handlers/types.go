@@ -239,6 +239,15 @@ type IssueWorkItem struct {
 	CreatedAt string `json:"created_at"`
 }
 
+// OwnerSnapshotBody is the payload of GET /api/dx/owner/snapshot — IS-589
+// tracker-state metrics aggregated server-side so dx standup checkin --role=owner
+// can persist them without N round-trips.
+type OwnerSnapshotBody struct {
+	Metrics     map[string]float64 `json:"metrics"`
+	PeriodDays  int32              `json:"period_days"`
+	GeneratedAt string             `json:"generated_at"`
+}
+
 type PlanItem struct {
 	ID         int32          `json:"id"`
 	ProjectID  int32          `json:"project_id"`

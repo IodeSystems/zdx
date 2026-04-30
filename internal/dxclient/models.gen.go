@@ -326,27 +326,23 @@ type AdoptTaskRequest struct {
 // AgentItem defines model for AgentItem.
 type AgentItem struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema         *string `json:"$schema,omitempty"`
-	ComposeProject string  `json:"compose_project"`
-
-	// ConnectedAt Wall-clock time the agent connected (non-empty when connection_state=connected)
-	ConnectedAt string `json:"connected_at"`
-
-	// ConnectionState Live connection state: connected, disconnected, paused, or draining
-	ConnectionState string `json:"connection_state"`
-	CreatedAt       string `json:"created_at"`
-	DatabaseUrl     string `json:"database_url"`
-	Id              string `json:"id"`
-	LastHeartbeat   string `json:"last_heartbeat"`
-	Pid             int32  `json:"pid"`
-	ProjectId       int32  `json:"project_id"`
-	ServerPort      int32  `json:"server_port"`
-	SessionId       string `json:"session_id"`
-	Status          string `json:"status"`
-	TaskGroup       string `json:"task_group"`
-	ValkeyUrl       string `json:"valkey_url"`
-	WorktreeBranch  string `json:"worktree_branch"`
-	WorktreePath    string `json:"worktree_path"`
+	Schema          *string `json:"$schema,omitempty"`
+	ComposeProject  string  `json:"compose_project"`
+	ConnectedAt     string  `json:"connected_at"`
+	ConnectionState string  `json:"connection_state"`
+	CreatedAt       string  `json:"created_at"`
+	DatabaseUrl     string  `json:"database_url"`
+	Id              string  `json:"id"`
+	LastHeartbeat   string  `json:"last_heartbeat"`
+	Pid             int32   `json:"pid"`
+	ProjectId       int32   `json:"project_id"`
+	ServerPort      int32   `json:"server_port"`
+	SessionId       string  `json:"session_id"`
+	Status          string  `json:"status"`
+	TaskGroup       string  `json:"task_group"`
+	ValkeyUrl       string  `json:"valkey_url"`
+	WorktreeBranch  string  `json:"worktree_branch"`
+	WorktreePath    string  `json:"worktree_path"`
 }
 
 // AgentTaskItem defines model for AgentTaskItem.
@@ -2623,6 +2619,15 @@ type OKBody struct {
 	Ok     bool    `json:"ok"`
 }
 
+// OwnerSnapshotBody defines model for OwnerSnapshotBody.
+type OwnerSnapshotBody struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string            `json:"$schema,omitempty"`
+	GeneratedAt string             `json:"generated_at"`
+	Metrics     map[string]float64 `json:"metrics"`
+	PeriodDays  int32              `json:"period_days"`
+}
+
 // PatternItem defines model for PatternItem.
 type PatternItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4621,6 +4626,12 @@ type NotificationsUnreadThreadsParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// OwnerSnapshotParams defines parameters for OwnerSnapshot.
+type OwnerSnapshotParams struct {
+	Slug       string `form:"slug" json:"slug"`
+	PeriodDays *int32 `form:"period_days,omitempty" json:"period_days,omitempty"`
+}
+
 // ListPatternsParams defines parameters for ListPatterns.
 type ListPatternsParams struct {
 	Slug   string  `form:"slug" json:"slug"`
@@ -6137,6 +6148,9 @@ type ClientInterface interface {
 
 	// NotificationsUnreadThreads request
 	NotificationsUnreadThreads(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// OwnerSnapshot request
+	OwnerSnapshot(ctx context.Context, params *OwnerSnapshotParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListPatterns request
 	ListPatterns(ctx context.Context, params *ListPatternsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9318,6 +9332,18 @@ func (c *APIClient) NotificationsUnreadCount(ctx context.Context, params *Notifi
 
 func (c *APIClient) NotificationsUnreadThreads(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewNotificationsUnreadThreadsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) OwnerSnapshot(ctx context.Context, params *OwnerSnapshotParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewOwnerSnapshotRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -20134,6 +20160,67 @@ func NewNotificationsUnreadThreadsRequest(server string, params *NotificationsUn
 	return req, nil
 }
 
+// NewOwnerSnapshotRequest generates requests for OwnerSnapshot
+func NewOwnerSnapshotRequest(server string, params *OwnerSnapshotParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/owner/snapshot")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.PeriodDays != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "period_days", *params.PeriodDays, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListPatternsRequest generates requests for ListPatterns
 func NewListPatternsRequest(server string, params *ListPatternsParams) (*http.Request, error) {
 	var err error
@@ -29437,6 +29524,9 @@ type ClientWithResponsesInterface interface {
 	// NotificationsUnreadThreadsWithResponse request
 	NotificationsUnreadThreadsWithResponse(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*ParsedNotificationsUnreadThreadsResponse, error)
 
+	// OwnerSnapshotWithResponse request
+	OwnerSnapshotWithResponse(ctx context.Context, params *OwnerSnapshotParams, reqEditors ...RequestEditorFn) (*OwnerSnapshotResponse, error)
+
 	// ListPatternsWithResponse request
 	ListPatternsWithResponse(ctx context.Context, params *ListPatternsParams, reqEditors ...RequestEditorFn) (*ParsedListPatternsResponse, error)
 
@@ -33426,6 +33516,29 @@ func (r ParsedNotificationsUnreadThreadsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedNotificationsUnreadThreadsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type OwnerSnapshotResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OwnerSnapshotBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r OwnerSnapshotResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r OwnerSnapshotResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -39195,6 +39308,15 @@ func (c *ClientWithResponses) NotificationsUnreadThreadsWithResponse(ctx context
 		return nil, err
 	}
 	return ParseParsedNotificationsUnreadThreadsResponse(rsp)
+}
+
+// OwnerSnapshotWithResponse request returning *OwnerSnapshotResponse
+func (c *ClientWithResponses) OwnerSnapshotWithResponse(ctx context.Context, params *OwnerSnapshotParams, reqEditors ...RequestEditorFn) (*OwnerSnapshotResponse, error) {
+	rsp, err := c.OwnerSnapshot(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseOwnerSnapshotResponse(rsp)
 }
 
 // ListPatternsWithResponse request returning *ParsedListPatternsResponse
@@ -46164,6 +46286,39 @@ func ParseParsedNotificationsUnreadThreadsResponse(rsp *http.Response) (*ParsedN
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest NotificationsUnreadThreadsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseOwnerSnapshotResponse parses an HTTP response from a OwnerSnapshotWithResponse call
+func ParseOwnerSnapshotResponse(rsp *http.Response) (*OwnerSnapshotResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &OwnerSnapshotResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OwnerSnapshotBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
