@@ -689,7 +689,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			const standupMinClosedForRatios = 3
 
 			var tldr, assessment, concerns, next string
-			var ownerBreaches, techBreaches []string
+			var ownerBreaches, techBreaches []yieldBreach
 
 			if role == "owner" {
 				goals, _ := h.Q.ListProjectGoals(ctx, p.ID)
@@ -752,18 +752,44 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					if touchedRatio > 3.0 {
 						msg := fmt.Sprintf("scope churn: %.1f× touched/closed (threshold 3.0) — consider narrowing focus.", touchedRatio)
 						concernParts = append(concernParts, "**Scope churn:** "+msg)
-						ownerBreaches = append(ownerBreaches, fmt.Sprintf("scope churn: %.1f× touched/closed", touchedRatio))
+						ownerBreaches = append(ownerBreaches, yieldBreach{
+							Key:             "issues_touched_per_closed_issue",
+							Label:           "Scope churn",
+							Definition:      "ratio of issues touched (zdx_issues.updated_at in window without closed_at) to issues closed in the 30d window",
+							Units:           "touched_not_closed / closed_30d",
+							Threshold:       ">3.0× indicates spreading attention without finishing",
+							CurrentValue:    fmt.Sprintf("%.1f×", touchedRatio),
+							Diagnosis:       "high touched-to-closed ratio means work-in-progress is piling up without delivery.",
+							SuggestedAction: "narrow active work to fewer in-flight issues; close or defer the long tail.",
+						})
 					}
 				}
 				if ownerYield.FeaturesWithoutMetric > 0 {
-					msg := fmt.Sprintf("features without metric: %d", ownerYield.FeaturesWithoutMetric)
 					concernParts = append(concernParts, fmt.Sprintf("%d feature(s) have goal attribution but no metric — value is unverifiable.", ownerYield.FeaturesWithoutMetric))
-					ownerBreaches = append(ownerBreaches, msg)
+					ownerBreaches = append(ownerBreaches, yieldBreach{
+						Key:             "features_without_metric",
+						Label:           "Features lack metrics",
+						Definition:      "count of features with goal attribution but no metric_name set",
+						Units:           "feature count",
+						Threshold:       ">0 — goal value is unverifiable for these features",
+						CurrentValue:    fmt.Sprintf("%d feature(s)", ownerYield.FeaturesWithoutMetric),
+						Diagnosis:       "features need metrics + baseline + target to prove they delivered value toward their goal.",
+						SuggestedAction: "run `dx feature show <name>` for each metric-less feature; set metric_name + baseline + target with `dx feature set`.",
+					})
 				}
 				if specDelta.SpecsDeferred > specDelta.SpecsCovered && specDelta.SpecsDeferred > 0 {
 					concernParts = append(concernParts, fmt.Sprintf("**Spec verification gap:** %d spec(s) deferred vs %d covered (30d) — verification gap widening.",
 						specDelta.SpecsDeferred, specDelta.SpecsCovered))
-					ownerBreaches = append(ownerBreaches, fmt.Sprintf("spec verification gap: %d deferred vs %d covered", specDelta.SpecsDeferred, specDelta.SpecsCovered))
+					ownerBreaches = append(ownerBreaches, yieldBreach{
+						Key:             "specs_deferred_vs_verified_30d",
+						Label:           "Spec verification gap",
+						Definition:      "specs added to zdx_spec_deferrals vs specs whose linked issue closed, both over the trailing 30 days",
+						Units:           "deferred / verified (30d)",
+						Threshold:       "deferred > verified — verification not keeping up with the deferral pile",
+						CurrentValue:    fmt.Sprintf("%d deferred vs %d verified", specDelta.SpecsDeferred, specDelta.SpecsCovered),
+						Diagnosis:       "specs are getting pushed off faster than they're being verified; coverage debt is widening.",
+						SuggestedAction: "list deferred specs (`dx spec list --deferred`) — for each, either cover it with new tests/issues or downgrade kind from must to nice-to-have.",
+					})
 				}
 				if churnNote != "" {
 					concernParts = append(concernParts, "**Process churn:** "+churnNote)
@@ -815,15 +841,31 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				if techYield.ClosedInPeriod >= standupMinClosedForRatios {
 					sessionsPerClose := float64(techYield.SessionsInPeriod) / float64(techYield.ClosedInPeriod)
 					if sessionsPerClose > 5.0 {
-						msg := fmt.Sprintf("sessions/closed: %.1f (threshold 5.0)", sessionsPerClose)
-						concernParts = append(concernParts, "**Agent efficiency:** "+msg+" — high session count per close may indicate thrashing.")
-						techBreaches = append(techBreaches, msg)
+						concernParts = append(concernParts, fmt.Sprintf("**Agent efficiency:** sessions/closed: %.1f (threshold 5.0) — high session count per close may indicate thrashing.", sessionsPerClose))
+						techBreaches = append(techBreaches, yieldBreach{
+							Key:             "claude_sessions_per_closed_issue",
+							Label:           "Agent thrashing",
+							Definition:      "claude agent sessions launched per issue closed (zdx_claude_sessions.created_at within window over zdx_issues.closed_at within window)",
+							Units:           "sessions / closed issues (30d)",
+							Threshold:       ">5.0× — agents are spending time without producing closes",
+							CurrentValue:    fmt.Sprintf("%.1f sessions per closed issue", sessionsPerClose),
+							Diagnosis:       "high session count per close suggests agents are claiming, failing, and re-claiming without making progress.",
+							SuggestedAction: "check the queue for stuck todos (cycle_count > 1); investigate root causes (capability gaps, ambiguous specs); see IS-662 for structured incomplete-report tracking.",
+						})
 					}
 					commitsPerClose := float64(metrics.GitCommits) / float64(techYield.ClosedInPeriod)
 					if commitsPerClose > 20.0 {
-						msg := fmt.Sprintf("commits/closed: %.1f (threshold 20.0)", commitsPerClose)
-						concernParts = append(concernParts, "**Commit density:** "+msg+" — high commit count per close may indicate scope creep.")
-						techBreaches = append(techBreaches, msg)
+						concernParts = append(concernParts, fmt.Sprintf("**Commit density:** commits/closed: %.1f (threshold 20.0) — high commit count per close may indicate scope creep.", commitsPerClose))
+						techBreaches = append(techBreaches, yieldBreach{
+							Key:             "git_commits_per_closed_issue",
+							Label:           "Commit density",
+							Definition:      "git commits made per issue closed in the period (raw HEAD commit count over zdx_issues.closed_at within window)",
+							Units:           "commits / closed issues (30d)",
+							Threshold:       ">20.0 — either oversized issues or undertracked work shipping outside the issue tracker",
+							CurrentValue:    fmt.Sprintf("%.1f commits per closed issue", commitsPerClose),
+							Diagnosis:       "high commit-to-close ratio indicates either issues that are too large, or commits not tied to any issue closure.",
+							SuggestedAction: "audit recent commits — are they on issues? if yes, the issues are too large (split with --parent); if no, untracked work needs to flow through `dx issue add`.",
+						})
 					}
 				}
 				concerns = strings.Join(concernParts, "\n")
@@ -853,26 +895,39 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 
-			// Auto-file is gated off until the enrichment in IS-684 lands — current titles/bodies
-			// are cryptic shorthand (e.g. "sessions/closed: 6.6") that cannot be triaged without
-			// source-diving. Re-enable by setting STANDUP_AUTO_FILE_ALERTS=true.
+			// Auto-file gated by env var. With IS-684's enrichment in place, titles
+			// are stable across runs (the breach Label, no current value) so re-emission
+			// finds the existing open issue and appends a recurrence comment instead
+			// of duplicating. Bodies carry definition + units + threshold + diagnosis +
+			// suggested action + the journal entry that triggered.
 			if os.Getenv("STANDUP_AUTO_FILE_ALERTS") == "true" {
-				for _, breach := range append(ownerBreaches, techBreaches...) {
-					title := "Yield alert: " + breach
-					n, _ := h.Q.CountOpenIssuesByTitle(ctx, db.CountOpenIssuesByTitleParams{ProjectID: p.ID, Title: title})
-					if n == 0 {
-						issueID, err2 := h.Q.NextIssueID(ctx)
-						if err2 == nil {
-							_, _ = h.Q.CreateIssue(ctx, db.CreateIssueParams{
-								ID:        issueID,
-								ProjectID: p.ID,
-								Title:     title,
-								Context:   fmt.Sprintf("Auto-filed from standup entry %d on %s.\n\n%s", inserted.ID, today, breach),
-								Priority:  "3",
-								IssueType: "ask",
-								Status:    "open",
-							})
-						}
+				allBreaches := append([]yieldBreach{}, ownerBreaches...)
+				allBreaches = append(allBreaches, techBreaches...)
+				for _, br := range allBreaches {
+					title := br.Title()
+					existingID, err := h.Q.FindOpenIssueByTitle(ctx, db.FindOpenIssueByTitleParams{ProjectID: p.ID, Title: title})
+					if err == nil && existingID != "" {
+						_, _ = h.Q.AddComment(ctx, db.AddCommentParams{
+							ProjectID:   p.ID,
+							TargetType:  "issue",
+							TargetID:    existingID,
+							Author:      "system",
+							AuthorAlias: "standup",
+							Body:        br.RecurrenceComment(inserted.ID, today),
+						})
+						continue
+					}
+					issueID, err2 := h.Q.NextIssueID(ctx)
+					if err2 == nil {
+						_, _ = h.Q.CreateIssue(ctx, db.CreateIssueParams{
+							ID:        issueID,
+							ProjectID: p.ID,
+							Title:     title,
+							Context:   br.Body(inserted.ID, today),
+							Priority:  "3",
+							IssueType: "ask",
+							Status:    "open",
+						})
 					}
 				}
 			}

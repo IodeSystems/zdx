@@ -190,6 +190,34 @@ var CreateIssueCols = struct {
 	CloseReason:     metaquery.NewTextCol("close_reason"),
 }
 
+var MetaFindOpenIssueByTitle = metaquery.Query{
+	Name:   "FindOpenIssueByTitle",
+	Cmd:    ":one",
+	Source: "issues.sql",
+	SQL: `SELECT id FROM zdx_issues
+WHERE project_id = $1 AND title = $2 AND closed_at IS NULL
+ORDER BY id ASC LIMIT 1`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "title", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapFindOpenIssueByTitle returns a metaquery.Builder over MetaFindOpenIssueByTitle, pre-bound with typed arguments.
+func WrapFindOpenIssueByTitle(arg FindOpenIssueByTitleParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaFindOpenIssueByTitle, arg.ProjectID, arg.Title)
+}
+
+// FindOpenIssueByTitleCols gives typed, name-safe access to FindOpenIssueByTitle's output columns.
+var FindOpenIssueByTitleCols = struct {
+	ID metaquery.TextCol
+}{
+	ID: metaquery.NewTextCol("id"),
+}
+
 var MetaGetIssue = metaquery.Query{
 	Name:   "GetIssue",
 	Cmd:    ":one",

@@ -139,6 +139,11 @@ type Querier interface {
 	DetachCodeRefFromSpec(ctx context.Context, arg DetachCodeRefFromSpecParams) error
 	DetachCodeRefFromTask(ctx context.Context, arg DetachCodeRefFromTaskParams) error
 	DetachCodeRefFromTest(ctx context.Context, arg DetachCodeRefFromTestParams) error
+	// Returns the first open issue whose title matches exactly. Used by the standup
+	// yield-alert auto-file loop to dedup across runs by stable title (the breach
+	// label, no current value) and append a fresh-reading comment instead of
+	// duplicating the issue.
+	FindOpenIssueByTitle(ctx context.Context, arg FindOpenIssueByTitleParams) (string, error)
 	FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) ([]FlagStaleTasksRow, error)
 	// Flip snoozed items whose snooze_until has passed back to 'open' so they
 	// resurface in the solo queue.

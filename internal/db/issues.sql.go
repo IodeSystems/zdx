@@ -172,6 +172,28 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 	return i, err
 }
 
+const findOpenIssueByTitle = `-- name: FindOpenIssueByTitle :one
+SELECT id FROM zdx_issues
+WHERE project_id = $1 AND title = $2 AND closed_at IS NULL
+ORDER BY id ASC LIMIT 1
+`
+
+type FindOpenIssueByTitleParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Title     string `db:"title" json:"title"`
+}
+
+// Returns the first open issue whose title matches exactly. Used by the standup
+// yield-alert auto-file loop to dedup across runs by stable title (the breach
+// label, no current value) and append a fresh-reading comment instead of
+// duplicating the issue.
+func (q *Queries) FindOpenIssueByTitle(ctx context.Context, arg FindOpenIssueByTitleParams) (string, error) {
+	row := q.db.QueryRow(ctx, findOpenIssueByTitle, arg.ProjectID, arg.Title)
+	var id string
+	err := row.Scan(&id)
+	return id, err
+}
+
 const getIssue = `-- name: GetIssue :one
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 AND id = $2

@@ -136,6 +136,15 @@ LIMIT $1 OFFSET $2;
 -- name: CountOpenIssuesByTitle :one
 SELECT count(*) FROM zdx_issues WHERE project_id = $1 AND title = $2 AND closed_at IS NULL;
 
+-- name: FindOpenIssueByTitle :one
+-- Returns the first open issue whose title matches exactly. Used by the standup
+-- yield-alert auto-file loop to dedup across runs by stable title (the breach
+-- label, no current value) and append a fresh-reading comment instead of
+-- duplicating the issue.
+SELECT id FROM zdx_issues
+WHERE project_id = $1 AND title = $2 AND closed_at IS NULL
+ORDER BY id ASC LIMIT 1;
+
 -- name: ListHistoricalCloseGateOffenders :many
 -- IS-632 retroactive close-gate audit. For each closed issue where
 -- close_reason is empty (not force-closed) and issue_type is not
