@@ -36,6 +36,43 @@ func parseIssueID(id string) (int32, error) {
 	return int32(n), nil
 }
 
+// decodeEscapes interprets the common backslash escape sequences (\n, \t, \\)
+// in CLI flag values. LLM-driven agents often pass JSON-style strings through
+// shell command substitution where the shell does not interpret \n itself, so
+// the CLI receives a literal backslash-n that would otherwise be persisted as
+// such. Multi-paragraph contexts have round-tripped as one wrapped line because
+// of this. (IS-655 newline decoding fix.)
+func decodeEscapes(s string) string {
+	if !strings.Contains(s, `\`) {
+		return s
+	}
+	var b strings.Builder
+	b.Grow(len(s))
+	for i := 0; i < len(s); i++ {
+		if s[i] != '\\' || i+1 >= len(s) {
+			b.WriteByte(s[i])
+			continue
+		}
+		switch s[i+1] {
+		case 'n':
+			b.WriteByte('\n')
+			i++
+		case 't':
+			b.WriteByte('\t')
+			i++
+		case 'r':
+			b.WriteByte('\r')
+			i++
+		case '\\':
+			b.WriteByte('\\')
+			i++
+		default:
+			b.WriteByte(s[i])
+		}
+	}
+	return b.String()
+}
+
 func issueListCmd() *cobra.Command {
 	var status, branch string
 	cmd := &cobra.Command{
@@ -131,6 +168,8 @@ Example:
     --type=impl --context="Spec 110: users need examples when running --help"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
+			title = decodeEscapes(title)
+			ctx = decodeEscapes(ctx)
 			body := dxclient.AddIssueRequest{
 				Slug:      c.SlugOrDie(),
 				AutoReady: &autoReady,
@@ -742,6 +781,8 @@ func issueEditCmd() *cobra.Command {
 				return err
 			}
 			c := cli.MustClient()
+			title = decodeEscapes(title)
+			ctx = decodeEscapes(ctx)
 			body := dxclient.EditIssueRequest{
 				Slug: c.SlugOrDie(),
 				Id:   int32(n),

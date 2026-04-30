@@ -7,6 +7,30 @@ import (
 	"testing"
 )
 
+func TestDecodeEscapes(t *testing.T) {
+	cases := []struct {
+		in, want string
+	}{
+		{"", ""},
+		{"no escapes", "no escapes"},
+		{`line1\nline2`, "line1\nline2"},
+		{`para1\n\npara2`, "para1\n\npara2"},
+		{`tab\there`, "tab\there"},
+		{`literal\\nbackslash-n`, `literal\nbackslash-n`},
+		{`mixed \n and \\n`, "mixed \n and " + `\n`},
+		{`trailing\`, `trailing\`},
+		{`\unknown`, `\unknown`},
+	}
+	for _, tc := range cases {
+		t.Run(tc.in, func(t *testing.T) {
+			got := decodeEscapes(tc.in)
+			if got != tc.want {
+				t.Fatalf("decodeEscapes(%q) = %q; want %q", tc.in, got, tc.want)
+			}
+		})
+	}
+}
+
 func TestExtractDecompositionCandidates(t *testing.T) {
 	cases := []struct {
 		name  string

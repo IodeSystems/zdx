@@ -236,6 +236,9 @@ func DecomposeTrackerText(issueID string) Hint {
 				"1. Read the tracker context: `dx issue show %s`.\n"+
 				"2. Break into concrete child issues, one per vertical (one shippable unit each):\n"+
 				"   `dx issue add --title=\"...\" --context=\"...\" --type=impl --parent=%s`\n"+
+				"   - If a child depends on a sibling already filed in this decomp, add `--blocked-by=IS-N` (comma-separated for multiple). Prose-only deps are invisible to `dx todo take`.\n"+
+				"   - The response includes `suggested_blockers` for any IS-N references found in title/context. Wire them with `dx issue block <new> --by=IS-N` when they represent real deps.\n"+
+				"   - Use `\\n` in `--context` for paragraph breaks — the CLI decodes it. Avoid heredocs with literal newlines if your shell escaping is unsure.\n"+
 				"3. After EACH `issue add`, review the similar-issues list in the response:\n"+
 				"   - closed similar already covers this: close your new issue as duplicate (or reopen the original if it was closed prematurely)\n"+
 				"   - open similar overlaps: close yours as duplicate, or keep both if genuinely distinct and add a blocked_by link\n"+
