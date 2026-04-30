@@ -147,6 +147,19 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 				"- We should ship this next.\n",
 			want: []string{"We should ship this next."},
 		},
+		{
+			name: "exempt headers tolerate trailing decoration",
+			input: "## What should happen\n" +
+				"It should work.\n" +
+				"\n" +
+				"## What did happen (IS-610 / IS-616 decomposition)\n" +
+				"1. Item one — known issue should not flag\n" +
+				"2. Item two\n" +
+				"\n" +
+				"## Out of scope\n" +
+				"- Whether the approach is right.\n",
+			want: nil,
+		},
 	}
 
 	for _, tc := range cases {

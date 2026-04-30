@@ -489,7 +489,7 @@ var (
 	// work — list items and future-tense signals inside them must not be
 	// extracted as decomposition candidates. Matches with or without leading
 	// markdown hashes and optional trailing colon. (IS-675)
-	decompExemptHeaderRe = regexp.MustCompile(`(?i)^\s*(?:#+\s*)?(WHAT SHOULD HAPPEN|WHAT DID HAPPEN|WHAT THE TOOL SHOULD DO|IMPLEMENTATION DIRECTION|REPRO|CANDIDATE FIXES|FIX)\s*:?\s*$`)
+	decompExemptHeaderRe = regexp.MustCompile(`(?i)^\s*(?:#+\s*)?(WHAT SHOULD HAPPEN|WHAT DID HAPPEN|WHAT THE TOOL SHOULD DO|IMPLEMENTATION DIRECTION|REPRO|CANDIDATE FIXES|FIX|OUT OF SCOPE)\b`)
 )
 
 // decompFutureSignals are case-insensitive substrings that flag a line as
