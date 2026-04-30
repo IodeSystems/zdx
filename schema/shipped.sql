@@ -4051,6 +4051,13 @@ CREATE INDEX idx_goal_issues_issue ON public.zdx_goal_issues USING btree (issue_
 
 
 --
+-- Name: idx_issue_blocks_kind; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_issue_blocks_kind ON public.zdx_issue_blocks USING btree (kind);
+
+
+--
 -- Name: idx_issue_code_refs_issue; Type: INDEX; Schema: public; Owner: -
 --
 
