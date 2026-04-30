@@ -237,8 +237,8 @@ func agentListCmd() *cobra.Command {
 				return nil
 			}
 			for _, a := range *resp.JSON200.Agents {
-				fmt.Printf("%-10s %-8s pid=%-6d port=%-5d %s  %s\n",
-					a.Id, a.Status, a.Pid, a.ServerPort, a.WorktreeBranch, a.LastHeartbeat)
+				fmt.Printf("%-10s %-12s %-8s pid=%-6d port=%-5d %s\n",
+					a.Id, a.ConnectionState, a.Status, a.Pid, a.ServerPort, a.WorktreeBranch)
 				if showTasks {
 					taskResp, err := c.ListAgentTasksWithResponse(ctx, a.Id)
 					if err != nil {

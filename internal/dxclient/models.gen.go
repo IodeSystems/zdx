@@ -328,19 +328,25 @@ type AgentItem struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema         *string `json:"$schema,omitempty"`
 	ComposeProject string  `json:"compose_project"`
-	CreatedAt      string  `json:"created_at"`
-	DatabaseUrl    string  `json:"database_url"`
-	Id             string  `json:"id"`
-	LastHeartbeat  string  `json:"last_heartbeat"`
-	Pid            int32   `json:"pid"`
-	ProjectId      int32   `json:"project_id"`
-	ServerPort     int32   `json:"server_port"`
-	SessionId      string  `json:"session_id"`
-	Status         string  `json:"status"`
-	TaskGroup      string  `json:"task_group"`
-	ValkeyUrl      string  `json:"valkey_url"`
-	WorktreeBranch string  `json:"worktree_branch"`
-	WorktreePath   string  `json:"worktree_path"`
+
+	// ConnectedAt Wall-clock time the agent connected (non-empty when connection_state=connected)
+	ConnectedAt string `json:"connected_at"`
+
+	// ConnectionState Live connection state: connected, disconnected, paused, or draining
+	ConnectionState string `json:"connection_state"`
+	CreatedAt       string `json:"created_at"`
+	DatabaseUrl     string `json:"database_url"`
+	Id              string `json:"id"`
+	LastHeartbeat   string `json:"last_heartbeat"`
+	Pid             int32  `json:"pid"`
+	ProjectId       int32  `json:"project_id"`
+	ServerPort      int32  `json:"server_port"`
+	SessionId       string `json:"session_id"`
+	Status          string `json:"status"`
+	TaskGroup       string `json:"task_group"`
+	ValkeyUrl       string `json:"valkey_url"`
+	WorktreeBranch  string `json:"worktree_branch"`
+	WorktreePath    string `json:"worktree_path"`
 }
 
 // AgentTaskItem defines model for AgentTaskItem.

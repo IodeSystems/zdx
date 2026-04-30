@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -18,6 +19,14 @@ type AgentCommander interface {
 	// SendAgentCommand writes raw JSON to the named agent's WS connection.
 	// Returns a non-nil error if the agent is not connected.
 	SendAgentCommand(ctx context.Context, agentID string, data []byte) error
+}
+
+// AgentConnRegistry provides live-connection lookups for the list-agents handler.
+type AgentConnRegistry interface {
+	// IsConnected reports whether the agent with the given ID has an active WS connection.
+	IsConnected(agentID string) bool
+	// ConnectedAt returns the wall-clock time the agent connected; zero value if not connected.
+	ConnectedAt(agentID string) time.Time
 }
 
 type SchemaFeatures struct {
@@ -91,6 +100,7 @@ type Deps struct {
 	WSSecret                string
 	Mux                     chi.Router
 	AgentCommander          AgentCommander
+	AgentConnRegistry       AgentConnRegistry
 	AgentDisconnectGraceSec int
 }
 

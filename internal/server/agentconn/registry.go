@@ -76,6 +76,24 @@ func (r *Registry) SendAgentCommand(ctx context.Context, agentID string, data []
 	return c.WS.Write(ctx, websocket.MessageText, data)
 }
 
+// IsConnected reports whether the agent with the given ID has an active WS connection.
+func (r *Registry) IsConnected(agentID string) bool {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	_, ok := r.conns[agentID]
+	return ok
+}
+
+// ConnectedAt returns the wall-clock time the agent connected; zero if not connected.
+func (r *Registry) ConnectedAt(agentID string) time.Time {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	if c, ok := r.conns[agentID]; ok {
+		return c.ConnectedAt
+	}
+	return time.Time{}
+}
+
 // List returns a snapshot of all connected agents.
 func (r *Registry) List() []*Conn {
 	r.mu.RLock()

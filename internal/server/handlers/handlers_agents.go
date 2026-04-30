@@ -13,20 +13,22 @@ import (
 )
 
 type AgentItem struct {
-	ID             string `json:"id"`
-	ProjectID      int32  `json:"project_id"`
-	SessionID      string `json:"session_id"`
-	WorktreePath   string `json:"worktree_path"`
-	WorktreeBranch string `json:"worktree_branch"`
-	Pid            int32  `json:"pid"`
-	Status         string `json:"status"`
-	TaskGroup      string `json:"task_group"`
-	ComposeProject string `json:"compose_project"`
-	ServerPort     int32  `json:"server_port"`
-	DatabaseUrl    string `json:"database_url"`
-	ValkeyUrl      string `json:"valkey_url"`
-	LastHeartbeat  string `json:"last_heartbeat"`
-	CreatedAt      string `json:"created_at"`
+	ID              string `json:"id"`
+	ProjectID       int32  `json:"project_id"`
+	SessionID       string `json:"session_id"`
+	WorktreePath    string `json:"worktree_path"`
+	WorktreeBranch  string `json:"worktree_branch"`
+	Pid             int32  `json:"pid"`
+	Status          string `json:"status"`
+	TaskGroup       string `json:"task_group"`
+	ComposeProject  string `json:"compose_project"`
+	ServerPort      int32  `json:"server_port"`
+	DatabaseUrl     string `json:"database_url"`
+	ValkeyUrl       string `json:"valkey_url"`
+	LastHeartbeat   string `json:"last_heartbeat"`
+	CreatedAt       string `json:"created_at"`
+	ConnectionState string `json:"connection_state"` // connected | disconnected | paused | draining
+	ConnectedAt     string `json:"connected_at"`     // non-empty when connection_state=connected
 }
 
 type AgentTaskItem struct {
@@ -42,22 +44,38 @@ type AgentTaskItem struct {
 	LeaseExpiresAt string `json:"lease_expires_at"`
 }
 
-func agentItemFrom(a db.ZdxAgent) AgentItem {
+// agentItemFrom converts a DB row to an API item. reg may be nil (no live state).
+// Connection-state precedence: if status is paused/draining it takes priority over
+// registry presence, since those states persist across reconnects.
+func agentItemFrom(a db.ZdxAgent, reg AgentConnRegistry) AgentItem {
+	connState := "disconnected"
+	connectedAt := ""
+	if reg != nil && reg.IsConnected(a.ID) {
+		connState = "connected"
+		if t := reg.ConnectedAt(a.ID); !t.IsZero() {
+			connectedAt = t.UTC().Format(time.RFC3339)
+		}
+	}
+	if a.Status == "paused" || a.Status == "draining" {
+		connState = a.Status
+	}
 	return AgentItem{
-		ID:             a.ID,
-		ProjectID:      a.ProjectID,
-		SessionID:      a.SessionID,
-		WorktreePath:   a.WorktreePath,
-		WorktreeBranch: a.WorktreeBranch,
-		Pid:            a.Pid,
-		Status:         a.Status,
-		TaskGroup:      a.TaskGroup,
-		ComposeProject: a.ComposeProject,
-		ServerPort:     a.ServerPort,
-		DatabaseUrl:    a.DatabaseUrl,
-		ValkeyUrl:      a.ValkeyUrl,
-		LastHeartbeat:  fmtTS(a.LastHeartbeat),
-		CreatedAt:      fmtTS(a.CreatedAt),
+		ID:              a.ID,
+		ProjectID:       a.ProjectID,
+		SessionID:       a.SessionID,
+		WorktreePath:    a.WorktreePath,
+		WorktreeBranch:  a.WorktreeBranch,
+		Pid:             a.Pid,
+		Status:          a.Status,
+		TaskGroup:       a.TaskGroup,
+		ComposeProject:  a.ComposeProject,
+		ServerPort:      a.ServerPort,
+		DatabaseUrl:     a.DatabaseUrl,
+		ValkeyUrl:       a.ValkeyUrl,
+		LastHeartbeat:   fmtTS(a.LastHeartbeat),
+		CreatedAt:       fmtTS(a.CreatedAt),
+		ConnectionState: connState,
+		ConnectedAt:     connectedAt,
 	}
 }
 
@@ -105,7 +123,7 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
-			item := agentItemFrom(a)
+			item := agentItemFrom(a, nil)
 			return &struct{ Body AgentItem }{Body: item}, nil
 		})
 
@@ -126,7 +144,7 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			}
 			out := make([]AgentItem, len(rows))
 			for i, r := range rows {
-				out[i] = agentItemFrom(r)
+				out[i] = agentItemFrom(r, h.AgentConnRegistry)
 			}
 			return &struct {
 				Body struct {
@@ -146,7 +164,7 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "agent not found")
 			}
-			item := agentItemFrom(a)
+			item := agentItemFrom(a, h.AgentConnRegistry)
 			return &struct{ Body AgentItem }{Body: item}, nil
 		})
 
@@ -194,7 +212,7 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			}
 			out := make([]AgentItem, len(rows))
 			for i, r := range rows {
-				out[i] = agentItemFrom(r)
+				out[i] = agentItemFrom(r, nil)
 			}
 			return &struct {
 				Body struct {

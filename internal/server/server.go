@@ -217,6 +217,7 @@ func (s *Server) buildDeps() *handlers.Deps {
 		WSSecret:                s.wsSecret,
 		Mux:                     s.mux,
 		AgentCommander:          s.agentRegistry,
+		AgentConnRegistry:       s.agentRegistry,
 		AgentDisconnectGraceSec: s.agentDisconnectGraceSec,
 	}
 }
