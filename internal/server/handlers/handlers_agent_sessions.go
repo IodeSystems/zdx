@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
@@ -357,6 +358,13 @@ func (h *Handler) summarizeSessionFromDBAsync(projectID int32, sessionPK int64) 
 // a todo that has been claimed multiple times without resolution, it files a
 // high-priority blocker issue so the churn is visible before more sessions burn.
 func (h *Handler) analyzeSessionChurn(projectID int32, slug string, sess db.GetClaudeSessionBySessionIDRow) {
+	// Auto-file is gated off — same reason as maybeAutoFileBlockIssue: a broken todo
+	// source (e.g. read:comments before IS-677) fans out one Agent churn issue per
+	// affected target, which themselves regenerate as comment targets and recurse.
+	// Re-enable with AUTO_FILE_AGENT_FAILURES=true.
+	if os.Getenv("AUTO_FILE_AGENT_FAILURES") != "true" {
+		return
+	}
 	if !sess.TodoID.Valid || sess.TodoID.Int32 == 0 {
 		return
 	}

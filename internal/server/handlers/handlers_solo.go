@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 	"time"
@@ -1383,6 +1384,13 @@ func toTodoItemFromFiltered(r db.ListTodosFilteredRow) TodoItem {
 // cycle detection. The issue ID is stored on the todo so the queue UI can link to it.
 // Threshold: cycle_count >= 2 and no reference issue already filed.
 func (h *Handler) maybeAutoFileBlockIssue(ctx context.Context, blocked db.BlockTodoByKeyRow) {
+	// Auto-file is gated off — when a todo source is broken (e.g. read:comments before
+	// IS-677), this fans out to one System gap issue per affected target, which then
+	// become new targets and recurse. Re-enable with AUTO_FILE_AGENT_FAILURES=true once
+	// the upstream sources are reliable.
+	if os.Getenv("AUTO_FILE_AGENT_FAILURES") != "true" {
+		return
+	}
 	if blocked.CycleCount < 2 || blocked.ReferenceIssueID != "" {
 		return
 	}
