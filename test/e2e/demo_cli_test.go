@@ -1166,7 +1166,7 @@ func TestDemoCLI_TodoDevUndone(t *testing.T) {
 
 	rec.Run("todo", "show", taskID)
 	showAfter := rec.steps[len(rec.steps)-1].Stdout
-	if strings.Contains(showAfter, "done") && !strings.Contains(showAfter, "undone") {
+	if strings.Contains(showAfter, "Status:   done") {
 		t.Errorf("expected status to revert from 'done' after undone, got:\n%s", showAfter)
 	}
 
