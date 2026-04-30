@@ -248,6 +248,47 @@ var ListConcernsForFeatureCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
+var MetaListConcernsForIssue = metaquery.Query{
+	Name:   "ListConcernsForIssue",
+	Cmd:    ":many",
+	Source: "concerns.sql",
+	SQL: `SELECT c.id, c.project_id, c.name, c.description, c.created_at
+FROM zdx_concerns c
+JOIN zdx_concern_issues ci ON ci.concern_id = c.id
+WHERE ci.issue_id = $1
+ORDER BY c.name`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_concerns"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_concerns"},
+		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_concerns"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_concerns"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_concerns"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListConcernsForIssue returns a metaquery.Builder over MetaListConcernsForIssue, pre-bound with typed arguments.
+func WrapListConcernsForIssue(issueID string) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListConcernsForIssue, issueID)
+}
+
+// ListConcernsForIssueCols gives typed, name-safe access to ListConcernsForIssue's output columns.
+var ListConcernsForIssueCols = struct {
+	ID          metaquery.IntCol
+	ProjectID   metaquery.IntCol
+	Name        metaquery.TextCol
+	Description metaquery.TextCol
+	CreatedAt   metaquery.TimeCol
+}{
+	ID:          metaquery.NewIntCol("id"),
+	ProjectID:   metaquery.NewIntCol("project_id"),
+	Name:        metaquery.NewTextCol("name"),
+	Description: metaquery.NewTextCol("description"),
+	CreatedAt:   metaquery.NewTimeCol("created_at"),
+}
+
 var MetaListConcernsForSpec = metaquery.Query{
 	Name:   "ListConcernsForSpec",
 	Cmd:    ":many",

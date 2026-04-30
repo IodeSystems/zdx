@@ -57,3 +57,10 @@ FROM zdx_concerns c
 JOIN zdx_concern_specs cs ON cs.concern_id = c.id
 WHERE cs.spec_id = $1
 ORDER BY c.name;
+
+-- name: ListConcernsForIssue :many
+SELECT c.id, c.project_id, c.name, c.description, c.created_at
+FROM zdx_concerns c
+JOIN zdx_concern_issues ci ON ci.concern_id = c.id
+WHERE ci.issue_id = $1
+ORDER BY c.name;

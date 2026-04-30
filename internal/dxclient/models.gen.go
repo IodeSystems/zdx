@@ -3373,10 +3373,12 @@ type SimilarIssuesResponse struct {
 // SimilarPatternsRequest defines model for Similar-patternsRequest.
 type SimilarPatternsRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	N      *int64  `json:"n,omitempty"`
-	Slug   string  `json:"slug"`
-	Text   string  `json:"text"`
+	Schema     *string `json:"$schema,omitempty"`
+	N          *int64  `json:"n,omitempty"`
+	Slug       string  `json:"slug"`
+	TargetId   *string `json:"target_id,omitempty"`
+	TargetType *string `json:"target_type,omitempty"`
+	Text       string  `json:"text"`
 }
 
 // SimilarPatternsResponse defines model for Similar-patternsResponse.
@@ -3457,6 +3459,8 @@ type SimilarIssueItem struct {
 type SimilarPatternItem struct {
 	Pattern PatternItem `json:"pattern"`
 	Score   float64     `json:"score"`
+	Source  *string     `json:"source,omitempty"`
+	Via     *string     `json:"via,omitempty"`
 }
 
 // SimilarProposalItem defines model for SimilarProposalItem.

@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"net/http"
+	"strconv"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -26,6 +27,8 @@ type PatternItem struct {
 type SimilarPatternItem struct {
 	Pattern PatternItem `json:"pattern"`
 	Score   float64     `json:"score"`
+	Source  string      `json:"source,omitempty"`
+	Via     string      `json:"via,omitempty"`
 }
 
 func toPatternItem(r db.ZdxPattern) PatternItem {
@@ -207,9 +210,11 @@ func (h *Handler) registerPatternRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "similar-patterns", Method: http.MethodPost, Path: "/api/dx/patterns/similar"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug string `json:"slug"`
-				Text string `json:"text"`
-				N    int    `json:"n,omitempty"`
+				Slug       string `json:"slug"`
+				Text       string `json:"text"`
+				N          int    `json:"n,omitempty"`
+				TargetType string `json:"target_type,omitempty"`
+				TargetId   string `json:"target_id,omitempty"`
 			}
 		}) (*struct {
 			Body struct {
@@ -224,10 +229,30 @@ func (h *Handler) registerPatternRoutes(api huma.API) {
 			if err != nil {
 				return nil, err
 			}
-			results, err := h.findSimilarPatterns(ctx, p.ID, in.Body.Text, n)
+
+			// Resolve concern-linked patterns for the target.
+			var concernLinked []SimilarPatternItem
+			if in.Body.TargetType != "" && in.Body.TargetId != "" {
+				concernLinked, _ = h.findConcernLinkedPatterns(ctx, in.Body.TargetType, in.Body.TargetId)
+			}
+
+			// Similarity search; skip patterns already concern-linked.
+			seenIDs := map[int32]bool{}
+			for _, r := range concernLinked {
+				seenIDs[r.Pattern.ID] = true
+			}
+			similar, err := h.findSimilarPatterns(ctx, p.ID, in.Body.Text, n)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			var filtered []SimilarPatternItem
+			for _, r := range similar {
+				if !seenIDs[r.Pattern.ID] {
+					filtered = append(filtered, r)
+				}
+			}
+
+			results := append(concernLinked, filtered...)
 			return &struct {
 				Body struct {
 					Patterns []SimilarPatternItem `json:"patterns"`
@@ -282,7 +307,56 @@ func (h *Handler) findSimilarPatterns(ctx context.Context, projectID int32, text
 		out = append(out, SimilarPatternItem{
 			Pattern: toPatternItem(row),
 			Score:   float64(r.Score),
+			Source:  "similarity",
 		})
+	}
+	return out, nil
+}
+
+func (h *Handler) findConcernLinkedPatterns(ctx context.Context, targetType, targetID string) ([]SimilarPatternItem, error) {
+	var concerns []db.ZdxConcern
+	switch targetType {
+	case "issue":
+		var err error
+		concerns, err = h.Q.ListConcernsForIssue(ctx, targetID)
+		if err != nil {
+			return nil, err
+		}
+	case "task":
+		taskRow, err := h.Q.GetTask(ctx, targetID)
+		if err != nil {
+			return nil, err
+		}
+		if taskRow.Spec != "" {
+			specID, err := strconv.ParseInt(taskRow.Spec, 10, 32)
+			if err == nil {
+				concerns, err = h.Q.ListConcernsForSpec(ctx, int32(specID)) //nolint:gosec
+				if err != nil {
+					return nil, err
+				}
+			}
+		}
+	}
+
+	seen := map[int32]bool{}
+	var out []SimilarPatternItem
+	for _, c := range concerns {
+		patterns, err := h.Q.GetPatternsForConcern(ctx, c.ID)
+		if err != nil {
+			continue
+		}
+		for _, p := range patterns {
+			if seen[p.ID] {
+				continue
+			}
+			seen[p.ID] = true
+			out = append(out, SimilarPatternItem{
+				Pattern: toPatternItem(p),
+				Score:   0,
+				Source:  "concern",
+				Via:     c.Name,
+			})
+		}
 	}
 	return out, nil
 }

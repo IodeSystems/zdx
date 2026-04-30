@@ -52,6 +52,41 @@ func (q *Queries) GetPattern(ctx context.Context, arg GetPatternParams) (ZdxPatt
 	return i, err
 }
 
+const getPatternsForConcern = `-- name: GetPatternsForConcern :many
+SELECT id, project_id, name, description, code_refs, created_at, updated_at
+FROM zdx_patterns
+WHERE id IN (SELECT pattern_id FROM zdx_concern_patterns WHERE concern_id = $1)
+ORDER BY id
+`
+
+func (q *Queries) GetPatternsForConcern(ctx context.Context, concernID int32) ([]ZdxPattern, error) {
+	rows, err := q.db.Query(ctx, getPatternsForConcern, concernID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxPattern
+	for rows.Next() {
+		var i ZdxPattern
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Name,
+			&i.Description,
+			&i.CodeRefs,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const insertPattern = `-- name: InsertPattern :one
 INSERT INTO zdx_patterns (project_id, name, description, code_refs)
 VALUES ($1, $2, $3, $4)

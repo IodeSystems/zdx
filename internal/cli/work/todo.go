@@ -142,7 +142,7 @@ func todoTakeRun(cmd *cobra.Command, agentID string, leaseMinutes int32) error {
 	if todo.Description != nil && *todo.Description != "" {
 		searchText += " " + *todo.Description
 	}
-	printSimilarPatterns(cmd, c, slug, searchText)
+	printSimilarPatterns(cmd, c, slug, searchText, todo.TargetType, todo.TargetId)
 	return nil
 }
 
@@ -906,7 +906,7 @@ func todoShowCmd() *cobra.Command {
 					fmt.Println("\nComments:")
 					cli.PrintComments(cli.CommentsToCli(commResp.JSON200.Comments))
 				}
-				printSimilarPatterns(cmd, c, slug, resp.JSON200.Issue.Title+" "+resp.JSON200.Issue.Context)
+				printSimilarPatterns(cmd, c, slug, resp.JSON200.Issue.Title+" "+resp.JSON200.Issue.Context, "issue", id)
 			case len(id) > 3 && id[:3] == "TK-":
 				n, _ := strconv.ParseInt(id[3:], 10, 32)
 				taskID := int32(n)
@@ -952,7 +952,7 @@ func todoShowCmd() *cobra.Command {
 									fmt.Printf("  [%s] %s: %s → %s (%s)\n", date, r.Field, r.OldVal, r.NewVal, r.Agent)
 								}
 							}
-							printSimilarPatterns(cmd, c, slug, t.Text)
+							printSimilarPatterns(cmd, c, slug, t.Text, "task", id)
 							return nil
 						}
 					}
@@ -1740,21 +1740,51 @@ func taskStatusLabel(status string, reason *string) string {
 	return status
 }
 
-func printSimilarPatterns(cmd *cobra.Command, c *cli.Client, slug, text string) {
+func printSimilarPatterns(cmd *cobra.Command, c *cli.Client, slug, text, targetType, targetID string) {
 	n := int64(3)
-	resp, err := c.SimilarPatternsWithResponse(cmd.Context(), dxclient.SimilarPatternsRequest{
+	req := dxclient.SimilarPatternsRequest{
 		Slug: slug,
 		Text: text,
 		N:    &n,
-	})
+	}
+	if targetType != "" && targetID != "" {
+		req.TargetType = &targetType
+		req.TargetId = &targetID
+	}
+	resp, err := c.SimilarPatternsWithResponse(cmd.Context(), req)
 	if err != nil || resp.JSON200 == nil || resp.JSON200.Patterns == nil || len(*resp.JSON200.Patterns) == 0 {
 		return
 	}
-	fmt.Println("\nRelevant patterns:")
+
+	var concernLinked, similar []dxclient.SimilarPatternItem
 	for _, r := range *resp.JSON200.Patterns {
-		fmt.Printf("  %.3f  PT-%-4d  %s\n", r.Score, r.Pattern.Id, r.Pattern.Name)
-		if r.Pattern.Description != "" {
-			fmt.Printf("         %s\n", cli.Truncate(r.Pattern.Description, 80))
+		if r.Source != nil && *r.Source == "concern" {
+			concernLinked = append(concernLinked, r)
+		} else {
+			similar = append(similar, r)
+		}
+	}
+
+	if len(concernLinked) > 0 {
+		fmt.Println("\nConcern-linked patterns:")
+		for _, r := range concernLinked {
+			via := ""
+			if r.Via != nil && *r.Via != "" {
+				via = fmt.Sprintf("  [concern: %s]", *r.Via)
+			}
+			fmt.Printf("  PT-%-4d  %s%s\n", r.Pattern.Id, r.Pattern.Name, via)
+			if r.Pattern.Description != "" {
+				fmt.Printf("            %s\n", cli.Truncate(r.Pattern.Description, 80))
+			}
+		}
+	}
+	if len(similar) > 0 {
+		fmt.Println("\nSimilar patterns:")
+		for _, r := range similar {
+			fmt.Printf("  %.3f  PT-%-4d  %s\n", r.Score, r.Pattern.Id, r.Pattern.Name)
+			if r.Pattern.Description != "" {
+				fmt.Printf("         %s\n", cli.Truncate(r.Pattern.Description, 80))
+			}
 		}
 	}
 }

@@ -36,3 +36,9 @@ WHERE project_id = $1
   AND (name ILIKE '%' || $2 || '%' OR description ILIKE '%' || $2 || '%')
 ORDER BY name
 LIMIT $3;
+
+-- name: GetPatternsForConcern :many
+SELECT id, project_id, name, description, code_refs, created_at, updated_at
+FROM zdx_patterns
+WHERE id IN (SELECT pattern_id FROM zdx_concern_patterns WHERE concern_id = $1)
+ORDER BY id;

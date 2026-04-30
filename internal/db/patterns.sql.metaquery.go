@@ -74,6 +74,52 @@ var GetPatternCols = struct {
 	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
 }
 
+var MetaGetPatternsForConcern = metaquery.Query{
+	Name:   "GetPatternsForConcern",
+	Cmd:    ":many",
+	Source: "patterns.sql",
+	SQL: `SELECT id, project_id, name, description, code_refs, created_at, updated_at
+FROM zdx_patterns
+WHERE id IN (SELECT pattern_id FROM zdx_concern_patterns WHERE concern_id = $1)
+ORDER BY id`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_patterns"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_patterns"},
+		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_patterns"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_patterns"},
+		{Name: "code_refs", OriginalName: "code_refs", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_patterns"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_patterns"},
+		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_patterns"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "concern_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapGetPatternsForConcern returns a metaquery.Builder over MetaGetPatternsForConcern, pre-bound with typed arguments.
+func WrapGetPatternsForConcern(concernID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetPatternsForConcern, concernID)
+}
+
+// GetPatternsForConcernCols gives typed, name-safe access to GetPatternsForConcern's output columns.
+var GetPatternsForConcernCols = struct {
+	ID          metaquery.IntCol
+	ProjectID   metaquery.IntCol
+	Name        metaquery.TextCol
+	Description metaquery.TextCol
+	CodeRefs    metaquery.BytesCol
+	CreatedAt   metaquery.TimeCol
+	UpdatedAt   metaquery.TimeCol
+}{
+	ID:          metaquery.NewIntCol("id"),
+	ProjectID:   metaquery.NewIntCol("project_id"),
+	Name:        metaquery.NewTextCol("name"),
+	Description: metaquery.NewTextCol("description"),
+	CodeRefs:    metaquery.NewBytesCol("code_refs"),
+	CreatedAt:   metaquery.NewTimeCol("created_at"),
+	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+}
+
 var MetaInsertPattern = metaquery.Query{
 	Name:   "InsertPattern",
 	Cmd:    ":one",
