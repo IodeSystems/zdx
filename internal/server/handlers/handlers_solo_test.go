@@ -1,6 +1,29 @@
 package handlers
 
-import "testing"
+import (
+	"encoding/json"
+	"strings"
+	"testing"
+)
+
+func TestEvaluateDiffEmptySlices(t *testing.T) {
+	diff := EvaluateDiff{
+		Added:     []SoloQueueItem{},
+		Removed:   []TodoItem{},
+		Changed:   []EvaluateChange{},
+		Unchanged: []SoloQueueItem{},
+	}
+	b, err := json.Marshal(diff)
+	if err != nil {
+		t.Fatal(err)
+	}
+	s := string(b)
+	for _, field := range []string{`"added":[]`, `"removed":[]`, `"changed":[]`, `"unchanged":[]`} {
+		if !strings.Contains(s, field) {
+			t.Errorf("expected %q in JSON, got: %s", field, s)
+		}
+	}
+}
 
 func TestFoldIssuePriority(t *testing.T) {
 	cases := []struct {

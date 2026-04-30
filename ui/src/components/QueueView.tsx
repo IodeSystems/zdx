@@ -137,13 +137,13 @@ function EvaluateDialog({ open, diff, onClose, onApply, applying }: {
   applying: boolean
 }) {
   if (!diff) return null
-  const hasChanges = diff.added.length > 0 || diff.removed.length > 0 || diff.changed.length > 0
+  const hasChanges = (diff.added?.length ?? 0) > 0 || (diff.removed?.length ?? 0) > 0 || (diff.changed?.length ?? 0) > 0
   return (
     <Dialog open={open} onClose={onClose} maxWidth="md" fullWidth>
       <DialogTitle>Queue Re-evaluation</DialogTitle>
       <DialogContent>
         {!hasChanges ? (
-          <Typography color="text.secondary">No changes — queue is up to date ({diff.unchanged.length} items).</Typography>
+          <Typography color="text.secondary">No changes — queue is up to date ({diff.unchanged?.length ?? 0} items).</Typography>
         ) : (
           <Box>
             {diff.added.length > 0 && (
@@ -192,7 +192,7 @@ function EvaluateDialog({ open, diff, onClose, onApply, applying }: {
               </Box>
             )}
             <Typography variant="body2" color="text.secondary">
-              {diff.unchanged.length} unchanged items
+              {diff.unchanged?.length ?? 0} unchanged items
             </Typography>
           </Box>
         )}
@@ -228,9 +228,9 @@ export function QueueView({ slug }: { slug: string }) {
   const handleApply = async () => {
     if (!diff) return
     const items = [
-      ...diff.added,
-      ...diff.changed.map(ch => ch.after),
-      ...diff.unchanged,
+      ...(diff.added ?? []),
+      ...(diff.changed ?? []).map(ch => ch.after),
+      ...(diff.unchanged ?? []),
     ]
     await apply.mutateAsync({ slug, items })
     setDiffOpen(false)

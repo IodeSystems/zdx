@@ -855,7 +855,12 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				}
 			}
 
-			var diff EvaluateDiff
+			diff := EvaluateDiff{
+				Added:     []SoloQueueItem{},
+				Removed:   []TodoItem{},
+				Changed:   []EvaluateChange{},
+				Unchanged: []SoloQueueItem{},
+			}
 			proposedKeys := map[string]bool{}
 			for _, c := range proposed {
 				proposedKeys[c.Key] = true
