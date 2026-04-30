@@ -353,10 +353,14 @@ run_compat_check() {
   DATABASE_URL="$DSN_NEXT" ./deploy/dist/dx migrate up
 
   echo "[compat] Dumping next schema..."
+  # Strip the "Dumped by pg_dump version ..." comment line — it varies by the
+  # pg_dump binary used and produces a noise diff every time a different
+  # developer ships from a different host. (IS-783)
   docker exec zdx-compat-next \
     pg_dump -U "$PG_USER" -d "$PG_DB" --schema-only --no-owner --no-privileges \
     --exclude-table=schema_migrations \
-    | grep -v '^\\' > "$NEXT_SQL"
+    | grep -v '^\\' \
+    | grep -v '^-- Dumped by pg_dump version' > "$NEXT_SQL"
 
   echo "[compat] Running tests against NEXT schema..."
   if ! DATABASE_URL="$DSN_NEXT" go test $(go list ./... | grep -v /test/e2e) -count=1 -timeout 60s 2>&1; then
