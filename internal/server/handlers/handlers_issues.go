@@ -457,6 +457,12 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 						return nil, apiErr(400, "impl issues require at least one resolution before closing; use 'dx issue resolve' first")
 					}
 				}
+				if gErr == nil && issue.IssueType != "tracker" && issue.IssueType != "ops" {
+					subCount, _ := h.Q.CountSubstantiveIssueWork(ctx, issueID)
+					if subCount == 0 {
+						return nil, apiErr(422, "cannot close "+issueID+" — work-log has no substantive entries. Add one with: dx journal add --issue="+issueID+" --note=\"...\" (or close with --reason=wontfix/duplicate/link if not done)")
+					}
+				}
 			}
 			prevStatus := "open"
 			if issue, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); gErr == nil {

@@ -22,6 +22,8 @@ func TestTechAddRejectsClosedIssue(t *testing.T) {
 	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/add",
 		map[string]any{"slug": slug, "title": "to be closed", "auto_ready": true}, &iss))
+	mustOK(t, apiDo(t, http.MethodPost, "/api/issue-work",
+		map[string]any{"issue_id": iss.ID, "by_role": "test", "note": "ready to close"}, nil))
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/close",
 		map[string]any{"slug": slug, "id": iss.ID, "reason": "done"}, nil))
 	closedID := fmt.Sprintf("IS-%d", iss.ID)

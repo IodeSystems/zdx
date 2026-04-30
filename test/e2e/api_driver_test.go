@@ -49,6 +49,10 @@ func (d *ApiDriver) TriageIssueWithBranch(id, priority int32, branch string) {
 
 func (d *ApiDriver) CloseIssue(id int32) {
 	d.t.Helper()
+	// Satisfy the work-log close gate (IS-629): every close-with-reason=done
+	// requires at least one substantive (non-bracketed) work-log entry.
+	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/issue-work",
+		map[string]any{"issue_id": id, "by_role": "test", "note": "test close"}, nil))
 	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/todo/issue/close",
 		map[string]any{"slug": d.Slug, "id": id, "reason": "done"}, nil))
 }

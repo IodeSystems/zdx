@@ -87,6 +87,9 @@ INSERT INTO zdx_issue_work (issue_id, agent, note) VALUES ($1, $2, $3);
 -- name: GetIssueWork :many
 SELECT id, issue_id, agent, note, created_at FROM zdx_issue_work WHERE issue_id = $1 ORDER BY created_at;
 
+-- name: CountSubstantiveIssueWork :one
+SELECT COUNT(*) FROM zdx_issue_work WHERE issue_id = $1 AND note NOT LIKE '[%';
+
 -- name: ListWorklogForProject :many
 SELECT w.id, w.issue_id, i.title AS issue_title, w.agent, w.note, w.created_at
 FROM zdx_issue_work w

@@ -69,6 +69,7 @@ type Querier interface {
 	// didn't apply any durable mutation — those release without marking resolved.
 	CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error)
 	CountStaleOpenClaudeSessions(ctx context.Context, arg CountStaleOpenClaudeSessionsParams) (int64, error)
+	CountSubstantiveIssueWork(ctx context.Context, issueID string) (int64, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
 	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)

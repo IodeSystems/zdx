@@ -74,6 +74,9 @@ func TestDemoAPI_SoloApplyUpsertsAndResolvesStale(t *testing.T) {
 	}
 
 	// Step 4: Close issue 2 — evaluator will no longer generate its candidates.
+	mustOK(t, rec.Do(http.MethodPost, "/api/issue-work", map[string]any{
+		"issue_id": issueID2, "by_role": "test", "note": "ready to close",
+	}, nil))
 	mustOK(t, rec.Do(http.MethodPost, "/api/dx/todo/issue/close", map[string]any{
 		"slug": slug, "id": issueID2, "reason": "done",
 	}, nil))

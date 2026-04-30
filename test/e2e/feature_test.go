@@ -192,6 +192,8 @@ func TestSpecDeferralRejectsClosedIssue(t *testing.T) {
 	}
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/add",
 		map[string]any{"slug": slug, "title": "soon closed issue", "auto_ready": true}, &issResp))
+	mustOK(t, apiDo(t, http.MethodPost, "/api/issue-work",
+		map[string]any{"issue_id": issResp.ID, "by_role": "test", "note": "ready to close"}, nil))
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/issue/close",
 		map[string]any{"slug": slug, "id": issResp.ID, "reason": "done"}, nil))
 	closedID := fmt.Sprintf("IS-%d", issResp.ID)

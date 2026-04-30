@@ -71,6 +71,9 @@ func TestDemoAPI_StandupSpecDelta(t *testing.T) {
 		mustOK(t, rec.Do(http.MethodPost, "/api/dx/specs/link-issue", map[string]any{
 			"spec_id": specByDesc[specDesc], "issue_id": issueID,
 		}, nil))
+		mustOK(t, rec.Do(http.MethodPost, "/api/issue-work", map[string]any{
+			"issue_id": iss.ID, "by_role": "test", "note": "ready to close",
+		}, nil))
 		mustOK(t, rec.Do(http.MethodPost, "/api/dx/todo/issue/close", map[string]any{
 			"slug": slug, "id": iss.ID, "reason": "done",
 		}, nil))

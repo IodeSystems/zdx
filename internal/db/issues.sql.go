@@ -102,6 +102,17 @@ func (q *Queries) CountOpenIssuesByTitle(ctx context.Context, arg CountOpenIssue
 	return count, err
 }
 
+const countSubstantiveIssueWork = `-- name: CountSubstantiveIssueWork :one
+SELECT COUNT(*) FROM zdx_issue_work WHERE issue_id = $1 AND note NOT LIKE '[%'
+`
+
+func (q *Queries) CountSubstantiveIssueWork(ctx context.Context, issueID string) (int64, error) {
+	row := q.db.QueryRow(ctx, countSubstantiveIssueWork, issueID)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)

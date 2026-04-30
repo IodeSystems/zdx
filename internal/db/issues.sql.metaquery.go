@@ -73,6 +73,31 @@ var CountOpenIssuesByTitleCols = struct {
 	Count: metaquery.NewIntCol("count"),
 }
 
+var MetaCountSubstantiveIssueWork = metaquery.Query{
+	Name:   "CountSubstantiveIssueWork",
+	Cmd:    ":one",
+	Source: "issues.sql",
+	SQL:    `SELECT COUNT(*) FROM zdx_issue_work WHERE issue_id = $1 AND note NOT LIKE '[%'`,
+	Columns: []metaquery.Column{
+		{Name: "count", OriginalName: "count", GoType: "int64"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapCountSubstantiveIssueWork returns a metaquery.Builder over MetaCountSubstantiveIssueWork, pre-bound with typed arguments.
+func WrapCountSubstantiveIssueWork(issueID string) *metaquery.Builder {
+	return metaquery.Wrap(&MetaCountSubstantiveIssueWork, issueID)
+}
+
+// CountSubstantiveIssueWorkCols gives typed, name-safe access to CountSubstantiveIssueWork's output columns.
+var CountSubstantiveIssueWorkCols = struct {
+	Count metaquery.IntCol
+}{
+	Count: metaquery.NewIntCol("count"),
+}
+
 var MetaCreateIssue = metaquery.Query{
 	Name:   "CreateIssue",
 	Cmd:    ":one",
