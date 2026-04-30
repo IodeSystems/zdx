@@ -47,6 +47,24 @@ func Version(dsn string) (uint, bool, error) {
 	return m.Version()
 }
 
+// MigrateTo applies migrations up or down to reach the given target version.
+// Returns nil if already at the target version.
+func MigrateTo(dsn string, version uint) error {
+	src, err := iofs.New(migrationsFS, "sql")
+	if err != nil {
+		return fmt.Errorf("migration source: %w", err)
+	}
+	m, err := migrate.NewWithSourceInstance("iofs", src, dsn)
+	if err != nil {
+		return fmt.Errorf("migrate init: %w", err)
+	}
+	defer m.Close()
+	if err := m.Migrate(version); err != nil && !errors.Is(err, migrate.ErrNoChange) {
+		return fmt.Errorf("migrate to %d: %w", version, err)
+	}
+	return nil
+}
+
 // AssertCurrent returns an error if the database schema is behind the
 // embedded migrations. Used by dx-server in production — ops must run
 // "dx migrate up" before the rolling deploy starts the new binary.
