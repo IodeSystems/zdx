@@ -33,18 +33,19 @@ var MetaCloseIssue = metaquery.Query{
 	Name:   "CloseIssue",
 	Cmd:    ":exec",
 	Source: "issues.sql",
-	SQL:    `UPDATE zdx_issues SET status = 'closed', duplicate_of = $1, link_of = $2, closed_at = NOW(), updated_at = NOW() WHERE project_id = $3 AND id = $4`,
+	SQL:    `UPDATE zdx_issues SET status = 'closed', duplicate_of = $1, link_of = $2, close_reason = $3, closed_at = NOW(), updated_at = NOW() WHERE project_id = $4 AND id = $5`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "duplicate_of", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 2, Name: "link_of", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 3, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 4, Name: "id", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "close_reason", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 4, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 5, Name: "id", GoType: "string", DBType: "text", NotNull: true},
 	},
 }
 
 // WrapCloseIssue returns a metaquery.Builder over MetaCloseIssue, pre-bound with typed arguments.
 func WrapCloseIssue(arg CloseIssueParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCloseIssue, arg.DuplicateOf, arg.LinkOf, arg.ProjectID, arg.ID)
+	return metaquery.Wrap(&MetaCloseIssue, arg.DuplicateOf, arg.LinkOf, arg.CloseReason, arg.ProjectID, arg.ID)
 }
 
 var MetaCountOpenIssuesByTitle = metaquery.Query{
@@ -104,7 +105,7 @@ var MetaCreateIssue = metaquery.Query{
 	Source: "issues.sql",
 	SQL: `INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch`,
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
@@ -124,6 +125,7 @@ RETURNING id, project_id, title, status, priority, component, context, created_a
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
 		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "string", DBType: "text", NotNull: true},
@@ -165,6 +167,7 @@ var CreateIssueCols = struct {
 	ClosedAt        metaquery.TimeCol
 	InteractiveOnly metaquery.BoolCol
 	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -184,13 +187,14 @@ var CreateIssueCols = struct {
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
 }
 
 var MetaGetIssue = metaquery.Query{
 	Name:   "GetIssue",
 	Cmd:    ":one",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 AND id = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -211,6 +215,7 @@ FROM zdx_issues WHERE project_id = $1 AND id = $2`,
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
 		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -243,6 +248,7 @@ var GetIssueCols = struct {
 	ClosedAt        metaquery.TimeCol
 	InteractiveOnly metaquery.BoolCol
 	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -262,13 +268,14 @@ var GetIssueCols = struct {
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
 }
 
 var MetaGetIssueByAnyProject = metaquery.Query{
 	Name:   "GetIssueByAnyProject",
 	Cmd:    ":one",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -289,6 +296,7 @@ FROM zdx_issues WHERE id = $1`,
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
 		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "string", DBType: "text", NotNull: true},
@@ -320,6 +328,7 @@ var GetIssueByAnyProjectCols = struct {
 	ClosedAt        metaquery.TimeCol
 	InteractiveOnly metaquery.BoolCol
 	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -339,13 +348,14 @@ var GetIssueByAnyProjectCols = struct {
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
 }
 
 var MetaGetIssueBySourceErrorID = metaquery.Query{
 	Name:   "GetIssueBySourceErrorID",
 	Cmd:    ":one",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
 LIMIT 1`,
 	Columns: []metaquery.Column{
@@ -367,6 +377,7 @@ LIMIT 1`,
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
 		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -399,6 +410,7 @@ var GetIssueBySourceErrorIDCols = struct {
 	ClosedAt        metaquery.TimeCol
 	InteractiveOnly metaquery.BoolCol
 	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -418,6 +430,7 @@ var GetIssueBySourceErrorIDCols = struct {
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
 }
 
 var MetaGetIssueWork = metaquery.Query{
@@ -515,7 +528,7 @@ var MetaListIssues = metaquery.Query{
 	Name:   "ListIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -536,6 +549,7 @@ FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC`,
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
 		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -567,6 +581,7 @@ var ListIssuesCols = struct {
 	ClosedAt        metaquery.TimeCol
 	InteractiveOnly metaquery.BoolCol
 	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -586,13 +601,14 @@ var ListIssuesCols = struct {
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
 }
 
 var MetaListOpenIssues = metaquery.Query{
 	Name:   "ListOpenIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
@@ -613,6 +629,7 @@ FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DE
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
 		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -644,6 +661,7 @@ var ListOpenIssuesCols = struct {
 	ClosedAt        metaquery.TimeCol
 	InteractiveOnly metaquery.BoolCol
 	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -663,13 +681,14 @@ var ListOpenIssuesCols = struct {
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
 }
 
 var MetaListOpenLinkedIssues = metaquery.Query{
 	Name:   "ListOpenLinkedIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues
 WHERE project_id = $1
   AND status = 'open'
@@ -693,6 +712,7 @@ WHERE project_id = $1
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
 		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -725,6 +745,7 @@ var ListOpenLinkedIssuesCols = struct {
 	ClosedAt        metaquery.TimeCol
 	InteractiveOnly metaquery.BoolCol
 	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -744,6 +765,7 @@ var ListOpenLinkedIssuesCols = struct {
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
 }
 
 var MetaListWorklogForProject = metaquery.Query{
@@ -877,7 +899,7 @@ var MetaSearchIssues = metaquery.Query{
 	Name:   "SearchIssues",
 	Cmd:    ":many",
 	Source: "issues.sql",
-	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -901,6 +923,7 @@ ORDER BY updated_at DESC`,
 		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
 		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -933,6 +956,7 @@ var SearchIssuesCols = struct {
 	ClosedAt        metaquery.TimeCol
 	InteractiveOnly metaquery.BoolCol
 	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
 }{
 	ID:              metaquery.NewTextCol("id"),
 	ProjectID:       metaquery.NewIntCol("project_id"),
@@ -952,6 +976,7 @@ var SearchIssuesCols = struct {
 	ClosedAt:        metaquery.NewTimeCol("closed_at"),
 	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
 	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
 }
 
 var MetaSetIssueField = metaquery.Query{

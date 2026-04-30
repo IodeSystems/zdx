@@ -27,12 +27,13 @@ func (q *Queries) AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams
 }
 
 const closeIssue = `-- name: CloseIssue :exec
-UPDATE zdx_issues SET status = 'closed', duplicate_of = $1, link_of = $2, closed_at = NOW(), updated_at = NOW() WHERE project_id = $3 AND id = $4
+UPDATE zdx_issues SET status = 'closed', duplicate_of = $1, link_of = $2, close_reason = $3, closed_at = NOW(), updated_at = NOW() WHERE project_id = $4 AND id = $5
 `
 
 type CloseIssueParams struct {
 	DuplicateOf string `db:"duplicate_of" json:"duplicate_of"`
 	LinkOf      string `db:"link_of" json:"link_of"`
+	CloseReason string `db:"close_reason" json:"close_reason"`
 	ProjectID   int32  `db:"project_id" json:"project_id"`
 	ID          string `db:"id" json:"id"`
 }
@@ -41,6 +42,7 @@ func (q *Queries) CloseIssue(ctx context.Context, arg CloseIssueParams) error {
 	_, err := q.db.Exec(ctx, closeIssue,
 		arg.DuplicateOf,
 		arg.LinkOf,
+		arg.CloseReason,
 		arg.ProjectID,
 		arg.ID,
 	)
@@ -116,7 +118,7 @@ func (q *Queries) CountSubstantiveIssueWork(ctx context.Context, issueID string)
 const createIssue = `-- name: CreateIssue :one
 INSERT INTO zdx_issues (id, project_id, title, context, priority, component, issue_type, status, url, source_error_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
-RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+RETURNING id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 `
 
 type CreateIssueParams struct {
@@ -165,12 +167,13 @@ func (q *Queries) CreateIssue(ctx context.Context, arg CreateIssueParams) (ZdxIs
 		&i.ClosedAt,
 		&i.InteractiveOnly,
 		&i.TargetBranch,
+		&i.CloseReason,
 	)
 	return i, err
 }
 
 const getIssue = `-- name: GetIssue :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 AND id = $2
 `
 
@@ -201,12 +204,13 @@ func (q *Queries) GetIssue(ctx context.Context, arg GetIssueParams) (ZdxIssue, e
 		&i.ClosedAt,
 		&i.InteractiveOnly,
 		&i.TargetBranch,
+		&i.CloseReason,
 	)
 	return i, err
 }
 
 const getIssueByAnyProject = `-- name: GetIssueByAnyProject :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE id = $1
 `
 
@@ -232,12 +236,13 @@ func (q *Queries) GetIssueByAnyProject(ctx context.Context, id string) (ZdxIssue
 		&i.ClosedAt,
 		&i.InteractiveOnly,
 		&i.TargetBranch,
+		&i.CloseReason,
 	)
 	return i, err
 }
 
 const getIssueBySourceErrorID = `-- name: GetIssueBySourceErrorID :one
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 AND source_error_id = $2
 LIMIT 1
 `
@@ -269,6 +274,7 @@ func (q *Queries) GetIssueBySourceErrorID(ctx context.Context, arg GetIssueBySou
 		&i.ClosedAt,
 		&i.InteractiveOnly,
 		&i.TargetBranch,
+		&i.CloseReason,
 	)
 	return i, err
 }
@@ -360,7 +366,7 @@ func (q *Queries) ListForceClosedNoSubstance(ctx context.Context, projectID int3
 }
 
 const listIssues = `-- name: ListIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC
 `
 
@@ -392,6 +398,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 			&i.ClosedAt,
 			&i.InteractiveOnly,
 			&i.TargetBranch,
+			&i.CloseReason,
 		); err != nil {
 			return nil, err
 		}
@@ -404,7 +411,7 @@ func (q *Queries) ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, 
 }
 
 const listOpenIssues = `-- name: ListOpenIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC
 `
 
@@ -436,6 +443,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 			&i.ClosedAt,
 			&i.InteractiveOnly,
 			&i.TargetBranch,
+			&i.CloseReason,
 		); err != nil {
 			return nil, err
 		}
@@ -448,7 +456,7 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 }
 
 const listOpenLinkedIssues = `-- name: ListOpenLinkedIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues
 WHERE project_id = $1
   AND status = 'open'
@@ -490,6 +498,7 @@ func (q *Queries) ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIs
 			&i.ClosedAt,
 			&i.InteractiveOnly,
 			&i.TargetBranch,
+			&i.CloseReason,
 		); err != nil {
 			return nil, err
 		}
@@ -667,7 +676,7 @@ func (q *Queries) ReopenIssue(ctx context.Context, arg ReopenIssueParams) error 
 }
 
 const searchIssues = `-- name: SearchIssues :many
-SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason
 FROM zdx_issues
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR context ILIKE '%' || $2::text || '%')
@@ -707,6 +716,7 @@ func (q *Queries) SearchIssues(ctx context.Context, arg SearchIssuesParams) ([]Z
 			&i.ClosedAt,
 			&i.InteractiveOnly,
 			&i.TargetBranch,
+			&i.CloseReason,
 		); err != nil {
 			return nil, err
 		}

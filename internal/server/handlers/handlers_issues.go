@@ -395,6 +395,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				Slug        string  `json:"slug"`
 				ID          int32   `json:"id"`
 				Reason      *string `json:"reason,omitempty"`
+				Force       *bool   `json:"force,omitempty"`
 				Notes       *string `json:"notes,omitempty"`
 				DuplicateOf *string `json:"duplicate_of,omitempty"`
 				LinkOf      *string `json:"link_of,omitempty"`
@@ -406,8 +407,16 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}
 			issueID := issueIDFromInt(in.Body.ID)
 			reason := ptrStr(in.Body.Reason)
+			force := in.Body.Force != nil && *in.Body.Force
 			duplicateOf := ptrStr(in.Body.DuplicateOf)
 			linkOf := ptrStr(in.Body.LinkOf)
+			forceReasons := map[string]bool{"duplicate": true, "wontfix": true, "superseded": true}
+			if forceReasons[reason] && !force {
+				return nil, apiErr(400, "closing with --reason="+reason+" requires --force")
+			}
+			if force && !forceReasons[reason] {
+				return nil, apiErr(400, "--force requires --reason=duplicate|wontfix|superseded")
+			}
 			if reason == "duplicate" && duplicateOf == "" {
 				return nil, apiErr(400, "duplicate_of is required when reason is duplicate")
 			}
@@ -423,7 +432,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 					agent = u.Email
 				}
 			}
-			if reason == "done" || reason == "" {
+			if !force && (reason == "done" || reason == "") {
 				// Close-gate: refuse while open tasks (wip/ready/active) remain.
 				openTasks, _ := h.Q.ListOpenTasksByIssue(ctx, db.ListOpenTasksByIssueParams{
 					Issue:     issueID,
@@ -468,7 +477,11 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if issue, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); gErr == nil {
 				prevStatus = issue.Status
 			}
-			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf, LinkOf: linkOf}); err != nil {
+			closeReason := ""
+			if force {
+				closeReason = reason
+			}
+			if err := h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: issueID, DuplicateOf: duplicateOf, LinkOf: linkOf, CloseReason: closeReason}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			h.recordRevision(ctx, p.ID, "issue", issueID, "status", prevStatus, "closed")
@@ -511,7 +524,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				linked, lErr := h.Q.ListOpenLinkedIssues(ctx, db.ListOpenLinkedIssuesParams{ProjectID: p.ID, TargetID: issueID})
 				if lErr == nil {
 					for _, li := range linked {
-						_ = h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: li.ID, DuplicateOf: li.DuplicateOf, LinkOf: li.LinkOf})
+						_ = h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: li.ID, DuplicateOf: li.DuplicateOf, LinkOf: li.LinkOf, CloseReason: ""})
 						h.recordRevision(ctx, p.ID, "issue", li.ID, "status", "open", "closed")
 						cascadeNote := "[closed:cascade] target " + issueID + " closed"
 						_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: li.ID, Agent: agent, Note: cascadeNote})
@@ -541,7 +554,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 						if !allClosed {
 							continue
 						}
-						_ = h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: parentID})
+						_ = h.Q.CloseIssue(ctx, db.CloseIssueParams{ProjectID: p.ID, ID: parentID, CloseReason: ""})
 						h.recordRevision(ctx, p.ID, "issue", parentID, "status", "open", "closed")
 						trackerNote := "[closed:tracker-cascade] all children closed; last was " + issueID
 						_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{IssueID: parentID, Agent: agent, Note: trackerNote})
@@ -1385,6 +1398,7 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		IssueType:       r.IssueType,
 		DuplicateOf:     r.DuplicateOf,
 		LinkOf:          r.LinkOf,
+		CloseReason:     r.CloseReason,
 		ReopenCount:     r.ReopenCount,
 		InteractiveOnly: r.InteractiveOnly,
 		TargetBranch:    r.TargetBranch,

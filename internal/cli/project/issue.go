@@ -77,6 +77,9 @@ func issueListCmd() *cobra.Command {
 						s += " [unresolved]"
 					}
 				}
+				if iss.CloseReason != nil && *iss.CloseReason != "" {
+					s += " [force:" + *iss.CloseReason + "]"
+				}
 				fmt.Printf("%-8s %-30s %s\n", clitypes.IssueIDStr(iss.Id), s, iss.Title)
 			}
 			return nil
@@ -302,6 +305,7 @@ func issueShowCmd() *cobra.Command {
 
 func issueCloseCmd() *cobra.Command {
 	var reason string
+	var force bool
 	var duplicateOf string
 	var linkOf string
 	cmd := &cobra.Command{
@@ -309,6 +313,13 @@ func issueCloseCmd() *cobra.Command {
 		Short: "Close an issue",
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
+			forceReasons := map[string]bool{"duplicate": true, "wontfix": true, "superseded": true}
+			if forceReasons[reason] && !force {
+				return fmt.Errorf("closing with --reason=%s requires --force", reason)
+			}
+			if force && !forceReasons[reason] {
+				return fmt.Errorf("--force requires --reason=duplicate|wontfix|superseded")
+			}
 			if reason == "duplicate" && duplicateOf == "" {
 				return fmt.Errorf("--duplicate-of is required when --reason=duplicate")
 			}
@@ -323,10 +334,9 @@ func issueCloseCmd() *cobra.Command {
 			c := cli.MustClient()
 
 			// Test gate: run targeted tests before closing as "done".
-			// Skip for non-work reasons (duplicate/link/wontfix) and for
+			// Skip for force-close reasons (bypass gate) and for
 			// tracker/ops issues that don't have code-level tests.
-			skipReasons := map[string]bool{"duplicate": true, "link": true, "wontfix": true}
-			if !skipReasons[reason] {
+			if !force && reason != "link" {
 				showResp, err := c.ShowIssueWithResponse(cmd.Context(), &dxclient.ShowIssueParams{Slug: c.SlugOrDie(), Id: id})
 				if err == nil && showResp.JSON200 != nil {
 					issueType := showResp.JSON200.Issue.IssueType
@@ -353,6 +363,9 @@ func issueCloseCmd() *cobra.Command {
 			if reason != "" {
 				body.Reason = &reason
 			}
+			if force {
+				body.Force = &force
+			}
 			if duplicateOf != "" {
 				body.DuplicateOf = &duplicateOf
 			}
@@ -370,7 +383,8 @@ func issueCloseCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&reason, "reason", "", "close reason (done|duplicate|link|...)")
+	cmd.Flags().StringVar(&reason, "reason", "", "close reason (done|duplicate|link|wontfix|superseded)")
+	cmd.Flags().BoolVar(&force, "force", false, "bypass close gate (required with --reason=duplicate|wontfix|superseded)")
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
 	cmd.Flags().StringVar(&linkOf, "link-of", "", "issue ID this is a narrow-slice link of (required when --reason=link; cascade-closes with target, no reopen-cascade)")
 	return cmd

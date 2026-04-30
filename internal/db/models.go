@@ -372,6 +372,7 @@ type ZdxIssue struct {
 	ClosedAt        pgtype.Timestamptz `db:"closed_at" json:"closed_at"`
 	InteractiveOnly bool               `db:"interactive_only" json:"interactive_only"`
 	TargetBranch    string             `db:"target_branch" json:"target_branch"`
+	CloseReason     string             `db:"close_reason" json:"close_reason"`
 }
 
 type ZdxIssueBlock struct {

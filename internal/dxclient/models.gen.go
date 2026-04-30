@@ -649,6 +649,7 @@ type CloseIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema      *string `json:"$schema,omitempty"`
 	DuplicateOf *string `json:"duplicate_of,omitempty"`
+	Force       *bool   `json:"force,omitempty"`
 	Id          int32   `json:"id"`
 	LinkOf      *string `json:"link_of,omitempty"`
 	Notes       *string `json:"notes,omitempty"`
@@ -1671,6 +1672,7 @@ type IssueIntIDInput struct {
 type IssueItem struct {
 	BlockedBy       *[]string          `json:"blocked_by"`
 	BlockedByDetail *[]IssueBlockerRef `json:"blocked_by_detail"`
+	CloseReason     *string            `json:"close_reason,omitempty"`
 	Component       string             `json:"component"`
 	Context         string             `json:"context"`
 	CreatedAt       string             `json:"created_at"`
