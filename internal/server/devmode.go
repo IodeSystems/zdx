@@ -63,8 +63,8 @@ func (s *Server) devCheckUIClient(projectRoot string, specBytes []byte, sum stri
 	tmp.Close()
 
 	start := time.Now()
-	cmd := exec.Command("npx", "openapi-typescript", tmp.Name(), "-o", outFile)
-	cmd.Dir = projectRoot
+	cmd := exec.Command("pnpm", "exec", "openapi-typescript", tmp.Name(), "-o", outFile)
+	cmd.Dir = filepath.Join(projectRoot, "ui")
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	if err := cmd.Run(); err != nil {

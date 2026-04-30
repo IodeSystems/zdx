@@ -94,11 +94,11 @@ func runGenAPI(root string) error {
 		outFile := filepath.Join(root, "ui", "src", "api.gen.ts")
 		fmt.Println("● gen-api: running openapi-typescript ...")
 		start := time.Now()
-		npx := exec.Command("npx", "openapi-typescript", tmp.Name(), "-o", outFile)
-		npx.Dir = root
-		npx.Stdout = os.Stdout
-		npx.Stderr = os.Stderr
-		if err := npx.Run(); err != nil {
+		gen := exec.Command("pnpm", "exec", "openapi-typescript", tmp.Name(), "-o", outFile)
+		gen.Dir = filepath.Join(root, "ui")
+		gen.Stdout = os.Stdout
+		gen.Stderr = os.Stderr
+		if err := gen.Run(); err != nil {
 			return fmt.Errorf("openapi-typescript: %w", err)
 		}
 		if err := os.WriteFile(uiHashFile, []byte(sum), 0644); err != nil {

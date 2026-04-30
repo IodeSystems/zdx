@@ -19,6 +19,18 @@ Server requires `DATABASE_URL` env var pointing to PostgreSQL 16+ with pgvector.
 - `internal/dxclient/models.gen.go` — oapi-codegen from `internal/dxclient/openapi.json`. Contains both model types AND typed `APIClient` with methods for every endpoint. Regenerate: `make gen-dxclient`. New CLI code should use `dxclient.APIClient` methods, not raw `c.Get("/api/...")` calls.
 - `ui/src/api.gen.ts` — openapi-typescript from server's `/openapi.json`. Dev dx-server hashes the spec on startup and regenerates when it changes (no tsc; run `bin/lint` to type-check). Prod builds skip the regen. New UI code should use the generated openapi-fetch client, not raw `apiFetch`/`apiPost`.
 
+### Codegen Toolchain — Verified Versions
+
+The merge-train requires bit-identical codegen output across workers. All three generators are pinned; do not bump without re-running the double-regen idempotency audit (TK-1416).
+
+| Tool                | Version | Pinned in                                              | Install / invoke                                                         |
+|---------------------|---------|--------------------------------------------------------|--------------------------------------------------------------------------|
+| sqlc                | v1.30.0 | (developer-installed)                                  | `go install github.com/sqlc-dev/sqlc/cmd/sqlc@v1.30.0`                   |
+| oapi-codegen        | v2.6.0  | `internal/dxclient/gen/gen.go` (via `go run …@v2.6.0`) | No manual install — `make gen-dxclient` resolves & caches via `go run`. |
+| openapi-typescript  | 7.13.0  | `ui/package.json` (exact, no caret) + pnpm lockfile    | `cd ui && pnpm install --frozen-lockfile`; invoked via `pnpm exec`.      |
+
+Avoid `npx` for openapi-typescript — it can fall through to the npm registry and resolve a different version than the lockfile. Always use `pnpm exec` from the `ui/` directory.
+
 ## Database Workflow
 
 1. Add migration in `internal/migrate/sql/` (NNN_name.up.sql + NNN_name.down.sql)
