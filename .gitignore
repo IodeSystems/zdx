@@ -2,6 +2,7 @@ home/*.secret.properties
 deploy/
 bin/dx
 bin/dx-server
+bin/dx-agent
 bin/dx-bin
 bin/db
 /dx
