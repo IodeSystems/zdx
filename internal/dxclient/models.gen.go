@@ -2253,6 +2253,13 @@ type ListMaturityQuestionsResponse struct {
 	Questions *[]MaturityQuestion `json:"questions"`
 }
 
+// ListMustSpecDemoGateOffendersResponse defines model for List-must-spec-demo-gate-offendersResponse.
+type ListMustSpecDemoGateOffendersResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string                  `json:"$schema,omitempty"`
+	Offenders *[]SpecCloseGateOffender `json:"offenders"`
+}
+
 // ListMyApiKeysResponse defines model for List-my-api-keysResponse.
 type ListMyApiKeysResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4992,6 +4999,12 @@ type IssueListBlockersParams struct {
 	Id   string `form:"id" json:"id"`
 }
 
+// ListMustSpecDemoGateOffendersParams defines parameters for ListMustSpecDemoGateOffenders.
+type ListMustSpecDemoGateOffendersParams struct {
+	Slug string `form:"slug" json:"slug"`
+	Id   string `form:"id" json:"id"`
+}
+
 // ListIssuesParams defines parameters for ListIssues.
 type ListIssuesParams struct {
 	Slug      string  `form:"slug" json:"slug"`
@@ -6737,6 +6750,9 @@ type ClientInterface interface {
 	CloseIssueWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CloseIssue(ctx context.Context, body CloseIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListMustSpecDemoGateOffenders request
+	ListMustSpecDemoGateOffenders(ctx context.Context, params *ListMustSpecDemoGateOffendersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// EditIssueWithBody request with any body
 	EditIssueWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -11668,6 +11684,18 @@ func (c *APIClient) CloseIssueWithBody(ctx context.Context, contentType string, 
 
 func (c *APIClient) CloseIssue(ctx context.Context, body CloseIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCloseIssueRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListMustSpecDemoGateOffenders(ctx context.Context, params *ListMustSpecDemoGateOffendersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMustSpecDemoGateOffendersRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -26428,6 +26456,63 @@ func NewCloseIssueRequestWithBody(server string, contentType string, body io.Rea
 	return req, nil
 }
 
+// NewListMustSpecDemoGateOffendersRequest generates requests for ListMustSpecDemoGateOffenders
+func NewListMustSpecDemoGateOffendersRequest(server string, params *ListMustSpecDemoGateOffendersParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/todo/issue/demo-gate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "id", params.Id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewEditIssueRequest calls the generic EditIssue builder with application/json body
 func NewEditIssueRequest(server string, body EditIssueJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -30529,6 +30614,9 @@ type ClientWithResponsesInterface interface {
 	CloseIssueWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CloseIssueResponse, error)
 
 	CloseIssueWithResponse(ctx context.Context, body CloseIssueJSONRequestBody, reqEditors ...RequestEditorFn) (*CloseIssueResponse, error)
+
+	// ListMustSpecDemoGateOffendersWithResponse request
+	ListMustSpecDemoGateOffendersWithResponse(ctx context.Context, params *ListMustSpecDemoGateOffendersParams, reqEditors ...RequestEditorFn) (*ParsedListMustSpecDemoGateOffendersResponse, error)
 
 	// EditIssueWithBodyWithResponse request with any body
 	EditIssueWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*EditIssueResponse, error)
@@ -36804,6 +36892,29 @@ func (r CloseIssueResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListMustSpecDemoGateOffendersResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListMustSpecDemoGateOffendersResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListMustSpecDemoGateOffendersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListMustSpecDemoGateOffendersResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type EditIssueResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -41582,6 +41693,15 @@ func (c *ClientWithResponses) CloseIssueWithResponse(ctx context.Context, body C
 		return nil, err
 	}
 	return ParseCloseIssueResponse(rsp)
+}
+
+// ListMustSpecDemoGateOffendersWithResponse request returning *ParsedListMustSpecDemoGateOffendersResponse
+func (c *ClientWithResponses) ListMustSpecDemoGateOffendersWithResponse(ctx context.Context, params *ListMustSpecDemoGateOffendersParams, reqEditors ...RequestEditorFn) (*ParsedListMustSpecDemoGateOffendersResponse, error) {
+	rsp, err := c.ListMustSpecDemoGateOffenders(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListMustSpecDemoGateOffendersResponse(rsp)
 }
 
 // EditIssueWithBodyWithResponse request with arbitrary body returning *EditIssueResponse
@@ -50982,6 +51102,39 @@ func ParseCloseIssueResponse(rsp *http.Response) (*CloseIssueResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListMustSpecDemoGateOffendersResponse parses an HTTP response from a ListMustSpecDemoGateOffendersWithResponse call
+func ParseParsedListMustSpecDemoGateOffendersResponse(rsp *http.Response) (*ParsedListMustSpecDemoGateOffendersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListMustSpecDemoGateOffendersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListMustSpecDemoGateOffendersResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

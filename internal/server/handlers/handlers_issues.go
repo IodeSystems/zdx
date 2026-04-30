@@ -590,6 +590,44 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}{Offenders: offenders}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-must-spec-demo-gate-offenders", Method: http.MethodGet, Path: "/api/dx/todo/issue/demo-gate"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   string `query:"id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Offenders []SpecCloseGateOffender `json:"offenders"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListMustSpecDemoGateOffenders(ctx, db.ListMustSpecDemoGateOffendersParams{
+				ProjectID: p.ID,
+				IssueID:   in.ID,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			offenders := make([]SpecCloseGateOffender, len(rows))
+			for i, r := range rows {
+				offenders[i] = SpecCloseGateOffender{
+					SpecID:      r.SpecID,
+					Description: r.Description,
+					Feature:     r.FeatureName,
+					Reason:      "no-demo",
+				}
+			}
+			return &struct {
+				Body struct {
+					Offenders []SpecCloseGateOffender `json:"offenders"`
+				}
+			}{Body: struct {
+				Offenders []SpecCloseGateOffender `json:"offenders"`
+			}{Offenders: offenders}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "reopen-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/reopen"},
 		func(ctx context.Context, in *struct {
 			Body IssueIntIDInput

@@ -333,6 +333,9 @@ func issueCloseCmd() *cobra.Command {
 						if err := runSpecCoverageGate(cmd, c, id); err != nil {
 							return err
 						}
+						if err := runMustSpecDemoGate(cmd, c, id); err != nil {
+							return err
+						}
 						if err := runIssueTestGate(cmd, c, id); err != nil {
 							return err
 						}
@@ -394,6 +397,35 @@ func runSpecCoverageGate(cmd *cobra.Command, c *cli.Client, issueID string) erro
 	}
 	b.WriteString("Options:\n")
 	b.WriteString("  - Write/fix the tests, then retry close\n")
+	b.WriteString("  - Defer the spec against a blocking issue (dx spec defer <spec-id> --blocked-by=IS-X)\n")
+	b.WriteString("  - Close for a different reason: --reason=wontfix, --reason=duplicate")
+	return fmt.Errorf("%s", b.String())
+}
+
+// runMustSpecDemoGate blocks close-as-done when any must-spec on a linked
+// feature is not deferred and lacks a passing demo (a passing test with
+// component=demo or an attached zdx_test_demos artifact). Demos are the
+// user-visible counterpart to the spec-coverage gate's tests.
+func runMustSpecDemoGate(cmd *cobra.Command, c *cli.Client, issueID string) error {
+	resp, err := c.ListMustSpecDemoGateOffendersWithResponse(cmd.Context(), &dxclient.ListMustSpecDemoGateOffendersParams{
+		Slug: c.SlugOrDie(),
+		Id:   issueID,
+	})
+	if err != nil || resp.JSON200 == nil || resp.JSON200.Offenders == nil {
+		fmt.Fprintf(os.Stderr, "[warn] could not fetch demo coverage for %s — skipping demo gate\n", issueID)
+		return nil
+	}
+	offenders := *resp.JSON200.Offenders
+	if len(offenders) == 0 {
+		return nil
+	}
+	var b strings.Builder
+	fmt.Fprintf(&b, "cannot close %s as done — these must-specs have no passing demo:\n", issueID)
+	for _, o := range offenders {
+		fmt.Fprintf(&b, "  Spec %d (feature %q): %s\n", o.SpecId, o.Feature, o.Description)
+	}
+	b.WriteString("Options:\n")
+	b.WriteString("  - Record a passing demo: dx test demo <spec-id>\n")
 	b.WriteString("  - Defer the spec against a blocking issue (dx spec defer <spec-id> --blocked-by=IS-X)\n")
 	b.WriteString("  - Close for a different reason: --reason=wontfix, --reason=duplicate")
 	return fmt.Errorf("%s", b.String())

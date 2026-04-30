@@ -3830,6 +3830,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/todo/issue/demo-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-must-spec-demo-gate-offenders"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/todo/issue/edit": {
         parameters: {
             query?: never;
@@ -7507,6 +7523,15 @@ export interface components {
              */
             readonly $schema?: string;
             questions: components["schemas"]["MaturityQuestion"][] | null;
+        };
+        "List-must-spec-demo-gate-offendersResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-must-spec-demo-gate-offendersResponse.json
+             */
+            readonly $schema?: string;
+            offenders: components["schemas"]["SpecCloseGateOffender"][] | null;
         };
         "List-my-api-keysResponse": {
             /**
@@ -18560,6 +18585,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-must-spec-demo-gate-offenders": {
+        parameters: {
+            query: {
+                slug: string;
+                id: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-must-spec-demo-gate-offendersResponse"];
                 };
             };
             /** @description Error */

@@ -195,6 +195,61 @@ var ListDeferredSpecsWithFeatureForProjectCols = struct {
 	Importance:  metaquery.NewTextCol("importance"),
 }
 
+var MetaListMustSpecDemoGateOffenders = metaquery.Query{
+	Name:   "ListMustSpecDemoGateOffenders",
+	Cmd:    ":many",
+	Source: "spec_deferrals.sql",
+	SQL: `SELECT s.id AS spec_id, s.description, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = $1
+  AND s.importance = 'must'
+  AND EXISTS (
+    SELECT 1 FROM zdx_tasks t
+    WHERE t.project_id = $1 AND t.issue = $2 AND t.feature = f.name
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_deferrals sd
+    JOIN zdx_issues i ON i.id = sd.issue_id
+    WHERE sd.spec_id = s.id AND i.status = 'open'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_tests st
+    JOIN zdx_tests tt ON tt.id = st.test_id
+    WHERE st.spec_id = s.id
+      AND tt.status = 'pass'
+      AND (tt.component = 'demo' OR EXISTS (
+        SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id
+      ))
+  )
+ORDER BY f.name, s.id`,
+	Columns: []metaquery.Column{
+		{Name: "spec_id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "feature_name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_features"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListMustSpecDemoGateOffenders returns a metaquery.Builder over MetaListMustSpecDemoGateOffenders, pre-bound with typed arguments.
+func WrapListMustSpecDemoGateOffenders(arg ListMustSpecDemoGateOffendersParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListMustSpecDemoGateOffenders, arg.ProjectID, arg.IssueID)
+}
+
+// ListMustSpecDemoGateOffendersCols gives typed, name-safe access to ListMustSpecDemoGateOffenders's output columns.
+var ListMustSpecDemoGateOffendersCols = struct {
+	SpecID      metaquery.IntCol
+	Description metaquery.TextCol
+	FeatureName metaquery.TextCol
+}{
+	SpecID:      metaquery.NewIntCol("id"),
+	Description: metaquery.NewTextCol("description"),
+	FeatureName: metaquery.NewTextCol("name"),
+}
+
 var MetaListSpecDeferrals = metaquery.Query{
 	Name:   "ListSpecDeferrals",
 	Cmd:    ":many",
