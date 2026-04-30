@@ -58,6 +58,8 @@ make test                     # Go tests
 ./bin/lint                    # gofmt, govet, sqlcvet, tsc, eslint, knip, sqlc-drift, openapi-drift
 ```
 
+Workers run `bin/lint --intent` (skips drift checks); the merge train runs `bin/lint` (full).
+
 Advisory (non-blocking): `raw-api-calls` reports CLI/UI callsites not yet migrated to typed clients.
 
 ## SDLC Model

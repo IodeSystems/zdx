@@ -3,6 +3,12 @@
 set -euo pipefail
 cd "$(dirname "$0")/.."
 
+SKIP_DRIFT=
+if [ "${1:-}" = "--intent" ]; then
+  SKIP_DRIFT=1
+  shift
+fi
+
 FAIL=0
 PIDS=()
 LABELS=()
@@ -53,37 +59,39 @@ run "eslint" bash -c 'cd ui && pnpm run lint'
 
 run "knip" bash -c 'cd ui && pnpm run lint:knip'
 
-run "sqlc-drift" bash -c '
-  SQLC=$(command -v sqlc || echo "$HOME/go/bin/sqlc")
-  TMPDIR=$(mktemp -d)
-  trap "rm -rf $TMPDIR" EXIT
-  cp sqlc.yaml "$TMPDIR/sqlc.yaml"
-  ln -s "$(pwd)/schema" "$TMPDIR/schema"
-  ln -s "$(pwd)/queries" "$TMPDIR/queries"
-  sed -i "s|out: \"internal/db\"|out: \"db\"|" "$TMPDIR/sqlc.yaml"
-  "$SQLC" generate -f "$TMPDIR/sqlc.yaml"
-  if ! diff -rq --exclude=queries.go internal/db "$TMPDIR/db" >/dev/null 2>&1; then
-    echo "sqlc drift detected — committed internal/db/ does not match generated output."
-    echo "Run: bin/db gen (or sqlc generate)"
-    diff -r --exclude=queries.go internal/db "$TMPDIR/db" || true
-    exit 1
-  fi
-'
+if [ -z "${SKIP_DRIFT:-}" ]; then
+  run "sqlc-drift" bash -c '
+    SQLC=$(command -v sqlc || echo "$HOME/go/bin/sqlc")
+    TMPDIR=$(mktemp -d)
+    trap "rm -rf $TMPDIR" EXIT
+    cp sqlc.yaml "$TMPDIR/sqlc.yaml"
+    ln -s "$(pwd)/schema" "$TMPDIR/schema"
+    ln -s "$(pwd)/queries" "$TMPDIR/queries"
+    sed -i "s|out: \"internal/db\"|out: \"db\"|" "$TMPDIR/sqlc.yaml"
+    "$SQLC" generate -f "$TMPDIR/sqlc.yaml"
+    if ! diff -rq --exclude=queries.go internal/db "$TMPDIR/db" >/dev/null 2>&1; then
+      echo "sqlc drift detected — committed internal/db/ does not match generated output."
+      echo "Run: bin/db gen (or sqlc generate)"
+      diff -r --exclude=queries.go internal/db "$TMPDIR/db" || true
+      exit 1
+    fi
+  '
 
-run "openapi-drift" go run ./cmd/dx-client-gen -check
+  run "openapi-drift" go run ./cmd/dx-client-gen -check
 
-run "ui-api-drift" bash -c '
-  GO_HASH=internal/dxclient/openapi.json.sha256
-  UI_HASH=ui/src/api.gen.ts.sha256
-  if [ ! -f "$GO_HASH" ] || [ ! -f "$UI_HASH" ]; then
-    exit 0
-  fi
-  if [ "$(cat "$GO_HASH")" != "$(cat "$UI_HASH")" ]; then
-    echo "ui/src/api.gen.ts is stale — spec hash does not match internal/dxclient/openapi.json."
-    echo "Run: ./bin/dx ui gen-api"
-    exit 1
-  fi
-'
+  run "ui-api-drift" bash -c '
+    GO_HASH=internal/dxclient/openapi.json.sha256
+    UI_HASH=ui/src/api.gen.ts.sha256
+    if [ ! -f "$GO_HASH" ] || [ ! -f "$UI_HASH" ]; then
+      exit 0
+    fi
+    if [ "$(cat "$GO_HASH")" != "$(cat "$UI_HASH")" ]; then
+      echo "ui/src/api.gen.ts is stale — spec hash does not match internal/dxclient/openapi.json."
+      echo "Run: ./bin/dx ui gen-api"
+      exit 1
+    fi
+  '
+fi
 
 # ── Advisory checks (reported but don't fail the build) ──────────────────────
 
