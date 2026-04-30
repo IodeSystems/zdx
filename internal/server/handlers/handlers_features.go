@@ -258,7 +258,12 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				Field   string `json:"field"`
 				Value   string `json:"value"`
 			}
-		}) (*struct{ Body OKBody }, error) {
+		}) (*struct {
+			Body struct {
+				OK     bool  `json:"ok"`
+				SpecID int32 `json:"spec_id"`
+			}
+		}, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
@@ -277,7 +282,15 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			go h.Emb.UpsertSpec(context.Background(), p.ID, spec.ID, specEmbedText(f.Name, spec.Description, spec.Importance))
-			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+			return &struct {
+				Body struct {
+					OK     bool  `json:"ok"`
+					SpecID int32 `json:"spec_id"`
+				}
+			}{Body: struct {
+				OK     bool  `json:"ok"`
+				SpecID int32 `json:"spec_id"`
+			}{OK: true, SpecID: spec.ID}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "link-spec-test", Method: http.MethodPost, Path: "/api/dx/specs/link-test"},

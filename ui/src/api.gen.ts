@@ -1046,22 +1046,6 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
-    "/api/dx/comment/mark-read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["mark-comments-read"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
     "/api/dx/comment/mine": {
         parameters: {
             query?: never;
@@ -1070,54 +1054,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list-my-comments"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/comment/react": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["react-to-comment"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/comment/stale-unread": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["comment-stale-unread"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/comment/unread-check": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["comment-unread-check"];
         put?: never;
         post?: never;
         delete?: never;
@@ -2014,54 +1950,6 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list-maturity-questions"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/notifications/dismiss-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get?: never;
-        put?: never;
-        post: operations["notifications-dismiss-all"];
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/notifications/unread-count": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["notifications-unread-count"];
-        put?: never;
-        post?: never;
-        delete?: never;
-        options?: never;
-        head?: never;
-        patch?: never;
-        trace?: never;
-    };
-    "/api/dx/notifications/unread-threads": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        get: operations["notifications-unread-threads"];
         put?: never;
         post?: never;
         delete?: never;
@@ -5552,24 +5440,6 @@ export interface components {
             line_start: number;
             note: string;
         };
-        "Comment-stale-unreadResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Comment-stale-unreadResponse.json
-             */
-            readonly $schema?: string;
-            comments: components["schemas"]["StaleCommentItem"][] | null;
-        };
-        "Comment-unread-checkResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Comment-unread-checkResponse.json
-             */
-            readonly $schema?: string;
-            has_unread: boolean;
-        };
         CommentItem: {
             /**
              * Format: uri
@@ -7831,13 +7701,6 @@ export interface components {
             readonly $schema?: string;
             clients: components["schemas"]["ClientItem"][] | null;
         };
-        ListUnreadResponseThreadsForUserRow: {
-            last_unread_at: unknown;
-            target_id: string;
-            target_type: string;
-            /** Format: int32 */
-            unread_count: number;
-        };
         LogEventGroupedItem: {
             /** Format: int32 */
             entry_count: number;
@@ -7855,18 +7718,6 @@ export interface components {
             level: string;
             message: string;
             source: string;
-        };
-        "Mark-comments-readRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Mark-comments-readRequest.json
-             */
-            readonly $schema?: string;
-            role: string;
-            slug: string;
-            target_id: string;
-            target_type: string;
         };
         "Mark-feature-reviewedRequest": {
             /**
@@ -7996,34 +7847,6 @@ export interface components {
             slug: string;
             /** Format: int32 */
             spec_id: number;
-        };
-        "Notifications-dismiss-allRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Notifications-dismiss-allRequest.json
-             */
-            readonly $schema?: string;
-            slug: string;
-        };
-        "Notifications-unread-countResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Notifications-unread-countResponse.json
-             */
-            readonly $schema?: string;
-            /** Format: int32 */
-            count: number;
-        };
-        "Notifications-unread-threadsResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/Notifications-unread-threadsResponse.json
-             */
-            readonly $schema?: string;
-            threads: components["schemas"]["ListUnreadResponseThreadsForUserRow"][] | null;
         };
         OKBody: {
             /**
@@ -8232,29 +8055,6 @@ export interface components {
             status: string;
             title: string;
             updated_at: string;
-        };
-        "React-to-commentRequest": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/React-to-commentRequest.json
-             */
-            readonly $schema?: string;
-            /** Format: int32 */
-            comment_id: number;
-            emoji: string;
-            slug: string;
-        };
-        "React-to-commentResponse": {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/React-to-commentResponse.json
-             */
-            readonly $schema?: string;
-            emoji: string;
-            /** Format: int32 */
-            id: number;
         };
         "Ready-issueRequest": {
             /**
@@ -9317,18 +9117,6 @@ export interface components {
             layer: string;
             name: string;
             status: string;
-        };
-        StaleCommentItem: {
-            author: string;
-            author_alias?: string;
-            body: string;
-            created_at: string;
-            /** Format: int32 */
-            id: number;
-            /** Format: int32 */
-            parent_id?: number;
-            target_id: string;
-            target_type: string;
         };
         "Start-taskRequest": {
             /**
@@ -12394,39 +12182,6 @@ export interface operations {
             };
         };
     };
-    "mark-comments-read": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Mark-comments-readRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
     "list-my-comments": {
         parameters: {
             query: {
@@ -12449,106 +12204,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-my-commentsResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "react-to-comment": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["React-to-commentRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["React-to-commentResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "comment-stale-unread": {
-        parameters: {
-            query: {
-                slug: string;
-                role: string;
-                age_hours?: number;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Comment-stale-unreadResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "comment-unread-check": {
-        parameters: {
-            query: {
-                slug: string;
-                target_type: string;
-                target_id: string;
-                role: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Comment-unread-checkResponse"];
                 };
             };
             /** @description Error */
@@ -14553,101 +14208,6 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-maturity-questionsResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "notifications-dismiss-all": {
-        parameters: {
-            query?: never;
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody: {
-            content: {
-                "application/json": components["schemas"]["Notifications-dismiss-allRequest"];
-            };
-        };
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["OKBody"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "notifications-unread-count": {
-        parameters: {
-            query: {
-                slug: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Notifications-unread-countResponse"];
-                };
-            };
-            /** @description Error */
-            default: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/problem+json": components["schemas"]["ErrorModel"];
-                };
-            };
-        };
-    };
-    "notifications-unread-threads": {
-        parameters: {
-            query: {
-                slug: string;
-            };
-            header?: never;
-            path?: never;
-            cookie?: never;
-        };
-        requestBody?: never;
-        responses: {
-            /** @description OK */
-            200: {
-                headers: {
-                    [name: string]: unknown;
-                };
-                content: {
-                    "application/json": components["schemas"]["Notifications-unread-threadsResponse"];
                 };
             };
             /** @description Error */

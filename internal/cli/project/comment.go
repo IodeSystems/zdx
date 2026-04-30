@@ -24,7 +24,7 @@ func resolveAuthorAlias(flag string) string {
 
 func CommentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "comment", Short: "Comment on issues, tasks, and features"}
-	cmd.AddCommand(commentListCmd(), commentAddCmd(), commentMarkReadCmd(), commentReplyCmd(), commentReactCmd())
+	cmd.AddCommand(commentListCmd(), commentAddCmd(), commentReplyCmd())
 	return cmd
 }
 
@@ -101,80 +101,8 @@ func commentAddCmd() *cobra.Command {
 	return cmd
 }
 
-func commentMarkReadCmd() *cobra.Command {
-	var role string
-	cmd := &cobra.Command{
-		Use:   "mark-read <target-type> <target-id> | mark-read C-1,C-2,...",
-		Short: "Mark comments as read — by target or by comment IDs",
-		Args:  cobra.MinimumNArgs(1),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := cli.MustClient()
-
-			// Check if first arg looks like C-N (batch by comment IDs)
-			if strings.HasPrefix(args[0], "C-") {
-				ids := strings.Split(args[0], ",")
-				for _, raw := range ids {
-					for _, id := range strings.Split(raw, ",") {
-						id = strings.TrimSpace(id)
-						cid, err := parseCommentID(id)
-						if err != nil {
-							return err
-						}
-						getResp, err := c.GetCommentWithResponse(cmd.Context(), &dxclient.GetCommentParams{Id: cid})
-						if err != nil {
-							return fmt.Errorf("C-%d: %w", cid, err)
-						}
-						if err := c.CheckStatus(getResp.StatusCode(), getResp.Body); err != nil {
-							return fmt.Errorf("C-%d: %w", cid, err)
-						}
-						if getResp.JSON200 == nil {
-							return fmt.Errorf("C-%d: not found", cid)
-						}
-						markResp, err := c.MarkCommentsReadWithResponse(cmd.Context(), dxclient.MarkCommentsReadRequest{
-							Slug:       c.SlugOrDie(),
-							TargetType: getResp.JSON200.TargetType,
-							TargetId:   getResp.JSON200.TargetId,
-							Role:       role,
-						})
-						if err != nil {
-							return fmt.Errorf("C-%d: %w", cid, err)
-						}
-						if err := c.CheckStatus(markResp.StatusCode(), markResp.Body); err != nil {
-							return fmt.Errorf("C-%d: %w", cid, err)
-						}
-						fmt.Printf("C-%d marked read\n", cid)
-					}
-				}
-				return nil
-			}
-
-			// Legacy: mark-read <target-type> <target-id>
-			if len(args) < 2 {
-				return fmt.Errorf("usage: mark-read <target-type> <target-id> or mark-read C-1,C-2,...")
-			}
-			resp, err := c.MarkCommentsReadWithResponse(cmd.Context(), dxclient.MarkCommentsReadRequest{
-				Slug:       c.SlugOrDie(),
-				TargetType: args[0],
-				TargetId:   args[1],
-				Role:       role,
-			})
-			if err != nil {
-				return err
-			}
-			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
-				return err
-			}
-			fmt.Printf("marked read\n")
-			return nil
-		},
-	}
-	cmd.Flags().StringVar(&role, "role", "", "reader role: dev, owner, or llm (llm is what solo tracks for [respond:stale])")
-	cmd.MarkFlagRequired("role")
-	return cmd
-}
-
 func commentReplyCmd() *cobra.Command {
-	var body, react, authorAlias string
+	var body, authorAlias string
 	cmd := &cobra.Command{
 		Use:   "reply <C-N>",
 		Short: "Reply to a comment by ID (e.g. comment reply C-123 --body '...')",
@@ -222,59 +150,14 @@ func commentReplyCmd() *cobra.Command {
 				fmt.Printf("C-%d added (reply to C-%d)\n", addResp.JSON200.Id, cid)
 			}
 
-			if react != "" {
-				rResp, err := c.ReactToCommentWithResponse(cmd.Context(), dxclient.ReactToCommentRequest{
-					Slug:      c.SlugOrDie(),
-					CommentId: cid,
-					Emoji:     react,
-				})
-				if err != nil {
-					return err
-				}
-				if err := c.CheckStatus(rResp.StatusCode(), rResp.Body); err != nil {
-					return err
-				}
-				fmt.Printf("reacted %s to C-%d\n", react, cid)
-			}
-
-			if body == "" && react == "" {
-				return fmt.Errorf("provide --body and/or --react")
+			if body == "" {
+				return fmt.Errorf("provide --body")
 			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&body, "body", "", "reply body")
-	cmd.Flags().StringVar(&react, "react", "", "reaction emoji (e.g. thumbs-up, +1)")
 	cmd.Flags().StringVar(&authorAlias, "as", "", "author alias (e.g. claude); falls back to $DX_AUTHOR_ALIAS")
-	return cmd
-}
-
-func commentReactCmd() *cobra.Command {
-	cmd := &cobra.Command{
-		Use:   "react <C-N> <emoji>",
-		Short: "React to a comment (e.g. comment react C-123 thumbs-up)",
-		Args:  cobra.ExactArgs(2),
-		RunE: func(cmd *cobra.Command, args []string) error {
-			c := cli.MustClient()
-			cid, err := parseCommentID(args[0])
-			if err != nil {
-				return err
-			}
-			resp, err := c.ReactToCommentWithResponse(cmd.Context(), dxclient.ReactToCommentRequest{
-				Slug:      c.SlugOrDie(),
-				CommentId: cid,
-				Emoji:     args[1],
-			})
-			if err != nil {
-				return err
-			}
-			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
-				return err
-			}
-			fmt.Printf("reacted %s to C-%d\n", args[1], cid)
-			return nil
-		},
-	}
 	return cmd
 }
 

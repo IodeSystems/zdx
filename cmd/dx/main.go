@@ -34,6 +34,7 @@ func main() {
 		project.FocusCmd(),
 		project.ThemeCmd(), // legacy alias
 		project.SpecCmd(),
+		project.ConcernCmd(),
 		project.PlanCmd(),
 		project.MaturityCmd(),
 		project.DoctorCmd(),

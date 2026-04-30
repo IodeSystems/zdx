@@ -131,6 +131,17 @@ func featureShowCmd() *cobra.Command {
 				return fmt.Errorf("feature not found: %s", args[0])
 			}
 			cli.PrintFeatureItem(cli.FeatureToCli(*found))
+			cResp, err := c.ListConcernsForFeatureWithResponse(cmd.Context(), &dxclient.ListConcernsForFeatureParams{
+				Slug:    c.SlugOrDie(),
+				Feature: found.Name,
+			})
+			if err == nil && cResp.StatusCode() == 200 && cResp.JSON200 != nil && cResp.JSON200.Concerns != nil && len(*cResp.JSON200.Concerns) > 0 {
+				names := make([]string, len(*cResp.JSON200.Concerns))
+				for i, cn := range *cResp.JSON200.Concerns {
+					names[i] = cn.Name
+				}
+				fmt.Printf("Concerns:  %s\n", strings.Join(names, ", "))
+			}
 			return nil
 		},
 	}

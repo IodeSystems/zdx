@@ -669,20 +669,6 @@ type CodeRefItem struct {
 	Note      string  `json:"note"`
 }
 
-// CommentStaleUnreadResponse defines model for Comment-stale-unreadResponse.
-type CommentStaleUnreadResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema   *string             `json:"$schema,omitempty"`
-	Comments *[]StaleCommentItem `json:"comments"`
-}
-
-// CommentUnreadCheckResponse defines model for Comment-unread-checkResponse.
-type CommentUnreadCheckResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema    *string `json:"$schema,omitempty"`
-	HasUnread bool    `json:"has_unread"`
-}
-
 // CommentItem defines model for CommentItem.
 type CommentItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -696,6 +682,16 @@ type CommentItem struct {
 	TargetId    string  `json:"target_id"`
 	TargetType  string  `json:"target_type"`
 	Unread      *bool   `json:"unread,omitempty"`
+}
+
+// ConcernItem defines model for ConcernItem.
+type ConcernItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+	Description string  `json:"description"`
+	Id          int32   `json:"id"`
+	Name        string  `json:"name"`
 }
 
 // ConstraintItem defines model for ConstraintItem.
@@ -802,6 +798,15 @@ type CreateAgentSessionResponse struct {
 	Created   bool    `json:"created"`
 	Id        int64   `json:"id"`
 	SessionId string  `json:"session_id"`
+}
+
+// CreateConcernRequest defines model for Create-concernRequest.
+type CreateConcernRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	Description string  `json:"description"`
+	Name        string  `json:"name"`
+	Slug        string  `json:"slug"`
 }
 
 // CreateConstraintRequest defines model for Create-constraintRequest.
@@ -1798,6 +1803,18 @@ type LLMConfigBody struct {
 	Url            string  `json:"url"`
 }
 
+// LinkConcernRequest defines model for Link-concernRequest.
+type LinkConcernRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	ConcernName string  `json:"concern_name"`
+	Feature     *string `json:"feature,omitempty"`
+	Issue       *string `json:"issue,omitempty"`
+	PatternId   *int32  `json:"pattern_id,omitempty"`
+	Slug        string  `json:"slug"`
+	SpecId      *int32  `json:"spec_id,omitempty"`
+}
+
 // LinkSpecIssueRequest defines model for Link-spec-issueRequest.
 type LinkSpecIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1921,6 +1938,27 @@ type ListCommentsResponse struct {
 	Schema   *string        `json:"$schema,omitempty"`
 	Comments *[]CommentItem `json:"comments"`
 	Total    int64          `json:"total"`
+}
+
+// ListConcernsForFeatureResponse defines model for List-concerns-for-featureResponse.
+type ListConcernsForFeatureResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string        `json:"$schema,omitempty"`
+	Concerns *[]ConcernItem `json:"concerns"`
+}
+
+// ListConcernsForSpecResponse defines model for List-concerns-for-specResponse.
+type ListConcernsForSpecResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string        `json:"$schema,omitempty"`
+	Concerns *[]ConcernItem `json:"concerns"`
+}
+
+// ListConcernsResponse defines model for List-concernsResponse.
+type ListConcernsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string        `json:"$schema,omitempty"`
+	Concerns *[]ConcernItem `json:"concerns"`
 }
 
 // ListConstraintsResponse defines model for List-constraintsResponse.
@@ -2486,14 +2524,6 @@ type ListWsClientsResponse struct {
 	Clients *[]ClientItem `json:"clients"`
 }
 
-// ListUnreadResponseThreadsForUserRow defines model for ListUnreadResponseThreadsForUserRow.
-type ListUnreadResponseThreadsForUserRow struct {
-	LastUnreadAt interface{} `json:"last_unread_at"`
-	TargetId     string      `json:"target_id"`
-	TargetType   string      `json:"target_type"`
-	UnreadCount  int32       `json:"unread_count"`
-}
-
 // LogEventGroupedItem defines model for LogEventGroupedItem.
 type LogEventGroupedItem struct {
 	EntryCount int32  `json:"entry_count"`
@@ -2512,16 +2542,6 @@ type LogEventItem struct {
 	Level       string      `json:"level"`
 	Message     string      `json:"message"`
 	Source      string      `json:"source"`
-}
-
-// MarkCommentsReadRequest defines model for Mark-comments-readRequest.
-type MarkCommentsReadRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema     *string `json:"$schema,omitempty"`
-	Role       string  `json:"role"`
-	Slug       string  `json:"slug"`
-	TargetId   string  `json:"target_id"`
-	TargetType string  `json:"target_type"`
 }
 
 // MarkFeatureReviewedRequest defines model for Mark-feature-reviewedRequest.
@@ -2626,27 +2646,6 @@ type MoveSpecRequest struct {
 	Feature string  `json:"feature"`
 	Slug    string  `json:"slug"`
 	SpecId  int32   `json:"spec_id"`
-}
-
-// NotificationsDismissAllRequest defines model for Notifications-dismiss-allRequest.
-type NotificationsDismissAllRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Slug   string  `json:"slug"`
-}
-
-// NotificationsUnreadCountResponse defines model for Notifications-unread-countResponse.
-type NotificationsUnreadCountResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Count  int32   `json:"count"`
-}
-
-// NotificationsUnreadThreadsResponse defines model for Notifications-unread-threadsResponse.
-type NotificationsUnreadThreadsResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema  *string                                `json:"$schema,omitempty"`
-	Threads *[]ListUnreadResponseThreadsForUserRow `json:"threads"`
 }
 
 // OKBody defines model for OKBody.
@@ -2815,23 +2814,6 @@ type QuestionProposalItem struct {
 	Status         string  `json:"status"`
 	Title          string  `json:"title"`
 	UpdatedAt      string  `json:"updated_at"`
-}
-
-// ReactToCommentRequest defines model for React-to-commentRequest.
-type ReactToCommentRequest struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema    *string `json:"$schema,omitempty"`
-	CommentId int32   `json:"comment_id"`
-	Emoji     string  `json:"emoji"`
-	Slug      string  `json:"slug"`
-}
-
-// ReactToCommentResponse defines model for React-to-commentResponse.
-type ReactToCommentResponse struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Emoji  string  `json:"emoji"`
-	Id     int32   `json:"id"`
 }
 
 // ReadyIssueRequest defines model for Ready-issueRequest.
@@ -3719,18 +3701,6 @@ type SpecTestItem struct {
 	Status    string `json:"status"`
 }
 
-// StaleCommentItem defines model for StaleCommentItem.
-type StaleCommentItem struct {
-	Author      string  `json:"author"`
-	AuthorAlias *string `json:"author_alias,omitempty"`
-	Body        string  `json:"body"`
-	CreatedAt   string  `json:"created_at"`
-	Id          int32   `json:"id"`
-	ParentId    *int32  `json:"parent_id,omitempty"`
-	TargetId    string  `json:"target_id"`
-	TargetType  string  `json:"target_type"`
-}
-
 // StartTaskRequest defines model for Start-taskRequest.
 type StartTaskRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4042,6 +4012,18 @@ type UncoveredSpecItem struct {
 	Importance  string `json:"importance"`
 }
 
+// UnlinkConcernRequest defines model for Unlink-concernRequest.
+type UnlinkConcernRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	ConcernName string  `json:"concern_name"`
+	Feature     *string `json:"feature,omitempty"`
+	Issue       *string `json:"issue,omitempty"`
+	PatternId   *int32  `json:"pattern_id,omitempty"`
+	Slug        string  `json:"slug"`
+	SpecId      *int32  `json:"spec_id,omitempty"`
+}
+
 // UnlinkSpecIssueRequest defines model for Unlink-spec-issueRequest.
 type UnlinkSpecIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4192,6 +4174,14 @@ type UpdateSpecsRequest struct {
 	Field   string  `json:"field"`
 	Slug    string  `json:"slug"`
 	Value   string  `json:"value"`
+}
+
+// UpdateSpecsResponse defines model for Update-specsResponse.
+type UpdateSpecsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Ok     bool    `json:"ok"`
+	SpecId int32   `json:"spec_id"`
 }
 
 // UpdateTaskStatusRequest defines model for Update-task-statusRequest.
@@ -4456,19 +4446,26 @@ type ListMyCommentsParams struct {
 	Search *string `form:"search,omitempty" json:"search,omitempty"`
 }
 
-// CommentStaleUnreadParams defines parameters for CommentStaleUnread.
-type CommentStaleUnreadParams struct {
-	Slug     string `form:"slug" json:"slug"`
-	Role     string `form:"role" json:"role"`
-	AgeHours *int32 `form:"age_hours,omitempty" json:"age_hours,omitempty"`
+// GetConcernParams defines parameters for GetConcern.
+type GetConcernParams struct {
+	Slug string `form:"slug" json:"slug"`
+	Name string `form:"name" json:"name"`
 }
 
-// CommentUnreadCheckParams defines parameters for CommentUnreadCheck.
-type CommentUnreadCheckParams struct {
-	Slug       string `form:"slug" json:"slug"`
-	TargetType string `form:"target_type" json:"target_type"`
-	TargetId   string `form:"target_id" json:"target_id"`
-	Role       string `form:"role" json:"role"`
+// ListConcernsParams defines parameters for ListConcerns.
+type ListConcernsParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
+// ListConcernsForFeatureParams defines parameters for ListConcernsForFeature.
+type ListConcernsForFeatureParams struct {
+	Slug    string `form:"slug" json:"slug"`
+	Feature string `form:"feature" json:"feature"`
+}
+
+// ListConcernsForSpecParams defines parameters for ListConcernsForSpec.
+type ListConcernsForSpecParams struct {
+	SpecId int32 `form:"spec_id" json:"spec_id"`
 }
 
 // ListCountedParams defines parameters for ListCounted.
@@ -4689,16 +4686,6 @@ type ListMaturityItemsParams struct {
 
 // ListMaturityQuestionsParams defines parameters for ListMaturityQuestions.
 type ListMaturityQuestionsParams struct {
-	Slug string `form:"slug" json:"slug"`
-}
-
-// NotificationsUnreadCountParams defines parameters for NotificationsUnreadCount.
-type NotificationsUnreadCountParams struct {
-	Slug string `form:"slug" json:"slug"`
-}
-
-// NotificationsUnreadThreadsParams defines parameters for NotificationsUnreadThreads.
-type NotificationsUnreadThreadsParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
@@ -5221,11 +5208,14 @@ type DetachCodeRefFromTestJSONRequestBody = DetachCodeRefFromTestRequest
 // AddCommentJSONRequestBody defines body for AddComment for application/json ContentType.
 type AddCommentJSONRequestBody = AddCommentRequest
 
-// MarkCommentsReadJSONRequestBody defines body for MarkCommentsRead for application/json ContentType.
-type MarkCommentsReadJSONRequestBody = MarkCommentsReadRequest
+// CreateConcernJSONRequestBody defines body for CreateConcern for application/json ContentType.
+type CreateConcernJSONRequestBody = CreateConcernRequest
 
-// ReactToCommentJSONRequestBody defines body for ReactToComment for application/json ContentType.
-type ReactToCommentJSONRequestBody = ReactToCommentRequest
+// UnlinkConcernJSONRequestBody defines body for UnlinkConcern for application/json ContentType.
+type UnlinkConcernJSONRequestBody = UnlinkConcernRequest
+
+// LinkConcernJSONRequestBody defines body for LinkConcern for application/json ContentType.
+type LinkConcernJSONRequestBody = LinkConcernRequest
 
 // CreateDiscussionJSONRequestBody defines body for CreateDiscussion for application/json ContentType.
 type CreateDiscussionJSONRequestBody = CreateDiscussionRequest
@@ -5304,9 +5294,6 @@ type SubmitMaturityAnswerJSONRequestBody = SubmitMaturityAnswerRequest
 
 // UpdateMaturityItemJSONRequestBody defines body for UpdateMaturityItem for application/json ContentType.
 type UpdateMaturityItemJSONRequestBody = UpdateMaturityItemRequest
-
-// NotificationsDismissAllJSONRequestBody defines body for NotificationsDismissAll for application/json ContentType.
-type NotificationsDismissAllJSONRequestBody = NotificationsDismissAllRequest
 
 // AddPatternJSONRequestBody defines body for AddPattern for application/json ContentType.
 type AddPatternJSONRequestBody = AddPatternRequest
@@ -5980,24 +5967,35 @@ type ClientInterface interface {
 	// ListComments request
 	ListComments(ctx context.Context, params *ListCommentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// MarkCommentsReadWithBody request with any body
-	MarkCommentsReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	MarkCommentsRead(ctx context.Context, body MarkCommentsReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
 	// ListMyComments request
 	ListMyComments(ctx context.Context, params *ListMyCommentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// ReactToCommentWithBody request with any body
-	ReactToCommentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// GetConcern request
+	GetConcern(ctx context.Context, params *GetConcernParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	ReactToComment(ctx context.Context, body ReactToCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// CreateConcernWithBody request with any body
+	CreateConcernWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CommentStaleUnread request
-	CommentStaleUnread(ctx context.Context, params *CommentStaleUnreadParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	CreateConcern(ctx context.Context, body CreateConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	// CommentUnreadCheck request
-	CommentUnreadCheck(ctx context.Context, params *CommentUnreadCheckParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+	// UnlinkConcernWithBody request with any body
+	UnlinkConcernWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UnlinkConcern(ctx context.Context, body UnlinkConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LinkConcernWithBody request with any body
+	LinkConcernWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	LinkConcern(ctx context.Context, body LinkConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListConcerns request
+	ListConcerns(ctx context.Context, params *ListConcernsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListConcernsForFeature request
+	ListConcernsForFeature(ctx context.Context, params *ListConcernsForFeatureParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListConcernsForSpec request
+	ListConcernsForSpec(ctx context.Context, params *ListConcernsForSpecParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListCounted request
 	ListCounted(ctx context.Context, params *ListCountedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6233,17 +6231,6 @@ type ClientInterface interface {
 
 	// ListMaturityQuestions request
 	ListMaturityQuestions(ctx context.Context, params *ListMaturityQuestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// NotificationsDismissAllWithBody request with any body
-	NotificationsDismissAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	NotificationsDismissAll(ctx context.Context, body NotificationsDismissAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// NotificationsUnreadCount request
-	NotificationsUnreadCount(ctx context.Context, params *NotificationsUnreadCountParams, reqEditors ...RequestEditorFn) (*http.Response, error)
-
-	// NotificationsUnreadThreads request
-	NotificationsUnreadThreads(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// OwnerSnapshot request
 	OwnerSnapshot(ctx context.Context, params *OwnerSnapshotParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8285,30 +8272,6 @@ func (c *APIClient) ListComments(ctx context.Context, params *ListCommentsParams
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) MarkCommentsReadWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewMarkCommentsReadRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) MarkCommentsRead(ctx context.Context, body MarkCommentsReadJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewMarkCommentsReadRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
 func (c *APIClient) ListMyComments(ctx context.Context, params *ListMyCommentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListMyCommentsRequest(c.Server, params)
 	if err != nil {
@@ -8321,8 +8284,8 @@ func (c *APIClient) ListMyComments(ctx context.Context, params *ListMyCommentsPa
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) ReactToCommentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReactToCommentRequestWithBody(c.Server, contentType, body)
+func (c *APIClient) GetConcern(ctx context.Context, params *GetConcernParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetConcernRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -8333,8 +8296,8 @@ func (c *APIClient) ReactToCommentWithBody(ctx context.Context, contentType stri
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) ReactToComment(ctx context.Context, body ReactToCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewReactToCommentRequest(c.Server, body)
+func (c *APIClient) CreateConcernWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateConcernRequestWithBody(c.Server, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -8345,8 +8308,8 @@ func (c *APIClient) ReactToComment(ctx context.Context, body ReactToCommentJSONR
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) CommentStaleUnread(ctx context.Context, params *CommentStaleUnreadParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCommentStaleUnreadRequest(c.Server, params)
+func (c *APIClient) CreateConcern(ctx context.Context, body CreateConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateConcernRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -8357,8 +8320,80 @@ func (c *APIClient) CommentStaleUnread(ctx context.Context, params *CommentStale
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) CommentUnreadCheck(ctx context.Context, params *CommentUnreadCheckParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewCommentUnreadCheckRequest(c.Server, params)
+func (c *APIClient) UnlinkConcernWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnlinkConcernRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UnlinkConcern(ctx context.Context, body UnlinkConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUnlinkConcernRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) LinkConcernWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLinkConcernRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) LinkConcern(ctx context.Context, body LinkConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLinkConcernRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListConcerns(ctx context.Context, params *ListConcernsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListConcernsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListConcernsForFeature(ctx context.Context, params *ListConcernsForFeatureParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListConcernsForFeatureRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListConcernsForSpec(ctx context.Context, params *ListConcernsForSpecParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListConcernsForSpecRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -9403,54 +9438,6 @@ func (c *APIClient) UpdateMaturityItem(ctx context.Context, id string, body Upda
 
 func (c *APIClient) ListMaturityQuestions(ctx context.Context, params *ListMaturityQuestionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListMaturityQuestionsRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) NotificationsDismissAllWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewNotificationsDismissAllRequestWithBody(c.Server, contentType, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) NotificationsDismissAll(ctx context.Context, body NotificationsDismissAllJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewNotificationsDismissAllRequest(c.Server, body)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) NotificationsUnreadCount(ctx context.Context, params *NotificationsUnreadCountParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewNotificationsUnreadCountRequest(c.Server, params)
-	if err != nil {
-		return nil, err
-	}
-	req = req.WithContext(ctx)
-	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
-		return nil, err
-	}
-	return c.Client.Do(req)
-}
-
-func (c *APIClient) NotificationsUnreadThreads(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewNotificationsUnreadThreadsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -16387,46 +16374,6 @@ func NewListCommentsRequest(server string, params *ListCommentsParams) (*http.Re
 	return req, nil
 }
 
-// NewMarkCommentsReadRequest calls the generic MarkCommentsRead builder with application/json body
-func NewMarkCommentsReadRequest(server string, body MarkCommentsReadJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewMarkCommentsReadRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewMarkCommentsReadRequestWithBody generates requests for MarkCommentsRead with any type of body
-func NewMarkCommentsReadRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/comment/mark-read")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
 // NewListMyCommentsRequest generates requests for ListMyComments
 func NewListMyCommentsRequest(server string, params *ListMyCommentsParams) (*http.Request, error) {
 	var err error
@@ -16536,19 +16483,8 @@ func NewListMyCommentsRequest(server string, params *ListMyCommentsParams) (*htt
 	return req, nil
 }
 
-// NewReactToCommentRequest calls the generic ReactToComment builder with application/json body
-func NewReactToCommentRequest(server string, body ReactToCommentJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewReactToCommentRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewReactToCommentRequestWithBody generates requests for ReactToComment with any type of body
-func NewReactToCommentRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+// NewGetConcernRequest generates requests for GetConcern
+func NewGetConcernRequest(server string, params *GetConcernParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -16556,7 +16492,75 @@ func NewReactToCommentRequestWithBody(server string, contentType string, body io
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/dx/comment/react")
+	operationPath := fmt.Sprintf("/api/dx/concern")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "name", params.Name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateConcernRequest calls the generic CreateConcern builder with application/json body
+func NewCreateConcernRequest(server string, body CreateConcernJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateConcernRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateConcernRequestWithBody generates requests for CreateConcern with any type of body
+func NewCreateConcernRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/concern")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -16576,8 +16580,19 @@ func NewReactToCommentRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
-// NewCommentStaleUnreadRequest generates requests for CommentStaleUnread
-func NewCommentStaleUnreadRequest(server string, params *CommentStaleUnreadParams) (*http.Request, error) {
+// NewUnlinkConcernRequest calls the generic UnlinkConcern builder with application/json body
+func NewUnlinkConcernRequest(server string, body UnlinkConcernJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUnlinkConcernRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewUnlinkConcernRequestWithBody generates requests for UnlinkConcern with any type of body
+func NewUnlinkConcernRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -16585,7 +16600,76 @@ func NewCommentStaleUnreadRequest(server string, params *CommentStaleUnreadParam
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/dx/comment/stale-unread")
+	operationPath := fmt.Sprintf("/api/dx/concern/link")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewLinkConcernRequest calls the generic LinkConcern builder with application/json body
+func NewLinkConcernRequest(server string, body LinkConcernJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLinkConcernRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewLinkConcernRequestWithBody generates requests for LinkConcern with any type of body
+func NewLinkConcernRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/concern/link")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListConcernsRequest generates requests for ListConcerns
+func NewListConcernsRequest(server string, params *ListConcernsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/concerns")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -16608,34 +16692,6 @@ func NewCommentStaleUnreadRequest(server string, params *CommentStaleUnreadParam
 					queryValues.Add(k, v2)
 				}
 			}
-		}
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "role", params.Role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		if params.AgeHours != nil {
-
-			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "age_hours", *params.AgeHours, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
-				return nil, err
-			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-				return nil, err
-			} else {
-				for k, v := range parsed {
-					for _, v2 := range v {
-						queryValues.Add(k, v2)
-					}
-				}
-			}
-
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
@@ -16649,8 +16705,8 @@ func NewCommentStaleUnreadRequest(server string, params *CommentStaleUnreadParam
 	return req, nil
 }
 
-// NewCommentUnreadCheckRequest generates requests for CommentUnreadCheck
-func NewCommentUnreadCheckRequest(server string, params *CommentUnreadCheckParams) (*http.Request, error) {
+// NewListConcernsForFeatureRequest generates requests for ListConcernsForFeature
+func NewListConcernsForFeatureRequest(server string, params *ListConcernsForFeatureParams) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -16658,7 +16714,7 @@ func NewCommentUnreadCheckRequest(server string, params *CommentUnreadCheckParam
 		return nil, err
 	}
 
-	operationPath := fmt.Sprintf("/api/dx/comment/unread-check")
+	operationPath := fmt.Sprintf("/api/dx/concerns/feature")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -16683,7 +16739,7 @@ func NewCommentUnreadCheckRequest(server string, params *CommentUnreadCheckParam
 			}
 		}
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "target_type", params.TargetType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "feature", params.Feature, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -16695,19 +16751,40 @@ func NewCommentUnreadCheckRequest(server string, params *CommentUnreadCheckParam
 			}
 		}
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "target_id", params.TargetId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
+		queryURL.RawQuery = queryValues.Encode()
+	}
 
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "role", params.Role, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListConcernsForSpecRequest generates requests for ListConcernsForSpec
+func NewListConcernsForSpecRequest(server string, params *ListConcernsForSpecParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/concerns/spec")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "spec_id", params.SpecId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -20222,136 +20299,6 @@ func NewListMaturityQuestionsRequest(server string, params *ListMaturityQuestion
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/maturity/questions")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewNotificationsDismissAllRequest calls the generic NotificationsDismissAll builder with application/json body
-func NewNotificationsDismissAllRequest(server string, body NotificationsDismissAllJSONRequestBody) (*http.Request, error) {
-	var bodyReader io.Reader
-	buf, err := json.Marshal(body)
-	if err != nil {
-		return nil, err
-	}
-	bodyReader = bytes.NewReader(buf)
-	return NewNotificationsDismissAllRequestWithBody(server, "application/json", bodyReader)
-}
-
-// NewNotificationsDismissAllRequestWithBody generates requests for NotificationsDismissAll with any type of body
-func NewNotificationsDismissAllRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/notifications/dismiss-all")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	req, err := http.NewRequest("POST", queryURL.String(), body)
-	if err != nil {
-		return nil, err
-	}
-
-	req.Header.Add("Content-Type", contentType)
-
-	return req, nil
-}
-
-// NewNotificationsUnreadCountRequest generates requests for NotificationsUnreadCount
-func NewNotificationsUnreadCountRequest(server string, params *NotificationsUnreadCountParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/notifications/unread-count")
-	if operationPath[0] == '/' {
-		operationPath = "." + operationPath
-	}
-
-	queryURL, err := serverURL.Parse(operationPath)
-	if err != nil {
-		return nil, err
-	}
-
-	if params != nil {
-		queryValues := queryURL.Query()
-
-		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
-			return nil, err
-		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
-			return nil, err
-		} else {
-			for k, v := range parsed {
-				for _, v2 := range v {
-					queryValues.Add(k, v2)
-				}
-			}
-		}
-
-		queryURL.RawQuery = queryValues.Encode()
-	}
-
-	req, err := http.NewRequest("GET", queryURL.String(), nil)
-	if err != nil {
-		return nil, err
-	}
-
-	return req, nil
-}
-
-// NewNotificationsUnreadThreadsRequest generates requests for NotificationsUnreadThreads
-func NewNotificationsUnreadThreadsRequest(server string, params *NotificationsUnreadThreadsParams) (*http.Request, error) {
-	var err error
-
-	serverURL, err := url.Parse(server)
-	if err != nil {
-		return nil, err
-	}
-
-	operationPath := fmt.Sprintf("/api/dx/notifications/unread-threads")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -29752,24 +29699,35 @@ type ClientWithResponsesInterface interface {
 	// ListCommentsWithResponse request
 	ListCommentsWithResponse(ctx context.Context, params *ListCommentsParams, reqEditors ...RequestEditorFn) (*ParsedListCommentsResponse, error)
 
-	// MarkCommentsReadWithBodyWithResponse request with any body
-	MarkCommentsReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkCommentsReadResponse, error)
-
-	MarkCommentsReadWithResponse(ctx context.Context, body MarkCommentsReadJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkCommentsReadResponse, error)
-
 	// ListMyCommentsWithResponse request
 	ListMyCommentsWithResponse(ctx context.Context, params *ListMyCommentsParams, reqEditors ...RequestEditorFn) (*ParsedListMyCommentsResponse, error)
 
-	// ReactToCommentWithBodyWithResponse request with any body
-	ReactToCommentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReactToCommentResponse, error)
+	// GetConcernWithResponse request
+	GetConcernWithResponse(ctx context.Context, params *GetConcernParams, reqEditors ...RequestEditorFn) (*GetConcernResponse, error)
 
-	ReactToCommentWithResponse(ctx context.Context, body ReactToCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReactToCommentResponse, error)
+	// CreateConcernWithBodyWithResponse request with any body
+	CreateConcernWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateConcernResponse, error)
 
-	// CommentStaleUnreadWithResponse request
-	CommentStaleUnreadWithResponse(ctx context.Context, params *CommentStaleUnreadParams, reqEditors ...RequestEditorFn) (*ParsedCommentStaleUnreadResponse, error)
+	CreateConcernWithResponse(ctx context.Context, body CreateConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateConcernResponse, error)
 
-	// CommentUnreadCheckWithResponse request
-	CommentUnreadCheckWithResponse(ctx context.Context, params *CommentUnreadCheckParams, reqEditors ...RequestEditorFn) (*ParsedCommentUnreadCheckResponse, error)
+	// UnlinkConcernWithBodyWithResponse request with any body
+	UnlinkConcernWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UnlinkConcernResponse, error)
+
+	UnlinkConcernWithResponse(ctx context.Context, body UnlinkConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*UnlinkConcernResponse, error)
+
+	// LinkConcernWithBodyWithResponse request with any body
+	LinkConcernWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LinkConcernResponse, error)
+
+	LinkConcernWithResponse(ctx context.Context, body LinkConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*LinkConcernResponse, error)
+
+	// ListConcernsWithResponse request
+	ListConcernsWithResponse(ctx context.Context, params *ListConcernsParams, reqEditors ...RequestEditorFn) (*ParsedListConcernsResponse, error)
+
+	// ListConcernsForFeatureWithResponse request
+	ListConcernsForFeatureWithResponse(ctx context.Context, params *ListConcernsForFeatureParams, reqEditors ...RequestEditorFn) (*ParsedListConcernsForFeatureResponse, error)
+
+	// ListConcernsForSpecWithResponse request
+	ListConcernsForSpecWithResponse(ctx context.Context, params *ListConcernsForSpecParams, reqEditors ...RequestEditorFn) (*ParsedListConcernsForSpecResponse, error)
 
 	// ListCountedWithResponse request
 	ListCountedWithResponse(ctx context.Context, params *ListCountedParams, reqEditors ...RequestEditorFn) (*ParsedListCountedResponse, error)
@@ -30005,17 +29963,6 @@ type ClientWithResponsesInterface interface {
 
 	// ListMaturityQuestionsWithResponse request
 	ListMaturityQuestionsWithResponse(ctx context.Context, params *ListMaturityQuestionsParams, reqEditors ...RequestEditorFn) (*ParsedListMaturityQuestionsResponse, error)
-
-	// NotificationsDismissAllWithBodyWithResponse request with any body
-	NotificationsDismissAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*NotificationsDismissAllResponse, error)
-
-	NotificationsDismissAllWithResponse(ctx context.Context, body NotificationsDismissAllJSONRequestBody, reqEditors ...RequestEditorFn) (*NotificationsDismissAllResponse, error)
-
-	// NotificationsUnreadCountWithResponse request
-	NotificationsUnreadCountWithResponse(ctx context.Context, params *NotificationsUnreadCountParams, reqEditors ...RequestEditorFn) (*ParsedNotificationsUnreadCountResponse, error)
-
-	// NotificationsUnreadThreadsWithResponse request
-	NotificationsUnreadThreadsWithResponse(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*ParsedNotificationsUnreadThreadsResponse, error)
 
 	// OwnerSnapshotWithResponse request
 	OwnerSnapshotWithResponse(ctx context.Context, params *OwnerSnapshotParams, reqEditors ...RequestEditorFn) (*OwnerSnapshotResponse, error)
@@ -30364,9 +30311,9 @@ type ClientWithResponsesInterface interface {
 	UnlinkSpecTestWithResponse(ctx context.Context, body UnlinkSpecTestJSONRequestBody, reqEditors ...RequestEditorFn) (*UnlinkSpecTestResponse, error)
 
 	// UpdateSpecsWithBodyWithResponse request with any body
-	UpdateSpecsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSpecsResponse, error)
+	UpdateSpecsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedUpdateSpecsResponse, error)
 
-	UpdateSpecsWithResponse(ctx context.Context, body UpdateSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSpecsResponse, error)
+	UpdateSpecsWithResponse(ctx context.Context, body UpdateSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedUpdateSpecsResponse, error)
 
 	// GetStateWithResponse request
 	GetStateWithResponse(ctx context.Context, params *GetStateParams, reqEditors ...RequestEditorFn) (*ParsedGetStateResponse, error)
@@ -32455,29 +32402,6 @@ func (r ParsedListCommentsResponse) StatusCode() int {
 	return 0
 }
 
-type MarkCommentsReadResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r MarkCommentsReadResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r MarkCommentsReadResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
 type ParsedListMyCommentsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -32501,15 +32425,15 @@ func (r ParsedListMyCommentsResponse) StatusCode() int {
 	return 0
 }
 
-type ParsedReactToCommentResponse struct {
+type GetConcernResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *ReactToCommentResponse
+	JSON200                       *ConcernItem
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
-func (r ParsedReactToCommentResponse) Status() string {
+func (r GetConcernResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -32517,22 +32441,22 @@ func (r ParsedReactToCommentResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ParsedReactToCommentResponse) StatusCode() int {
+func (r GetConcernResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ParsedCommentStaleUnreadResponse struct {
+type CreateConcernResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *CommentStaleUnreadResponse
+	JSON200                       *ConcernItem
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
-func (r ParsedCommentStaleUnreadResponse) Status() string {
+func (r CreateConcernResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -32540,22 +32464,22 @@ func (r ParsedCommentStaleUnreadResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ParsedCommentStaleUnreadResponse) StatusCode() int {
+func (r CreateConcernResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
 	return 0
 }
 
-type ParsedCommentUnreadCheckResponse struct {
+type UnlinkConcernResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *CommentUnreadCheckResponse
+	JSON200                       *OKBody
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
-func (r ParsedCommentUnreadCheckResponse) Status() string {
+func (r UnlinkConcernResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -32563,7 +32487,99 @@ func (r ParsedCommentUnreadCheckResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r ParsedCommentUnreadCheckResponse) StatusCode() int {
+func (r UnlinkConcernResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type LinkConcernResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r LinkConcernResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r LinkConcernResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListConcernsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListConcernsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListConcernsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListConcernsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListConcernsForFeatureResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListConcernsForFeatureResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListConcernsForFeatureResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListConcernsForFeatureResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListConcernsForSpecResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListConcernsForSpecResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListConcernsForSpecResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListConcernsForSpecResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -33963,75 +33979,6 @@ func (r ParsedListMaturityQuestionsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListMaturityQuestionsResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type NotificationsDismissAllResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r NotificationsDismissAllResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r NotificationsDismissAllResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ParsedNotificationsUnreadCountResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *NotificationsUnreadCountResponse
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ParsedNotificationsUnreadCountResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ParsedNotificationsUnreadCountResponse) StatusCode() int {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.StatusCode
-	}
-	return 0
-}
-
-type ParsedNotificationsUnreadThreadsResponse struct {
-	Body                          []byte
-	HTTPResponse                  *http.Response
-	JSON200                       *NotificationsUnreadThreadsResponse
-	ApplicationproblemJSONDefault *ErrorModel
-}
-
-// Status returns HTTPResponse.Status
-func (r ParsedNotificationsUnreadThreadsResponse) Status() string {
-	if r.HTTPResponse != nil {
-		return r.HTTPResponse.Status
-	}
-	return http.StatusText(0)
-}
-
-// StatusCode returns HTTPResponse.StatusCode
-func (r ParsedNotificationsUnreadThreadsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -35970,15 +35917,15 @@ func (r UnlinkSpecTestResponse) StatusCode() int {
 	return 0
 }
 
-type UpdateSpecsResponse struct {
+type ParsedUpdateSpecsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *OKBody
+	JSON200                       *UpdateSpecsResponse
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
 // Status returns HTTPResponse.Status
-func (r UpdateSpecsResponse) Status() string {
+func (r ParsedUpdateSpecsResponse) Status() string {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.Status
 	}
@@ -35986,7 +35933,7 @@ func (r UpdateSpecsResponse) Status() string {
 }
 
 // StatusCode returns HTTPResponse.StatusCode
-func (r UpdateSpecsResponse) StatusCode() int {
+func (r ParsedUpdateSpecsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -39088,23 +39035,6 @@ func (c *ClientWithResponses) ListCommentsWithResponse(ctx context.Context, para
 	return ParseParsedListCommentsResponse(rsp)
 }
 
-// MarkCommentsReadWithBodyWithResponse request with arbitrary body returning *MarkCommentsReadResponse
-func (c *ClientWithResponses) MarkCommentsReadWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkCommentsReadResponse, error) {
-	rsp, err := c.MarkCommentsReadWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseMarkCommentsReadResponse(rsp)
-}
-
-func (c *ClientWithResponses) MarkCommentsReadWithResponse(ctx context.Context, body MarkCommentsReadJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkCommentsReadResponse, error) {
-	rsp, err := c.MarkCommentsRead(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseMarkCommentsReadResponse(rsp)
-}
-
 // ListMyCommentsWithResponse request returning *ParsedListMyCommentsResponse
 func (c *ClientWithResponses) ListMyCommentsWithResponse(ctx context.Context, params *ListMyCommentsParams, reqEditors ...RequestEditorFn) (*ParsedListMyCommentsResponse, error) {
 	rsp, err := c.ListMyComments(ctx, params, reqEditors...)
@@ -39114,39 +39044,91 @@ func (c *ClientWithResponses) ListMyCommentsWithResponse(ctx context.Context, pa
 	return ParseParsedListMyCommentsResponse(rsp)
 }
 
-// ReactToCommentWithBodyWithResponse request with arbitrary body returning *ParsedReactToCommentResponse
-func (c *ClientWithResponses) ReactToCommentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReactToCommentResponse, error) {
-	rsp, err := c.ReactToCommentWithBody(ctx, contentType, body, reqEditors...)
+// GetConcernWithResponse request returning *GetConcernResponse
+func (c *ClientWithResponses) GetConcernWithResponse(ctx context.Context, params *GetConcernParams, reqEditors ...RequestEditorFn) (*GetConcernResponse, error) {
+	rsp, err := c.GetConcern(ctx, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseParsedReactToCommentResponse(rsp)
+	return ParseGetConcernResponse(rsp)
 }
 
-func (c *ClientWithResponses) ReactToCommentWithResponse(ctx context.Context, body ReactToCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReactToCommentResponse, error) {
-	rsp, err := c.ReactToComment(ctx, body, reqEditors...)
+// CreateConcernWithBodyWithResponse request with arbitrary body returning *CreateConcernResponse
+func (c *ClientWithResponses) CreateConcernWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateConcernResponse, error) {
+	rsp, err := c.CreateConcernWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseParsedReactToCommentResponse(rsp)
+	return ParseCreateConcernResponse(rsp)
 }
 
-// CommentStaleUnreadWithResponse request returning *ParsedCommentStaleUnreadResponse
-func (c *ClientWithResponses) CommentStaleUnreadWithResponse(ctx context.Context, params *CommentStaleUnreadParams, reqEditors ...RequestEditorFn) (*ParsedCommentStaleUnreadResponse, error) {
-	rsp, err := c.CommentStaleUnread(ctx, params, reqEditors...)
+func (c *ClientWithResponses) CreateConcernWithResponse(ctx context.Context, body CreateConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateConcernResponse, error) {
+	rsp, err := c.CreateConcern(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseParsedCommentStaleUnreadResponse(rsp)
+	return ParseCreateConcernResponse(rsp)
 }
 
-// CommentUnreadCheckWithResponse request returning *ParsedCommentUnreadCheckResponse
-func (c *ClientWithResponses) CommentUnreadCheckWithResponse(ctx context.Context, params *CommentUnreadCheckParams, reqEditors ...RequestEditorFn) (*ParsedCommentUnreadCheckResponse, error) {
-	rsp, err := c.CommentUnreadCheck(ctx, params, reqEditors...)
+// UnlinkConcernWithBodyWithResponse request with arbitrary body returning *UnlinkConcernResponse
+func (c *ClientWithResponses) UnlinkConcernWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UnlinkConcernResponse, error) {
+	rsp, err := c.UnlinkConcernWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseParsedCommentUnreadCheckResponse(rsp)
+	return ParseUnlinkConcernResponse(rsp)
+}
+
+func (c *ClientWithResponses) UnlinkConcernWithResponse(ctx context.Context, body UnlinkConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*UnlinkConcernResponse, error) {
+	rsp, err := c.UnlinkConcern(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUnlinkConcernResponse(rsp)
+}
+
+// LinkConcernWithBodyWithResponse request with arbitrary body returning *LinkConcernResponse
+func (c *ClientWithResponses) LinkConcernWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*LinkConcernResponse, error) {
+	rsp, err := c.LinkConcernWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLinkConcernResponse(rsp)
+}
+
+func (c *ClientWithResponses) LinkConcernWithResponse(ctx context.Context, body LinkConcernJSONRequestBody, reqEditors ...RequestEditorFn) (*LinkConcernResponse, error) {
+	rsp, err := c.LinkConcern(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseLinkConcernResponse(rsp)
+}
+
+// ListConcernsWithResponse request returning *ParsedListConcernsResponse
+func (c *ClientWithResponses) ListConcernsWithResponse(ctx context.Context, params *ListConcernsParams, reqEditors ...RequestEditorFn) (*ParsedListConcernsResponse, error) {
+	rsp, err := c.ListConcerns(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListConcernsResponse(rsp)
+}
+
+// ListConcernsForFeatureWithResponse request returning *ParsedListConcernsForFeatureResponse
+func (c *ClientWithResponses) ListConcernsForFeatureWithResponse(ctx context.Context, params *ListConcernsForFeatureParams, reqEditors ...RequestEditorFn) (*ParsedListConcernsForFeatureResponse, error) {
+	rsp, err := c.ListConcernsForFeature(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListConcernsForFeatureResponse(rsp)
+}
+
+// ListConcernsForSpecWithResponse request returning *ParsedListConcernsForSpecResponse
+func (c *ClientWithResponses) ListConcernsForSpecWithResponse(ctx context.Context, params *ListConcernsForSpecParams, reqEditors ...RequestEditorFn) (*ParsedListConcernsForSpecResponse, error) {
+	rsp, err := c.ListConcernsForSpec(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListConcernsForSpecResponse(rsp)
 }
 
 // ListCountedWithResponse request returning *ParsedListCountedResponse
@@ -39904,41 +39886,6 @@ func (c *ClientWithResponses) ListMaturityQuestionsWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseParsedListMaturityQuestionsResponse(rsp)
-}
-
-// NotificationsDismissAllWithBodyWithResponse request with arbitrary body returning *NotificationsDismissAllResponse
-func (c *ClientWithResponses) NotificationsDismissAllWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*NotificationsDismissAllResponse, error) {
-	rsp, err := c.NotificationsDismissAllWithBody(ctx, contentType, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseNotificationsDismissAllResponse(rsp)
-}
-
-func (c *ClientWithResponses) NotificationsDismissAllWithResponse(ctx context.Context, body NotificationsDismissAllJSONRequestBody, reqEditors ...RequestEditorFn) (*NotificationsDismissAllResponse, error) {
-	rsp, err := c.NotificationsDismissAll(ctx, body, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseNotificationsDismissAllResponse(rsp)
-}
-
-// NotificationsUnreadCountWithResponse request returning *ParsedNotificationsUnreadCountResponse
-func (c *ClientWithResponses) NotificationsUnreadCountWithResponse(ctx context.Context, params *NotificationsUnreadCountParams, reqEditors ...RequestEditorFn) (*ParsedNotificationsUnreadCountResponse, error) {
-	rsp, err := c.NotificationsUnreadCount(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedNotificationsUnreadCountResponse(rsp)
-}
-
-// NotificationsUnreadThreadsWithResponse request returning *ParsedNotificationsUnreadThreadsResponse
-func (c *ClientWithResponses) NotificationsUnreadThreadsWithResponse(ctx context.Context, params *NotificationsUnreadThreadsParams, reqEditors ...RequestEditorFn) (*ParsedNotificationsUnreadThreadsResponse, error) {
-	rsp, err := c.NotificationsUnreadThreads(ctx, params, reqEditors...)
-	if err != nil {
-		return nil, err
-	}
-	return ParseParsedNotificationsUnreadThreadsResponse(rsp)
 }
 
 // OwnerSnapshotWithResponse request returning *OwnerSnapshotResponse
@@ -41073,21 +41020,21 @@ func (c *ClientWithResponses) UnlinkSpecTestWithResponse(ctx context.Context, bo
 	return ParseUnlinkSpecTestResponse(rsp)
 }
 
-// UpdateSpecsWithBodyWithResponse request with arbitrary body returning *UpdateSpecsResponse
-func (c *ClientWithResponses) UpdateSpecsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateSpecsResponse, error) {
+// UpdateSpecsWithBodyWithResponse request with arbitrary body returning *ParsedUpdateSpecsResponse
+func (c *ClientWithResponses) UpdateSpecsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedUpdateSpecsResponse, error) {
 	rsp, err := c.UpdateSpecsWithBody(ctx, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateSpecsResponse(rsp)
+	return ParseParsedUpdateSpecsResponse(rsp)
 }
 
-func (c *ClientWithResponses) UpdateSpecsWithResponse(ctx context.Context, body UpdateSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateSpecsResponse, error) {
+func (c *ClientWithResponses) UpdateSpecsWithResponse(ctx context.Context, body UpdateSpecsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedUpdateSpecsResponse, error) {
 	rsp, err := c.UpdateSpecs(ctx, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
-	return ParseUpdateSpecsResponse(rsp)
+	return ParseParsedUpdateSpecsResponse(rsp)
 }
 
 // GetStateWithResponse request returning *ParsedGetStateResponse
@@ -44762,39 +44709,6 @@ func ParseParsedListCommentsResponse(rsp *http.Response) (*ParsedListCommentsRes
 	return response, nil
 }
 
-// ParseMarkCommentsReadResponse parses an HTTP response from a MarkCommentsReadWithResponse call
-func ParseMarkCommentsReadResponse(rsp *http.Response) (*MarkCommentsReadResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &MarkCommentsReadResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
 // ParseParsedListMyCommentsResponse parses an HTTP response from a ListMyCommentsWithResponse call
 func ParseParsedListMyCommentsResponse(rsp *http.Response) (*ParsedListMyCommentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -44828,22 +44742,22 @@ func ParseParsedListMyCommentsResponse(rsp *http.Response) (*ParsedListMyComment
 	return response, nil
 }
 
-// ParseParsedReactToCommentResponse parses an HTTP response from a ReactToCommentWithResponse call
-func ParseParsedReactToCommentResponse(rsp *http.Response) (*ParsedReactToCommentResponse, error) {
+// ParseGetConcernResponse parses an HTTP response from a GetConcernWithResponse call
+func ParseGetConcernResponse(rsp *http.Response) (*GetConcernResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ParsedReactToCommentResponse{
+	response := &GetConcernResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest ReactToCommentResponse
+		var dest ConcernItem
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -44861,22 +44775,22 @@ func ParseParsedReactToCommentResponse(rsp *http.Response) (*ParsedReactToCommen
 	return response, nil
 }
 
-// ParseParsedCommentStaleUnreadResponse parses an HTTP response from a CommentStaleUnreadWithResponse call
-func ParseParsedCommentStaleUnreadResponse(rsp *http.Response) (*ParsedCommentStaleUnreadResponse, error) {
+// ParseCreateConcernResponse parses an HTTP response from a CreateConcernWithResponse call
+func ParseCreateConcernResponse(rsp *http.Response) (*CreateConcernResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ParsedCommentStaleUnreadResponse{
+	response := &CreateConcernResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest CommentStaleUnreadResponse
+		var dest ConcernItem
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -44894,22 +44808,154 @@ func ParseParsedCommentStaleUnreadResponse(rsp *http.Response) (*ParsedCommentSt
 	return response, nil
 }
 
-// ParseParsedCommentUnreadCheckResponse parses an HTTP response from a CommentUnreadCheckWithResponse call
-func ParseParsedCommentUnreadCheckResponse(rsp *http.Response) (*ParsedCommentUnreadCheckResponse, error) {
+// ParseUnlinkConcernResponse parses an HTTP response from a UnlinkConcernWithResponse call
+func ParseUnlinkConcernResponse(rsp *http.Response) (*UnlinkConcernResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &ParsedCommentUnreadCheckResponse{
+	response := &UnlinkConcernResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest CommentUnreadCheckResponse
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseLinkConcernResponse parses an HTTP response from a LinkConcernWithResponse call
+func ParseLinkConcernResponse(rsp *http.Response) (*LinkConcernResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &LinkConcernResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListConcernsResponse parses an HTTP response from a ListConcernsWithResponse call
+func ParseParsedListConcernsResponse(rsp *http.Response) (*ParsedListConcernsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListConcernsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListConcernsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListConcernsForFeatureResponse parses an HTTP response from a ListConcernsForFeatureWithResponse call
+func ParseParsedListConcernsForFeatureResponse(rsp *http.Response) (*ParsedListConcernsForFeatureResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListConcernsForFeatureResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListConcernsForFeatureResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListConcernsForSpecResponse parses an HTTP response from a ListConcernsForSpecWithResponse call
+func ParseParsedListConcernsForSpecResponse(rsp *http.Response) (*ParsedListConcernsForSpecResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListConcernsForSpecResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListConcernsForSpecResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -46895,105 +46941,6 @@ func ParseParsedListMaturityQuestionsResponse(rsp *http.Response) (*ParsedListMa
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListMaturityQuestionsResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseNotificationsDismissAllResponse parses an HTTP response from a NotificationsDismissAllWithResponse call
-func ParseNotificationsDismissAllResponse(rsp *http.Response) (*NotificationsDismissAllResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &NotificationsDismissAllResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseParsedNotificationsUnreadCountResponse parses an HTTP response from a NotificationsUnreadCountWithResponse call
-func ParseParsedNotificationsUnreadCountResponse(rsp *http.Response) (*ParsedNotificationsUnreadCountResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ParsedNotificationsUnreadCountResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest NotificationsUnreadCountResponse
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.JSON200 = &dest
-
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
-		var dest ErrorModel
-		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
-			return nil, err
-		}
-		response.ApplicationproblemJSONDefault = &dest
-
-	}
-
-	return response, nil
-}
-
-// ParseParsedNotificationsUnreadThreadsResponse parses an HTTP response from a NotificationsUnreadThreadsWithResponse call
-func ParseParsedNotificationsUnreadThreadsResponse(rsp *http.Response) (*ParsedNotificationsUnreadThreadsResponse, error) {
-	bodyBytes, err := io.ReadAll(rsp.Body)
-	defer func() { _ = rsp.Body.Close() }()
-	if err != nil {
-		return nil, err
-	}
-
-	response := &ParsedNotificationsUnreadThreadsResponse{
-		Body:         bodyBytes,
-		HTTPResponse: rsp,
-	}
-
-	switch {
-	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest NotificationsUnreadThreadsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -49783,22 +49730,22 @@ func ParseUnlinkSpecTestResponse(rsp *http.Response) (*UnlinkSpecTestResponse, e
 	return response, nil
 }
 
-// ParseUpdateSpecsResponse parses an HTTP response from a UpdateSpecsWithResponse call
-func ParseUpdateSpecsResponse(rsp *http.Response) (*UpdateSpecsResponse, error) {
+// ParseParsedUpdateSpecsResponse parses an HTTP response from a UpdateSpecsWithResponse call
+func ParseParsedUpdateSpecsResponse(rsp *http.Response) (*ParsedUpdateSpecsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
 	defer func() { _ = rsp.Body.Close() }()
 	if err != nil {
 		return nil, err
 	}
 
-	response := &UpdateSpecsResponse{
+	response := &ParsedUpdateSpecsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest OKBody
+		var dest UpdateSpecsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

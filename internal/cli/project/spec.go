@@ -81,6 +81,7 @@ func specRmCmd() *cobra.Command {
 
 func specAddCmd() *cobra.Command {
 	var feature, text, kind string
+	var concerns []string
 	cmd := &cobra.Command{
 		Use:   "add",
 		Short: "Add a spec statement to a feature",
@@ -101,9 +102,10 @@ Example:
     --text="Given a cold process, when the user runs dx, then startup completes in <500ms"`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			// The update-specs endpoint uses field=kind, value=description.
-			resp, err := c.UpdateSpecsWithResponse(cmd.Context(), dxclient.UpdateSpecsRequest{
-				Slug:    c.SlugOrDie(),
+			ctx := cmd.Context()
+			slug := c.SlugOrDie()
+			resp, err := c.UpdateSpecsWithResponse(ctx, dxclient.UpdateSpecsRequest{
+				Slug:    slug,
 				Feature: feature,
 				Field:   kind,
 				Value:   text,
@@ -114,13 +116,34 @@ Example:
 			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
-			fmt.Printf("[%s] %s → %s\n", kind, feature, text)
+			specID := resp.JSON200.SpecId
+			var linkedConcerns []string
+			for _, name := range concerns {
+				lResp, err := c.LinkConcernWithResponse(ctx, dxclient.LinkConcernRequest{
+					Slug:        slug,
+					ConcernName: name,
+					SpecId:      &specID,
+				})
+				if err != nil {
+					return fmt.Errorf("link concern %s: %w", name, err)
+				}
+				if err := c.CheckStatus(lResp.StatusCode(), lResp.Body); err != nil {
+					return fmt.Errorf("link concern %s: %w", name, err)
+				}
+				linkedConcerns = append(linkedConcerns, name)
+			}
+			if len(linkedConcerns) > 0 {
+				fmt.Printf("added spec %d  [%s]\n", specID, strings.Join(linkedConcerns, ", "))
+			} else {
+				fmt.Printf("[%s] %s → %s\n", kind, feature, text)
+			}
 			return nil
 		},
 	}
 	cmd.Flags().StringVar(&feature, "feature", "", "feature name")
 	cmd.Flags().StringVar(&text, "text", "", "spec statement (BDD style: 'given X, when Y, then Z')")
 	cmd.Flags().StringVar(&kind, "importance", "must", "value-loss tier: must | should | nice-to-have")
+	cmd.Flags().StringSliceVar(&concerns, "concern", nil, "concern names to link (comma-separated or repeated)")
 	cmd.MarkFlagRequired("feature")
 	cmd.MarkFlagRequired("text")
 	return cmd
@@ -370,6 +393,15 @@ func specShowCmd() *cobra.Command {
 				for _, is := range *specResp.JSON200.Issues {
 					fmt.Printf("  %s (%s) — %s\n", is.IssueId, is.Status, is.Title)
 				}
+			}
+
+			cResp, err := c.ListConcernsForSpecWithResponse(ctx, &dxclient.ListConcernsForSpecParams{SpecId: int32(specID)})
+			if err == nil && cResp.StatusCode() == 200 && cResp.JSON200 != nil && cResp.JSON200.Concerns != nil && len(*cResp.JSON200.Concerns) > 0 {
+				names := make([]string, len(*cResp.JSON200.Concerns))
+				for i, cn := range *cResp.JSON200.Concerns {
+					names[i] = cn.Name
+				}
+				fmt.Printf("\nConcerns: %s\n", strings.Join(names, ", "))
 			}
 			return nil
 		},

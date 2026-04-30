@@ -242,48 +242,7 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 		targetIssues = filtered
 	}
 
-	// 0. Check for unread LLM comments on any issue (regardless of status).
-	for _, iss := range targetIssues {
-		issIDStr := clitypes.IssueIDStr(iss.Id)
-		unreadResp, err := c.CommentUnreadCheckWithResponse(ctx, &dxclient.CommentUnreadCheckParams{
-			Slug:       slug,
-			TargetType: "issue",
-			TargetId:   issIDStr,
-			Role:       "llm",
-		})
-		if err != nil {
-			return err
-		}
-		if err := c.CheckStatus(unreadResp.StatusCode(), unreadResp.Body); err != nil {
-			return err
-		}
-		if unreadResp.JSON200 != nil && unreadResp.JSON200.HasUnread {
-			fmt.Printf("[read:comments] %s  %s\n", issIDStr, iss.Title)
-			tt, tid, role := "issue", issIDStr, "llm"
-			listResp, err := c.ListCommentsWithResponse(ctx, &dxclient.ListCommentsParams{
-				Slug: &slug, TargetType: &tt, TargetId: &tid, Role: &role,
-			})
-			if err != nil {
-				return err
-			}
-			if err := c.CheckStatus(listResp.StatusCode(), listResp.Body); err != nil {
-				return err
-			}
-			fmt.Println()
-			if listResp.JSON200 != nil {
-				cli.PrintComments(cli.CommentsToCli(listResp.JSON200.Comments))
-			}
-			_, _ = c.MarkCommentsReadWithResponse(ctx, dxclient.MarkCommentsReadRequest{
-				Slug:       slug,
-				TargetType: "issue",
-				TargetId:   issIDStr,
-				Role:       "llm",
-			})
-			return nil
-		}
-	}
-
-	// 0b. Check for unread LLM comments on any feature.
+	// 0b. Load features (used below for no-specs check and work candidates).
 	featResp, err := c.ListFeaturesWithResponse(ctx, &dxclient.ListFeaturesParams{Slug: slug})
 	if err != nil {
 		return err
@@ -294,44 +253,6 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 	var allFeatures []dxclient.FeatureItem
 	if featResp.JSON200 != nil && featResp.JSON200.Features != nil {
 		allFeatures = *featResp.JSON200.Features
-	}
-	for _, f := range allFeatures {
-		unreadResp, err := c.CommentUnreadCheckWithResponse(ctx, &dxclient.CommentUnreadCheckParams{
-			Slug:       slug,
-			TargetType: "feature",
-			TargetId:   f.Name,
-			Role:       "llm",
-		})
-		if err != nil {
-			return err
-		}
-		if err := c.CheckStatus(unreadResp.StatusCode(), unreadResp.Body); err != nil {
-			return err
-		}
-		if unreadResp.JSON200 != nil && unreadResp.JSON200.HasUnread {
-			fmt.Printf("[read:comments] feature %q\n", f.Name)
-			tt, tid, role := "feature", f.Name, "llm"
-			listResp, err := c.ListCommentsWithResponse(ctx, &dxclient.ListCommentsParams{
-				Slug: &slug, TargetType: &tt, TargetId: &tid, Role: &role,
-			})
-			if err != nil {
-				return err
-			}
-			if err := c.CheckStatus(listResp.StatusCode(), listResp.Body); err != nil {
-				return err
-			}
-			fmt.Println()
-			if listResp.JSON200 != nil {
-				cli.PrintComments(cli.CommentsToCli(listResp.JSON200.Comments))
-			}
-			_, _ = c.MarkCommentsReadWithResponse(ctx, dxclient.MarkCommentsReadRequest{
-				Slug:       slug,
-				TargetType: "feature",
-				TargetId:   f.Name,
-				Role:       "llm",
-			})
-			return nil
-		}
 	}
 
 	// 0b2. Check for unanswered QA questions (oldest first).
@@ -351,32 +272,6 @@ func soloRun(cmd *cobra.Command, _ []string) error {
 			}
 			fmt.Printf("  asked: %s\n", q.CreatedAt)
 			fmt.Printf("  answer: dx qa answer %d --answer=\"...\"\n", q.Id)
-			return nil
-		}
-	}
-
-	// 0b3. Check for stale unread comments (>24h old, unread for LLM role).
-	// Skip in scoped mode — matches server-side gating in handlers_solo.go where
-	// cross-cutting checks only run when issueFilter is empty.
-	if issueFlag == "" {
-		ageHours := int32(24)
-		resp, err := c.CommentStaleUnreadWithResponse(ctx, &dxclient.CommentStaleUnreadParams{
-			Slug:     slug,
-			Role:     "llm",
-			AgeHours: &ageHours,
-		})
-		if err != nil {
-			return err
-		}
-		if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
-			return err
-		}
-		if resp.JSON200 != nil && resp.JSON200.Comments != nil && len(*resp.JSON200.Comments) > 0 {
-			sc := (*resp.JSON200.Comments)[0]
-			fmt.Printf("[respond:stale] %s %s\n", sc.TargetType, sc.TargetId)
-			fmt.Printf("  from: %s  at: %s\n", sc.Author, sc.CreatedAt)
-			fmt.Printf("  %s\n", sc.Body)
-			fmt.Printf("  clear: dx comment mark-read %s %s --role=llm\n", sc.TargetType, sc.TargetId)
 			return nil
 		}
 	}

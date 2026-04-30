@@ -73,6 +73,7 @@ type Querier interface {
 	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
+	CreateConcern(ctx context.Context, arg CreateConcernParams) (ZdxConcern, error)
 	CreateDeploy(ctx context.Context, arg CreateDeployParams) (ZdxDeploy, error)
 	CreateDiscussion(ctx context.Context, arg CreateDiscussionParams) (ZdxDiscussion, error)
 	CreateDiscussionMessage(ctx context.Context, arg CreateDiscussionMessageParams) (ZdxDiscussionMessage, error)
@@ -152,6 +153,7 @@ type Querier interface {
 	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
 	GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error)
 	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
+	GetConcernByName(ctx context.Context, arg GetConcernByNameParams) (ZdxConcern, error)
 	// file_id falls back to any sibling row with the same (demo_type, artifact_path)
 	// that does have a file_id, so legacy rows linked to non-recorder tests still
 	// resolve to the uploaded artifact instead of 404ing on handleServeDemo.
@@ -237,6 +239,10 @@ type Querier interface {
 	// every edit (retriage, comment, resolution add) with the close event.
 	JournalVelocity(ctx context.Context, projectID int32) (JournalVelocityRow, error)
 	LatestTwoKPISamplesPerCheck(ctx context.Context, arg LatestTwoKPISamplesPerCheckParams) ([]LatestTwoKPISamplesPerCheckRow, error)
+	LinkConcernFeature(ctx context.Context, arg LinkConcernFeatureParams) error
+	LinkConcernIssue(ctx context.Context, arg LinkConcernIssueParams) error
+	LinkConcernPattern(ctx context.Context, arg LinkConcernPatternParams) error
+	LinkConcernSpec(ctx context.Context, arg LinkConcernSpecParams) error
 	LinkGoalIssue(ctx context.Context, arg LinkGoalIssueParams) error
 	LinkSpecIssue(ctx context.Context, arg LinkSpecIssueParams) error
 	LinkSpecTest(ctx context.Context, arg LinkSpecTestParams) error
@@ -268,6 +274,9 @@ type Querier interface {
 	ListCodeRefsByTest(ctx context.Context, testID int32) ([]ZdxCodeRef, error)
 	ListComments(ctx context.Context, arg ListCommentsParams) ([]ListCommentsRow, error)
 	ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAuthorParams) ([]ListCommentsByAuthorRow, error)
+	ListConcerns(ctx context.Context, projectID int32) ([]ZdxConcern, error)
+	ListConcernsForFeature(ctx context.Context, featureID int32) ([]ZdxConcern, error)
+	ListConcernsForSpec(ctx context.Context, specID int32) ([]ZdxConcern, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_value, value) sum(sum_total_value, total_value) sum(sum_count, count)
 	ListCounted(ctx context.Context, arg ListCountedParams) ([]ListCountedRow, error)
 	ListCountedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
@@ -540,6 +549,10 @@ type Querier interface {
 	// When the referenced issue is closed/fixed, automatically unblock the todo.
 	UnblockTodosByReferenceIssue(ctx context.Context, arg UnblockTodosByReferenceIssueParams) error
 	UndeferDoctorCheck(ctx context.Context, arg UndeferDoctorCheckParams) error
+	UnlinkConcernFeature(ctx context.Context, arg UnlinkConcernFeatureParams) error
+	UnlinkConcernIssue(ctx context.Context, arg UnlinkConcernIssueParams) error
+	UnlinkConcernPattern(ctx context.Context, arg UnlinkConcernPatternParams) error
+	UnlinkConcernSpec(ctx context.Context, arg UnlinkConcernSpecParams) error
 	UnlinkGoalIssue(ctx context.Context, arg UnlinkGoalIssueParams) error
 	UnlinkSpecIssue(ctx context.Context, arg UnlinkSpecIssueParams) error
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
