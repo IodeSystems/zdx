@@ -9,6 +9,7 @@ make build                    # compile Go binaries (dx, dx-server, db)
 make ui                       # build React frontend
 ./bin/dev                     # dev server (auto-migrate + UI dev server)
 ./bin/ship                    # build, test, deploy to prod
+./bin/dx merge-train run [branch]  # rebase worker branch onto dev, regen artifacts, lint, ff-merge
 ```
 
 Server requires `DATABASE_URL` env var pointing to PostgreSQL 16+ with pgvector.
