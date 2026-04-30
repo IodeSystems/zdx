@@ -79,6 +79,12 @@ func newTempShipRepo(t *testing.T) *shipRepo {
 		t.Fatalf("write lint stub: %v", err)
 	}
 
+	// Stub bin/dx so the must-spec gate passes in the isolated temp repo.
+	dxStub := filepath.Join(binDir, "dx")
+	if err := os.WriteFile(dxStub, []byte("#!/usr/bin/env bash\nexit 0\n"), 0o755); err != nil {
+		t.Fatalf("write dx stub: %v", err)
+	}
+
 	env := append(os.Environ(),
 		"GIT_AUTHOR_NAME=ship-test",
 		"GIT_AUTHOR_EMAIL=ship-test@example.invalid",
