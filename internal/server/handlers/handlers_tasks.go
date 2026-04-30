@@ -834,6 +834,87 @@ func (h *Handler) registerTaskRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	// ── Task convert-to-issue (wip drafts only) ──────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "convert-task-to-issue", Method: http.MethodPost, Path: "/api/dx/tasks/convert-to-issue"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				ID    int32   `json:"id"`
+				Title *string `json:"title,omitempty"`
+			}
+		}) (*struct {
+			Body struct {
+				NewIssueID string `json:"new_issue_id"`
+			}
+		}, error) {
+			taskID := taskIDFromInt(in.Body.ID)
+			t, gErr := h.Q.GetTask(ctx, taskID)
+			if gErr != nil {
+				return nil, apiErr(404, "task not found: "+taskID)
+			}
+			if t.Status != "wip" {
+				return nil, apiErr(409, taskID+" is "+t.Status+" — convert-to-issue requires wip status")
+			}
+			issueID, idErr := h.Q.NextIssueID(ctx)
+			if idErr != nil {
+				return nil, apiErr(500, idErr.Error())
+			}
+			title := t.Title
+			if in.Body.Title != nil && *in.Body.Title != "" {
+				title = *in.Body.Title
+			}
+			tx, tErr := h.Pool.Begin(ctx)
+			if tErr != nil {
+				return nil, apiErr(500, tErr.Error())
+			}
+			defer tx.Rollback(ctx)
+			q := h.Q.WithTx(tx)
+			newIssue, cErr := q.CreateIssue(ctx, db.CreateIssueParams{
+				ID:        issueID,
+				ProjectID: t.ProjectID,
+				Title:     title,
+				Context:   t.Text,
+				IssueType: "impl",
+				Status:    "open",
+			})
+			if cErr != nil {
+				return nil, apiErr(500, cErr.Error())
+			}
+			n, dErr := q.DeleteDraftTask(ctx, taskID)
+			if dErr != nil {
+				return nil, apiErr(500, dErr.Error())
+			}
+			if n == 0 {
+				return nil, apiErr(409, "cannot delete "+taskID+": possible race")
+			}
+			agent := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, uErr := h.Q.GetUserByID(ctx, uid); uErr == nil {
+					agent = u.Email
+				}
+			}
+			_ = q.AppendIssueWork(ctx, db.AppendIssueWorkParams{
+				IssueID: newIssue.ID,
+				Agent:   agent,
+				Note:    "[converted] from " + taskID,
+			})
+			if err := tx.Commit(ctx); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			issueText := newIssue.Title + " " + newIssue.Context
+			go h.Emb.UpsertIssue(context.Background(), t.ProjectID, newIssue.ID, issueText)
+			if p, pErr := h.Q.GetProjectByID(ctx, t.ProjectID); pErr == nil {
+				h.Broker.PublishIssue(p.Slug, newIssue.ID, "issue.created", map[string]any{"id": newIssue.ID})
+			}
+			return &struct {
+				Body struct {
+					NewIssueID string `json:"new_issue_id"`
+				}
+			}{Body: struct {
+				NewIssueID string `json:"new_issue_id"`
+			}{NewIssueID: newIssue.ID}}, nil
+		})
+
 	// ── Task similarity ──────────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "similar-tasks", Method: http.MethodPost, Path: "/api/dx/tasks/similar"},

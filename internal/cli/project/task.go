@@ -18,6 +18,7 @@ func TaskCmd() *cobra.Command {
 	cmd.AddCommand(taskReleaseCmd())
 	cmd.AddCommand(taskAdoptCmd())
 	cmd.AddCommand(taskBlockCmd())
+	cmd.AddCommand(taskConvertCmd())
 	return cmd
 }
 
@@ -158,6 +159,51 @@ func taskDeleteCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func taskConvertCmd() *cobra.Command {
+	var toIssueFlag bool
+	var titleFlag string
+	cmd := &cobra.Command{
+		Use:   "convert <TK-N> --to-issue",
+		Short: "Promote a wip task into a standalone issue, then delete the task",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			taskID := args[0]
+			if !strings.HasPrefix(taskID, "TK-") {
+				return fmt.Errorf("expected TK-N, got %q", taskID)
+			}
+			if !toIssueFlag {
+				return fmt.Errorf("--to-issue is required")
+			}
+			n, err := strconv.ParseInt(taskID[3:], 10, 32)
+			if err != nil {
+				return fmt.Errorf("invalid task id %q: %w", taskID, err)
+			}
+			c := cli.MustClient()
+			req := dxclient.ConvertTaskToIssueRequest{Id: int32(n)}
+			if titleFlag != "" {
+				req.Title = &titleFlag
+			}
+			resp, err := c.ConvertTaskToIssueWithResponse(cmd.Context(), req)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			newIssueID := ""
+			if resp.JSON200 != nil {
+				newIssueID = resp.JSON200.NewIssueId
+			}
+			fmt.Printf("%s → %s\n", taskID, newIssueID)
+			return nil
+		},
+	}
+	cmd.Flags().BoolVar(&toIssueFlag, "to-issue", false, "convert to a standalone issue")
+	_ = cmd.MarkFlagRequired("to-issue")
+	cmd.Flags().StringVar(&titleFlag, "title", "", "override the issue title (default: task title)")
+	return cmd
 }
 
 func taskBlockCmd() *cobra.Command {
