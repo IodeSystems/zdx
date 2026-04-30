@@ -30,13 +30,13 @@ type migrationFile struct {
 
 // renamePlan describes one collision-resolving rename of a (up,down) pair.
 type renamePlan struct {
-	Name   string // base name (shared by up + down)
-	FromN  int    // current colliding NNN
-	ToN    int    // new free NNN
-	OldUp  string // old up filename
-	NewUp  string // new up filename
-	OldDn  string // old down filename
-	NewDn  string // new down filename
+	Name  string // base name (shared by up + down)
+	FromN int    // current colliding NNN
+	ToN   int    // new free NNN
+	OldUp string // old up filename
+	NewUp string // new up filename
+	OldDn string // old down filename
+	NewDn string // new down filename
 }
 
 // RenumberCmd returns `dx migrate renumber [--auto]`.
