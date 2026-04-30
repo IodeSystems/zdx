@@ -273,9 +273,8 @@ func UnreadCommentsText(issueID, title string) Hint {
 				"2. Understand each — question / clarification request / feedback / decision.\n"+
 				"3. Respond if a reply is warranted: `dx comment add issue %s --body=\"<reply>\"`. "+
 				"The CLI auto-tags with $DX_AUTHOR_ALIAS (usually `claude`); pass `--as <alias>` only to override.\n"+
-				"4. Mark all read: `dx comment mark-read issue %s --role=llm`.\n"+
-				"5. Re-run `dx todo solo --issue=%s` — comments are handled inline, not as a separate vertical.",
-			issueID, title, issueID, issueID, issueID, issueID,
+				"4. Re-run `dx todo solo --issue=%s` — comments are handled inline, not as a separate vertical.",
+			issueID, title, issueID, issueID, issueID,
 		),
 	}
 }
@@ -289,9 +288,8 @@ func UnreadFeatureCommentsText(featureName string) Hint {
 			"Unread comments on feature %q.\n\n"+
 				"1. Read: `dx comment list feature %s`.\n"+
 				"2. Respond to questions/feedback: `dx comment add feature %s --body=\"<reply>\"`.\n"+
-				"3. Mark read: `dx comment mark-read feature %s --role=llm`.\n"+
-				"4. No vertical to run — handle inline and stop.",
-			featureName, featureName, featureName, featureName,
+				"3. No vertical to run — handle inline and stop.",
+			featureName, featureName, featureName,
 		),
 	}
 }
@@ -307,10 +305,8 @@ func StaleCommentsText(count int, targetType, targetID string, lastCommentID int
 			"%d aged unread comment(s) on %s %s (latest C-%d).\n\n"+
 				"1. Read all unread: `dx comment list %s %s`.\n"+
 				"2. Respond if a reply is warranted: `dx comment add %s %s --body=\"<reply>\"`.\n"+
-				"3. Mark all read: `dx comment mark-read %s %s --role=llm`.\n"+
 				"These are older than 24h — prioritize answering before new work.",
 			count, targetType, targetID, lastCommentID,
-			targetType, targetID,
 			targetType, targetID,
 			targetType, targetID,
 		),

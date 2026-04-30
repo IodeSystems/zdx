@@ -160,12 +160,8 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				}
 				iss, ok := issuesByID[t.TargetID]
 				if !ok {
-					// closed issues: fetch directly
-					iss2, err := h.Q.GetIssueByAnyProject(ctx, t.TargetID)
-					if err != nil || iss2.ProjectID != projectID {
-						continue
-					}
-					iss = iss2
+					// issue not in open list — skip (closed issues don't need comment review)
+					continue
 				}
 				hint := workflowhints.UnreadCommentsText(iss.ID, iss.Title)
 				candidates = append(candidates, soloCandidate{
