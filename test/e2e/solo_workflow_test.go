@@ -1095,5 +1095,6 @@ func TestTaskUndoneRequeues(t *testing.T) {
 		t.Errorf("task TK-%d not found in queue after undone", taskID)
 	}
 
+	d.MarkTaskDone(taskID)
 	d.CloseIssue(issueID)
 }
