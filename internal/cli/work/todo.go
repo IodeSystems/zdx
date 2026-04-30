@@ -1779,7 +1779,7 @@ func printSimilarPatterns(cmd *cobra.Command, c *cli.Client, slug, text, targetT
 		}
 	}
 	if len(similar) > 0 {
-		fmt.Println("\nSimilar patterns:")
+		fmt.Println("\nRelevant patterns:")
 		for _, r := range similar {
 			fmt.Printf("  %.3f  PT-%-4d  %s\n", r.Score, r.Pattern.Id, r.Pattern.Name)
 			if r.Pattern.Description != "" {
