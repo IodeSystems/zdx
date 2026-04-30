@@ -137,8 +137,68 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		issues = filtered
 	}
 
-	// Check for unread LLM comments on features (read tracking removed in IS-670; zdx_comment_reads dropped in migration 122)
 	features, _ := h.Q.ListFeatures(ctx, projectID)
+
+	// Surface read:comments for any issue or feature that has at least one comment.
+	// zdx_comment_reads was dropped in migration 122; presence of any comment is now
+	// the signal. The agent reads and replies; the item is resolved on next evaluate.
+	{
+		targetsWithComments, _ := h.Q.ListTargetsWithComments(ctx, projectID)
+		commentedTargets := map[string]bool{}
+		for _, t := range targetsWithComments {
+			commentedTargets[t.TargetType+":"+t.TargetID] = true
+		}
+		issuesByID := map[string]db.ZdxIssue{}
+		for _, iss := range issues {
+			issuesByID[iss.ID] = iss
+		}
+		for _, t := range targetsWithComments {
+			switch t.TargetType {
+			case "issue":
+				if issueFilter != "" && t.TargetID != issueFilter {
+					continue
+				}
+				iss, ok := issuesByID[t.TargetID]
+				if !ok {
+					// closed issues: fetch directly
+					iss2, err := h.Q.GetIssueByAnyProject(ctx, t.TargetID)
+					if err != nil || iss2.ProjectID != projectID {
+						continue
+					}
+					iss = iss2
+				}
+				hint := workflowhints.UnreadCommentsText(iss.ID, iss.Title)
+				candidates = append(candidates, soloCandidate{
+					Key:         fmt.Sprintf("comment-issue-%s", iss.ID),
+					Title:       hint.Title,
+					Description: hint.Description,
+					Text:        hint.Instructions,
+					Kind:        "read:comments",
+					TargetType:  "issue",
+					TargetID:    iss.ID,
+					IssueRef:    iss.ID,
+					Priority:    5,
+					Persona:     "dev",
+				})
+			case "feature":
+				if issueFilter != "" {
+					continue
+				}
+				hint := workflowhints.UnreadFeatureCommentsText(t.TargetID)
+				candidates = append(candidates, soloCandidate{
+					Key:         fmt.Sprintf("comment-feature-%s", t.TargetID),
+					Title:       hint.Title,
+					Description: hint.Description,
+					Text:        hint.Instructions,
+					Kind:        "read:comments",
+					TargetType:  "feature",
+					TargetID:    t.TargetID,
+					Priority:    8,
+					Persona:     "dev",
+				})
+			}
+		}
+	}
 
 	// Unanswered QA questions
 	if issueFilter == "" {
