@@ -41,15 +41,21 @@ func TestSpec185_AuditEventStream(t *testing.T) {
 	d := NewApiDriver(t, "e2e-spec-185-audit", "Spec 185 Audit Stream")
 	sc := Given(d).
 		TriagedIssue("Audit stream coverage", "spec 185 demo source", 2).
-		Task(0, "audit stream task").
 		Build()
-	taskID := sc.Tasks[0]
 	issueID := sc.Issues[0]
 
 	const (
 		agentID   = "spec185-agent-1"
 		sessionID = "spec185-session-uuid"
 	)
+
+	// Claim a todo from the queue to obtain a valid zdx_todos.id.
+	// zdx_claude_sessions.todo_id FKs to zdx_todos, not zdx_tasks.
+	claimedTodo, claimStatus := soloClaimNext(t, d.Slug, agentID)
+	if claimStatus != http.StatusOK {
+		t.Fatalf("soloClaimNext: want 200, got %d", claimStatus)
+	}
+	todoID := claimedTodo.ID
 
 	// Register the agent so the audit row's agent_id resolves to a known
 	// project agent — this is the precondition IS-600 Phase 1 establishes.
@@ -86,7 +92,7 @@ func TestSpec185_AuditEventStream(t *testing.T) {
 			"issue_id":   fmt.Sprintf("IS-%d", issueID),
 			"agent_id":   agentID,
 			"agent_type": "claude",
-			"todo_id":    taskID,
+			"todo_id":    todoID,
 		}, &session))
 	if !session.Created {
 		t.Fatalf("expected fresh session, got created=false (sid=%q)", session.SessionID)
@@ -318,8 +324,8 @@ func TestSpec185_AuditEventStream(t *testing.T) {
 	mustOK(t, apiDo(t, http.MethodGet,
 		fmt.Sprintf("/api/dx/claude/sessions/%d?slug=%s", session.ID, d.Slug),
 		nil, &sess))
-	if sess.TodoID != taskID {
-		t.Errorf("session.todo_id: want %d (TK-%d), got %d", taskID, taskID, sess.TodoID)
+	if sess.TodoID != todoID {
+		t.Errorf("session.todo_id: want %d, got %d", todoID, sess.TodoID)
 	}
 }
 

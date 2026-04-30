@@ -22,6 +22,12 @@ FROM zdx_comments WHERE id = $1;
 SELECT id, project_id, target_type, target_id, author, body, created_at, parent_id, author_alias
 FROM zdx_comments WHERE id = ANY($1::int[]);
 
+-- name: ListTargetsWithComments :many
+SELECT DISTINCT target_type, target_id
+FROM zdx_comments
+WHERE project_id = $1
+ORDER BY target_type, target_id;
+
 -- name: AddRevision :exec
 INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);

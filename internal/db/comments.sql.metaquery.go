@@ -441,3 +441,34 @@ var ListRevisionsByTargetCols = struct {
 	UserID:     metaquery.NewTextCol("user_id"),
 	CreatedAt:  metaquery.NewTimeCol("created_at"),
 }
+
+var MetaListTargetsWithComments = metaquery.Query{
+	Name:   "ListTargetsWithComments",
+	Cmd:    ":many",
+	Source: "comments.sql",
+	SQL: `SELECT DISTINCT target_type, target_id
+FROM zdx_comments
+WHERE project_id = $1
+ORDER BY target_type, target_id`,
+	Columns: []metaquery.Column{
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_comments"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_comments"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListTargetsWithComments returns a metaquery.Builder over MetaListTargetsWithComments, pre-bound with typed arguments.
+func WrapListTargetsWithComments(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListTargetsWithComments, projectID)
+}
+
+// ListTargetsWithCommentsCols gives typed, name-safe access to ListTargetsWithComments's output columns.
+var ListTargetsWithCommentsCols = struct {
+	TargetType metaquery.TextCol
+	TargetID   metaquery.TextCol
+}{
+	TargetType: metaquery.NewTextCol("target_type"),
+	TargetID:   metaquery.NewTextCol("target_id"),
+}

@@ -417,3 +417,35 @@ func (q *Queries) ListRevisionsByTarget(ctx context.Context, arg ListRevisionsBy
 	}
 	return items, nil
 }
+
+const listTargetsWithComments = `-- name: ListTargetsWithComments :many
+SELECT DISTINCT target_type, target_id
+FROM zdx_comments
+WHERE project_id = $1
+ORDER BY target_type, target_id
+`
+
+type ListTargetsWithCommentsRow struct {
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+}
+
+func (q *Queries) ListTargetsWithComments(ctx context.Context, projectID int32) ([]ListTargetsWithCommentsRow, error) {
+	rows, err := q.db.Query(ctx, listTargetsWithComments, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListTargetsWithCommentsRow
+	for rows.Next() {
+		var i ListTargetsWithCommentsRow
+		if err := rows.Scan(&i.TargetType, &i.TargetID); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

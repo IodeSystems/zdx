@@ -413,7 +413,6 @@ type Querier interface {
 	ListStaleOpenClaudeSessions(ctx context.Context, arg ListStaleOpenClaudeSessionsParams) ([]ListStaleOpenClaudeSessionsRow, error)
 	ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error)
 	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
-	ListTargetsWithComments(ctx context.Context, projectID int32) ([]ListTargetsWithCommentsRow, error)
 	ListTaskReviews(ctx context.Context, arg ListTaskReviewsParams) ([]ListTaskReviewsRow, error)
 	ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTasksRow, error)
 	ListTasksByAgent(ctx context.Context, claimedBy string) ([]ListTasksByAgentRow, error)
