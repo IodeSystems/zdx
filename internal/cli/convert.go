@@ -83,7 +83,11 @@ func IssueToCli(iss dxclient.IssueItem) clitypes.IssueItem {
 	if iss.BlockedByDetail != nil {
 		detail = make([]clitypes.IssueBlockerRef, 0, len(*iss.BlockedByDetail))
 		for _, b := range *iss.BlockedByDetail {
-			detail = append(detail, clitypes.IssueBlockerRef{ID: b.Id, Status: b.Status})
+			kind := ""
+			if b.Kind != nil {
+				kind = *b.Kind
+			}
+			detail = append(detail, clitypes.IssueBlockerRef{ID: b.Id, Status: b.Status, Kind: kind})
 		}
 	}
 	out := clitypes.IssueItem{

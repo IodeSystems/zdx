@@ -16,6 +16,7 @@ type Querier interface {
 	AddFeatureMultiplier(ctx context.Context, arg AddFeatureMultiplierParams) error
 	AddFocusBlocker(ctx context.Context, arg AddFocusBlockerParams) error
 	AddFocusFeature(ctx context.Context, arg AddFocusFeatureParams) error
+	// kind: 'sequencing' (default) for "X waits for Y" deps; 'composition' for tracker → child relationships
 	AddIssueBlock(ctx context.Context, arg AddIssueBlockParams) error
 	AddResolutionCommit(ctx context.Context, arg AddResolutionCommitParams) error
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
@@ -337,8 +338,10 @@ type Querier interface {
 	ListInvites(ctx context.Context) ([]ZdxInvite, error)
 	ListIssueBlockers(ctx context.Context, issueID string) ([]string, error)
 	ListIssueBlockersWithStatus(ctx context.Context, issueID string) ([]ListIssueBlockersWithStatusRow, error)
+	ListIssueCompositionChildrenWithStatus(ctx context.Context, issueID string) ([]ListIssueCompositionChildrenWithStatusRow, error)
 	ListIssueGoals(ctx context.Context, issueID string) ([]ListIssueGoalsRow, error)
 	ListIssueResolutions(ctx context.Context, issueID string) ([]ZdxIssueResolution, error)
+	ListIssueSequencingBlockersWithStatus(ctx context.Context, issueID string) ([]ListIssueSequencingBlockersWithStatusRow, error)
 	ListIssueSpecs(ctx context.Context, issueID string) ([]ListIssueSpecsRow, error)
 	ListIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	ListIssuesBlockedBy(ctx context.Context, blockedByID string) ([]string, error)

@@ -10,16 +10,18 @@ import (
 )
 
 const addIssueBlock = `-- name: AddIssueBlock :exec
-INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id) VALUES ($1, $2) ON CONFLICT DO NOTHING
+INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id, kind) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING
 `
 
 type AddIssueBlockParams struct {
 	IssueID     string `db:"issue_id" json:"issue_id"`
 	BlockedByID string `db:"blocked_by_id" json:"blocked_by_id"`
+	Kind        string `db:"kind" json:"kind"`
 }
 
+// kind: 'sequencing' (default) for "X waits for Y" deps; 'composition' for tracker → child relationships
 func (q *Queries) AddIssueBlock(ctx context.Context, arg AddIssueBlockParams) error {
-	_, err := q.db.Exec(ctx, addIssueBlock, arg.IssueID, arg.BlockedByID)
+	_, err := q.db.Exec(ctx, addIssueBlock, arg.IssueID, arg.BlockedByID, arg.Kind)
 	return err
 }
 
@@ -48,7 +50,7 @@ func (q *Queries) ListIssueBlockers(ctx context.Context, issueID string) ([]stri
 }
 
 const listIssueBlockersWithStatus = `-- name: ListIssueBlockersWithStatus :many
-SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status
+SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status, b.kind
 FROM zdx_issue_blocks b
 LEFT JOIN zdx_issues i ON i.id = b.blocked_by_id
 WHERE b.issue_id = $1
@@ -57,6 +59,7 @@ WHERE b.issue_id = $1
 type ListIssueBlockersWithStatusRow struct {
 	ID     string `db:"id" json:"id"`
 	Status string `db:"status" json:"status"`
+	Kind   string `db:"kind" json:"kind"`
 }
 
 func (q *Queries) ListIssueBlockersWithStatus(ctx context.Context, issueID string) ([]ListIssueBlockersWithStatusRow, error) {
@@ -68,6 +71,70 @@ func (q *Queries) ListIssueBlockersWithStatus(ctx context.Context, issueID strin
 	var items []ListIssueBlockersWithStatusRow
 	for rows.Next() {
 		var i ListIssueBlockersWithStatusRow
+		if err := rows.Scan(&i.ID, &i.Status, &i.Kind); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIssueCompositionChildrenWithStatus = `-- name: ListIssueCompositionChildrenWithStatus :many
+SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status
+FROM zdx_issue_blocks b
+LEFT JOIN zdx_issues i ON i.id = b.blocked_by_id
+WHERE b.issue_id = $1 AND b.kind = 'composition'
+`
+
+type ListIssueCompositionChildrenWithStatusRow struct {
+	ID     string `db:"id" json:"id"`
+	Status string `db:"status" json:"status"`
+}
+
+func (q *Queries) ListIssueCompositionChildrenWithStatus(ctx context.Context, issueID string) ([]ListIssueCompositionChildrenWithStatusRow, error) {
+	rows, err := q.db.Query(ctx, listIssueCompositionChildrenWithStatus, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIssueCompositionChildrenWithStatusRow
+	for rows.Next() {
+		var i ListIssueCompositionChildrenWithStatusRow
+		if err := rows.Scan(&i.ID, &i.Status); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listIssueSequencingBlockersWithStatus = `-- name: ListIssueSequencingBlockersWithStatus :many
+SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status
+FROM zdx_issue_blocks b
+LEFT JOIN zdx_issues i ON i.id = b.blocked_by_id
+WHERE b.issue_id = $1 AND b.kind = 'sequencing'
+`
+
+type ListIssueSequencingBlockersWithStatusRow struct {
+	ID     string `db:"id" json:"id"`
+	Status string `db:"status" json:"status"`
+}
+
+func (q *Queries) ListIssueSequencingBlockersWithStatus(ctx context.Context, issueID string) ([]ListIssueSequencingBlockersWithStatusRow, error) {
+	rows, err := q.db.Query(ctx, listIssueSequencingBlockersWithStatus, issueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListIssueSequencingBlockersWithStatusRow
+	for rows.Next() {
+		var i ListIssueSequencingBlockersWithStatusRow
 		if err := rows.Scan(&i.ID, &i.Status); err != nil {
 			return nil, err
 		}

@@ -378,6 +378,7 @@ type ZdxIssue struct {
 type ZdxIssueBlock struct {
 	IssueID     string `db:"issue_id" json:"issue_id"`
 	BlockedByID string `db:"blocked_by_id" json:"blocked_by_id"`
+	Kind        string `db:"kind" json:"kind"`
 }
 
 type ZdxIssueCodeRef struct {

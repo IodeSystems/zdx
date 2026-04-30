@@ -206,11 +206,16 @@ Example:
 			addResp := resp.JSON200
 			fmt.Printf("%s  %s\n", clitypes.IssueIDStr(addResp.Id), addResp.Title)
 			if parent != "" {
-				parentNum, _ := strconv.ParseInt(parent[3:], 10, 32)
+				parentNum, err := parseIssueID(parent)
+				if err != nil {
+					return fmt.Errorf("created issue but parent flag invalid: %w", err)
+				}
+				compositionKind := "composition"
 				blkResp, err := c.IssueAddBlockWithResponse(cmd.Context(), dxclient.IssueAddBlockRequest{
 					Slug:      c.SlugOrDie(),
-					Id:        int32(parentNum),
+					Id:        parentNum,
 					BlockedBy: clitypes.IssueIDStr(addResp.Id),
+					Kind:      &compositionKind,
 				})
 				if err != nil {
 					return fmt.Errorf("created issue but failed to add block on parent: %w", err)
@@ -218,7 +223,7 @@ Example:
 				if err := c.CheckStatus(blkResp.StatusCode(), blkResp.Body); err != nil {
 					return fmt.Errorf("created issue but failed to add block on parent: %w", err)
 				}
-				fmt.Printf("  → blocks %s\n", parent)
+				fmt.Printf("  → child of %s\n", parent)
 			}
 			if addResp.SuggestedBlockers != nil && len(*addResp.SuggestedBlockers) > 0 {
 				newID := clitypes.IssueIDStr(addResp.Id)

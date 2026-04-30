@@ -1626,6 +1626,7 @@ type IssueAddBlockRequest struct {
 	Schema    *string `json:"$schema,omitempty"`
 	BlockedBy string  `json:"blocked_by"`
 	Id        int32   `json:"id"`
+	Kind      *string `json:"kind,omitempty"`
 	Slug      string  `json:"slug"`
 }
 
@@ -1665,6 +1666,9 @@ type IssueSetFeaturesRequest struct {
 type IssueBlockerRef struct {
 	// Id Blocking issue ID formatted as IS-N
 	Id string `json:"id"`
+
+	// Kind Edge type: 'sequencing' for real waits-for deps, 'composition' for tracker → child relationships
+	Kind *string `json:"kind,omitempty"`
 
 	// Status Current status of the blocking issue (open, closed, ...)
 	Status string `json:"status"`

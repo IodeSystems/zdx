@@ -36,19 +36,32 @@ func PrintIssueItem(iss clitypes.IssueItem) {
 		fmt.Printf("Interactive only: yes  (hidden from autonomous agent loop)\n")
 	}
 	if len(iss.BlockedByDetail) > 0 {
-		var open, closed []string
+		var openBlock, closedBlock, openChild, closedChild []string
 		for _, b := range iss.BlockedByDetail {
-			if b.Status == "closed" {
-				closed = append(closed, b.ID)
-			} else {
-				open = append(open, b.ID)
+			isComposition := b.Kind == "composition"
+			isClosed := b.Status == "closed"
+			switch {
+			case isComposition && isClosed:
+				closedChild = append(closedChild, b.ID)
+			case isComposition:
+				openChild = append(openChild, b.ID)
+			case isClosed:
+				closedBlock = append(closedBlock, b.ID)
+			default:
+				openBlock = append(openBlock, b.ID)
 			}
 		}
-		if len(open) > 0 {
-			fmt.Printf("Blocked by: %s\n", strings.Join(open, ", "))
+		if len(openChild) > 0 {
+			fmt.Printf("Children:  %s\n", strings.Join(openChild, ", "))
 		}
-		if len(closed) > 0 {
-			fmt.Printf("Depends on: %s\n", strings.Join(closed, ", "))
+		if len(closedChild) > 0 {
+			fmt.Printf("Children (closed): %s\n", strings.Join(closedChild, ", "))
+		}
+		if len(openBlock) > 0 {
+			fmt.Printf("Blocked by: %s\n", strings.Join(openBlock, ", "))
+		}
+		if len(closedBlock) > 0 {
+			fmt.Printf("Depends on: %s\n", strings.Join(closedBlock, ", "))
 		}
 	} else if len(iss.BlockedBy) > 0 {
 		fmt.Printf("Blocked:   %s\n", strings.Join(iss.BlockedBy, ", "))

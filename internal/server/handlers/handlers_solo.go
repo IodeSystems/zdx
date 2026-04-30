@@ -437,13 +437,15 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		}
 	}
 
-	// Tracker issues: nudge to decompose if no children, close if all children done
+	// Tracker issues: nudge to decompose if no children, close if all children done.
+	// Use composition edges only — sequencing blockers are real waits-for deps and
+	// don't count as "children" of the tracker.
 	for _, iss := range trackerIssues {
-		blockers, err := h.Q.ListIssueBlockersWithStatus(ctx, iss.ID)
+		children, err := h.Q.ListIssueCompositionChildrenWithStatus(ctx, iss.ID)
 		if err != nil {
 			continue
 		}
-		if len(blockers) == 0 {
+		if len(children) == 0 {
 			// Tracker has no children — needs decomposition
 			dth := workflowhints.DecomposeTrackerText(iss.ID)
 			candidates = append(candidates, soloCandidate{
@@ -461,7 +463,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			continue
 		}
 		allClosed := true
-		for _, b := range blockers {
+		for _, b := range children {
 			if b.Status != "closed" {
 				allClosed = false
 				break

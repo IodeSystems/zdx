@@ -236,7 +236,8 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				return nil, apiErr(500, err.Error())
 			}
 			for _, blockerID := range in.Body.BlockedBy {
-				_ = h.Q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: row.ID, BlockedByID: blockerID})
+				// Sequencing: --blocked-by names real "this depends on that" deps.
+				_ = h.Q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: row.ID, BlockedByID: blockerID, Kind: "sequencing"})
 			}
 			for _, fid := range in.Body.ScreenshotIDs {
 				_ = h.Q.AttachFileToIssue(ctx, db.AttachFileToIssueParams{
@@ -740,6 +741,10 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				Slug      string `json:"slug"`
 				ID        int32  `json:"id"`
 				BlockedBy string `json:"blocked_by"`
+				// Kind: 'sequencing' (default) for "X waits for Y" deps; 'composition' for tracker → child relationships.
+				// Composition edges are written by `dx issue add --parent` so a tracker can list its children
+				// without conflating them with real sequencing blockers.
+				Kind string `json:"kind,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			_, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -747,7 +752,14 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
-			if err := h.Q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: issueID, BlockedByID: in.Body.BlockedBy}); err != nil {
+			kind := in.Body.Kind
+			if kind == "" {
+				kind = "sequencing"
+			}
+			if kind != "sequencing" && kind != "composition" {
+				return nil, apiErr(http.StatusUnprocessableEntity, "kind must be 'sequencing' or 'composition'")
+			}
+			if err := h.Q.AddIssueBlock(ctx, db.AddIssueBlockParams{IssueID: issueID, BlockedByID: in.Body.BlockedBy, Kind: kind}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
@@ -1443,8 +1455,14 @@ func (h *Handler) toIssueItemWithBlockers(ctx context.Context, r db.ZdxIssue) Is
 		ids := make([]string, 0, len(rows))
 		detail := make([]IssueBlockerRef, 0, len(rows))
 		for _, b := range rows {
+			kind := b.Kind
+			if kind == "" {
+				kind = "sequencing"
+			}
+			// BlockedBy stays composition-inclusive for backwards compat with callers that
+			// just want IDs; structured display via BlockedByDetail can split on kind.
 			ids = append(ids, b.ID)
-			detail = append(detail, IssueBlockerRef{ID: b.ID, Status: b.Status})
+			detail = append(detail, IssueBlockerRef{ID: b.ID, Status: b.Status, Kind: kind})
 		}
 		item.BlockedBy = ids
 		item.BlockedByDetail = detail

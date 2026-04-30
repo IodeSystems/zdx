@@ -28,6 +28,7 @@ type IssueItem struct {
 type IssueBlockerRef struct {
 	ID     string `json:"id" doc:"Blocking issue ID formatted as IS-N"`
 	Status string `json:"status" doc:"Current status of the blocking issue (open, closed, ...)"`
+	Kind   string `json:"kind,omitempty" doc:"Edge type: 'sequencing' for real waits-for deps, 'composition' for tracker → child relationships"`
 }
 
 type TaskItem struct {

@@ -54,6 +54,7 @@ type IssueItem struct {
 type IssueBlockerRef struct {
 	ID     string `json:"id"`
 	Status string `json:"status"`
+	Kind   string `json:"kind,omitempty"` // 'sequencing' or 'composition'
 }
 
 type IssueWorkItem struct {

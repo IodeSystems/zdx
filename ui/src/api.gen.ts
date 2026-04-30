@@ -6760,6 +6760,7 @@ export interface components {
             blocked_by: string;
             /** Format: int32 */
             id: number;
+            kind?: string;
             slug: string;
         };
         "Issue-kindRequest": {
@@ -6808,6 +6809,8 @@ export interface components {
         IssueBlockerRef: {
             /** @description Blocking issue ID formatted as IS-N */
             id: string;
+            /** @description Edge type: 'sequencing' for real waits-for deps, 'composition' for tracker → child relationships */
+            kind?: string;
             /** @description Current status of the blocking issue (open, closed, ...) */
             status: string;
         };

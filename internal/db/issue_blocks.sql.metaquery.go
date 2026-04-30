@@ -15,17 +15,18 @@ var MetaAddIssueBlock = metaquery.Query{
 	Name:   "AddIssueBlock",
 	Cmd:    ":exec",
 	Source: "issue_blocks.sql",
-	SQL:    `INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id) VALUES ($1, $2) ON CONFLICT DO NOTHING`,
+	SQL:    `INSERT INTO zdx_issue_blocks (issue_id, blocked_by_id, kind) VALUES ($1, $2, $3) ON CONFLICT DO NOTHING`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 2, Name: "blocked_by_id", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "kind", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_issue_blocks"},
 }
 
 // WrapAddIssueBlock returns a metaquery.Builder over MetaAddIssueBlock, pre-bound with typed arguments.
 func WrapAddIssueBlock(arg AddIssueBlockParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaAddIssueBlock, arg.IssueID, arg.BlockedByID)
+	return metaquery.Wrap(&MetaAddIssueBlock, arg.IssueID, arg.BlockedByID, arg.Kind)
 }
 
 var MetaListIssueBlockers = metaquery.Query{
@@ -57,13 +58,14 @@ var MetaListIssueBlockersWithStatus = metaquery.Query{
 	Name:   "ListIssueBlockersWithStatus",
 	Cmd:    ":many",
 	Source: "issue_blocks.sql",
-	SQL: `SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status
+	SQL: `SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status, b.kind
 FROM zdx_issue_blocks b
 LEFT JOIN zdx_issues i ON i.id = b.blocked_by_id
 WHERE b.issue_id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "blocked_by_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issue_blocks"},
 		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issue_blocks"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
@@ -77,6 +79,70 @@ func WrapListIssueBlockersWithStatus(issueID string) *metaquery.Builder {
 
 // ListIssueBlockersWithStatusCols gives typed, name-safe access to ListIssueBlockersWithStatus's output columns.
 var ListIssueBlockersWithStatusCols = struct {
+	ID     metaquery.TextCol
+	Status metaquery.TextCol
+	Kind   metaquery.TextCol
+}{
+	ID:     metaquery.NewTextCol("blocked_by_id"),
+	Status: metaquery.NewTextCol("status"),
+	Kind:   metaquery.NewTextCol("kind"),
+}
+
+var MetaListIssueCompositionChildrenWithStatus = metaquery.Query{
+	Name:   "ListIssueCompositionChildrenWithStatus",
+	Cmd:    ":many",
+	Source: "issue_blocks.sql",
+	SQL: `SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status
+FROM zdx_issue_blocks b
+LEFT JOIN zdx_issues i ON i.id = b.blocked_by_id
+WHERE b.issue_id = $1 AND b.kind = 'composition'`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "blocked_by_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issue_blocks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListIssueCompositionChildrenWithStatus returns a metaquery.Builder over MetaListIssueCompositionChildrenWithStatus, pre-bound with typed arguments.
+func WrapListIssueCompositionChildrenWithStatus(issueID string) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListIssueCompositionChildrenWithStatus, issueID)
+}
+
+// ListIssueCompositionChildrenWithStatusCols gives typed, name-safe access to ListIssueCompositionChildrenWithStatus's output columns.
+var ListIssueCompositionChildrenWithStatusCols = struct {
+	ID     metaquery.TextCol
+	Status metaquery.TextCol
+}{
+	ID:     metaquery.NewTextCol("blocked_by_id"),
+	Status: metaquery.NewTextCol("status"),
+}
+
+var MetaListIssueSequencingBlockersWithStatus = metaquery.Query{
+	Name:   "ListIssueSequencingBlockersWithStatus",
+	Cmd:    ":many",
+	Source: "issue_blocks.sql",
+	SQL: `SELECT b.blocked_by_id AS id, COALESCE(i.status, 'open') AS status
+FROM zdx_issue_blocks b
+LEFT JOIN zdx_issues i ON i.id = b.blocked_by_id
+WHERE b.issue_id = $1 AND b.kind = 'sequencing'`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "blocked_by_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issue_blocks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListIssueSequencingBlockersWithStatus returns a metaquery.Builder over MetaListIssueSequencingBlockersWithStatus, pre-bound with typed arguments.
+func WrapListIssueSequencingBlockersWithStatus(issueID string) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListIssueSequencingBlockersWithStatus, issueID)
+}
+
+// ListIssueSequencingBlockersWithStatusCols gives typed, name-safe access to ListIssueSequencingBlockersWithStatus's output columns.
+var ListIssueSequencingBlockersWithStatusCols = struct {
 	ID     metaquery.TextCol
 	Status metaquery.TextCol
 }{

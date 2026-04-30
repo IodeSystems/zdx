@@ -1015,7 +1015,8 @@ ALTER SEQUENCE public.zdx_invites_id_seq OWNED BY public.zdx_invites.id;
 
 CREATE TABLE public.zdx_issue_blocks (
     issue_id text NOT NULL,
-    blocked_by_id text NOT NULL
+    blocked_by_id text NOT NULL,
+    kind text DEFAULT 'sequencing'::text NOT NULL
 );
 
 
