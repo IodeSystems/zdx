@@ -4963,6 +4963,7 @@ export interface components {
             similar?: components["schemas"]["SimilarIssueItem"][] | null;
             source: string;
             status: string;
+            suggested_blockers?: string[] | null;
             target_branch?: string;
             title: string;
             updated_at: string;

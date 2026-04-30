@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"net/http"
 	"os/exec"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -19,6 +20,27 @@ import (
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
+
+// issueRefRe matches an "IS-N" reference within free-text. Word-boundaries on
+// either side prevent matching things like "MIS-1" or "IS-12abc".
+var issueRefRe = regexp.MustCompile(`\bIS-\d+\b`)
+
+// extractIssueRefs returns deduped IS-N references found in text, excluding
+// excludeID (the newly-created issue's own ID). Order is preserved by first
+// occurrence so the agent sees references in the order they appear in the body.
+func extractIssueRefs(text, excludeID string) []string {
+	matches := issueRefRe.FindAllString(text, -1)
+	seen := map[string]bool{excludeID: true}
+	var out []string
+	for _, m := range matches {
+		if seen[m] {
+			continue
+		}
+		seen[m] = true
+		out = append(out, m)
+	}
+	return out
+}
 
 func (h *Handler) registerIssueRoutes(api huma.API) {
 	type IssueIntIDInput struct {
@@ -162,7 +184,8 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 		}) (*struct {
 			Body struct {
 				IssueItem
-				Similar []SimilarIssueItem `json:"similar,omitempty"`
+				Similar           []SimilarIssueItem `json:"similar,omitempty"`
+				SuggestedBlockers []string           `json:"suggested_blockers,omitempty"`
 			}
 		}, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -228,15 +251,18 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			if in.Body.AutoReady {
 				h.refreshQueueAsync(p.ID)
 			}
+			suggested := extractIssueRefs(issueText, row.ID)
 			return &struct {
 				Body struct {
 					IssueItem
-					Similar []SimilarIssueItem `json:"similar,omitempty"`
+					Similar           []SimilarIssueItem `json:"similar,omitempty"`
+					SuggestedBlockers []string           `json:"suggested_blockers,omitempty"`
 				}
 			}{Body: struct {
 				IssueItem
-				Similar []SimilarIssueItem `json:"similar,omitempty"`
-			}{IssueItem: item, Similar: similar}}, nil
+				Similar           []SimilarIssueItem `json:"similar,omitempty"`
+				SuggestedBlockers []string           `json:"suggested_blockers,omitempty"`
+			}{IssueItem: item, Similar: similar, SuggestedBlockers: suggested}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "triage-issue", Method: http.MethodPost, Path: "/api/dx/todo/owner/triage"},

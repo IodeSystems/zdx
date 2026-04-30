@@ -164,14 +164,15 @@ type AddIssueResponse struct {
 	Priority        string  `json:"priority"`
 
 	// ReopenCount Number of times this issue has been reopened — a churn signal for stabilization candidates
-	ReopenCount  *int32              `json:"reopen_count,omitempty"`
-	Similar      *[]SimilarIssueItem `json:"similar,omitempty"`
-	Source       string              `json:"source"`
-	Status       string              `json:"status"`
-	TargetBranch *string             `json:"target_branch,omitempty"`
-	Title        string              `json:"title"`
-	UpdatedAt    string              `json:"updated_at"`
-	Url          string              `json:"url"`
+	ReopenCount       *int32              `json:"reopen_count,omitempty"`
+	Similar           *[]SimilarIssueItem `json:"similar,omitempty"`
+	Source            string              `json:"source"`
+	Status            string              `json:"status"`
+	SuggestedBlockers *[]string           `json:"suggested_blockers,omitempty"`
+	TargetBranch      *string             `json:"target_branch,omitempty"`
+	Title             string              `json:"title"`
+	UpdatedAt         string              `json:"updated_at"`
+	Url               string              `json:"url"`
 }
 
 // AddPatternRequest defines model for Add-patternRequest.

@@ -181,6 +181,13 @@ Example:
 				}
 				fmt.Printf("  → blocks %s\n", parent)
 			}
+			if addResp.SuggestedBlockers != nil && len(*addResp.SuggestedBlockers) > 0 {
+				newID := clitypes.IssueIDStr(addResp.Id)
+				fmt.Println("\nContext references these issues — wire any real deps:")
+				for _, ref := range *addResp.SuggestedBlockers {
+					fmt.Printf("  dx issue block %s --by=%s\n", newID, ref)
+				}
+			}
 			hasSimilar := addResp.Similar != nil && len(*addResp.Similar) > 0
 			if !autoReady && hasSimilar {
 				fmt.Println("\nSimilar issues:")
