@@ -3542,6 +3542,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/tests/names": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-test-names-by-importance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/timed": {
         parameters: {
             query?: never;
@@ -18056,6 +18072,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Get-test-historyResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-test-names-by-importance": {
+        parameters: {
+            query: {
+                slug: string;
+                importance: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": string[] | null;
                 };
             };
             /** @description Error */

@@ -4977,6 +4977,12 @@ type GetTestHistoryParams struct {
 	Branch   *string `form:"branch,omitempty" json:"branch,omitempty"`
 }
 
+// ListTestNamesByImportanceParams defines parameters for ListTestNamesByImportance.
+type ListTestNamesByImportanceParams struct {
+	Slug       string `form:"slug" json:"slug"`
+	Importance string `form:"importance" json:"importance"`
+}
+
 // ListTimedParams defines parameters for ListTimed.
 type ListTimedParams struct {
 	Slug      *string `form:"slug,omitempty" json:"slug,omitempty"`
@@ -6722,6 +6728,9 @@ type ClientInterface interface {
 
 	// GetTestHistory request
 	GetTestHistory(ctx context.Context, params *GetTestHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListTestNamesByImportance request
+	ListTestNamesByImportance(ctx context.Context, params *ListTestNamesByImportanceParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListTimed request
 	ListTimed(ctx context.Context, params *ListTimedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -11400,6 +11409,18 @@ func (c *APIClient) GetTest(ctx context.Context, params *GetTestParams, reqEdito
 
 func (c *APIClient) GetTestHistory(ctx context.Context, params *GetTestHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetTestHistoryRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListTestNamesByImportance(ctx context.Context, params *ListTestNamesByImportanceParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTestNamesByImportanceRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -25468,6 +25489,63 @@ func NewGetTestHistoryRequest(server string, params *GetTestHistoryParams) (*htt
 	return req, nil
 }
 
+// NewListTestNamesByImportanceRequest generates requests for ListTestNamesByImportance
+func NewListTestNamesByImportanceRequest(server string, params *ListTestNamesByImportanceParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/tests/names")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "importance", params.Importance, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListTimedRequest generates requests for ListTimed
 func NewListTimedRequest(server string, params *ListTimedParams) (*http.Request, error) {
 	var err error
@@ -30706,6 +30784,9 @@ type ClientWithResponsesInterface interface {
 
 	// GetTestHistoryWithResponse request
 	GetTestHistoryWithResponse(ctx context.Context, params *GetTestHistoryParams, reqEditors ...RequestEditorFn) (*ParsedGetTestHistoryResponse, error)
+
+	// ListTestNamesByImportanceWithResponse request
+	ListTestNamesByImportanceWithResponse(ctx context.Context, params *ListTestNamesByImportanceParams, reqEditors ...RequestEditorFn) (*ListTestNamesByImportanceResponse, error)
 
 	// ListTimedWithResponse request
 	ListTimedWithResponse(ctx context.Context, params *ListTimedParams, reqEditors ...RequestEditorFn) (*ParsedListTimedResponse, error)
@@ -36650,6 +36731,29 @@ func (r ParsedGetTestHistoryResponse) StatusCode() int {
 	return 0
 }
 
+type ListTestNamesByImportanceResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *[]string
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTestNamesByImportanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTestNamesByImportanceResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListTimedResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -41669,6 +41773,15 @@ func (c *ClientWithResponses) GetTestHistoryWithResponse(ctx context.Context, pa
 		return nil, err
 	}
 	return ParseParsedGetTestHistoryResponse(rsp)
+}
+
+// ListTestNamesByImportanceWithResponse request returning *ListTestNamesByImportanceResponse
+func (c *ClientWithResponses) ListTestNamesByImportanceWithResponse(ctx context.Context, params *ListTestNamesByImportanceParams, reqEditors ...RequestEditorFn) (*ListTestNamesByImportanceResponse, error) {
+	rsp, err := c.ListTestNamesByImportance(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTestNamesByImportanceResponse(rsp)
 }
 
 // ListTimedWithResponse request returning *ParsedListTimedResponse
@@ -50744,6 +50857,39 @@ func ParseParsedGetTestHistoryResponse(rsp *http.Response) (*ParsedGetTestHistor
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest GetTestHistoryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseListTestNamesByImportanceResponse parses an HTTP response from a ListTestNamesByImportanceWithResponse call
+func ParseListTestNamesByImportanceResponse(rsp *http.Response) (*ListTestNamesByImportanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTestNamesByImportanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []string
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

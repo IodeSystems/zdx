@@ -474,6 +474,40 @@ func (q *Queries) ListTestDemos(ctx context.Context, testID int32) ([]ListTestDe
 	return items, nil
 }
 
+const listTestNamesBySpecImportance = `-- name: ListTestNamesBySpecImportance :many
+SELECT DISTINCT t.name
+FROM zdx_tests t
+JOIN zdx_spec_tests st ON st.test_id = t.id
+JOIN zdx_specs s ON s.id = st.spec_id
+WHERE t.project_id = $1 AND s.importance = $2
+ORDER BY t.name
+`
+
+type ListTestNamesBySpecImportanceParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	Importance string `db:"importance" json:"importance"`
+}
+
+func (q *Queries) ListTestNamesBySpecImportance(ctx context.Context, arg ListTestNamesBySpecImportanceParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listTestNamesBySpecImportance, arg.ProjectID, arg.Importance)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listTestResultHistory = `-- name: ListTestResultHistory :many
 SELECT id, driver, test_name, status, duration_ms, run_at, branch, git_sha
 FROM zdx_test_result_history

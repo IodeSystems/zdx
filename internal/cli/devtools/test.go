@@ -76,6 +76,7 @@ to target the browser/CLI recording tests.`,
 	cmd.Flags().String("shard", "", "shard N/M across the e2e adapter")
 	cmd.Flags().Bool("no-ephemeral", false, "skip ephemeral devserver bootstrap (use caller's DX_API_URL instead)")
 	cmd.Flags().Bool("ephemeral-per-test", false, "spin a fresh devserver per demo test (coverage accuracy; multiplies wall time)")
+	cmd.Flags().String("importance", "", "spec importance tier filter: must | should | nice-to-have")
 	// Legacy sub-commands kept for compatibility.
 	cmd.AddCommand(testListCmd(), testRunCmd(), testE2ECmd())
 	return cmd
@@ -92,13 +93,27 @@ func testHarnessRunE(cmd *cobra.Command, _ []string) error {
 	shard, _ := cmd.Flags().GetString("shard")
 	noEphemeral, _ := cmd.Flags().GetBool("no-ephemeral")
 	ephemeralPerTest, _ := cmd.Flags().GetBool("ephemeral-per-test")
+	importance, _ := cmd.Flags().GetString("importance")
 
 	f := testharness.Filter{
-		Name:      filter,
-		Component: component,
-		Feature:   feature,
-		Layer:     testharness.Layer(layer),
-		Driver:    testharness.Driver(driver),
+		Name:       filter,
+		Component:  component,
+		Feature:    feature,
+		Layer:      testharness.Layer(layer),
+		Driver:     testharness.Driver(driver),
+		Importance: importance,
+	}
+
+	if f.Importance != "" {
+		names, err := resolveTestNamesByImportance(f.Importance)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "[test] warning: could not resolve importance filter: %v\n", err)
+		} else if len(names) > 0 {
+			f.Name = "^(" + strings.Join(names, "|") + ")$"
+		} else {
+			fmt.Fprintf(os.Stderr, "[test] no tests linked to --importance=%s; nothing to run\n", f.Importance)
+			return nil
+		}
 	}
 
 	// ── Ephemeral devserver bootstrap ─────────────────────────────────────
@@ -251,6 +266,31 @@ func buildE2EEnv(dbURL string) []string {
 		return []string{"TEST_DATABASE_URL=" + dbURL}
 	}
 	return nil
+}
+
+func resolveTestNamesByImportance(importance string) ([]string, error) {
+	kc, err := cli.DefaultClient()
+	if err != nil {
+		return nil, err
+	}
+	slug := kc.Slug()
+	if slug == "" {
+		return nil, fmt.Errorf("no project slug configured")
+	}
+	resp, err := kc.ListTestNamesByImportanceWithResponse(context.Background(), &dxclient.ListTestNamesByImportanceParams{
+		Slug:       slug,
+		Importance: importance,
+	})
+	if err != nil {
+		return nil, err
+	}
+	if resp.StatusCode() == 404 || resp.JSON200 == nil {
+		return nil, nil
+	}
+	if err := kc.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+		return nil, err
+	}
+	return *resp.JSON200, nil
 }
 
 // runPerTestEphemeral enumerates demo tests and runs each inside its own

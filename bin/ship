@@ -415,6 +415,11 @@ else
   echo "[ship] Will use maintenance-mode deploy."
 fi
 
+# ── Must-tier demo gate ───────────────────────────────────────────────────────
+
+echo "[ship] Running must-tier tests..."
+./bin/dx test --importance=must --layer=demo --no-ephemeral
+
 # ── Deploy helpers ────────────────────────────────────────────────────────────
 
 run_migrate() {

@@ -448,6 +448,7 @@ type Querier interface {
 	// Tasks (any status) whose title or text references spec N by ID ("spec N" word boundary).
 	ListTasksForSpec(ctx context.Context, id int32) ([]ListTasksForSpecRow, error)
 	ListTestDemos(ctx context.Context, testID int32) ([]ListTestDemosRow, error)
+	ListTestNamesBySpecImportance(ctx context.Context, arg ListTestNamesBySpecImportanceParams) ([]string, error)
 	// metaquery: off
 	ListTestResultHistory(ctx context.Context, arg ListTestResultHistoryParams) ([]ListTestResultHistoryRow, error)
 	ListTests(ctx context.Context, projectID int32) ([]ListTestsRow, error)

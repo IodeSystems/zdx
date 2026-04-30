@@ -49,6 +49,14 @@ SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at,
        last_run_branch, last_run_sha, last_failed_at, last_failed_branch
 FROM zdx_tests WHERE project_id = $1 AND layer = $2 ORDER BY component, name;
 
+-- name: ListTestNamesBySpecImportance :many
+SELECT DISTINCT t.name
+FROM zdx_tests t
+JOIN zdx_spec_tests st ON st.test_id = t.id
+JOIN zdx_specs s ON s.id = st.spec_id
+WHERE t.project_id = $1 AND s.importance = $2
+ORDER BY t.name;
+
 -- name: ListTestsForSpec :many
 SELECT t.id, t.project_id, t.component, t.name, t.layer, t.status, t.duration_ms, t.last_run_at, t.created_at,
        t.last_run_branch, t.last_run_sha, t.last_failed_at, t.last_failed_branch

@@ -35,6 +35,11 @@ make test                     # Go tests
 ./bin/dx test                 # unified test runner (Go + vitest + demos)
 ```
 
+### Test Tiers (--importance)
+- `must`         → every PR and deploy (default CI gate; also runs in `bin/ship`)
+- `should`       → release-branch merge
+- `nice-to-have` → manual / periodic only
+
 ## Linting
 
 ```bash

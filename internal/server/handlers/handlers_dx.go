@@ -334,6 +334,30 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			}{History: out}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-test-names-by-importance", Method: http.MethodGet, Path: "/api/dx/tests/names"},
+		func(ctx context.Context, in *struct {
+			Slug       string `query:"slug" required:"true"`
+			Importance string `query:"importance" required:"true"`
+		}) (*struct {
+			Body []string
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			names, err := h.Q.ListTestNamesBySpecImportance(ctx, db.ListTestNamesBySpecImportanceParams{
+				ProjectID:  p.ID,
+				Importance: in.Importance,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			if names == nil {
+				names = []string{}
+			}
+			return &struct{ Body []string }{Body: names}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "get-test", Method: http.MethodGet, Path: "/api/dx/tests/detail"},
 		func(ctx context.Context, in *struct {
 			Slug   string `query:"slug" required:"true"`

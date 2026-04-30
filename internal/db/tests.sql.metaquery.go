@@ -472,6 +472,37 @@ var ListTestDemosCols = struct {
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 }
 
+var MetaListTestNamesBySpecImportance = metaquery.Query{
+	Name:   "ListTestNamesBySpecImportance",
+	Cmd:    ":many",
+	Source: "tests.sql",
+	SQL: `SELECT DISTINCT t.name
+FROM zdx_tests t
+JOIN zdx_spec_tests st ON st.test_id = t.id
+JOIN zdx_specs s ON s.id = st.spec_id
+WHERE t.project_id = $1 AND s.importance = $2
+ORDER BY t.name`,
+	Columns: []metaquery.Column{
+		{Name: "name", OriginalName: "name", GoType: "string"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "importance", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListTestNamesBySpecImportance returns a metaquery.Builder over MetaListTestNamesBySpecImportance, pre-bound with typed arguments.
+func WrapListTestNamesBySpecImportance(arg ListTestNamesBySpecImportanceParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListTestNamesBySpecImportance, arg.ProjectID, arg.Importance)
+}
+
+// ListTestNamesBySpecImportanceCols gives typed, name-safe access to ListTestNamesBySpecImportance's output columns.
+var ListTestNamesBySpecImportanceCols = struct {
+	Name metaquery.TextCol
+}{
+	Name: metaquery.NewTextCol("name"),
+}
+
 var MetaListTests = metaquery.Query{
 	Name:   "ListTests",
 	Cmd:    ":many",

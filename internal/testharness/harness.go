@@ -87,20 +87,22 @@ func (b *ScenarioBuilder) Then(step StepDriver) Driver {
 
 // Filter scopes which tests to run. Empty fields match everything.
 type Filter struct {
-	Name      string // substring / regex applied to test names
-	Component string // e.g. "ui", "api", "cli"
-	Feature   string // feature name token in test name
-	Layer     Layer  // empty = all layers
-	Driver    Driver // api | ui; empty defaults to api
+	Name       string // substring / regex applied to test names
+	Component  string // e.g. "ui", "api", "cli"
+	Feature    string // feature name token in test name
+	Layer      Layer  // empty = all layers
+	Driver     Driver // api | ui; empty defaults to api
+	Importance string // must | should | nice-to-have; empty = no filter
 }
 
 // FilterFromEnv builds a Filter from the DX_TEST_* environment variables.
 func FilterFromEnv() Filter {
 	return Filter{
-		Component: os.Getenv("DX_TEST_COMPONENT"),
-		Feature:   os.Getenv("DX_TEST_FEATURE"),
-		Layer:     Layer(os.Getenv("DX_TEST_LAYER")),
-		Driver:    Driver(os.Getenv("DX_TEST_DRIVER")),
+		Component:  os.Getenv("DX_TEST_COMPONENT"),
+		Feature:    os.Getenv("DX_TEST_FEATURE"),
+		Layer:      Layer(os.Getenv("DX_TEST_LAYER")),
+		Driver:     Driver(os.Getenv("DX_TEST_DRIVER")),
+		Importance: os.Getenv("DX_TEST_IMPORTANCE"),
 	}
 }
 
