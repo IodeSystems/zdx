@@ -174,7 +174,6 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 			}, nil
 		})
 
-
 	huma.Register(api, huma.Operation{OperationID: "get-comment", Method: http.MethodGet, Path: "/api/dx/comment/get"},
 		func(ctx context.Context, in *struct {
 			ID int32 `query:"id" required:"true"`
@@ -192,7 +191,6 @@ func (h *Handler) registerCommentRoutes(api huma.API) {
 			}
 			return &struct{ Body CommentItem }{Body: ci}, nil
 		})
-
 
 	// ── Revisions ─────────────────────────────────────────────────────────────
 
