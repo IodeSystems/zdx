@@ -2296,6 +2296,13 @@ type ListMustSpecDemoGateOffendersResponse struct {
 	Offenders *[]SpecCloseGateOffender `json:"offenders"`
 }
 
+// ListMustSpecShipGateOffendersResponse defines model for List-must-spec-ship-gate-offendersResponse.
+type ListMustSpecShipGateOffendersResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string                  `json:"$schema,omitempty"`
+	Offenders *[]SpecCloseGateOffender `json:"offenders"`
+}
+
 // ListMyApiKeysResponse defines model for List-my-api-keysResponse.
 type ListMyApiKeysResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4857,6 +4864,11 @@ type ListRevisionsParams struct {
 	Offset     *int32  `form:"offset,omitempty" json:"offset,omitempty"`
 }
 
+// ListMustSpecShipGateOffendersParams defines parameters for ListMustSpecShipGateOffenders.
+type ListMustSpecShipGateOffendersParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
 // ListSlowQueriesParams defines parameters for ListSlowQueries.
 type ListSlowQueriesParams struct {
 	Slug   string  `form:"slug" json:"slug"`
@@ -6543,6 +6555,9 @@ type ClientInterface interface {
 
 	// ListRevisions request
 	ListRevisions(ctx context.Context, params *ListRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListMustSpecShipGateOffenders request
+	ListMustSpecShipGateOffenders(ctx context.Context, params *ListMustSpecShipGateOffendersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSlowQueries request
 	ListSlowQueries(ctx context.Context, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -10569,6 +10584,18 @@ func (c *APIClient) DenyQuestionProposal(ctx context.Context, body DenyQuestionP
 
 func (c *APIClient) ListRevisions(ctx context.Context, params *ListRevisionsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListRevisionsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListMustSpecShipGateOffenders(ctx context.Context, params *ListMustSpecShipGateOffendersParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListMustSpecShipGateOffendersRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -23277,6 +23304,51 @@ func NewListRevisionsRequest(server string, params *ListRevisionsParams) (*http.
 	return req, nil
 }
 
+// NewListMustSpecShipGateOffendersRequest generates requests for ListMustSpecShipGateOffenders
+func NewListMustSpecShipGateOffendersRequest(server string, params *ListMustSpecShipGateOffendersParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/ship/must-spec-gate")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListSlowQueriesRequest generates requests for ListSlowQueries
 func NewListSlowQueriesRequest(server string, params *ListSlowQueriesParams) (*http.Request, error) {
 	var err error
@@ -30600,6 +30672,9 @@ type ClientWithResponsesInterface interface {
 	// ListRevisionsWithResponse request
 	ListRevisionsWithResponse(ctx context.Context, params *ListRevisionsParams, reqEditors ...RequestEditorFn) (*ParsedListRevisionsResponse, error)
 
+	// ListMustSpecShipGateOffendersWithResponse request
+	ListMustSpecShipGateOffendersWithResponse(ctx context.Context, params *ListMustSpecShipGateOffendersParams, reqEditors ...RequestEditorFn) (*ParsedListMustSpecShipGateOffendersResponse, error)
+
 	// ListSlowQueriesWithResponse request
 	ListSlowQueriesWithResponse(ctx context.Context, params *ListSlowQueriesParams, reqEditors ...RequestEditorFn) (*ParsedListSlowQueriesResponse, error)
 
@@ -35690,6 +35765,29 @@ func (r ParsedListRevisionsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListRevisionsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListMustSpecShipGateOffendersResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListMustSpecShipGateOffendersResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListMustSpecShipGateOffendersResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListMustSpecShipGateOffendersResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -41168,6 +41266,15 @@ func (c *ClientWithResponses) ListRevisionsWithResponse(ctx context.Context, par
 		return nil, err
 	}
 	return ParseParsedListRevisionsResponse(rsp)
+}
+
+// ListMustSpecShipGateOffendersWithResponse request returning *ParsedListMustSpecShipGateOffendersResponse
+func (c *ClientWithResponses) ListMustSpecShipGateOffendersWithResponse(ctx context.Context, params *ListMustSpecShipGateOffendersParams, reqEditors ...RequestEditorFn) (*ParsedListMustSpecShipGateOffendersResponse, error) {
+	rsp, err := c.ListMustSpecShipGateOffenders(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListMustSpecShipGateOffendersResponse(rsp)
 }
 
 // ListSlowQueriesWithResponse request returning *ParsedListSlowQueriesResponse
@@ -49372,6 +49479,39 @@ func ParseParsedListRevisionsResponse(rsp *http.Response) (*ParsedListRevisionsR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListRevisionsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListMustSpecShipGateOffendersResponse parses an HTTP response from a ListMustSpecShipGateOffendersWithResponse call
+func ParseParsedListMustSpecShipGateOffendersResponse(rsp *http.Response) (*ParsedListMustSpecShipGateOffendersResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListMustSpecShipGateOffendersResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListMustSpecShipGateOffendersResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

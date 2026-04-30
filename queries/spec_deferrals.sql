@@ -103,3 +103,37 @@ WHERE f.project_id = @project_id
     WHERE st.spec_id = s.id AND tt.status = 'pass'
   )
 ORDER BY f.name, s.id;
+
+-- name: ListMustSpecShipGateOffenders :many
+-- Project-wide must-tier specs with no passing demo. Not scoped to a specific
+-- issue — checks every must-spec in the project. Deferred specs are skipped.
+-- reason: 'no-demo' = no demo test linked; 'failing-demo' = linked but not passing.
+SELECT s.id AS spec_id, s.description, f.name AS feature_name,
+  CASE WHEN NOT EXISTS (
+      SELECT 1 FROM zdx_spec_tests st
+      JOIN zdx_tests tt ON tt.id = st.test_id
+      WHERE st.spec_id = s.id
+        AND (tt.component = 'demo' OR EXISTS (SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id))
+    )
+    THEN 'no-demo'
+    ELSE 'failing-demo'
+  END AS reason
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = @project_id
+  AND s.importance = 'must'
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_deferrals sd
+    JOIN zdx_issues i ON i.id = sd.issue_id
+    WHERE sd.spec_id = s.id AND i.status = 'open'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_tests st
+    JOIN zdx_tests tt ON tt.id = st.test_id
+    WHERE st.spec_id = s.id
+      AND tt.status = 'pass'
+      AND (tt.component = 'demo' OR EXISTS (
+        SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id
+      ))
+  )
+ORDER BY f.name, s.id;

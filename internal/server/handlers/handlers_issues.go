@@ -674,6 +674,40 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}{Offenders: offenders}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "list-must-spec-ship-gate-offenders", Method: http.MethodGet, Path: "/api/dx/ship/must-spec-gate"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct {
+			Body struct {
+				Offenders []SpecCloseGateOffender `json:"offenders"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListMustSpecShipGateOffenders(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			offenders := make([]SpecCloseGateOffender, len(rows))
+			for i, r := range rows {
+				offenders[i] = SpecCloseGateOffender{
+					SpecID:      r.SpecID,
+					Description: r.Description,
+					Feature:     r.FeatureName,
+					Reason:      r.Reason,
+				}
+			}
+			return &struct {
+				Body struct {
+					Offenders []SpecCloseGateOffender `json:"offenders"`
+				}
+			}{Body: struct {
+				Offenders []SpecCloseGateOffender `json:"offenders"`
+			}{Offenders: offenders}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "reopen-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/reopen"},
 		func(ctx context.Context, in *struct {
 			Body IssueIntIDInput

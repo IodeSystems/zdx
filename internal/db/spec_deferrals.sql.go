@@ -247,6 +247,73 @@ func (q *Queries) ListMustSpecDemoGateOffenders(ctx context.Context, arg ListMus
 	return items, nil
 }
 
+const listMustSpecShipGateOffenders = `-- name: ListMustSpecShipGateOffenders :many
+SELECT s.id AS spec_id, s.description, f.name AS feature_name,
+  CASE WHEN NOT EXISTS (
+      SELECT 1 FROM zdx_spec_tests st
+      JOIN zdx_tests tt ON tt.id = st.test_id
+      WHERE st.spec_id = s.id
+        AND (tt.component = 'demo' OR EXISTS (SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id))
+    )
+    THEN 'no-demo'
+    ELSE 'failing-demo'
+  END AS reason
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = $1
+  AND s.importance = 'must'
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_deferrals sd
+    JOIN zdx_issues i ON i.id = sd.issue_id
+    WHERE sd.spec_id = s.id AND i.status = 'open'
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_spec_tests st
+    JOIN zdx_tests tt ON tt.id = st.test_id
+    WHERE st.spec_id = s.id
+      AND tt.status = 'pass'
+      AND (tt.component = 'demo' OR EXISTS (
+        SELECT 1 FROM zdx_test_demos td WHERE td.test_id = tt.id
+      ))
+  )
+ORDER BY f.name, s.id
+`
+
+type ListMustSpecShipGateOffendersRow struct {
+	SpecID      int32  `db:"spec_id" json:"spec_id"`
+	Description string `db:"description" json:"description"`
+	FeatureName string `db:"feature_name" json:"feature_name"`
+	Reason      string `db:"reason" json:"reason"`
+}
+
+// Project-wide must-tier specs with no passing demo. Not scoped to a specific
+// issue — checks every must-spec in the project. Deferred specs are skipped.
+// reason: 'no-demo' = no demo test linked; 'failing-demo' = linked but not passing.
+func (q *Queries) ListMustSpecShipGateOffenders(ctx context.Context, projectID int32) ([]ListMustSpecShipGateOffendersRow, error) {
+	rows, err := q.db.Query(ctx, listMustSpecShipGateOffenders, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListMustSpecShipGateOffendersRow
+	for rows.Next() {
+		var i ListMustSpecShipGateOffendersRow
+		if err := rows.Scan(
+			&i.SpecID,
+			&i.Description,
+			&i.FeatureName,
+			&i.Reason,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listSpecDeferrals = `-- name: ListSpecDeferrals :many
 SELECT sd.spec_id, sd.issue_id, sd.note, sd.created_at, i.title AS issue_title, i.status AS issue_status
 FROM zdx_spec_deferrals sd

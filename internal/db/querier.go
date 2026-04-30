@@ -374,6 +374,10 @@ type Querier interface {
 	// deferred and have no passing demo. A passing demo is a zdx_tests row
 	// with status=pass AND (component=demo OR has zdx_test_demos artifact).
 	ListMustSpecDemoGateOffenders(ctx context.Context, arg ListMustSpecDemoGateOffendersParams) ([]ListMustSpecDemoGateOffendersRow, error)
+	// Project-wide must-tier specs with no passing demo. Not scoped to a specific
+	// issue — checks every must-spec in the project. Deferred specs are skipped.
+	// reason: 'no-demo' = no demo test linked; 'failing-demo' = linked but not passing.
+	ListMustSpecShipGateOffenders(ctx context.Context, projectID int32) ([]ListMustSpecShipGateOffendersRow, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
 	// Open issues whose duplicate_of or link_of targets the given issue. Used to
 	// cascade-close narrow-slice links (and full duplicates) when the target closes.
