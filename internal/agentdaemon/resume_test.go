@@ -18,8 +18,8 @@ type sessionHolder struct {
 	task *agentdaemon.RunningTask
 }
 
-func (h *sessionHolder) CurrentTask() *agentdaemon.RunningTask         { return h.task }
-func (h *sessionHolder) WaitForCompletion(_ context.Context) error     { return nil }
+func (h *sessionHolder) CurrentTask() *agentdaemon.RunningTask     { return h.task }
+func (h *sessionHolder) WaitForCompletion(_ context.Context) error { return nil }
 
 // controlServer upgrades to WS, reads the handshake, acks it, then sends the
 // provided frames (in order) after a short delay and holds until the client
