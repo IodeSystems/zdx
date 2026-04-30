@@ -101,6 +101,7 @@ type Querier interface {
 	CreateProposalVersion(ctx context.Context, arg CreateProposalVersionParams) (ZdxProposalVersion, error)
 	CreateSessionAuditEvent(ctx context.Context, arg CreateSessionAuditEventParams) error
 	CreateTask(ctx context.Context, arg CreateTaskParams) (CreateTaskRow, error)
+	CreateThread(ctx context.Context, arg CreateThreadParams) (ZdxEventThread, error)
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
@@ -208,6 +209,7 @@ type Querier interface {
 	// Fetch a spec by id, validating it belongs to the given project.
 	GetSpecForProject(ctx context.Context, arg GetSpecForProjectParams) (ZdxSpec, error)
 	GetState(ctx context.Context, arg GetStateParams) (string, error)
+	GetStreamByTarget(ctx context.Context, arg GetStreamByTargetParams) (ZdxEventStream, error)
 	GetTask(ctx context.Context, id string) (GetTaskRow, error)
 	GetTaskByExactText(ctx context.Context, arg GetTaskByExactTextParams) ([]GetTaskByExactTextRow, error)
 	GetTaskReview(ctx context.Context, id int32) (ZdxTaskReview, error)
@@ -226,6 +228,7 @@ type Querier interface {
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
 	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
+	InsertEvent(ctx context.Context, arg InsertEventParams) (ZdxEvent, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (InsertJournalEntryRow, error)
 	InsertKpiSample(ctx context.Context, arg InsertKpiSampleParams) (ZdxKpiSample, error)
 	InsertLogEvent(ctx context.Context, arg InsertLogEventParams) error
@@ -305,6 +308,8 @@ type Querier interface {
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
 	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
+	ListEventsByTarget(ctx context.Context, arg ListEventsByTargetParams) ([]ZdxEvent, error)
+	ListEventsByThread(ctx context.Context, arg ListEventsByThreadParams) ([]ZdxEvent, error)
 	ListFeatureFocuses(ctx context.Context, featureID int32) ([]ListFeatureFocusesRow, error)
 	ListFeatureMultipliers(ctx context.Context, featureID int32) ([]ListFeatureMultipliersRow, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ListFeaturesRow, error)
@@ -417,6 +422,7 @@ type Querier interface {
 	ListTests(ctx context.Context, projectID int32) ([]ListTestsRow, error)
 	ListTestsByLayer(ctx context.Context, arg ListTestsByLayerParams) ([]ListTestsByLayerRow, error)
 	ListTestsForSpec(ctx context.Context, specID int32) ([]ListTestsForSpecRow, error)
+	ListThreadsByTarget(ctx context.Context, arg ListThreadsByTargetParams) ([]ZdxEventThread, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_ms, duration_ms) sum(sum_total_ms, total_ms) sum(sum_count, count)
 	ListTimed(ctx context.Context, arg ListTimedParams) ([]ListTimedRow, error)
 	ListTimedDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
@@ -592,6 +598,7 @@ type Querier interface {
 	// exists, we refresh the descriptive/priority fields and updated_at but
 	// preserve status, justification, and snooze_until (caller-managed state).
 	UpsertMaturityItem(ctx context.Context, arg UpsertMaturityItemParams) (ZdxMaturityItem, error)
+	UpsertStream(ctx context.Context, arg UpsertStreamParams) (ZdxEventStream, error)
 	UpsertTaskReview(ctx context.Context, arg UpsertTaskReviewParams) (ZdxTaskReview, error)
 	UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertTestRow, error)
 	UpsertTestDemo(ctx context.Context, arg UpsertTestDemoParams) (UpsertTestDemoRow, error)

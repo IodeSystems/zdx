@@ -4,7 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -656,6 +656,112 @@ CREATE SEQUENCE public.zdx_error_reports_id_seq
 --
 
 ALTER SEQUENCE public.zdx_error_reports_id_seq OWNED BY public.zdx_error_reports.id;
+
+
+--
+-- Name: zdx_event_streams; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_event_streams (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    target_type text NOT NULL,
+    target_id text NOT NULL,
+    last_evaluated_at timestamp with time zone,
+    last_evaluated_by text
+);
+
+
+--
+-- Name: zdx_event_streams_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_event_streams_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_event_streams_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_event_streams_id_seq OWNED BY public.zdx_event_streams.id;
+
+
+--
+-- Name: zdx_event_threads; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_event_threads (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    target_type text NOT NULL,
+    target_id text NOT NULL,
+    root_event_id bigint NOT NULL,
+    title text,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_event_threads_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_event_threads_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_event_threads_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_event_threads_id_seq OWNED BY public.zdx_event_threads.id;
+
+
+--
+-- Name: zdx_events; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_events (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    target_type text NOT NULL,
+    target_id text NOT NULL,
+    thread_id bigint,
+    event_type text NOT NULL,
+    author text NOT NULL,
+    author_kind text NOT NULL,
+    summary_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    detail_json jsonb DEFAULT '{}'::jsonb NOT NULL,
+    agent_process_result jsonb,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_events_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_events_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_events_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_events_id_seq OWNED BY public.zdx_events.id;
 
 
 --
@@ -2642,6 +2748,27 @@ ALTER TABLE ONLY public.zdx_error_reports ALTER COLUMN id SET DEFAULT nextval('p
 
 
 --
+-- Name: zdx_event_streams id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_event_streams ALTER COLUMN id SET DEFAULT nextval('public.zdx_event_streams_id_seq'::regclass);
+
+
+--
+-- Name: zdx_event_threads id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_event_threads ALTER COLUMN id SET DEFAULT nextval('public.zdx_event_threads_id_seq'::regclass);
+
+
+--
+-- Name: zdx_events id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_events_id_seq'::regclass);
+
+
+--
 -- Name: zdx_features id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -3124,6 +3251,38 @@ ALTER TABLE ONLY public.zdx_error_events
 
 ALTER TABLE ONLY public.zdx_error_reports
     ADD CONSTRAINT zdx_error_reports_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_event_streams zdx_event_streams_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_event_streams
+    ADD CONSTRAINT zdx_event_streams_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_event_streams zdx_event_streams_project_id_target_type_target_id_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_event_streams
+    ADD CONSTRAINT zdx_event_streams_project_id_target_type_target_id_key UNIQUE (project_id, target_type, target_id);
+
+
+--
+-- Name: zdx_event_threads zdx_event_threads_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_event_threads
+    ADD CONSTRAINT zdx_event_threads_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_events zdx_events_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_events
+    ADD CONSTRAINT zdx_events_pkey PRIMARY KEY (id);
 
 
 --
@@ -4203,6 +4362,27 @@ CREATE INDEX zdx_error_events_context_gin ON public.zdx_error_events USING gin (
 --
 
 CREATE INDEX zdx_error_events_project_created ON public.zdx_error_events USING btree (project_id, created_at);
+
+
+--
+-- Name: zdx_event_threads_target_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_event_threads_target_idx ON public.zdx_event_threads USING btree (project_id, target_type, target_id);
+
+
+--
+-- Name: zdx_events_target_created_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_events_target_created_idx ON public.zdx_events USING btree (project_id, target_type, target_id, created_at);
+
+
+--
+-- Name: zdx_events_thread_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_events_thread_idx ON public.zdx_events USING btree (thread_id) WHERE (thread_id IS NOT NULL);
 
 
 --

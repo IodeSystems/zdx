@@ -220,6 +220,40 @@ type ZdxErrorReport struct {
 	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxEvent struct {
+	ID                 int64              `db:"id" json:"id"`
+	ProjectID          int32              `db:"project_id" json:"project_id"`
+	TargetType         string             `db:"target_type" json:"target_type"`
+	TargetID           string             `db:"target_id" json:"target_id"`
+	ThreadID           pgtype.Int8        `db:"thread_id" json:"thread_id"`
+	EventType          string             `db:"event_type" json:"event_type"`
+	Author             string             `db:"author" json:"author"`
+	AuthorKind         string             `db:"author_kind" json:"author_kind"`
+	SummaryJson        []byte             `db:"summary_json" json:"summary_json"`
+	DetailJson         []byte             `db:"detail_json" json:"detail_json"`
+	AgentProcessResult []byte             `db:"agent_process_result" json:"agent_process_result"`
+	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type ZdxEventStream struct {
+	ID              int64              `db:"id" json:"id"`
+	ProjectID       int32              `db:"project_id" json:"project_id"`
+	TargetType      string             `db:"target_type" json:"target_type"`
+	TargetID        string             `db:"target_id" json:"target_id"`
+	LastEvaluatedAt pgtype.Timestamptz `db:"last_evaluated_at" json:"last_evaluated_at"`
+	LastEvaluatedBy pgtype.Text        `db:"last_evaluated_by" json:"last_evaluated_by"`
+}
+
+type ZdxEventThread struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	TargetType  string             `db:"target_type" json:"target_type"`
+	TargetID    string             `db:"target_id" json:"target_id"`
+	RootEventID int64              `db:"root_event_id" json:"root_event_id"`
+	Title       pgtype.Text        `db:"title" json:"title"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxFeature struct {
 	ID              int32              `db:"id" json:"id"`
 	ProjectID       int32              `db:"project_id" json:"project_id"`
