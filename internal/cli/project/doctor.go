@@ -346,6 +346,28 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		}
 	}
 
+	// Historical close-gate audit (IS-632) — closed issues that fail the
+	// IS-560 close-gate retroactively, grouped by gate.
+	if hcResp, err := c.ListHistoricalCloseGateOffendersWithResponse(ctx, &dxclient.ListHistoricalCloseGateOffendersParams{Slug: slug}); err == nil && hcResp.JSON200 != nil && hcResp.JSON200.Offenders != nil {
+		state.HistoricalOffendersByGate = map[string]int{}
+		seen := map[string]bool{}
+		const sampleCap = 5
+		for _, off := range *hcResp.JSON200.Offenders {
+			state.HistoricalOffendersByGate[off.Gate]++
+			if !seen[off.IssueId] {
+				seen[off.IssueId] = true
+				state.HistoricalOffenderCount++
+			}
+			if len(state.HistoricalOffenderSample) < sampleCap {
+				state.HistoricalOffenderSample = append(state.HistoricalOffenderSample, doctor.HistoricalOffender{
+					IssueID: off.IssueId,
+					Gate:    off.Gate,
+					Detail:  off.Detail,
+				})
+			}
+		}
+	}
+
 	// Stale agent sessions (still open past the sweeper's idle threshold)
 	if sResp, err := c.ListStaleOpenClaudeSessionsWithResponse(ctx, &dxclient.ListStaleOpenClaudeSessionsParams{Slug: slug}); err == nil && sResp.JSON200 != nil {
 		state.StaleAgentSessions = int(sResp.JSON200.Total)

@@ -30,6 +30,14 @@ type ForceClosedIssue struct {
 	Reason string // e.g. "wontfix", "duplicate", "link"
 }
 
+// HistoricalOffender describes one (issue, gate) offense surfaced by the
+// "closed_issues_pass_gates" retroactive-audit check (IS-632).
+type HistoricalOffender struct {
+	IssueID string // e.g. "IS-88"
+	Gate    string // "no-worklog" | "open-tasks" | "missing-demo"
+	Detail  string // e.g. failing task ID, first must-spec ID
+}
+
 type FindingStatus int
 
 const (
@@ -124,6 +132,13 @@ type ProjectState struct {
 	// as a sample list (capped) plus a total count so the rung can summarize.
 	ForceClosedNoSubstance      []ForceClosedIssue
 	ForceClosedNoSubstanceTotal int
+
+	// Retroactive close-gate audit (IS-632). Closed issues (excluding
+	// force-closed and tracker/ops types) that fail one or more of the
+	// IS-560 close-gate predicates: no-worklog, open-tasks, missing-demo.
+	HistoricalOffenderCount   int
+	HistoricalOffendersByGate map[string]int
+	HistoricalOffenderSample  []HistoricalOffender // capped to first 5
 
 	// Maturity questionnaire (from server)
 	MaturityQuestions []dxclient.MaturityQuestion
@@ -403,6 +418,21 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			state.ForceClosedNoSubstanceTotal, strings.Join(sample, ", "))
 		if state.ForceClosedNoSubstanceTotal > sampleLimit {
 			msg += fmt.Sprintf(" (+%d more)", state.ForceClosedNoSubstanceTotal-sampleLimit)
+		}
+		return false, msg, nil, ""
+
+	case "closed_issues_pass_gates":
+		if state.HistoricalOffenderCount == 0 {
+			return true, "", nil, ""
+		}
+		noWorklog := state.HistoricalOffendersByGate["no-worklog"]
+		openTasks := state.HistoricalOffendersByGate["open-tasks"]
+		missingDemo := state.HistoricalOffendersByGate["missing-demo"]
+		msg := fmt.Sprintf("%d historical close(s) fail the close-gate (%d no-worklog, %d open-tasks, %d missing-demo)",
+			state.HistoricalOffenderCount, noWorklog, openTasks, missingDemo)
+		if len(state.HistoricalOffenderSample) > 0 {
+			first := state.HistoricalOffenderSample[0]
+			msg += fmt.Sprintf(" — first: %s (%s)", first.IssueID, first.Gate)
 		}
 		return false, msg, nil, ""
 

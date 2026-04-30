@@ -136,6 +136,13 @@ func commonVine() []Rung {
 			},
 		},
 		{
+			Name:        "retroactive_audit",
+			Description: "Past closes meet the IS-560 close-gate retroactively",
+			Checks: []Check{
+				{"closed_issues_pass_gates", "No closed issues fail the close-gate retroactively", ActionInfo},
+			},
+		},
+		{
 			Name:        "agents",
 			Description: "Agent infrastructure — LLM configured, agent can run",
 			Checks: []Check{

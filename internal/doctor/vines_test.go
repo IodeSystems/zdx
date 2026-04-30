@@ -7,21 +7,21 @@ import (
 	"testing"
 )
 
-// TestVine verifies spec 127: Vine() composes the six common rungs (in order)
+// TestVine verifies spec 127: Vine() composes the seven common rungs (in order)
 // followed by the classification-specific rung(s) for each classification.
 func TestVine(t *testing.T) {
-	commonRungs := []string{"scaffold", "identity", "planning", "concerns", "verification", "agents"}
+	commonRungs := []string{"scaffold", "identity", "planning", "concerns", "verification", "retroactive_audit", "agents"}
 
 	cases := []struct {
 		class    Classification
 		extra    []string
 		minTotal int
 	}{
-		{ClassLibrary, []string{"distribution"}, 7},
-		{ClassTool, []string{"distribution"}, 7},
-		{ClassService, []string{"operations"}, 7},
-		{ClassSaaS, []string{"operations", "multi-tenancy"}, 8},
-		{ClassSite, []string{"publication"}, 7},
+		{ClassLibrary, []string{"distribution"}, 8},
+		{ClassTool, []string{"distribution"}, 8},
+		{ClassService, []string{"operations"}, 8},
+		{ClassSaaS, []string{"operations", "multi-tenancy"}, 9},
+		{ClassSite, []string{"publication"}, 8},
 	}
 
 	for _, tc := range cases {
@@ -265,6 +265,75 @@ func TestForceClosesHaveWorkLog(t *testing.T) {
 		}
 		if strings.Contains(f.Message, "IS-204") {
 			t.Errorf("expected IS-204 to be truncated, got: %q", f.Message)
+		}
+	})
+}
+
+// TestRetroactiveAuditRung covers IS-632: the closed_issues_pass_gates check
+// surfaces historical close-gate failures grouped by gate (no-worklog,
+// open-tasks, missing-demo). Advisory only — no FixFunc, no Proposal.
+func TestRetroactiveAuditRung(t *testing.T) {
+	t.Run("rung exists in every classification", func(t *testing.T) {
+		for _, c := range AllClassifications {
+			vine := Vine(c)
+			found := false
+			for _, r := range vine {
+				if r.Name == "retroactive_audit" {
+					found = true
+					if len(r.Checks) == 0 || r.Checks[0].Name != "closed_issues_pass_gates" {
+						t.Errorf("Vine(%s) retroactive_audit rung missing closed_issues_pass_gates check", c)
+					}
+				}
+			}
+			if !found {
+				t.Errorf("Vine(%s) missing retroactive_audit rung", c)
+			}
+		}
+	})
+
+	t.Run("pass when zero offenders", func(t *testing.T) {
+		findings := Evaluate(&ProjectState{HistoricalOffenderCount: 0})
+		f, ok := findFinding(findings, "closed_issues_pass_gates")
+		if !ok {
+			t.Fatal("closed_issues_pass_gates check not found")
+		}
+		if f.Status != StatusPass {
+			t.Errorf("want pass, got %s: %s", f.Status, f.Message)
+		}
+	})
+
+	t.Run("fail summarizes per-gate counts and first offender", func(t *testing.T) {
+		state := &ProjectState{
+			HistoricalOffenderCount: 4,
+			HistoricalOffendersByGate: map[string]int{
+				"no-worklog":   2,
+				"open-tasks":   1,
+				"missing-demo": 3,
+			},
+			HistoricalOffenderSample: []HistoricalOffender{
+				{IssueID: "IS-88", Gate: "no-worklog"},
+				{IssueID: "IS-101", Gate: "missing-demo"},
+			},
+		}
+		findings := Evaluate(state)
+		f, ok := findFinding(findings, "closed_issues_pass_gates")
+		if !ok {
+			t.Fatal("closed_issues_pass_gates check not found")
+		}
+		if f.Status != StatusFail {
+			t.Fatalf("want fail, got %s: %s", f.Status, f.Message)
+		}
+		want := []string{"4 historical close", "2 no-worklog", "1 open-tasks", "3 missing-demo", "IS-88", "no-worklog"}
+		for _, w := range want {
+			if !strings.Contains(f.Message, w) {
+				t.Errorf("message missing %q: %q", w, f.Message)
+			}
+		}
+		if f.FixFunc != nil {
+			t.Error("closed_issues_pass_gates must be advisory only (no FixFunc)")
+		}
+		if f.Proposal != "" {
+			t.Errorf("closed_issues_pass_gates must be advisory only (no Proposal), got %q", f.Proposal)
 		}
 	})
 }
