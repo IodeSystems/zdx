@@ -967,10 +967,13 @@ func (h *Handler) featuresWithSpecs(ctx context.Context, slug string) (*struct {
 	}
 	// Fetch all specs in one query and group by feature_id.
 	allSpecs, _ := h.Q.ListSpecsForProject(ctx, p.ID)
+	demoCounts := specDemoCounts(ctx, h, allSpecs)
 	specsByFeature := make(map[int32][]SpecItem, len(allSpecs))
 	for _, sp := range allSpecs {
+		dc := demoCounts[sp.ID]
 		specsByFeature[sp.FeatureID] = append(specsByFeature[sp.FeatureID], SpecItem{
 			ID: sp.ID, Description: sp.Description, Importance: sp.Importance,
+			GreenDemos: dc.green, TotalDemos: dc.total,
 		})
 	}
 	out := make([]FeatureItem, len(rows))
