@@ -88,6 +88,8 @@ function makeSpec(overrides: Partial<SpecItem> = {}): SpecItem {
     id: 1,
     importance: 'must',
     description: 'Given X, when Y, then Z',
+    green_demos: 0,
+    total_demos: 0,
     ...overrides,
   }
 }
@@ -114,6 +116,53 @@ function renderDetail(slug = 'test-project', name = 'example-feature') {
     </QueryClientProvider>,
   )
 }
+
+describe('FeatureDetail — spec tier grouping', () => {
+  test('spec 41: tier headings, implemented/planned badges, and ship-readiness render correctly', () => {
+    const specs: SpecItem[] = [
+      makeSpec({ id: 10, importance: 'must', description: 'Must spec with demo', green_demos: 1, total_demos: 1 }),
+      makeSpec({ id: 11, importance: 'must', description: 'Must spec no demo', green_demos: 0, total_demos: 0 }),
+      makeSpec({ id: 20, importance: 'should', description: 'Should spec with demo', green_demos: 2, total_demos: 2 }),
+      makeSpec({ id: 30, importance: 'nice-to-have', description: 'Nice spec planned', green_demos: 0, total_demos: 0 }),
+    ]
+    const feature = makeFeature({ specs })
+    mockedUseFeature.mockReturnValue({ data: feature, isLoading: false } as any)
+    mockedUseTasks.mockReturnValue({ data: { tasks: [], total: 0 }, isLoading: false } as any)
+
+    renderDetail()
+
+    // Tier headings visible
+    expect(screen.getByText(/MUST \(deal-breaker\)/)).toBeInTheDocument()
+    expect(screen.getByText(/SHOULD \(friction\)/)).toBeInTheDocument()
+    expect(screen.getByText(/NICE-TO-HAVE \(polish\)/)).toBeInTheDocument()
+
+    // Implemented badge for green_demos > 0 spec
+    const implementedBadges = screen.getAllByText('Implemented')
+    expect(implementedBadges.length).toBeGreaterThanOrEqual(1)
+
+    // Planned badge for zero green_demos spec
+    const plannedBadges = screen.getAllByText('Planned')
+    expect(plannedBadges.length).toBeGreaterThanOrEqual(1)
+
+    // Ship-readiness: one must is blocking
+    expect(screen.getByText(/must\(s\) blocking ship/)).toBeInTheDocument()
+    expect(screen.getByText(/SP-11/)).toBeInTheDocument()
+  })
+
+  test('spec 42: Ship-ready shown when all must specs are implemented', () => {
+    const specs: SpecItem[] = [
+      makeSpec({ id: 1, importance: 'must', description: 'Must A', green_demos: 1, total_demos: 1 }),
+      makeSpec({ id: 2, importance: 'should', description: 'Should B', green_demos: 0, total_demos: 0 }),
+    ]
+    const feature = makeFeature({ specs })
+    mockedUseFeature.mockReturnValue({ data: feature, isLoading: false } as any)
+    mockedUseTasks.mockReturnValue({ data: { tasks: [], total: 0 }, isLoading: false } as any)
+
+    renderDetail()
+
+    expect(screen.getByText('Ship-ready')).toBeInTheDocument()
+  })
+})
 
 describe('FeatureDetail', () => {
   test('spec 40: specs, tasks, what/why/done-when criteria are displayed', () => {
@@ -147,8 +196,10 @@ describe('FeatureDetail', () => {
     expect(screen.getByText(`Specs (${specs.length})`)).toBeInTheDocument()
     for (const s of specs) {
       expect(screen.getByText(s.description)).toBeInTheDocument()
-      expect(screen.getAllByText(s.importance).length).toBeGreaterThan(0)
     }
+    // Importance is now shown via tier headings, not per-spec chips
+    expect(screen.getByText(/MUST \(deal-breaker\)/)).toBeInTheDocument()
+    expect(screen.getByText(/SHOULD \(friction\)/)).toBeInTheDocument()
 
     expect(screen.getByText(`Tasks (${tasks.length})`)).toBeInTheDocument()
     for (const t of tasks) {

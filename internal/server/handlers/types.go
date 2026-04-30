@@ -92,6 +92,8 @@ type SpecItem struct {
 	ID          int32  `json:"id"`
 	Description string `json:"description"`
 	Importance  string `json:"importance"`
+	GreenDemos  int32  `json:"green_demos"`
+	TotalDemos  int32  `json:"total_demos"`
 }
 
 type SpecIssueItem struct {

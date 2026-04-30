@@ -9393,8 +9393,12 @@ export interface components {
         SpecItem: {
             description: string;
             /** Format: int32 */
+            green_demos: number;
+            /** Format: int32 */
             id: number;
             importance: string;
+            /** Format: int32 */
+            total_demos: number;
         };
         SpecTaskItem: {
             id: string;

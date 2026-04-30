@@ -50,7 +50,8 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 				return nil, apiErr(http.StatusNotFound, "feature not found: "+in.Name)
 			}
 			specs, _ := h.Q.ListSpecs(ctx, feat.ID)
-			return &struct{ Body FeatureItem }{Body: toFeatureItemFromGet(feat, specs)}, nil
+			demoCounts := specDemoCounts(ctx, h, specs)
+			return &struct{ Body FeatureItem }{Body: toFeatureItemFromGet(feat, specs, demoCounts)}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "upsert-feature", Method: http.MethodPost, Path: "/api/feature"},
@@ -994,7 +995,44 @@ func int4Val(v pgtype.Int4) int32 {
 	return 0
 }
 
-func toFeatureItemFromGet(f db.GetFeatureRow, specs []db.ZdxSpec) FeatureItem {
+type specDemoCount struct{ green, total int32 }
+
+func specDemoCounts(ctx context.Context, h *Handler, specs []db.ZdxSpec) map[int32]specDemoCount {
+	if len(specs) == 0 {
+		return nil
+	}
+	ids := make([]int32, len(specs))
+	for i, s := range specs {
+		ids[i] = s.ID
+	}
+	rows, err := h.Pool.Query(ctx, `
+		SELECT st.spec_id,
+		  COUNT(*) FILTER (
+		    WHERE t.status = 'pass' AND (
+		      t.component = 'demo' OR
+		      EXISTS (SELECT 1 FROM zdx_test_demos td WHERE td.test_id = t.id)
+		    )
+		  )::int AS green_demos,
+		  COUNT(DISTINCT t.id)::int AS total_demos
+		FROM zdx_spec_tests st
+		JOIN zdx_tests t ON t.id = st.test_id
+		WHERE st.spec_id = ANY($1)
+		GROUP BY st.spec_id`, ids)
+	if err != nil {
+		return nil
+	}
+	defer rows.Close()
+	out := make(map[int32]specDemoCount, len(specs))
+	for rows.Next() {
+		var specID, green, total int32
+		if err := rows.Scan(&specID, &green, &total); err == nil {
+			out[specID] = specDemoCount{green: green, total: total}
+		}
+	}
+	return out
+}
+
+func toFeatureItemFromGet(f db.GetFeatureRow, specs []db.ZdxSpec, demoCounts map[int32]specDemoCount) FeatureItem {
 	item := FeatureItem{
 		ID: f.ID, Name: f.Name, Description: f.Description,
 		What: f.What, Why: f.Why, DoneWhen: f.DoneWhen,
@@ -1005,7 +1043,8 @@ func toFeatureItemFromGet(f db.GetFeatureRow, specs []db.ZdxSpec) FeatureItem {
 		Specs: make([]SpecItem, len(specs)),
 	}
 	for i, sp := range specs {
-		item.Specs[i] = SpecItem{ID: sp.ID, Description: sp.Description, Importance: sp.Importance}
+		dc := demoCounts[sp.ID]
+		item.Specs[i] = SpecItem{ID: sp.ID, Description: sp.Description, Importance: sp.Importance, GreenDemos: dc.green, TotalDemos: dc.total}
 	}
 	return item
 }

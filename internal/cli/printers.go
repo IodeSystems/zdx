@@ -139,6 +139,23 @@ func PrintFeatureItem(f clitypes.FeatureItem) {
 		}
 	}
 	if len(f.Specs) > 0 {
+		// Compute ship-readiness from must-tier specs.
+		var mustBlocking []clitypes.SpecItem
+		for _, s := range f.Specs {
+			if s.Importance == "must" && s.GreenDemos == 0 {
+				mustBlocking = append(mustBlocking, s)
+			}
+		}
+		fmt.Printf("\n")
+		if len(mustBlocking) == 0 {
+			fmt.Printf("Ship-ready\n")
+		} else {
+			ids := make([]string, len(mustBlocking))
+			for i, s := range mustBlocking {
+				ids[i] = fmt.Sprintf("SP-%d", s.ID)
+			}
+			fmt.Printf("%d must(s) blocking ship: %s\n", len(mustBlocking), strings.Join(ids, ", "))
+		}
 		fmt.Printf("\nSpecs (%d):\n", len(f.Specs))
 		tiers := []struct {
 			name  string
@@ -158,9 +175,19 @@ func PrintFeatureItem(f clitypes.FeatureItem) {
 			if len(matched) == 0 {
 				continue
 			}
-			fmt.Printf("  %s\n", tier.label)
+			green := 0
 			for _, s := range matched {
-				fmt.Printf("    %-4d  %s\n", s.ID, s.Description)
+				if s.GreenDemos > 0 {
+					green++
+				}
+			}
+			fmt.Printf("  %s — %d/%d implemented\n", tier.label, green, len(matched))
+			for _, s := range matched {
+				marker := "[P]"
+				if s.GreenDemos > 0 {
+					marker = "[I]"
+				}
+				fmt.Printf("    %s %-4d  %s\n", marker, s.ID, s.Description)
 			}
 		}
 	}

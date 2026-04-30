@@ -3745,8 +3745,10 @@ type SpecIssueItem struct {
 // SpecItem defines model for SpecItem.
 type SpecItem struct {
 	Description string `json:"description"`
+	GreenDemos  int32  `json:"green_demos"`
 	Id          int32  `json:"id"`
 	Importance  string `json:"importance"`
+	TotalDemos  int32  `json:"total_demos"`
 }
 
 // SpecTaskItem defines model for SpecTaskItem.

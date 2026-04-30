@@ -4,6 +4,7 @@ import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
+  Alert,
   Box,
   Button,
   Chip,
@@ -36,6 +37,7 @@ function TestStatusIcon({ status }: { status: string }) {
 function SpecRow({ spec, slug }: { spec: Spec; slug: string }) {
   const [expanded, setExpanded] = useState(false)
   const { data: tests, isLoading } = useSpecTests(spec.id, expanded)
+  const implemented = (spec.green_demos ?? 0) > 0
 
   return (
     <Accordion
@@ -47,7 +49,12 @@ function SpecRow({ spec, slug }: { spec: Spec; slug: string }) {
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
         <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flex: 1 }}>
-          <Chip label={spec.importance} size="small" variant="outlined" color="info" />
+          <Chip
+            label={implemented ? 'Implemented' : 'Planned'}
+            size="small"
+            color={implemented ? 'success' : 'default'}
+            variant={implemented ? 'filled' : 'outlined'}
+          />
           <Link
             to="/project/$slug/specs/$specId"
             params={{ slug, specId: String(spec.id) }}
@@ -196,16 +203,48 @@ export function FeatureDetail({
         </Box>
       )}
 
-      {specList.length > 0 && (
-        <Box sx={{ mb: 2, mt: 2 }}>
-          <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-            Specs ({specList.length})
-          </Typography>
-          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-            {specList.map((s: Spec) => <SpecRow key={s.id} spec={s} slug={slug} />)}
+      {specList.length > 0 && (() => {
+        const tiers = [
+          { key: 'must', label: 'MUST (deal-breaker)' },
+          { key: 'should', label: 'SHOULD (friction)' },
+          { key: 'nice-to-have', label: 'NICE-TO-HAVE (polish)' },
+        ]
+        const mustSpecs = specList.filter(s => s.importance === 'must')
+        const mustBlocking = mustSpecs.filter(s => (s.green_demos ?? 0) === 0)
+        const shipReady = mustSpecs.length === 0 || mustBlocking.length === 0
+        return (
+          <Box sx={{ mb: 2, mt: 2 }}>
+            {shipReady ? (
+              <Alert severity="success" sx={{ mb: 1 }}>Ship-ready</Alert>
+            ) : (
+              <Alert severity="warning" sx={{ mb: 1 }}>
+                {mustBlocking.length} must(s) blocking ship: {mustBlocking.map(s => `SP-${s.id}`).join(', ')}
+              </Alert>
+            )}
+            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
+              Specs ({specList.length})
+            </Typography>
+            {tiers.map(({ key, label }) => {
+              const tier = specList.filter(s => s.importance === key)
+              if (tier.length === 0) return null
+              const implemented = tier.filter(s => (s.green_demos ?? 0) > 0).length
+              return (
+                <Box key={key} sx={{ mb: 1 }}>
+                  <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+                    <Typography variant="caption" sx={{ fontWeight: 700, textTransform: 'uppercase' }}>
+                      {label}
+                    </Typography>
+                    <Chip label={`${implemented}/${tier.length} implemented`} size="small" variant="outlined" />
+                  </Box>
+                  <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+                    {tier.map((s: Spec) => <SpecRow key={s.id} spec={s} slug={slug} />)}
+                  </Box>
+                </Box>
+              )
+            })}
           </Box>
-        </Box>
-      )}
+        )
+      })()}
 
       <DemosSection slug={slug} />
 
