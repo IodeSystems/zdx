@@ -1,7 +1,9 @@
 package doctor
 
 import (
+	"fmt"
 	"slices"
+	"strings"
 	"testing"
 )
 
@@ -203,6 +205,66 @@ func TestConcernRungs(t *testing.T) {
 		}
 		if f.Proposal == "" {
 			t.Error("expected non-empty Proposal")
+		}
+	})
+}
+
+// TestForceClosesHaveWorkLog covers the planning-rung accountability check
+// that flags closed issues with a non-done close reason (wontfix/duplicate/
+// link) and zero substantive work-log entries.
+func TestForceClosesHaveWorkLog(t *testing.T) {
+	t.Run("pass when total is zero", func(t *testing.T) {
+		findings := Evaluate(&ProjectState{ForceClosedNoSubstanceTotal: 0})
+		f, ok := findFinding(findings, "force_closes_have_work_log")
+		if !ok {
+			t.Fatal("force_closes_have_work_log check not found")
+		}
+		if f.Status != StatusPass {
+			t.Errorf("want pass, got %s: %s", f.Status, f.Message)
+		}
+	})
+
+	t.Run("fail with sample message", func(t *testing.T) {
+		findings := Evaluate(&ProjectState{
+			ForceClosedNoSubstanceTotal: 2,
+			ForceClosedNoSubstance: []ForceClosedIssue{
+				{ID: "IS-101", Title: "stale dup", Reason: "duplicate"},
+				{ID: "IS-102", Title: "abandoned", Reason: "wontfix"},
+			},
+		})
+		f, ok := findFinding(findings, "force_closes_have_work_log")
+		if !ok {
+			t.Fatal("force_closes_have_work_log check not found")
+		}
+		if f.Status != StatusFail {
+			t.Fatalf("want fail, got %s: %s", f.Status, f.Message)
+		}
+		if !strings.Contains(f.Message, "IS-101 (duplicate)") || !strings.Contains(f.Message, "IS-102 (wontfix)") {
+			t.Errorf("message missing issue IDs/reasons: %q", f.Message)
+		}
+		if f.FixFunc != nil {
+			t.Error("force_closes_have_work_log must be advisory only (no FixFunc)")
+		}
+	})
+
+	t.Run("fail truncates sample at 3 with remaining count", func(t *testing.T) {
+		state := &ProjectState{ForceClosedNoSubstanceTotal: 5}
+		for i := 0; i < 5; i++ {
+			state.ForceClosedNoSubstance = append(state.ForceClosedNoSubstance, ForceClosedIssue{
+				ID:     fmt.Sprintf("IS-%d", 200+i),
+				Reason: "wontfix",
+			})
+		}
+		findings := Evaluate(state)
+		f, ok := findFinding(findings, "force_closes_have_work_log")
+		if !ok {
+			t.Fatal("force_closes_have_work_log check not found")
+		}
+		if !strings.Contains(f.Message, "+2 more") {
+			t.Errorf("expected '+2 more' suffix, got: %q", f.Message)
+		}
+		if strings.Contains(f.Message, "IS-204") {
+			t.Errorf("expected IS-204 to be truncated, got: %q", f.Message)
 		}
 	})
 }

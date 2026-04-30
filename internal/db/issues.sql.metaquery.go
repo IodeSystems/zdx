@@ -457,6 +457,60 @@ var GetIssueWorkCols = struct {
 	CreatedAt: metaquery.NewTimeCol("created_at"),
 }
 
+var MetaListForceClosedNoSubstance = metaquery.Query{
+	Name:   "ListForceClosedNoSubstance",
+	Cmd:    ":many",
+	Source: "issues.sql",
+	SQL: `SELECT i.id,
+       i.title,
+       (SELECT w.note
+          FROM zdx_issue_work w
+         WHERE w.issue_id = i.id
+           AND w.note LIKE '[closed:%'
+         ORDER BY w.created_at DESC
+         LIMIT 1) AS close_note
+FROM zdx_issues i
+WHERE i.project_id = $1
+  AND i.status = 'closed'
+  AND EXISTS (
+    SELECT 1 FROM zdx_issue_work w
+    WHERE w.issue_id = i.id
+      AND (w.note LIKE '[closed:wontfix]%'
+        OR w.note LIKE '[closed:duplicate]%'
+        OR w.note LIKE '[closed:link]%')
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_issue_work w
+    WHERE w.issue_id = i.id
+      AND w.note NOT LIKE '[%'
+  )
+ORDER BY i.closed_at DESC NULLS LAST, i.id`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_note", OriginalName: "note", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issue_work"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListForceClosedNoSubstance returns a metaquery.Builder over MetaListForceClosedNoSubstance, pre-bound with typed arguments.
+func WrapListForceClosedNoSubstance(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListForceClosedNoSubstance, projectID)
+}
+
+// ListForceClosedNoSubstanceCols gives typed, name-safe access to ListForceClosedNoSubstance's output columns.
+var ListForceClosedNoSubstanceCols = struct {
+	ID        metaquery.TextCol
+	Title     metaquery.TextCol
+	CloseNote metaquery.TextCol
+}{
+	ID:        metaquery.NewTextCol("id"),
+	Title:     metaquery.NewTextCol("title"),
+	CloseNote: metaquery.NewTextCol("note"),
+}
+
 var MetaListIssues = metaquery.Query{
 	Name:   "ListIssues",
 	Cmd:    ":many",

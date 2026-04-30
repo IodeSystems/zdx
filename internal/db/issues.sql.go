@@ -303,6 +303,62 @@ func (q *Queries) GetIssueWork(ctx context.Context, issueID string) ([]ZdxIssueW
 	return items, nil
 }
 
+const listForceClosedNoSubstance = `-- name: ListForceClosedNoSubstance :many
+SELECT i.id,
+       i.title,
+       (SELECT w.note
+          FROM zdx_issue_work w
+         WHERE w.issue_id = i.id
+           AND w.note LIKE '[closed:%'
+         ORDER BY w.created_at DESC
+         LIMIT 1) AS close_note
+FROM zdx_issues i
+WHERE i.project_id = $1
+  AND i.status = 'closed'
+  AND EXISTS (
+    SELECT 1 FROM zdx_issue_work w
+    WHERE w.issue_id = i.id
+      AND (w.note LIKE '[closed:wontfix]%'
+        OR w.note LIKE '[closed:duplicate]%'
+        OR w.note LIKE '[closed:link]%')
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_issue_work w
+    WHERE w.issue_id = i.id
+      AND w.note NOT LIKE '[%'
+  )
+ORDER BY i.closed_at DESC NULLS LAST, i.id
+`
+
+type ListForceClosedNoSubstanceRow struct {
+	ID        string `db:"id" json:"id"`
+	Title     string `db:"title" json:"title"`
+	CloseNote string `db:"close_note" json:"close_note"`
+}
+
+// Closed issues with a non-done close reason (wontfix/duplicate/link) in their
+// work-log and zero substantive work-log entries (notes that don't start with
+// '['). Used by doctor's planning rung to surface accountability gaps.
+func (q *Queries) ListForceClosedNoSubstance(ctx context.Context, projectID int32) ([]ListForceClosedNoSubstanceRow, error) {
+	rows, err := q.db.Query(ctx, listForceClosedNoSubstance, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListForceClosedNoSubstanceRow
+	for rows.Next() {
+		var i ListForceClosedNoSubstanceRow
+		if err := rows.Scan(&i.ID, &i.Title, &i.CloseNote); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listIssues = `-- name: ListIssues :many
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch
 FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC

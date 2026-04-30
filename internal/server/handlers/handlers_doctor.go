@@ -121,6 +121,39 @@ func (h *Handler) registerDoctorRoutes(api huma.API) {
 			}{Deferrals: out}}, nil
 		})
 
+	// GET /api/dx/doctor/force-closed-no-substance — closed issues force-closed
+	// (wontfix/duplicate/link) with zero substantive work-log entries.
+	huma.Register(api, huma.Operation{OperationID: "list-force-closed-no-substance", Method: http.MethodGet, Path: "/api/dx/doctor/force-closed-no-substance"},
+		func(ctx context.Context, in *IssueSlugInput) (*struct {
+			Body struct {
+				Issues []ForceClosedNoSubstanceItem `json:"issues"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListForceClosedNoSubstance(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]ForceClosedNoSubstanceItem, len(rows))
+			for i, r := range rows {
+				out[i] = ForceClosedNoSubstanceItem{
+					ID:        r.ID,
+					Title:     r.Title,
+					CloseNote: r.CloseNote,
+				}
+			}
+			return &struct {
+				Body struct {
+					Issues []ForceClosedNoSubstanceItem `json:"issues"`
+				}
+			}{Body: struct {
+				Issues []ForceClosedNoSubstanceItem `json:"issues"`
+			}{Issues: out}}, nil
+		})
+
 	// GET /api/dx/doctor/concern-state — aggregate concern coverage counts for doctor
 	huma.Register(api, huma.Operation{OperationID: "get-concern-doctor-state", Method: http.MethodGet, Path: "/api/dx/doctor/concern-state"},
 		func(ctx context.Context, in *IssueSlugInput) (*struct {
@@ -159,4 +192,10 @@ type DeferralItem struct {
 	CheckName  string `json:"check_name"`
 	Rung       string `json:"rung"`
 	DeferredAt string `json:"deferred_at"`
+}
+
+type ForceClosedNoSubstanceItem struct {
+	ID        string `json:"id"`
+	Title     string `json:"title"`
+	CloseNote string `json:"close_note"`
 }

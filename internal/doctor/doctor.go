@@ -22,6 +22,14 @@ type Finding struct {
 	Proposal string       // non-empty for proposable findings
 }
 
+// ForceClosedIssue describes one closed issue surfaced by the
+// "force_closes_have_work_log" doctor check.
+type ForceClosedIssue struct {
+	ID     string // e.g. "IS-123"
+	Title  string
+	Reason string // e.g. "wontfix", "duplicate", "link"
+}
+
 type FindingStatus int
 
 const (
@@ -110,6 +118,12 @@ type ProjectState struct {
 	FeaturesWithConcerns       int
 	ConcernsWithSpecsNoPattern int
 	SecurityConcernSpecCount   int
+
+	// Force-closed accountability — closed issues with a non-done close reason
+	// (wontfix/duplicate/link) and zero substantive work-log entries. Captured
+	// as a sample list (capped) plus a total count so the rung can summarize.
+	ForceClosedNoSubstance      []ForceClosedIssue
+	ForceClosedNoSubstanceTotal int
 
 	// Maturity questionnaire (from server)
 	MaturityQuestions []dxclient.MaturityQuestion
@@ -368,6 +382,29 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "", nil, ""
 		}
 		return false, fmt.Sprintf("%d untriaged issues", state.UntriagedIssues), nil, ""
+
+	case "force_closes_have_work_log":
+		if state.ForceClosedNoSubstanceTotal == 0 {
+			return true, "", nil, ""
+		}
+		const sampleLimit = 3
+		var sample []string
+		for i, iss := range state.ForceClosedNoSubstance {
+			if i >= sampleLimit {
+				break
+			}
+			label := iss.ID
+			if iss.Reason != "" {
+				label += " (" + iss.Reason + ")"
+			}
+			sample = append(sample, label)
+		}
+		msg := fmt.Sprintf("%d force-closed issue(s) with no work-log substance: %s",
+			state.ForceClosedNoSubstanceTotal, strings.Join(sample, ", "))
+		if state.ForceClosedNoSubstanceTotal > sampleLimit {
+			msg += fmt.Sprintf(" (+%d more)", state.ForceClosedNoSubstanceTotal-sampleLimit)
+		}
+		return false, msg, nil, ""
 
 	case "features_are_user_visible":
 		if state.FeaturesImplDetail == 0 {

@@ -111,6 +111,7 @@ func commonVine() []Rung {
 				{"features_attributed", "All features linked to a goal", ActionPropose},
 				{"features_are_user_visible", "Features describe user-visible capabilities, not code modules", ActionPropose},
 				{"no_untriaged_issues", "No open issues without priority", ActionInfo},
+				{"force_closes_have_work_log", "Force-closed issues (wontfix/duplicate/link) have substantive work-log entries", ActionInfo},
 			},
 		},
 		{

@@ -333,6 +333,19 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		state.SecurityConcernSpecCount = int(csResp.JSON200.SecurityConcernSpecCount)
 	}
 
+	// Force-closed issues with no work-log substance
+	if fcResp, err := c.ListForceClosedNoSubstanceWithResponse(ctx, &dxclient.ListForceClosedNoSubstanceParams{Slug: slug}); err == nil && fcResp.JSON200 != nil && fcResp.JSON200.Issues != nil {
+		issues := *fcResp.JSON200.Issues
+		state.ForceClosedNoSubstanceTotal = len(issues)
+		for _, iss := range issues {
+			state.ForceClosedNoSubstance = append(state.ForceClosedNoSubstance, doctor.ForceClosedIssue{
+				ID:     iss.Id,
+				Title:  iss.Title,
+				Reason: extractCloseReason(iss.CloseNote),
+			})
+		}
+	}
+
 	// Stale agent sessions (still open past the sweeper's idle threshold)
 	if sResp, err := c.ListStaleOpenClaudeSessionsWithResponse(ctx, &dxclient.ListStaleOpenClaudeSessionsParams{Slug: slug}); err == nil && sResp.JSON200 != nil {
 		state.StaleAgentSessions = int(sResp.JSON200.Total)
@@ -355,6 +368,22 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 	if iResp, err := c.ListMaturityItemsWithResponse(ctx, &dxclient.ListMaturityItemsParams{Slug: slug}); err == nil && iResp.JSON200 != nil && iResp.JSON200.Items != nil {
 		state.MaturityItems = *iResp.JSON200.Items
 	}
+}
+
+// extractCloseReason parses the reason out of a close note like
+// "[closed:wontfix] notes..." → "wontfix". Returns "" when the note doesn't
+// match the expected shape.
+func extractCloseReason(note string) string {
+	const prefix = "[closed:"
+	if !strings.HasPrefix(note, prefix) {
+		return ""
+	}
+	rest := note[len(prefix):]
+	end := strings.IndexByte(rest, ']')
+	if end <= 0 {
+		return ""
+	}
+	return rest[:end]
 }
 
 func promptClassification(in io.Reader) (doctor.Classification, error) {

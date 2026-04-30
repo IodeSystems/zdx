@@ -1382,6 +1382,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/doctor/force-closed-no-substance": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-force-closed-no-substance"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/error-events": {
         parameters: {
             query?: never;
@@ -6369,6 +6385,11 @@ export interface components {
             started_at: string;
             status: string;
         };
+        ForceClosedNoSubstanceItem: {
+            close_note: string;
+            id: string;
+            title: string;
+        };
         "Get-claude-session-eventsResponse": {
             /**
              * Format: uri
@@ -7362,6 +7383,15 @@ export interface components {
              */
             readonly $schema?: string;
             focuses: components["schemas"]["FocusItem"][] | null;
+        };
+        "List-force-closed-no-substanceResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-force-closed-no-substanceResponse.json
+             */
+            readonly $schema?: string;
+            issues: components["schemas"]["ForceClosedNoSubstanceItem"][] | null;
         };
         "List-git-commitsResponse": {
             /**
@@ -13256,6 +13286,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-doctor-deferralsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-force-closed-no-substance": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-force-closed-no-substanceResponse"];
                 };
             };
             /** @description Error */

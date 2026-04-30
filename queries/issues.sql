@@ -135,3 +135,32 @@ LIMIT $1 OFFSET $2;
 
 -- name: CountOpenIssuesByTitle :one
 SELECT count(*) FROM zdx_issues WHERE project_id = $1 AND title = $2 AND closed_at IS NULL;
+
+-- name: ListForceClosedNoSubstance :many
+-- Closed issues with a non-done close reason (wontfix/duplicate/link) in their
+-- work-log and zero substantive work-log entries (notes that don't start with
+-- '['). Used by doctor's planning rung to surface accountability gaps.
+SELECT i.id,
+       i.title,
+       (SELECT w.note
+          FROM zdx_issue_work w
+         WHERE w.issue_id = i.id
+           AND w.note LIKE '[closed:%'
+         ORDER BY w.created_at DESC
+         LIMIT 1) AS close_note
+FROM zdx_issues i
+WHERE i.project_id = $1
+  AND i.status = 'closed'
+  AND EXISTS (
+    SELECT 1 FROM zdx_issue_work w
+    WHERE w.issue_id = i.id
+      AND (w.note LIKE '[closed:wontfix]%'
+        OR w.note LIKE '[closed:duplicate]%'
+        OR w.note LIKE '[closed:link]%')
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_issue_work w
+    WHERE w.issue_id = i.id
+      AND w.note NOT LIKE '[%'
+  )
+ORDER BY i.closed_at DESC NULLS LAST, i.id;

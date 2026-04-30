@@ -1330,6 +1330,13 @@ type FocusItem struct {
 	Status       string              `json:"status"`
 }
 
+// ForceClosedNoSubstanceItem defines model for ForceClosedNoSubstanceItem.
+type ForceClosedNoSubstanceItem struct {
+	CloseNote string `json:"close_note"`
+	Id        string `json:"id"`
+	Title     string `json:"title"`
+}
+
 // GetClaudeSessionEventsResponse defines model for Get-claude-session-eventsResponse.
 type GetClaudeSessionEventsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2128,6 +2135,13 @@ type ListFocusesResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema  *string      `json:"$schema,omitempty"`
 	Focuses *[]FocusItem `json:"focuses"`
+}
+
+// ListForceClosedNoSubstanceResponse defines model for List-force-closed-no-substanceResponse.
+type ListForceClosedNoSubstanceResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string                       `json:"$schema,omitempty"`
+	Issues *[]ForceClosedNoSubstanceItem `json:"issues"`
 }
 
 // ListGitCommitsResponse defines model for List-git-commitsResponse.
@@ -4565,6 +4579,11 @@ type ListDoctorDeferralsParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// ListForceClosedNoSubstanceParams defines parameters for ListForceClosedNoSubstance.
+type ListForceClosedNoSubstanceParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
 // ListErrorEventsParams defines parameters for ListErrorEvents.
 type ListErrorEventsParams struct {
 	Slug      *string `form:"slug,omitempty" json:"slug,omitempty"`
@@ -6094,6 +6113,9 @@ type ClientInterface interface {
 
 	// ListDoctorDeferrals request
 	ListDoctorDeferrals(ctx context.Context, params *ListDoctorDeferralsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListForceClosedNoSubstance request
+	ListForceClosedNoSubstance(ctx context.Context, params *ListForceClosedNoSubstanceParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListErrorEvents request
 	ListErrorEvents(ctx context.Context, params *ListErrorEventsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8720,6 +8742,18 @@ func (c *APIClient) DeferDoctorCheck(ctx context.Context, body DeferDoctorCheckJ
 
 func (c *APIClient) ListDoctorDeferrals(ctx context.Context, params *ListDoctorDeferralsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListDoctorDeferralsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListForceClosedNoSubstance(ctx context.Context, params *ListForceClosedNoSubstanceParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListForceClosedNoSubstanceRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -17936,6 +17970,51 @@ func NewListDoctorDeferralsRequest(server string, params *ListDoctorDeferralsPar
 	}
 
 	operationPath := fmt.Sprintf("/api/dx/doctor/deferrals")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListForceClosedNoSubstanceRequest generates requests for ListForceClosedNoSubstance
+func NewListForceClosedNoSubstanceRequest(server string, params *ListForceClosedNoSubstanceParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/doctor/force-closed-no-substance")
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -29959,6 +30038,9 @@ type ClientWithResponsesInterface interface {
 	// ListDoctorDeferralsWithResponse request
 	ListDoctorDeferralsWithResponse(ctx context.Context, params *ListDoctorDeferralsParams, reqEditors ...RequestEditorFn) (*ParsedListDoctorDeferralsResponse, error)
 
+	// ListForceClosedNoSubstanceWithResponse request
+	ListForceClosedNoSubstanceWithResponse(ctx context.Context, params *ListForceClosedNoSubstanceParams, reqEditors ...RequestEditorFn) (*ParsedListForceClosedNoSubstanceResponse, error)
+
 	// ListErrorEventsWithResponse request
 	ListErrorEventsWithResponse(ctx context.Context, params *ListErrorEventsParams, reqEditors ...RequestEditorFn) (*ParsedListErrorEventsResponse, error)
 
@@ -33161,6 +33243,29 @@ func (r ParsedListDoctorDeferralsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListDoctorDeferralsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListForceClosedNoSubstanceResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListForceClosedNoSubstanceResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListForceClosedNoSubstanceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListForceClosedNoSubstanceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -39557,6 +39662,15 @@ func (c *ClientWithResponses) ListDoctorDeferralsWithResponse(ctx context.Contex
 	return ParseParsedListDoctorDeferralsResponse(rsp)
 }
 
+// ListForceClosedNoSubstanceWithResponse request returning *ParsedListForceClosedNoSubstanceResponse
+func (c *ClientWithResponses) ListForceClosedNoSubstanceWithResponse(ctx context.Context, params *ListForceClosedNoSubstanceParams, reqEditors ...RequestEditorFn) (*ParsedListForceClosedNoSubstanceResponse, error) {
+	rsp, err := c.ListForceClosedNoSubstance(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListForceClosedNoSubstanceResponse(rsp)
+}
+
 // ListErrorEventsWithResponse request returning *ParsedListErrorEventsResponse
 func (c *ClientWithResponses) ListErrorEventsWithResponse(ctx context.Context, params *ListErrorEventsParams, reqEditors ...RequestEditorFn) (*ParsedListErrorEventsResponse, error) {
 	rsp, err := c.ListErrorEvents(ctx, params, reqEditors...)
@@ -45763,6 +45877,39 @@ func ParseParsedListDoctorDeferralsResponse(rsp *http.Response) (*ParsedListDoct
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListDoctorDeferralsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListForceClosedNoSubstanceResponse parses an HTTP response from a ListForceClosedNoSubstanceWithResponse call
+func ParseParsedListForceClosedNoSubstanceResponse(rsp *http.Response) (*ParsedListForceClosedNoSubstanceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListForceClosedNoSubstanceResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListForceClosedNoSubstanceResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

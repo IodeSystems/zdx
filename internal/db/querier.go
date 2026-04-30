@@ -320,6 +320,10 @@ type Querier interface {
 	ListFocusFeatures(ctx context.Context, focusID int32) ([]ListFocusFeaturesRow, error)
 	// metaquery: off
 	ListFocuses(ctx context.Context, projectID int32) ([]ListFocusesRow, error)
+	// Closed issues with a non-done close reason (wontfix/duplicate/link) in their
+	// work-log and zero substantive work-log entries (notes that don't start with
+	// '['). Used by doctor's planning rung to surface accountability gaps.
+	ListForceClosedNoSubstance(ctx context.Context, projectID int32) ([]ListForceClosedNoSubstanceRow, error)
 	ListGoalIssues(ctx context.Context, goalID int32) ([]string, error)
 	ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error)
 	ListInvites(ctx context.Context) ([]ZdxInvite, error)
