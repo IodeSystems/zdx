@@ -22,7 +22,7 @@ type TaskHolder interface {
 // noopHolder is the Phase-1 placeholder: never has a running task.
 type noopHolder struct{}
 
-func (noopHolder) CurrentTask() *RunningTask            { return nil }
+func (noopHolder) CurrentTask() *RunningTask                 { return nil }
 func (noopHolder) WaitForCompletion(_ context.Context) error { return nil }
 
 // NoopHolder returns a TaskHolder that reports no running task.

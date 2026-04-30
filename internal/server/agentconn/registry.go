@@ -10,14 +10,14 @@ import (
 
 // Conn represents a single connected agent daemon.
 type Conn struct {
-	AgentID       string
-	Hostname      string
-	Pid           int32
-	Capabilities  []string
-	WorktreePath  string
+	AgentID        string
+	Hostname       string
+	Pid            int32
+	Capabilities   []string
+	WorktreePath   string
 	WorktreeBranch string
-	ConnectedAt   time.Time
-	WS            *websocket.Conn
+	ConnectedAt    time.Time
+	WS             *websocket.Conn
 }
 
 // Registry holds live agent connections. Connection itself is the liveness

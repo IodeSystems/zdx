@@ -106,8 +106,8 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 		features:       detectFeatures(ctx, pool),
 		sink:           sink,
 		ingestLimiter:  newIngestRateLimiter(1000, 10000),
-		wsClients:     make(map[int64]*wsClientEntry),
-		agentRegistry: agentconn.NewRegistry(),
+		wsClients:      make(map[int64]*wsClientEntry),
+		agentRegistry:  agentconn.NewRegistry(),
 	}
 
 	// Load LLM config eagerly so embedder is ready on first request.
