@@ -75,22 +75,23 @@ type IngestRegistrar interface {
 }
 
 type Deps struct {
-	Pool            *pgxpool.Pool
-	Q               *db.Queries
-	Features        SchemaFeatures
-	Emb             Embedder
-	Broker          Broker
-	Reconciler      Reconciler
-	IngestRegistrar IngestRegistrar
-	ErrorClient     *zdxclient.Client
-	BuildSHA        string
-	ZDXProjectSlug  string
-	UploadsDir      string
-	ReposDir        string
-	Slot            string
-	WSSecret        string
-	Mux             chi.Router
-	AgentCommander  AgentCommander
+	Pool                    *pgxpool.Pool
+	Q                       *db.Queries
+	Features                SchemaFeatures
+	Emb                     Embedder
+	Broker                  Broker
+	Reconciler              Reconciler
+	IngestRegistrar         IngestRegistrar
+	ErrorClient             *zdxclient.Client
+	BuildSHA                string
+	ZDXProjectSlug          string
+	UploadsDir              string
+	ReposDir                string
+	Slot                    string
+	WSSecret                string
+	Mux                     chi.Router
+	AgentCommander          AgentCommander
+	AgentDisconnectGraceSec int
 }
 
 type Handler struct {

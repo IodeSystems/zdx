@@ -6,6 +6,7 @@ import (
 	"log"
 	"net/http"
 	"os"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -24,23 +25,24 @@ import (
 )
 
 type Server struct {
-	pool           *pgxpool.Pool
-	q              *db.Queries
-	mux            *chi.Mux
-	buildSHA       string
-	zdxProjectSlug string
-	agentRegistry  *agentconn.Registry
-	uploadsDir     string
-	reposDir       string
-	slot           string // "current", "next", or "" (dev); controls WS endpoint registration
-	wsSecret       string
-	broker         ws.Broker
-	api            huma.API
-	emb            *embedder
-	features       handlers.SchemaFeatures
-	sink           timingSink
-	ingestLimiter  *ingestRateLimiter
-	errorClient    *zdxclient.Client
+	pool                    *pgxpool.Pool
+	q                       *db.Queries
+	mux                     *chi.Mux
+	buildSHA                string
+	zdxProjectSlug          string
+	agentRegistry           *agentconn.Registry
+	uploadsDir              string
+	reposDir                string
+	slot                    string // "current", "next", or "" (dev); controls WS endpoint registration
+	wsSecret                string
+	broker                  ws.Broker
+	api                     huma.API
+	emb                     *embedder
+	features                handlers.SchemaFeatures
+	sink                    timingSink
+	ingestLimiter           *ingestRateLimiter
+	errorClient             *zdxclient.Client
+	agentDisconnectGraceSec int // seconds before a disconnected agent's task is reclaim-eligible
 
 	wsClientsMu sync.Mutex
 	wsClients   map[int64]*wsClientEntry
@@ -90,24 +92,38 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 		wsSecret, _ = ws.GenerateSecret()
 	}
 
+	disconnectGraceSec := 60
+	if v := os.Getenv("ZDX_AGENT_DISCONNECT_GRACE_SECONDS"); v != "" {
+		if n, err := strconv.Atoi(v); err == nil && n >= 0 {
+			disconnectGraceSec = n
+		}
+	}
+
 	ctx := context.Background()
+	q := db.New(pool)
+
 	s := &Server{
-		pool:           pool,
-		q:              db.New(pool),
-		mux:            chi.NewMux(),
-		buildSHA:       buildSHA,
-		zdxProjectSlug: os.Getenv("ZDX_PROJECT_SLUG"),
-		uploadsDir:     uploadsDir,
-		reposDir:       reposDir,
-		slot:           os.Getenv("ZDX_SLOT"),
-		wsSecret:       wsSecret,
-		broker:         ws.NewBroker(os.Getenv("ZDX_VALKEY_ADDR")),
-		emb:            newEmbedder(vecDir, sink),
-		features:       detectFeatures(ctx, pool),
-		sink:           sink,
-		ingestLimiter:  newIngestRateLimiter(1000, 10000),
-		wsClients:      make(map[int64]*wsClientEntry),
-		agentRegistry:  agentconn.NewRegistry(),
+		pool:                    pool,
+		q:                       q,
+		mux:                     chi.NewMux(),
+		buildSHA:                buildSHA,
+		zdxProjectSlug:          os.Getenv("ZDX_PROJECT_SLUG"),
+		uploadsDir:              uploadsDir,
+		reposDir:                reposDir,
+		slot:                    os.Getenv("ZDX_SLOT"),
+		wsSecret:                wsSecret,
+		broker:                  ws.NewBroker(os.Getenv("ZDX_VALKEY_ADDR")),
+		emb:                     newEmbedder(vecDir, sink),
+		features:                detectFeatures(ctx, pool),
+		sink:                    sink,
+		ingestLimiter:           newIngestRateLimiter(1000, 10000),
+		wsClients:               make(map[int64]*wsClientEntry),
+		agentDisconnectGraceSec: disconnectGraceSec,
+		agentRegistry: agentconn.NewRegistry(func(agentID string) {
+			if err := q.MarkAgentDisconnected(ctx, agentID); err != nil {
+				log.Printf("agent disconnect: mark disconnected %s: %v", agentID, err)
+			}
+		}),
 	}
 
 	// Load LLM config eagerly so embedder is ready on first request.
@@ -132,7 +148,7 @@ func New(pool *pgxpool.Pool, sink timingSink, staticDir, buildSHA string) *Serve
 	s.registerLogIngestRoutes(s.api)
 	s.registerPromIngestRoutes(s.api)
 	s.registerWSRoutes(s.api)
-	s.mux.Get("/api/agents/connect", handlers.HandleAgentConnect(s.agentRegistry))
+	s.mux.Get("/api/agents/connect", handlers.HandleAgentConnect(s.agentRegistry, s.q))
 
 	s.mux.NotFound(notFoundHandler(staticDir))
 
@@ -185,22 +201,23 @@ func spaPath(urlPath, staticDir string) string {
 // satisfies Embedder via the exported Upsert*/TopN*/Complete/Reload methods.
 func (s *Server) buildDeps() *handlers.Deps {
 	return &handlers.Deps{
-		Pool:            s.pool,
-		Q:               s.q,
-		Features:        s.features,
-		Emb:             s.emb,
-		Broker:          s,
-		Reconciler:      s,
-		IngestRegistrar: s,
-		ErrorClient:     s.errorClient,
-		BuildSHA:        s.buildSHA,
-		ZDXProjectSlug:  s.zdxProjectSlug,
-		UploadsDir:      s.uploadsDir,
-		ReposDir:        s.reposDir,
-		Slot:            s.slot,
-		WSSecret:        s.wsSecret,
-		Mux:             s.mux,
-		AgentCommander:  s.agentRegistry,
+		Pool:                    s.pool,
+		Q:                       s.q,
+		Features:                s.features,
+		Emb:                     s.emb,
+		Broker:                  s,
+		Reconciler:              s,
+		IngestRegistrar:         s,
+		ErrorClient:             s.errorClient,
+		BuildSHA:                s.buildSHA,
+		ZDXProjectSlug:          s.zdxProjectSlug,
+		UploadsDir:              s.uploadsDir,
+		ReposDir:                s.reposDir,
+		Slot:                    s.slot,
+		WSSecret:                s.wsSecret,
+		Mux:                     s.mux,
+		AgentCommander:          s.agentRegistry,
+		AgentDisconnectGraceSec: s.agentDisconnectGraceSec,
 	}
 }
 

@@ -5,6 +5,8 @@ import (
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/server/handlers"
 )
@@ -29,7 +31,11 @@ func (s *Server) StartTaskRecovery(ctx context.Context) {
 				len(released), byType["todo"], byType["task"], byType["issue"])
 		}
 
-		reclaimed, err := s.q.ReclaimExpiredTasks(ctx)
+		graceInterval := pgtype.Interval{
+			Microseconds: int64(s.agentDisconnectGraceSec) * 1_000_000,
+			Valid:        true,
+		}
+		reclaimed, err := s.q.ReclaimExpiredTasks(ctx, graceInterval)
 		if err != nil {
 			log.Printf("task-recovery: reclaim expired: %v", err)
 		} else if len(reclaimed) > 0 {

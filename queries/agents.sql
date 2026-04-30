@@ -34,3 +34,17 @@ RETURNING *;
 
 -- name: UpdateAgentStatus :exec
 UPDATE zdx_agents SET status = @status WHERE id = @id;
+
+-- name: MarkAgentDisconnected :exec
+-- Set disconnect_at=now() and flip to 'disconnected' unless already paused/draining.
+UPDATE zdx_agents
+SET status       = CASE WHEN status IN ('paused', 'draining') THEN status ELSE 'disconnected' END,
+    disconnect_at = NOW()
+WHERE id = $1;
+
+-- name: MarkAgentConnected :exec
+-- Clear disconnect_at on reconnect. Keep 'paused' if the operator set it before reconnect.
+UPDATE zdx_agents
+SET status       = CASE WHEN status = 'paused' THEN 'paused' ELSE 'active' END,
+    disconnect_at = NULL
+WHERE id = $1;

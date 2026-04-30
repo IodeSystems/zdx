@@ -40,7 +40,8 @@ CREATE TABLE public.zdx_agents (
     database_url text DEFAULT ''::text NOT NULL,
     last_heartbeat timestamp with time zone DEFAULT now() NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    valkey_url text DEFAULT ''::text NOT NULL
+    valkey_url text DEFAULT ''::text NOT NULL,
+    disconnect_at timestamp with time zone
 );
 
 
@@ -4054,6 +4055,13 @@ CREATE INDEX idx_tests_project ON public.zdx_tests USING btree (project_id);
 --
 
 CREATE INDEX idx_tests_status ON public.zdx_tests USING btree (project_id, status);
+
+
+--
+-- Name: zdx_agents_disconnect_at_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_agents_disconnect_at_idx ON public.zdx_agents USING btree (disconnect_at) WHERE (disconnect_at IS NOT NULL);
 
 
 --

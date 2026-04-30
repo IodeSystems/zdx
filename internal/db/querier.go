@@ -438,6 +438,10 @@ type Querier interface {
 	// metaquery: off
 	ListWorklogCrossProject(ctx context.Context, arg ListWorklogCrossProjectParams) ([]ListWorklogCrossProjectRow, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error)
+	// Clear disconnect_at on reconnect. Keep 'paused' if the operator set it before reconnect.
+	MarkAgentConnected(ctx context.Context, id string) error
+	// Set disconnect_at=now() and flip to 'disconnected' unless already paused/draining.
+	MarkAgentDisconnected(ctx context.Context, id string) error
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkInviteUsed(ctx context.Context, id int32) error
 	MarkJournalEntryReviewed(ctx context.Context, id int32) error
@@ -451,10 +455,10 @@ type Querier interface {
 	ReadyTask(ctx context.Context, id string) error
 	ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error)
 	// Reset tasks that are marked active but have no live reservation. Tasks
-	// claimed by an agent currently in status='paused' are exempt: a paused
-	// agent intentionally stops renewing its lease and the operator (or resume
-	// handler) is expected to bring it back. See TK-1363 / IS-602.
-	ReclaimExpiredTasks(ctx context.Context) ([]ReclaimExpiredTasksRow, error)
+	// claimed by an agent currently in status='paused' or 'draining' are exempt.
+	// Tasks claimed by a 'disconnected' agent within the grace window (@disconnect_grace)
+	// are also exempt to allow clean reconnects. See TK-1363, TK-1365 / IS-602.
+	ReclaimExpiredTasks(ctx context.Context, disconnectGrace pgtype.Interval) ([]ReclaimExpiredTasksRow, error)
 	// Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
 	ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]ReclaimExpiredTodosRow, error)
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)

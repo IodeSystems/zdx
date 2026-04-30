@@ -8,7 +8,7 @@ import (
 )
 
 func TestRegistry(t *testing.T) {
-	r := agentconn.NewRegistry()
+	r := agentconn.NewRegistry(nil)
 
 	a := &agentconn.Conn{AgentID: "agent-1", ConnectedAt: time.Now()}
 	b := &agentconn.Conn{AgentID: "agent-2", ConnectedAt: time.Now()}
@@ -39,5 +39,33 @@ func TestRegistry(t *testing.T) {
 	}
 	if len(r.List()) != 1 {
 		t.Fatal("expected 1 agent after unregister")
+	}
+}
+
+func TestRegistryOnDisconnectCallback(t *testing.T) {
+	var calls []string
+	r := agentconn.NewRegistry(func(id string) { calls = append(calls, id) })
+
+	c := &agentconn.Conn{AgentID: "agent-x", ConnectedAt: time.Now()}
+	if err := r.Register(c); err != nil {
+		t.Fatalf("register: %v", err)
+	}
+
+	// callback fires exactly once on unregister
+	r.Unregister("agent-x")
+	if len(calls) != 1 || calls[0] != "agent-x" {
+		t.Fatalf("expected exactly one callback for agent-x, got %v", calls)
+	}
+
+	// no callback for a second unregister of the same (already removed) id
+	r.Unregister("agent-x")
+	if len(calls) != 1 {
+		t.Fatalf("expected no second callback, got %v", calls)
+	}
+
+	// no callback for an id that was never registered
+	r.Unregister("never-registered")
+	if len(calls) != 1 {
+		t.Fatalf("expected no callback for unknown id, got %v", calls)
 	}
 }

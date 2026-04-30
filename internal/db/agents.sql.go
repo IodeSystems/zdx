@@ -21,7 +21,7 @@ func (q *Queries) DeleteAgent(ctx context.Context, id string) error {
 }
 
 const getAgent = `-- name: GetAgent :one
-SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url FROM zdx_agents WHERE id = $1
+SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at FROM zdx_agents WHERE id = $1
 `
 
 func (q *Queries) GetAgent(ctx context.Context, id string) (ZdxAgent, error) {
@@ -42,12 +42,13 @@ func (q *Queries) GetAgent(ctx context.Context, id string) (ZdxAgent, error) {
 		&i.LastHeartbeat,
 		&i.CreatedAt,
 		&i.ValkeyUrl,
+		&i.DisconnectAt,
 	)
 	return i, err
 }
 
 const listAgentsByProject = `-- name: ListAgentsByProject :many
-SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC
+SELECT id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at FROM zdx_agents WHERE project_id = $1 ORDER BY last_heartbeat DESC
 `
 
 func (q *Queries) ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error) {
@@ -74,6 +75,7 @@ func (q *Queries) ListAgentsByProject(ctx context.Context, projectID int32) ([]Z
 			&i.LastHeartbeat,
 			&i.CreatedAt,
 			&i.ValkeyUrl,
+			&i.DisconnectAt,
 		); err != nil {
 			return nil, err
 		}
@@ -85,10 +87,36 @@ func (q *Queries) ListAgentsByProject(ctx context.Context, projectID int32) ([]Z
 	return items, nil
 }
 
+const markAgentConnected = `-- name: MarkAgentConnected :exec
+UPDATE zdx_agents
+SET status       = CASE WHEN status = 'paused' THEN 'paused' ELSE 'active' END,
+    disconnect_at = NULL
+WHERE id = $1
+`
+
+// Clear disconnect_at on reconnect. Keep 'paused' if the operator set it before reconnect.
+func (q *Queries) MarkAgentConnected(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, markAgentConnected, id)
+	return err
+}
+
+const markAgentDisconnected = `-- name: MarkAgentDisconnected :exec
+UPDATE zdx_agents
+SET status       = CASE WHEN status IN ('paused', 'draining') THEN status ELSE 'disconnected' END,
+    disconnect_at = NOW()
+WHERE id = $1
+`
+
+// Set disconnect_at=now() and flip to 'disconnected' unless already paused/draining.
+func (q *Queries) MarkAgentDisconnected(ctx context.Context, id string) error {
+	_, err := q.db.Exec(ctx, markAgentDisconnected, id)
+	return err
+}
+
 const reapStaleAgents = `-- name: ReapStaleAgents :many
 DELETE FROM zdx_agents
 WHERE last_heartbeat < NOW() - $1::interval
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at
 `
 
 func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Interval) ([]ZdxAgent, error) {
@@ -115,6 +143,7 @@ func (q *Queries) ReapStaleAgents(ctx context.Context, staleThreshold pgtype.Int
 			&i.LastHeartbeat,
 			&i.CreatedAt,
 			&i.ValkeyUrl,
+			&i.DisconnectAt,
 		); err != nil {
 			return nil, err
 		}
@@ -141,7 +170,7 @@ ON CONFLICT (id) DO UPDATE SET
     database_url = EXCLUDED.database_url,
     valkey_url = EXCLUDED.valkey_url,
     last_heartbeat = NOW()
-RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url
+RETURNING id, project_id, session_id, worktree_path, worktree_branch, pid, status, task_group, compose_project, server_port, database_url, last_heartbeat, created_at, valkey_url, disconnect_at
 `
 
 type RegisterAgentParams struct {
@@ -190,6 +219,7 @@ func (q *Queries) RegisterAgent(ctx context.Context, arg RegisterAgentParams) (Z
 		&i.LastHeartbeat,
 		&i.CreatedAt,
 		&i.ValkeyUrl,
+		&i.DisconnectAt,
 	)
 	return i, err
 }

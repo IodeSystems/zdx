@@ -24,12 +24,15 @@ type Conn struct {
 // Registry holds live agent connections. Connection itself is the liveness
 // signal — no heartbeat timestamps (spec 179).
 type Registry struct {
-	mu    sync.RWMutex
-	conns map[string]*Conn
+	mu           sync.RWMutex
+	conns        map[string]*Conn
+	onDisconnect func(agentID string)
 }
 
-func NewRegistry() *Registry {
-	return &Registry{conns: make(map[string]*Conn)}
+// NewRegistry creates a Registry. onDisconnect is called from Unregister with
+// the agent ID; pass nil if no callback is needed.
+func NewRegistry(onDisconnect func(agentID string)) *Registry {
+	return &Registry{conns: make(map[string]*Conn), onDisconnect: onDisconnect}
 }
 
 // Register adds c to the registry. Returns an error if agent_id is already connected.
@@ -43,11 +46,16 @@ func (r *Registry) Register(c *Conn) error {
 	return nil
 }
 
-// Unregister removes the agent with the given ID (no-op if not present).
+// Unregister removes the agent with the given ID and fires the OnDisconnect
+// callback if one was set. No-op if the agent is not present.
 func (r *Registry) Unregister(agentID string) {
 	r.mu.Lock()
-	defer r.mu.Unlock()
+	_, present := r.conns[agentID]
 	delete(r.conns, agentID)
+	r.mu.Unlock()
+	if present && r.onDisconnect != nil {
+		r.onDisconnect(agentID)
+	}
 }
 
 // Get returns the Conn for agentID if present.

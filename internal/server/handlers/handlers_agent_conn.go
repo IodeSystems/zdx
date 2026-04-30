@@ -8,6 +8,7 @@ import (
 
 	"nhooyr.io/websocket"
 
+	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/server/agentconn"
 )
 
@@ -23,7 +24,8 @@ type AgentRegisterMsg struct {
 
 // HandleAgentConnect upgrades the HTTP connection to WebSocket, reads the
 // registration handshake, and holds the connection as the liveness signal.
-func HandleAgentConnect(registry *agentconn.Registry) http.HandlerFunc {
+// q may be nil (e.g. in tests without a DB); DB updates are skipped when nil.
+func HandleAgentConnect(registry *agentconn.Registry, q *db.Queries) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
 		conn, err := websocket.Accept(w, r, &websocket.AcceptOptions{
 			InsecureSkipVerify: true, // API-key auth happens in middleware
@@ -62,6 +64,13 @@ func HandleAgentConnect(registry *agentconn.Registry) http.HandlerFunc {
 			return
 		}
 		defer registry.Unregister(reg.AgentID)
+
+		// Clear disconnect_at and restore active status on reconnect.
+		if q != nil {
+			if err := q.MarkAgentConnected(ctx, reg.AgentID); err != nil {
+				log.Printf("agent connect: mark connected %s: %v", reg.AgentID, err)
+			}
+		}
 
 		ack, _ := json.Marshal(map[string]any{"type": "registered", "server_time": time.Now().UTC()})
 		if err := conn.Write(ctx, websocket.MessageText, ack); err != nil {

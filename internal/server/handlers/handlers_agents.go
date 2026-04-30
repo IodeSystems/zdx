@@ -382,7 +382,11 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 				Reclaimed int `json:"reclaimed"`
 			}
 		}, error) {
-			rows, err := h.Q.ReclaimExpiredTasks(ctx)
+			grace := pgtype.Interval{
+				Microseconds: int64(h.AgentDisconnectGraceSec) * 1_000_000,
+				Valid:        true,
+			}
+			rows, err := h.Q.ReclaimExpiredTasks(ctx, grace)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}

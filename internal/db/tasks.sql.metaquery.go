@@ -7,6 +7,7 @@ package db
 
 import (
 	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
+	"github.com/jackc/pgx/v5/pgtype"
 )
 
 var _ = metaquery.Query{}
@@ -1612,7 +1613,17 @@ WHERE status = 'active'
     WHERE r.target_type = 'task'
       AND r.target_id = zdx_tasks.id
       AND r.released_at IS NULL
-      AND a.status = 'paused'
+      AND a.status IN ('paused', 'draining')
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_reservations r
+    JOIN zdx_agents a ON a.id = r.claimed_by
+    WHERE r.target_type = 'task'
+      AND r.target_id = zdx_tasks.id
+      AND r.released_at IS NULL
+      AND a.status = 'disconnected'
+      AND a.disconnect_at IS NOT NULL
+      AND a.disconnect_at > NOW() - $1::interval
   )
   AND status != 'done'
 RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at`,
@@ -1634,11 +1645,14 @@ RETURNING id, project_id, title, text, feature, status, reason, issue, depends, 
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "disconnect_grace", GoType: "pgtype.Interval", DBType: "interval", NotNull: true},
+	},
 }
 
 // WrapReclaimExpiredTasks returns a metaquery.Builder over MetaReclaimExpiredTasks, pre-bound with typed arguments.
-func WrapReclaimExpiredTasks() *metaquery.Builder {
-	return metaquery.Wrap(&MetaReclaimExpiredTasks)
+func WrapReclaimExpiredTasks(disconnectGrace pgtype.Interval) *metaquery.Builder {
+	return metaquery.Wrap(&MetaReclaimExpiredTasks, disconnectGrace)
 }
 
 // ReclaimExpiredTasksCols gives typed, name-safe access to ReclaimExpiredTasks's output columns.

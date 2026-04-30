@@ -1418,7 +1418,17 @@ WHERE status = 'active'
     WHERE r.target_type = 'task'
       AND r.target_id = zdx_tasks.id
       AND r.released_at IS NULL
-      AND a.status = 'paused'
+      AND a.status IN ('paused', 'draining')
+  )
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_reservations r
+    JOIN zdx_agents a ON a.id = r.claimed_by
+    WHERE r.target_type = 'task'
+      AND r.target_id = zdx_tasks.id
+      AND r.released_at IS NULL
+      AND a.status = 'disconnected'
+      AND a.disconnect_at IS NOT NULL
+      AND a.disconnect_at > NOW() - $1::interval
   )
   AND status != 'done'
 RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
@@ -1444,11 +1454,11 @@ type ReclaimExpiredTasksRow struct {
 }
 
 // Reset tasks that are marked active but have no live reservation. Tasks
-// claimed by an agent currently in status='paused' are exempt: a paused
-// agent intentionally stops renewing its lease and the operator (or resume
-// handler) is expected to bring it back. See TK-1363 / IS-602.
-func (q *Queries) ReclaimExpiredTasks(ctx context.Context) ([]ReclaimExpiredTasksRow, error) {
-	rows, err := q.db.Query(ctx, reclaimExpiredTasks)
+// claimed by an agent currently in status='paused' or 'draining' are exempt.
+// Tasks claimed by a 'disconnected' agent within the grace window (@disconnect_grace)
+// are also exempt to allow clean reconnects. See TK-1363, TK-1365 / IS-602.
+func (q *Queries) ReclaimExpiredTasks(ctx context.Context, disconnectGrace pgtype.Interval) ([]ReclaimExpiredTasksRow, error) {
+	rows, err := q.db.Query(ctx, reclaimExpiredTasks, disconnectGrace)
 	if err != nil {
 		return nil, err
 	}
