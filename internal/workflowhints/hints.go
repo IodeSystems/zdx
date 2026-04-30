@@ -163,7 +163,7 @@ func DecomposeIssueText(issueID, title string) Hint {
 		Instructions: fmt.Sprintf(
 			"Decompose %s: %s.\n\n"+
 				"1. Read the issue: `dx issue show %s`. If context is thin, read the referenced code first.\n"+
-				"2. Break into tasks — each task is ONE shippable unit (not a multi-day epic). If you find yourself writing >3 tasks, the issue probably should have been a tracker — consider `dx issue edit %s --issue-type=tracker` and decompose into child issues instead.\n"+
+				"2. Break into tasks — each task is ONE shippable unit (not a multi-day epic). If you find yourself writing >3 tasks, the issue probably should have been a tracker — consider `dx issue edit %s --type=tracker` and decompose into child issues instead.\n"+
 				"3. Create each task:\n"+
 				"   `dx todo tech add --issue=%s --title=\"<one-line outcome>\" --text=\"<implementation plan, file-by-file>\" --reason=\"<why this task now>\" --test-plan=\"<how it will be verified>\"`\n"+
 				"   - `--title` is the outcome-focused headline (shown in the UI, list rows, and solo [dev] messages)\n"+
@@ -235,7 +235,7 @@ func DecomposeTrackerText(issueID string) Hint {
 			"Tracker %s has no child issues — decompose it.\n\n"+
 				"1. Read the tracker context: `dx issue show %s`.\n"+
 				"2. Break into concrete child issues, one per vertical (one shippable unit each):\n"+
-				"   `dx issue add --title=\"...\" --context=\"...\" --issue-type=impl --parent=%s`\n"+
+				"   `dx issue add --title=\"...\" --context=\"...\" --type=impl --parent=%s`\n"+
 				"3. After EACH `issue add`, review the similar-issues list in the response:\n"+
 				"   - closed similar already covers this: close your new issue as duplicate (or reopen the original if it was closed prematurely)\n"+
 				"   - open similar overlaps: close yours as duplicate, or keep both if genuinely distinct and add a blocked_by link\n"+

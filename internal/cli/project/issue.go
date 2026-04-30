@@ -430,7 +430,7 @@ func runDecompositionPathGate(cmd *cobra.Command, c *cli.Client, issueID, issueC
 	}
 	b.WriteString("Or override:\n")
 	b.WriteString("  - --reason=wontfix to abandon, --reason=duplicate --duplicate-of=IS-X to dedupe\n")
-	fmt.Fprintf(&b, "  - dx issue edit %s --issue-type=tracker if this is a tracker, not an impl\n", issueID)
+	fmt.Fprintf(&b, "  - dx issue edit %s --type=tracker if this is a tracker, not an impl\n", issueID)
 	return fmt.Errorf("%s", b.String())
 }
 
