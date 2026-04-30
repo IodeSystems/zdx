@@ -36,7 +36,7 @@ export function KpiSparklineRow({ slug, scope, checkName, curr, unit, pct, regre
         {checkName}
       </Typography>
       {isLoading ? (
-        <Skeleton variant="rectangular" width={80} height={20} sx={{ borderRadius: 0.5 }} />
+        <Skeleton variant="rectangular" width={80} height={28} sx={{ borderRadius: 0.5 }} />
       ) : (
         <Sparkline values={values} highlightIndex={highlightIndex} danger={regression} />
       )}
