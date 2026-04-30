@@ -23,6 +23,7 @@ type ZdxAgent struct {
 	LastHeartbeat  pgtype.Timestamptz `db:"last_heartbeat" json:"last_heartbeat"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ValkeyUrl      string             `db:"valkey_url" json:"valkey_url"`
+	DisconnectAt   pgtype.Timestamptz `db:"disconnect_at" json:"disconnect_at"`
 }
 
 type ZdxApiKey struct {
