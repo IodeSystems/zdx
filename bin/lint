@@ -48,6 +48,8 @@ run "gofmt" bash -c '
 
 run "govet" go vet ./...
 
+run "migrate-lint" ./bin/dx migrate lint
+
 run "sqlcvet" bash -c '
   SQLC=$(command -v sqlc || echo "$HOME/go/bin/sqlc")
   "$SQLC" vet

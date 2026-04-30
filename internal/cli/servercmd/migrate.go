@@ -15,7 +15,7 @@ import (
 
 func MigrateCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "migrate", Short: "Database migrations"}
-	cmd.AddCommand(migrateUpCmd(), migrateVersionCmd(), migratecmd.RenumberCmd())
+	cmd.AddCommand(migrateUpCmd(), migrateVersionCmd(), migratecmd.RenumberCmd(), migratecmd.LintCmd())
 	return cmd
 }
 
