@@ -28,6 +28,7 @@ type rollingPairStrategy struct{}
 func (rollingPairStrategy) Run(ctx context.Context, comp config.Component, env map[string]string, opts RunOptions) ([]StageResult, error) {
 	sha := gitSHA()
 	main, fin := splitStages(comp.Ship.Stages)
+	main = filterStagesByTag(main, opts.IncludeTag, opts.ExcludeTag)
 
 	passes := []struct {
 		phase string

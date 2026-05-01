@@ -486,6 +486,71 @@ func TestRun_RollingPair_FinalizeRunsOnce(t *testing.T) {
 	}
 }
 
+// TestRun_TagFilter verifies that IncludeTag and ExcludeTag in RunOptions
+// correctly restrict which stages execute and appear in results.
+func TestRun_TagFilter(t *testing.T) {
+	stages := []config.Stage{
+		{Name: "compile", Run: "echo compile", Tags: []string{"build"}},
+		{Name: "tarball", Run: "echo tarball", Tags: []string{"build"}},
+		{Name: "rsync", Run: "echo rsync", Tags: []string{"deploy"}},
+		{Name: "restart", Run: "echo restart", Tags: []string{"deploy"}},
+		{Name: "health", Run: "echo health"},
+	}
+	comp := config.Component{Ship: config.Ship{Stages: stages}}
+
+	cases := []struct {
+		name       string
+		opts       RunOptions
+		wantNames  []string
+		wantCount  int
+	}{
+		{
+			name:      "no filter runs all",
+			opts:      RunOptions{},
+			wantNames: []string{"compile", "tarball", "rsync", "restart", "health"},
+			wantCount: 5,
+		},
+		{
+			name:      "include=build runs only build-tagged",
+			opts:      RunOptions{IncludeTag: "build"},
+			wantNames: []string{"compile", "tarball"},
+			wantCount: 2,
+		},
+		{
+			name:      "exclude=build skips build-tagged",
+			opts:      RunOptions{ExcludeTag: "build"},
+			wantNames: []string{"rsync", "restart", "health"},
+			wantCount: 3,
+		},
+		{
+			name:      "include=deploy runs only deploy-tagged",
+			opts:      RunOptions{IncludeTag: "deploy"},
+			wantNames: []string{"rsync", "restart"},
+			wantCount: 2,
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			res, err := Run(context.Background(), comp, nil, tc.opts)
+			if err != nil {
+				t.Fatalf("Run: %v", err)
+			}
+			if len(res) != tc.wantCount {
+				t.Fatalf("want %d results, got %d", tc.wantCount, len(res))
+			}
+			for i, name := range tc.wantNames {
+				if res[i].Name != name {
+					t.Errorf("res[%d].Name = %q, want %q", i, res[i].Name, name)
+				}
+				if res[i].Status != "ok" {
+					t.Errorf("res[%d].Status = %q, want ok", i, res[i].Status)
+				}
+			}
+		})
+	}
+}
+
 // TestRun_SSH_FakeSSH exercises the SSH path end-to-end with a fake `ssh`
 // shim on PATH that just echoes its argv. Hermetic — gated only because
 // it modifies $PATH for the test process.

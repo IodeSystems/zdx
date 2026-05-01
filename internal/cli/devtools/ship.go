@@ -166,11 +166,15 @@ func shipGitOutput(args ...string) string {
 
 func shipRunCmd() *cobra.Command {
 	var envFlag, componentFlag string
-	var noResume bool
+	var noResume, pkgOnly, noPackage bool
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Execute ship stages for a component and record the deploy event",
 		RunE: func(cmd *cobra.Command, _ []string) error {
+			if pkgOnly && noPackage {
+				return fmt.Errorf("cannot combine --package and --no-package")
+			}
+
 			compName := config.ActiveComponent(componentFlag)
 			cfg := config.Load()
 			if cfg == nil {
@@ -197,6 +201,11 @@ func shipRunCmd() *cobra.Command {
 				NoResume:      noResume,
 				ComponentName: compName,
 			}
+			if pkgOnly {
+				opts.IncludeTag = "build"
+			} else if noPackage {
+				opts.ExcludeTag = "build"
+			}
 			results, runErr := ship.Run(cmd.Context(), comp, secrets, opts)
 
 			c, err := cli.DefaultClient()
@@ -214,6 +223,8 @@ func shipRunCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("env")
 	cmd.Flags().StringVar(&componentFlag, "component", "", "component name (default: active component from config or DX_COMPONENT)")
 	cmd.Flags().BoolVar(&noResume, "no-resume", false, "force full re-run, ignoring saved stage state")
+	cmd.Flags().BoolVar(&pkgOnly, "package", false, "run only stages tagged 'build' (produce deploy artifact, skip deploy)")
+	cmd.Flags().BoolVar(&noPackage, "no-package", false, "skip stages tagged 'build' (deploy existing artifact, skip build)")
 	return cmd
 }
 

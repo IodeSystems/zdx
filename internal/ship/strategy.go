@@ -37,6 +37,36 @@ func dispatch(comp config.Component) Strategy {
 	panic(fmt.Sprintf("ship: no Strategy registered for %q (config validated but dispatch did not)", comp.Ship.Strategy))
 }
 
+// filterStagesByTag returns stages that satisfy the include/exclude tag filter.
+// Empty includeTag and excludeTag returns all stages unchanged. A stage passes
+// when: includeTag (if set) is present in its Tags AND excludeTag (if set) is
+// absent from its Tags. Both conditions must hold when both are set.
+func filterStagesByTag(stages []config.Stage, includeTag, excludeTag string) []config.Stage {
+	if includeTag == "" && excludeTag == "" {
+		return stages
+	}
+	out := make([]config.Stage, 0, len(stages))
+	for _, s := range stages {
+		if includeTag != "" && !stageHasTag(s, includeTag) {
+			continue
+		}
+		if excludeTag != "" && stageHasTag(s, excludeTag) {
+			continue
+		}
+		out = append(out, s)
+	}
+	return out
+}
+
+func stageHasTag(s config.Stage, tag string) bool {
+	for _, t := range s.Tags {
+		if t == tag {
+			return true
+		}
+	}
+	return false
+}
+
 // splitStages partitions comp.Ship.Stages into main (Finalize=false) and
 // finalize (Finalize=true) slices in declaration order.
 func splitStages(stages []config.Stage) (main, finalize []config.Stage) {

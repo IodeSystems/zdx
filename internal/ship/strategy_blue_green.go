@@ -19,11 +19,12 @@ import (
 // in any verify stage.
 type blueGreenStrategy struct{}
 
-func (blueGreenStrategy) Run(ctx context.Context, comp config.Component, env map[string]string, _ RunOptions) ([]StageResult, error) {
+func (blueGreenStrategy) Run(ctx context.Context, comp config.Component, env map[string]string, opts RunOptions) ([]StageResult, error) {
 	active := env["ZDX_ACTIVE_SLOT"]
 	standby := env["ZDX_STANDBY_SLOT"]
 
 	main, fin := splitStages(comp.Ship.Stages)
+	main = filterStagesByTag(main, opts.IncludeTag, opts.ExcludeTag)
 
 	deployEnv := map[string]string{
 		"ZDX_ACTIVE_SLOT":  active,

@@ -49,6 +49,12 @@ type RunOptions struct {
 	// StateDir overrides the default .zdx/ship-state directory used for
 	// resume state files. Primarily useful in tests for hermetic isolation.
 	StateDir string
+	// IncludeTag, when non-empty, restricts execution to main stages whose
+	// Tags contain this value. Combined with ExcludeTag via intersection.
+	IncludeTag string
+	// ExcludeTag, when non-empty, skips main stages whose Tags contain this
+	// value. Combined with IncludeTag via intersection.
+	ExcludeTag string
 }
 
 // Run dispatches to the Strategy implementation selected by
