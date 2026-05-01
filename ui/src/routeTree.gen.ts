@@ -37,6 +37,7 @@ import { Route as ProjectSlugIssuesRouteImport } from './routes/project/$slug/is
 import { Route as ProjectSlugGoalsRouteImport } from './routes/project/$slug/goals'
 import { Route as ProjectSlugFeaturesRouteImport } from './routes/project/$slug/features'
 import { Route as ProjectSlugEnvironmentsRouteImport } from './routes/project/$slug/environments'
+import { Route as ProjectSlugDocsRouteImport } from './routes/project/$slug/docs'
 import { Route as ProjectSlugDemosRouteImport } from './routes/project/$slug/demos'
 import { Route as ProjectSlugCountersRouteImport } from './routes/project/$slug/counters'
 import { Route as ProjectSlugBlockerQuestionsRouteImport } from './routes/project/$slug/blocker-questions'
@@ -71,6 +72,7 @@ import { Route as ProjectSlugErrorsIdRouteImport } from './routes/project/$slug/
 import { Route as ProjectSlugDiscussionsIdRouteImport } from './routes/project/$slug/discussions/$id'
 import { Route as ProjectSlugDemosDemoIdRouteImport } from './routes/project/$slug/demos/$demoId'
 import { Route as ProjectSlugAgentsSessionIdRouteImport } from './routes/project/$slug/agents/$sessionId'
+import { Route as ProjectSlugDocsNodeKindNodeSlugRouteImport } from './routes/project/$slug/docs/node/$kind/$nodeSlug'
 
 const CodeRoute = CodeRouteImport.update({
   id: '/code',
@@ -210,6 +212,11 @@ const ProjectSlugFeaturesRoute = ProjectSlugFeaturesRouteImport.update({
 const ProjectSlugEnvironmentsRoute = ProjectSlugEnvironmentsRouteImport.update({
   id: '/environments',
   path: '/environments',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
+const ProjectSlugDocsRoute = ProjectSlugDocsRouteImport.update({
+  id: '/docs',
+  path: '/docs',
   getParentRoute: () => ProjectSlugRoute,
 } as any)
 const ProjectSlugDemosRoute = ProjectSlugDemosRouteImport.update({
@@ -392,6 +399,12 @@ const ProjectSlugAgentsSessionIdRoute =
     path: '/$sessionId',
     getParentRoute: () => ProjectSlugAgentsRoute,
   } as any)
+const ProjectSlugDocsNodeKindNodeSlugRoute =
+  ProjectSlugDocsNodeKindNodeSlugRouteImport.update({
+    id: '/node/$kind/$nodeSlug',
+    path: '/node/$kind/$nodeSlug',
+    getParentRoute: () => ProjectSlugDocsRoute,
+  } as any)
 
 export interface FileRoutesByFullPath {
   '/': typeof IndexRoute
@@ -409,6 +422,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
   '/project/$slug/demos': typeof ProjectSlugDemosRouteWithChildren
+  '/project/$slug/docs': typeof ProjectSlugDocsRouteWithChildren
   '/project/$slug/environments': typeof ProjectSlugEnvironmentsRouteWithChildren
   '/project/$slug/features': typeof ProjectSlugFeaturesRouteWithChildren
   '/project/$slug/goals': typeof ProjectSlugGoalsRouteWithChildren
@@ -456,6 +470,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/releases/': typeof ProjectSlugReleasesIndexRoute
   '/project/$slug/tasks/': typeof ProjectSlugTasksIndexRoute
   '/project/$slug/tests/': typeof ProjectSlugTestsIndexRoute
+  '/project/$slug/docs/node/$kind/$nodeSlug': typeof ProjectSlugDocsNodeKindNodeSlugRoute
 }
 export interface FileRoutesByTo {
   '/': typeof IndexRoute
@@ -470,6 +485,7 @@ export interface FileRoutesByTo {
   '/admin': typeof AdminIndexRoute
   '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
+  '/project/$slug/docs': typeof ProjectSlugDocsRouteWithChildren
   '/project/$slug/journal': typeof ProjectSlugJournalRouteWithChildren
   '/project/$slug/logs': typeof ProjectSlugLogsRoute
   '/project/$slug/profile': typeof ProjectSlugProfileRoute
@@ -508,6 +524,7 @@ export interface FileRoutesByTo {
   '/project/$slug/releases': typeof ProjectSlugReleasesIndexRoute
   '/project/$slug/tasks': typeof ProjectSlugTasksIndexRoute
   '/project/$slug/tests': typeof ProjectSlugTestsIndexRoute
+  '/project/$slug/docs/node/$kind/$nodeSlug': typeof ProjectSlugDocsNodeKindNodeSlugRoute
 }
 export interface FileRoutesById {
   __root__: typeof rootRouteImport
@@ -526,6 +543,7 @@ export interface FileRoutesById {
   '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
   '/project/$slug/demos': typeof ProjectSlugDemosRouteWithChildren
+  '/project/$slug/docs': typeof ProjectSlugDocsRouteWithChildren
   '/project/$slug/environments': typeof ProjectSlugEnvironmentsRouteWithChildren
   '/project/$slug/features': typeof ProjectSlugFeaturesRouteWithChildren
   '/project/$slug/goals': typeof ProjectSlugGoalsRouteWithChildren
@@ -573,6 +591,7 @@ export interface FileRoutesById {
   '/project/$slug/releases/': typeof ProjectSlugReleasesIndexRoute
   '/project/$slug/tasks/': typeof ProjectSlugTasksIndexRoute
   '/project/$slug/tests/': typeof ProjectSlugTestsIndexRoute
+  '/project/$slug/docs/node/$kind/$nodeSlug': typeof ProjectSlugDocsNodeKindNodeSlugRoute
 }
 export interface FileRouteTypes {
   fileRoutesByFullPath: FileRoutesByFullPath
@@ -592,6 +611,7 @@ export interface FileRouteTypes {
     | '/project/$slug/blocker-questions'
     | '/project/$slug/counters'
     | '/project/$slug/demos'
+    | '/project/$slug/docs'
     | '/project/$slug/environments'
     | '/project/$slug/features'
     | '/project/$slug/goals'
@@ -639,6 +659,7 @@ export interface FileRouteTypes {
     | '/project/$slug/releases/'
     | '/project/$slug/tasks/'
     | '/project/$slug/tests/'
+    | '/project/$slug/docs/node/$kind/$nodeSlug'
   fileRoutesByTo: FileRoutesByTo
   to:
     | '/'
@@ -653,6 +674,7 @@ export interface FileRouteTypes {
     | '/admin'
     | '/project/$slug/blocker-questions'
     | '/project/$slug/counters'
+    | '/project/$slug/docs'
     | '/project/$slug/journal'
     | '/project/$slug/logs'
     | '/project/$slug/profile'
@@ -691,6 +713,7 @@ export interface FileRouteTypes {
     | '/project/$slug/releases'
     | '/project/$slug/tasks'
     | '/project/$slug/tests'
+    | '/project/$slug/docs/node/$kind/$nodeSlug'
   id:
     | '__root__'
     | '/'
@@ -708,6 +731,7 @@ export interface FileRouteTypes {
     | '/project/$slug/blocker-questions'
     | '/project/$slug/counters'
     | '/project/$slug/demos'
+    | '/project/$slug/docs'
     | '/project/$slug/environments'
     | '/project/$slug/features'
     | '/project/$slug/goals'
@@ -755,6 +779,7 @@ export interface FileRouteTypes {
     | '/project/$slug/releases/'
     | '/project/$slug/tasks/'
     | '/project/$slug/tests/'
+    | '/project/$slug/docs/node/$kind/$nodeSlug'
   fileRoutesById: FileRoutesById
 }
 export interface RootRouteChildren {
@@ -967,6 +992,13 @@ declare module '@tanstack/react-router' {
       path: '/environments'
       fullPath: '/project/$slug/environments'
       preLoaderRoute: typeof ProjectSlugEnvironmentsRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
+    '/project/$slug/docs': {
+      id: '/project/$slug/docs'
+      path: '/docs'
+      fullPath: '/project/$slug/docs'
+      preLoaderRoute: typeof ProjectSlugDocsRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
     '/project/$slug/demos': {
@@ -1207,6 +1239,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugAgentsSessionIdRouteImport
       parentRoute: typeof ProjectSlugAgentsRoute
     }
+    '/project/$slug/docs/node/$kind/$nodeSlug': {
+      id: '/project/$slug/docs/node/$kind/$nodeSlug'
+      path: '/node/$kind/$nodeSlug'
+      fullPath: '/project/$slug/docs/node/$kind/$nodeSlug'
+      preLoaderRoute: typeof ProjectSlugDocsNodeKindNodeSlugRouteImport
+      parentRoute: typeof ProjectSlugDocsRoute
+    }
   }
 }
 
@@ -1235,6 +1274,18 @@ const ProjectSlugDemosRouteChildren: ProjectSlugDemosRouteChildren = {
 
 const ProjectSlugDemosRouteWithChildren =
   ProjectSlugDemosRoute._addFileChildren(ProjectSlugDemosRouteChildren)
+
+interface ProjectSlugDocsRouteChildren {
+  ProjectSlugDocsNodeKindNodeSlugRoute: typeof ProjectSlugDocsNodeKindNodeSlugRoute
+}
+
+const ProjectSlugDocsRouteChildren: ProjectSlugDocsRouteChildren = {
+  ProjectSlugDocsNodeKindNodeSlugRoute: ProjectSlugDocsNodeKindNodeSlugRoute,
+}
+
+const ProjectSlugDocsRouteWithChildren = ProjectSlugDocsRoute._addFileChildren(
+  ProjectSlugDocsRouteChildren,
+)
 
 interface ProjectSlugEnvironmentsRouteChildren {
   ProjectSlugEnvironmentsIndexRoute: typeof ProjectSlugEnvironmentsIndexRoute
@@ -1366,6 +1417,7 @@ interface ProjectSlugRouteChildren {
   ProjectSlugBlockerQuestionsRoute: typeof ProjectSlugBlockerQuestionsRoute
   ProjectSlugCountersRoute: typeof ProjectSlugCountersRoute
   ProjectSlugDemosRoute: typeof ProjectSlugDemosRouteWithChildren
+  ProjectSlugDocsRoute: typeof ProjectSlugDocsRouteWithChildren
   ProjectSlugEnvironmentsRoute: typeof ProjectSlugEnvironmentsRouteWithChildren
   ProjectSlugFeaturesRoute: typeof ProjectSlugFeaturesRouteWithChildren
   ProjectSlugGoalsRoute: typeof ProjectSlugGoalsRouteWithChildren
@@ -1400,6 +1452,7 @@ const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
   ProjectSlugBlockerQuestionsRoute: ProjectSlugBlockerQuestionsRoute,
   ProjectSlugCountersRoute: ProjectSlugCountersRoute,
   ProjectSlugDemosRoute: ProjectSlugDemosRouteWithChildren,
+  ProjectSlugDocsRoute: ProjectSlugDocsRouteWithChildren,
   ProjectSlugEnvironmentsRoute: ProjectSlugEnvironmentsRouteWithChildren,
   ProjectSlugFeaturesRoute: ProjectSlugFeaturesRouteWithChildren,
   ProjectSlugGoalsRoute: ProjectSlugGoalsRouteWithChildren,
