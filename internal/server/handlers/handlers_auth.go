@@ -364,6 +364,14 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
+			if _, err := h.Q.CreateVersionBranch(ctx, db.CreateVersionBranchParams{
+				ProjectID: row.ID,
+				Name:      "dev",
+				Type:      "dev",
+				Status:    "active",
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
 			if in.Body.Classification != "" {
 				if err := h.Q.SetProjectClassification(ctx, db.SetProjectClassificationParams{
 					ID:             row.ID,
