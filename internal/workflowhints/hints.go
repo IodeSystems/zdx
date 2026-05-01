@@ -9,7 +9,11 @@
 // exactly what to do for that kind.
 package workflowhints
 
-import "fmt"
+import (
+	"fmt"
+
+	"github.com/iodesystems/zdx-go/internal/todoclaim"
+)
 
 // Hint is the structured return type for solo-queue candidate builders.
 // Title and Description are persisted in zdx_todos; Instructions are generated
@@ -27,10 +31,11 @@ type Hint struct {
 
 // CloseAndShipFragment describes what to do after closing an issue when the
 // vertical produced shippable code. Appended to closable-style texts.
-const CloseAndShipFragment = "\n\nShip if the vertical touched production code (server, UI, schema, queries): " +
-	"(1) commit all changes — `git add <files> && git commit -m '...'`; " +
-	"(2) if internal/migrate/sql/ or queries/*.sql changed, run `~/go/bin/sqlc generate && go build ./...` to verify; " +
-	"(3) `./bin/ship` (never --allow-dirty — emergency only). " +
+const CloseAndShipFragment = "\n\nShip if the vertical touched production code (server, UI, schema, queries):\n" +
+	"  (1) commit BEFORE close — the dev contract requires a clean tree at task close, so commits must land first, then dx todo dev done. " +
+	"`git add <files> && git commit -m '...'` then close the task. Pre-flight (IS-916) will reject the close otherwise.\n" +
+	"  (2) if internal/migrate/sql/ or queries/*.sql changed, run `~/go/bin/sqlc generate && go build ./...` to verify;\n" +
+	"  (3) `./bin/ship` (never --allow-dirty — emergency only). " +
 	"Skip ship for docs/skill/planning-only changes — just commit."
 
 // BlockerQuestionCriteriaFragment describes when to file a `dx question add`
@@ -73,6 +78,28 @@ const TriageChecklist = `  triage checklist:
       - for multi-stage questions (answer to Q1 changes Q2+), ask only the first stage now; file follow-ups after the answer arrives
     solo will block progress on the issue until all questions are answered.
 `
+
+// ContractFooter returns the one-line claim-contract footer for the given
+// todo kind. The footer is appended to every *Text builder's Instructions
+// so an agent reading only that text knows the branch-state invariant the
+// claim handler will enforce on terminal endpoints (release/done/close).
+//
+// Metadata kinds (triage, add, close, ...) require: branch ends at claim SHA,
+// tree clean, no new commits.
+// Dev kinds (dev, tech:standup, tech:test-ref) require: >=1 commit on top of
+// claim SHA, tree clean.
+// Ask kinds (clarify, answer, respond:discussion, read:comments, respond:stale)
+// are treated as Metadata (no commits expected).
+func ContractFooter(kind string) string {
+	c := todoclaim.ForKind(kind)
+	switch c.Name {
+	case todoclaim.Dev:
+		return "\n\nContract: dev. Branch must contain >= 1 new commit on top of the claim SHA, tree clean."
+	default:
+		// Metadata + Ask both surface the metadata footer.
+		return "\n\nContract: metadata. Branch must end at the claim SHA with a clean tree. No commits."
+	}
+}
 
 // SimilarIssuesMCPGuidance returns the guidance attached to MCP `issue_add`
 // responses when similar issues were found. issueID is the newly created
@@ -149,7 +176,7 @@ func TriageText(issueID, title string) Hint {
 				"   ops = one-time verifiable action; impl = durable code change; ask = investigation; tracker = umbrella (decomposed into children).\n\n"+
 				"If the issue is too vague to classify: `dx question add --target-type=issue --target-id=%s --context=\"<what to decide>\" --choices=\"opt1,opt2,...\"` and stop. Solo blocks progress until answered.",
 			issueID, title, issueID, issueID, issueID, issueID, issueID, issueID, issueID,
-		),
+		) + ContractFooter("triage"),
 	}
 }
 
@@ -172,7 +199,7 @@ func DecomposeIssueText(issueID, title string) Hint {
 				"   - `--test-plan` is REQUIRED to close via `dev done`. If you skip two flags, keep title + test-plan.\n"+
 				"4. Stop after creating tasks — let the solo loop pick the next action.",
 			issueID, title, issueID, issueID, issueID,
-		),
+		) + ContractFooter("add"),
 	}
 }
 
@@ -204,7 +231,7 @@ func DevTaskText(taskID, title, issueRef string) Hint {
 				"Attached to the parent issue as zdx_issue_code_refs.\n"+
 				"5. After closing, re-run `dx todo solo --issue=%s` to let the loop pick the next step (more tasks, or issue-closable).",
 			taskID, title, taskID, taskID, gating, issueRef,
-		),
+		) + ContractFooter("dev"),
 	}
 }
 
@@ -220,7 +247,8 @@ func ClosableIssueText(issueID, title string) Hint {
 				"2. If anything is missing, add a task instead of leaving the issue open: `dx todo tech add --issue=%s ...`.\n"+
 				"3. Close: `dx issue close %s --reason=done`.",
 			issueID, title, issueID, issueID, issueID,
-		) + CloseAndShipFragment + PostWorkDXAnalysisFragment + StopAfterVerticalFragment,
+		) + CloseAndShipFragment + PostWorkDXAnalysisFragment + StopAfterVerticalFragment +
+			ContractFooter("closable"),
 	}
 }
 
@@ -256,7 +284,7 @@ func DecomposeTrackerText(issueID string) Hint {
 				"4. Do NOT implement tracker work inline and do NOT close the tracker manually — it auto-closes when all children close.\n"+
 				"5. Stop after decomposition. The loop will pick a child vertical next.",
 			issueID, issueID, issueID, issueID, issueID,
-		) + BlockerQuestionCriteriaFragment,
+		) + BlockerQuestionCriteriaFragment + ContractFooter("owner:decompose-tracker"),
 	}
 }
 
@@ -270,7 +298,8 @@ func CloseTrackerText(issueID string) Hint {
 				"Close it: `dx issue close %s --reason=done`. "+
 				"Trackers normally auto-close when the last child closes; if this one didn't, closing it manually is fine now that dependencies are clear.",
 			issueID, issueID,
-		) + PostWorkDXAnalysisFragment + StopAfterVerticalFragment,
+		) + PostWorkDXAnalysisFragment + StopAfterVerticalFragment +
+			ContractFooter("close:tracker"),
 	}
 }
 
@@ -287,7 +316,7 @@ func UnreadCommentsText(issueID, title string) Hint {
 				"The CLI auto-tags with $DX_AUTHOR_ALIAS (usually `claude`); pass `--as <alias>` only to override.\n"+
 				"4. Re-run `dx todo solo --issue=%s` — comments are handled inline, not as a separate vertical.",
 			issueID, title, issueID, issueID, issueID,
-		),
+		) + ContractFooter("read:comments"),
 	}
 }
 
@@ -302,7 +331,7 @@ func UnreadFeatureCommentsText(featureName string) Hint {
 				"2. Respond to questions/feedback: `dx comment add feature %s --body=\"<reply>\"`.\n"+
 				"3. No vertical to run — handle inline and stop.",
 			featureName, featureName, featureName,
-		),
+		) + ContractFooter("read:comments"),
 	}
 }
 
@@ -319,7 +348,7 @@ func OrphanTaskText(taskID, title string) Hint {
 				"4. If still needed and a host issue already exists: `dx task adopt %s --issue=<IS-N>` directly.\n"+
 				"Stop after handling — one orphan per session.",
 			taskID, title, taskID, taskID, taskID, taskID,
-		),
+		) + ContractFooter("owner:orphan-task"),
 	}
 }
 
@@ -339,7 +368,7 @@ func ReviewPendingTaskText(taskID, title, issueRef string) Hint {
 				"4. After approving, re-run `dx todo solo --issue=%s` to let the loop close or pick next steps.\n"+
 				"   After rejecting, a new dev task will be needed — create one: `dx todo tech add --issue=%s --title=\"...\" --text=\"...\"`.",
 			taskID, title, taskID, taskID, taskID, issueRef, issueRef,
-		),
+		) + ContractFooter("owner:review"),
 	}
 }
 
@@ -358,7 +387,7 @@ func ReviewStaleTaskText(taskID, title string) Hint {
 				"4. If still needed: proceed as a normal dev task — implement, then close with `--test-plan` and `--file`/`--test-refs`.\n"+
 				"Do NOT start editing code until you have verified the task is still relevant.",
 			taskID, title, taskID, taskID,
-		),
+		) + ContractFooter("respond:stale"),
 	}
 }
 
@@ -377,7 +406,7 @@ func BootstrapText(slug string) Hint {
 				"4. File a setup issue: `dx issue add --title=\"Integrate project with zdx tooling\" --context=\"Set up .zdx/config.yaml close-hooks (lint, gen), configure components, and verify dx todo solo cycle works end-to-end.\"`\n"+
 				"5. Re-run `dx todo solo` — the triage flow will engage on the setup issue.",
 			slug,
-		) + BlockerQuestionCriteriaFragment,
+		) + BlockerQuestionCriteriaFragment + ContractFooter("add"),
 	}
 }
 
@@ -394,7 +423,7 @@ func DemoGapText(specID int32, description, featureName string) Hint {
 				"Demos are verifiable walk-throughs of the spec's behavior — prefer small, focused scenarios.\n"+
 				"Stop after linking/filing — the demo test itself is a separate dev task.",
 			specID, description, featureName, specID,
-		),
+		) + ContractFooter("owner:demo-gap"),
 	}
 }
 
@@ -408,7 +437,8 @@ func NoGoalsText() Hint {
 			"1. Talk with the owner (or read plan/product docs) to list top-level objectives.\n" +
 			"2. For each: `dx goal add \"<goal title>\"`.\n" +
 			"3. Optionally quantify: `dx goal set <G-N> --metric-name=<name> --metric-unit=<unit>`.\n" +
-			"Stop after adding — let the next solo pick guide what's next.",
+			"Stop after adding — let the next solo pick guide what's next." +
+			ContractFooter("owner:goals"),
 	}
 }
 
@@ -421,7 +451,8 @@ func NoConstraintsText() Hint {
 			"Constraints capture non-negotiable boundaries (latency budgets, compliance requirements, data locality, etc.).\n" +
 			"For each: `dx constraint add \"<constraint>\"`.\n" +
 			"Stop after adding — let the next solo pick drive next steps." +
-			BlockerQuestionCriteriaFragment,
+			BlockerQuestionCriteriaFragment +
+			ContractFooter("owner:constraints"),
 	}
 }
 
@@ -463,6 +494,11 @@ func StandupOverdueText(role string) Hint {
 		techExtras = "   - observability: timings / errors / counters pages — system KPIs\n"
 	}
 
+	kind := "owner:standup"
+	if role == "tech" {
+		kind = "tech:standup"
+	}
+
 	return Hint{
 		Title:       roleCap + " standup overdue",
 		Description: roleCap + " standup check-in overdue.",
@@ -493,7 +529,7 @@ func StandupOverdueText(role string) Hint {
 				"- Do NOT close this item with `dx standup review` — review is for acknowledging someone ELSE's entry, not for writing your own. Use `dx standup checkin`.\n\n"+
 				"Stop after submitting — one standup per session.",
 			roleCap, role, techExtras, structure, role,
-		),
+		) + ContractFooter(kind),
 	}
 }
 
@@ -509,7 +545,7 @@ func JournalReviewText(role string) Hint {
 				"3. If corrections are needed, submit an updated check-in: `dx standup checkin --role=%s --project-root=$(git rev-parse --show-toplevel)`.\n"+
 				"Stop after review — one journal entry per session.",
 			role, role,
-		),
+		) + ContractFooter("owner:standup"),
 	}
 }
 
@@ -526,7 +562,7 @@ func NoSpecsText(featureName string) Hint {
 				"   `dx spec add %s --kind=must --concern-type=functional --desc=\"<what this must do / avoid>\"`\n"+
 				"Stop after adding specs — cross-cutting checks (test coverage, demos) will surface next.",
 			featureName, featureName, featureName,
-		) + BlockerQuestionCriteriaFragment,
+		) + BlockerQuestionCriteriaFragment + ContractFooter("owner:spec"),
 	}
 }
 
@@ -542,7 +578,7 @@ func StaleFeatureText(featureName string) Hint {
 				"3. Mark reviewed: `dx feature review %s`.\n"+
 				"Stop after review — one feature per session.",
 			featureName, featureName, featureName, featureName,
-		),
+		) + ContractFooter("owner:review"),
 	}
 }
 
@@ -563,7 +599,7 @@ func NoTestRefsText(specID int32, description, featureName string) Hint {
 				"The --spec flag links the task to this spec and suppresses this nudge while the task is open.\n"+
 				"Stop after linking/filing — the test itself is a separate dev task.",
 			specID, description, featureName, specID, specID, specID, description,
-		),
+		) + ContractFooter("tech:test-ref"),
 	}
 }
 
@@ -648,7 +684,7 @@ func RespondDiscussionText(discussionID, title, lastMessage string) Hint {
 				"   Use `dx discussion reply` (agent post, no LLM call) — the agent IS the respondent here.\n"+
 				"Stop after replying — one discussion per session.",
 			discussionID, title, lastMessage, discussionID, discussionID,
-		),
+		) + ContractFooter("respond:discussion"),
 	}
 }
 
@@ -668,7 +704,7 @@ func ReviewDeferredSpecText(specID int32, description string) Hint {
 				"   c. If the spec is no longer relevant: remove it — `dx spec delete %s`.\n"+
 				"3. Stop after handling — one spec per session.",
 			id, description, id, id, id, id, id,
-		),
+		) + ContractFooter("review:deferred-spec"),
 	}
 }
 
@@ -686,17 +722,21 @@ func MaturityDefaultText(title, description string) Hint {
 // MaturityTextForKind dispatches on the maturity item's kind, returning the
 // kind-specific Hint or the default when no builder exists.
 func MaturityTextForKind(kind, title, description string) Hint {
+	var h Hint
 	switch kind {
 	case "owner:attribute-feature":
-		return AttributeFeatureText(title, description)
+		h = AttributeFeatureText(title, description)
 	case "owner:quantify-goal":
-		return QuantifyGoalText(title, description)
+		h = QuantifyGoalText(title, description)
 	case "tech:instrument-feature":
-		return InstrumentFeatureText(title, description)
+		h = InstrumentFeatureText(title, description)
 	case "owner:decompose-feature":
-		return DecomposeFeatureText(title, description)
+		h = DecomposeFeatureText(title, description)
+	default:
+		h = MaturityDefaultText(title, description)
 	}
-	return MaturityDefaultText(title, description)
+	h.Instructions += ContractFooter(kind)
+	return h
 }
 
 func capitalize(s string) string {
