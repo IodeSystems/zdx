@@ -128,6 +128,8 @@ func FeatureToCli(f dxclient.FeatureItem) clitypes.FeatureItem {
 				ID:          s.Id,
 				Description: s.Description,
 				Importance:  s.Importance,
+				GreenDemos:  s.GreenDemos,
+				TotalDemos:  s.TotalDemos,
 			})
 		}
 	}
