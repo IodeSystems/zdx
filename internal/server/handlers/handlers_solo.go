@@ -1269,6 +1269,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 					ReferenceIssueID: r.ReferenceIssueID,
 					SuggestedAction:  suggestedActionForKind(r.Kind, r.TargetType, r.TargetID),
 					ClaimBaseSha:     r.ClaimBaseSha,
+					ClaimBaseBranch:  r.ClaimBaseBranch,
 					ClaimedBy:        r.ClaimedBy,
 					ClaimedAt:        fmtTS(r.ClaimedAt),
 					CreatedAt:        fmtTS(r.CreatedAt),

@@ -87,7 +87,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 
 	if ctx.Err() != nil {
 		if activeTodo != nil {
-			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, false)
+			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, activeTodo.Kind, activeTodo.ClaimBaseBranch, false)
 		}
 		return TakeResult{Err: ctx.Err()}
 	}
@@ -109,21 +109,21 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		pp, err := ensureProjectClone(cfg.WorkDir, activeTodo.ProjectSlug, cfg.RC.url)
 		if err != nil {
 			log("srcless: clone %s failed: %v", activeTodo.ProjectSlug, err)
-			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, false)
+			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, activeTodo.Kind, activeTodo.ClaimBaseBranch, false)
 			os.Remove(cfg.StateFile)
 			return TakeResult{Err: fmt.Errorf("srcless clone: %w", err)}
 		}
 		srclessProjectPath = pp
 		if ierr := ensureProjectInit(pp, activeTodo.ProjectSlug, cfg.RC.url, cfg.RC.key, cfg.SelfPath); ierr != nil {
 			log("srcless: init %s failed: %v", activeTodo.ProjectSlug, ierr)
-			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, false)
+			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, activeTodo.Kind, activeTodo.ClaimBaseBranch, false)
 			os.Remove(cfg.StateFile)
 			return TakeResult{Err: fmt.Errorf("srcless init: %w", ierr)}
 		}
 		wt, br, err := createSessionWorktree(pp, cfg.WorkDir, activeTodo.ProjectSlug, sid, activeTodo.TargetBranch)
 		if err != nil {
 			log("srcless: worktree for %s failed: %v", activeTodo.ProjectSlug, err)
-			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, false)
+			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, activeTodo.Kind, activeTodo.ClaimBaseBranch, false)
 			os.Remove(cfg.StateFile)
 			return TakeResult{Err: fmt.Errorf("srcless worktree: %w", err)}
 		}
@@ -132,7 +132,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 		if err := os.Chdir(wt); err != nil {
 			log("srcless: chdir %s failed: %v", wt, err)
 			_ = removeSessionWorktree(pp, wt, br)
-			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, false)
+			releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, activeTodo.Kind, activeTodo.ClaimBaseBranch, false)
 			os.Remove(cfg.StateFile)
 			return TakeResult{Err: fmt.Errorf("srcless chdir: %w", err)}
 		}
@@ -242,7 +242,7 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 	result := TakeResult{Success: sessionErr == nil}
 	if activeTodo != nil {
 		result.TodoKey = activeTodo.Key
-		releaseRes := releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, result.Success)
+		releaseRes := releaseTodo(cfg.RC, activeTodo.ID, cfg.AgentID, sid, activeTodo.ClaimBaseSha, activeTodo.Kind, activeTodo.ClaimBaseBranch, result.Success)
 		result.CycleDetected = releaseRes.CycleDetected
 		result.ChurnDowngraded = releaseRes.ChurnDowngraded
 

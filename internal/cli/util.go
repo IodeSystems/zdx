@@ -84,26 +84,40 @@ func CollectBranchState(claimBaseSHA string) *dxclient.BranchState {
 	return bs
 }
 
-// FetchClaimBaseSHA looks up the active claim for issueRef via the list-claims
-// endpoint and returns the claim_base_sha. Returns "" if unavailable.
-func (c *Client) FetchClaimBaseSHA(slug, issueRef string) string {
+// ClaimBase holds the git context recorded when a todo was claimed.
+type ClaimBase struct {
+	SHA    string
+	Branch string
+	Kind   string
+}
+
+// FetchClaimBase looks up the active claim for issueRef from the list-claims
+// endpoint. Returns zero-value ClaimBase if unavailable.
+func (c *Client) FetchClaimBase(slug, issueRef string) ClaimBase {
 	type todoEntry struct {
-		IssueRef     string `json:"issue_ref"`
-		ClaimBaseSha string `json:"claim_base_sha"`
+		IssueRef        string `json:"issue_ref"`
+		Kind            string `json:"kind"`
+		ClaimBaseSha    string `json:"claim_base_sha"`
+		ClaimBaseBranch string `json:"claim_base_branch"`
 	}
 	type claimsResp struct {
 		Todos []todoEntry `json:"todos"`
 	}
 	var r claimsResp
 	if err := c.Get("/api/dx/solo/claims", url.Values{"slug": {slug}}, &r); err != nil {
-		return ""
+		return ClaimBase{}
 	}
 	for _, t := range r.Todos {
 		if t.IssueRef == issueRef {
-			return t.ClaimBaseSha
+			return ClaimBase{SHA: t.ClaimBaseSha, Branch: t.ClaimBaseBranch, Kind: t.Kind}
 		}
 	}
-	return ""
+	return ClaimBase{}
+}
+
+// FetchClaimBaseSHA looks up the active claim for issueRef and returns the sha.
+func (c *Client) FetchClaimBaseSHA(slug, issueRef string) string {
+	return c.FetchClaimBase(slug, issueRef).SHA
 }
 
 // RunShell runs cmd via `/bin/sh -c` wired to the current stdio, optionally

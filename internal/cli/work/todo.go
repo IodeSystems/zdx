@@ -1535,8 +1535,14 @@ func todoOwnerTriageCmd() *cobra.Command {
 				Id:       int32(n),
 				Priority: int32(pri),
 			}
-			if bs := cli.CollectBranchState(c.FetchClaimBaseSHA(slug, id)); bs != nil {
+			claimBase := c.FetchClaimBase(slug, id)
+			if bs := cli.CollectBranchState(claimBase.SHA); bs != nil {
 				body.BranchState = bs
+				if !force {
+					if err := cli.ValidateBranchState(claimBase.Kind, bs, claimBase.SHA, claimBase.Branch); err != nil {
+						return err
+					}
+				}
 			}
 			if force {
 				body.Force = &force

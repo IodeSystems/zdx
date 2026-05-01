@@ -201,6 +201,7 @@ type TodoItem struct {
 	SuggestedAction  string `json:"suggested_action,omitempty"`
 	ClaimContract    string `json:"claim_contract,omitempty"`
 	ClaimBaseSha     string `json:"claim_base_sha,omitempty"`
+	ClaimBaseBranch  string `json:"claim_base_branch,omitempty"`
 	ClaimedBy        string `json:"claimed_by,omitempty"`
 	ClaimedAt        string `json:"claimed_at,omitempty"`
 	CreatedAt        string `json:"created_at"`
