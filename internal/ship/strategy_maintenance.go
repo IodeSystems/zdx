@@ -15,7 +15,7 @@ func (maintenanceStrategy) Run(ctx context.Context, comp config.Component, env m
 	extra := map[string]string{"ZDX_MAINTENANCE": "1"}
 	main, fin := splitStages(comp.Ship.Stages)
 	main = filterStagesByTag(main, opts.IncludeTag, opts.ExcludeTag)
-	results, err := runStages(ctx, comp, env, extra, main, nil, "")
+	results, err := runStages(ctx, comp, env, extra, main, skipSetFromOpts(opts), "")
 	results = append(results, runFinalize(ctx, comp, env, extra, fin, err)...)
 	return results, err
 }

@@ -580,6 +580,59 @@ func TestRun_TagFilter(t *testing.T) {
 	}
 }
 
+// TestRun_SkipStages verifies that stages listed in RunOptions.SkipStages are
+// recorded as "skipped" without execution, allowing --allow-dirty to bypass
+// the dirty-check pipeline stage without modifying the config.
+func TestRun_SkipStages(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{Stages: []config.Stage{
+		{Name: "dirty-check", Run: "exit 1"}, // would fail if executed
+		{Name: "build", Run: "echo build-ran"},
+	}}}
+	res, err := Run(context.Background(), comp, nil, RunOptions{SkipStages: []string{"dirty-check"}})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("want 2 results, got %d", len(res))
+	}
+	if res[0].Name != "dirty-check" || res[0].Status != "skipped" {
+		t.Errorf("res[0] = {%s %s}, want {dirty-check skipped}", res[0].Name, res[0].Status)
+	}
+	if res[1].Name != "build" || res[1].Status != "ok" {
+		t.Errorf("res[1] = {%s %s}, want {build ok}", res[1].Name, res[1].Status)
+	}
+}
+
+// TestRun_SkipStages_RollingPair verifies that SkipStages applies to every
+// pass of the rolling-pair strategy — dirty-check is skipped in both passes.
+func TestRun_SkipStages_RollingPair(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyRollingPair,
+		Stages: []config.Stage{
+			{Name: "dirty-check", Run: "exit 1"},
+			{Name: "deploy", Run: "echo $ZDX_PHASE"},
+		},
+	}}
+	res, err := Run(context.Background(), comp, map[string]string{
+		"ZDX_SLOT_A": "a0",
+		"ZDX_SLOT_B": "b1",
+	}, RunOptions{StateDir: t.TempDir(), SkipStages: []string{"dirty-check"}})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// current pass: dirty-check=skipped, deploy=ok
+	// next pass:    dirty-check=skipped, deploy=ok
+	if len(res) != 4 {
+		t.Fatalf("want 4 results, got %d", len(res))
+	}
+	for _, pass := range [][2]int{{0, 2}} {
+		i := pass[0]
+		if res[i].Name != "dirty-check" || res[i].Status != "skipped" {
+			t.Errorf("res[%d] = {%s %s}, want {dirty-check skipped}", i, res[i].Name, res[i].Status)
+		}
+	}
+}
+
 // TestRun_SSH_FakeSSH exercises the SSH path end-to-end with a fake `ssh`
 // shim on PATH that just echoes its argv. Hermetic — gated only because
 // it modifies $PATH for the test process.

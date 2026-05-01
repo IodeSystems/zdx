@@ -210,6 +210,9 @@ func shipRunCmd() *cobra.Command {
 				NoResume:      noResume,
 				ComponentName: compName,
 			}
+			if allowDirty {
+				opts.SkipStages = []string{"dirty-check"}
+			}
 			if pkgOnly {
 				opts.IncludeTag = "build"
 			} else if noPackage {

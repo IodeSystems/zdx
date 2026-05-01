@@ -55,6 +55,10 @@ type RunOptions struct {
 	// ExcludeTag, when non-empty, skips main stages whose Tags contain this
 	// value. Combined with IncludeTag via intersection.
 	ExcludeTag string
+	// SkipStages is a list of stage names to skip unconditionally, merged
+	// into the per-pass skipSet before execution. Used by --allow-dirty to
+	// bypass the dirty-check pipeline stage without altering the config.
+	SkipStages []string
 }
 
 // Run dispatches to the Strategy implementation selected by

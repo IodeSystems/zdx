@@ -67,6 +67,19 @@ func stageHasTag(s config.Stage, tag string) bool {
 	return false
 }
 
+// skipSetFromOpts builds a skipSet from opts.SkipStages. Returns nil when
+// SkipStages is empty so callers can pass it directly to runStages.
+func skipSetFromOpts(opts RunOptions) map[string]bool {
+	if len(opts.SkipStages) == 0 {
+		return nil
+	}
+	m := make(map[string]bool, len(opts.SkipStages))
+	for _, s := range opts.SkipStages {
+		m[s] = true
+	}
+	return m
+}
+
 // splitStages partitions comp.Ship.Stages into main (Finalize=false) and
 // finalize (Finalize=true) slices in declaration order.
 func splitStages(stages []config.Stage) (main, finalize []config.Stage) {

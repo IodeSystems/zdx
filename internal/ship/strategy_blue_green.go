@@ -30,7 +30,7 @@ func (blueGreenStrategy) Run(ctx context.Context, comp config.Component, env map
 		"ZDX_ACTIVE_SLOT":  active,
 		"ZDX_STANDBY_SLOT": standby,
 	}
-	results, err := runStages(ctx, comp, env, deployEnv, main, nil, "")
+	results, err := runStages(ctx, comp, env, deployEnv, main, skipSetFromOpts(opts), "")
 	if err != nil {
 		results = append(results, runFinalize(ctx, comp, env, deployEnv, fin, err)...)
 		return results, err

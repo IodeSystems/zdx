@@ -117,9 +117,8 @@ components:
           on_failure: abort
           tags: [preflight]
 
-        # IS-888: migrate-preflight builtin not yet implemented; declared for pipeline completeness.
         - name: migrate-preflight
-          builtin: migrate-preflight
+          run: ./bin/dx ship migrate-preflight
           on_failure: abort
           tags: [preflight]
 
@@ -193,7 +192,3 @@ components:
           finalize: true
           tags: [finalize]
 
-        # IS-797: deploy-event POSTs commit/duration/status to dx-server.
-        - name: post-deploy-record
-          builtin: deploy-event
-          tags: [finalize]

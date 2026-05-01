@@ -57,6 +57,9 @@ func (rollingPairStrategy) Run(ctx context.Context, comp config.Component, env m
 			_ = os.Remove(sf)
 		}
 		skip, _ := loadCompletedStages(sf) // read error → empty skip set
+		for _, s := range opts.SkipStages {
+			skip[s] = true
+		}
 		extraEnv := map[string]string{
 			"ZDX_PHASE":   pass.phase,
 			"ZDX_SLOT":    pass.slot,
