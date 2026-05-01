@@ -131,3 +131,72 @@ SET status      = 'broken',
     updated_at  = NOW()
 WHERE project_id = @project_id AND id = @id
 RETURNING *;
+
+-- name: GetAtlasNodeSubgraph :many
+-- Recursive BFS outward from @root_node_id following zdx_edges.from_node_id.
+-- Caps traversal at @max_depth (callers should clamp to <= 2). Cycles are
+-- prevented by tracking the visited path as an array. The root is excluded
+-- from the result set; each remaining node is returned once at its shortest
+-- depth from the root.
+WITH RECURSIVE bfs AS (
+    SELECT
+        @root_node_id::bigint AS node_id,
+        0::int                AS depth,
+        ''::text              AS via_edge_type,
+        0::bigint             AS via_from_node_id,
+        ARRAY[@root_node_id::bigint] AS visited
+    UNION ALL
+    SELECT
+        e.to_node_id,
+        b.depth + 1,
+        e.edge_type,
+        e.from_node_id,
+        b.visited || e.to_node_id
+    FROM bfs b
+    JOIN zdx_edges e ON e.from_node_id = b.node_id
+    WHERE b.depth < @max_depth::int
+      AND NOT (e.to_node_id = ANY(b.visited))
+)
+SELECT DISTINCT ON (n.id)
+    n.id,
+    n.kind,
+    n.slug,
+    n.title,
+    n.description,
+    b.depth::int           AS depth,
+    b.via_edge_type::text  AS via_edge_type,
+    b.via_from_node_id     AS via_from_node_id
+FROM bfs b
+JOIN zdx_nodes n ON n.id = b.node_id
+WHERE n.project_id = @project_id
+  AND b.depth > 0
+ORDER BY n.id, b.depth ASC, b.via_edge_type ASC;
+
+-- name: GetAtlasNodeStats :one
+-- Returns drift and demo-coverage stats for a single node.
+--   stale_count       — chunks whose coderef.sha has drifted from sha_at_write
+--   total_with_coderef — chunks anchored to a coderef with a recorded sha_at_write
+--   demo_coverage_count — outbound edges of type 'verified_by'
+WITH chunks AS (
+    SELECT c.coderef_id, c.sha_at_write, cr.sha AS current_sha
+    FROM zdx_narrative_chunks c
+    LEFT JOIN zdx_coderefs cr ON cr.id = c.coderef_id
+    WHERE c.node_id = @node_id
+)
+SELECT
+    COALESCE((
+        SELECT COUNT(*) FROM chunks
+        WHERE coderef_id IS NOT NULL
+          AND sha_at_write != ''
+          AND sha_at_write != current_sha
+    ), 0)::bigint AS stale_count,
+    COALESCE((
+        SELECT COUNT(*) FROM chunks
+        WHERE coderef_id IS NOT NULL
+          AND sha_at_write != ''
+    ), 0)::bigint AS total_with_coderef,
+    COALESCE((
+        SELECT COUNT(*) FROM zdx_edges
+        WHERE from_node_id = @node_id
+          AND edge_type = 'verified_by'
+    ), 0)::bigint AS demo_coverage_count;

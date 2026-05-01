@@ -72,10 +72,58 @@ type AtlasEdgeFromItem struct {
 	ToSlug string `json:"to_slug"`
 }
 
+type AtlasSubgraphNodeItem struct {
+	Kind        string `json:"kind"`
+	Slug        string `json:"slug"`
+	Title       string `json:"title"`
+	Summary     string `json:"summary,omitempty"`
+	Depth       int32  `json:"depth"`
+	ViaEdgeType string `json:"via_edge_type,omitempty"`
+}
+
 type AtlasNodeDetail struct {
 	AtlasNodeItem
-	Chunks []AtlasChunkItem    `json:"chunks"`
-	Edges  []AtlasEdgeFromItem `json:"edges"`
+	Chunks            []AtlasChunkItem        `json:"chunks"`
+	Edges             []AtlasEdgeFromItem     `json:"edges"`
+	Subgraph          []AtlasSubgraphNodeItem `json:"subgraph"`
+	StaleFraction     float64                 `json:"stale_fraction"`
+	DemoCoverageCount int32                   `json:"demo_coverage_count"`
+}
+
+// summarizeDescription returns the first ~200 chars of a node description for
+// inclusion in subgraph items. Trims at a rune-aware boundary; appends an
+// ellipsis when truncation occurred.
+func summarizeDescription(d string) string {
+	const limit = 200
+	d = strings.TrimSpace(d)
+	if len(d) <= limit {
+		return d
+	}
+	r := []rune(d)
+	if len(r) <= limit {
+		return d
+	}
+	return strings.TrimRight(string(r[:limit]), " \t\n") + "…"
+}
+
+// clampDepth bounds the depth query param to [0, 2] for the subgraph traversal.
+func clampDepth(d int32) int32 {
+	if d < 0 {
+		return 0
+	}
+	if d > 2 {
+		return 2
+	}
+	return d
+}
+
+// computeStaleFraction returns staleCount/totalWithCoderef, or 0 when the
+// denominator is zero.
+func computeStaleFraction(staleCount, totalWithCoderef int64) float64 {
+	if totalWithCoderef <= 0 {
+		return 0.0
+	}
+	return float64(staleCount) / float64(totalWithCoderef)
 }
 
 // ── Converters ────────────────────────────────────────────────────────────
@@ -220,6 +268,7 @@ func (h *Handler) registerAtlasRoutes(api huma.API) {
 			Slug     string `path:"slug"`
 			Kind     string `path:"kind"`
 			NodeSlug string `path:"node_slug"`
+			Depth    int32  `query:"depth"`
 		}) (*struct{ Body AtlasNodeDetail }, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
@@ -256,10 +305,43 @@ func (h *Handler) registerAtlasRoutes(api huma.API) {
 					ToSlug: e.ToSlug,
 				}
 			}
+
+			depth := clampDepth(in.Depth)
+			subgraph := []AtlasSubgraphNodeItem{}
+			if depth > 0 {
+				rows, sErr := h.Q.GetAtlasNodeSubgraph(ctx, db.GetAtlasNodeSubgraphParams{
+					ProjectID:  p.ID,
+					RootNodeID: node.ID,
+					MaxDepth:   depth,
+				})
+				if sErr != nil {
+					return nil, apiErr(500, sErr.Error())
+				}
+				subgraph = make([]AtlasSubgraphNodeItem, len(rows))
+				for i, r := range rows {
+					subgraph[i] = AtlasSubgraphNodeItem{
+						Kind:        r.Kind,
+						Slug:        r.Slug,
+						Title:       r.Title,
+						Summary:     summarizeDescription(r.Description),
+						Depth:       r.Depth,
+						ViaEdgeType: r.ViaEdgeType,
+					}
+				}
+			}
+
+			stats, statsErr := h.Q.GetAtlasNodeStats(ctx, node.ID)
+			if statsErr != nil {
+				return nil, apiErr(500, statsErr.Error())
+			}
+
 			detail := AtlasNodeDetail{
-				AtlasNodeItem: toAtlasNodeItem(node),
-				Chunks:        chunkItems,
-				Edges:         edgeItems,
+				AtlasNodeItem:     toAtlasNodeItem(node),
+				Chunks:            chunkItems,
+				Edges:             edgeItems,
+				Subgraph:          subgraph,
+				StaleFraction:     computeStaleFraction(stats.StaleCount, stats.TotalWithCoderef),
+				DemoCoverageCount: int32(stats.DemoCoverageCount),
 			}
 			return &struct{ Body AtlasNodeDetail }{Body: detail}, nil
 		})
