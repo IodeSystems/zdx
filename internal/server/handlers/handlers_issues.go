@@ -305,6 +305,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				ThemeIDs     []int32      `json:"theme_ids,omitempty"`
 				GoalIDs      []int32      `json:"goal_ids,omitempty"`
 				BranchState  *BranchState `json:"branch_state,omitempty" required:"false"`
+				Force        *bool        `json:"force,omitempty" required:"false"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
@@ -312,9 +313,11 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
+			force := in.Body.Force != nil && *in.Body.Force
 
 			// IS-915: contract validation. Look up the active triage todo for this issue.
-			if in.Body.BranchState != nil {
+			// IS-916/TK-1612: --force bypasses the contract check.
+			if !force && in.Body.BranchState != nil {
 				todoKey := "triage-" + issueID
 				if claimedTodo, kErr := h.Q.GetTodoByKey(ctx, db.GetTodoByKeyParams{ProjectID: p.ID, Key: todoKey}); kErr == nil {
 					if vErr := validateClaimContract(claimedTodo.Kind, claimedTodo.ClaimBaseSha, claimedTodo.ClaimBaseBranch, in.Body.BranchState); vErr != nil {
@@ -471,9 +474,12 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				return nil, err
 			}
 			issueID := issueIDFromInt(in.Body.ID)
+			reason := ptrStr(in.Body.Reason)
+			force := in.Body.Force != nil && *in.Body.Force
 
 			// IS-915: contract validation. Look up the active closable/close:tracker todo for this issue.
-			if in.Body.BranchState != nil {
+			// IS-916/TK-1612: --force bypasses the contract check.
+			if !force && in.Body.BranchState != nil {
 				for _, keyFmt := range []string{"closable-%s", "close-tracker-%s"} {
 					todoKey := fmt.Sprintf(keyFmt, issueID)
 					if claimedTodo, kErr := h.Q.GetTodoByKey(ctx, db.GetTodoByKeyParams{ProjectID: p.ID, Key: todoKey}); kErr == nil && claimedTodo.Status == "claimed" {
@@ -484,8 +490,6 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 					}
 				}
 			}
-			reason := ptrStr(in.Body.Reason)
-			force := in.Body.Force != nil && *in.Body.Force
 			duplicateOf := ptrStr(in.Body.DuplicateOf)
 			linkOf := ptrStr(in.Body.LinkOf)
 			forceReasons := map[string]bool{"duplicate": true, "wontfix": true, "superseded": true}

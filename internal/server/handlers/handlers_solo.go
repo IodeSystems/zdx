@@ -1120,6 +1120,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				Resolve     bool         `json:"resolve" required:"false"`
 				SessionID   string       `json:"session_id" required:"false"`
 				BranchState *BranchState `json:"branch_state,omitempty" required:"false"`
+				Force       *bool        `json:"force,omitempty" required:"false"`
 			}
 		}) (*struct {
 			Body struct {
@@ -1129,10 +1130,12 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}
 		}, error) {
 			resolve := in.Body.Resolve
+			force := in.Body.Force != nil && *in.Body.Force
 			todo, _ := h.Q.GetTodoByID(ctx, in.Body.ID)
 
 			// IS-915: claim contract validation on resolve.
-			if resolve && in.Body.BranchState != nil && todo.ID != 0 {
+			// IS-916/TK-1612: --force bypasses the contract check.
+			if !force && resolve && in.Body.BranchState != nil && todo.ID != 0 {
 				if err := validateClaimContract(todo.Kind, todo.ClaimBaseSha, todo.ClaimBaseBranch, in.Body.BranchState); err != nil {
 					return nil, err
 				}

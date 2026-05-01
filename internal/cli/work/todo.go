@@ -1455,7 +1455,7 @@ func todoOwnerCmd() *cobra.Command {
 func todoOwnerTriageCmd() *cobra.Command {
 	var priority, title, issueType, context, questions string
 	var focusArgs, goalArgs []string
-	var clarify bool
+	var clarify, force bool
 	cmd := &cobra.Command{
 		Use:   "triage <IS-N>",
 		Short: "Set issue priority",
@@ -1538,6 +1538,9 @@ func todoOwnerTriageCmd() *cobra.Command {
 			if bs := cli.CollectBranchState(c.FetchClaimBaseSHA(slug, id)); bs != nil {
 				body.BranchState = bs
 			}
+			if force {
+				body.Force = &force
+			}
 			if title != "" {
 				body.Title = &title
 			}
@@ -1580,6 +1583,7 @@ func todoOwnerTriageCmd() *cobra.Command {
 	cmd.Flags().StringVar(&questions, "questions", "", "semicolon-separated questions; use | for choices: \"question|a,b,c;question2\"")
 	cmd.Flags().StringSliceVar(&focusArgs, "focus", nil, "focus ID(s) to link — FO-N or N (repeatable)")
 	cmd.Flags().StringSliceVar(&goalArgs, "goal", nil, "goal ID(s) to link — G-N or N (repeatable)")
+	cmd.Flags().BoolVar(&force, "force", false, "bypass branch-state contract check (audited as a contract bypass)")
 	return cmd
 }
 
@@ -1911,7 +1915,7 @@ func todoReleaseCmd() *cobra.Command {
 			return todoReleaseRun(cmd, args[0], forceFlag)
 		},
 	}
-	cmd.Flags().BoolVar(&forceFlag, "force", false, "release even if the lease is still active")
+	cmd.Flags().BoolVar(&forceFlag, "force", false, "release even if the lease is still active; also bypasses branch-state contract check")
 	return cmd
 }
 
@@ -1953,7 +1957,11 @@ func todoReleaseRun(cmd *cobra.Command, arg string, force bool) error {
 		}
 	}
 
-	releaseResp, err := c.SoloReleaseWithResponse(cmd.Context(), dxclient.SoloReleaseRequest{Id: int32(id), AgentId: ""})
+	releaseBody := dxclient.SoloReleaseRequest{Id: int32(id), AgentId: ""}
+	if force {
+		releaseBody.Force = &force
+	}
+	releaseResp, err := c.SoloReleaseWithResponse(cmd.Context(), releaseBody)
 	if err != nil {
 		return err
 	}
