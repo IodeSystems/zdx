@@ -1230,7 +1230,8 @@ CREATE TABLE public.zdx_issues (
     closed_at timestamp with time zone,
     interactive_only boolean DEFAULT false NOT NULL,
     target_branch text DEFAULT 'dev'::text NOT NULL,
-    close_reason text DEFAULT ''::text NOT NULL
+    close_reason text DEFAULT ''::text NOT NULL,
+    node_ref text
 );
 
 
@@ -1492,6 +1493,7 @@ CREATE TABLE public.zdx_narrative_chunks (
     verifier_kind text DEFAULT 'agent'::text NOT NULL,
     verified_at timestamp with time zone,
     verified_by text DEFAULT ''::text NOT NULL,
+    status text DEFAULT 'fresh'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
     updated_at timestamp with time zone DEFAULT now() NOT NULL
 );
