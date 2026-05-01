@@ -46,6 +46,7 @@ const EVENT_COLORS: Record<string, string> = {
   attachment: '#ff9800',
   'ai-title': '#9c27b0',
   'queue-operation': '#607d8b',
+  shell_cmd: '#795548',
 }
 
 function fmtTokens(n: number): string {
@@ -394,7 +395,31 @@ function ToolResultInline({ content }: { content: ToolResultContent }) {
   return null
 }
 
+function ShellCmdDetail({ event }: { event: ClaudeEventItem }) {
+  const input = event.event_json.input as Record<string, unknown> | undefined
+  const command = typeof input?.command === 'string' ? input.command : ''
+  const description = typeof input?.description === 'string' ? input.description : ''
+  return (
+    <Box>
+      {description && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 0.5 }}>
+          {description}
+        </Typography>
+      )}
+      {command && (
+        <SyntaxHighlighter style={oneDark} language="bash" PreTag="div" customStyle={{ fontSize: '0.75rem', margin: 0, borderRadius: 4 }}>
+          {command}
+        </SyntaxHighlighter>
+      )}
+    </Box>
+  )
+}
+
 function RichContent({ event, toolResultMap }: { event: ClaudeEventItem; toolResultMap?: ToolResultMap }) {
+  if (event.event_type === 'shell_cmd') {
+    return <ShellCmdDetail event={event} />
+  }
+
   const blocks = getContentBlocks(event)
   if (blocks.length === 0) {
     return (
@@ -571,6 +596,12 @@ function getSummary(event: ClaudeEventItem): string {
   }
   if (event.event_type === 'queue-operation') {
     return `${ev.operation ?? ''}`
+  }
+  if (event.event_type === 'shell_cmd') {
+    const input = ev.input as Record<string, unknown> | undefined
+    const desc = typeof input?.description === 'string' ? input.description : ''
+    const cmd = typeof input?.command === 'string' ? input.command : ''
+    return (desc || cmd).slice(0, 120)
   }
   return ''
 }
