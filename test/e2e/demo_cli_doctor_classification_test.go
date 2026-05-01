@@ -26,7 +26,7 @@ func TestDemoCLI_DoctorClassificationPrompt(t *testing.T) {
 	writeDemoCoderefs(t, t.Name(), []coderef{
 		{FilePath: "test/e2e/demo_cli_doctor_classification_test.go", Note: "demo source (spec 130)"},
 		{FilePath: "internal/cli/project/doctor.go", LineStart: 47, LineEnd: 62, Note: "runDoctor: prompt classification when empty, persist to server"},
-		{FilePath: "internal/cli/project/doctor.go", LineStart: 349, LineEnd: 381, Note: "promptClassification: menu of library/tool/service/saas/site"},
+		{FilePath: "internal/cli/project/doctor.go", LineStart: 411, LineEnd: 443, Note: "promptClassification: menu of library/tool/service/saas/site"},
 		{FilePath: "internal/server/handlers/handlers_doctor.go", LineStart: 48, LineEnd: 67, Note: "POST /api/dx/doctor/classify persists selection"},
 	})
 
@@ -74,6 +74,7 @@ func TestDemoCLI_DoctorClassificationPrompt(t *testing.T) {
 
 	cmd := exec.Command(dxBin, "doctor")
 	cmd.Dir = tmp
+	cmd.Env = append(os.Environ(), "DX_REMOTE_API_KEY="+srv.AdminToken)
 	// "tool\n" answers the classification prompt; subsequent ReadString calls
 	// hit EOF and skip remaining maturity questions.
 	cmd.Stdin = strings.NewReader("tool\n")
