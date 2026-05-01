@@ -1,5 +1,5 @@
 -- name: ListTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id
   AND (@status_filter::text = '' OR status = @status_filter)
@@ -10,7 +10,7 @@ ORDER BY updated_at DESC;
 SELECT count(*) FROM zdx_tasks WHERE project_id = $1 AND status = 'done';
 
 -- name: ListTasksByFeature :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id AND feature = @feature
   AND (@status_filter::text = '' OR status = @status_filter)
@@ -18,7 +18,7 @@ WHERE project_id = @project_id AND feature = @feature
 ORDER BY updated_at DESC;
 
 -- name: ListTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id AND issue = @issue
   AND (@status_filter::text = '' OR status = @status_filter)
@@ -26,13 +26,16 @@ WHERE project_id = @project_id AND issue = @issue
 ORDER BY updated_at DESC;
 
 -- name: GetTask :one
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1;
 
 -- name: CreateTask :one
-INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan, spec)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at;
+-- target_branch defaults to 'dev' when caller passes ''. Backport tasks set it
+-- to the version branch they target while their source issue stays on dev.
+INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan, spec, target_branch)
+VALUES (@id, @project_id, @title, @text, @feature, @issue, @task_group, @status, @reason, @test_plan, @spec,
+        CASE WHEN @target_branch::text = '' THEN 'dev' ELSE @target_branch::text END)
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at;
 
 -- name: ReadyTask :exec
 UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1 AND status = 'wip';
@@ -56,15 +59,16 @@ DELETE FROM zdx_tasks WHERE id = $1 AND status = 'wip';
 
 -- name: UpdateTaskFields :exec
 UPDATE zdx_tasks
-SET title      = CASE WHEN @field::text = 'title'      THEN @value::text ELSE title      END,
-    text       = CASE WHEN @field::text = 'text'       THEN @value::text ELSE text       END,
-    feature    = CASE WHEN @field::text = 'feature'    THEN @value::text ELSE feature    END,
-    issue      = CASE WHEN @field::text = 'issue'      THEN @value::text ELSE issue      END,
-    depends    = CASE WHEN @field::text = 'depends'    THEN @value::text ELSE depends    END,
-    test_plan  = CASE WHEN @field::text = 'test_plan'  THEN @value::text ELSE test_plan  END,
-    test_refs  = CASE WHEN @field::text = 'test_refs'  THEN @value::text ELSE test_refs  END,
-    task_group = CASE WHEN @field::text = 'task_group' THEN @value::text ELSE task_group END,
-    updated_at = NOW()
+SET title         = CASE WHEN @field::text = 'title'         THEN @value::text ELSE title         END,
+    text          = CASE WHEN @field::text = 'text'          THEN @value::text ELSE text          END,
+    feature       = CASE WHEN @field::text = 'feature'       THEN @value::text ELSE feature       END,
+    issue         = CASE WHEN @field::text = 'issue'         THEN @value::text ELSE issue         END,
+    depends       = CASE WHEN @field::text = 'depends'       THEN @value::text ELSE depends       END,
+    test_plan     = CASE WHEN @field::text = 'test_plan'     THEN @value::text ELSE test_plan     END,
+    test_refs     = CASE WHEN @field::text = 'test_refs'     THEN @value::text ELSE test_refs     END,
+    task_group    = CASE WHEN @field::text = 'task_group'    THEN @value::text ELSE task_group    END,
+    target_branch = CASE WHEN @field::text = 'target_branch' THEN @value::text ELSE target_branch END,
+    updated_at    = NOW()
 WHERE id = @id;
 
 -- name: ClaimTask :one
@@ -90,7 +94,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at;
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at;
 
 -- name: ReleaseTask :exec
 UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1;
@@ -100,7 +104,7 @@ UPDATE zdx_tasks SET status = 'ready', updated_at = NOW() WHERE id = $1;
 
 -- name: ListActiveTaskClaims :many
 -- Return tasks that currently have an unexpired, unreleased reservation.
-SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.target_branch, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -110,7 +114,7 @@ WHERE t.project_id = $1
 ORDER BY r.claimed_at DESC;
 
 -- name: ListTasksByAgent :many
-SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.target_branch, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -153,7 +157,7 @@ WHERE status = 'active'
       AND a.disconnect_at > NOW() - @disconnect_grace::interval
   )
   AND status != 'done'
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at;
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at;
 
 -- name: CancelOrphanedTasks :many
 -- Skip ready tasks with no test_refs: they were never verified. Those stay
@@ -170,7 +174,7 @@ WHERE t.issue = i.id
     t.status IN ('active', 'wip')
     OR (t.status = 'ready' AND t.test_refs != '')
   )
-RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at;
+RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.target_branch, t.created_at, t.completed_at, t.updated_at;
 
 -- name: ListOpenTasksByIssue :many
 SELECT id, title, status FROM zdx_tasks
@@ -192,23 +196,23 @@ WHERE project_id = @project_id
 UPDATE zdx_tasks SET reviewed_at = NOW(), updated_at = NOW() WHERE id = $1;
 
 -- name: ListUnreviewedDoneTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC;
 
 -- name: ListUnreviewedDoneTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC;
 
 -- name: GetTaskWithReview :one
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1;
 
 -- name: GetTaskByExactText :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id
   AND text = @text
@@ -245,7 +249,7 @@ WHERE status = 'ready'
 RETURNING id, text, issue;
 
 -- name: ListStaleTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
@@ -253,7 +257,7 @@ WHERE project_id = $1
 ORDER BY stale_since ASC;
 
 -- name: ListStaleTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
@@ -267,7 +271,7 @@ UPDATE zdx_tasks SET stale_since = NULL, updated_at = NOW() WHERE id = $1;
 
 -- name: ListOrphanReadyTasks :many
 -- Ready tasks with no parent issue — invisible to the normal solo queue.
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND status = 'ready'
@@ -280,9 +284,19 @@ UPDATE zdx_tasks SET issue = @issue::text, updated_at = NOW() WHERE id = @id;
 
 -- name: SearchTasks :many
 -- metaquery: off
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = @project_id
   AND (title ILIKE '%' || @query::text || '%' OR text ILIKE '%' || @query::text || '%')
 ORDER BY updated_at DESC
 LIMIT 10;
+
+-- name: CountOpenBackportTasks :one
+-- IS-825 idempotency guard. Counts ready/wip/active tasks linking the given
+-- source issue to the given target branch — used by the auto-backport triggers
+-- (resolve-on-dev and branch-cut) to skip when a backport is already queued.
+SELECT count(*) FROM zdx_tasks
+WHERE project_id = @project_id
+  AND issue = @issue
+  AND target_branch = @target_branch
+  AND status IN ('ready', 'wip', 'active');

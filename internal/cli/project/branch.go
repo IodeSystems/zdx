@@ -36,6 +36,10 @@ func branchCutCmd() *cobra.Command {
 				return err
 			}
 			fmt.Printf("Branch %s created.\n", args[0])
+			if resp.JSON200 != nil && resp.JSON200.BackportTasksCreated > 0 {
+				fmt.Printf("Auto-generated %d backport task(s) for open issues (priority <= %d).\n",
+					resp.JSON200.BackportTasksCreated, 2)
+			}
 			return nil
 		},
 	}

@@ -7,6 +7,24 @@ FROM zdx_issues WHERE project_id = $1 ORDER BY updated_at DESC;
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
 FROM zdx_issues WHERE project_id = $1 AND status = 'open' ORDER BY updated_at DESC;
 
+-- name: ListOpenIssuesEligibleForBackport :many
+-- IS-825 trigger 2: when `dx branch cut` creates a new version branch, the
+-- caller enumerates open dev issues that should auto-generate a backport task
+-- against the new branch. Default policy (per IS-825): must-tier (priority 1)
+-- and should-tier (priority 2). Priority is stored as a numeric string —
+-- empty/non-numeric values fall through and are excluded by the comparison.
+-- Only issues currently targeting 'dev' qualify; an issue already targeted
+-- at a named branch is its own canonical home and does not get a backport
+-- task on top.
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+FROM zdx_issues
+WHERE project_id = @project_id
+  AND status = 'open'
+  AND target_branch = 'dev'
+  AND priority ~ '^[0-9]+$'
+  AND (priority)::int <= @max_priority::int
+ORDER BY (priority)::int ASC, updated_at DESC;
+
 -- name: SearchIssues :many
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
 FROM zdx_issues

@@ -63,7 +63,7 @@ func atlasNodeShowCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(2),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			resp, err := c.GetAtlasNodeWithResponse(cmd.Context(), c.SlugOrDie(), args[0], args[1])
+			resp, err := c.GetAtlasNodeWithResponse(cmd.Context(), c.SlugOrDie(), args[0], args[1], nil)
 			if err != nil {
 				return err
 			}
@@ -242,7 +242,7 @@ func atlasChunkAddCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			slug := c.SlugOrDie()
-			nodeResp, err := c.GetAtlasNodeWithResponse(cmd.Context(), slug, args[0], args[1])
+			nodeResp, err := c.GetAtlasNodeWithResponse(cmd.Context(), slug, args[0], args[1], nil)
 			if err != nil {
 				return err
 			}
@@ -291,7 +291,7 @@ func atlasChunkListCmd() *cobra.Command {
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
 			slug := c.SlugOrDie()
-			nodeResp, err := c.GetAtlasNodeWithResponse(cmd.Context(), slug, args[0], args[1])
+			nodeResp, err := c.GetAtlasNodeWithResponse(cmd.Context(), slug, args[0], args[1], nil)
 			if err != nil {
 				return err
 			}

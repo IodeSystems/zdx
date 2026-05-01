@@ -612,6 +612,13 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 		for _, t := range tasks {
 			if t.Status == "ready" {
 				dth := workflowhints.DevTaskText(t.ID, t.Title, iss.ID)
+				// IS-825: a backport task points at a named branch while
+				// its source issue still targets dev — task-level branch
+				// wins so the queue surfaces it under the right branch.
+				targetBranch := t.TargetBranch
+				if targetBranch == "" || targetBranch == "dev" {
+					targetBranch = iss.TargetBranch
+				}
 				candidates = append(candidates, soloCandidate{
 					Key:          fmt.Sprintf("dev-%s", t.ID),
 					Title:        dth.Title,
@@ -621,7 +628,7 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 					TargetType:   "task",
 					TargetID:     t.ID,
 					IssueRef:     iss.ID,
-					TargetBranch: iss.TargetBranch,
+					TargetBranch: targetBranch,
 					Priority:     foldIssuePriority(40, iss.Priority),
 					Persona:      "dev",
 				})

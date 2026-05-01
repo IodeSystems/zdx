@@ -45,6 +45,7 @@ type TaskItem struct {
 	TestPlan       string `json:"test_plan"`
 	TestRefs       string `json:"test_refs"`
 	TaskGroup      string `json:"task_group"`
+	TargetBranch   string `json:"target_branch,omitempty" doc:"Branch the task targets; defaults to dev. Backport tasks point at a named version branch."`
 	CreatedAt      string `json:"created_at"`
 	CompletedAt    string `json:"completed_at"`
 	UpdatedAt      string `json:"updated_at"`
