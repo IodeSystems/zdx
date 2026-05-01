@@ -1134,10 +1134,13 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			todo, _ := h.Q.GetTodoByID(ctx, in.Body.ID)
 
 			// IS-915: claim contract validation on resolve.
-			// IS-916/TK-1612: --force bypasses the contract check.
-			if !force && resolve && in.Body.BranchState != nil && todo.ID != 0 {
-				if err := validateClaimContract(todo.Kind, todo.ClaimBaseSha, todo.ClaimBaseBranch, in.Body.BranchState); err != nil {
+			// IS-916/TK-1611: --force bypasses the contract check; emits audit event.
+			if resolve && in.Body.BranchState != nil && todo.ID != 0 {
+				if err := validateClaimContract(todo.Kind, todo.ClaimBaseSha, todo.ClaimBaseBranch, in.Body.BranchState, force); err != nil {
 					return nil, err
+				}
+				if force {
+					h.emitClaimContractBypass(ctx, todo.ProjectID, todo.ID, in.Body.AgentID)
 				}
 			}
 

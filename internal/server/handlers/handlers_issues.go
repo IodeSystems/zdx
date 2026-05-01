@@ -316,12 +316,15 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			force := in.Body.Force != nil && *in.Body.Force
 
 			// IS-915: contract validation. Look up the active triage todo for this issue.
-			// IS-916/TK-1612: --force bypasses the contract check.
-			if !force && in.Body.BranchState != nil {
+			// IS-916/TK-1611: --force bypasses the contract check; emits audit event.
+			if in.Body.BranchState != nil {
 				todoKey := "triage-" + issueID
 				if claimedTodo, kErr := h.Q.GetTodoByKey(ctx, db.GetTodoByKeyParams{ProjectID: p.ID, Key: todoKey}); kErr == nil {
-					if vErr := validateClaimContract(claimedTodo.Kind, claimedTodo.ClaimBaseSha, claimedTodo.ClaimBaseBranch, in.Body.BranchState); vErr != nil {
+					if vErr := validateClaimContract(claimedTodo.Kind, claimedTodo.ClaimBaseSha, claimedTodo.ClaimBaseBranch, in.Body.BranchState, force); vErr != nil {
 						return nil, vErr
+					}
+					if force {
+						h.emitClaimContractBypass(ctx, claimedTodo.ProjectID, claimedTodo.ID, "")
 					}
 				}
 			}
@@ -477,27 +480,31 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			reason := ptrStr(in.Body.Reason)
 			force := in.Body.Force != nil && *in.Body.Force
 
+			duplicateOf := ptrStr(in.Body.DuplicateOf)
+			linkOf := ptrStr(in.Body.LinkOf)
+			forceReasons := map[string]bool{"duplicate": true, "wontfix": true, "superseded": true}
+			// dual semantics: force+forceReason = wontfix/dup/superseded gating;
+			// force+no forceReason = contract bypass (escape hatch for stuck git state).
+			contractBypass := force && !forceReasons[reason]
+
 			// IS-915: contract validation. Look up the active closable/close:tracker todo for this issue.
-			// IS-916/TK-1612: --force bypasses the contract check.
-			if !force && in.Body.BranchState != nil {
+			// IS-916/TK-1611: contractBypass skips the check and emits an audit event.
+			if in.Body.BranchState != nil || contractBypass {
 				for _, keyFmt := range []string{"closable-%s", "close-tracker-%s"} {
 					todoKey := fmt.Sprintf(keyFmt, issueID)
 					if claimedTodo, kErr := h.Q.GetTodoByKey(ctx, db.GetTodoByKeyParams{ProjectID: p.ID, Key: todoKey}); kErr == nil && claimedTodo.Status == "claimed" {
-						if vErr := validateClaimContract(claimedTodo.Kind, claimedTodo.ClaimBaseSha, claimedTodo.ClaimBaseBranch, in.Body.BranchState); vErr != nil {
+						if vErr := validateClaimContract(claimedTodo.Kind, claimedTodo.ClaimBaseSha, claimedTodo.ClaimBaseBranch, in.Body.BranchState, contractBypass); vErr != nil {
 							return nil, vErr
+						}
+						if contractBypass {
+							h.emitClaimContractBypass(ctx, claimedTodo.ProjectID, claimedTodo.ID, "")
 						}
 						break
 					}
 				}
 			}
-			duplicateOf := ptrStr(in.Body.DuplicateOf)
-			linkOf := ptrStr(in.Body.LinkOf)
-			forceReasons := map[string]bool{"duplicate": true, "wontfix": true, "superseded": true}
 			if forceReasons[reason] && !force {
 				return nil, apiErr(400, "closing with --reason="+reason+" requires --force")
-			}
-			if force && !forceReasons[reason] {
-				return nil, apiErr(400, "--force requires --reason=duplicate|wontfix|superseded")
 			}
 			if reason == "duplicate" && duplicateOf == "" {
 				return nil, apiErr(400, "duplicate_of is required when reason is duplicate")

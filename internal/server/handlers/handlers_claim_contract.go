@@ -1,13 +1,19 @@
 package handlers
 
 import (
+	"context"
 	"fmt"
 	"net/http"
 	"os/exec"
 	"strings"
 
+	"github.com/jackc/pgx/v5/pgtype"
+
+	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/todoclaim"
 )
+
+const EventTypeClaimContractBypass = "claim_contract_bypass"
 
 // BranchState is the optional client-reported git context sent on terminal endpoints.
 type BranchState struct {
@@ -18,9 +24,12 @@ type BranchState struct {
 }
 
 // validateClaimContract checks branch_state against the contract derived from kind.
-// Returns a 422 error if violated. Skips validation when bs is nil or no claim was
-// recorded (claimBaseSha empty).
-func validateClaimContract(kind, claimBaseSha, claimBaseBranch string, bs *BranchState) error {
+// Returns a 422 error if violated. Skips validation when bs is nil, claimBaseSha is
+// empty, or bypass is true (worker passed --force to escape a stuck git state).
+func validateClaimContract(kind, claimBaseSha, claimBaseBranch string, bs *BranchState, bypass bool) error {
+	if bypass {
+		return nil
+	}
 	if bs == nil || claimBaseSha == "" {
 		return nil
 	}
@@ -30,6 +39,31 @@ func validateClaimContract(kind, claimBaseSha, claimBaseBranch string, bs *Branc
 	default:
 		return validateMetadataContract(claimBaseSha, claimBaseBranch, bs)
 	}
+}
+
+// emitClaimContractBypass records an audit event when a worker bypasses the claim
+// contract via --force. agentID is used as author when set; falls back to the
+// authenticated user from ctx.
+func (h *Handler) emitClaimContractBypass(ctx context.Context, projectID int32, todoID int32, agentID string) {
+	author := agentID
+	if author == "" {
+		if uid := ctxUserIDVal(ctx); uid != 0 {
+			if u, uErr := h.Q.GetUserByID(ctx, uid); uErr == nil {
+				author = u.Email
+			}
+		}
+	}
+	_, _ = h.Q.InsertEvent(ctx, db.InsertEventParams{
+		ProjectID:   projectID,
+		TargetType:  "todo",
+		TargetID:    fmt.Sprintf("%d", todoID),
+		ThreadID:    pgtype.Int8{Valid: false},
+		EventType:   EventTypeClaimContractBypass,
+		Author:      author,
+		AuthorKind:  "agent",
+		SummaryJson: []byte(`{}`),
+		DetailJson:  []byte(`{}`),
+	})
 }
 
 func validateMetadataContract(claimBaseSha, claimBaseBranch string, bs *BranchState) error {

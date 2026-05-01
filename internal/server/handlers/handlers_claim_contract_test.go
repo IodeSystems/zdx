@@ -23,6 +23,46 @@ func statusAndMessage(t *testing.T, err error) (int, string) {
 	return se.GetStatus(), se.Error()
 }
 
+func TestValidateClaimContract_ForceBypass(t *testing.T) {
+	// When bypass=true, all contract violations must be ignored regardless of kind.
+	cases := []struct {
+		name string
+		kind string
+		bs   *BranchState
+	}{
+		{
+			name: "dev with no commits bypassed",
+			kind: "dev",
+			bs: &BranchState{
+				HeadSHA:          "abc12345def67890abc12345def67890abc12345",
+				HeadBranch:       "dev",
+				TreeClean:        false,
+				CommitsSinceBase: nil,
+			},
+		},
+		{
+			name: "metadata with sha mismatch bypassed",
+			kind: "triage",
+			bs: &BranchState{
+				HeadSHA:    "ffffffffffffffffffffffffffffffffffffffff",
+				HeadBranch: "feature/wrong",
+				TreeClean:  false,
+			},
+		},
+	}
+	const (
+		baseSha    = "abc12345def67890abc12345def67890abc12345"
+		baseBranch = "dev"
+	)
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			if err := validateClaimContract(tc.kind, baseSha, baseBranch, tc.bs, true); err != nil {
+				t.Fatalf("expected nil when bypass=true, got %v", err)
+			}
+		})
+	}
+}
+
 func TestValidateClaimContract_SkipPaths(t *testing.T) {
 	cases := []struct {
 		name            string
@@ -58,7 +98,7 @@ func TestValidateClaimContract_SkipPaths(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			if err := validateClaimContract(tc.kind, tc.claimBaseSha, tc.claimBaseBranch, tc.bs); err != nil {
+			if err := validateClaimContract(tc.kind, tc.claimBaseSha, tc.claimBaseBranch, tc.bs, false); err != nil {
 				t.Fatalf("expected nil error, got %v", err)
 			}
 		})
@@ -126,7 +166,7 @@ func TestValidateClaimContract_MetadataViolations(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateClaimContract(tc.kind, baseSha, baseBranch, tc.bs)
+			err := validateClaimContract(tc.kind, baseSha, baseBranch, tc.bs, false)
 			status, msg := statusAndMessage(t, err)
 			if status != http.StatusUnprocessableEntity {
 				t.Fatalf("expected 422, got status=%d msg=%q", status, msg)
@@ -186,7 +226,7 @@ func TestValidateClaimContract_DevViolations(t *testing.T) {
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			err := validateClaimContract("dev", baseSha, baseBranch, tc.bs)
+			err := validateClaimContract("dev", baseSha, baseBranch, tc.bs, false)
 			status, msg := statusAndMessage(t, err)
 			if status != http.StatusUnprocessableEntity {
 				t.Fatalf("expected 422, got status=%d msg=%q", status, msg)
@@ -219,7 +259,7 @@ func TestValidateClaimContract_DevAncestorViolation(t *testing.T) {
 		CommitsSinceBase: []string{"deadbeef"},
 	}
 
-	err := validateClaimContract("dev", claimBaseSha, baseBranch, bs)
+	err := validateClaimContract("dev", claimBaseSha, baseBranch, bs, false)
 	status, msg := statusAndMessage(t, err)
 	if status != http.StatusUnprocessableEntity {
 		t.Fatalf("expected 422, got status=%d msg=%q", status, msg)
@@ -244,7 +284,7 @@ func TestValidateClaimContract_DevHeadEqualsBaseSkipsAncestorCheck(t *testing.T)
 		CommitsSinceBase: []string{"abc12345"},
 	}
 
-	if err := validateClaimContract("dev", baseSha, baseBranch, bs); err != nil {
+	if err := validateClaimContract("dev", baseSha, baseBranch, bs, false); err != nil {
 		t.Fatalf("expected nil (ancestor skipped when HeadSHA==claimBaseSha), got %v", err)
 	}
 }
@@ -264,7 +304,7 @@ func TestValidateClaimContract_DevHeadEmptySkipsAncestorCheck(t *testing.T) {
 		CommitsSinceBase: []string{"abc12345"},
 	}
 
-	if err := validateClaimContract("dev", baseSha, baseBranch, bs); err != nil {
+	if err := validateClaimContract("dev", baseSha, baseBranch, bs, false); err != nil {
 		t.Fatalf("expected nil (ancestor skipped when HeadSHA empty), got %v", err)
 	}
 }
