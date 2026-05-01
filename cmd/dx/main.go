@@ -12,6 +12,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli/devtools"
 	"github.com/iodesystems/zdx-go/internal/cli/project"
 	"github.com/iodesystems/zdx-go/internal/cli/servercmd"
+	"github.com/iodesystems/zdx-go/internal/cli/tokencmd"
 	"github.com/iodesystems/zdx-go/internal/cli/work"
 )
 
@@ -75,6 +76,7 @@ func main() {
 		servercmd.ImportCmd(),
 		servercmd.LoginCmd(),
 		configcmd.ConfigCmd(),
+		tokencmd.TokenCmd(),
 		credentialhelper.CredentialHelperCmd(),
 		project.SimilarCmd(),
 		project.AtlasCmd(),
