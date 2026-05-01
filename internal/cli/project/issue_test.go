@@ -198,6 +198,48 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 	}
 }
 
+func TestParseUnresolvedBranchesError(t *testing.T) {
+	cases := []struct {
+		name string
+		body string
+		want []string
+	}{
+		{
+			name: "single branch",
+			body: `{"title":"Unprocessable Entity","detail":"unresolved_branches: v1.0.x"}`,
+			want: []string{"v1.0.x"},
+		},
+		{
+			name: "multiple branches with surrounding prose",
+			body: `{"detail":"issue has unresolved_branches: v1.0.x, v1.1.x, dev"}`,
+			want: []string{"v1.0.x", "v1.1.x", "dev"},
+		},
+		{
+			name: "unrelated 422",
+			body: `{"detail":"IS-1 has 2 open task(s); resolve each before closing"}`,
+			want: nil,
+		},
+		{
+			name: "marker without payload",
+			body: `{"detail":"unresolved_branches:"}`,
+			want: nil,
+		},
+		{
+			name: "garbage body",
+			body: `not json`,
+			want: nil,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			got := parseUnresolvedBranchesError([]byte(tc.body))
+			if !reflect.DeepEqual(got, tc.want) {
+				t.Fatalf("got %#v, want %#v", got, tc.want)
+			}
+		})
+	}
+}
+
 func TestExtractDecompositionCandidates_CapsAt20(t *testing.T) {
 	var b strings.Builder
 	for i := 0; i < 50; i++ {

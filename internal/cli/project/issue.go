@@ -1,7 +1,9 @@
 package project
 
 import (
+	"encoding/json"
 	"fmt"
+	"net/http"
 	"os"
 	"os/exec"
 	"regexp"
@@ -106,7 +108,7 @@ func issueListCmd() *cobra.Command {
 					}
 					active := 0
 					for _, r := range *resResp.JSON200.Resolutions {
-						if !r.Reverted {
+						if r.BranchOfOrigin == branch && !r.Reverted {
 							active++
 						}
 					}
@@ -444,6 +446,14 @@ func issueCloseCmd() *cobra.Command {
 			if err != nil {
 				return err
 			}
+			if resp.StatusCode() == http.StatusUnprocessableEntity {
+				if branches := parseUnresolvedBranchesError(resp.Body); len(branches) > 0 {
+					fmt.Fprintf(os.Stderr, "Cannot close %s: unresolved on branches: %s\n", id, strings.Join(branches, ", "))
+					fmt.Fprintf(os.Stderr, "Resolve on each branch with: dx issue resolve %s <sha> --branch=<name>\n", id)
+					fmt.Fprintf(os.Stderr, "Or bypass with: dx issue close %s --force --reason=wontfix\n", id)
+					return fmt.Errorf("issue %s has unresolved named branches", id)
+				}
+			}
 			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
 				return err
 			}
@@ -456,6 +466,38 @@ func issueCloseCmd() *cobra.Command {
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
 	cmd.Flags().StringVar(&linkOf, "link-of", "", "issue ID this is a narrow-slice link of (required when --reason=link; cascade-closes with target, no reopen-cascade)")
 	return cmd
+}
+
+// parseUnresolvedBranchesError extracts the unresolved branch list from a
+// 422 close-issue response when the server signals the multi-branch close
+// gate. The handler emits a detail of the form
+// "unresolved_branches: v1.0.x, v1.1.x" (TK-1504); we match on that prefix
+// so other 422 gates fall through to CheckStatus untouched.
+func parseUnresolvedBranchesError(body []byte) []string {
+	var e struct {
+		Title  string `json:"title"`
+		Detail string `json:"detail"`
+	}
+	if err := json.Unmarshal(body, &e); err != nil {
+		return nil
+	}
+	const marker = "unresolved_branches:"
+	idx := strings.Index(e.Detail, marker)
+	if idx < 0 {
+		return nil
+	}
+	rest := strings.TrimSpace(e.Detail[idx+len(marker):])
+	if rest == "" {
+		return nil
+	}
+	parts := strings.Split(rest, ",")
+	out := make([]string, 0, len(parts))
+	for _, p := range parts {
+		if name := strings.TrimSpace(p); name != "" {
+			out = append(out, name)
+		}
+	}
+	return out
 }
 
 // runDecompositionPathGate blocks close-as-done when the issue context
