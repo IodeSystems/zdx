@@ -47,7 +47,9 @@ func mustOK(t *testing.T, resp *http.Response) {
 
 // TestHealth verifies spec 59: GET /api/health returns the build SHA and
 // status so deployments can be probed. Also asserts the IS-809 subsystems
-// shape: subsystems.queue is present and non-fatal (top-level stays ok).
+// shape: db/embedder/queue are present. db must be "ok" (test harness has a
+// live pool); embedder must be "unconfigured" (no LLM config in test schema);
+// queue is non-fatal (top-level stays ok regardless of its state).
 func TestHealth(t *testing.T) {
 	resp, err := http.Get(srv.URL + "/api/health")
 	if err != nil {
@@ -74,12 +76,24 @@ func TestHealth(t *testing.T) {
 	if body.BuildSHA == "" {
 		t.Error("build_sha: empty (ldflags wiring lost)")
 	}
-	q, ok := body.Subsystems["queue"]
-	if !ok {
-		t.Fatalf("subsystems.queue: missing (got %+v)", body.Subsystems)
+	for _, name := range []string{"db", "embedder", "queue"} {
+		if _, ok := body.Subsystems[name]; !ok {
+			t.Fatalf("subsystems.%s: missing (got %+v)", name, body.Subsystems)
+		}
 	}
-	if q.State != "ok" {
-		t.Errorf("subsystems.queue.state: want %q got %q", "ok", q.State)
+	if got := body.Subsystems["db"].State; got != "ok" {
+		t.Errorf("subsystems.db.state: want %q got %q", "ok", got)
+	}
+	if got := body.Subsystems["queue"].State; got != "ok" {
+		t.Errorf("subsystems.queue.state: want %q got %q", "ok", got)
+	}
+	// embedder may be "unconfigured" (no LLM config table or no client) — both
+	// are valid states that must not affect the top-level rollup.
+	switch body.Subsystems["embedder"].State {
+	case "ok", "unconfigured":
+	default:
+		t.Errorf("subsystems.embedder.state: want %q or %q, got %q",
+			"ok", "unconfigured", body.Subsystems["embedder"].State)
 	}
 }
 

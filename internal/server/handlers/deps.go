@@ -75,6 +75,10 @@ type Embedder interface {
 	Complete(ctx context.Context, messages []llm.ChatMessage) (string, error)
 	StreamComplete(ctx context.Context, messages []llm.ChatMessage, onDelta func(string)) (string, error)
 	Reload(cfg *llm.Config)
+	// IsAlive reports whether the embedder has an active LLM client. Used by
+	// the /api/health subsystem check (IS-809). Returns false when Reload has
+	// not been called or was last called with nil.
+	IsAlive() bool
 }
 
 // IngestRegistrar lets admin handlers re-register ingest routes and trigger

@@ -2,6 +2,7 @@ package handlers
 
 import (
 	"context"
+	"fmt"
 	"time"
 )
 
@@ -48,4 +49,52 @@ func rollupTopLevelStatus(subsystems map[string]SubsystemState) string {
 		}
 	}
 	return "ok"
+}
+
+// dbHealthLatencyThreshold is the round-trip ping latency above which the DB
+// subsystem reports "degraded". Tuned for IS-809: a healthy local connection
+// pings in under 5ms; a half-second round-trip indicates real trouble.
+const dbHealthLatencyThreshold = 500 * time.Millisecond
+
+// checkDB pings the Postgres pool with a short deadline. Reports "degraded"
+// on error or when the ping exceeds dbHealthLatencyThreshold.
+func (h *Handler) checkDB(ctx context.Context) SubsystemState {
+	pingCtx, cancel := context.WithTimeout(ctx, time.Second)
+	defer cancel()
+	start := time.Now()
+	err := h.Pool.Ping(pingCtx)
+	latency := time.Since(start)
+	now := time.Now().UTC()
+	if err != nil {
+		reason := err.Error()
+		return SubsystemState{State: "degraded", Reason: &reason, Since: &now}
+	}
+	if latency > dbHealthLatencyThreshold {
+		reason := fmt.Sprintf("ping latency %s exceeds %s threshold", latency.Round(time.Millisecond), dbHealthLatencyThreshold)
+		return SubsystemState{State: "degraded", Reason: &reason, Since: &now}
+	}
+	return SubsystemState{State: "ok"}
+}
+
+// checkEmbedder reports the embedder subsystem state for IS-809:
+//   - no live client → "unconfigured" (covers both: schema lacks the
+//     zdx_llm_configs table, and table exists but has no config row — both
+//     mean "no LLM is set up", which is expected, not a degradation).
+//   - live client → "ok".
+//
+// A future "degraded" state will be reported when last-successful-embed-time
+// tracking is added (per IS-809) so we can detect a configured-but-failing
+// embedder. Today the bare presence of the client is the only liveness signal.
+func (h *Handler) checkEmbedder(_ context.Context) SubsystemState {
+	if h.Emb != nil && h.Emb.IsAlive() {
+		return SubsystemState{State: "ok"}
+	}
+	now := time.Now().UTC()
+	var reason string
+	if !h.Features.HasLLMConfig {
+		reason = "no zdx_llm_configs table in this schema"
+	} else {
+		reason = "no LLM config row present (or Reload not yet run)"
+	}
+	return SubsystemState{State: "unconfigured", Reason: &reason, Since: &now}
 }

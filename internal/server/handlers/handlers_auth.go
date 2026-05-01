@@ -18,7 +18,9 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "health", Method: http.MethodGet, Path: "/api/health"},
 		func(ctx context.Context, _ *struct{}) (*struct{ Body HealthOutput }, error) {
 			subsystems := map[string]SubsystemState{
-				"queue": h.checkQueue(ctx),
+				"db":       h.checkDB(ctx),
+				"embedder": h.checkEmbedder(ctx),
+				"queue":    h.checkQueue(ctx),
 			}
 			return &struct{ Body HealthOutput }{Body: HealthOutput{
 				Status:     rollupTopLevelStatus(subsystems),

@@ -40,6 +40,15 @@ func (e *embedder) Reload(cfg *llm.Config) {
 	e.client = llm.New(*cfg)
 }
 
+// IsAlive reports whether an LLM client is currently configured. The /api/health
+// embedder subsystem distinguishes "unconfigured" (no LLM config in DB) from
+// "degraded" (config present but Reload failed or has not run).
+func (e *embedder) IsAlive() bool {
+	e.mu.RLock()
+	defer e.mu.RUnlock()
+	return e.client != nil
+}
+
 // embed calls the LLM API to produce a float32 vector for text.
 // Returns nil, nil when no LLM client is configured.
 func (e *embedder) embed(ctx context.Context, text string) ([]float32, error) {
