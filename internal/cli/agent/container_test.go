@@ -96,6 +96,29 @@ func TestEnforceContainerExecution_GateSetAllowsContainer(t *testing.T) {
 	}
 }
 
+func TestBuildContainerArgs_ScopedToken(t *testing.T) {
+	envPairs := []string{"DX_REMOTE_API_KEY=scoped-xyz", "ANTHROPIC_API_KEY=ak"}
+	args := buildContainerArgs("n", "img", "/c", 0, "a", config.AgentConfig{}, false, envPairs)
+	joined := strings.Join(args, " ")
+	if !strings.Contains(joined, "-e DX_REMOTE_API_KEY=scoped-xyz") {
+		t.Errorf("scoped token not present: %s", joined)
+	}
+	count := strings.Count(joined, "DX_REMOTE_API_KEY=")
+	if count != 1 {
+		t.Errorf("expected exactly 1 DX_REMOTE_API_KEY= entry, got %d: %s", count, joined)
+	}
+}
+
+func TestCollectContainerEnv_AllowlistDoesNotIncludeAdminToken(t *testing.T) {
+	t.Setenv("DX_REMOTE_API_KEY", "admin-secret")
+	pairs := collectContainerEnv([]string{"ANTHROPIC_API_KEY", "DATABASE_URL", "NO_COLOR"})
+	for _, p := range pairs {
+		if strings.HasPrefix(p, "DX_REMOTE_API_KEY=") {
+			t.Errorf("DX_REMOTE_API_KEY must not appear in restricted allowlist output: %v", pairs)
+		}
+	}
+}
+
 // buildContainerArgs is the only way the agent harness reaches docker — its
 // argv must always begin with `run` so a session is dispatched through
 // `docker run`. Inside the container the entrypoint is `./bin/dx agent

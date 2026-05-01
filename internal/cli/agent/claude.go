@@ -83,7 +83,7 @@ func agentClaudeCmd() *cobra.Command {
 				if !loop {
 					return fmt.Errorf("--container requires --loop")
 				}
-				return runContainerLoop(alias, agentCfg, keepContainer)
+				return runContainerLoop(rc, alias, agentCfg, keepContainer)
 			}
 
 			if err := enforceContainerExecution(container); err != nil {

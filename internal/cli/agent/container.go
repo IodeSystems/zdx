@@ -50,6 +50,7 @@ func buildDevImage() (string, error) {
 
 // containerManager tracks running container names for cleanup.
 type containerManager struct {
+	rc           remoteConfig
 	imageTag     string
 	keepOnExit   bool
 	mu           sync.Mutex
@@ -65,13 +66,19 @@ func (m *containerManager) run(ctx context.Context, slot int, alias string, agen
 		return fmt.Errorf("getwd: %w", err)
 	}
 	name := fmt.Sprintf("zdx-agent-%s-%d", alias, slot)
-	envPairs := collectContainerEnv([]string{
-		"DX_REMOTE_API_KEY",
-		"ANTHROPIC_API_KEY",
-		"DATABASE_URL",
-		"ZDX_API_URL",
-		"NO_COLOR",
-	})
+
+	token, tokenID, err := mintScopedToken(ctx, m.rc, fmt.Sprintf("agent-container-%s-%d", alias, slot))
+	if err != nil {
+		return fmt.Errorf("container slot %d: %w", slot, err)
+	}
+	defer revokeScopedToken(context.Background(), m.rc, tokenID)
+
+	envPairs := []string{"DX_REMOTE_API_KEY=" + token}
+	if m.rc.url != "" {
+		envPairs = append(envPairs, "ZDX_API_URL="+m.rc.url)
+	}
+	envPairs = append(envPairs, collectContainerEnv([]string{"ANTHROPIC_API_KEY", "DATABASE_URL", "NO_COLOR"})...)
+
 	args := buildContainerArgs(name, m.imageTag, cwd, slot, alias, agentCfg, m.keepOnExit, envPairs)
 
 	m.mu.Lock()
@@ -183,7 +190,10 @@ func removeString(ss []string, s string) []string {
 // containers in parallel, each running `dx agent claude --loop`. Containers
 // are restarted on unexpected exit. SIGINT/SIGTERM stops all containers and
 // exits cleanly.
-func runContainerLoop(alias string, agentCfg config.AgentConfig, keepContainer bool) error {
+func runContainerLoop(rc remoteConfig, alias string, agentCfg config.AgentConfig, keepContainer bool) error {
+	if rc.slug == "" {
+		return fmt.Errorf("--container requires a project config with a remote slug")
+	}
 	// Apply container resource defaults — srcless mode constructs AgentConfig
 	// directly and skips ResolvedAgent, so we normalize here too.
 	if agentCfg.ContainerMemory == "" {
@@ -199,6 +209,7 @@ func runContainerLoop(alias string, agentCfg config.AgentConfig, keepContainer b
 	}
 
 	mgr := &containerManager{
+		rc:         rc,
 		imageTag:   imageTag,
 		keepOnExit: keepContainer,
 	}
