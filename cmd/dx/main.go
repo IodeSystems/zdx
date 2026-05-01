@@ -27,6 +27,7 @@ func main() {
 		work.TodoCmd(),
 		work.MergeTrainCmd(),
 		project.IssueCmd(),
+		project.BranchCmd(),
 		project.FeatureCmd(),
 		project.GoalCmd(),
 		project.VisionCmd(),

@@ -208,7 +208,7 @@ func todoTakeRun(cmd *cobra.Command, agentID string, leaseMinutes int32) error {
 	if leaseMinutes <= 0 {
 		leaseMinutes = 30
 	}
-	resp, err := c.SoloClaimWithResponse(cmd.Context(), dxclient.SoloClaimRequest{
+	resp, err := c.SoloClaimWithResponse(cmd.Context(), nil, dxclient.SoloClaimRequest{
 		Slug:         slug,
 		AgentId:      agentID,
 		LeaseMinutes: &leaseMinutes,
