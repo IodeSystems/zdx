@@ -1,6 +1,7 @@
 package config
 
 import (
+	"os"
 	"strings"
 	"testing"
 
@@ -61,7 +62,7 @@ components:
 			wantErr: "must declare at least one stage",
 		},
 		{
-			name: "missing run",
+			name: "missing run or builtin",
 			yaml: `
 components:
   server:
@@ -71,7 +72,19 @@ components:
         - { name: build, run: "go build" }
         - { name: deploy }
 `,
-			wantErr: "missing run command",
+			wantErr: "missing run or builtin",
+		},
+		{
+			name: "builtin stage valid",
+			yaml: `
+components:
+  server:
+    ship:
+      strategy: simple
+      stages:
+        - { name: build, run: "go build" }
+        - { name: record, builtin: deploy-event }
+`,
 		},
 	}
 	for _, tc := range cases {
@@ -108,6 +121,43 @@ components:
 	}
 	if err := cfg.validate(); err != nil {
 		t.Fatalf("validate() ship-less config: %v", err)
+	}
+}
+
+// TestLoadActualConfig verifies that the checked-in .zdx/config.yaml parses
+// and passes validateShip with zero errors. Run from the package directory so
+// we walk two levels up to the repo root.
+func TestLoadActualConfig(t *testing.T) {
+	data, err := os.ReadFile("../../.zdx/config.yaml")
+	if err != nil {
+		t.Skip("no .zdx/config.yaml found:", err)
+	}
+	var cfg Config
+	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		t.Fatalf("yaml.Unmarshal: %v", err)
+	}
+	if err := cfg.validate(); err != nil {
+		t.Fatalf("validate .zdx/config.yaml: %v", err)
+	}
+	comp, ok := cfg.Components["server"]
+	if !ok {
+		t.Fatal("components.server not found")
+	}
+	if comp.Ship.IsZero() {
+		t.Fatal("components.server.ship is empty; expected ship pipeline")
+	}
+	if comp.Ship.Strategy != ShipStrategyRollingPair {
+		t.Errorf("strategy = %q, want %q", comp.Ship.Strategy, ShipStrategyRollingPair)
+	}
+	if n := len(comp.Ship.Stages); n < 20 {
+		t.Errorf("stage count = %d, want >= 20", n)
+	}
+	seen := make(map[string]bool)
+	for _, s := range comp.Ship.Stages {
+		if seen[s.Name] {
+			t.Errorf("duplicate stage name: %q", s.Name)
+		}
+		seen[s.Name] = true
 	}
 }
 

@@ -136,15 +136,16 @@ const (
 // Ship declares how a component deploys. Stages run in declared order;
 // a non-empty Strategy or Stages list means Ship is configured.
 type Ship struct {
-	Strategy string            `yaml:"strategy"`
-	Env      map[string]string `yaml:"env"`
-	Stages   []Stage           `yaml:"stages"`
+	Strategy    string            `yaml:"strategy"`
+	SecretsFile string            `yaml:"secrets_file"` // IS-892: resolved at run time by secrets loader
+	Env         map[string]string `yaml:"env"`
+	Stages      []Stage           `yaml:"stages"`
 }
 
 // IsZero reports whether Ship has no user-supplied fields. Used to skip
 // validation for components that don't declare a ship section.
 func (s Ship) IsZero() bool {
-	return s.Strategy == "" && len(s.Env) == 0 && len(s.Stages) == 0
+	return s.Strategy == "" && s.SecretsFile == "" && len(s.Env) == 0 && len(s.Stages) == 0
 }
 
 // Stage is one step in a ship pipeline. Target, when non-empty, means
@@ -152,12 +153,16 @@ func (s Ship) IsZero() bool {
 // stages don't halt the pipeline on failure. Tags are free-form labels
 // strategies may inspect — e.g. blue-green re-runs only stages tagged
 // "verify" after the slot swap.
+// Exactly one of Run or Builtin must be set. Builtin names a harness-
+// provided primitive (e.g. "deploy-event"); Run is a shell command.
 type Stage struct {
-	Name     string   `yaml:"name"`
-	Run      string   `yaml:"run"`
-	Target   string   `yaml:"target"`
-	Optional bool     `yaml:"optional"`
-	Tags     []string `yaml:"tags,omitempty"`
+	Name      string   `yaml:"name"`
+	Run       string   `yaml:"run"`
+	Builtin   string   `yaml:"builtin"`   // harness primitive (IS-888/891/797); alternative to Run
+	Target    string   `yaml:"target"`
+	OnFailure string   `yaml:"on_failure"` // "abort" (default) | "continue" — IS-895 will wire this
+	Optional  bool     `yaml:"optional"`
+	Tags      []string `yaml:"tags,omitempty"`
 }
 
 type Close struct {
@@ -289,8 +294,8 @@ func validateShip(comp string, s Ship) []string {
 	seen := make(map[string]int, len(s.Stages))
 	for i, st := range s.Stages {
 		stagePrefix := fmt.Sprintf("%s.stages[%d]", prefix, i)
-		if st.Run == "" {
-			errs = append(errs, fmt.Sprintf("%s: missing run command", stagePrefix))
+		if st.Run == "" && st.Builtin == "" {
+			errs = append(errs, fmt.Sprintf("%s: missing run or builtin", stagePrefix))
 		}
 		if st.Name == "" {
 			// Unnamed stages can't be deduped meaningfully; report and

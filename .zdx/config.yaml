@@ -31,3 +31,156 @@ components:
           run: ./bin/lint --intent
         - name: restore-gen
           run: git checkout -- internal/dxclient/models.gen.go internal/db schema/shipped.sql 2>/dev/null; true
+    ship:
+      strategy: rolling-pair
+      secrets_file: home/deploy.secret.properties  # IS-892: loader resolves ${secret.*} refs below
+      env:
+        DEPLOY_HOST: "${secret.deploy.host}"
+        HZ_TOKEN: "${secret.hz.token}"
+        HZ_URL: "${secret.hz.url}"
+        RELEASE_BRANCH: "${secret.release.branch}"
+        DEPLOY_API_URL: "${secret.deploy.api.url}"
+        DEPLOY_API_TOKEN: "${secret.deploy.api.token}"
+        DEPLOY_PROJECT_SLUG: "${secret.deploy.project.slug}"
+        DEPLOY_ENV_NAME: "${secret.deploy.env.name}"
+      stages:
+        # ── Phase 1: Preflight gates ──────────────────────────────────────────
+        # IS-893: --allow-dirty skips dirty-check via tag filter.
+        - name: dirty-check
+          run: bash -c 'git diff --quiet && git diff --cached --quiet'
+          on_failure: abort
+          tags: [preflight]
+
+        - name: release-branch-gate
+          run: bash -c 'test "$(git rev-parse --abbrev-ref HEAD)" = "${RELEASE_BRANCH:-dev}"'
+          on_failure: abort
+          tags: [preflight]
+
+        - name: lint-gate
+          run: ./bin/lint
+          on_failure: abort
+          tags: [preflight]
+
+        # Auto-filing the blocker issue on gate failure is bin/ship bash-only; needs IS-891 hook.
+        - name: must-spec-gate
+          run: ./bin/dx ship gate
+          on_failure: abort
+          tags: [preflight]
+
+        # ── Phase 2: Build and package ────────────────────────────────────────
+        # Hash-based UI skip (bin/ship:210-218) is bash-only; unconditional rebuild here.
+        - name: build-dx-server
+          run: >-
+            GOOS=linux GOARCH=amd64 CGO_ENABLED=0
+            go build -trimpath
+            -ldflags="-s -w
+            -X main.version=$(git rev-parse --short HEAD)
+            -X main.buildSHA=$(git rev-parse --short HEAD)"
+            -o deploy/dist/dx-server ./cmd/dx-server
+          tags: [build]
+
+        - name: build-dx
+          run: >-
+            GOOS=linux GOARCH=amd64 CGO_ENABLED=0
+            go build -trimpath -ldflags="-s -w"
+            -o deploy/dist/dx ./cmd/dx
+          tags: [build]
+
+        - name: build-ui
+          run: bash -c 'cd ui && pnpm install --frozen-lockfile && pnpm run build'
+          tags: [build]
+
+        - name: package
+          run: |
+            mkdir -p deploy/dist/public
+            cp -r ui/dist/* deploy/dist/public/
+            rm -rf deploy/provision
+            cp -r infra/provision deploy/provision
+            if [ -d internal/migrate/sql/migration-fixes ]; then
+              mkdir -p deploy/dist/migration-fixes
+              cp internal/migrate/sql/migration-fixes/*.sql deploy/dist/migration-fixes/ 2>/dev/null; true
+            fi
+          tags: [build]
+
+        - name: manifest
+          run: |
+            { echo "commit: $(git rev-parse HEAD)"
+              echo "branch: $(git rev-parse --abbrev-ref HEAD)"
+              echo "date:   $(date -u +%Y-%m-%dT%H:%M:%SZ)"
+            } > deploy/manifest.txt
+          tags: [build]
+
+        # ── Phase 3: Schema validation ────────────────────────────────────────
+        # IS-889 compat-check is already implemented as a Go subcommand.
+        - name: compat-check
+          run: ./bin/dx ship compat-check
+          on_failure: abort
+          tags: [preflight]
+
+        # IS-888: migrate-preflight builtin not yet implemented; declared for pipeline completeness.
+        - name: migrate-preflight
+          builtin: migrate-preflight
+          on_failure: abort
+          tags: [preflight]
+
+        # ── Phase 4: Rolling deploy ───────────────────────────────────────────
+        # rolling-pair strategy injects ZDX_SLOT (next|current) per pass.
+        # HEALTH_PORT (7602 next, 7600 current) will be injected by IS-796.
+        # IS-893 tag filter will scope deploy-tagged stages to per-slot pass only.
+        - name: rsync-slot
+          run: >-
+            rsync -az --delete --rsync-path='sudo -u zdx rsync'
+            deploy/dist/ "${DEPLOY_HOST}:/home/zdx/home/versions/${ZDX_SLOT}/"
+          tags: [deploy]
+
+        - name: rsync-provision
+          run: >-
+            rsync -az --rsync-path='sudo -u zdx rsync'
+            deploy/provision/ "${DEPLOY_HOST}:/home/zdx/home/provision/"
+          tags: [deploy]
+
+        - name: provision-run
+          target: "${DEPLOY_HOST}"
+          run: sudo SKIP_SERVICE_START=true bash /home/zdx/home/provision/provision.sh
+          tags: [deploy]
+
+        - name: migrate-up
+          target: "${DEPLOY_HOST}"
+          run: |
+            sudo -u zdx bash -c '
+              UNIT="zdx-${ZDX_SLOT}"
+              DATABASE_URL=$(systemctl show "$UNIT" --property=Environment \
+                | sed "s/^Environment=//" | tr -d "\"" | tr " " "\n" \
+                | grep "^DATABASE_URL=" | head -1 | cut -d= -f2-)
+              export DATABASE_URL
+              /home/zdx/home/versions/${ZDX_SLOT}/dx migrate up
+            '
+          tags: [deploy]
+
+        - name: systemctl-restart
+          target: "${DEPLOY_HOST}"
+          run: sudo systemctl restart zdx-${ZDX_SLOT}
+          tags: [deploy]
+
+        - name: health-check
+          target: "${DEPLOY_HOST}"
+          run: bash -c 'for i in $(seq 1 20); do curl -sf http://localhost:${HEALTH_PORT}/api/health >/dev/null && exit 0; sleep 2; done; exit 1'
+          tags: [deploy]
+
+        # ── Phase 5: Finalize ─────────────────────────────────────────────────
+        - name: record-shipped-commit
+          target: "${DEPLOY_HOST}"
+          run: sudo -u zdx bash -c 'echo "${DEPLOYED_GIT_HASH}" > /home/zdx/home/shipped-commit'
+          tags: [finalize]
+
+        # IS-891: finalize-shipped-sql promotes schema/next.sql → shipped.sql + sqlc regen.
+        # optional: true so a failure warns but does not roll back the deploy.
+        - name: finalize-shipped-sql
+          builtin: finalize-shipped-sql
+          optional: true
+          tags: [finalize]
+
+        # IS-797: deploy-event POSTs commit/duration/status to dx-server.
+        - name: post-deploy-record
+          builtin: deploy-event
+          tags: [finalize]
