@@ -2731,7 +2731,9 @@ CREATE TABLE public.zdx_todos (
     description text DEFAULT ''::text NOT NULL,
     blocked_reason text DEFAULT ''::text NOT NULL,
     cycle_count integer DEFAULT 0 NOT NULL,
-    reference_issue_id text DEFAULT ''::text NOT NULL
+    reference_issue_id text DEFAULT ''::text NOT NULL,
+    claim_base_sha text DEFAULT ''::text NOT NULL,
+    claim_base_branch text DEFAULT ''::text NOT NULL
 );
 
 

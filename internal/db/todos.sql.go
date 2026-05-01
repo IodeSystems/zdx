@@ -16,7 +16,8 @@ UPDATE zdx_todos SET blocked = true, blocked_reason = $1, cycle_count = cycle_co
 WHERE project_id = $2 AND key = $3
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+          claim_base_sha, claim_base_branch
 `
 
 type BlockTodoByKeyParams struct {
@@ -49,6 +50,8 @@ type BlockTodoByKeyRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 // Block a todo by its key (cycle detection). Increments cycle_count each time.
@@ -80,6 +83,8 @@ func (q *Queries) BlockTodoByKey(ctx context.Context, arg BlockTodoByKeyParams) 
 		&i.CreatedAt,
 		&i.ResolvedAt,
 		&i.ReopenCount,
+		&i.ClaimBaseSha,
+		&i.ClaimBaseBranch,
 	)
 	return i, err
 }
@@ -87,12 +92,14 @@ func (q *Queries) BlockTodoByKey(ctx context.Context, arg BlockTodoByKeyParams) 
 const claimNextTodo = `-- name: ClaimNextTodo :one
 WITH claimed AS (
   UPDATE zdx_todos SET
-    claimed_by = $1,
-    claimed_at = NOW(),
-    lease_expires_at = NOW() + ($2::int || ' minutes')::interval
+    claimed_by        = $1,
+    claimed_at        = NOW(),
+    lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
+    claim_base_sha    = $3,
+    claim_base_branch = $4
   WHERE id = (
     SELECT t.id FROM zdx_todos t
-    WHERE t.project_id = $3
+    WHERE t.project_id = $5
       AND t.status = 'open'
       AND t.blocked = false
       AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
@@ -102,20 +109,24 @@ WITH claimed AS (
   )
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+            claim_base_sha, claim_base_branch
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
+       c.claim_base_sha, c.claim_base_branch,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref
 `
 
 type ClaimNextTodoParams struct {
-	AgentID      string `db:"agent_id" json:"agent_id"`
-	LeaseMinutes int32  `db:"lease_minutes" json:"lease_minutes"`
-	ProjectID    int32  `db:"project_id" json:"project_id"`
+	AgentID         string `db:"agent_id" json:"agent_id"`
+	LeaseMinutes    int32  `db:"lease_minutes" json:"lease_minutes"`
+	ClaimBaseSha    string `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch string `db:"claim_base_branch" json:"claim_base_branch"`
+	ProjectID       int32  `db:"project_id" json:"project_id"`
 }
 
 type ClaimNextTodoRow struct {
@@ -142,6 +153,8 @@ type ClaimNextTodoRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 	TargetBranch     string             `db:"target_branch" json:"target_branch"`
 }
 
@@ -149,7 +162,13 @@ type ClaimNextTodoRow struct {
 // Skips locked rows (concurrent agents get different items).
 // target_branch is resolved from the referenced issue (default 'dev').
 func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (ClaimNextTodoRow, error) {
-	row := q.db.QueryRow(ctx, claimNextTodo, arg.AgentID, arg.LeaseMinutes, arg.ProjectID)
+	row := q.db.QueryRow(ctx, claimNextTodo,
+		arg.AgentID,
+		arg.LeaseMinutes,
+		arg.ClaimBaseSha,
+		arg.ClaimBaseBranch,
+		arg.ProjectID,
+	)
 	var i ClaimNextTodoRow
 	err := row.Scan(
 		&i.ID,
@@ -175,6 +194,8 @@ func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (C
 		&i.CreatedAt,
 		&i.ResolvedAt,
 		&i.ReopenCount,
+		&i.ClaimBaseSha,
+		&i.ClaimBaseBranch,
 		&i.TargetBranch,
 	)
 	return i, err
@@ -203,7 +224,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
         $9, $10, $11, $12, $13, $14)
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+          claim_base_sha, claim_base_branch
 `
 
 type CreateTodoParams struct {
@@ -247,6 +269,8 @@ type CreateTodoRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error) {
@@ -291,6 +315,8 @@ func (q *Queries) CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateT
 		&i.CreatedAt,
 		&i.ResolvedAt,
 		&i.ReopenCount,
+		&i.ClaimBaseSha,
+		&i.ClaimBaseBranch,
 	)
 	return i, err
 }
@@ -323,7 +349,8 @@ func (q *Queries) GetState(ctx context.Context, arg GetStateParams) (string, err
 const getTodoByID = `-- name: GetTodoByID :one
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos WHERE id = $1
 `
 
@@ -351,6 +378,8 @@ type GetTodoByIDRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 func (q *Queries) GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, error) {
@@ -380,6 +409,8 @@ func (q *Queries) GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, er
 		&i.CreatedAt,
 		&i.ResolvedAt,
 		&i.ReopenCount,
+		&i.ClaimBaseSha,
+		&i.ClaimBaseBranch,
 	)
 	return i, err
 }
@@ -387,7 +418,8 @@ func (q *Queries) GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, er
 const getTodoByKey = `-- name: GetTodoByKey :one
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos WHERE project_id = $1 AND key = $2
 `
 
@@ -420,6 +452,8 @@ type GetTodoByKeyRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error) {
@@ -449,6 +483,8 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 		&i.CreatedAt,
 		&i.ResolvedAt,
 		&i.ReopenCount,
+		&i.ClaimBaseSha,
+		&i.ClaimBaseBranch,
 	)
 	return i, err
 }
@@ -456,7 +492,8 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 const listActiveTodoClaims = `-- name: ListActiveTodoClaims :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos
 WHERE project_id = $1
   AND claimed_by != ''
@@ -488,6 +525,8 @@ type ListActiveTodoClaimsRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 // Return all todos that are currently claimed and whose lease has not expired.
@@ -524,6 +563,8 @@ func (q *Queries) ListActiveTodoClaims(ctx context.Context, projectID int32) ([]
 			&i.CreatedAt,
 			&i.ResolvedAt,
 			&i.ReopenCount,
+			&i.ClaimBaseSha,
+			&i.ClaimBaseBranch,
 		); err != nil {
 			return nil, err
 		}
@@ -538,7 +579,8 @@ func (q *Queries) ListActiveTodoClaims(ctx context.Context, projectID int32) ([]
 const listTodos = `-- name: ListTodos :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at
 `
 
@@ -566,6 +608,8 @@ type ListTodosRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error) {
@@ -601,6 +645,8 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRo
 			&i.CreatedAt,
 			&i.ResolvedAt,
 			&i.ReopenCount,
+			&i.ClaimBaseSha,
+			&i.ClaimBaseBranch,
 		); err != nil {
 			return nil, err
 		}
@@ -615,7 +661,8 @@ func (q *Queries) ListTodos(ctx context.Context, projectID int32) ([]ListTodosRo
 const listTodosFiltered = `-- name: ListTodosFiltered :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos
 WHERE project_id = $1
   AND ($2::boolean IS NULL OR blocked = $2::boolean)
@@ -657,6 +704,8 @@ type ListTodosFilteredRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error) {
@@ -698,6 +747,8 @@ func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredPa
 			&i.CreatedAt,
 			&i.ResolvedAt,
 			&i.ReopenCount,
+			&i.ClaimBaseSha,
+			&i.ClaimBaseBranch,
 		); err != nil {
 			return nil, err
 		}
@@ -711,15 +762,18 @@ func (q *Queries) ListTodosFiltered(ctx context.Context, arg ListTodosFilteredPa
 
 const reclaimExpiredTodos = `-- name: ReclaimExpiredTodos :many
 UPDATE zdx_todos SET
-  claimed_by = '',
-  claimed_at = NULL,
-  lease_expires_at = NULL
+  claimed_by        = '',
+  claimed_at        = NULL,
+  lease_expires_at  = NULL,
+  claim_base_sha    = '',
+  claim_base_branch = ''
 WHERE project_id = $1
   AND claimed_by != ''
   AND lease_expires_at < NOW()
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+          claim_base_sha, claim_base_branch
 `
 
 type ReclaimExpiredTodosRow struct {
@@ -746,6 +800,8 @@ type ReclaimExpiredTodosRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 // Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
@@ -782,6 +838,8 @@ func (q *Queries) ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]R
 			&i.CreatedAt,
 			&i.ResolvedAt,
 			&i.ReopenCount,
+			&i.ClaimBaseSha,
+			&i.ClaimBaseBranch,
 		); err != nil {
 			return nil, err
 		}
@@ -795,9 +853,11 @@ func (q *Queries) ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]R
 
 const releaseTodo = `-- name: ReleaseTodo :exec
 UPDATE zdx_todos SET
-  claimed_by = '',
-  claimed_at = NULL,
-  lease_expires_at = NULL
+  claimed_by        = '',
+  claimed_at        = NULL,
+  lease_expires_at  = NULL,
+  claim_base_sha    = '',
+  claim_base_branch = ''
 WHERE id = $1 AND claimed_by = $2
 `
 
@@ -814,9 +874,11 @@ func (q *Queries) ReleaseTodo(ctx context.Context, arg ReleaseTodoParams) error 
 
 const releaseTodoAdmin = `-- name: ReleaseTodoAdmin :exec
 UPDATE zdx_todos SET
-  claimed_by = '',
-  claimed_at = NULL,
-  lease_expires_at = NULL
+  claimed_by        = '',
+  claimed_at        = NULL,
+  lease_expires_at  = NULL,
+  claim_base_sha    = '',
+  claim_base_branch = ''
 WHERE id = $1
 `
 
@@ -861,7 +923,8 @@ func (q *Queries) ResolveTodo(ctx context.Context, arg ResolveTodoParams) error 
 
 const resolveTodoByID = `-- name: ResolveTodoByID :exec
 UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW(),
-  claimed_by = '', claimed_at = NULL, lease_expires_at = NULL
+  claimed_by = '', claimed_at = NULL, lease_expires_at = NULL,
+  claim_base_sha = '', claim_base_branch = ''
 WHERE id = $1
 `
 
@@ -983,7 +1046,8 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   -- claimed_by, claimed_at, lease_expires_at, cycle_count, reference_issue_id intentionally NOT updated
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+          claim_base_sha, claim_base_branch
 `
 
 type UpsertTodoParams struct {
@@ -1027,6 +1091,8 @@ type UpsertTodoRow struct {
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ResolvedAt       pgtype.Timestamptz `db:"resolved_at" json:"resolved_at"`
 	ReopenCount      int32              `db:"reopen_count" json:"reopen_count"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 // Upsert a todo item, preserving existing claim state (claimed_by, claimed_at, lease_expires_at).
@@ -1074,6 +1140,8 @@ func (q *Queries) UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertT
 		&i.CreatedAt,
 		&i.ResolvedAt,
 		&i.ReopenCount,
+		&i.ClaimBaseSha,
+		&i.ClaimBaseBranch,
 	)
 	return i, err
 }
