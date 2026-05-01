@@ -710,18 +710,6 @@ export const useAddComment = () => {
   })
 }
 
-export const useMarkCommentsRead = () => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (_p: { slug: string; target_type: string; target_id: string }) => {
-      return { ok: true }
-    },
-    onSuccess: (_data, vars) => {
-      qc.invalidateQueries({ queryKey: ['comments', vars.slug, vars.target_type, vars.target_id] })
-    },
-  })
-}
-
 export const useMyComments = (slug: string, limit?: number, offset?: number) =>
   useQuery<{ comments: CommentItem[]; total: number }>({
     queryKey: ['comments', 'mine', slug, limit, offset],
@@ -829,48 +817,6 @@ export const usePostEventVerdict = () => {
     },
     onSuccess: (_data, vars) => {
       qc.invalidateQueries({ queryKey: ['events', vars.slug, vars.targetType, vars.targetId] })
-    },
-  })
-}
-
-// ── notifications ────────────────────────────────────────────────────────────
-
-export const useUnreadCount = (_slug: string) =>
-  useQuery<number>({
-    queryKey: ['notifications', 'unread-count', _slug],
-    queryFn: async () => 0,
-    enabled: false,
-  })
-
-export interface UnreadThread {
-  target_type: string
-  target_id: string
-  unread_count: number
-  last_unread_at: string
-}
-
-export const useUnreadThreads = (slug: string) =>
-  useQuery<UnreadThread[]>({
-    queryKey: ['notifications', 'unread-threads', slug],
-    queryFn: async () => {
-      const { data, error } = await client.GET('/api/dx/notifications/unread-threads' as any, { params: { query: { slug } } })
-      if (error) throw new Error(JSON.stringify(error))
-      return (data as any)?.threads ?? []
-    },
-    enabled: !!slug,
-  })
-
-export const useDismissAllNotifications = () => {
-  const qc = useQueryClient()
-  return useMutation({
-    mutationFn: async (slug: string) => {
-      const { data, error } = await client.POST('/api/dx/notifications/dismiss-all' as any, { body: { slug } as any })
-      if (error) throw new Error(JSON.stringify(error))
-      return data
-    },
-    onSuccess: (_data, slug) => {
-      qc.invalidateQueries({ queryKey: ['notifications', 'unread-count', slug] })
-      qc.invalidateQueries({ queryKey: ['notifications', 'unread-threads', slug] })
     },
   })
 }

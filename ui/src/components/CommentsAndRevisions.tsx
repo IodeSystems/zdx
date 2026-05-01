@@ -5,7 +5,7 @@ import {
   TextField,
   Typography,
 } from '@mui/material'
-import { useComments, useAddComment, useMarkCommentsRead } from '../api'
+import { useComments, useAddComment } from '../api'
 import { MarkdownContent } from './MarkdownContent'
 
 export function CommentsAndRevisions({
@@ -20,18 +20,8 @@ export function CommentsAndRevisions({
   const { data: commentsData } = useComments(slug, targetType, targetId)
   const comments = commentsData?.comments ?? []
   const addComment = useAddComment()
-  const markRead = useMarkCommentsRead()
   const [body, setBody] = useState('')
-  const hasMarkedRead = useRef(false)
   const hasScrolledToHash = useRef(false)
-
-  const hasUnread = comments.some(c => c.unread)
-  useEffect(() => {
-    if (hasUnread && !hasMarkedRead.current) {
-      hasMarkedRead.current = true
-      markRead.mutate({ slug, target_type: targetType, target_id: targetId })
-    }
-  }, [hasUnread, slug, targetType, targetId])
 
   useEffect(() => {
     if (hasScrolledToHash.current || comments.length === 0) return

@@ -15,7 +15,6 @@ import {
   useComments,
   useHistory,
   useIssueResolutions,
-  useMarkCommentsRead,
   useReservationsByIssue,
   useTodosByIssue,
   type CommentItem,
@@ -398,7 +397,6 @@ export function UnifiedTimeline({
   const { data: historyData } = useHistory('issue', issueId)
   const { data: commentsData } = useComments(slug, 'issue', issueId)
   const { data: todosData } = useTodosByIssue(slug, issueId)
-  const markRead = useMarkCommentsRead()
 
   const reservations = reservationsData?.reservations ?? []
   const resols = resolutions ?? []
@@ -408,16 +406,7 @@ export function UnifiedTimeline({
 
   const [active, setActive] = useState<Set<Kind>>(new Set(KIND_ORDER))
   const [diffEvent, setDiffEvent] = useState<HistoryEvent | null>(null)
-  const hasMarkedRead = useRef(false)
   const hasScrolledToHash = useRef(false)
-
-  const hasUnread = comments.some(c => c.unread)
-  useEffect(() => {
-    if (hasUnread && !hasMarkedRead.current) {
-      hasMarkedRead.current = true
-      markRead.mutate({ slug, target_type: 'issue', target_id: issueId })
-    }
-  }, [hasUnread, slug, issueId])
 
   useEffect(() => {
     if (hasScrolledToHash.current || comments.length === 0) return

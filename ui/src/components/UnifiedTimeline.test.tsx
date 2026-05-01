@@ -18,7 +18,6 @@ jest.mock('../api', () => {
     useIssueResolutions: jest.fn(),
     useHistory: jest.fn(),
     useComments: jest.fn(),
-    useMarkCommentsRead: jest.fn(),
   }
 })
 
@@ -35,7 +34,6 @@ import {
   useIssueResolutions,
   useHistory,
   useComments,
-  useMarkCommentsRead,
 } from '../api'
 import { UnifiedTimeline } from './UnifiedTimeline'
 
@@ -43,13 +41,11 @@ const mockedUseReservations = jest.mocked(useReservationsByIssue)
 const mockedUseResolutions = jest.mocked(useIssueResolutions)
 const mockedUseHistory = jest.mocked(useHistory)
 const mockedUseComments = jest.mocked(useComments)
-const mockedUseMarkRead = jest.mocked(useMarkCommentsRead)
 
 let queryClient: QueryClient
 
 beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  mockedUseMarkRead.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
 })
 
 afterEach(() => {
@@ -167,14 +163,4 @@ describe('UnifiedTimeline', () => {
     expect(within(parent as HTMLElement).getByText('reply-body')).toBeInTheDocument()
   })
 
-  test('marks unread comments as read on mount', () => {
-    const mutate = jest.fn()
-    mockedUseMarkRead.mockReturnValue({ mutate, isPending: false } as any)
-    renderTimeline([], {
-      comments: [
-        { id: 200, target_type: 'issue', target_id: 'IS-100', author: 'a', body: 'unread-comment', created_at: '2026-04-05T10:00:00Z', unread: true } as any,
-      ],
-    })
-    expect(mutate).toHaveBeenCalledWith({ slug: 'zdx', target_type: 'issue', target_id: 'IS-100' })
-  })
 })
