@@ -76,6 +76,7 @@ func main() {
 		configcmd.ConfigCmd(),
 		credentialhelper.CredentialHelperCmd(),
 		project.SimilarCmd(),
+		project.AtlasCmd(),
 	)
 
 	if err := root.Execute(); err != nil {
