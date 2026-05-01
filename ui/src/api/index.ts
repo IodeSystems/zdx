@@ -2463,16 +2463,31 @@ export interface TestHistoryItem {
   git_sha: string
 }
 
-export const useTests = (slug: string, limit?: number, offset?: number) =>
+export const useAllTests = (slug: string) =>
   useQuery<{ tests: TestItem[]; total: number }>({
-    queryKey: ['tests', slug, limit, offset],
+    queryKey: ['tests-all', slug],
     queryFn: async () => {
-      const params: Record<string, string> = { slug }
-      if (limit != null) params.limit = String(limit)
-      if (offset != null) params.offset = String(offset)
-      const { data, error } = await client.GET('/api/dx/tests', { params: { query: params as any } })
-      if (error) throw new Error(JSON.stringify(error))
-      return { tests: (data as any)?.tests ?? [], total: (data as any)?.total ?? 0 }
+      const pageSize = 500
+      const maxPages = 10
+      const accumulated: TestItem[] = []
+      let offset = 0
+      for (let i = 0; i < maxPages; i++) {
+        const params: Record<string, string> = {
+          slug,
+          limit: String(pageSize),
+          offset: String(offset),
+        }
+        const { data, error } = await client.GET('/api/dx/tests', { params: { query: params as any } })
+        if (error) throw new Error(JSON.stringify(error))
+        const pageTests = ((data as any)?.tests ?? []) as TestItem[]
+        const total: number = (data as any)?.total ?? 0
+        accumulated.push(...pageTests)
+        if (accumulated.length >= total || pageTests.length === 0) {
+          return { tests: accumulated, total }
+        }
+        offset += pageSize
+      }
+      throw new Error('useAllTests: exceeded 10-page cap')
     },
     enabled: !!slug,
   })

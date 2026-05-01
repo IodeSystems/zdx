@@ -15,7 +15,7 @@ import {
   Typography,
 } from '@mui/material'
 import { Clear as ClearIcon, Search as SearchIcon } from '@mui/icons-material'
-import { useTests } from '../../../../api'
+import { useAllTests } from '../../../../api'
 import type { TestItem } from '../../../../api'
 
 const STATUS_COLOR: Record<string, 'success' | 'error' | 'default' | 'warning'> = {
@@ -338,7 +338,7 @@ function SearchResults({ slug, tests, query }: { slug: string; tests: TestItem[]
 
 function TestsPage() {
   const { slug } = Route.useParams()
-  const { data, isLoading } = useTests(slug)
+  const { data, isLoading } = useAllTests(slug)
   const [search, setSearch] = useState('')
   const deferredSearch = useDeferredValue(search)
 
