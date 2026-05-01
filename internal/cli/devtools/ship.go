@@ -166,7 +166,7 @@ func shipGitOutput(args ...string) string {
 
 func shipRunCmd() *cobra.Command {
 	var envFlag, componentFlag string
-	var noResume, pkgOnly, noPackage bool
+	var noResume, pkgOnly, noPackage, nonCompatFlag bool
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Execute ship stages for a component and record the deploy event",
@@ -186,6 +186,11 @@ func shipRunCmd() *cobra.Command {
 			}
 			if comp.Ship.IsZero() {
 				return fmt.Errorf("component %q has no ship config", compName)
+			}
+
+			if nonCompatFlag {
+				comp.Ship.Strategy = config.ShipStrategyMaintenance
+				fmt.Fprintln(os.Stderr, "[ship] --non-compatible-migration: using maintenance strategy")
 			}
 
 			sha := shipGitOutput("rev-parse", "HEAD")
@@ -225,6 +230,7 @@ func shipRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&noResume, "no-resume", false, "force full re-run, ignoring saved stage state")
 	cmd.Flags().BoolVar(&pkgOnly, "package", false, "run only stages tagged 'build' (produce deploy artifact, skip deploy)")
 	cmd.Flags().BoolVar(&noPackage, "no-package", false, "skip stages tagged 'build' (deploy existing artifact, skip build)")
+	cmd.Flags().BoolVar(&nonCompatFlag, "non-compatible-migration", false, "use maintenance strategy (drains traffic, applies breaking migration, restarts)")
 	return cmd
 }
 

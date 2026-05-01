@@ -17,4 +17,7 @@ func TestShipCmdHasRunSubcommand(t *testing.T) {
 	if cmd := run.Flags().Lookup("component"); cmd == nil {
 		t.Error("--component flag missing")
 	}
+	if cmd := run.Flags().Lookup("non-compatible-migration"); cmd == nil {
+		t.Error("--non-compatible-migration flag missing")
+	}
 }
