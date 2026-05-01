@@ -63,6 +63,7 @@ func main() {
 		devtools.TimeCmd(),
 		devtools.ClaudeCmd(),
 		devtools.KpiCmd(),
+		devtools.CommitCmd(),
 		agent.AgentCmd(),
 		project.TaskCmd(),
 		project.ReviewCmd(),
