@@ -37,6 +37,15 @@ type AgentStatusUpdater interface {
 	UpdateAgentStatus(ctx context.Context, arg db.UpdateAgentStatusParams) error
 }
 
+// TodoIncompleteStore is a narrow interface for the incomplete-report endpoints.
+// *db.Queries satisfies it in production; tests supply a mock.
+type TodoIncompleteStore interface {
+	GetProjectBySlug(ctx context.Context, slug string) (db.ZdxProject, error)
+	GetTodoByKey(ctx context.Context, arg db.GetTodoByKeyParams) (db.GetTodoByKeyRow, error)
+	AddTodoIncompleteReport(ctx context.Context, arg db.AddTodoIncompleteReportParams) (db.ZdxTodoIncompleteReport, error)
+	GetTodoIncompleteReportsByTodo(ctx context.Context, todoID int32) ([]db.ZdxTodoIncompleteReport, error)
+}
+
 type SchemaFeatures struct {
 	HasLLMConfig        bool
 	HasProjectGitConfig bool
@@ -116,6 +125,7 @@ type Deps struct {
 	AgentConnRegistry       AgentConnRegistry
 	AgentStatusUpdater      AgentStatusUpdater
 	AgentDisconnectGraceSec int
+	TodoIncompleteStore     TodoIncompleteStore
 }
 
 type Handler struct {

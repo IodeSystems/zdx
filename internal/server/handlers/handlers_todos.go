@@ -2,7 +2,11 @@ package handlers
 
 import (
 	"context"
+	"crypto/sha256"
+	"encoding/json"
+	"fmt"
 	"net/http"
+	"sort"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -84,6 +88,55 @@ Claim before starting: dx todo take --agent-id=<id>`
 	default:
 		return ""
 	}
+}
+
+var validIncompleteReasons = map[string]bool{
+	"capability_gap":           true,
+	"ambiguous_spec":           true,
+	"external_dep":             true,
+	"needs_decision":           true,
+	"permission_denied":        true,
+	"environment_broken":       true,
+	"preexisting_test_failure": true,
+	"flaky_test":               true,
+}
+
+func incompleteEvidenceFingerprint(m map[string]string) string {
+	keys := make([]string, 0, len(m))
+	for k := range m {
+		keys = append(keys, k)
+	}
+	sort.Strings(keys)
+	pairs := make([][2]string, len(keys))
+	for i, k := range keys {
+		pairs[i] = [2]string{k, m[k]}
+	}
+	b, _ := json.Marshal(pairs)
+	sum := sha256.Sum256(b)
+	return fmt.Sprintf("%x", sum[:])
+}
+
+func (h *Handler) todoIncompleteStore() TodoIncompleteStore {
+	if h.TodoIncompleteStore != nil {
+		return h.TodoIncompleteStore
+	}
+	if h.Q != nil {
+		return h.Q
+	}
+	return nil
+}
+
+type IncompleteReportItem struct {
+	ID                  int64  `json:"id"`
+	ProjectID           int32  `json:"project_id"`
+	TodoID              int32  `json:"todo_id"`
+	Reason              string `json:"reason"`
+	Explanation         string `json:"explanation"`
+	SuggestedNext       string `json:"suggested_next,omitempty"`
+	Evidence            string `json:"evidence,omitempty"`
+	EvidenceFingerprint string `json:"evidence_fingerprint"`
+	AgentID             string `json:"agent_id,omitempty"`
+	CreatedAt           string `json:"created_at"`
 }
 
 func (h *Handler) registerTodoRoutes(api huma.API) {
@@ -181,5 +234,120 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 				Reservations: reservations,
 				Sessions:     sessions,
 			}}, nil
+		})
+
+	type postIncompleteReportInput struct {
+		Slug string `path:"slug"`
+		Key  string `path:"key"`
+		Body struct {
+			Reason        string            `json:"reason"`
+			Explanation   string            `json:"explanation"`
+			SuggestedNext string            `json:"suggested_next,omitempty"`
+			Evidence      map[string]string `json:"evidence,omitempty"`
+			AgentID       string            `json:"agent_id,omitempty"`
+		}
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "post-todo-incomplete-report", Method: http.MethodPost, Path: "/api/dx/projects/{slug}/todos/{key}/incomplete-reports"},
+		func(ctx context.Context, in *postIncompleteReportInput) (*struct{ Body IncompleteReportItem }, error) {
+			if !validIncompleteReasons[in.Body.Reason] {
+				return nil, apiErr(http.StatusBadRequest, "reason must be one of: capability_gap, ambiguous_spec, external_dep, needs_decision, permission_denied, environment_broken, preexisting_test_failure, flaky_test")
+			}
+			store := h.todoIncompleteStore()
+			p, err := store.GetProjectBySlug(ctx, in.Slug)
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
+			}
+			t, err := store.GetTodoByKey(ctx, db.GetTodoByKeyParams{ProjectID: p.ID, Key: in.Key})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "todo not found: "+in.Key)
+			}
+
+			fp := incompleteEvidenceFingerprint(in.Body.Evidence)
+
+			var suggestedNextJSON []byte
+			if in.Body.SuggestedNext != "" {
+				suggestedNextJSON, _ = json.Marshal(map[string]string{"text": in.Body.SuggestedNext})
+			} else {
+				suggestedNextJSON = []byte("null")
+			}
+			var evidenceJSON []byte
+			if len(in.Body.Evidence) > 0 {
+				evidenceJSON, _ = json.Marshal(in.Body.Evidence)
+			} else {
+				evidenceJSON = []byte("null")
+			}
+
+			row, err := store.AddTodoIncompleteReport(ctx, db.AddTodoIncompleteReportParams{
+				ProjectID:           p.ID,
+				TodoID:              t.ID,
+				Reason:              in.Body.Reason,
+				Explanation:         in.Body.Explanation,
+				SuggestedNext:       suggestedNextJSON,
+				Evidence:            evidenceJSON,
+				EvidenceFingerprint: fp,
+				AgentID:             in.Body.AgentID,
+			})
+			if err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+
+			item := IncompleteReportItem{
+				ID:                  row.ID,
+				ProjectID:           row.ProjectID,
+				TodoID:              row.TodoID,
+				Reason:              row.Reason,
+				Explanation:         row.Explanation,
+				EvidenceFingerprint: row.EvidenceFingerprint,
+				AgentID:             row.AgentID,
+				CreatedAt:           fmtTS(row.CreatedAt),
+			}
+			if len(row.SuggestedNext) > 0 && string(row.SuggestedNext) != "null" {
+				item.SuggestedNext = string(row.SuggestedNext)
+			}
+			if len(row.Evidence) > 0 && string(row.Evidence) != "null" {
+				item.Evidence = string(row.Evidence)
+			}
+			return &struct{ Body IncompleteReportItem }{Body: item}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-todo-incomplete-reports", Method: http.MethodGet, Path: "/api/dx/projects/{slug}/todos/{key}/incomplete-reports"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug"`
+			Key  string `path:"key"`
+		}) (*struct{ Body []IncompleteReportItem }, error) {
+			store := h.todoIncompleteStore()
+			p, err := store.GetProjectBySlug(ctx, in.Slug)
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
+			}
+			t, err := store.GetTodoByKey(ctx, db.GetTodoByKeyParams{ProjectID: p.ID, Key: in.Key})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "todo not found: "+in.Key)
+			}
+			rows, err := store.GetTodoIncompleteReportsByTodo(ctx, t.ID)
+			if err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			items := make([]IncompleteReportItem, len(rows))
+			for i, row := range rows {
+				items[i] = IncompleteReportItem{
+					ID:                  row.ID,
+					ProjectID:           row.ProjectID,
+					TodoID:              row.TodoID,
+					Reason:              row.Reason,
+					Explanation:         row.Explanation,
+					EvidenceFingerprint: row.EvidenceFingerprint,
+					AgentID:             row.AgentID,
+					CreatedAt:           fmtTS(row.CreatedAt),
+				}
+				if len(row.SuggestedNext) > 0 && string(row.SuggestedNext) != "null" {
+					items[i].SuggestedNext = string(row.SuggestedNext)
+				}
+				if len(row.Evidence) > 0 && string(row.Evidence) != "null" {
+					items[i].Evidence = string(row.Evidence)
+				}
+			}
+			return &struct{ Body []IncompleteReportItem }{Body: items}, nil
 		})
 }
