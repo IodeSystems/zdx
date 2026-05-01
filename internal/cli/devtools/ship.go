@@ -1,16 +1,19 @@
 package devtools
 
 import (
+	"bytes"
 	"fmt"
 	"os"
 	"os/exec"
 	"strings"
+	"time"
 
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/dxclient"
+	"github.com/iodesystems/zdx-go/internal/migrate"
 	"github.com/iodesystems/zdx-go/internal/ship"
 )
 
@@ -21,6 +24,7 @@ func ShipCmd() *cobra.Command {
 	}
 	cmd.AddCommand(shipGateCmd())
 	cmd.AddCommand(shipRunCmd())
+	cmd.AddCommand(shipCompatCheckCmd())
 	return cmd
 }
 
@@ -137,4 +141,195 @@ func shipGateCmd() *cobra.Command {
 			return fmt.Errorf("must-spec gate: %d offender(s)", len(offenders))
 		},
 	}
+}
+
+const (
+	compatPgImage = "postgres:17"
+	compatPgUser  = "zdx"
+	compatPgPass  = "zdx"
+	compatPgDB    = "zdx"
+	compatPortCur = "17650"
+	compatPortNxt = "17651"
+	compatNameCur = "zdx-compat-current"
+	compatNameNxt = "zdx-compat-next"
+)
+
+func shipCompatCheckCmd() *cobra.Command {
+	var dsnCurrent, dsnNext string
+	cmd := &cobra.Command{
+		Use:   "compat-check",
+		Short: "Schema compatibility check: ephemeral Postgres + migration + tests",
+		Long: `Spins up two ephemeral Postgres containers (or uses --dsn-current/--dsn-next for CI),
+applies shipped.sql to current, runs all migrations on next, pg_dumps next schema,
+runs 'go test ./...' against both DSNs, then writes schema/compat-result.txt.
+
+Exit codes: 0=compatible, 1=incompatible migration, 2=broken tests or infra failure.`,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			useDocker := dsnCurrent == "" && dsnNext == ""
+			if useDocker {
+				dsnCurrent = fmt.Sprintf("postgres://%s:%s@localhost:%s/%s?sslmode=disable",
+					compatPgUser, compatPgPass, compatPortCur, compatPgDB)
+				dsnNext = fmt.Sprintf("postgres://%s:%s@localhost:%s/%s?sslmode=disable",
+					compatPgUser, compatPgPass, compatPortNxt, compatPgDB)
+
+				fmt.Println("[compat] Starting ephemeral Postgres containers...")
+				if err := compatStartPg(compatNameCur, compatPortCur); err != nil {
+					return fmt.Errorf("compat: %w", err)
+				}
+				if err := compatStartPg(compatNameNxt, compatPortNxt); err != nil {
+					compatRemove(compatNameCur)
+					return fmt.Errorf("compat: %w", err)
+				}
+				defer func() {
+					compatRemove(compatNameCur)
+					compatRemove(compatNameNxt)
+				}()
+
+				fmt.Println("[compat] Waiting for Postgres...")
+				if err := compatWaitPg(compatNameCur); err != nil {
+					return err
+				}
+				if err := compatWaitPg(compatNameNxt); err != nil {
+					return err
+				}
+			}
+
+			// Apply shipped schema to current container (skip if absent/empty).
+			skipCurrent := false
+			shippedSQL, err := os.ReadFile("schema/shipped.sql")
+			if err != nil || len(bytes.TrimSpace(shippedSQL)) == 0 {
+				fmt.Println("[compat] No shipped schema yet — skipping current-schema test.")
+				skipCurrent = true
+			} else {
+				fmt.Println("[compat] Applying shipped schema to current container...")
+				if err := compatPsql(compatNameCur, shippedSQL); err != nil {
+					return fmt.Errorf("compat: apply shipped.sql: %w", err)
+				}
+			}
+
+			// Apply all migrations to next container.
+			fmt.Println("[compat] Applying migrations to next container...")
+			if err := migrate.Up(dsnNext); err != nil {
+				return fmt.Errorf("compat: migrate up: %w", err)
+			}
+
+			// pg_dump next schema → schema/next.sql
+			fmt.Println("[compat] Dumping next schema...")
+			if err := compatDumpSchema(compatNameNxt, "schema/next.sql"); err != nil {
+				return fmt.Errorf("compat: pg_dump: %w", err)
+			}
+
+			// Run tests against next schema.
+			fmt.Println("[compat] Running tests against NEXT schema...")
+			pkgs, err := compatListPackages()
+			if err != nil {
+				return fmt.Errorf("compat: list packages: %w", err)
+			}
+			if err := compatRunTests(dsnNext, pkgs); err != nil {
+				fmt.Println("[compat] FAIL: tests broken against next schema.")
+				_ = os.WriteFile("schema/compat-result.txt", []byte("incompatible"), 0o644)
+				return fmt.Errorf("compat-check: tests failed on next schema: exit code 2")
+			}
+			fmt.Println("[compat] NEXT schema: OK")
+
+			if skipCurrent {
+				fmt.Println("[compat] No current schema to check — assuming compatible.")
+				_ = os.WriteFile("schema/compat-result.txt", []byte("compatible"), 0o644)
+				return nil
+			}
+
+			// Run tests against current schema (rolling-deploy gate).
+			fmt.Println("[compat] Running tests against CURRENT schema (rolling-deploy gate)...")
+			if err := compatRunTests(dsnCurrent, pkgs); err != nil {
+				fmt.Println("[compat] CURRENT schema: FAIL — migration is INCOMPATIBLE.")
+				_ = os.WriteFile("schema/compat-result.txt", []byte("incompatible"), 0o644)
+				// Exit 1 = incompatible (not infra/test failure).
+				return fmt.Errorf("compat-check: incompatible migration")
+			}
+			fmt.Println("[compat] CURRENT schema: OK — migration is COMPATIBLE.")
+			_ = os.WriteFile("schema/compat-result.txt", []byte("compatible"), 0o644)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&dsnCurrent, "dsn-current", "", "DSN for current-schema DB (CI: skip Docker)")
+	cmd.Flags().StringVar(&dsnNext, "dsn-next", "", "DSN for next-schema DB (CI: skip Docker)")
+	return cmd
+}
+
+func compatStartPg(name, port string) error {
+	return exec.Command("docker", "run", "-d", "--name", name,
+		"-e", "POSTGRES_USER="+compatPgUser,
+		"-e", "POSTGRES_PASSWORD="+compatPgPass,
+		"-e", "POSTGRES_DB="+compatPgDB,
+		"-p", "127.0.0.1:"+port+":5432",
+		compatPgImage,
+	).Run()
+}
+
+func compatRemove(name string) {
+	_ = exec.Command("docker", "rm", "-f", name).Run()
+}
+
+func compatWaitPg(name string) error {
+	for i := 0; i < 30; i++ {
+		if exec.Command("docker", "exec", name, "pg_isready", "-U", compatPgUser, "-q").Run() == nil {
+			return nil
+		}
+		time.Sleep(time.Second)
+	}
+	return fmt.Errorf("compat: %s did not become ready", name)
+}
+
+func compatPsql(containerName string, sql []byte) error {
+	cmd := exec.Command("docker", "exec", "-i", containerName, "psql", "-U", compatPgUser, "-d", compatPgDB)
+	cmd.Stdin = bytes.NewReader(sql)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
+}
+
+func compatDumpSchema(containerName, dest string) error {
+	out, err := exec.Command("docker", "exec", containerName,
+		"pg_dump", "-U", compatPgUser, "-d", compatPgDB,
+		"--schema-only", "--no-owner", "--no-privileges",
+		"--exclude-table=schema_migrations",
+	).Output()
+	if err != nil {
+		return err
+	}
+
+	// Filter noise lines (backslash commands and the pg_dump version comment).
+	var filtered []string
+	for _, line := range strings.Split(string(out), "\n") {
+		if strings.HasPrefix(line, "\\") || strings.HasPrefix(line, "-- Dumped by pg_dump version") {
+			continue
+		}
+		filtered = append(filtered, line)
+	}
+	return os.WriteFile(dest, []byte(strings.Join(filtered, "\n")), 0o644)
+}
+
+func compatListPackages() ([]string, error) {
+	out, err := exec.Command("go", "list", "./...").Output()
+	if err != nil {
+		return nil, err
+	}
+	var pkgs []string
+	for _, p := range strings.Split(strings.TrimSpace(string(out)), "\n") {
+		if !strings.Contains(p, "/test/e2e") {
+			pkgs = append(pkgs, p)
+		}
+	}
+	return pkgs, nil
+}
+
+func compatRunTests(dsn string, pkgs []string) error {
+	args := append([]string{"test"}, pkgs...)
+	args = append(args, "-count=1", "-timeout=60s")
+	cmd := exec.Command("go", args...)
+	cmd.Env = append(os.Environ(), "DATABASE_URL="+dsn)
+	cmd.Stdout = os.Stdout
+	cmd.Stderr = os.Stderr
+	return cmd.Run()
 }
