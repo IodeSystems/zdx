@@ -15,14 +15,8 @@ import (
 // Pre-refactor (TK-1473): all five subtests fail because the handlers only
 // call h.Emb.TopN* which returns nil when no LLM is configured.
 // Post-refactor: text fallback surfaces seeded items via SearchXxx queries.
-//
-// SKIP GUARD: this test is the IS-808 acceptance pin and lands BEFORE
-// TK-1473's refactor. Without the skip, every worker on `dev` would hit a
-// red merge-train until the refactor merges. The worker that closes TK-1473
-// must remove this t.Skip line — see TK-1473 plan step 5 (verify).
 func TestFindSimilar_EmbedderOffline_TextFallback(t *testing.T) {
 	requiresAPI(t)
-	t.Skip("IS-808/TK-1474: enable when TK-1473 lands the hybrid text+vector refactor")
 
 	// Defensively clear any LLM config a prior test failed to clean up.
 	// findSimilar*'s degraded-path contract is "no LLM client" — registering

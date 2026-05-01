@@ -6,18 +6,36 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
-// findSimilarIssues embeds queryText and returns the top-n similar open issues.
+// Hybrid text+vector pattern: text search first (errors ignored, embedder-offline
+// tolerant), then vector-augment (errors ignored). Dedup by ID; matched_via
+// tracks the source — "text", "vector", or "both" when an ID surfaces in both.
+
+// findSimilarIssues runs text search + vector and returns up to n similar issues.
+// Tracker-type issues are excluded from both paths.
 func (h *Handler) findSimilarIssues(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarIssueItem, error) {
-	results, err := h.Emb.TopN(ctx, projectID, queryText, n)
-	if err != nil {
-		return nil, err
+	seen := map[string]int{} // id -> index in out
+	out := make([]SimilarIssueItem, 0, n)
+
+	rows, _ := h.Q.SearchIssues(ctx, db.SearchIssuesParams{ProjectID: projectID, Query: queryText})
+	for _, r := range rows {
+		if r.IssueType == "tracker" {
+			continue
+		}
+		if _, exists := seen[r.ID]; exists {
+			continue
+		}
+		seen[r.ID] = len(out)
+		out = append(out, SimilarIssueItem{ID: r.ID, Title: r.Title, Context: r.Context, Status: r.Status, MatchedVia: "text"})
 	}
-	if len(results) == 0 {
-		return []SimilarIssueItem{}, nil
-	}
-	out := make([]SimilarIssueItem, 0, len(results))
+
+	results, _ := h.Emb.TopN(ctx, projectID, queryText, n)
 	for _, r := range results {
 		id := issueIDFromInt(int32(r.ID)) //nolint:gosec
+		if idx, exists := seen[id]; exists {
+			out[idx].MatchedVia = "both"
+			out[idx].Score = r.Score
+			continue
+		}
 		iss, err := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: projectID, ID: id})
 		if err != nil {
 			continue // stale index entry — skip
@@ -25,31 +43,58 @@ func (h *Handler) findSimilarIssues(ctx context.Context, projectID int32, queryT
 		if iss.IssueType == "tracker" {
 			continue
 		}
-		out = append(out, SimilarIssueItem{ID: id, Title: iss.Title, Context: iss.Context, Status: iss.Status, Score: r.Score})
+		seen[id] = len(out)
+		out = append(out, SimilarIssueItem{ID: id, Title: iss.Title, Context: iss.Context, Status: iss.Status, Score: r.Score, MatchedVia: "vector"})
+	}
+
+	if len(out) > n {
+		out = out[:n]
 	}
 	return out, nil
 }
 
 func (h *Handler) findSimilarQuestions(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarQuestionItem, error) {
-	results, err := h.Emb.TopNQuestions(ctx, projectID, queryText, n)
-	if err != nil {
-		return nil, err
+	seen := map[int32]int{}
+	out := make([]SimilarQuestionItem, 0, n)
+
+	rows, _ := h.Q.SearchQuestions(ctx, db.SearchQuestionsParams{ProjectID: projectID, Query: queryText})
+	for _, r := range rows {
+		if _, exists := seen[r.ID]; exists {
+			continue
+		}
+		seen[r.ID] = len(out)
+		out = append(out, SimilarQuestionItem{
+			ID:         r.ID,
+			Question:   r.Question,
+			Answer:     r.Answer.String,
+			MatchedVia: "text",
+		})
 	}
-	if len(results) == 0 {
-		return []SimilarQuestionItem{}, nil
-	}
-	out := make([]SimilarQuestionItem, 0, len(results))
+
+	results, _ := h.Emb.TopNQuestions(ctx, projectID, queryText, n)
 	for _, r := range results {
-		q, err := h.Q.GetQuestion(ctx, db.GetQuestionParams{ProjectID: projectID, ID: int32(r.ID)}) //nolint:gosec
+		id := int32(r.ID) //nolint:gosec
+		if idx, exists := seen[id]; exists {
+			out[idx].MatchedVia = "both"
+			out[idx].Score = r.Score
+			continue
+		}
+		q, err := h.Q.GetQuestion(ctx, db.GetQuestionParams{ProjectID: projectID, ID: id})
 		if err != nil {
 			continue
 		}
+		seen[id] = len(out)
 		out = append(out, SimilarQuestionItem{
-			ID:       q.ID,
-			Question: q.Question,
-			Answer:   q.Answer.String,
-			Score:    r.Score,
+			ID:         q.ID,
+			Question:   q.Question,
+			Answer:     q.Answer.String,
+			Score:      r.Score,
+			MatchedVia: "vector",
 		})
+	}
+
+	if len(out) > n {
+		out = out[:n]
 	}
 	return out, nil
 }
@@ -61,7 +106,6 @@ func (h *Handler) findSimilarProposals(ctx context.Context, projectID int32, que
 	}
 	out := make([]SimilarProposalItem, 0, n)
 
-	// text search first
 	rows, _ := h.Q.SearchProposals(ctx, db.SearchProposalsParams{ProjectID: projectID, Query: queryText})
 	for _, r := range rows {
 		if _, exists := seen[r.ID]; exists {
@@ -71,7 +115,6 @@ func (h *Handler) findSimilarProposals(ctx context.Context, projectID int32, que
 		out = append(out, SimilarProposalItem{ID: r.ID, Title: r.Title, Body: r.Body, Status: r.Status, MatchedVia: "text"})
 	}
 
-	// vector search
 	results, _ := h.Emb.TopNProposals(ctx, projectID, queryText, n)
 	for _, r := range results {
 		id := int32(r.ID) //nolint:gosec
@@ -100,19 +143,38 @@ func (h *Handler) findSimilarProposals(ctx context.Context, projectID int32, que
 }
 
 func (h *Handler) findSimilarFeatures(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarFeatureItem, error) {
-	results, err := h.Emb.TopNFeatures(ctx, projectID, queryText, n)
-	if err != nil {
-		return nil, err
+	seen := map[int32]int{}
+	out := make([]SimilarFeatureItem, 0, n)
+
+	rows, _ := h.Q.SearchFeatures(ctx, db.SearchFeaturesParams{ProjectID: projectID, Query: queryText})
+	for _, r := range rows {
+		if _, exists := seen[r.ID]; exists {
+			continue
+		}
+		seen[r.ID] = len(out)
+		out = append(out, SimilarFeatureItem{
+			ID:          r.ID,
+			Name:        r.Name,
+			Description: r.Description,
+			Category:    r.Category,
+			Kind:        r.Kind,
+			MatchedVia:  "text",
+		})
 	}
-	if len(results) == 0 {
-		return []SimilarFeatureItem{}, nil
-	}
-	out := make([]SimilarFeatureItem, 0, len(results))
+
+	results, _ := h.Emb.TopNFeatures(ctx, projectID, queryText, n)
 	for _, r := range results {
-		row, err := h.Q.GetFeatureByID(ctx, int32(r.ID)) //nolint:gosec
+		id := int32(r.ID) //nolint:gosec
+		if idx, exists := seen[id]; exists {
+			out[idx].MatchedVia = "both"
+			out[idx].Score = r.Score
+			continue
+		}
+		row, err := h.Q.GetFeatureByID(ctx, id)
 		if err != nil || row.ProjectID != projectID {
 			continue
 		}
+		seen[id] = len(out)
 		out = append(out, SimilarFeatureItem{
 			ID:          row.ID,
 			Name:        row.Name,
@@ -120,22 +182,45 @@ func (h *Handler) findSimilarFeatures(ctx context.Context, projectID int32, quer
 			Category:    row.Category,
 			Kind:        row.Kind,
 			Score:       r.Score,
+			MatchedVia:  "vector",
 		})
+	}
+
+	if len(out) > n {
+		out = out[:n]
 	}
 	return out, nil
 }
 
 func (h *Handler) findSimilarSpecs(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarSpecItem, error) {
-	results, err := h.Emb.TopNSpecs(ctx, projectID, queryText, n)
-	if err != nil {
-		return nil, err
+	seen := map[int32]int{}
+	out := make([]SimilarSpecItem, 0, n)
+
+	rows, _ := h.Q.SearchSpecs(ctx, db.SearchSpecsParams{ProjectID: projectID, Query: queryText})
+	for _, r := range rows {
+		if _, exists := seen[r.ID]; exists {
+			continue
+		}
+		seen[r.ID] = len(out)
+		out = append(out, SimilarSpecItem{
+			ID:          r.ID,
+			FeatureID:   r.FeatureID,
+			FeatureName: r.FeatureName,
+			Description: r.Description,
+			Importance:  r.Importance,
+			MatchedVia:  "text",
+		})
 	}
-	if len(results) == 0 {
-		return []SimilarSpecItem{}, nil
-	}
-	out := make([]SimilarSpecItem, 0, len(results))
+
+	results, _ := h.Emb.TopNSpecs(ctx, projectID, queryText, n)
 	for _, r := range results {
-		spec, err := h.Q.GetSpec(ctx, int32(r.ID)) //nolint:gosec
+		id := int32(r.ID) //nolint:gosec
+		if idx, exists := seen[id]; exists {
+			out[idx].MatchedVia = "both"
+			out[idx].Score = r.Score
+			continue
+		}
+		spec, err := h.Q.GetSpec(ctx, id)
 		if err != nil {
 			continue
 		}
@@ -143,6 +228,7 @@ func (h *Handler) findSimilarSpecs(ctx context.Context, projectID int32, queryTe
 		if err != nil || feat.ProjectID != projectID {
 			continue
 		}
+		seen[id] = len(out)
 		out = append(out, SimilarSpecItem{
 			ID:          spec.ID,
 			FeatureID:   spec.FeatureID,
@@ -150,27 +236,64 @@ func (h *Handler) findSimilarSpecs(ctx context.Context, projectID int32, queryTe
 			Description: spec.Description,
 			Importance:  spec.Importance,
 			Score:       r.Score,
+			MatchedVia:  "vector",
 		})
+	}
+
+	if len(out) > n {
+		out = out[:n]
 	}
 	return out, nil
 }
 
 func (h *Handler) findSimilarTasks(ctx context.Context, projectID int32, queryText string, n int) ([]SimilarTaskItem, error) {
-	results, err := h.Emb.TopNTasks(ctx, projectID, queryText, n)
-	if err != nil {
-		return nil, err
+	seen := map[string]int{}
+	out := make([]SimilarTaskItem, 0, n)
+
+	rows, _ := h.Q.SearchTasks(ctx, db.SearchTasksParams{ProjectID: projectID, Query: queryText})
+	for _, r := range rows {
+		if _, exists := seen[r.ID]; exists {
+			continue
+		}
+		seen[r.ID] = len(out)
+		out = append(out, SimilarTaskItem{
+			ID:         r.ID,
+			Title:      r.Title,
+			Text:       r.Text,
+			Status:     r.Status,
+			Reason:     r.Reason,
+			Issue:      r.Issue,
+			MatchedVia: "text",
+		})
 	}
-	if len(results) == 0 {
-		return []SimilarTaskItem{}, nil
-	}
-	out := make([]SimilarTaskItem, 0, len(results))
+
+	results, _ := h.Emb.TopNTasks(ctx, projectID, queryText, n)
 	for _, r := range results {
 		id := taskIDFromInt(int32(r.ID)) //nolint:gosec
+		if idx, exists := seen[id]; exists {
+			out[idx].MatchedVia = "both"
+			out[idx].Score = r.Score
+			continue
+		}
 		task, err := h.Q.GetTask(ctx, id)
 		if err != nil {
 			continue
 		}
-		out = append(out, SimilarTaskItem{ID: id, Title: task.Title, Text: task.Text, Status: task.Status, Reason: task.Reason, Issue: task.Issue, Score: r.Score})
+		seen[id] = len(out)
+		out = append(out, SimilarTaskItem{
+			ID:         id,
+			Title:      task.Title,
+			Text:       task.Text,
+			Status:     task.Status,
+			Reason:     task.Reason,
+			Issue:      task.Issue,
+			Score:      r.Score,
+			MatchedVia: "vector",
+		})
+	}
+
+	if len(out) > n {
+		out = out[:n]
 	}
 	return out, nil
 }
