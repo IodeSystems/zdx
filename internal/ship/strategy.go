@@ -31,6 +31,8 @@ func dispatch(comp config.Component) Strategy {
 		return blueGreenStrategy{}
 	case config.ShipStrategyMaintenance:
 		return maintenanceStrategy{}
+	case config.ShipStrategyRollingPair:
+		return rollingPairStrategy{}
 	}
 	panic(fmt.Sprintf("ship: no Strategy registered for %q (config validated but dispatch did not)", comp.Ship.Strategy))
 }

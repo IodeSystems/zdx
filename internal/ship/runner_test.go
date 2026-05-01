@@ -260,6 +260,60 @@ func TestRun_Maintenance(t *testing.T) {
 	}
 }
 
+// TestRun_RollingPair verifies the two-pass rolling-pair flow: pass 1
+// runs every stage with ZDX_PHASE=current and ZDX_SLOT from ZDX_SLOT_A;
+// pass 2 re-runs every stage with ZDX_PHASE=next and ZDX_SLOT from
+// ZDX_SLOT_B.
+func TestRun_RollingPair(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyRollingPair,
+		Stages: []config.Stage{
+			{Name: "deploy", Run: `echo $ZDX_PHASE-$ZDX_SLOT`},
+		},
+	}}
+	env := map[string]string{
+		"ZDX_SLOT_A": "a0",
+		"ZDX_SLOT_B": "b1",
+	}
+	res, err := Run(context.Background(), comp, env)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("want 2 results (1 current + 1 next), got %d", len(res))
+	}
+	if got := strings.TrimSpace(res[0].Log); got != "current-a0" {
+		t.Errorf("pass1 log = %q, want current-a0", got)
+	}
+	if got := strings.TrimSpace(res[1].Log); got != "next-b1" {
+		t.Errorf("pass2 log = %q, want next-b1", got)
+	}
+}
+
+// TestRun_RollingPair_FirstPassFailureSkipsSecond verifies that a
+// non-optional failure in pass 1 halts before pass 2 runs.
+func TestRun_RollingPair_FirstPassFailureSkipsSecond(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyRollingPair,
+		Stages: []config.Stage{
+			{Name: "deploy", Run: "exit 1"},
+		},
+	}}
+	res, err := Run(context.Background(), comp, map[string]string{
+		"ZDX_SLOT_A": "a0",
+		"ZDX_SLOT_B": "b1",
+	})
+	if err == nil {
+		t.Fatalf("want error, got nil")
+	}
+	if len(res) != 1 {
+		t.Fatalf("want 1 result (first pass halts), got %d", len(res))
+	}
+	if res[0].Status != "failed" {
+		t.Errorf("status = %q, want failed", res[0].Status)
+	}
+}
+
 // TestRun_SSH_FakeSSH exercises the SSH path end-to-end with a fake `ssh`
 // shim on PATH that just echoes its argv. Hermetic — gated only because
 // it modifies $PATH for the test process.
