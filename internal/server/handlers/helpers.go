@@ -90,7 +90,16 @@ func apiErr(status int, msg string) huma.StatusError {
 // huma error shape used by handlers.
 func APIErr(status int, msg string) huma.StatusError { return apiErr(status, msg) }
 
-func getProject(ctx context.Context, q *db.Queries, slug string) (db.ZdxProject, error) {
+// projectBySlugGetter is the minimal db surface getProject needs; *db.Queries
+// implements it. Extracted so handler tests can stub the lookup.
+type projectBySlugGetter interface {
+	GetProjectBySlug(ctx context.Context, slug string) (db.ZdxProject, error)
+}
+
+func getProject(ctx context.Context, q projectBySlugGetter, slug string) (db.ZdxProject, error) {
+	if !IsInProjectScope(ctx, slug) {
+		return db.ZdxProject{}, huma.NewError(http.StatusForbidden, "project not in token scope")
+	}
 	p, err := q.GetProjectBySlug(ctx, slug)
 	if err != nil {
 		return p, huma.NewError(http.StatusNotFound, "project not found: "+slug)

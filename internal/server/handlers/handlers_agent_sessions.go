@@ -267,6 +267,10 @@ func (h *Handler) handleAgentSessionEvents(w http.ResponseWriter, r *http.Reques
 		return
 	}
 
+	if !IsInProjectScope(ctx, slug) {
+		http.Error(w, `{"title":"Forbidden","status":403,"detail":"project not in token scope"}`, http.StatusForbidden)
+		return
+	}
 	p, err := h.Q.GetProjectBySlug(ctx, slug)
 	if err != nil {
 		http.Error(w, `{"title":"Not Found","status":404,"detail":"project not found"}`, http.StatusNotFound)
