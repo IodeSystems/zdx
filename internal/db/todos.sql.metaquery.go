@@ -228,6 +228,31 @@ var ClaimNextTodoCols = struct {
 	TargetBranch:     metaquery.NewTextCol("target_branch"),
 }
 
+var MetaCountUnclaimedTodos = metaquery.Query{
+	Name:   "CountUnclaimedTodos",
+	Cmd:    ":one",
+	Source: "todos.sql",
+	SQL: `SELECT COUNT(*) FROM zdx_todos
+WHERE status = 'open'
+  AND blocked = false
+  AND (claimed_by = '' OR lease_expires_at < NOW())`,
+	Columns: []metaquery.Column{
+		{Name: "count", OriginalName: "count", GoType: "int64"},
+	},
+}
+
+// WrapCountUnclaimedTodos returns a metaquery.Builder over MetaCountUnclaimedTodos, pre-bound with typed arguments.
+func WrapCountUnclaimedTodos() *metaquery.Builder {
+	return metaquery.Wrap(&MetaCountUnclaimedTodos)
+}
+
+// CountUnclaimedTodosCols gives typed, name-safe access to CountUnclaimedTodos's output columns.
+var CountUnclaimedTodosCols = struct {
+	Count metaquery.IntCol
+}{
+	Count: metaquery.NewIntCol("count"),
+}
+
 var MetaCreateTodo = metaquery.Query{
 	Name:   "CreateTodo",
 	Cmd:    ":one",

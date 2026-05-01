@@ -75,6 +75,9 @@ type Querier interface {
 	CountRevisionsBySession(ctx context.Context, arg CountRevisionsBySessionParams) (int64, error)
 	CountStaleOpenClaudeSessions(ctx context.Context, arg CountStaleOpenClaudeSessionsParams) (int64, error)
 	CountSubstantiveIssueWork(ctx context.Context, issueID string) (int64, error)
+	// Count open, unblocked todos that are not currently claimed (or whose lease has expired).
+	// Used by the /api/health queue subsystem probe to surface backlog depth.
+	CountUnclaimedTodos(ctx context.Context) (int64, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
 	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)

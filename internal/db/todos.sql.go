@@ -180,6 +180,22 @@ func (q *Queries) ClaimNextTodo(ctx context.Context, arg ClaimNextTodoParams) (C
 	return i, err
 }
 
+const countUnclaimedTodos = `-- name: CountUnclaimedTodos :one
+SELECT COUNT(*) FROM zdx_todos
+WHERE status = 'open'
+  AND blocked = false
+  AND (claimed_by = '' OR lease_expires_at < NOW())
+`
+
+// Count open, unblocked todos that are not currently claimed (or whose lease has expired).
+// Used by the /api/health queue subsystem probe to surface backlog depth.
+func (q *Queries) CountUnclaimedTodos(ctx context.Context) (int64, error) {
+	row := q.db.QueryRow(ctx, countUnclaimedTodos)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTodo = `-- name: CreateTodo :one
 INSERT INTO zdx_todos (project_id, text, title, description, key, persona, priority, status,
                        target_type, target_id, kind, issue_ref, blocked, blocked_reason)
