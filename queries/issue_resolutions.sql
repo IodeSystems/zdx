@@ -36,3 +36,16 @@ ORDER BY r.resolved_at DESC;
 
 -- name: CountIssueResolutions :one
 SELECT count(*) FROM zdx_issue_resolutions WHERE issue_id = $1;
+
+-- name: ListUnresolvedNamedBranchesForIssue :many
+SELECT vb.name
+FROM zdx_version_branches vb
+WHERE vb.project_id = $1
+  AND vb.type = 'named'
+  AND vb.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_issue_resolutions r
+    WHERE r.issue_id = $2
+      AND r.branch_of_origin = vb.name
+  )
+ORDER BY vb.name;

@@ -501,6 +501,15 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 					}
 				}
 			}
+			if !force {
+				unresolvedBranches, _ := h.Q.ListUnresolvedNamedBranchesForIssue(ctx, db.ListUnresolvedNamedBranchesForIssueParams{
+					ProjectID: p.ID,
+					IssueID:   issueID,
+				})
+				if len(unresolvedBranches) > 0 {
+					return nil, apiErr(422, "unresolved_branches: "+strings.Join(unresolvedBranches, ", "))
+				}
+			}
 			prevStatus := "open"
 			if issue, gErr := h.Q.GetIssue(ctx, db.GetIssueParams{ProjectID: p.ID, ID: issueID}); gErr == nil {
 				prevStatus = issue.Status
