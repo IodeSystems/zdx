@@ -19,7 +19,7 @@ import (
 // in any verify stage.
 type blueGreenStrategy struct{}
 
-func (blueGreenStrategy) Run(ctx context.Context, comp config.Component, env map[string]string) ([]StageResult, error) {
+func (blueGreenStrategy) Run(ctx context.Context, comp config.Component, env map[string]string, _ RunOptions) ([]StageResult, error) {
 	active := env["ZDX_ACTIVE_SLOT"]
 	standby := env["ZDX_STANDBY_SLOT"]
 
@@ -27,7 +27,7 @@ func (blueGreenStrategy) Run(ctx context.Context, comp config.Component, env map
 		"ZDX_ACTIVE_SLOT":  active,
 		"ZDX_STANDBY_SLOT": standby,
 	}
-	results, err := runStages(ctx, comp, env, deployEnv, comp.Ship.Stages)
+	results, err := runStages(ctx, comp, env, deployEnv, comp.Ship.Stages, nil, "")
 	if err != nil {
 		return results, err
 	}
@@ -41,7 +41,7 @@ func (blueGreenStrategy) Run(ctx context.Context, comp config.Component, env map
 		"ZDX_ACTIVE_SLOT":  standby,
 		"ZDX_STANDBY_SLOT": active,
 	}
-	verifyResults, err := runStages(ctx, comp, env, verifyEnv, verifyStages)
+	verifyResults, err := runStages(ctx, comp, env, verifyEnv, verifyStages, nil, "")
 	results = append(results, verifyResults...)
 	if err != nil {
 		return results, err

@@ -10,6 +10,6 @@ import (
 // env injection. This is the default when comp.Ship.Strategy is empty.
 type simpleStrategy struct{}
 
-func (simpleStrategy) Run(ctx context.Context, comp config.Component, env map[string]string) ([]StageResult, error) {
-	return runStages(ctx, comp, env, nil, comp.Ship.Stages)
+func (simpleStrategy) Run(ctx context.Context, comp config.Component, env map[string]string, _ RunOptions) ([]StageResult, error) {
+	return runStages(ctx, comp, env, nil, comp.Ship.Stages, nil, "")
 }

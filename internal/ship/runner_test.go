@@ -15,7 +15,7 @@ func TestRun_LocalSuccess(t *testing.T) {
 		{Name: "one", Run: "echo ok-one"},
 		{Name: "two", Run: "echo ok-two"},
 	}}}
-	res, err := Run(context.Background(), comp, nil)
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -42,7 +42,7 @@ func TestRun_EnvInjection(t *testing.T) {
 	res, err := Run(context.Background(), comp, map[string]string{
 		"ZDX_DEPLOY_DIR": "/srv/app",
 		"FOO":            "from-caller", // should be overridden by Ship.Env
-	})
+	}, RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -56,7 +56,7 @@ func TestRun_OptionalFailureContinues(t *testing.T) {
 		{Name: "flaky", Run: "exit 1", Optional: true},
 		{Name: "after", Run: "echo continued"},
 	}}}
-	res, err := Run(context.Background(), comp, nil)
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -73,7 +73,7 @@ func TestRun_NonOptionalHalts(t *testing.T) {
 		{Name: "halt", Run: "exit 1"},
 		{Name: "never", Run: "echo unreached"},
 	}}}
-	res, err := Run(context.Background(), comp, nil)
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
 	if err == nil {
 		t.Fatalf("want error, got nil")
 	}
@@ -123,8 +123,8 @@ func TestRun_DefaultsToSimple(t *testing.T) {
 	empty := config.Component{Ship: config.Ship{Stages: stages}}
 	explicit := config.Component{Ship: config.Ship{Strategy: config.ShipStrategySimple, Stages: stages}}
 
-	resA, errA := Run(context.Background(), empty, nil)
-	resB, errB := Run(context.Background(), explicit, nil)
+	resA, errA := Run(context.Background(), empty, nil, RunOptions{})
+	resB, errB := Run(context.Background(), explicit, nil, RunOptions{})
 	if errA != nil || errB != nil {
 		t.Fatalf("Run errors: empty=%v explicit=%v", errA, errB)
 	}
@@ -153,7 +153,7 @@ func TestRun_BlueGreen(t *testing.T) {
 		"ZDX_ACTIVE_SLOT":  "a",
 		"ZDX_STANDBY_SLOT": "b",
 	}
-	res, err := Run(context.Background(), comp, env)
+	res, err := Run(context.Background(), comp, env, RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -186,7 +186,7 @@ func TestRun_BlueGreen_NoVerifyStages(t *testing.T) {
 	res, err := Run(context.Background(), comp, map[string]string{
 		"ZDX_ACTIVE_SLOT":  "a",
 		"ZDX_STANDBY_SLOT": "b",
-	})
+	}, RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -211,7 +211,7 @@ func TestRun_BlueGreen_DeployFailureSkipsVerify(t *testing.T) {
 	res, err := Run(context.Background(), comp, map[string]string{
 		"ZDX_ACTIVE_SLOT":  "a",
 		"ZDX_STANDBY_SLOT": "b",
-	})
+	}, RunOptions{})
 	if err == nil {
 		t.Fatalf("want error, got nil")
 	}
@@ -232,7 +232,7 @@ func TestRun_Maintenance(t *testing.T) {
 			{Name: "check", Run: `echo ZDX_MAINTENANCE=$ZDX_MAINTENANCE`},
 		},
 	}}
-	res, err := Run(context.Background(), comp, nil)
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -251,7 +251,7 @@ func TestRun_Maintenance(t *testing.T) {
 		},
 	}}
 	t.Setenv("ZDX_MAINTENANCE", "") // ensure it's absent from ambient env
-	res2, err := Run(context.Background(), simple, nil)
+	res2, err := Run(context.Background(), simple, nil, RunOptions{})
 	if err != nil {
 		t.Fatalf("Run (simple): %v", err)
 	}
@@ -275,7 +275,7 @@ func TestRun_RollingPair(t *testing.T) {
 		"ZDX_SLOT_A": "a0",
 		"ZDX_SLOT_B": "b1",
 	}
-	res, err := Run(context.Background(), comp, env)
+	res, err := Run(context.Background(), comp, env, RunOptions{StateDir: t.TempDir()})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}
@@ -302,7 +302,7 @@ func TestRun_RollingPair_FirstPassFailureSkipsSecond(t *testing.T) {
 	res, err := Run(context.Background(), comp, map[string]string{
 		"ZDX_SLOT_A": "a0",
 		"ZDX_SLOT_B": "b1",
-	})
+	}, RunOptions{StateDir: t.TempDir()})
 	if err == nil {
 		t.Fatalf("want error, got nil")
 	}
@@ -311,6 +311,81 @@ func TestRun_RollingPair_FirstPassFailureSkipsSecond(t *testing.T) {
 	}
 	if res[0].Status != "failed" {
 		t.Errorf("status = %q, want failed", res[0].Status)
+	}
+}
+
+// TestRun_RollingPair_Resume verifies that an interrupted rolling-pair
+// re-run skips already-completed stages (the key acceptance criterion
+// for IS-887). Simulated: write a state file with stage 1 completed,
+// then run; expect stage 1 skipped and stage 2 executed.
+func TestRun_RollingPair_Resume(t *testing.T) {
+	dir := t.TempDir()
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyRollingPair,
+		Stages: []config.Stage{
+			{Name: "build", Run: "echo build-ran"},
+			{Name: "deploy", Run: "echo deploy-ran"},
+		},
+	}}
+
+	// Simulate: "build" already completed in the "current" pass.
+	sf := stateFilePath(dir, gitSHA(), "mycomp", "current")
+	if err := appendCompletedStage(sf, "build"); err != nil {
+		t.Fatalf("setup state: %v", err)
+	}
+
+	res, err := Run(context.Background(), comp, map[string]string{
+		"ZDX_SLOT_A": "a0",
+		"ZDX_SLOT_B": "b1",
+	}, RunOptions{StateDir: dir, ComponentName: "mycomp"})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// current pass: build=skipped, deploy=ok
+	// next pass:    build=ok,       deploy=ok
+	if len(res) != 4 {
+		t.Fatalf("want 4 results, got %d: %v", len(res), res)
+	}
+	if res[0].Name != "build" || res[0].Status != "skipped" {
+		t.Errorf("res[0] = {%s %s}, want {build skipped}", res[0].Name, res[0].Status)
+	}
+	if res[1].Name != "deploy" || res[1].Status != "ok" {
+		t.Errorf("res[1] = {%s %s}, want {deploy ok}", res[1].Name, res[1].Status)
+	}
+	if res[2].Name != "build" || res[2].Status != "ok" {
+		t.Errorf("res[2] = {%s %s}, want {build ok} (next pass has no skip)", res[2].Name, res[2].Status)
+	}
+}
+
+// TestRun_RollingPair_NoResume verifies that opts.NoResume deletes an
+// existing state file so all stages execute from scratch.
+func TestRun_RollingPair_NoResume(t *testing.T) {
+	dir := t.TempDir()
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyRollingPair,
+		Stages: []config.Stage{
+			{Name: "build", Run: "echo build-ran"},
+		},
+	}}
+
+	// Pre-populate state so that without --no-resume "build" would be skipped.
+	sf := stateFilePath(dir, gitSHA(), "mycomp", "current")
+	if err := appendCompletedStage(sf, "build"); err != nil {
+		t.Fatalf("setup state: %v", err)
+	}
+
+	res, err := Run(context.Background(), comp, map[string]string{
+		"ZDX_SLOT_A": "a0",
+		"ZDX_SLOT_B": "b1",
+	}, RunOptions{StateDir: dir, ComponentName: "mycomp", NoResume: true})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// Both passes should execute build (not skipped).
+	for i, r := range res {
+		if r.Status != "ok" {
+			t.Errorf("res[%d] status = %q, want ok (NoResume should force re-run)", i, r.Status)
+		}
 	}
 }
 
@@ -330,7 +405,7 @@ func TestRun_SSH_FakeSSH(t *testing.T) {
 	comp := config.Component{Ship: config.Ship{Stages: []config.Stage{
 		{Name: "remote", Run: "uptime", Target: "u@h"},
 	}}}
-	res, err := Run(context.Background(), comp, nil)
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
 	if err != nil {
 		t.Fatalf("Run: %v", err)
 	}

@@ -38,6 +38,7 @@ func shipGitOutput(args ...string) string {
 
 func shipRunCmd() *cobra.Command {
 	var envFlag, componentFlag string
+	var noResume bool
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Execute ship stages for a component and record the deploy event",
@@ -58,7 +59,11 @@ func shipRunCmd() *cobra.Command {
 			sha := shipGitOutput("rev-parse", "HEAD")
 			branch := shipGitOutput("rev-parse", "--abbrev-ref", "HEAD")
 
-			results, runErr := ship.Run(cmd.Context(), comp, nil)
+			opts := ship.RunOptions{
+				NoResume:      noResume,
+				ComponentName: compName,
+			}
+			results, runErr := ship.Run(cmd.Context(), comp, nil, opts)
 
 			c, err := cli.DefaultClient()
 			if err != nil {
@@ -73,6 +78,7 @@ func shipRunCmd() *cobra.Command {
 	cmd.Flags().StringVar(&envFlag, "env", "", "environment name to record the deploy against (required)")
 	_ = cmd.MarkFlagRequired("env")
 	cmd.Flags().StringVar(&componentFlag, "component", "", "component name (default: active component from config or DX_COMPONENT)")
+	cmd.Flags().BoolVar(&noResume, "no-resume", false, "force full re-run, ignoring saved stage state")
 	return cmd
 }
 

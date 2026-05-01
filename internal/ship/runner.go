@@ -37,11 +37,24 @@ type StageResult struct {
 // vars on the remote must inline them into Stage.Run (e.g. `FOO=bar cmd`) or use ssh -o SendEnv
 // out-of-band — the harness keeps the default minimal.
 //
+// RunOptions carries caller-level flags to strategy implementations.
+type RunOptions struct {
+	// NoResume forces a full re-run, deleting any saved stage-state files
+	// before starting (rolling-pair strategy only).
+	NoResume bool
+	// ComponentName is the config map key for the component being deployed.
+	// Used by resume-capable strategies to scope state files per component.
+	ComponentName string
+	// StateDir overrides the default .zdx/ship-state directory used for
+	// resume state files. Primarily useful in tests for hermetic isolation.
+	StateDir string
+}
+
 // Run dispatches to the Strategy implementation selected by
 // comp.Ship.Strategy; an empty value means "simple" (single pass, no
 // extra env). Per-stage execution lives in runStages (strategy.go).
-func Run(ctx context.Context, comp config.Component, env map[string]string) ([]StageResult, error) {
-	return dispatch(comp).Run(ctx, comp, env)
+func Run(ctx context.Context, comp config.Component, env map[string]string, opts RunOptions) ([]StageResult, error) {
+	return dispatch(comp).Run(ctx, comp, env, opts)
 }
 
 // buildCmd constructs the *exec.Cmd for a stage without running it.

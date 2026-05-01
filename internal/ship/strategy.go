@@ -15,7 +15,7 @@ import (
 // runStages helper for the per-stage exec/log/halt-on-failure loop so
 // behavior stays consistent across shapes.
 type Strategy interface {
-	Run(ctx context.Context, comp config.Component, env map[string]string) ([]StageResult, error)
+	Run(ctx context.Context, comp config.Component, env map[string]string, opts RunOptions) ([]StageResult, error)
 }
 
 // dispatch returns the Strategy for comp.Ship.Strategy. An empty string
@@ -37,14 +37,24 @@ func dispatch(comp config.Component) Strategy {
 	panic(fmt.Sprintf("ship: no Strategy registered for %q (config validated but dispatch did not)", comp.Ship.Strategy))
 }
 
-// runStages executes the given stages once and returns per-stage
-// results. It honors Stage.Optional (continue on failure) and halts the
-// pass on the first non-optional failure, matching the original Run()
-// loop. The extra map is layered between caller env and Ship.Env so
-// strategies can inject ZDX_* vars without overriding project intent.
-func runStages(ctx context.Context, comp config.Component, env, extra map[string]string, stages []config.Stage) ([]StageResult, error) {
+// runStages executes the given stages once and returns per-stage results.
+// Stages whose names appear in skipSet are recorded as "skipped" without
+// execution. On success, each stage name is appended to stateFile (best-
+// effort; failure is logged but does not abort the run). Pass nil/""
+// to disable both behaviors. The extra map is layered between caller env
+// and Ship.Env so strategies can inject ZDX_* vars without overriding
+// project intent.
+func runStages(ctx context.Context, comp config.Component, env, extra map[string]string, stages []config.Stage, skipSet map[string]bool, stateFile string) ([]StageResult, error) {
 	results := make([]StageResult, 0, len(stages))
 	for _, stage := range stages {
+		if skipSet[stage.Name] {
+			results = append(results, StageResult{
+				Name:   stage.Name,
+				Status: "skipped",
+				Log:    "skipped (already completed)",
+			})
+			continue
+		}
 		start := time.Now()
 		cmd := buildCmd(ctx, stage)
 		if stage.Target == "" {
@@ -66,6 +76,11 @@ func runStages(ctx context.Context, comp config.Component, env, extra map[string
 			return results, fmt.Errorf("stage %q failed: %w", stage.Name, runErr)
 		}
 		res.Status = "ok"
+		if stateFile != "" {
+			if err := appendCompletedStage(stateFile, stage.Name); err != nil {
+				fmt.Fprintf(os.Stderr, "ship: state write failed for %q: %v\n", stage.Name, err)
+			}
+		}
 		results = append(results, res)
 	}
 	return results, nil

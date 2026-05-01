@@ -11,7 +11,7 @@ import (
 // health checks, or emit a maintenance page.
 type maintenanceStrategy struct{}
 
-func (maintenanceStrategy) Run(ctx context.Context, comp config.Component, env map[string]string) ([]StageResult, error) {
+func (maintenanceStrategy) Run(ctx context.Context, comp config.Component, env map[string]string, _ RunOptions) ([]StageResult, error) {
 	extra := map[string]string{"ZDX_MAINTENANCE": "1"}
-	return runStages(ctx, comp, env, extra, comp.Ship.Stages)
+	return runStages(ctx, comp, env, extra, comp.Ship.Stages, nil, "")
 }
