@@ -7,7 +7,6 @@ import (
 	"log"
 	"net/http"
 	"os"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5/pgxpool"
@@ -39,16 +38,15 @@ func main() {
 		port = "7600"
 	}
 
-	migrateDSN := strings.Replace(dsn, "postgres://", "pgx5://", 1)
 	if buildSHA == "" {
 		// Dev: auto-migrate on startup so a server restart is sufficient.
-		if err := migrate.Up(migrateDSN); err != nil {
+		if err := migrate.Up(dsn); err != nil {
 			log.Fatalf("auto-migrate: %v", err)
 		}
 	} else {
 		// Prod: schema must already be current — ops runs "dx migrate up"
 		// before the rolling deploy starts the new binary.
-		if err := migrate.AssertCurrent(migrateDSN); err != nil {
+		if err := migrate.AssertCurrent(dsn); err != nil {
 			log.Fatalf("schema check: %v", err)
 		}
 	}

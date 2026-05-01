@@ -5,6 +5,7 @@ import (
 	"embed"
 	"errors"
 	"fmt"
+	"strings"
 
 	"github.com/golang-migrate/migrate/v4"
 	_ "github.com/golang-migrate/migrate/v4/database/pgx/v5"
@@ -14,9 +15,16 @@ import (
 //go:embed sql/*.sql
 var migrationsFS embed.FS
 
+// normalizeDSN converts a postgres:// URL to pgx5:// so golang-migrate can
+// locate the registered pgx/v5 driver. All other schemes pass through unchanged.
+func normalizeDSN(dsn string) string {
+	return strings.Replace(dsn, "postgres://", "pgx5://", 1)
+}
+
 // Up applies all pending migrations against dsn (postgres://...).
 // Returns nil if already up-to-date.
 func Up(dsn string) error {
+	dsn = normalizeDSN(dsn)
 	src, err := iofs.New(migrationsFS, "sql")
 	if err != nil {
 		return fmt.Errorf("migration source: %w", err)
@@ -35,6 +43,7 @@ func Up(dsn string) error {
 
 // Version returns the current migration version and dirty flag.
 func Version(dsn string) (uint, bool, error) {
+	dsn = normalizeDSN(dsn)
 	src, err := iofs.New(migrationsFS, "sql")
 	if err != nil {
 		return 0, false, err
@@ -50,6 +59,7 @@ func Version(dsn string) (uint, bool, error) {
 // MigrateTo applies migrations up or down to reach the given target version.
 // Returns nil if already at the target version.
 func MigrateTo(dsn string, version uint) error {
+	dsn = normalizeDSN(dsn)
 	src, err := iofs.New(migrationsFS, "sql")
 	if err != nil {
 		return fmt.Errorf("migration source: %w", err)
@@ -70,6 +80,7 @@ func MigrateTo(dsn string, version uint) error {
 // "dx migrate up" before the rolling deploy starts the new binary.
 // Does NOT apply migrations.
 func AssertCurrent(dsn string) error {
+	dsn = normalizeDSN(dsn)
 	src, err := iofs.New(migrationsFS, "sql")
 	if err != nil {
 		return fmt.Errorf("migration source: %w", err)
