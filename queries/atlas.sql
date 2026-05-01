@@ -89,6 +89,19 @@ WHERE c.project_id = @project_id
   AND c.status = 'stale'
 ORDER BY c.id;
 
+-- name: MarkChunksStaleByFiles :exec
+UPDATE zdx_narrative_chunks c
+SET status     = 'stale',
+    updated_at = NOW()
+WHERE c.project_id = @project_id
+  AND c.status = 'fresh'
+  AND c.coderef_id IN (
+    SELECT cr.id FROM zdx_coderefs cr
+    WHERE cr.project_id = @project_id
+      AND cr.file = ANY(@files::text[])
+      AND cr.sha != @current_sha
+  );
+
 -- name: VerifyChunkStillAccurate :one
 UPDATE zdx_narrative_chunks
 SET status      = 'fresh',

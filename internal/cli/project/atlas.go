@@ -14,7 +14,7 @@ import (
 
 func AtlasCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "atlas", Short: "Atlas substrate (nodes, coderefs, chunks, edges)"}
-	cmd.AddCommand(atlasNodeCmd(), atlasCoderefCmd(), atlasChunkCmd(), atlasEdgeCmd(), atlasChunkDriftCmd())
+	cmd.AddCommand(atlasNodeCmd(), atlasCoderefCmd(), atlasChunkCmd(), atlasEdgeCmd(), atlasChunkDriftCmd(), atlasReviewCmd())
 	return cmd
 }
 
@@ -408,6 +408,91 @@ func atlasEdgeAddCmd() *cobra.Command {
 	cmd.Flags().Int32Var(&weight, "weight", 0, "Edge weight")
 	_ = cmd.MarkFlagRequired("from")
 	_ = cmd.MarkFlagRequired("to")
+	return cmd
+}
+
+// ── review ───────────────────────────────────────────────────────────────────
+
+func atlasReviewCmd() *cobra.Command {
+	var since, branch string
+	cmd := &cobra.Command{
+		Use:   "review",
+		Short: "Detect and mark stale chunks from git diff",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+
+			var base string
+			switch {
+			case since != "":
+				base = since
+			case branch != "":
+				out, err := exec.Command("git", "merge-base", "HEAD", branch).Output()
+				if err != nil {
+					return fmt.Errorf("git merge-base: %w", err)
+				}
+				base = strings.TrimSpace(string(out))
+			default:
+				// detect default branch from remote HEAD
+				remHead, err := exec.Command("git", "symbolic-ref", "refs/remotes/origin/HEAD").Output()
+				if err != nil {
+					// fallback to dev
+					base = "dev"
+				} else {
+					parts := strings.Split(strings.TrimSpace(string(remHead)), "/")
+					defaultBranch := parts[len(parts)-1]
+					mbOut, mbErr := exec.Command("git", "merge-base", "HEAD", defaultBranch).Output()
+					if mbErr != nil {
+						return fmt.Errorf("git merge-base HEAD %s: %w", defaultBranch, mbErr)
+					}
+					base = strings.TrimSpace(string(mbOut))
+				}
+			}
+
+			diffOut, err := exec.Command("git", "diff", "--name-only", base+"..HEAD").Output()
+			if err != nil {
+				return fmt.Errorf("git diff: %w", err)
+			}
+			var files []string
+			for _, f := range strings.Split(strings.TrimSpace(string(diffOut)), "\n") {
+				if f != "" {
+					files = append(files, f)
+				}
+			}
+
+			shaOut, err := exec.Command("git", "rev-parse", "HEAD").Output()
+			if err != nil {
+				return fmt.Errorf("git rev-parse HEAD: %w", err)
+			}
+			currentSHA := strings.TrimSpace(string(shaOut))
+
+			resp, err := c.ReviewAtlasWithResponse(cmd.Context(), c.SlugOrDie(), dxclient.ReviewAtlasJSONRequestBody{
+				Files:      files,
+				CurrentSha: currentSHA,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			r := resp.JSON200
+			if r.StaleCount == 0 {
+				fmt.Println("atlas: no stale chunks in diff")
+				return nil
+			}
+			fmt.Printf("atlas: %d stale chunk(s)\n", r.StaleCount)
+			for _, ch := range r.Chunks {
+				fmt.Printf("  %-6d  %s:%s  %s  %s\n",
+					ch.Id, ch.NodeKind, ch.NodeSlug,
+					cli.Truncate(atlasStr(ch.Title), 30),
+					atlasStr(ch.File),
+				)
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&since, "since", "", "Mark chunks stale for files changed since this SHA")
+	cmd.Flags().StringVar(&branch, "branch", "", "Mark chunks stale for files changed since merge-base with this branch")
 	return cmd
 }
 

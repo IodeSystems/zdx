@@ -445,6 +445,57 @@ func (h *Handler) registerAtlasRoutes(api huma.API) {
 			}{Chunks: out}}, nil
 		})
 
+	// ── Atlas review (mark stale) ─────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "review-atlas", Method: http.MethodPost, Path: "/api/projects/{slug}/atlas/review"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug"`
+			Body struct {
+				Files      []string `json:"files"`
+				CurrentSha string   `json:"current_sha"`
+			}
+		}) (*struct {
+			Body struct {
+				StaleCount int                   `json:"stale_count"`
+				Chunks     []AtlasStaleChunkItem `json:"chunks"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := h.Q.MarkChunksStaleByFiles(ctx, db.MarkChunksStaleByFilesParams{
+				ProjectID:  p.ID,
+				Files:      in.Body.Files,
+				CurrentSha: in.Body.CurrentSha,
+			}); err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			rows, err := h.Q.ListStaleChunksByProject(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]AtlasStaleChunkItem, len(rows))
+			for i, r := range rows {
+				out[i] = AtlasStaleChunkItem{
+					ID:       r.ID,
+					NodeKind: r.NodeKind,
+					NodeSlug: r.NodeSlug,
+					Title:    r.Title,
+					File:     r.CoderefFile,
+				}
+			}
+			return &struct {
+				Body struct {
+					StaleCount int                   `json:"stale_count"`
+					Chunks     []AtlasStaleChunkItem `json:"chunks"`
+				}
+			}{Body: struct {
+				StaleCount int                   `json:"stale_count"`
+				Chunks     []AtlasStaleChunkItem `json:"chunks"`
+			}{StaleCount: len(out), Chunks: out}}, nil
+		})
+
 	// ── Chunk verification ────────────────────────────────────────────────
 
 	huma.Register(api, huma.Operation{OperationID: "verify-atlas-chunk", Method: http.MethodPost, Path: "/api/projects/{slug}/atlas/chunks/{chunk_id}/verify"},
