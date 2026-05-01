@@ -20,6 +20,26 @@ Server requires `DATABASE_URL` env var pointing to PostgreSQL 16+ with pgvector.
 - `internal/dxclient/models.gen.go` — oapi-codegen from `internal/dxclient/openapi.json`. Contains both model types AND typed `APIClient` with methods for every endpoint. Regenerate: `make gen-dxclient`. New CLI code should use `dxclient.APIClient` methods, not raw `c.Get("/api/...")` calls.
 - `ui/src/api.gen.ts` — openapi-typescript from server's `/openapi.json`. Dev dx-server hashes the spec on startup and regenerates when it changes (no tsc; run `bin/lint` to type-check). Prod builds skip the regen. New UI code should use the generated openapi-fetch client, not raw `apiFetch`/`apiPost`.
 
+### Worker Commit Contract — Intent Only
+
+Workers commit **intent files only**. Generated artifacts are owned by the merge-train, which regenerates them on top of the worker's intent diff before ff-merging into `dev`. Staging generated files makes the rebase fight itself: workers race the merge-train and get their commits rewritten with stale codegen.
+
+**DO commit (intent — author here):**
+- `internal/migrate/sql/NNN_*.up.sql` / `*.down.sql` — schema migrations
+- `queries/*.sql` — sqlc query sources
+- `internal/server/handlers/*.go` and other hand-written Go source
+- `schema/next.sql` — only when intentionally edited (rare; usually generated)
+- `ui/src/**` (excluding `api.gen.ts`) — UI source
+- `internal/dxclient/openapi.json` — when handlers change the OpenAPI shape
+
+**DO NOT commit (generated — merge-train owns):**
+- `internal/db/*.sql.go` — sqlc output
+- `internal/dxclient/models.gen.go` — oapi-codegen output
+- `ui/src/api.gen.ts` — openapi-typescript output
+- `schema/shipped.sql` — pg_dump snapshot
+
+**Enforcement:** use `dx commit --intent` — it inspects the staged set, warns on each generated file, unstages it, then commits the remainder. Falls back to `git commit` semantics for everything else (flags, message). Workers run `bin/lint --intent` (skips drift checks); the merge-train runs `bin/lint` (full drift check after regen).
+
 ### Codegen Toolchain — Verified Versions
 
 The merge-train requires bit-identical codegen output across workers. All three generators are pinned; do not bump without re-running the double-regen idempotency audit (TK-1416).
