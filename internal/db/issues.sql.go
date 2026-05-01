@@ -600,6 +600,71 @@ func (q *Queries) ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIss
 	return items, nil
 }
 
+const listOpenIssuesEligibleForBackport = `-- name: ListOpenIssuesEligibleForBackport :many
+SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+FROM zdx_issues
+WHERE project_id = $1
+  AND status = 'open'
+  AND target_branch = 'dev'
+  AND priority ~ '^[0-9]+$'
+  AND (priority)::int <= $2::int
+ORDER BY (priority)::int ASC, updated_at DESC
+`
+
+type ListOpenIssuesEligibleForBackportParams struct {
+	ProjectID   int32 `db:"project_id" json:"project_id"`
+	MaxPriority int32 `db:"max_priority" json:"max_priority"`
+}
+
+// IS-825 trigger 2: when `dx branch cut` creates a new version branch, the
+// caller enumerates open dev issues that should auto-generate a backport task
+// against the new branch. Default policy (per IS-825): must-tier (priority 1)
+// and should-tier (priority 2). Priority is stored as a numeric string —
+// empty/non-numeric values fall through and are excluded by the comparison.
+// Only issues currently targeting 'dev' qualify; an issue already targeted
+// at a named branch is its own canonical home and does not get a backport
+// task on top.
+func (q *Queries) ListOpenIssuesEligibleForBackport(ctx context.Context, arg ListOpenIssuesEligibleForBackportParams) ([]ZdxIssue, error) {
+	rows, err := q.db.Query(ctx, listOpenIssuesEligibleForBackport, arg.ProjectID, arg.MaxPriority)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxIssue
+	for rows.Next() {
+		var i ZdxIssue
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Status,
+			&i.Priority,
+			&i.Component,
+			&i.Context,
+			&i.CreatedAt,
+			&i.IssueType,
+			&i.DuplicateOf,
+			&i.Url,
+			&i.UpdatedAt,
+			&i.SourceErrorID,
+			&i.LinkOf,
+			&i.ReopenCount,
+			&i.ClosedAt,
+			&i.InteractiveOnly,
+			&i.TargetBranch,
+			&i.CloseReason,
+			&i.NodeRef,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listOpenLinkedIssues = `-- name: ListOpenLinkedIssues :many
 SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
 FROM zdx_issues

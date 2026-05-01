@@ -2424,7 +2424,8 @@ CREATE TABLE public.zdx_tasks (
     reviewed_at timestamp with time zone,
     stale_since timestamp with time zone,
     title text DEFAULT ''::text NOT NULL,
-    spec text DEFAULT ''::text NOT NULL
+    spec text DEFAULT ''::text NOT NULL,
+    target_branch text DEFAULT 'dev'::text NOT NULL
 );
 
 

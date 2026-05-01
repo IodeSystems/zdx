@@ -44,7 +44,7 @@ WHERE t.issue = i.id
     t.status IN ('active', 'wip')
     OR (t.status = 'ready' AND t.test_refs != '')
   )
-RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at`,
+RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.target_branch, t.created_at, t.completed_at, t.updated_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tasks"},
@@ -59,6 +59,7 @@ RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -72,39 +73,41 @@ func WrapCancelOrphanedTasks() *metaquery.Builder {
 
 // CancelOrphanedTasksCols gives typed, name-safe access to CancelOrphanedTasks's output columns.
 var CancelOrphanedTasksCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaClaimTask = metaquery.Query{
@@ -131,7 +134,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at`,
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tasks"},
@@ -146,6 +149,7 @@ RETURNING id, project_id, title, text, feature, status, reason, issue, depends, 
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -164,39 +168,41 @@ func WrapClaimTask(arg ClaimTaskParams) *metaquery.Builder {
 
 // ClaimTaskCols gives typed, name-safe access to ClaimTask's output columns.
 var ClaimTaskCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaClearStaleFlag = metaquery.Query{
@@ -239,13 +245,45 @@ var CountClosedTasksCols = struct {
 	Count: metaquery.NewIntCol("count"),
 }
 
+var MetaCountOpenBackportTasks = metaquery.Query{
+	Name:   "CountOpenBackportTasks",
+	Cmd:    ":one",
+	Source: "tasks.sql",
+	SQL: `SELECT count(*) FROM zdx_tasks
+WHERE project_id = $1
+  AND issue = $2
+  AND target_branch = $3
+  AND status IN ('ready', 'wip', 'active')`,
+	Columns: []metaquery.Column{
+		{Name: "count", OriginalName: "count", GoType: "int64"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "issue", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "target_branch", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapCountOpenBackportTasks returns a metaquery.Builder over MetaCountOpenBackportTasks, pre-bound with typed arguments.
+func WrapCountOpenBackportTasks(arg CountOpenBackportTasksParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaCountOpenBackportTasks, arg.ProjectID, arg.Issue, arg.TargetBranch)
+}
+
+// CountOpenBackportTasksCols gives typed, name-safe access to CountOpenBackportTasks's output columns.
+var CountOpenBackportTasksCols = struct {
+	Count metaquery.IntCol
+}{
+	Count: metaquery.NewIntCol("count"),
+}
+
 var MetaCreateTask = metaquery.Query{
 	Name:   "CreateTask",
 	Cmd:    ":one",
 	Source: "tasks.sql",
-	SQL: `INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan, spec)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at`,
+	SQL: `INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan, spec, target_branch)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+        CASE WHEN $12::text = '' THEN 'dev' ELSE $12::text END)
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tasks"},
@@ -260,6 +298,7 @@ RETURNING id, project_id, title, text, feature, status, reason, issue, depends, 
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -276,50 +315,53 @@ RETURNING id, project_id, title, text, feature, status, reason, issue, depends, 
 		{Position: 9, Name: "reason", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 10, Name: "test_plan", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 11, Name: "spec", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 12, Name: "target_branch", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_tasks"},
 }
 
 // WrapCreateTask returns a metaquery.Builder over MetaCreateTask, pre-bound with typed arguments.
 func WrapCreateTask(arg CreateTaskParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateTask, arg.ID, arg.ProjectID, arg.Title, arg.Text, arg.Feature, arg.Issue, arg.TaskGroup, arg.Status, arg.Reason, arg.TestPlan, arg.Spec)
+	return metaquery.Wrap(&MetaCreateTask, arg.ID, arg.ProjectID, arg.Title, arg.Text, arg.Feature, arg.Issue, arg.TaskGroup, arg.Status, arg.Reason, arg.TestPlan, arg.Spec, arg.TargetBranch)
 }
 
 // CreateTaskCols gives typed, name-safe access to CreateTask's output columns.
 var CreateTaskCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaDeleteDraftTask = metaquery.Query{
@@ -402,7 +444,7 @@ var MetaGetTask = metaquery.Query{
 	Name:   "GetTask",
 	Cmd:    ":one",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
@@ -418,6 +460,7 @@ FROM zdx_tasks WHERE id = $1`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -434,46 +477,48 @@ func WrapGetTask(id string) *metaquery.Builder {
 
 // GetTaskCols gives typed, name-safe access to GetTask's output columns.
 var GetTaskCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaGetTaskByExactText = metaquery.Query{
 	Name:   "GetTaskByExactText",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND text = $2
@@ -494,6 +539,7 @@ ORDER BY created_at DESC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -512,46 +558,48 @@ func WrapGetTaskByExactText(arg GetTaskByExactTextParams) *metaquery.Builder {
 
 // GetTaskByExactTextCols gives typed, name-safe access to GetTaskByExactText's output columns.
 var GetTaskByExactTextCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaGetTaskWithReview = metaquery.Query{
 	Name:   "GetTaskWithReview",
 	Cmd:    ":one",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
@@ -567,6 +615,7 @@ FROM zdx_tasks WHERE id = $1`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -584,48 +633,50 @@ func WrapGetTaskWithReview(id string) *metaquery.Builder {
 
 // GetTaskWithReviewCols gives typed, name-safe access to GetTaskWithReview's output columns.
 var GetTaskWithReviewCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
-	ReviewedAt  metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
+	ReviewedAt   metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
-	ReviewedAt:  metaquery.NewTimeCol("reviewed_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	ReviewedAt:   metaquery.NewTimeCol("reviewed_at"),
 }
 
 var MetaListActiveTaskClaims = metaquery.Query{
 	Name:   "ListActiveTaskClaims",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
+	SQL: `SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.target_branch, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -647,6 +698,7 @@ ORDER BY r.claimed_at DESC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -679,6 +731,7 @@ var ListActiveTaskClaimsCols = struct {
 	TestRefs       metaquery.TextCol
 	TaskGroup      metaquery.TextCol
 	Spec           metaquery.TextCol
+	TargetBranch   metaquery.TextCol
 	CreatedAt      metaquery.TimeCol
 	CompletedAt    metaquery.TimeCol
 	UpdatedAt      metaquery.TimeCol
@@ -699,6 +752,7 @@ var ListActiveTaskClaimsCols = struct {
 	TestRefs:       metaquery.NewTextCol("test_refs"),
 	TaskGroup:      metaquery.NewTextCol("task_group"),
 	Spec:           metaquery.NewTextCol("spec"),
+	TargetBranch:   metaquery.NewTextCol("target_branch"),
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 	CompletedAt:    metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
@@ -794,7 +848,7 @@ var MetaListOrphanReadyTasks = metaquery.Query{
 	Name:   "ListOrphanReadyTasks",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND status = 'ready'
@@ -814,6 +868,7 @@ ORDER BY created_at`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -830,39 +885,41 @@ func WrapListOrphanReadyTasks(projectID int32) *metaquery.Builder {
 
 // ListOrphanReadyTasksCols gives typed, name-safe access to ListOrphanReadyTasks's output columns.
 var ListOrphanReadyTasksCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaListReadyTasksWithoutTestRefsByIssue = metaquery.Query{
@@ -903,7 +960,7 @@ var MetaListStaleTasks = metaquery.Query{
 	Name:   "ListStaleTasks",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
@@ -923,6 +980,7 @@ ORDER BY stale_since ASC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -940,48 +998,50 @@ func WrapListStaleTasks(projectID int32) *metaquery.Builder {
 
 // ListStaleTasksCols gives typed, name-safe access to ListStaleTasks's output columns.
 var ListStaleTasksCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
-	StaleSince  metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
+	StaleSince   metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
-	StaleSince:  metaquery.NewTimeCol("stale_since"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	StaleSince:   metaquery.NewTimeCol("stale_since"),
 }
 
 var MetaListStaleTasksByIssue = metaquery.Query{
 	Name:   "ListStaleTasksByIssue",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
@@ -1002,6 +1062,7 @@ ORDER BY stale_since ASC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1020,48 +1081,50 @@ func WrapListStaleTasksByIssue(arg ListStaleTasksByIssueParams) *metaquery.Build
 
 // ListStaleTasksByIssueCols gives typed, name-safe access to ListStaleTasksByIssue's output columns.
 var ListStaleTasksByIssueCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
-	StaleSince  metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
+	StaleSince   metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
-	StaleSince:  metaquery.NewTimeCol("stale_since"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	StaleSince:   metaquery.NewTimeCol("stale_since"),
 }
 
 var MetaListTasks = metaquery.Query{
 	Name:   "ListTasks",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND ($2::text = '' OR status = $2)
@@ -1081,6 +1144,7 @@ ORDER BY updated_at DESC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1099,46 +1163,48 @@ func WrapListTasks(arg ListTasksParams) *metaquery.Builder {
 
 // ListTasksCols gives typed, name-safe access to ListTasks's output columns.
 var ListTasksCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaListTasksByAgent = metaquery.Query{
 	Name:   "ListTasksByAgent",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
+	SQL: `SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.target_branch, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -1159,6 +1225,7 @@ ORDER BY r.claimed_at DESC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1191,6 +1258,7 @@ var ListTasksByAgentCols = struct {
 	TestRefs       metaquery.TextCol
 	TaskGroup      metaquery.TextCol
 	Spec           metaquery.TextCol
+	TargetBranch   metaquery.TextCol
 	CreatedAt      metaquery.TimeCol
 	CompletedAt    metaquery.TimeCol
 	UpdatedAt      metaquery.TimeCol
@@ -1211,6 +1279,7 @@ var ListTasksByAgentCols = struct {
 	TestRefs:       metaquery.NewTextCol("test_refs"),
 	TaskGroup:      metaquery.NewTextCol("task_group"),
 	Spec:           metaquery.NewTextCol("spec"),
+	TargetBranch:   metaquery.NewTextCol("target_branch"),
 	CreatedAt:      metaquery.NewTimeCol("created_at"),
 	CompletedAt:    metaquery.NewTimeCol("completed_at"),
 	UpdatedAt:      metaquery.NewTimeCol("updated_at"),
@@ -1223,7 +1292,7 @@ var MetaListTasksByFeature = metaquery.Query{
 	Name:   "ListTasksByFeature",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND feature = $2
   AND ($3::text = '' OR status = $3)
@@ -1243,6 +1312,7 @@ ORDER BY updated_at DESC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1262,46 +1332,48 @@ func WrapListTasksByFeature(arg ListTasksByFeatureParams) *metaquery.Builder {
 
 // ListTasksByFeatureCols gives typed, name-safe access to ListTasksByFeature's output columns.
 var ListTasksByFeatureCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaListTasksByIssue = metaquery.Query{
 	Name:   "ListTasksByIssue",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2
   AND ($3::text = '' OR status = $3)
@@ -1321,6 +1393,7 @@ ORDER BY updated_at DESC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1340,46 +1413,48 @@ func WrapListTasksByIssue(arg ListTasksByIssueParams) *metaquery.Builder {
 
 // ListTasksByIssueCols gives typed, name-safe access to ListTasksByIssue's output columns.
 var ListTasksByIssueCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaListUnreviewedDoneTasks = metaquery.Query{
 	Name:   "ListUnreviewedDoneTasks",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC`,
@@ -1397,6 +1472,7 @@ ORDER BY completed_at ASC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1414,48 +1490,50 @@ func WrapListUnreviewedDoneTasks(projectID int32) *metaquery.Builder {
 
 // ListUnreviewedDoneTasksCols gives typed, name-safe access to ListUnreviewedDoneTasks's output columns.
 var ListUnreviewedDoneTasksCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
-	ReviewedAt  metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
+	ReviewedAt   metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
-	ReviewedAt:  metaquery.NewTimeCol("reviewed_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	ReviewedAt:   metaquery.NewTimeCol("reviewed_at"),
 }
 
 var MetaListUnreviewedDoneTasksByIssue = metaquery.Query{
 	Name:   "ListUnreviewedDoneTasksByIssue",
 	Cmd:    ":many",
 	Source: "tasks.sql",
-	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
+	SQL: `SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC`,
@@ -1473,6 +1551,7 @@ ORDER BY completed_at ASC`,
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1491,41 +1570,43 @@ func WrapListUnreviewedDoneTasksByIssue(arg ListUnreviewedDoneTasksByIssueParams
 
 // ListUnreviewedDoneTasksByIssueCols gives typed, name-safe access to ListUnreviewedDoneTasksByIssue's output columns.
 var ListUnreviewedDoneTasksByIssueCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
-	ReviewedAt  metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
+	ReviewedAt   metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
-	ReviewedAt:  metaquery.NewTimeCol("reviewed_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	ReviewedAt:   metaquery.NewTimeCol("reviewed_at"),
 }
 
 var MetaMarkTaskDone = metaquery.Query{
@@ -1626,7 +1707,7 @@ WHERE status = 'active'
       AND a.disconnect_at > NOW() - $1::interval
   )
   AND status != 'done'
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at`,
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_tasks"},
@@ -1641,6 +1722,7 @@ RETURNING id, project_id, title, text, feature, status, reason, issue, depends, 
 		{Name: "test_refs", OriginalName: "test_refs", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "task_group", OriginalName: "task_group", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "spec", OriginalName: "spec", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_tasks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
 		{Name: "completed_at", OriginalName: "completed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_tasks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_tasks"},
@@ -1657,39 +1739,41 @@ func WrapReclaimExpiredTasks(disconnectGrace pgtype.Interval) *metaquery.Builder
 
 // ReclaimExpiredTasksCols gives typed, name-safe access to ReclaimExpiredTasks's output columns.
 var ReclaimExpiredTasksCols = struct {
-	ID          metaquery.TextCol
-	ProjectID   metaquery.IntCol
-	Title       metaquery.TextCol
-	Text        metaquery.TextCol
-	Feature     metaquery.TextCol
-	Status      metaquery.TextCol
-	Reason      metaquery.TextCol
-	Issue       metaquery.TextCol
-	Depends     metaquery.TextCol
-	TestPlan    metaquery.TextCol
-	TestRefs    metaquery.TextCol
-	TaskGroup   metaquery.TextCol
-	Spec        metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	CompletedAt metaquery.TimeCol
-	UpdatedAt   metaquery.TimeCol
+	ID           metaquery.TextCol
+	ProjectID    metaquery.IntCol
+	Title        metaquery.TextCol
+	Text         metaquery.TextCol
+	Feature      metaquery.TextCol
+	Status       metaquery.TextCol
+	Reason       metaquery.TextCol
+	Issue        metaquery.TextCol
+	Depends      metaquery.TextCol
+	TestPlan     metaquery.TextCol
+	TestRefs     metaquery.TextCol
+	TaskGroup    metaquery.TextCol
+	Spec         metaquery.TextCol
+	TargetBranch metaquery.TextCol
+	CreatedAt    metaquery.TimeCol
+	CompletedAt  metaquery.TimeCol
+	UpdatedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewTextCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Title:       metaquery.NewTextCol("title"),
-	Text:        metaquery.NewTextCol("text"),
-	Feature:     metaquery.NewTextCol("feature"),
-	Status:      metaquery.NewTextCol("status"),
-	Reason:      metaquery.NewTextCol("reason"),
-	Issue:       metaquery.NewTextCol("issue"),
-	Depends:     metaquery.NewTextCol("depends"),
-	TestPlan:    metaquery.NewTextCol("test_plan"),
-	TestRefs:    metaquery.NewTextCol("test_refs"),
-	TaskGroup:   metaquery.NewTextCol("task_group"),
-	Spec:        metaquery.NewTextCol("spec"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	CompletedAt: metaquery.NewTimeCol("completed_at"),
-	UpdatedAt:   metaquery.NewTimeCol("updated_at"),
+	ID:           metaquery.NewTextCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Title:        metaquery.NewTextCol("title"),
+	Text:         metaquery.NewTextCol("text"),
+	Feature:      metaquery.NewTextCol("feature"),
+	Status:       metaquery.NewTextCol("status"),
+	Reason:       metaquery.NewTextCol("reason"),
+	Issue:        metaquery.NewTextCol("issue"),
+	Depends:      metaquery.NewTextCol("depends"),
+	TestPlan:     metaquery.NewTextCol("test_plan"),
+	TestRefs:     metaquery.NewTextCol("test_refs"),
+	TaskGroup:    metaquery.NewTextCol("task_group"),
+	Spec:         metaquery.NewTextCol("spec"),
+	TargetBranch: metaquery.NewTextCol("target_branch"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	CompletedAt:  metaquery.NewTimeCol("completed_at"),
+	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
 }
 
 var MetaReleaseTask = metaquery.Query{
@@ -1727,15 +1811,16 @@ var MetaUpdateTaskFields = metaquery.Query{
 	Cmd:    ":exec",
 	Source: "tasks.sql",
 	SQL: `UPDATE zdx_tasks
-SET title      = CASE WHEN $1::text = 'title'      THEN $2::text ELSE title      END,
-    text       = CASE WHEN $1::text = 'text'       THEN $2::text ELSE text       END,
-    feature    = CASE WHEN $1::text = 'feature'    THEN $2::text ELSE feature    END,
-    issue      = CASE WHEN $1::text = 'issue'      THEN $2::text ELSE issue      END,
-    depends    = CASE WHEN $1::text = 'depends'    THEN $2::text ELSE depends    END,
-    test_plan  = CASE WHEN $1::text = 'test_plan'  THEN $2::text ELSE test_plan  END,
-    test_refs  = CASE WHEN $1::text = 'test_refs'  THEN $2::text ELSE test_refs  END,
-    task_group = CASE WHEN $1::text = 'task_group' THEN $2::text ELSE task_group END,
-    updated_at = NOW()
+SET title         = CASE WHEN $1::text = 'title'         THEN $2::text ELSE title         END,
+    text          = CASE WHEN $1::text = 'text'          THEN $2::text ELSE text          END,
+    feature       = CASE WHEN $1::text = 'feature'       THEN $2::text ELSE feature       END,
+    issue         = CASE WHEN $1::text = 'issue'         THEN $2::text ELSE issue         END,
+    depends       = CASE WHEN $1::text = 'depends'       THEN $2::text ELSE depends       END,
+    test_plan     = CASE WHEN $1::text = 'test_plan'     THEN $2::text ELSE test_plan     END,
+    test_refs     = CASE WHEN $1::text = 'test_refs'     THEN $2::text ELSE test_refs     END,
+    task_group    = CASE WHEN $1::text = 'task_group'    THEN $2::text ELSE task_group    END,
+    target_branch = CASE WHEN $1::text = 'target_branch' THEN $2::text ELSE target_branch END,
+    updated_at    = NOW()
 WHERE id = $3`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "field", GoType: "string", DBType: "text", NotNull: true},

@@ -39,26 +39,27 @@ WHERE t.issue = i.id
     t.status IN ('active', 'wip')
     OR (t.status = 'ready' AND t.test_refs != '')
   )
-RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at
+RETURNING t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.target_branch, t.created_at, t.completed_at, t.updated_at
 `
 
 type CancelOrphanedTasksRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 // Skip ready tasks with no test_refs: they were never verified. Those stay
@@ -86,6 +87,7 @@ func (q *Queries) CancelOrphanedTasks(ctx context.Context) ([]CancelOrphanedTask
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -121,7 +123,7 @@ WHERE id = (
     LIMIT 1
     FOR UPDATE SKIP LOCKED
 )
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 `
 
 type ClaimTaskParams struct {
@@ -131,22 +133,23 @@ type ClaimTaskParams struct {
 }
 
 type ClaimTaskRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 // Atomically mark a ready, unclaimed task as active. The caller must
@@ -168,6 +171,7 @@ func (q *Queries) ClaimTask(ctx context.Context, arg ClaimTaskParams) (ClaimTask
 		&i.TestRefs,
 		&i.TaskGroup,
 		&i.Spec,
+		&i.TargetBranch,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -195,45 +199,74 @@ func (q *Queries) CountClosedTasks(ctx context.Context, projectID int32) (int64,
 	return count, err
 }
 
+const countOpenBackportTasks = `-- name: CountOpenBackportTasks :one
+SELECT count(*) FROM zdx_tasks
+WHERE project_id = $1
+  AND issue = $2
+  AND target_branch = $3
+  AND status IN ('ready', 'wip', 'active')
+`
+
+type CountOpenBackportTasksParams struct {
+	ProjectID    int32  `db:"project_id" json:"project_id"`
+	Issue        string `db:"issue" json:"issue"`
+	TargetBranch string `db:"target_branch" json:"target_branch"`
+}
+
+// IS-825 idempotency guard. Counts ready/wip/active tasks linking the given
+// source issue to the given target branch — used by the auto-backport triggers
+// (resolve-on-dev and branch-cut) to skip when a backport is already queued.
+func (q *Queries) CountOpenBackportTasks(ctx context.Context, arg CountOpenBackportTasksParams) (int64, error) {
+	row := q.db.QueryRow(ctx, countOpenBackportTasks, arg.ProjectID, arg.Issue, arg.TargetBranch)
+	var count int64
+	err := row.Scan(&count)
+	return count, err
+}
+
 const createTask = `-- name: CreateTask :one
-INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan, spec)
-VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+INSERT INTO zdx_tasks (id, project_id, title, text, feature, issue, task_group, status, reason, test_plan, spec, target_branch)
+VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11,
+        CASE WHEN $12::text = '' THEN 'dev' ELSE $12::text END)
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 `
 
 type CreateTaskParams struct {
-	ID        string `db:"id" json:"id"`
-	ProjectID int32  `db:"project_id" json:"project_id"`
-	Title     string `db:"title" json:"title"`
-	Text      string `db:"text" json:"text"`
-	Feature   string `db:"feature" json:"feature"`
-	Issue     string `db:"issue" json:"issue"`
-	TaskGroup string `db:"task_group" json:"task_group"`
-	Status    string `db:"status" json:"status"`
-	Reason    string `db:"reason" json:"reason"`
-	TestPlan  string `db:"test_plan" json:"test_plan"`
-	Spec      string `db:"spec" json:"spec"`
+	ID           string `db:"id" json:"id"`
+	ProjectID    int32  `db:"project_id" json:"project_id"`
+	Title        string `db:"title" json:"title"`
+	Text         string `db:"text" json:"text"`
+	Feature      string `db:"feature" json:"feature"`
+	Issue        string `db:"issue" json:"issue"`
+	TaskGroup    string `db:"task_group" json:"task_group"`
+	Status       string `db:"status" json:"status"`
+	Reason       string `db:"reason" json:"reason"`
+	TestPlan     string `db:"test_plan" json:"test_plan"`
+	Spec         string `db:"spec" json:"spec"`
+	TargetBranch string `db:"target_branch" json:"target_branch"`
 }
 
 type CreateTaskRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
+// target_branch defaults to 'dev' when caller passes ”. Backport tasks set it
+// to the version branch they target while their source issue stays on dev.
 func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (CreateTaskRow, error) {
 	row := q.db.QueryRow(ctx, createTask,
 		arg.ID,
@@ -247,6 +280,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (CreateT
 		arg.Reason,
 		arg.TestPlan,
 		arg.Spec,
+		arg.TargetBranch,
 	)
 	var i CreateTaskRow
 	err := row.Scan(
@@ -263,6 +297,7 @@ func (q *Queries) CreateTask(ctx context.Context, arg CreateTaskParams) (CreateT
 		&i.TestRefs,
 		&i.TaskGroup,
 		&i.Spec,
+		&i.TargetBranch,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -341,27 +376,28 @@ func (q *Queries) FlagStaleTasks(ctx context.Context, arg FlagStaleTasksParams) 
 }
 
 const getTask = `-- name: GetTask :one
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks WHERE id = $1
 `
 
 type GetTaskRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
@@ -381,6 +417,7 @@ func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
 		&i.TestRefs,
 		&i.TaskGroup,
 		&i.Spec,
+		&i.TargetBranch,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -389,7 +426,7 @@ func (q *Queries) GetTask(ctx context.Context, id string) (GetTaskRow, error) {
 }
 
 const getTaskByExactText = `-- name: GetTaskByExactText :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND text = $2
@@ -405,22 +442,23 @@ type GetTaskByExactTextParams struct {
 }
 
 type GetTaskByExactTextRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 func (q *Queries) GetTaskByExactText(ctx context.Context, arg GetTaskByExactTextParams) ([]GetTaskByExactTextRow, error) {
@@ -446,6 +484,7 @@ func (q *Queries) GetTaskByExactText(ctx context.Context, arg GetTaskByExactText
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -461,28 +500,29 @@ func (q *Queries) GetTaskByExactText(ctx context.Context, arg GetTaskByExactText
 }
 
 const getTaskWithReview = `-- name: GetTaskWithReview :one
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks WHERE id = $1
 `
 
 type GetTaskWithReviewRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ReviewedAt  pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ReviewedAt   pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 }
 
 func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWithReviewRow, error) {
@@ -502,6 +542,7 @@ func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWith
 		&i.TestRefs,
 		&i.TaskGroup,
 		&i.Spec,
+		&i.TargetBranch,
 		&i.CreatedAt,
 		&i.CompletedAt,
 		&i.UpdatedAt,
@@ -511,7 +552,7 @@ func (q *Queries) GetTaskWithReview(ctx context.Context, id string) (GetTaskWith
 }
 
 const listActiveTaskClaims = `-- name: ListActiveTaskClaims :many
-SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.target_branch, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -535,6 +576,7 @@ type ListActiveTaskClaimsRow struct {
 	TestRefs       string             `db:"test_refs" json:"test_refs"`
 	TaskGroup      string             `db:"task_group" json:"task_group"`
 	Spec           string             `db:"spec" json:"spec"`
+	TargetBranch   string             `db:"target_branch" json:"target_branch"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -567,6 +609,7 @@ func (q *Queries) ListActiveTaskClaims(ctx context.Context, projectID int32) ([]
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -677,7 +720,7 @@ func (q *Queries) ListOpenTasksByTitlePrefix(ctx context.Context, arg ListOpenTa
 }
 
 const listOrphanReadyTasks = `-- name: ListOrphanReadyTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND status = 'ready'
@@ -686,22 +729,23 @@ ORDER BY created_at
 `
 
 type ListOrphanReadyTasksRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 // Ready tasks with no parent issue — invisible to the normal solo queue.
@@ -728,6 +772,7 @@ func (q *Queries) ListOrphanReadyTasks(ctx context.Context, projectID int32) ([]
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -785,7 +830,7 @@ func (q *Queries) ListReadyTasksWithoutTestRefsByIssue(ctx context.Context, arg 
 }
 
 const listStaleTasks = `-- name: ListStaleTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND stale_since IS NOT NULL
@@ -794,23 +839,24 @@ ORDER BY stale_since ASC
 `
 
 type ListStaleTasksRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	StaleSince  pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	StaleSince   pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
 }
 
 func (q *Queries) ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error) {
@@ -836,6 +882,7 @@ func (q *Queries) ListStaleTasks(ctx context.Context, projectID int32) ([]ListSt
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -852,7 +899,7 @@ func (q *Queries) ListStaleTasks(ctx context.Context, projectID int32) ([]ListSt
 }
 
 const listStaleTasksByIssue = `-- name: ListStaleTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, stale_since
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, stale_since
 FROM zdx_tasks
 WHERE project_id = $1
   AND issue = $2
@@ -867,23 +914,24 @@ type ListStaleTasksByIssueParams struct {
 }
 
 type ListStaleTasksByIssueRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	StaleSince  pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	StaleSince   pgtype.Timestamptz `db:"stale_since" json:"stale_since"`
 }
 
 func (q *Queries) ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error) {
@@ -909,6 +957,7 @@ func (q *Queries) ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksB
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -925,7 +974,7 @@ func (q *Queries) ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksB
 }
 
 const listTasks = `-- name: ListTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND ($2::text = '' OR status = $2)
@@ -940,22 +989,23 @@ type ListTasksParams struct {
 }
 
 type ListTasksRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTasksRow, error) {
@@ -981,6 +1031,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTas
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -996,7 +1047,7 @@ func (q *Queries) ListTasks(ctx context.Context, arg ListTasksParams) ([]ListTas
 }
 
 const listTasksByAgent = `-- name: ListTasksByAgent :many
-SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.created_at, t.completed_at, t.updated_at,
+SELECT t.id, t.project_id, t.title, t.text, t.feature, t.status, t.reason, t.issue, t.depends, t.test_plan, t.test_refs, t.task_group, t.spec, t.target_branch, t.created_at, t.completed_at, t.updated_at,
        r.claimed_by, r.claimed_at, r.lease_expires_at
 FROM zdx_tasks t
 JOIN zdx_reservations r ON r.target_type = 'task' AND r.target_id = t.id
@@ -1019,6 +1070,7 @@ type ListTasksByAgentRow struct {
 	TestRefs       string             `db:"test_refs" json:"test_refs"`
 	TaskGroup      string             `db:"task_group" json:"task_group"`
 	Spec           string             `db:"spec" json:"spec"`
+	TargetBranch   string             `db:"target_branch" json:"target_branch"`
 	CreatedAt      pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	CompletedAt    pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
 	UpdatedAt      pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
@@ -1050,6 +1102,7 @@ func (q *Queries) ListTasksByAgent(ctx context.Context, claimedBy string) ([]Lis
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1068,7 +1121,7 @@ func (q *Queries) ListTasksByAgent(ctx context.Context, claimedBy string) ([]Lis
 }
 
 const listTasksByFeature = `-- name: ListTasksByFeature :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND feature = $2
   AND ($3::text = '' OR status = $3)
@@ -1084,22 +1137,23 @@ type ListTasksByFeatureParams struct {
 }
 
 type ListTasksByFeatureRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeatureParams) ([]ListTasksByFeatureRow, error) {
@@ -1130,6 +1184,7 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1145,7 +1200,7 @@ func (q *Queries) ListTasksByFeature(ctx context.Context, arg ListTasksByFeature
 }
 
 const listTasksByIssue = `-- name: ListTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2
   AND ($3::text = '' OR status = $3)
@@ -1161,22 +1216,23 @@ type ListTasksByIssueParams struct {
 }
 
 type ListTasksByIssueRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssueParams) ([]ListTasksByIssueRow, error) {
@@ -1207,6 +1263,7 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1222,30 +1279,31 @@ func (q *Queries) ListTasksByIssue(ctx context.Context, arg ListTasksByIssuePara
 }
 
 const listUnreviewedDoneTasks = `-- name: ListUnreviewedDoneTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC
 `
 
 type ListUnreviewedDoneTasksRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ReviewedAt  pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ReviewedAt   pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 }
 
 func (q *Queries) ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error) {
@@ -1271,6 +1329,7 @@ func (q *Queries) ListUnreviewedDoneTasks(ctx context.Context, projectID int32) 
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1287,7 +1346,7 @@ func (q *Queries) ListUnreviewedDoneTasks(ctx context.Context, projectID int32) 
 }
 
 const listUnreviewedDoneTasksByIssue = `-- name: ListUnreviewedDoneTasksByIssue :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at, reviewed_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at, reviewed_at
 FROM zdx_tasks
 WHERE project_id = $1 AND issue = $2 AND status = 'done' AND reviewed_at IS NULL
 ORDER BY completed_at ASC
@@ -1299,23 +1358,24 @@ type ListUnreviewedDoneTasksByIssueParams struct {
 }
 
 type ListUnreviewedDoneTasksByIssueRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
-	ReviewedAt  pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ReviewedAt   pgtype.Timestamptz `db:"reviewed_at" json:"reviewed_at"`
 }
 
 func (q *Queries) ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error) {
@@ -1341,6 +1401,7 @@ func (q *Queries) ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUn
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1431,26 +1492,27 @@ WHERE status = 'active'
       AND a.disconnect_at > NOW() - $1::interval
   )
   AND status != 'done'
-RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+RETURNING id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 `
 
 type ReclaimExpiredTasksRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 // Reset tasks that are marked active but have no live reservation. Tasks
@@ -1480,6 +1542,7 @@ func (q *Queries) ReclaimExpiredTasks(ctx context.Context, disconnectGrace pgtyp
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1513,7 +1576,7 @@ func (q *Queries) ReleaseTaskAdmin(ctx context.Context, id string) error {
 }
 
 const searchTasks = `-- name: SearchTasks :many
-SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, target_branch, created_at, completed_at, updated_at
 FROM zdx_tasks
 WHERE project_id = $1
   AND (title ILIKE '%' || $2::text || '%' OR text ILIKE '%' || $2::text || '%')
@@ -1527,22 +1590,23 @@ type SearchTasksParams struct {
 }
 
 type SearchTasksRow struct {
-	ID          string             `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Title       string             `db:"title" json:"title"`
-	Text        string             `db:"text" json:"text"`
-	Feature     string             `db:"feature" json:"feature"`
-	Status      string             `db:"status" json:"status"`
-	Reason      string             `db:"reason" json:"reason"`
-	Issue       string             `db:"issue" json:"issue"`
-	Depends     string             `db:"depends" json:"depends"`
-	TestPlan    string             `db:"test_plan" json:"test_plan"`
-	TestRefs    string             `db:"test_refs" json:"test_refs"`
-	TaskGroup   string             `db:"task_group" json:"task_group"`
-	Spec        string             `db:"spec" json:"spec"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
-	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	ID           string             `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	Title        string             `db:"title" json:"title"`
+	Text         string             `db:"text" json:"text"`
+	Feature      string             `db:"feature" json:"feature"`
+	Status       string             `db:"status" json:"status"`
+	Reason       string             `db:"reason" json:"reason"`
+	Issue        string             `db:"issue" json:"issue"`
+	Depends      string             `db:"depends" json:"depends"`
+	TestPlan     string             `db:"test_plan" json:"test_plan"`
+	TestRefs     string             `db:"test_refs" json:"test_refs"`
+	TaskGroup    string             `db:"task_group" json:"task_group"`
+	Spec         string             `db:"spec" json:"spec"`
+	TargetBranch string             `db:"target_branch" json:"target_branch"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt  pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 // metaquery: off
@@ -1569,6 +1633,7 @@ func (q *Queries) SearchTasks(ctx context.Context, arg SearchTasksParams) ([]Sea
 			&i.TestRefs,
 			&i.TaskGroup,
 			&i.Spec,
+			&i.TargetBranch,
 			&i.CreatedAt,
 			&i.CompletedAt,
 			&i.UpdatedAt,
@@ -1585,15 +1650,16 @@ func (q *Queries) SearchTasks(ctx context.Context, arg SearchTasksParams) ([]Sea
 
 const updateTaskFields = `-- name: UpdateTaskFields :exec
 UPDATE zdx_tasks
-SET title      = CASE WHEN $1::text = 'title'      THEN $2::text ELSE title      END,
-    text       = CASE WHEN $1::text = 'text'       THEN $2::text ELSE text       END,
-    feature    = CASE WHEN $1::text = 'feature'    THEN $2::text ELSE feature    END,
-    issue      = CASE WHEN $1::text = 'issue'      THEN $2::text ELSE issue      END,
-    depends    = CASE WHEN $1::text = 'depends'    THEN $2::text ELSE depends    END,
-    test_plan  = CASE WHEN $1::text = 'test_plan'  THEN $2::text ELSE test_plan  END,
-    test_refs  = CASE WHEN $1::text = 'test_refs'  THEN $2::text ELSE test_refs  END,
-    task_group = CASE WHEN $1::text = 'task_group' THEN $2::text ELSE task_group END,
-    updated_at = NOW()
+SET title         = CASE WHEN $1::text = 'title'         THEN $2::text ELSE title         END,
+    text          = CASE WHEN $1::text = 'text'          THEN $2::text ELSE text          END,
+    feature       = CASE WHEN $1::text = 'feature'       THEN $2::text ELSE feature       END,
+    issue         = CASE WHEN $1::text = 'issue'         THEN $2::text ELSE issue         END,
+    depends       = CASE WHEN $1::text = 'depends'       THEN $2::text ELSE depends       END,
+    test_plan     = CASE WHEN $1::text = 'test_plan'     THEN $2::text ELSE test_plan     END,
+    test_refs     = CASE WHEN $1::text = 'test_refs'     THEN $2::text ELSE test_refs     END,
+    task_group    = CASE WHEN $1::text = 'task_group'    THEN $2::text ELSE task_group    END,
+    target_branch = CASE WHEN $1::text = 'target_branch' THEN $2::text ELSE target_branch END,
+    updated_at    = NOW()
 WHERE id = $3
 `
 

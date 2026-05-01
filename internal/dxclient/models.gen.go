@@ -310,12 +310,15 @@ type AddTaskResponse struct {
 	Spec       *string `json:"spec,omitempty"`
 	StaleSince *string `json:"stale_since,omitempty"`
 	Status     string  `json:"status"`
-	TaskGroup  string  `json:"task_group"`
-	TestPlan   string  `json:"test_plan"`
-	TestRefs   string  `json:"test_refs"`
-	Text       string  `json:"text"`
-	Title      string  `json:"title"`
-	UpdatedAt  string  `json:"updated_at"`
+
+	// TargetBranch Branch the task targets; defaults to dev. Backport tasks point at a named version branch.
+	TargetBranch *string `json:"target_branch,omitempty"`
+	TaskGroup    string  `json:"task_group"`
+	TestPlan     string  `json:"test_plan"`
+	TestRefs     string  `json:"test_refs"`
+	Text         string  `json:"text"`
+	Title        string  `json:"title"`
+	UpdatedAt    string  `json:"updated_at"`
 }
 
 // AdminStatsResponse defines model for Admin-statsResponse.
@@ -522,16 +525,19 @@ type AtlasEdgeItem struct {
 // AtlasNodeDetail defines model for AtlasNodeDetail.
 type AtlasNodeDetail struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema      *string              `json:"$schema,omitempty"`
-	Chunks      *[]AtlasChunkItem    `json:"chunks"`
-	CreatedAt   string               `json:"created_at"`
-	Description string               `json:"description"`
-	Edges       *[]AtlasEdgeFromItem `json:"edges"`
-	Id          int64                `json:"id"`
-	Kind        string               `json:"kind"`
-	Slug        string               `json:"slug"`
-	Title       string               `json:"title"`
-	UpdatedAt   string               `json:"updated_at"`
+	Schema            *string                  `json:"$schema,omitempty"`
+	Chunks            *[]AtlasChunkItem        `json:"chunks"`
+	CreatedAt         string                   `json:"created_at"`
+	DemoCoverageCount int32                    `json:"demo_coverage_count"`
+	Description       string                   `json:"description"`
+	Edges             *[]AtlasEdgeFromItem     `json:"edges"`
+	Id                int64                    `json:"id"`
+	Kind              string                   `json:"kind"`
+	Slug              string                   `json:"slug"`
+	StaleFraction     float64                  `json:"stale_fraction"`
+	Subgraph          *[]AtlasSubgraphNodeItem `json:"subgraph"`
+	Title             string                   `json:"title"`
+	UpdatedAt         string                   `json:"updated_at"`
 }
 
 // AtlasNodeItem defines model for AtlasNodeItem.
@@ -554,6 +560,16 @@ type AtlasStaleChunkItem struct {
 	NodeKind string  `json:"node_kind"`
 	NodeSlug string  `json:"node_slug"`
 	Title    *string `json:"title,omitempty"`
+}
+
+// AtlasSubgraphNodeItem defines model for AtlasSubgraphNodeItem.
+type AtlasSubgraphNodeItem struct {
+	Depth       int32   `json:"depth"`
+	Kind        string  `json:"kind"`
+	Slug        string  `json:"slug"`
+	Summary     *string `json:"summary,omitempty"`
+	Title       string  `json:"title"`
+	ViaEdgeType *string `json:"via_edge_type,omitempty"`
 }
 
 // AttachCodeRefToIssueRequest defines model for Attach-code-ref-to-issueRequest.
@@ -1112,6 +1128,19 @@ type CreateProposalBody struct {
 	DuplicatesReviewToken *string                `json:"duplicates_review_token,omitempty"`
 	Proposal              *ProposalItem          `json:"proposal,omitempty"`
 	Similar               *[]SimilarProposalItem `json:"similar,omitempty"`
+}
+
+// CreateVersionBranchResult defines model for CreateVersionBranchResult.
+type CreateVersionBranchResult struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema               *string `json:"$schema,omitempty"`
+	BackportTasksCreated int64   `json:"backport_tasks_created"`
+	CreatedAt            string  `json:"created_at"`
+	Id                   int64   `json:"id"`
+	Name                 string  `json:"name"`
+	Semver               *string `json:"semver,omitempty"`
+	Status               string  `json:"status"`
+	Type                 string  `json:"type"`
 }
 
 // DebugOutput defines model for DebugOutput.
@@ -4198,12 +4227,15 @@ type TaskItem struct {
 	Spec       *string `json:"spec,omitempty"`
 	StaleSince *string `json:"stale_since,omitempty"`
 	Status     string  `json:"status"`
-	TaskGroup  string  `json:"task_group"`
-	TestPlan   string  `json:"test_plan"`
-	TestRefs   string  `json:"test_refs"`
-	Text       string  `json:"text"`
-	Title      string  `json:"title"`
-	UpdatedAt  string  `json:"updated_at"`
+
+	// TargetBranch Branch the task targets; defaults to dev. Backport tasks point at a named version branch.
+	TargetBranch *string `json:"target_branch,omitempty"`
+	TaskGroup    string  `json:"task_group"`
+	TestPlan     string  `json:"test_plan"`
+	TestRefs     string  `json:"test_refs"`
+	Text         string  `json:"text"`
+	Title        string  `json:"title"`
+	UpdatedAt    string  `json:"updated_at"`
 }
 
 // TaskReviewItem defines model for TaskReviewItem.
@@ -4659,8 +4691,6 @@ type VersionBranchDetail struct {
 
 // VersionBranchItem defines model for VersionBranchItem.
 type VersionBranchItem struct {
-	// Schema A URL to the JSON Schema for this object.
-	Schema    *string `json:"$schema,omitempty"`
 	CreatedAt string  `json:"created_at"`
 	Id        int64   `json:"id"`
 	Name      string  `json:"name"`
@@ -5602,6 +5632,11 @@ type IngestTimingsParams struct {
 // ListAtlasNodesParams defines parameters for ListAtlasNodes.
 type ListAtlasNodesParams struct {
 	Kind *string `form:"kind,omitempty" json:"kind,omitempty"`
+}
+
+// GetAtlasNodeParams defines parameters for GetAtlasNode.
+type GetAtlasNodeParams struct {
+	Depth *int32 `form:"depth,omitempty" json:"depth,omitempty"`
 }
 
 // GetTaskParams defines parameters for GetTask.
@@ -7565,7 +7600,7 @@ type ClientInterface interface {
 	CreateAtlasNode(ctx context.Context, slug string, body CreateAtlasNodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// GetAtlasNode request
-	GetAtlasNode(ctx context.Context, slug string, kind string, nodeSlug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+	GetAtlasNode(ctx context.Context, slug string, kind string, nodeSlug string, params *GetAtlasNodeParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListAtlasChunks request
 	ListAtlasChunks(ctx context.Context, slug string, nodeId int64, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -13633,8 +13668,8 @@ func (c *APIClient) CreateAtlasNode(ctx context.Context, slug string, body Creat
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) GetAtlasNode(ctx context.Context, slug string, kind string, nodeSlug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewGetAtlasNodeRequest(c.Server, slug, kind, nodeSlug)
+func (c *APIClient) GetAtlasNode(ctx context.Context, slug string, kind string, nodeSlug string, params *GetAtlasNodeParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAtlasNodeRequest(c.Server, slug, kind, nodeSlug, params)
 	if err != nil {
 		return nil, err
 	}
@@ -31051,7 +31086,7 @@ func NewCreateAtlasNodeRequestWithBody(server string, slug string, contentType s
 }
 
 // NewGetAtlasNodeRequest generates requests for GetAtlasNode
-func NewGetAtlasNodeRequest(server string, slug string, kind string, nodeSlug string) (*http.Request, error) {
+func NewGetAtlasNodeRequest(server string, slug string, kind string, nodeSlug string, params *GetAtlasNodeParams) (*http.Request, error) {
 	var err error
 
 	var pathParam0 string
@@ -31088,6 +31123,28 @@ func NewGetAtlasNodeRequest(server string, slug string, kind string, nodeSlug st
 	queryURL, err := serverURL.Parse(operationPath)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Depth != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "depth", *params.Depth, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -33266,7 +33323,7 @@ type ClientWithResponsesInterface interface {
 	CreateAtlasNodeWithResponse(ctx context.Context, slug string, body CreateAtlasNodeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasNodeResponse, error)
 
 	// GetAtlasNodeWithResponse request
-	GetAtlasNodeWithResponse(ctx context.Context, slug string, kind string, nodeSlug string, reqEditors ...RequestEditorFn) (*GetAtlasNodeResponse, error)
+	GetAtlasNodeWithResponse(ctx context.Context, slug string, kind string, nodeSlug string, params *GetAtlasNodeParams, reqEditors ...RequestEditorFn) (*GetAtlasNodeResponse, error)
 
 	// ListAtlasChunksWithResponse request
 	ListAtlasChunksWithResponse(ctx context.Context, slug string, nodeId int64, reqEditors ...RequestEditorFn) (*ParsedListAtlasChunksResponse, error)
@@ -37188,7 +37245,7 @@ func (r ParsedListVersionBranchesResponse) StatusCode() int {
 type CreateVersionBranchResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *VersionBranchItem
+	JSON200                       *CreateVersionBranchResult
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -45700,8 +45757,8 @@ func (c *ClientWithResponses) CreateAtlasNodeWithResponse(ctx context.Context, s
 }
 
 // GetAtlasNodeWithResponse request returning *GetAtlasNodeResponse
-func (c *ClientWithResponses) GetAtlasNodeWithResponse(ctx context.Context, slug string, kind string, nodeSlug string, reqEditors ...RequestEditorFn) (*GetAtlasNodeResponse, error) {
-	rsp, err := c.GetAtlasNode(ctx, slug, kind, nodeSlug, reqEditors...)
+func (c *ClientWithResponses) GetAtlasNodeWithResponse(ctx context.Context, slug string, kind string, nodeSlug string, params *GetAtlasNodeParams, reqEditors ...RequestEditorFn) (*GetAtlasNodeResponse, error) {
+	rsp, err := c.GetAtlasNode(ctx, slug, kind, nodeSlug, params, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -51391,7 +51448,7 @@ func ParseCreateVersionBranchResponse(rsp *http.Response) (*CreateVersionBranchR
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest VersionBranchItem
+		var dest CreateVersionBranchResult
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

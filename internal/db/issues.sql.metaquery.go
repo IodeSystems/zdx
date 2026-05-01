@@ -839,6 +839,96 @@ var ListOpenIssuesCols = struct {
 	NodeRef:         metaquery.NewTextCol("node_ref"),
 }
 
+var MetaListOpenIssuesEligibleForBackport = metaquery.Query{
+	Name:   "ListOpenIssuesEligibleForBackport",
+	Cmd:    ":many",
+	Source: "issues.sql",
+	SQL: `SELECT id, project_id, title, status, priority, component, context, created_at, issue_type, duplicate_of, url, updated_at, source_error_id, link_of, reopen_count, closed_at, interactive_only, target_branch, close_reason, node_ref
+FROM zdx_issues
+WHERE project_id = $1
+  AND status = 'open'
+  AND target_branch = 'dev'
+  AND priority ~ '^[0-9]+$'
+  AND (priority)::int <= $2::int
+ORDER BY (priority)::int ASC, updated_at DESC`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
+		{Name: "title", OriginalName: "title", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "priority", OriginalName: "priority", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "component", OriginalName: "component", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "context", OriginalName: "context", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_issues"},
+		{Name: "issue_type", OriginalName: "issue_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "duplicate_of", OriginalName: "duplicate_of", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "url", OriginalName: "url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_issues"},
+		{Name: "source_error_id", OriginalName: "source_error_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_issues"},
+		{Name: "link_of", OriginalName: "link_of", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_issues"},
+		{Name: "closed_at", OriginalName: "closed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_issues"},
+		{Name: "interactive_only", OriginalName: "interactive_only", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_issues"},
+		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "close_reason", OriginalName: "close_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
+		{Name: "node_ref", OriginalName: "node_ref", GoType: "pgtype.Text", DBType: "text", Table: "zdx_issues"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "max_priority", GoType: "int32", DBType: "int4", NotNull: true},
+	},
+}
+
+// WrapListOpenIssuesEligibleForBackport returns a metaquery.Builder over MetaListOpenIssuesEligibleForBackport, pre-bound with typed arguments.
+func WrapListOpenIssuesEligibleForBackport(arg ListOpenIssuesEligibleForBackportParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListOpenIssuesEligibleForBackport, arg.ProjectID, arg.MaxPriority)
+}
+
+// ListOpenIssuesEligibleForBackportCols gives typed, name-safe access to ListOpenIssuesEligibleForBackport's output columns.
+var ListOpenIssuesEligibleForBackportCols = struct {
+	ID              metaquery.TextCol
+	ProjectID       metaquery.IntCol
+	Title           metaquery.TextCol
+	Status          metaquery.TextCol
+	Priority        metaquery.TextCol
+	Component       metaquery.TextCol
+	Context         metaquery.TextCol
+	CreatedAt       metaquery.TimeCol
+	IssueType       metaquery.TextCol
+	DuplicateOf     metaquery.TextCol
+	Url             metaquery.TextCol
+	UpdatedAt       metaquery.TimeCol
+	SourceErrorID   metaquery.IntCol
+	LinkOf          metaquery.TextCol
+	ReopenCount     metaquery.IntCol
+	ClosedAt        metaquery.TimeCol
+	InteractiveOnly metaquery.BoolCol
+	TargetBranch    metaquery.TextCol
+	CloseReason     metaquery.TextCol
+	NodeRef         metaquery.TextCol
+}{
+	ID:              metaquery.NewTextCol("id"),
+	ProjectID:       metaquery.NewIntCol("project_id"),
+	Title:           metaquery.NewTextCol("title"),
+	Status:          metaquery.NewTextCol("status"),
+	Priority:        metaquery.NewTextCol("priority"),
+	Component:       metaquery.NewTextCol("component"),
+	Context:         metaquery.NewTextCol("context"),
+	CreatedAt:       metaquery.NewTimeCol("created_at"),
+	IssueType:       metaquery.NewTextCol("issue_type"),
+	DuplicateOf:     metaquery.NewTextCol("duplicate_of"),
+	Url:             metaquery.NewTextCol("url"),
+	UpdatedAt:       metaquery.NewTimeCol("updated_at"),
+	SourceErrorID:   metaquery.NewIntCol("source_error_id"),
+	LinkOf:          metaquery.NewTextCol("link_of"),
+	ReopenCount:     metaquery.NewIntCol("reopen_count"),
+	ClosedAt:        metaquery.NewTimeCol("closed_at"),
+	InteractiveOnly: metaquery.NewBoolCol("interactive_only"),
+	TargetBranch:    metaquery.NewTextCol("target_branch"),
+	CloseReason:     metaquery.NewTextCol("close_reason"),
+	NodeRef:         metaquery.NewTextCol("node_ref"),
+}
+
 var MetaListOpenLinkedIssues = metaquery.Query{
 	Name:   "ListOpenLinkedIssues",
 	Cmd:    ":many",

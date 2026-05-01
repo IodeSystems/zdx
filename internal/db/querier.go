@@ -65,6 +65,10 @@ type Querier interface {
 	CountIssueResolutions(ctx context.Context, issueID string) (int64, error)
 	// metaquery: off
 	CountIssuesByStatus(ctx context.Context, arg CountIssuesByStatusParams) ([]CountIssuesByStatusRow, error)
+	// IS-825 idempotency guard. Counts ready/wip/active tasks linking the given
+	// source issue to the given target branch — used by the auto-backport triggers
+	// (resolve-on-dev and branch-cut) to skip when a backport is already queued.
+	CountOpenBackportTasks(ctx context.Context, arg CountOpenBackportTasksParams) (int64, error)
 	CountOpenIssuesByTitle(ctx context.Context, arg CountOpenIssuesByTitleParams) (int64, error)
 	CountProjectConstraints(ctx context.Context, projectID int32) (int64, error)
 	CountProjectGoals(ctx context.Context, projectID int32) (int64, error)
@@ -111,6 +115,8 @@ type Querier interface {
 	CreateProposal(ctx context.Context, arg CreateProposalParams) (ZdxProposal, error)
 	CreateProposalVersion(ctx context.Context, arg CreateProposalVersionParams) (ZdxProposalVersion, error)
 	CreateSessionAuditEvent(ctx context.Context, arg CreateSessionAuditEventParams) error
+	// target_branch defaults to 'dev' when caller passes ''. Backport tasks set it
+	// to the version branch they target while their source issue stays on dev.
 	CreateTask(ctx context.Context, arg CreateTaskParams) (CreateTaskRow, error)
 	CreateThread(ctx context.Context, arg CreateThreadParams) (ZdxEventThread, error)
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error)
@@ -424,6 +430,15 @@ type Querier interface {
 	// reason: 'no-demo' = no demo test linked; 'failing-demo' = linked but not passing.
 	ListMustSpecShipGateOffenders(ctx context.Context, projectID int32) ([]ListMustSpecShipGateOffendersRow, error)
 	ListOpenIssues(ctx context.Context, projectID int32) ([]ZdxIssue, error)
+	// IS-825 trigger 2: when `dx branch cut` creates a new version branch, the
+	// caller enumerates open dev issues that should auto-generate a backport task
+	// against the new branch. Default policy (per IS-825): must-tier (priority 1)
+	// and should-tier (priority 2). Priority is stored as a numeric string —
+	// empty/non-numeric values fall through and are excluded by the comparison.
+	// Only issues currently targeting 'dev' qualify; an issue already targeted
+	// at a named branch is its own canonical home and does not get a backport
+	// task on top.
+	ListOpenIssuesEligibleForBackport(ctx context.Context, arg ListOpenIssuesEligibleForBackportParams) ([]ZdxIssue, error)
 	// Open issues whose duplicate_of or link_of targets the given issue. Used to
 	// cascade-close narrow-slice links (and full duplicates) when the target closes.
 	ListOpenLinkedIssues(ctx context.Context, arg ListOpenLinkedIssuesParams) ([]ZdxIssue, error)
