@@ -166,13 +166,17 @@ func shipGitOutput(args ...string) string {
 
 func shipRunCmd() *cobra.Command {
 	var envFlag, componentFlag string
-	var noResume, pkgOnly, noPackage, nonCompatFlag bool
+	var noResume, pkgOnly, noPackage, nonCompatFlag, allowDirty bool
 	cmd := &cobra.Command{
 		Use:   "run",
 		Short: "Execute ship stages for a component and record the deploy event",
 		RunE: func(cmd *cobra.Command, _ []string) error {
 			if pkgOnly && noPackage {
 				return fmt.Errorf("cannot combine --package and --no-package")
+			}
+
+			if err := shipDirtyTreeGate(allowDirty); err != nil {
+				return err
 			}
 
 			compName := config.ActiveComponent(componentFlag)
@@ -231,7 +235,42 @@ func shipRunCmd() *cobra.Command {
 	cmd.Flags().BoolVar(&pkgOnly, "package", false, "run only stages tagged 'build' (produce deploy artifact, skip deploy)")
 	cmd.Flags().BoolVar(&noPackage, "no-package", false, "skip stages tagged 'build' (deploy existing artifact, skip build)")
 	cmd.Flags().BoolVar(&nonCompatFlag, "non-compatible-migration", false, "use maintenance strategy (drains traffic, applies breaking migration, restarts)")
+	cmd.Flags().BoolVar(&allowDirty, "allow-dirty", false, "skip the dirty-tree gate (production emergency escape hatch only)")
 	return cmd
+}
+
+// shipDirtyTreeGate refuses to ship when the working tree has uncommitted
+// changes (mirrors bin/ship's gate). When allowDirty is true, prints a bypass
+// notice to stderr and returns nil. ExitError from `git diff --quiet` means
+// "dirty"; other errors are surfaced as failures.
+func shipDirtyTreeGate(allowDirty bool) error {
+	if allowDirty {
+		fmt.Fprintln(os.Stderr, "[ship] --allow-dirty: skipping dirty-tree gate")
+		return nil
+	}
+	dirty, err := shipIsDirty()
+	if err != nil {
+		return fmt.Errorf("ship: dirty-tree check: %w", err)
+	}
+	if !dirty {
+		return nil
+	}
+	status := shipGitOutput("status", "--short")
+	return fmt.Errorf("REFUSING TO SHIP: working tree has uncommitted changes. Commit or stash, or pass --allow-dirty (production emergency escape hatch only).\n\n%s", status)
+}
+
+func shipIsDirty() (bool, error) {
+	for _, args := range [][]string{{"diff", "--quiet"}, {"diff", "--cached", "--quiet"}} {
+		err := exec.Command("git", args...).Run()
+		if err == nil {
+			continue
+		}
+		if _, ok := err.(*exec.ExitError); ok {
+			return true, nil
+		}
+		return false, err
+	}
+	return false, nil
 }
 
 func shipGateCmd() *cobra.Command {

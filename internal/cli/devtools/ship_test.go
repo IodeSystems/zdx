@@ -20,4 +20,7 @@ func TestShipCmdHasRunSubcommand(t *testing.T) {
 	if cmd := run.Flags().Lookup("non-compatible-migration"); cmd == nil {
 		t.Error("--non-compatible-migration flag missing")
 	}
+	if cmd := run.Flags().Lookup("allow-dirty"); cmd == nil {
+		t.Error("--allow-dirty flag missing")
+	}
 }
