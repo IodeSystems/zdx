@@ -194,6 +194,7 @@ func serviceRungs() []Rung {
 				{"has_build_steps", "Build steps configured", ActionInfo},
 				{"has_deploy_config", "Deploy pipeline configured", ActionPropose},
 				{"has_healthcheck", "Health check endpoint exists", ActionInfo},
+				{"ship_config_defined", "Ship config declared for all components", ActionPropose},
 			},
 		},
 	}
@@ -208,6 +209,7 @@ func saasRungs() []Rung {
 				{"has_build_steps", "Build steps configured", ActionInfo},
 				{"has_deploy_config", "Deploy pipeline configured", ActionPropose},
 				{"has_healthcheck", "Health check endpoint exists", ActionInfo},
+				{"ship_config_defined", "Ship config declared for all components", ActionPropose},
 			},
 		},
 		{

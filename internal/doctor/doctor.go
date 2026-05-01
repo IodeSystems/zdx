@@ -118,6 +118,9 @@ type ProjectState struct {
 	DemoTestResultsExist bool // at least one demo-layer test result recorded
 	UsesStepDriver       bool // codebase has StepDriver usage in test files
 
+	// Ship config coverage
+	ComponentsWithoutShip int // components declared in config where Ship.IsZero()
+
 	// Deploy pipeline
 	ShipsFromDevDirectly bool // true when project deploys from dev/main without a gate/staging branch
 
@@ -162,6 +165,11 @@ func DetectLocal(state *ProjectState) {
 		state.Config = cfg
 		state.AgentConfigSet = cfg.Agent.LLMProvider != "" || cfg.Agent.ComposeFile != ""
 		state.HasBuildSteps = len(cfg.AllBuildSteps("")) > 0
+		for _, comp := range cfg.Components {
+			if comp.Ship.IsZero() {
+				state.ComponentsWithoutShip++
+			}
+		}
 	}
 
 	// Credentials
@@ -560,6 +568,17 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		}
 		return false, fmt.Sprintf("%d specs and demo tests present, but no StepDriver pattern in test files", state.SpecCount), nil,
 			"Adopt layered BDD test architecture: extract step interfaces with `Capability() DriverSet`, wire `given` steps to API driver always, route `when/then` to the selected driver. See `dx pattern show layered-bdd-tests` for the reference pattern."
+
+	case "ship_config_defined":
+		if state.Config == nil || len(state.Config.Components) == 0 {
+			return true, "no components declared", nil, ""
+		}
+		if state.ComponentsWithoutShip == 0 {
+			return true, "all components have ship config", nil, ""
+		}
+		total := len(state.Config.Components)
+		return false, fmt.Sprintf("%d/%d components missing ship config", state.ComponentsWithoutShip, total), nil,
+			"add ship: section to .zdx/config.yaml for each component"
 
 	case "has_deploy_config":
 		if state.ShipsFromDevDirectly {

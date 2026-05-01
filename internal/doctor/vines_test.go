@@ -337,3 +337,30 @@ func TestRetroactiveAuditRung(t *testing.T) {
 		}
 	})
 }
+
+// TestShipConfigDefinedInOperationsRung verifies that ship_config_defined appears
+// in the operations rung for service and saas classifications.
+func TestShipConfigDefinedInOperationsRung(t *testing.T) {
+	for _, class := range []Classification{ClassService, ClassSaaS} {
+		t.Run(string(class), func(t *testing.T) {
+			vine := Vine(class)
+			var found bool
+			for _, r := range vine {
+				if r.Name != "operations" {
+					continue
+				}
+				for _, c := range r.Checks {
+					if c.Name == "ship_config_defined" {
+						found = true
+						if c.Action != ActionPropose {
+							t.Errorf("ship_config_defined: want ActionPropose, got %v", c.Action)
+						}
+					}
+				}
+			}
+			if !found {
+				t.Errorf("Vine(%s) operations rung missing ship_config_defined check", class)
+			}
+		})
+	}
+}

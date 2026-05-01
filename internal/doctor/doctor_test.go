@@ -4,6 +4,8 @@ import (
 	"os"
 	"strings"
 	"testing"
+
+	"github.com/iodesystems/zdx-go/internal/config"
 )
 
 // TestEvaluateProposalsForNonAutoFixFailures verifies spec 129:
@@ -477,6 +479,71 @@ func TestRunCheckHasDeployConfigGateBranch(t *testing.T) {
 			for _, want := range tc.wantPropParts {
 				if !strings.Contains(proposal, want) {
 					t.Errorf("proposal=%q, want substring %q", proposal, want)
+				}
+			}
+		})
+	}
+}
+
+// TestShipConfigDefined covers the ship_config_defined runCheck cases.
+func TestShipConfigDefined(t *testing.T) {
+	configWithShip := &config.Config{
+		Components: map[string]config.Component{
+			"api": {Ship: config.Ship{Strategy: "simple"}},
+		},
+	}
+	configMissingShip := &config.Config{
+		Components: map[string]config.Component{
+			"api":    {Ship: config.Ship{Strategy: "simple"}},
+			"worker": {},
+		},
+	}
+	configNoComponents := &config.Config{}
+
+	cases := []struct {
+		name        string
+		state       *ProjectState
+		wantPass    bool
+		wantMsgPart string
+	}{
+		{
+			name:     "nil config passes",
+			state:    &ProjectState{},
+			wantPass: true,
+		},
+		{
+			name:     "no components passes",
+			state:    &ProjectState{Config: configNoComponents},
+			wantPass: true,
+		},
+		{
+			name:     "all components have ship passes",
+			state:    &ProjectState{Config: configWithShip, ComponentsWithoutShip: 0},
+			wantPass: true,
+		},
+		{
+			name:        "one component missing ship fails with count",
+			state:       &ProjectState{Config: configMissingShip, ComponentsWithoutShip: 1},
+			wantPass:    false,
+			wantMsgPart: "1/2 components missing ship config",
+		},
+	}
+
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			pass, msg, fixFunc, proposal := runCheck("ship_config_defined", tc.state)
+			if pass != tc.wantPass {
+				t.Errorf("pass=%v, want %v (msg=%q)", pass, tc.wantPass, msg)
+			}
+			if !tc.wantPass {
+				if fixFunc != nil {
+					t.Error("expected nil FixFunc for ActionPropose check")
+				}
+				if proposal == "" {
+					t.Error("expected non-empty proposal on failure")
+				}
+				if tc.wantMsgPart != "" && !strings.Contains(msg, tc.wantMsgPart) {
+					t.Errorf("msg=%q, want substring %q", msg, tc.wantMsgPart)
 				}
 			}
 		})
