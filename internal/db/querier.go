@@ -25,6 +25,8 @@ type Querier interface {
 	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddSpecDeferral(ctx context.Context, arg AddSpecDeferralParams) error
 	AddTodoIncompleteReport(ctx context.Context, arg AddTodoIncompleteReportParams) (ZdxTodoIncompleteReport, error)
+	AdminDeleteApiKey(ctx context.Context, id int32) (int64, error)
+	AdminListApiKeys(ctx context.Context) ([]AdminListApiKeysRow, error)
 	// Link an orphan task to a parent issue (zdx_tasks.issue = $2).
 	AdoptTaskToIssue(ctx context.Context, arg AdoptTaskToIssueParams) error
 	AggregateTodoIncompleteReports(ctx context.Context, arg AggregateTodoIncompleteReportsParams) ([]AggregateTodoIncompleteReportsRow, error)
@@ -168,11 +170,23 @@ type Querier interface {
 	GetActiveIssueReservation(ctx context.Context, arg GetActiveIssueReservationParams) (ZdxReservation, error)
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
 	GetApiKeyByToken(ctx context.Context, token string) (GetApiKeyByTokenRow, error)
+	GetApiKeyProjectScope(ctx context.Context, id int32) ([]string, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
 	GetAtlasChunk(ctx context.Context, arg GetAtlasChunkParams) (ZdxNarrativeChunk, error)
 	GetAtlasCoderef(ctx context.Context, arg GetAtlasCoderefParams) (ZdxCoderef, error)
 	GetAtlasNode(ctx context.Context, arg GetAtlasNodeParams) (ZdxNode, error)
 	GetAtlasNodeByID(ctx context.Context, arg GetAtlasNodeByIDParams) (ZdxNode, error)
+	// Returns drift and demo-coverage stats for a single node.
+	//   stale_count       — chunks whose coderef.sha has drifted from sha_at_write
+	//   total_with_coderef — chunks anchored to a coderef with a recorded sha_at_write
+	//   demo_coverage_count — outbound edges of type 'verified_by'
+	GetAtlasNodeStats(ctx context.Context, nodeID int64) (GetAtlasNodeStatsRow, error)
+	// Recursive BFS outward from @root_node_id following zdx_edges.from_node_id.
+	// Caps traversal at @max_depth (callers should clamp to <= 2). Cycles are
+	// prevented by tracking the visited path as an array. The root is excluded
+	// from the result set; each remaining node is returned once at its shortest
+	// depth from the root.
+	GetAtlasNodeSubgraph(ctx context.Context, arg GetAtlasNodeSubgraphParams) ([]GetAtlasNodeSubgraphRow, error)
 	GetBlockerQuestion(ctx context.Context, arg GetBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error)
 	GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (GetClaudeSessionBySessionIDRow, error)
@@ -470,6 +484,7 @@ type Querier interface {
 	// Specs linked to tests but where none of those tests are demo-component tests
 	// (TestDemo* prefix) and none have recorded demo artifacts. Non-deferred specs only.
 	ListSpecsWithoutDemos(ctx context.Context, projectID int32) ([]ListSpecsWithoutDemosRow, error)
+	ListStaleChunksByProject(ctx context.Context, projectID int32) ([]ListStaleChunksByProjectRow, error)
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ListStaleFeaturesRow, error)
 	ListStaleOpenClaudeSessions(ctx context.Context, arg ListStaleOpenClaudeSessionsParams) ([]ListStaleOpenClaudeSessionsRow, error)
 	ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error)
@@ -518,6 +533,8 @@ type Querier interface {
 	MarkAgentConnected(ctx context.Context, id string) error
 	// Set disconnect_at=now() and flip to 'disconnected' unless already paused/draining.
 	MarkAgentDisconnected(ctx context.Context, id string) error
+	MarkChunkBroken(ctx context.Context, arg MarkChunkBrokenParams) (ZdxNarrativeChunk, error)
+	MarkChunksStaleByFiles(ctx context.Context, arg MarkChunksStaleByFilesParams) error
 	MarkFeatureReviewed(ctx context.Context, arg MarkFeatureReviewedParams) error
 	MarkInviteUsed(ctx context.Context, id int32) error
 	MarkJournalEntryReviewed(ctx context.Context, id int32) error
@@ -649,6 +666,7 @@ type Querier interface {
 	UpdateAgentStatus(ctx context.Context, arg UpdateAgentStatusParams) error
 	UpdateAtlasChunk(ctx context.Context, arg UpdateAtlasChunkParams) error
 	UpdateAtlasNode(ctx context.Context, arg UpdateAtlasNodeParams) error
+	UpdateChunkBodyAndVerify(ctx context.Context, arg UpdateChunkBodyAndVerifyParams) (ZdxNarrativeChunk, error)
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
 	UpdateDiscussionSession(ctx context.Context, arg UpdateDiscussionSessionParams) (ZdxDiscussion, error)
 	UpdateDiscussionStatus(ctx context.Context, arg UpdateDiscussionStatusParams) error
@@ -693,6 +711,7 @@ type Querier interface {
 	// Tracks resolve→open churn: reopen_count increments each time a resolved key is re-emitted.
 	// Auto-blocks at 3+ reopens so agents don't churn indefinitely on an untriageable item.
 	UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertTodoRow, error)
+	VerifyChunkStillAccurate(ctx context.Context, arg VerifyChunkStillAccurateParams) (ZdxNarrativeChunk, error)
 }
 
 var _ Querier = (*Queries)(nil)

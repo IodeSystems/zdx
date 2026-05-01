@@ -11,6 +11,60 @@ import (
 
 var _ = metaquery.Query{}
 
+var MetaAdminDeleteApiKey = metaquery.Query{
+	Name:   "AdminDeleteApiKey",
+	Cmd:    ":execrows",
+	Source: "auth.sql",
+	SQL:    `DELETE FROM zdx_api_keys WHERE id = $1`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapAdminDeleteApiKey returns a metaquery.Builder over MetaAdminDeleteApiKey, pre-bound with typed arguments.
+func WrapAdminDeleteApiKey(id int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaAdminDeleteApiKey, id)
+}
+
+var MetaAdminListApiKeys = metaquery.Query{
+	Name:   "AdminListApiKeys",
+	Cmd:    ":many",
+	Source: "auth.sql",
+	SQL: `SELECT k.id, k.name, u.email AS user_email, k.project_scope, k.last_used_at, k.created_at
+FROM zdx_api_keys k JOIN zdx_users u ON u.id = k.user_id
+ORDER BY k.created_at DESC`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_api_keys"},
+		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_api_keys"},
+		{Name: "user_email", OriginalName: "email", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_users"},
+		{Name: "project_scope", OriginalName: "project_scope", GoType: "[]string", DBType: "text", IsArray: true, Table: "zdx_api_keys"},
+		{Name: "last_used_at", OriginalName: "last_used_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_api_keys"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_api_keys"},
+	},
+}
+
+// WrapAdminListApiKeys returns a metaquery.Builder over MetaAdminListApiKeys, pre-bound with typed arguments.
+func WrapAdminListApiKeys() *metaquery.Builder {
+	return metaquery.Wrap(&MetaAdminListApiKeys)
+}
+
+// AdminListApiKeysCols gives typed, name-safe access to AdminListApiKeys's output columns.
+var AdminListApiKeysCols = struct {
+	ID           metaquery.IntCol
+	Name         metaquery.TextCol
+	UserEmail    metaquery.TextCol
+	ProjectScope metaquery.AnyCol
+	LastUsedAt   metaquery.TimeCol
+	CreatedAt    metaquery.TimeCol
+}{
+	ID:           metaquery.NewIntCol("id"),
+	Name:         metaquery.NewTextCol("name"),
+	UserEmail:    metaquery.NewTextCol("email"),
+	ProjectScope: metaquery.NewAnyCol("project_scope"),
+	LastUsedAt:   metaquery.NewTimeCol("last_used_at"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+}
+
 var MetaCountApiKeys = metaquery.Query{
 	Name:   "CountApiKeys",
 	Cmd:    ":one",
@@ -37,14 +91,15 @@ var MetaCreateApiKey = metaquery.Query{
 	Name:   "CreateApiKey",
 	Cmd:    ":one",
 	Source: "auth.sql",
-	SQL: `INSERT INTO zdx_api_keys (user_id, token, name)
-VALUES ($1, $2, $3)
-RETURNING id, user_id, token, name, last_used_at, created_at`,
+	SQL: `INSERT INTO zdx_api_keys (user_id, token, name, project_scope)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, token, name, project_scope, last_used_at, created_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_api_keys"},
 		{Name: "user_id", OriginalName: "user_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_api_keys"},
 		{Name: "token", OriginalName: "token", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_api_keys"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_api_keys"},
+		{Name: "project_scope", OriginalName: "project_scope", GoType: "[]string", DBType: "text", IsArray: true, Table: "zdx_api_keys"},
 		{Name: "last_used_at", OriginalName: "last_used_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_api_keys"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_api_keys"},
 	},
@@ -52,30 +107,33 @@ RETURNING id, user_id, token, name, last_used_at, created_at`,
 		{Position: 1, Name: "user_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 		{Position: 2, Name: "token", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 3, Name: "name", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 4, Name: "project_scope", GoType: "[]string", DBType: "text", IsArray: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_api_keys"},
 }
 
 // WrapCreateApiKey returns a metaquery.Builder over MetaCreateApiKey, pre-bound with typed arguments.
 func WrapCreateApiKey(arg CreateApiKeyParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateApiKey, arg.UserID, arg.Token, arg.Name)
+	return metaquery.Wrap(&MetaCreateApiKey, arg.UserID, arg.Token, arg.Name, arg.ProjectScope)
 }
 
 // CreateApiKeyCols gives typed, name-safe access to CreateApiKey's output columns.
 var CreateApiKeyCols = struct {
-	ID         metaquery.IntCol
-	UserID     metaquery.IntCol
-	Token      metaquery.TextCol
-	Name       metaquery.TextCol
-	LastUsedAt metaquery.TimeCol
-	CreatedAt  metaquery.TimeCol
+	ID           metaquery.IntCol
+	UserID       metaquery.IntCol
+	Token        metaquery.TextCol
+	Name         metaquery.TextCol
+	ProjectScope metaquery.AnyCol
+	LastUsedAt   metaquery.TimeCol
+	CreatedAt    metaquery.TimeCol
 }{
-	ID:         metaquery.NewIntCol("id"),
-	UserID:     metaquery.NewIntCol("user_id"),
-	Token:      metaquery.NewTextCol("token"),
-	Name:       metaquery.NewTextCol("name"),
-	LastUsedAt: metaquery.NewTimeCol("last_used_at"),
-	CreatedAt:  metaquery.NewTimeCol("created_at"),
+	ID:           metaquery.NewIntCol("id"),
+	UserID:       metaquery.NewIntCol("user_id"),
+	Token:        metaquery.NewTextCol("token"),
+	Name:         metaquery.NewTextCol("name"),
+	ProjectScope: metaquery.NewAnyCol("project_scope"),
+	LastUsedAt:   metaquery.NewTimeCol("last_used_at"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
 }
 
 var MetaCreateInvite = metaquery.Query{
@@ -283,6 +341,31 @@ var GetApiKeyByTokenCols = struct {
 	ProjectScope: metaquery.NewAnyCol("project_scope"),
 	LastUsedAt:   metaquery.NewTimeCol("last_used_at"),
 	CreatedAt:    metaquery.NewTimeCol("created_at"),
+}
+
+var MetaGetApiKeyProjectScope = metaquery.Query{
+	Name:   "GetApiKeyProjectScope",
+	Cmd:    ":one",
+	Source: "auth.sql",
+	SQL:    `SELECT project_scope FROM zdx_api_keys WHERE id = $1`,
+	Columns: []metaquery.Column{
+		{Name: "project_scope", OriginalName: "project_scope", GoType: "[]string"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapGetApiKeyProjectScope returns a metaquery.Builder over MetaGetApiKeyProjectScope, pre-bound with typed arguments.
+func WrapGetApiKeyProjectScope(id int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetApiKeyProjectScope, id)
+}
+
+// GetApiKeyProjectScopeCols gives typed, name-safe access to GetApiKeyProjectScope's output columns.
+var GetApiKeyProjectScopeCols = struct {
+	ProjectScope metaquery.AnyCol
+}{
+	ProjectScope: metaquery.NewAnyCol("project_scope"),
 }
 
 var MetaGetApiKeyUserRole = metaquery.Query{

@@ -11,6 +11,60 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 )
 
+const adminDeleteApiKey = `-- name: AdminDeleteApiKey :execrows
+DELETE FROM zdx_api_keys WHERE id = $1
+`
+
+func (q *Queries) AdminDeleteApiKey(ctx context.Context, id int32) (int64, error) {
+	result, err := q.db.Exec(ctx, adminDeleteApiKey, id)
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected(), nil
+}
+
+const adminListApiKeys = `-- name: AdminListApiKeys :many
+SELECT k.id, k.name, u.email AS user_email, k.project_scope, k.last_used_at, k.created_at
+FROM zdx_api_keys k JOIN zdx_users u ON u.id = k.user_id
+ORDER BY k.created_at DESC
+`
+
+type AdminListApiKeysRow struct {
+	ID           int32              `db:"id" json:"id"`
+	Name         string             `db:"name" json:"name"`
+	UserEmail    string             `db:"user_email" json:"user_email"`
+	ProjectScope []string           `db:"project_scope" json:"project_scope"`
+	LastUsedAt   pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) AdminListApiKeys(ctx context.Context) ([]AdminListApiKeysRow, error) {
+	rows, err := q.db.Query(ctx, adminListApiKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []AdminListApiKeysRow
+	for rows.Next() {
+		var i AdminListApiKeysRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.UserEmail,
+			&i.ProjectScope,
+			&i.LastUsedAt,
+			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const countApiKeys = `-- name: CountApiKeys :one
 SELECT COUNT(*)::int FROM zdx_api_keys
 `
@@ -23,34 +77,42 @@ func (q *Queries) CountApiKeys(ctx context.Context) (int32, error) {
 }
 
 const createApiKey = `-- name: CreateApiKey :one
-INSERT INTO zdx_api_keys (user_id, token, name)
-VALUES ($1, $2, $3)
-RETURNING id, user_id, token, name, last_used_at, created_at
+INSERT INTO zdx_api_keys (user_id, token, name, project_scope)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, token, name, project_scope, last_used_at, created_at
 `
 
 type CreateApiKeyParams struct {
-	UserID int32  `db:"user_id" json:"user_id"`
-	Token  string `db:"token" json:"token"`
-	Name   string `db:"name" json:"name"`
+	UserID       int32    `db:"user_id" json:"user_id"`
+	Token        string   `db:"token" json:"token"`
+	Name         string   `db:"name" json:"name"`
+	ProjectScope []string `db:"project_scope" json:"project_scope"`
 }
 
 type CreateApiKeyRow struct {
-	ID         int32              `db:"id" json:"id"`
-	UserID     int32              `db:"user_id" json:"user_id"`
-	Token      string             `db:"token" json:"token"`
-	Name       string             `db:"name" json:"name"`
-	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID           int32              `db:"id" json:"id"`
+	UserID       int32              `db:"user_id" json:"user_id"`
+	Token        string             `db:"token" json:"token"`
+	Name         string             `db:"name" json:"name"`
+	ProjectScope []string           `db:"project_scope" json:"project_scope"`
+	LastUsedAt   pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 func (q *Queries) CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (CreateApiKeyRow, error) {
-	row := q.db.QueryRow(ctx, createApiKey, arg.UserID, arg.Token, arg.Name)
+	row := q.db.QueryRow(ctx, createApiKey,
+		arg.UserID,
+		arg.Token,
+		arg.Name,
+		arg.ProjectScope,
+	)
 	var i CreateApiKeyRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Token,
 		&i.Name,
+		&i.ProjectScope,
 		&i.LastUsedAt,
 		&i.CreatedAt,
 	)
@@ -206,6 +268,17 @@ func (q *Queries) GetApiKeyByToken(ctx context.Context, token string) (GetApiKey
 		&i.CreatedAt,
 	)
 	return i, err
+}
+
+const getApiKeyProjectScope = `-- name: GetApiKeyProjectScope :one
+SELECT project_scope FROM zdx_api_keys WHERE id = $1
+`
+
+func (q *Queries) GetApiKeyProjectScope(ctx context.Context, id int32) ([]string, error) {
+	row := q.db.QueryRow(ctx, getApiKeyProjectScope, id)
+	var project_scope []string
+	err := row.Scan(&project_scope)
+	return project_scope, err
 }
 
 const getApiKeyUserRole = `-- name: GetApiKeyUserRole :one

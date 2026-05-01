@@ -260,6 +260,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/admin/tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-admin-tokens"];
+        put?: never;
+        post: operations["create-admin-token"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/admin/tokens/{id}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete: operations["delete-admin-token"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/admin/users": {
         parameters: {
             query?: never;
@@ -2372,6 +2404,54 @@ export interface paths {
         options?: never;
         head?: never;
         patch?: never;
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-version-branches"];
+        put?: never;
+        post: operations["create-version-branch"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/branches/{name}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["show-version-branch"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/branches/{name}/eol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["mark-version-branch-eol"];
         trace?: never;
     };
     "/api/dx/projects/{slug}/environments": {
@@ -4683,6 +4763,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{slug}/atlas/chunks/stale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-stale-atlas-chunks"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{slug}/atlas/chunks/{chunk_id}/verify": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["verify-atlas-chunk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/projects/{slug}/atlas/coderefs": {
         parameters: {
             query?: never;
@@ -4757,6 +4869,22 @@ export interface paths {
         get: operations["list-atlas-chunks"];
         put?: never;
         post: operations["create-atlas-chunk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{slug}/atlas/review": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["review-atlas"];
         delete?: never;
         options?: never;
         head?: never;
@@ -5083,6 +5211,8 @@ export interface components {
             component?: string;
             context?: string;
             issue_type?: string;
+            /** @description Atlas node this issue is filed against, formatted as kind:slug */
+            node_ref?: string;
             screenshot_ids?: number[] | null;
             slug: string;
             source?: string;
@@ -5114,6 +5244,8 @@ export interface components {
             interactive_only?: boolean;
             issue_type: string;
             link_of?: string;
+            /** @description Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node */
+            node_ref?: string;
             priority: string;
             /**
              * Format: int32
@@ -5311,6 +5443,22 @@ export interface components {
             /** Format: int64 */
             user_count: number;
         };
+        AdminTokenItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/AdminTokenItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            /** Format: int32 */
+            id: number;
+            last_used_at?: string;
+            name: string;
+            project_scope?: string[] | null;
+            token?: string;
+            user_email?: string;
+        };
         AdminUserItem: {
             created_at: string;
             email: string;
@@ -5473,8 +5621,11 @@ export interface components {
             /** Format: int64 */
             node_id: number;
             sha_at_write?: string;
+            status: string;
             title?: string;
             updated_at: string;
+            verified_at?: string;
+            verified_by?: string;
             verifier_kind: string;
         };
         AtlasCoderefItem: {
@@ -5562,6 +5713,14 @@ export interface components {
             slug: string;
             title: string;
             updated_at: string;
+        };
+        AtlasStaleChunkItem: {
+            file?: string;
+            /** Format: int64 */
+            id: number;
+            node_kind: string;
+            node_slug: string;
+            title?: string;
         };
         "Attach-code-ref-to-issueRequest": {
             /**
@@ -5986,6 +6145,16 @@ export interface components {
             /** Format: int32 */
             value: number;
         };
+        "Create-admin-tokenRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-admin-tokenRequest.json
+             */
+            readonly $schema?: string;
+            name?: string;
+            project_slug: string;
+        };
         "Create-agent-sessionRequest": {
             /**
              * Format: uri
@@ -6231,6 +6400,16 @@ export interface components {
             title: string;
             value: string;
         };
+        "Create-version-branchRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-version-branchRequest.json
+             */
+            readonly $schema?: string;
+            name: string;
+            semver?: string;
+        };
         CreateProposalBody: {
             /**
              * Format: uri
@@ -6241,6 +6420,9 @@ export interface components {
             duplicates_review_token?: string;
             proposal?: components["schemas"]["ProposalItem"];
             similar?: components["schemas"]["SimilarProposalItem"][] | null;
+        };
+        DebugOutput: {
+            trace: components["schemas"]["Entry"][] | null;
         };
         "Deduplicate-proposalsRequest": {
             /**
@@ -6258,6 +6440,7 @@ export interface components {
              * @example https://example.com/schemas/Deduplicate-proposalsResponse.json
              */
             readonly $schema?: string;
+            debug?: components["schemas"]["DebugOutput"];
             groups: components["schemas"]["ProposalDedupGroup"][] | null;
         };
         "Defer-doctor-checkRequest": {
@@ -6528,6 +6711,11 @@ export interface components {
             slug: string;
             title?: string;
             url?: string;
+        };
+        Entry: {
+            coderef: string;
+            label: string;
+            value: unknown;
         };
         EnvironmentItem: {
             /**
@@ -7221,6 +7409,8 @@ export interface components {
             interactive_only?: boolean;
             issue_type: string;
             link_of?: string;
+            /** @description Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node */
+            node_ref?: string;
             priority: string;
             /**
              * Format: int32
@@ -7299,6 +7489,7 @@ export interface components {
              * @example https://example.com/schemas/Journal-generateResponse.json
              */
             readonly $schema?: string;
+            debug?: components["schemas"]["DebugOutput"];
             entry: components["schemas"]["JournalEntryItem"];
         };
         "Journal-reviewRequest": {
@@ -7431,6 +7622,15 @@ export interface components {
              */
             readonly $schema?: string;
             entries: components["schemas"]["ActivityWorklogEntry"][] | null;
+        };
+        "List-admin-tokensResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-admin-tokensResponse.json
+             */
+            readonly $schema?: string;
+            tokens: components["schemas"]["AdminTokenItem"][] | null;
         };
         "List-admin-usersResponse": {
             /**
@@ -8023,6 +8223,7 @@ export interface components {
              * @example https://example.com/schemas/List-must-spec-ship-gate-offendersResponse.json
              */
             readonly $schema?: string;
+            debug?: components["schemas"]["DebugOutput"];
             offenders: components["schemas"]["SpecCloseGateOffender"][] | null;
         };
         "List-my-api-keysResponse": {
@@ -8187,6 +8388,17 @@ export interface components {
              */
             readonly $schema?: string;
             specs: components["schemas"]["UncoveredSpecItem"][] | null;
+        };
+        "List-stale-atlas-chunksResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-stale-atlas-chunksResponse.json
+             */
+            readonly $schema?: string;
+            chunks: components["schemas"]["AtlasStaleChunkItem"][] | null;
+            /** Format: int64 */
+            stale_count: number;
         };
         "List-stale-featuresResponse": {
             /**
@@ -8376,6 +8588,15 @@ export interface components {
             tasks: components["schemas"]["TaskItem"][] | null;
             /** Format: int64 */
             total: number;
+        };
+        "List-version-branchesResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-version-branchesResponse.json
+             */
+            readonly $schema?: string;
+            branches: components["schemas"]["VersionBranchItem"][] | null;
         };
         "List-worklogResponse": {
             /**
@@ -9145,6 +9366,27 @@ export interface components {
             readonly $schema?: string;
             resolution: components["schemas"]["ResolutionItem"];
         };
+        "Review-atlasRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Review-atlasRequest.json
+             */
+            readonly $schema?: string;
+            current_sha: string;
+            files: string[] | null;
+        };
+        "Review-atlasResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Review-atlasResponse.json
+             */
+            readonly $schema?: string;
+            chunks: components["schemas"]["AtlasStaleChunkItem"][] | null;
+            /** Format: int64 */
+            stale_count: number;
+        };
         RevisionItem: {
             agent: string;
             created_at: string;
@@ -9770,6 +10012,42 @@ export interface components {
              */
             readonly $schema?: string;
             ok: boolean;
+        };
+        SoloClaimBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/SoloClaimBody.json
+             */
+            readonly $schema?: string;
+            blocked: boolean;
+            blocked_reason?: string;
+            claimed_at?: string;
+            claimed_by?: string;
+            created_at: string;
+            /** Format: int32 */
+            cycle_count?: number;
+            debug?: components["schemas"]["DebugOutput"];
+            description?: string;
+            /** Format: int32 */
+            id: number;
+            instructions?: string;
+            issue_ref: string;
+            key: string;
+            kind: string;
+            persona: string;
+            /** Format: int32 */
+            priority: number;
+            project_slug?: string;
+            reference_issue_id?: string;
+            resolved_at?: string;
+            status: string;
+            suggested_action?: string;
+            target_branch?: string;
+            target_id: string;
+            target_type: string;
+            text: string;
+            title?: string;
         };
         SoloQueueItem: {
             blocked: boolean;
@@ -10471,6 +10749,52 @@ export interface components {
             description: string;
             name: string;
             slug: string;
+        };
+        "Verify-atlas-chunkRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Verify-atlas-chunkRequest.json
+             */
+            readonly $schema?: string;
+            body?: string;
+            comment?: string;
+            sha?: string;
+            verb: string;
+        };
+        VersionBranchDetail: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/VersionBranchDetail.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            /** Format: int64 */
+            open_count: number;
+            /** Format: int64 */
+            resolved_count: number;
+            semver?: string;
+            status: string;
+            type: string;
+        };
+        VersionBranchItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/VersionBranchItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            semver?: string;
+            status: string;
+            type: string;
         };
         VisionItem: {
             description: string;
@@ -11230,6 +11554,97 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Admin-statsResponse"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-admin-tokens": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-admin-tokensResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-admin-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-admin-tokenRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AdminTokenItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "delete-admin-token": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -14838,8 +15253,12 @@ export interface operations {
     };
     "journal-generate": {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                debug?: string;
+            };
+            header?: {
+                "X-Atlas-Debug"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -15887,6 +16306,136 @@ export interface operations {
             };
         };
     };
+    "list-version-branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-version-branchesResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-version-branch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-version-branchRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionBranchItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "show-version-branch": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["VersionBranchDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "mark-version-branch-eol": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-environments": {
         parameters: {
             query?: never;
@@ -16527,8 +17076,12 @@ export interface operations {
     };
     "deduplicate-proposals": {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                debug?: string;
+            };
+            header?: {
+                "X-Atlas-Debug"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -17166,8 +17719,11 @@ export interface operations {
         parameters: {
             query: {
                 slug: string;
+                debug?: string;
             };
-            header?: never;
+            header?: {
+                "X-Atlas-Debug"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -17330,8 +17886,12 @@ export interface operations {
     };
     "solo-claim": {
         parameters: {
-            query?: never;
-            header?: never;
+            query?: {
+                debug?: string;
+            };
+            header?: {
+                "X-Atlas-Debug"?: string;
+            };
             path?: never;
             cookie?: never;
         };
@@ -17347,7 +17907,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["TodoItem"];
+                    "application/json": components["schemas"]["SoloClaimBody"];
                 };
             };
             /** @description Error */
@@ -21017,6 +21577,73 @@ export interface operations {
             };
         };
     };
+    "list-stale-atlas-chunks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-stale-atlas-chunksResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "verify-atlas-chunk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                chunk_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Verify-atlas-chunkRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtlasChunkItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-atlas-coderefs": {
         parameters: {
             query?: never;
@@ -21274,6 +21901,41 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["AtlasChunkItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "review-atlas": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Review-atlasRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Review-atlasResponse"];
                 };
             };
             /** @description Error */

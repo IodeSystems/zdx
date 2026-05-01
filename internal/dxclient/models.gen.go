@@ -130,18 +130,21 @@ type AddFocusRequest struct {
 // AddIssueRequest defines model for Add-issueRequest.
 type AddIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema        *string   `json:"$schema,omitempty"`
-	AutoReady     *bool     `json:"auto_ready,omitempty"`
-	BlockedBy     *[]string `json:"blocked_by,omitempty"`
-	Component     *string   `json:"component,omitempty"`
-	Context       *string   `json:"context,omitempty"`
-	IssueType     *string   `json:"issue_type,omitempty"`
-	ScreenshotIds *[]int32  `json:"screenshot_ids,omitempty"`
-	Slug          string    `json:"slug"`
-	Source        *string   `json:"source,omitempty"`
-	SourceErrorId *int64    `json:"source_error_id,omitempty"`
-	Title         *string   `json:"title,omitempty"`
-	Url           *string   `json:"url,omitempty"`
+	Schema    *string   `json:"$schema,omitempty"`
+	AutoReady *bool     `json:"auto_ready,omitempty"`
+	BlockedBy *[]string `json:"blocked_by,omitempty"`
+	Component *string   `json:"component,omitempty"`
+	Context   *string   `json:"context,omitempty"`
+	IssueType *string   `json:"issue_type,omitempty"`
+
+	// NodeRef Atlas node this issue is filed against, formatted as kind:slug
+	NodeRef       *string  `json:"node_ref,omitempty"`
+	ScreenshotIds *[]int32 `json:"screenshot_ids,omitempty"`
+	Slug          string   `json:"slug"`
+	Source        *string  `json:"source,omitempty"`
+	SourceErrorId *int64   `json:"source_error_id,omitempty"`
+	Title         *string  `json:"title,omitempty"`
+	Url           *string  `json:"url,omitempty"`
 }
 
 // AddIssueResponse defines model for Add-issueResponse.
@@ -162,7 +165,10 @@ type AddIssueResponse struct {
 	InteractiveOnly *bool   `json:"interactive_only,omitempty"`
 	IssueType       string  `json:"issue_type"`
 	LinkOf          *string `json:"link_of,omitempty"`
-	Priority        string  `json:"priority"`
+
+	// NodeRef Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node
+	NodeRef  *string `json:"node_ref,omitempty"`
+	Priority string  `json:"priority"`
 
 	// ReopenCount Number of times this issue has been reopened — a churn signal for stabilization candidates
 	ReopenCount       *int32              `json:"reopen_count,omitempty"`
@@ -321,6 +327,19 @@ type AdminStatsResponse struct {
 	UserCount    int64   `json:"user_count"`
 }
 
+// AdminTokenItem defines model for AdminTokenItem.
+type AdminTokenItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string   `json:"$schema,omitempty"`
+	CreatedAt    string    `json:"created_at"`
+	Id           int32     `json:"id"`
+	LastUsedAt   *string   `json:"last_used_at,omitempty"`
+	Name         string    `json:"name"`
+	ProjectScope *[]string `json:"project_scope,omitempty"`
+	Token        *string   `json:"token,omitempty"`
+	UserEmail    *string   `json:"user_email,omitempty"`
+}
+
 // AdminUserItem defines model for AdminUserItem.
 type AdminUserItem struct {
 	CreatedAt string `json:"created_at"`
@@ -453,8 +472,11 @@ type AtlasChunkItem struct {
 	Id           int64   `json:"id"`
 	NodeId       int64   `json:"node_id"`
 	ShaAtWrite   *string `json:"sha_at_write,omitempty"`
+	Status       string  `json:"status"`
 	Title        *string `json:"title,omitempty"`
 	UpdatedAt    string  `json:"updated_at"`
+	VerifiedAt   *string `json:"verified_at,omitempty"`
+	VerifiedBy   *string `json:"verified_by,omitempty"`
 	VerifierKind string  `json:"verifier_kind"`
 }
 
@@ -523,6 +545,15 @@ type AtlasNodeItem struct {
 	Slug        string  `json:"slug"`
 	Title       string  `json:"title"`
 	UpdatedAt   string  `json:"updated_at"`
+}
+
+// AtlasStaleChunkItem defines model for AtlasStaleChunkItem.
+type AtlasStaleChunkItem struct {
+	File     *string `json:"file,omitempty"`
+	Id       int64   `json:"id"`
+	NodeKind string  `json:"node_kind"`
+	NodeSlug string  `json:"node_slug"`
+	Title    *string `json:"title,omitempty"`
 }
 
 // AttachCodeRefToIssueRequest defines model for Attach-code-ref-to-issueRequest.
@@ -862,6 +893,14 @@ type CounterEventItem struct {
 	Value       int32       `json:"value"`
 }
 
+// CreateAdminTokenRequest defines model for Create-admin-tokenRequest.
+type CreateAdminTokenRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	Name        *string `json:"name,omitempty"`
+	ProjectSlug string  `json:"project_slug"`
+}
+
 // CreateAgentSessionRequest defines model for Create-agent-sessionRequest.
 type CreateAgentSessionRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1058,6 +1097,14 @@ type CreateProposalRequest struct {
 	Value              string  `json:"value"`
 }
 
+// CreateVersionBranchRequest defines model for Create-version-branchRequest.
+type CreateVersionBranchRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Name   string  `json:"name"`
+	Semver *string `json:"semver,omitempty"`
+}
+
 // CreateProposalBody defines model for CreateProposalBody.
 type CreateProposalBody struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1065,6 +1112,11 @@ type CreateProposalBody struct {
 	DuplicatesReviewToken *string                `json:"duplicates_review_token,omitempty"`
 	Proposal              *ProposalItem          `json:"proposal,omitempty"`
 	Similar               *[]SimilarProposalItem `json:"similar,omitempty"`
+}
+
+// DebugOutput defines model for DebugOutput.
+type DebugOutput struct {
+	Trace *[]Entry `json:"trace"`
 }
 
 // DeduplicateProposalsRequest defines model for Deduplicate-proposalsRequest.
@@ -1078,6 +1130,7 @@ type DeduplicateProposalsRequest struct {
 type DeduplicateProposalsResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string               `json:"$schema,omitempty"`
+	Debug  *DebugOutput          `json:"debug,omitempty"`
 	Groups *[]ProposalDedupGroup `json:"groups"`
 }
 
@@ -1287,6 +1340,13 @@ type EditIssueRequest struct {
 	Slug            string  `json:"slug"`
 	Title           *string `json:"title,omitempty"`
 	Url             *string `json:"url,omitempty"`
+}
+
+// Entry defines model for Entry.
+type Entry struct {
+	Coderef string      `json:"coderef"`
+	Label   string      `json:"label"`
+	Value   interface{} `json:"value"`
 }
 
 // EnvironmentItem defines model for EnvironmentItem.
@@ -1868,7 +1928,10 @@ type IssueItem struct {
 	InteractiveOnly *bool   `json:"interactive_only,omitempty"`
 	IssueType       string  `json:"issue_type"`
 	LinkOf          *string `json:"link_of,omitempty"`
-	Priority        string  `json:"priority"`
+
+	// NodeRef Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node
+	NodeRef  *string `json:"node_ref,omitempty"`
+	Priority string  `json:"priority"`
 
 	// ReopenCount Number of times this issue has been reopened — a churn signal for stabilization candidates
 	ReopenCount  *int32  `json:"reopen_count,omitempty"`
@@ -1938,6 +2001,7 @@ type JournalGenerateRequest struct {
 type JournalGenerateResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string          `json:"$schema,omitempty"`
+	Debug  *DebugOutput     `json:"debug,omitempty"`
 	Entry  JournalEntryItem `json:"entry"`
 }
 
@@ -2046,6 +2110,13 @@ type ListActivityWorklogResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema  *string                 `json:"$schema,omitempty"`
 	Entries *[]ActivityWorklogEntry `json:"entries"`
+}
+
+// ListAdminTokensResponse defines model for List-admin-tokensResponse.
+type ListAdminTokensResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string           `json:"$schema,omitempty"`
+	Tokens *[]AdminTokenItem `json:"tokens"`
 }
 
 // ListAdminUsersResponse defines model for List-admin-usersResponse.
@@ -2499,6 +2570,7 @@ type ListMustSpecDemoGateOffendersResponse struct {
 type ListMustSpecShipGateOffendersResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema    *string                  `json:"$schema,omitempty"`
+	Debug     *DebugOutput             `json:"debug,omitempty"`
 	Offenders *[]SpecCloseGateOffender `json:"offenders"`
 }
 
@@ -2624,6 +2696,14 @@ type ListSpecsWithoutDemosResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string              `json:"$schema,omitempty"`
 	Specs  *[]UncoveredSpecItem `json:"specs"`
+}
+
+// ListStaleAtlasChunksResponse defines model for List-stale-atlas-chunksResponse.
+type ListStaleAtlasChunksResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string                `json:"$schema,omitempty"`
+	Chunks     *[]AtlasStaleChunkItem `json:"chunks"`
+	StaleCount int64                  `json:"stale_count"`
 }
 
 // ListStaleFeaturesResponse defines model for List-stale-featuresResponse.
@@ -2766,6 +2846,13 @@ type ListUnreviewedTasksResponse struct {
 	Schema *string     `json:"$schema,omitempty"`
 	Tasks  *[]TaskItem `json:"tasks"`
 	Total  int64       `json:"total"`
+}
+
+// ListVersionBranchesResponse defines model for List-version-branchesResponse.
+type ListVersionBranchesResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string              `json:"$schema,omitempty"`
+	Branches *[]VersionBranchItem `json:"branches"`
 }
 
 // ListWorklogResponse defines model for List-worklogResponse.
@@ -3389,6 +3476,22 @@ type ResolveIssueResponse struct {
 	Resolution ResolutionItem `json:"resolution"`
 }
 
+// ReviewAtlasRequest defines model for Review-atlasRequest.
+type ReviewAtlasRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string   `json:"$schema,omitempty"`
+	CurrentSha string    `json:"current_sha"`
+	Files      *[]string `json:"files"`
+}
+
+// ReviewAtlasResponse defines model for Review-atlasResponse.
+type ReviewAtlasResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string                `json:"$schema,omitempty"`
+	Chunks     *[]AtlasStaleChunkItem `json:"chunks"`
+	StaleCount int64                  `json:"stale_count"`
+}
+
 // RevisionItem defines model for RevisionItem.
 type RevisionItem struct {
 	Agent      string `json:"agent"`
@@ -3902,6 +4005,37 @@ type SoloUnblockAllResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string `json:"$schema,omitempty"`
 	Ok     bool    `json:"ok"`
+}
+
+// SoloClaimBody defines model for SoloClaimBody.
+type SoloClaimBody struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string      `json:"$schema,omitempty"`
+	Blocked          bool         `json:"blocked"`
+	BlockedReason    *string      `json:"blocked_reason,omitempty"`
+	ClaimedAt        *string      `json:"claimed_at,omitempty"`
+	ClaimedBy        *string      `json:"claimed_by,omitempty"`
+	CreatedAt        string       `json:"created_at"`
+	CycleCount       *int32       `json:"cycle_count,omitempty"`
+	Debug            *DebugOutput `json:"debug,omitempty"`
+	Description      *string      `json:"description,omitempty"`
+	Id               int32        `json:"id"`
+	Instructions     *string      `json:"instructions,omitempty"`
+	IssueRef         string       `json:"issue_ref"`
+	Key              string       `json:"key"`
+	Kind             string       `json:"kind"`
+	Persona          string       `json:"persona"`
+	Priority         int32        `json:"priority"`
+	ProjectSlug      *string      `json:"project_slug,omitempty"`
+	ReferenceIssueId *string      `json:"reference_issue_id,omitempty"`
+	ResolvedAt       *string      `json:"resolved_at,omitempty"`
+	Status           string       `json:"status"`
+	SuggestedAction  *string      `json:"suggested_action,omitempty"`
+	TargetBranch     *string      `json:"target_branch,omitempty"`
+	TargetId         string       `json:"target_id"`
+	TargetType       string       `json:"target_type"`
+	Text             string       `json:"text"`
+	Title            *string      `json:"title,omitempty"`
 }
 
 // SoloQueueItem defines model for SoloQueueItem.
@@ -4499,6 +4633,42 @@ type UpsertFeatureRequest struct {
 	Slug        string  `json:"slug"`
 }
 
+// VerifyAtlasChunkRequest defines model for Verify-atlas-chunkRequest.
+type VerifyAtlasChunkRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	Body    *string `json:"body,omitempty"`
+	Comment *string `json:"comment,omitempty"`
+	Sha     *string `json:"sha,omitempty"`
+	Verb    string  `json:"verb"`
+}
+
+// VersionBranchDetail defines model for VersionBranchDetail.
+type VersionBranchDetail struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema        *string `json:"$schema,omitempty"`
+	CreatedAt     string  `json:"created_at"`
+	Id            int64   `json:"id"`
+	Name          string  `json:"name"`
+	OpenCount     int64   `json:"open_count"`
+	ResolvedCount int64   `json:"resolved_count"`
+	Semver        *string `json:"semver,omitempty"`
+	Status        string  `json:"status"`
+	Type          string  `json:"type"`
+}
+
+// VersionBranchItem defines model for VersionBranchItem.
+type VersionBranchItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string `json:"$schema,omitempty"`
+	CreatedAt string  `json:"created_at"`
+	Id        int64   `json:"id"`
+	Name      string  `json:"name"`
+	Semver    *string `json:"semver,omitempty"`
+	Status    string  `json:"status"`
+	Type      string  `json:"type"`
+}
+
 // VisionItem defines model for VisionItem.
 type VisionItem struct {
 	Description string `json:"description"`
@@ -4934,6 +5104,12 @@ type JournalEntryParams struct {
 	Id   int32  `form:"id" json:"id"`
 }
 
+// JournalGenerateParams defines parameters for JournalGenerate.
+type JournalGenerateParams struct {
+	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
+	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
+}
+
 // JournalShowParams defines parameters for JournalShow.
 type JournalShowParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -5049,6 +5225,12 @@ type ListProposalsParams struct {
 	Status *string `form:"status,omitempty" json:"status,omitempty"`
 }
 
+// DeduplicateProposalsParams defines parameters for DeduplicateProposals.
+type DeduplicateProposalsParams struct {
+	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
+	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
+}
+
 // ShowProposalParams defines parameters for ShowProposal.
 type ShowProposalParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -5098,7 +5280,9 @@ type ListRevisionsParams struct {
 
 // ListMustSpecShipGateOffendersParams defines parameters for ListMustSpecShipGateOffenders.
 type ListMustSpecShipGateOffendersParams struct {
-	Slug string `form:"slug" json:"slug"`
+	Slug        string  `form:"slug" json:"slug"`
+	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
+	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
 }
 
 // ListSlowQueriesParams defines parameters for ListSlowQueries.
@@ -5116,6 +5300,12 @@ type ListSoloQueueParams struct {
 	Issue   *string `form:"issue,omitempty" json:"issue,omitempty"`
 	Blocked *string `form:"blocked,omitempty" json:"blocked,omitempty"`
 	Status  *string `form:"status,omitempty" json:"status,omitempty"`
+}
+
+// SoloClaimParams defines parameters for SoloClaim.
+type SoloClaimParams struct {
+	Debug       *string `form:"debug,omitempty" json:"debug,omitempty"`
+	XAtlasDebug *string `json:"X-Atlas-Debug,omitempty"`
 }
 
 // SoloListClaimsParams defines parameters for SoloListClaims.
@@ -5466,6 +5656,9 @@ type TestProjectGitConfigJSONRequestBody = TestProjectGitConfigRequest
 // SetProjectStageJSONRequestBody defines body for SetProjectStage for application/json ContentType.
 type SetProjectStageJSONRequestBody = SetProjectStageRequest
 
+// CreateAdminTokenJSONRequestBody defines body for CreateAdminToken for application/json ContentType.
+type CreateAdminTokenJSONRequestBody = CreateAdminTokenRequest
+
 // UpdateUserRoleJSONRequestBody defines body for UpdateUserRole for application/json ContentType.
 type UpdateUserRoleJSONRequestBody = UpdateUserRoleRequest
 
@@ -5660,6 +5853,9 @@ type UpdatePlanStepJSONRequestBody = UpdatePlanStepRequest
 
 // UpdatePlanJSONRequestBody defines body for UpdatePlan for application/json ContentType.
 type UpdatePlanJSONRequestBody = UpdatePlanRequest
+
+// CreateVersionBranchJSONRequestBody defines body for CreateVersionBranch for application/json ContentType.
+type CreateVersionBranchJSONRequestBody = CreateVersionBranchRequest
 
 // CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
 type CreateEnvironmentJSONRequestBody = CreateEnvironmentRequest
@@ -5919,6 +6115,9 @@ type CreateProjectJSONRequestBody = CreateProjectRequest
 // SetProjectVisionJSONRequestBody defines body for SetProjectVision for application/json ContentType.
 type SetProjectVisionJSONRequestBody = SetProjectVisionRequest
 
+// VerifyAtlasChunkJSONRequestBody defines body for VerifyAtlasChunk for application/json ContentType.
+type VerifyAtlasChunkJSONRequestBody = VerifyAtlasChunkRequest
+
 // CreateAtlasCoderefJSONRequestBody defines body for CreateAtlasCoderef for application/json ContentType.
 type CreateAtlasCoderefJSONRequestBody = CreateAtlasCoderefRequest
 
@@ -5930,6 +6129,9 @@ type CreateAtlasNodeJSONRequestBody = CreateAtlasNodeRequest
 
 // CreateAtlasChunkJSONRequestBody defines body for CreateAtlasChunk for application/json ContentType.
 type CreateAtlasChunkJSONRequestBody = CreateAtlasChunkRequest
+
+// ReviewAtlasJSONRequestBody defines body for ReviewAtlas for application/json ContentType.
+type ReviewAtlasJSONRequestBody = ReviewAtlasRequest
 
 // SetupBootstrapJSONRequestBody defines body for SetupBootstrap for application/json ContentType.
 type SetupBootstrapJSONRequestBody = SetupBootstrapRequest
@@ -6111,6 +6313,17 @@ type ClientInterface interface {
 
 	// AdminStats request
 	AdminStats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAdminTokens request
+	ListAdminTokens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAdminTokenWithBody request with any body
+	CreateAdminTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAdminToken(ctx context.Context, body CreateAdminTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DeleteAdminToken request
+	DeleteAdminToken(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListAdminUsers request
 	ListAdminUsers(ctx context.Context, params *ListAdminUsersParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6541,9 +6754,9 @@ type ClientInterface interface {
 	JournalEntry(ctx context.Context, params *JournalEntryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// JournalGenerateWithBody request with any body
-	JournalGenerateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	JournalGenerateWithBody(ctx context.Context, params *JournalGenerateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	JournalGenerate(ctx context.Context, body JournalGenerateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	JournalGenerate(ctx context.Context, params *JournalGenerateParams, body JournalGenerateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// JournalReviewWithBody request with any body
 	JournalReviewWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6668,6 +6881,20 @@ type ClientInterface interface {
 	// GetProjectInfo request
 	GetProjectInfo(ctx context.Context, params *GetProjectInfoParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListVersionBranches request
+	ListVersionBranches(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateVersionBranchWithBody request with any body
+	CreateVersionBranchWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateVersionBranch(ctx context.Context, slug string, body CreateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ShowVersionBranch request
+	ShowVersionBranch(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// MarkVersionBranchEol request
+	MarkVersionBranchEol(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListEnvironments request
 	ListEnvironments(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -6742,9 +6969,9 @@ type ClientInterface interface {
 	CreateProposal(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeduplicateProposalsWithBody request with any body
-	DeduplicateProposalsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeduplicateProposalsWithBody(ctx context.Context, params *DeduplicateProposalsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	DeduplicateProposals(ctx context.Context, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	DeduplicateProposals(ctx context.Context, params *DeduplicateProposalsParams, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ShowProposal request
 	ShowProposal(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6842,9 +7069,9 @@ type ClientInterface interface {
 	SoloApply(ctx context.Context, body SoloApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SoloClaimWithBody request with any body
-	SoloClaimWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SoloClaimWithBody(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
-	SoloClaim(ctx context.Context, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+	SoloClaim(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SoloListClaims request
 	SoloListClaims(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7308,6 +7535,14 @@ type ClientInterface interface {
 	// ListProjects request
 	ListProjects(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListStaleAtlasChunks request
+	ListStaleAtlasChunks(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// VerifyAtlasChunkWithBody request with any body
+	VerifyAtlasChunkWithBody(ctx context.Context, slug string, chunkId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	VerifyAtlasChunk(ctx context.Context, slug string, chunkId int64, body VerifyAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListAtlasCoderefs request
 	ListAtlasCoderefs(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -7339,6 +7574,11 @@ type ClientInterface interface {
 	CreateAtlasChunkWithBody(ctx context.Context, slug string, nodeId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	CreateAtlasChunk(ctx context.Context, slug string, nodeId int64, body CreateAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ReviewAtlasWithBody request with any body
+	ReviewAtlasWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ReviewAtlas(ctx context.Context, slug string, body ReviewAtlasJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetupBootstrapWithBody request with any body
 	SetupBootstrapWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7755,6 +7995,54 @@ func (c *APIClient) SetProjectStage(ctx context.Context, body SetProjectStageJSO
 
 func (c *APIClient) AdminStats(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAdminStatsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListAdminTokens(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAdminTokensRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAdminTokenWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAdminTokenRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAdminToken(ctx context.Context, body CreateAdminTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAdminTokenRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) DeleteAdminToken(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteAdminTokenRequest(c.Server, id)
 	if err != nil {
 		return nil, err
 	}
@@ -9673,8 +9961,8 @@ func (c *APIClient) JournalEntry(ctx context.Context, params *JournalEntryParams
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) JournalGenerateWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewJournalGenerateRequestWithBody(c.Server, contentType, body)
+func (c *APIClient) JournalGenerateWithBody(ctx context.Context, params *JournalGenerateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewJournalGenerateRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9685,8 +9973,8 @@ func (c *APIClient) JournalGenerateWithBody(ctx context.Context, contentType str
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) JournalGenerate(ctx context.Context, body JournalGenerateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewJournalGenerateRequest(c.Server, body)
+func (c *APIClient) JournalGenerate(ctx context.Context, params *JournalGenerateParams, body JournalGenerateJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewJournalGenerateRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10249,6 +10537,66 @@ func (c *APIClient) GetProjectInfo(ctx context.Context, params *GetProjectInfoPa
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) ListVersionBranches(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListVersionBranchesRequest(c.Server, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateVersionBranchWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVersionBranchRequestWithBody(c.Server, slug, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateVersionBranch(ctx context.Context, slug string, body CreateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateVersionBranchRequest(c.Server, slug, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ShowVersionBranch(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewShowVersionBranchRequest(c.Server, slug, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) MarkVersionBranchEol(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewMarkVersionBranchEolRequest(c.Server, slug, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListEnvironments(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListEnvironmentsRequest(c.Server, slug)
 	if err != nil {
@@ -10573,8 +10921,8 @@ func (c *APIClient) CreateProposal(ctx context.Context, body CreateProposalJSONR
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) DeduplicateProposalsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeduplicateProposalsRequestWithBody(c.Server, contentType, body)
+func (c *APIClient) DeduplicateProposalsWithBody(ctx context.Context, params *DeduplicateProposalsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeduplicateProposalsRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10585,8 +10933,8 @@ func (c *APIClient) DeduplicateProposalsWithBody(ctx context.Context, contentTyp
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) DeduplicateProposals(ctx context.Context, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewDeduplicateProposalsRequest(c.Server, body)
+func (c *APIClient) DeduplicateProposals(ctx context.Context, params *DeduplicateProposalsParams, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeduplicateProposalsRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11029,8 +11377,8 @@ func (c *APIClient) SoloApply(ctx context.Context, body SoloApplyJSONRequestBody
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) SoloClaimWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloClaimRequestWithBody(c.Server, contentType, body)
+func (c *APIClient) SoloClaimWithBody(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSoloClaimRequestWithBody(c.Server, params, contentType, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11041,8 +11389,8 @@ func (c *APIClient) SoloClaimWithBody(ctx context.Context, contentType string, b
 	return c.Client.Do(req)
 }
 
-func (c *APIClient) SoloClaim(ctx context.Context, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
-	req, err := NewSoloClaimRequest(c.Server, body)
+func (c *APIClient) SoloClaim(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSoloClaimRequest(c.Server, params, body)
 	if err != nil {
 		return nil, err
 	}
@@ -13153,6 +13501,42 @@ func (c *APIClient) ListProjects(ctx context.Context, reqEditors ...RequestEdito
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) ListStaleAtlasChunks(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListStaleAtlasChunksRequest(c.Server, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) VerifyAtlasChunkWithBody(ctx context.Context, slug string, chunkId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewVerifyAtlasChunkRequestWithBody(c.Server, slug, chunkId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) VerifyAtlasChunk(ctx context.Context, slug string, chunkId int64, body VerifyAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewVerifyAtlasChunkRequest(c.Server, slug, chunkId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListAtlasCoderefs(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAtlasCoderefsRequest(c.Server, slug)
 	if err != nil {
@@ -13287,6 +13671,30 @@ func (c *APIClient) CreateAtlasChunkWithBody(ctx context.Context, slug string, n
 
 func (c *APIClient) CreateAtlasChunk(ctx context.Context, slug string, nodeId int64, body CreateAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewCreateAtlasChunkRequest(c.Server, slug, nodeId, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReviewAtlasWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReviewAtlasRequestWithBody(c.Server, slug, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ReviewAtlas(ctx context.Context, slug string, body ReviewAtlasJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewReviewAtlasRequest(c.Server, slug, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14435,6 +14843,107 @@ func NewAdminStatsRequest(server string) (*http.Request, error) {
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAdminTokensRequest generates requests for ListAdminTokens
+func NewListAdminTokensRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/tokens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAdminTokenRequest calls the generic CreateAdminToken builder with application/json body
+func NewCreateAdminTokenRequest(server string, body CreateAdminTokenJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAdminTokenRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewCreateAdminTokenRequestWithBody generates requests for CreateAdminToken with any type of body
+func NewCreateAdminTokenRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/tokens")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewDeleteAdminTokenRequest generates requests for DeleteAdminToken
+func NewDeleteAdminTokenRequest(server string, id int32) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int32"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/tokens/%s", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
 	}
@@ -20308,18 +20817,18 @@ func NewJournalEntryRequest(server string, params *JournalEntryParams) (*http.Re
 }
 
 // NewJournalGenerateRequest calls the generic JournalGenerate builder with application/json body
-func NewJournalGenerateRequest(server string, body JournalGenerateJSONRequestBody) (*http.Request, error) {
+func NewJournalGenerateRequest(server string, params *JournalGenerateParams, body JournalGenerateJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewJournalGenerateRequestWithBody(server, "application/json", bodyReader)
+	return NewJournalGenerateRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewJournalGenerateRequestWithBody generates requests for JournalGenerate with any type of body
-func NewJournalGenerateRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewJournalGenerateRequestWithBody(server string, params *JournalGenerateParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -20337,12 +20846,49 @@ func NewJournalGenerateRequestWithBody(server string, contentType string, body i
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Debug != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "debug", *params.Debug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XAtlasDebug != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Atlas-Debug", *params.XAtlasDebug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Atlas-Debug", headerParam0)
+		}
+
+	}
 
 	return req, nil
 }
@@ -22053,6 +22599,169 @@ func NewGetProjectInfoRequest(server string, params *GetProjectInfoParams) (*htt
 	return req, nil
 }
 
+// NewListVersionBranchesRequest generates requests for ListVersionBranches
+func NewListVersionBranchesRequest(server string, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateVersionBranchRequest calls the generic CreateVersionBranch builder with application/json body
+func NewCreateVersionBranchRequest(server string, slug string, body CreateVersionBranchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateVersionBranchRequestWithBody(server, slug, "application/json", bodyReader)
+}
+
+// NewCreateVersionBranchRequestWithBody generates requests for CreateVersionBranch with any type of body
+func NewCreateVersionBranchRequestWithBody(server string, slug string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewShowVersionBranchRequest generates requests for ShowVersionBranch
+func NewShowVersionBranchRequest(server string, slug string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewMarkVersionBranchEolRequest generates requests for MarkVersionBranchEol
+func NewMarkVersionBranchEolRequest(server string, slug string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches/%s/eol", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListEnvironmentsRequest generates requests for ListEnvironments
 func NewListEnvironmentsRequest(server string, slug string) (*http.Request, error) {
 	var err error
@@ -22967,18 +23676,18 @@ func NewCreateProposalRequestWithBody(server string, contentType string, body io
 }
 
 // NewDeduplicateProposalsRequest calls the generic DeduplicateProposals builder with application/json body
-func NewDeduplicateProposalsRequest(server string, body DeduplicateProposalsJSONRequestBody) (*http.Request, error) {
+func NewDeduplicateProposalsRequest(server string, params *DeduplicateProposalsParams, body DeduplicateProposalsJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewDeduplicateProposalsRequestWithBody(server, "application/json", bodyReader)
+	return NewDeduplicateProposalsRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewDeduplicateProposalsRequestWithBody generates requests for DeduplicateProposals with any type of body
-func NewDeduplicateProposalsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewDeduplicateProposalsRequestWithBody(server string, params *DeduplicateProposalsParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -22996,12 +23705,49 @@ func NewDeduplicateProposalsRequestWithBody(server string, contentType string, b
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Debug != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "debug", *params.Debug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XAtlasDebug != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Atlas-Debug", *params.XAtlasDebug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Atlas-Debug", headerParam0)
+		}
+
+	}
 
 	return req, nil
 }
@@ -24017,12 +24763,43 @@ func NewListMustSpecShipGateOffendersRequest(server string, params *ListMustSpec
 			}
 		}
 
+		if params.Debug != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "debug", *params.Debug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
 		queryURL.RawQuery = queryValues.Encode()
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
 	if err != nil {
 		return nil, err
+	}
+
+	if params != nil {
+
+		if params.XAtlasDebug != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Atlas-Debug", *params.XAtlasDebug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Atlas-Debug", headerParam0)
+		}
+
 	}
 
 	return req, nil
@@ -24311,18 +25088,18 @@ func NewSoloApplyRequestWithBody(server string, contentType string, body io.Read
 }
 
 // NewSoloClaimRequest calls the generic SoloClaim builder with application/json body
-func NewSoloClaimRequest(server string, body SoloClaimJSONRequestBody) (*http.Request, error) {
+func NewSoloClaimRequest(server string, params *SoloClaimParams, body SoloClaimJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
 	buf, err := json.Marshal(body)
 	if err != nil {
 		return nil, err
 	}
 	bodyReader = bytes.NewReader(buf)
-	return NewSoloClaimRequestWithBody(server, "application/json", bodyReader)
+	return NewSoloClaimRequestWithBody(server, params, "application/json", bodyReader)
 }
 
 // NewSoloClaimRequestWithBody generates requests for SoloClaim with any type of body
-func NewSoloClaimRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+func NewSoloClaimRequestWithBody(server string, params *SoloClaimParams, contentType string, body io.Reader) (*http.Request, error) {
 	var err error
 
 	serverURL, err := url.Parse(server)
@@ -24340,12 +25117,49 @@ func NewSoloClaimRequestWithBody(server string, contentType string, body io.Read
 		return nil, err
 	}
 
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Debug != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "debug", *params.Debug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
 	req, err := http.NewRequest("POST", queryURL.String(), body)
 	if err != nil {
 		return nil, err
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	if params != nil {
+
+		if params.XAtlasDebug != nil {
+			var headerParam0 string
+
+			headerParam0, err = runtime.StyleParamWithOptions("simple", false, "X-Atlas-Debug", *params.XAtlasDebug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationHeader, Type: "string", Format: ""})
+			if err != nil {
+				return nil, err
+			}
+
+			req.Header.Set("X-Atlas-Debug", headerParam0)
+		}
+
+	}
 
 	return req, nil
 }
@@ -29917,6 +30731,94 @@ func NewListProjectsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListStaleAtlasChunksRequest generates requests for ListStaleAtlasChunks
+func NewListStaleAtlasChunksRequest(server string, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/chunks/stale", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewVerifyAtlasChunkRequest calls the generic VerifyAtlasChunk builder with application/json body
+func NewVerifyAtlasChunkRequest(server string, slug string, chunkId int64, body VerifyAtlasChunkJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewVerifyAtlasChunkRequestWithBody(server, slug, chunkId, "application/json", bodyReader)
+}
+
+// NewVerifyAtlasChunkRequestWithBody generates requests for VerifyAtlasChunk with any type of body
+func NewVerifyAtlasChunkRequestWithBody(server string, slug string, chunkId int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "chunk_id", chunkId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/chunks/%s/verify", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListAtlasCoderefsRequest generates requests for ListAtlasCoderefs
 func NewListAtlasCoderefsRequest(server string, slug string) (*http.Request, error) {
 	var err error
@@ -30272,6 +31174,53 @@ func NewCreateAtlasChunkRequestWithBody(server string, slug string, nodeId int64
 	}
 
 	operationPath := fmt.Sprintf("/api/projects/%s/atlas/nodes/%s/chunks", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewReviewAtlasRequest calls the generic ReviewAtlas builder with application/json body
+func NewReviewAtlasRequest(server string, slug string, body ReviewAtlasJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewReviewAtlasRequestWithBody(server, slug, "application/json", bodyReader)
+}
+
+// NewReviewAtlasRequestWithBody generates requests for ReviewAtlas with any type of body
+func NewReviewAtlasRequestWithBody(server string, slug string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/review", pathParam0)
 	if operationPath[0] == '/' {
 		operationPath = "." + operationPath
 	}
@@ -31066,6 +32015,17 @@ type ClientWithResponsesInterface interface {
 	// AdminStatsWithResponse request
 	AdminStatsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedAdminStatsResponse, error)
 
+	// ListAdminTokensWithResponse request
+	ListAdminTokensWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListAdminTokensResponse, error)
+
+	// CreateAdminTokenWithBodyWithResponse request with any body
+	CreateAdminTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAdminTokenResponse, error)
+
+	CreateAdminTokenWithResponse(ctx context.Context, body CreateAdminTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAdminTokenResponse, error)
+
+	// DeleteAdminTokenWithResponse request
+	DeleteAdminTokenWithResponse(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*DeleteAdminTokenResponse, error)
+
 	// ListAdminUsersWithResponse request
 	ListAdminUsersWithResponse(ctx context.Context, params *ListAdminUsersParams, reqEditors ...RequestEditorFn) (*ParsedListAdminUsersResponse, error)
 
@@ -31495,9 +32455,9 @@ type ClientWithResponsesInterface interface {
 	JournalEntryWithResponse(ctx context.Context, params *JournalEntryParams, reqEditors ...RequestEditorFn) (*ParsedJournalEntryResponse, error)
 
 	// JournalGenerateWithBodyWithResponse request with any body
-	JournalGenerateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedJournalGenerateResponse, error)
+	JournalGenerateWithBodyWithResponse(ctx context.Context, params *JournalGenerateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedJournalGenerateResponse, error)
 
-	JournalGenerateWithResponse(ctx context.Context, body JournalGenerateJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedJournalGenerateResponse, error)
+	JournalGenerateWithResponse(ctx context.Context, params *JournalGenerateParams, body JournalGenerateJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedJournalGenerateResponse, error)
 
 	// JournalReviewWithBodyWithResponse request with any body
 	JournalReviewWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*JournalReviewResponse, error)
@@ -31622,6 +32582,20 @@ type ClientWithResponsesInterface interface {
 	// GetProjectInfoWithResponse request
 	GetProjectInfoWithResponse(ctx context.Context, params *GetProjectInfoParams, reqEditors ...RequestEditorFn) (*ParsedGetProjectInfoResponse, error)
 
+	// ListVersionBranchesWithResponse request
+	ListVersionBranchesWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListVersionBranchesResponse, error)
+
+	// CreateVersionBranchWithBodyWithResponse request with any body
+	CreateVersionBranchWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVersionBranchResponse, error)
+
+	CreateVersionBranchWithResponse(ctx context.Context, slug string, body CreateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVersionBranchResponse, error)
+
+	// ShowVersionBranchWithResponse request
+	ShowVersionBranchWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*ShowVersionBranchResponse, error)
+
+	// MarkVersionBranchEolWithResponse request
+	MarkVersionBranchEolWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*MarkVersionBranchEolResponse, error)
+
 	// ListEnvironmentsWithResponse request
 	ListEnvironmentsWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListEnvironmentsResponse, error)
 
@@ -31696,9 +32670,9 @@ type ClientWithResponsesInterface interface {
 	CreateProposalWithResponse(ctx context.Context, body CreateProposalJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateProposalResponse, error)
 
 	// DeduplicateProposalsWithBodyWithResponse request with any body
-	DeduplicateProposalsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error)
+	DeduplicateProposalsWithBodyWithResponse(ctx context.Context, params *DeduplicateProposalsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error)
 
-	DeduplicateProposalsWithResponse(ctx context.Context, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error)
+	DeduplicateProposalsWithResponse(ctx context.Context, params *DeduplicateProposalsParams, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error)
 
 	// ShowProposalWithResponse request
 	ShowProposalWithResponse(ctx context.Context, id int32, params *ShowProposalParams, reqEditors ...RequestEditorFn) (*ParsedShowProposalResponse, error)
@@ -31796,9 +32770,9 @@ type ClientWithResponsesInterface interface {
 	SoloApplyWithResponse(ctx context.Context, body SoloApplyJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloApplyResponse, error)
 
 	// SoloClaimWithBodyWithResponse request with any body
-	SoloClaimWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
+	SoloClaimWithBodyWithResponse(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
 
-	SoloClaimWithResponse(ctx context.Context, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
+	SoloClaimWithResponse(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error)
 
 	// SoloListClaimsWithResponse request
 	SoloListClaimsWithResponse(ctx context.Context, params *SoloListClaimsParams, reqEditors ...RequestEditorFn) (*ParsedSoloListClaimsResponse, error)
@@ -32262,6 +33236,14 @@ type ClientWithResponsesInterface interface {
 	// ListProjectsWithResponse request
 	ListProjectsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListProjectsResponse, error)
 
+	// ListStaleAtlasChunksWithResponse request
+	ListStaleAtlasChunksWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListStaleAtlasChunksResponse, error)
+
+	// VerifyAtlasChunkWithBodyWithResponse request with any body
+	VerifyAtlasChunkWithBodyWithResponse(ctx context.Context, slug string, chunkId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VerifyAtlasChunkResponse, error)
+
+	VerifyAtlasChunkWithResponse(ctx context.Context, slug string, chunkId int64, body VerifyAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyAtlasChunkResponse, error)
+
 	// ListAtlasCoderefsWithResponse request
 	ListAtlasCoderefsWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListAtlasCoderefsResponse, error)
 
@@ -32293,6 +33275,11 @@ type ClientWithResponsesInterface interface {
 	CreateAtlasChunkWithBodyWithResponse(ctx context.Context, slug string, nodeId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAtlasChunkResponse, error)
 
 	CreateAtlasChunkWithResponse(ctx context.Context, slug string, nodeId int64, body CreateAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasChunkResponse, error)
+
+	// ReviewAtlasWithBodyWithResponse request with any body
+	ReviewAtlasWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReviewAtlasResponse, error)
+
+	ReviewAtlasWithResponse(ctx context.Context, slug string, body ReviewAtlasJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReviewAtlasResponse, error)
 
 	// SetupBootstrapWithBodyWithResponse request with any body
 	SetupBootstrapWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetupBootstrapResponse, error)
@@ -32843,6 +33830,74 @@ func (r ParsedAdminStatsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedAdminStatsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListAdminTokensResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListAdminTokensResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListAdminTokensResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListAdminTokensResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateAdminTokenResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AdminTokenItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAdminTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAdminTokenResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type DeleteAdminTokenResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteAdminTokenResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteAdminTokenResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -36107,6 +37162,98 @@ func (r ParsedGetProjectInfoResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListVersionBranchesResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListVersionBranchesResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListVersionBranchesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListVersionBranchesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateVersionBranchResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *VersionBranchItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateVersionBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateVersionBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ShowVersionBranchResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *VersionBranchDetail
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ShowVersionBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ShowVersionBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type MarkVersionBranchEolResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r MarkVersionBranchEolResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r MarkVersionBranchEolResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListEnvironmentsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -37099,7 +38246,7 @@ func (r SoloApplyResponse) StatusCode() int {
 type SoloClaimResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *TodoItem
+	JSON200                       *SoloClaimBody
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -39692,6 +40839,52 @@ func (r ParsedListProjectsResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListStaleAtlasChunksResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListStaleAtlasChunksResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListStaleAtlasChunksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListStaleAtlasChunksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type VerifyAtlasChunkResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AtlasChunkItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r VerifyAtlasChunkResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r VerifyAtlasChunkResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListAtlasCoderefsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -39870,6 +41063,29 @@ func (r CreateAtlasChunkResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r CreateAtlasChunkResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedReviewAtlasResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ReviewAtlasResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedReviewAtlasResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedReviewAtlasResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -40417,6 +41633,41 @@ func (c *ClientWithResponses) AdminStatsWithResponse(ctx context.Context, reqEdi
 		return nil, err
 	}
 	return ParseParsedAdminStatsResponse(rsp)
+}
+
+// ListAdminTokensWithResponse request returning *ParsedListAdminTokensResponse
+func (c *ClientWithResponses) ListAdminTokensWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListAdminTokensResponse, error) {
+	rsp, err := c.ListAdminTokens(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListAdminTokensResponse(rsp)
+}
+
+// CreateAdminTokenWithBodyWithResponse request with arbitrary body returning *CreateAdminTokenResponse
+func (c *ClientWithResponses) CreateAdminTokenWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAdminTokenResponse, error) {
+	rsp, err := c.CreateAdminTokenWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAdminTokenResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAdminTokenWithResponse(ctx context.Context, body CreateAdminTokenJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAdminTokenResponse, error) {
+	rsp, err := c.CreateAdminToken(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAdminTokenResponse(rsp)
+}
+
+// DeleteAdminTokenWithResponse request returning *DeleteAdminTokenResponse
+func (c *ClientWithResponses) DeleteAdminTokenWithResponse(ctx context.Context, id int32, reqEditors ...RequestEditorFn) (*DeleteAdminTokenResponse, error) {
+	rsp, err := c.DeleteAdminToken(ctx, id, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteAdminTokenResponse(rsp)
 }
 
 // ListAdminUsersWithResponse request returning *ParsedListAdminUsersResponse
@@ -41802,16 +43053,16 @@ func (c *ClientWithResponses) JournalEntryWithResponse(ctx context.Context, para
 }
 
 // JournalGenerateWithBodyWithResponse request with arbitrary body returning *ParsedJournalGenerateResponse
-func (c *ClientWithResponses) JournalGenerateWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedJournalGenerateResponse, error) {
-	rsp, err := c.JournalGenerateWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) JournalGenerateWithBodyWithResponse(ctx context.Context, params *JournalGenerateParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedJournalGenerateResponse, error) {
+	rsp, err := c.JournalGenerateWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseParsedJournalGenerateResponse(rsp)
 }
 
-func (c *ClientWithResponses) JournalGenerateWithResponse(ctx context.Context, body JournalGenerateJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedJournalGenerateResponse, error) {
-	rsp, err := c.JournalGenerate(ctx, body, reqEditors...)
+func (c *ClientWithResponses) JournalGenerateWithResponse(ctx context.Context, params *JournalGenerateParams, body JournalGenerateJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedJournalGenerateResponse, error) {
+	rsp, err := c.JournalGenerate(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -42217,6 +43468,50 @@ func (c *ClientWithResponses) GetProjectInfoWithResponse(ctx context.Context, pa
 	return ParseParsedGetProjectInfoResponse(rsp)
 }
 
+// ListVersionBranchesWithResponse request returning *ParsedListVersionBranchesResponse
+func (c *ClientWithResponses) ListVersionBranchesWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListVersionBranchesResponse, error) {
+	rsp, err := c.ListVersionBranches(ctx, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListVersionBranchesResponse(rsp)
+}
+
+// CreateVersionBranchWithBodyWithResponse request with arbitrary body returning *CreateVersionBranchResponse
+func (c *ClientWithResponses) CreateVersionBranchWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateVersionBranchResponse, error) {
+	rsp, err := c.CreateVersionBranchWithBody(ctx, slug, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVersionBranchResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateVersionBranchWithResponse(ctx context.Context, slug string, body CreateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVersionBranchResponse, error) {
+	rsp, err := c.CreateVersionBranch(ctx, slug, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateVersionBranchResponse(rsp)
+}
+
+// ShowVersionBranchWithResponse request returning *ShowVersionBranchResponse
+func (c *ClientWithResponses) ShowVersionBranchWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*ShowVersionBranchResponse, error) {
+	rsp, err := c.ShowVersionBranch(ctx, slug, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseShowVersionBranchResponse(rsp)
+}
+
+// MarkVersionBranchEolWithResponse request returning *MarkVersionBranchEolResponse
+func (c *ClientWithResponses) MarkVersionBranchEolWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*MarkVersionBranchEolResponse, error) {
+	rsp, err := c.MarkVersionBranchEol(ctx, slug, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseMarkVersionBranchEolResponse(rsp)
+}
+
 // ListEnvironmentsWithResponse request returning *ParsedListEnvironmentsResponse
 func (c *ClientWithResponses) ListEnvironmentsWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListEnvironmentsResponse, error) {
 	rsp, err := c.ListEnvironments(ctx, slug, reqEditors...)
@@ -42453,16 +43748,16 @@ func (c *ClientWithResponses) CreateProposalWithResponse(ctx context.Context, bo
 }
 
 // DeduplicateProposalsWithBodyWithResponse request with arbitrary body returning *ParsedDeduplicateProposalsResponse
-func (c *ClientWithResponses) DeduplicateProposalsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error) {
-	rsp, err := c.DeduplicateProposalsWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) DeduplicateProposalsWithBodyWithResponse(ctx context.Context, params *DeduplicateProposalsParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error) {
+	rsp, err := c.DeduplicateProposalsWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseParsedDeduplicateProposalsResponse(rsp)
 }
 
-func (c *ClientWithResponses) DeduplicateProposalsWithResponse(ctx context.Context, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error) {
-	rsp, err := c.DeduplicateProposals(ctx, body, reqEditors...)
+func (c *ClientWithResponses) DeduplicateProposalsWithResponse(ctx context.Context, params *DeduplicateProposalsParams, body DeduplicateProposalsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedDeduplicateProposalsResponse, error) {
+	rsp, err := c.DeduplicateProposals(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -42781,16 +44076,16 @@ func (c *ClientWithResponses) SoloApplyWithResponse(ctx context.Context, body So
 }
 
 // SoloClaimWithBodyWithResponse request with arbitrary body returning *SoloClaimResponse
-func (c *ClientWithResponses) SoloClaimWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error) {
-	rsp, err := c.SoloClaimWithBody(ctx, contentType, body, reqEditors...)
+func (c *ClientWithResponses) SoloClaimWithBodyWithResponse(ctx context.Context, params *SoloClaimParams, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error) {
+	rsp, err := c.SoloClaimWithBody(ctx, params, contentType, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
 	return ParseSoloClaimResponse(rsp)
 }
 
-func (c *ClientWithResponses) SoloClaimWithResponse(ctx context.Context, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error) {
-	rsp, err := c.SoloClaim(ctx, body, reqEditors...)
+func (c *ClientWithResponses) SoloClaimWithResponse(ctx context.Context, params *SoloClaimParams, body SoloClaimJSONRequestBody, reqEditors ...RequestEditorFn) (*SoloClaimResponse, error) {
+	rsp, err := c.SoloClaim(ctx, params, body, reqEditors...)
 	if err != nil {
 		return nil, err
 	}
@@ -44309,6 +45604,32 @@ func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, reqE
 	return ParseParsedListProjectsResponse(rsp)
 }
 
+// ListStaleAtlasChunksWithResponse request returning *ParsedListStaleAtlasChunksResponse
+func (c *ClientWithResponses) ListStaleAtlasChunksWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListStaleAtlasChunksResponse, error) {
+	rsp, err := c.ListStaleAtlasChunks(ctx, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListStaleAtlasChunksResponse(rsp)
+}
+
+// VerifyAtlasChunkWithBodyWithResponse request with arbitrary body returning *VerifyAtlasChunkResponse
+func (c *ClientWithResponses) VerifyAtlasChunkWithBodyWithResponse(ctx context.Context, slug string, chunkId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*VerifyAtlasChunkResponse, error) {
+	rsp, err := c.VerifyAtlasChunkWithBody(ctx, slug, chunkId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseVerifyAtlasChunkResponse(rsp)
+}
+
+func (c *ClientWithResponses) VerifyAtlasChunkWithResponse(ctx context.Context, slug string, chunkId int64, body VerifyAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*VerifyAtlasChunkResponse, error) {
+	rsp, err := c.VerifyAtlasChunk(ctx, slug, chunkId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseVerifyAtlasChunkResponse(rsp)
+}
+
 // ListAtlasCoderefsWithResponse request returning *ParsedListAtlasCoderefsResponse
 func (c *ClientWithResponses) ListAtlasCoderefsWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListAtlasCoderefsResponse, error) {
 	rsp, err := c.ListAtlasCoderefs(ctx, slug, reqEditors...)
@@ -44411,6 +45732,23 @@ func (c *ClientWithResponses) CreateAtlasChunkWithResponse(ctx context.Context, 
 		return nil, err
 	}
 	return ParseCreateAtlasChunkResponse(rsp)
+}
+
+// ReviewAtlasWithBodyWithResponse request with arbitrary body returning *ParsedReviewAtlasResponse
+func (c *ClientWithResponses) ReviewAtlasWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedReviewAtlasResponse, error) {
+	rsp, err := c.ReviewAtlasWithBody(ctx, slug, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReviewAtlasResponse(rsp)
+}
+
+func (c *ClientWithResponses) ReviewAtlasWithResponse(ctx context.Context, slug string, body ReviewAtlasJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedReviewAtlasResponse, error) {
+	rsp, err := c.ReviewAtlas(ctx, slug, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedReviewAtlasResponse(rsp)
 }
 
 // SetupBootstrapWithBodyWithResponse request with arbitrary body returning *ParsedSetupBootstrapResponse
@@ -45271,6 +46609,98 @@ func ParseParsedAdminStatsResponse(rsp *http.Response) (*ParsedAdminStatsRespons
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListAdminTokensResponse parses an HTTP response from a ListAdminTokensWithResponse call
+func ParseParsedListAdminTokensResponse(rsp *http.Response) (*ParsedListAdminTokensResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListAdminTokensResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListAdminTokensResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAdminTokenResponse parses an HTTP response from a CreateAdminTokenWithResponse call
+func ParseCreateAdminTokenResponse(rsp *http.Response) (*CreateAdminTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAdminTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AdminTokenItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseDeleteAdminTokenResponse parses an HTTP response from a DeleteAdminTokenWithResponse call
+func ParseDeleteAdminTokenResponse(rsp *http.Response) (*DeleteAdminTokenResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteAdminTokenResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
@@ -49913,6 +51343,138 @@ func ParseParsedGetProjectInfoResponse(rsp *http.Response) (*ParsedGetProjectInf
 	return response, nil
 }
 
+// ParseParsedListVersionBranchesResponse parses an HTTP response from a ListVersionBranchesWithResponse call
+func ParseParsedListVersionBranchesResponse(rsp *http.Response) (*ParsedListVersionBranchesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListVersionBranchesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListVersionBranchesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateVersionBranchResponse parses an HTTP response from a CreateVersionBranchWithResponse call
+func ParseCreateVersionBranchResponse(rsp *http.Response) (*CreateVersionBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateVersionBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VersionBranchItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseShowVersionBranchResponse parses an HTTP response from a ShowVersionBranchWithResponse call
+func ParseShowVersionBranchResponse(rsp *http.Response) (*ShowVersionBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ShowVersionBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VersionBranchDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseMarkVersionBranchEolResponse parses an HTTP response from a MarkVersionBranchEolWithResponse call
+func ParseMarkVersionBranchEolResponse(rsp *http.Response) (*MarkVersionBranchEolResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &MarkVersionBranchEolResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListEnvironmentsResponse parses an HTTP response from a ListEnvironmentsWithResponse call
 func ParseParsedListEnvironmentsResponse(rsp *http.Response) (*ParsedListEnvironmentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -51347,7 +52909,7 @@ func ParseSoloClaimResponse(rsp *http.Response) (*SoloClaimResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest TodoItem
+		var dest SoloClaimBody
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -55040,6 +56602,72 @@ func ParseParsedListProjectsResponse(rsp *http.Response) (*ParsedListProjectsRes
 	return response, nil
 }
 
+// ParseParsedListStaleAtlasChunksResponse parses an HTTP response from a ListStaleAtlasChunksWithResponse call
+func ParseParsedListStaleAtlasChunksResponse(rsp *http.Response) (*ParsedListStaleAtlasChunksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListStaleAtlasChunksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListStaleAtlasChunksResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseVerifyAtlasChunkResponse parses an HTTP response from a VerifyAtlasChunkWithResponse call
+func ParseVerifyAtlasChunkResponse(rsp *http.Response) (*VerifyAtlasChunkResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &VerifyAtlasChunkResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AtlasChunkItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListAtlasCoderefsResponse parses an HTTP response from a ListAtlasCoderefsWithResponse call
 func ParseParsedListAtlasCoderefsResponse(rsp *http.Response) (*ParsedListAtlasCoderefsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -55287,6 +56915,39 @@ func ParseCreateAtlasChunkResponse(rsp *http.Response) (*CreateAtlasChunkRespons
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AtlasChunkItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedReviewAtlasResponse parses an HTTP response from a ReviewAtlasWithResponse call
+func ParseParsedReviewAtlasResponse(rsp *http.Response) (*ParsedReviewAtlasResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedReviewAtlasResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ReviewAtlasResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
