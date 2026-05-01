@@ -7,6 +7,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net/url"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -372,8 +373,23 @@ func runPerTestEphemeral(ctx context.Context, dbURL string, f testharness.Filter
 //   - --no-ephemeral is set, or
 //   - the caller already exported DX_API_URL (indicates they're pointing at a
 //     specific server on purpose).
+func isRemoteURL(rawURL string) bool {
+	u, err := url.Parse(rawURL)
+	if err != nil {
+		return false
+	}
+	host := u.Hostname()
+	return host != "localhost" && host != "127.0.0.1" && host != "::1"
+}
+
 func maybeBootstrapEphemeral(noEphemeral bool, dbURL string) ([]string, func(), error) {
-	if noEphemeral || os.Getenv("DX_API_URL") != "" {
+	if noEphemeral {
+		return nil, func() {}, nil
+	}
+	if apiURL := os.Getenv("DX_API_URL"); apiURL != "" {
+		if isRemoteURL(apiURL) && os.Getenv("DX_TEST_ALLOW_REMOTE") == "" {
+			return nil, func() {}, fmt.Errorf("DX_API_URL=%s points to a non-localhost server; set DX_TEST_ALLOW_REMOTE=true to allow", apiURL)
+		}
 		return nil, func() {}, nil
 	}
 	fmt.Fprintln(os.Stderr, "[test] bootstrapping ephemeral devserver (pass --no-ephemeral to disable)")
