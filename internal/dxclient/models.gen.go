@@ -4009,6 +4009,7 @@ type SoloReleaseRequest struct {
 	Schema      *string      `json:"$schema,omitempty"`
 	AgentId     string       `json:"agent_id"`
 	BranchState *BranchState `json:"branch_state,omitempty"`
+	Force       *bool        `json:"force,omitempty"`
 	Id          int32        `json:"id"`
 	Resolve     *bool        `json:"resolve,omitempty"`
 	SessionId   *string      `json:"session_id,omitempty"`
@@ -4052,6 +4053,7 @@ type SoloClaimBody struct {
 	Schema           *string      `json:"$schema,omitempty"`
 	Blocked          bool         `json:"blocked"`
 	BlockedReason    *string      `json:"blocked_reason,omitempty"`
+	ClaimBaseSha     *string      `json:"claim_base_sha,omitempty"`
 	ClaimContract    *string      `json:"claim_contract,omitempty"`
 	ClaimedAt        *string      `json:"claimed_at,omitempty"`
 	ClaimedBy        *string      `json:"claimed_by,omitempty"`
@@ -4401,6 +4403,7 @@ type TodoItem struct {
 	Schema           *string `json:"$schema,omitempty"`
 	Blocked          bool    `json:"blocked"`
 	BlockedReason    *string `json:"blocked_reason,omitempty"`
+	ClaimBaseSha     *string `json:"claim_base_sha,omitempty"`
 	ClaimContract    *string `json:"claim_contract,omitempty"`
 	ClaimedAt        *string `json:"claimed_at,omitempty"`
 	ClaimedBy        *string `json:"claimed_by,omitempty"`
@@ -4455,6 +4458,7 @@ type TriageIssueRequest struct {
 	Schema       *string      `json:"$schema,omitempty"`
 	BranchState  *BranchState `json:"branch_state,omitempty"`
 	Context      *string      `json:"context,omitempty"`
+	Force        *bool        `json:"force,omitempty"`
 	GoalIds      *[]int32     `json:"goal_ids,omitempty"`
 	Id           int32        `json:"id"`
 	IssueType    *string      `json:"issue_type,omitempty"`
