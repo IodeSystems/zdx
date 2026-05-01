@@ -1120,6 +1120,9 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				source = "manual"
 			}
 			branch := in.Body.Branch
+			if branch == "" {
+				branch = "dev"
+			}
 			author := in.Body.Author
 			if author == "" {
 				if uid := ctxUserIDVal(ctx); uid != 0 {

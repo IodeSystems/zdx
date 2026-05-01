@@ -954,6 +954,9 @@ func issueResolveCmd() *cobra.Command {
 				if err == nil {
 					branch = strings.TrimSpace(string(out))
 				}
+				if branch == "" || branch == "HEAD" {
+					branch = "dev"
+				}
 			}
 			fullSHAs := make([]string, len(shas))
 			for i, sha := range shas {
@@ -997,7 +1000,7 @@ func issueResolveCmd() *cobra.Command {
 			return nil
 		},
 	}
-	cmd.Flags().StringVar(&branch, "branch", "", "branch of origin (default: auto-detect)")
+	cmd.Flags().StringVar(&branch, "branch", "", "branch of origin (default: auto-detect; falls back to 'dev')")
 	return cmd
 }
 
