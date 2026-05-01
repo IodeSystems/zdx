@@ -306,25 +306,6 @@ func UnreadFeatureCommentsText(featureName string) Hint {
 	}
 }
 
-// StaleCommentsText builds a Hint for N aged unread comments on a target
-// (issue / task / feature). The text tells the agent how to read, respond to,
-// and mark the comments as read.
-func StaleCommentsText(count int, targetType, targetID string, lastCommentID int32) Hint {
-	return Hint{
-		Title:       fmt.Sprintf("%d stale comment(s): %s %s", count, targetType, targetID),
-		Description: "Comments aged >24h without response.",
-		Instructions: fmt.Sprintf(
-			"%d aged unread comment(s) on %s %s (latest C-%d).\n\n"+
-				"1. Read all unread: `dx comment list %s %s`.\n"+
-				"2. Respond if a reply is warranted: `dx comment add %s %s --body=\"<reply>\"`.\n"+
-				"These are older than 24h — prioritize answering before new work.",
-			count, targetType, targetID, lastCommentID,
-			targetType, targetID,
-			targetType, targetID,
-		),
-	}
-}
-
 // OrphanTaskText builds a Hint for a task with no parent issue.
 func OrphanTaskText(taskID, title string) Hint {
 	return Hint{
