@@ -197,13 +197,10 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 	// the signal. The agent reads and replies; the item is resolved on next evaluate.
 	{
 		targetsWithComments, _ := h.Q.ListTargetsWithComments(ctx, projectID)
-		commentedTargets := map[string]bool{}
-		for _, t := range targetsWithComments {
-			commentedTargets[t.TargetType+":"+t.TargetID] = true
-		}
-		issuesByID := map[string]db.ZdxIssue{}
-		for _, iss := range issues {
-			issuesByID[iss.ID] = iss
+		allIssues, _ := h.Q.ListIssues(ctx, projectID)
+		allIssuesByID := map[string]db.ZdxIssue{}
+		for _, iss := range allIssues {
+			allIssuesByID[iss.ID] = iss
 		}
 		for _, t := range targetsWithComments {
 			switch t.TargetType {
@@ -211,9 +208,8 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 				if issueFilter != "" && t.TargetID != issueFilter {
 					continue
 				}
-				iss, ok := issuesByID[t.TargetID]
+				iss, ok := allIssuesByID[t.TargetID]
 				if !ok {
-					// issue not in open list — skip (closed issues don't need comment review)
 					continue
 				}
 				hint := workflowhints.UnreadCommentsText(iss.ID, iss.Title)
