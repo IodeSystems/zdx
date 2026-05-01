@@ -549,9 +549,9 @@ type ZdxNarrativeChunk struct {
 	VerifierKind string             `db:"verifier_kind" json:"verifier_kind"`
 	VerifiedAt   pgtype.Timestamptz `db:"verified_at" json:"verified_at"`
 	VerifiedBy   string             `db:"verified_by" json:"verified_by"`
-	Status       string             `db:"status" json:"status"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	Status       string             `db:"status" json:"status"`
 }
 
 type ZdxNode struct {

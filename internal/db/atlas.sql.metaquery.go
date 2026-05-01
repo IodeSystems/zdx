@@ -17,7 +17,7 @@ var MetaCreateAtlasChunk = metaquery.Query{
 	Source: "atlas.sql",
 	SQL: `INSERT INTO zdx_narrative_chunks (project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at`,
+RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_narrative_chunks"},
@@ -29,9 +29,9 @@ RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifi
 		{Name: "verifier_kind", OriginalName: "verifier_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "verified_at", OriginalName: "verified_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_narrative_chunks"},
 		{Name: "verified_by", OriginalName: "verified_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -62,9 +62,9 @@ var CreateAtlasChunkCols = struct {
 	VerifierKind metaquery.TextCol
 	VerifiedAt   metaquery.TimeCol
 	VerifiedBy   metaquery.TextCol
-	Status       metaquery.TextCol
 	CreatedAt    metaquery.TimeCol
 	UpdatedAt    metaquery.TimeCol
+	Status       metaquery.TextCol
 }{
 	ID:           metaquery.NewIntCol("id"),
 	ProjectID:    metaquery.NewIntCol("project_id"),
@@ -76,9 +76,9 @@ var CreateAtlasChunkCols = struct {
 	VerifierKind: metaquery.NewTextCol("verifier_kind"),
 	VerifiedAt:   metaquery.NewTimeCol("verified_at"),
 	VerifiedBy:   metaquery.NewTextCol("verified_by"),
-	Status:       metaquery.NewTextCol("status"),
 	CreatedAt:    metaquery.NewTimeCol("created_at"),
 	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	Status:       metaquery.NewTextCol("status"),
 }
 
 var MetaCreateAtlasCoderef = metaquery.Query{
@@ -294,7 +294,7 @@ var MetaGetAtlasChunk = metaquery.Query{
 	Name:   "GetAtlasChunk",
 	Cmd:    ":one",
 	Source: "atlas.sql",
-	SQL:    `SELECT id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at FROM zdx_narrative_chunks WHERE project_id = $1 AND id = $2`,
+	SQL:    `SELECT id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status FROM zdx_narrative_chunks WHERE project_id = $1 AND id = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_narrative_chunks"},
@@ -306,9 +306,9 @@ var MetaGetAtlasChunk = metaquery.Query{
 		{Name: "verifier_kind", OriginalName: "verifier_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "verified_at", OriginalName: "verified_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_narrative_chunks"},
 		{Name: "verified_by", OriginalName: "verified_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -333,9 +333,9 @@ var GetAtlasChunkCols = struct {
 	VerifierKind metaquery.TextCol
 	VerifiedAt   metaquery.TimeCol
 	VerifiedBy   metaquery.TextCol
-	Status       metaquery.TextCol
 	CreatedAt    metaquery.TimeCol
 	UpdatedAt    metaquery.TimeCol
+	Status       metaquery.TextCol
 }{
 	ID:           metaquery.NewIntCol("id"),
 	ProjectID:    metaquery.NewIntCol("project_id"),
@@ -347,9 +347,9 @@ var GetAtlasChunkCols = struct {
 	VerifierKind: metaquery.NewTextCol("verifier_kind"),
 	VerifiedAt:   metaquery.NewTimeCol("verified_at"),
 	VerifiedBy:   metaquery.NewTextCol("verified_by"),
-	Status:       metaquery.NewTextCol("status"),
 	CreatedAt:    metaquery.NewTimeCol("created_at"),
 	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	Status:       metaquery.NewTextCol("status"),
 }
 
 var MetaGetAtlasCoderef = metaquery.Query{
@@ -631,7 +631,7 @@ var MetaListAtlasChunks = metaquery.Query{
 	Name:   "ListAtlasChunks",
 	Cmd:    ":many",
 	Source: "atlas.sql",
-	SQL:    `SELECT id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at FROM zdx_narrative_chunks WHERE node_id = $1 ORDER BY id`,
+	SQL:    `SELECT id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status FROM zdx_narrative_chunks WHERE node_id = $1 ORDER BY id`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_narrative_chunks"},
@@ -643,9 +643,9 @@ var MetaListAtlasChunks = metaquery.Query{
 		{Name: "verifier_kind", OriginalName: "verifier_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "verified_at", OriginalName: "verified_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_narrative_chunks"},
 		{Name: "verified_by", OriginalName: "verified_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "node_id", GoType: "int64", DBType: "pg_catalog.int8", NotNull: true},
@@ -669,9 +669,9 @@ var ListAtlasChunksCols = struct {
 	VerifierKind metaquery.TextCol
 	VerifiedAt   metaquery.TimeCol
 	VerifiedBy   metaquery.TextCol
-	Status       metaquery.TextCol
 	CreatedAt    metaquery.TimeCol
 	UpdatedAt    metaquery.TimeCol
+	Status       metaquery.TextCol
 }{
 	ID:           metaquery.NewIntCol("id"),
 	ProjectID:    metaquery.NewIntCol("project_id"),
@@ -683,9 +683,9 @@ var ListAtlasChunksCols = struct {
 	VerifierKind: metaquery.NewTextCol("verifier_kind"),
 	VerifiedAt:   metaquery.NewTimeCol("verified_at"),
 	VerifiedBy:   metaquery.NewTextCol("verified_by"),
-	Status:       metaquery.NewTextCol("status"),
 	CreatedAt:    metaquery.NewTimeCol("created_at"),
 	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	Status:       metaquery.NewTextCol("status"),
 }
 
 var MetaListAtlasCoderefs = metaquery.Query{
@@ -937,7 +937,7 @@ var MetaListStaleChunksByProject = metaquery.Query{
 	Name:   "ListStaleChunksByProject",
 	Cmd:    ":many",
 	Source: "atlas.sql",
-	SQL: `SELECT c.id, c.project_id, c.node_id, c.coderef_id, c.title, c.body, c.sha_at_write, c.verifier_kind, c.verified_at, c.verified_by, c.status, c.created_at, c.updated_at, n.kind AS node_kind, n.slug AS node_slug,
+	SQL: `SELECT c.id, c.project_id, c.node_id, c.coderef_id, c.title, c.body, c.sha_at_write, c.verifier_kind, c.verified_at, c.verified_by, c.created_at, c.updated_at, c.status, n.kind AS node_kind, n.slug AS node_slug,
        COALESCE(cr.file, '') AS coderef_file
 FROM zdx_narrative_chunks c
 JOIN zdx_nodes n ON n.id = c.node_id
@@ -956,9 +956,9 @@ ORDER BY c.id`,
 		{Name: "verifier_kind", OriginalName: "verifier_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "verified_at", OriginalName: "verified_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_narrative_chunks"},
 		{Name: "verified_by", OriginalName: "verified_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "node_kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_nodes"},
 		{Name: "node_slug", OriginalName: "slug", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_nodes"},
 		{Name: "coderef_file", OriginalName: "file", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_coderefs"},
@@ -985,9 +985,9 @@ var ListStaleChunksByProjectCols = struct {
 	VerifierKind metaquery.TextCol
 	VerifiedAt   metaquery.TimeCol
 	VerifiedBy   metaquery.TextCol
-	Status       metaquery.TextCol
 	CreatedAt    metaquery.TimeCol
 	UpdatedAt    metaquery.TimeCol
+	Status       metaquery.TextCol
 	NodeKind     metaquery.TextCol
 	NodeSlug     metaquery.TextCol
 	CoderefFile  metaquery.TextCol
@@ -1002,9 +1002,9 @@ var ListStaleChunksByProjectCols = struct {
 	VerifierKind: metaquery.NewTextCol("verifier_kind"),
 	VerifiedAt:   metaquery.NewTimeCol("verified_at"),
 	VerifiedBy:   metaquery.NewTextCol("verified_by"),
-	Status:       metaquery.NewTextCol("status"),
 	CreatedAt:    metaquery.NewTimeCol("created_at"),
 	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	Status:       metaquery.NewTextCol("status"),
 	NodeKind:     metaquery.NewTextCol("kind"),
 	NodeSlug:     metaquery.NewTextCol("slug"),
 	CoderefFile:  metaquery.NewTextCol("file"),
@@ -1020,7 +1020,7 @@ SET status      = 'broken',
     verified_by = $1,
     updated_at  = NOW()
 WHERE project_id = $2 AND id = $3
-RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at`,
+RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_narrative_chunks"},
@@ -1032,9 +1032,9 @@ RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifi
 		{Name: "verifier_kind", OriginalName: "verifier_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "verified_at", OriginalName: "verified_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_narrative_chunks"},
 		{Name: "verified_by", OriginalName: "verified_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "verified_by", GoType: "string", DBType: "text", NotNull: true},
@@ -1060,9 +1060,9 @@ var MarkChunkBrokenCols = struct {
 	VerifierKind metaquery.TextCol
 	VerifiedAt   metaquery.TimeCol
 	VerifiedBy   metaquery.TextCol
-	Status       metaquery.TextCol
 	CreatedAt    metaquery.TimeCol
 	UpdatedAt    metaquery.TimeCol
+	Status       metaquery.TextCol
 }{
 	ID:           metaquery.NewIntCol("id"),
 	ProjectID:    metaquery.NewIntCol("project_id"),
@@ -1074,9 +1074,9 @@ var MarkChunkBrokenCols = struct {
 	VerifierKind: metaquery.NewTextCol("verifier_kind"),
 	VerifiedAt:   metaquery.NewTimeCol("verified_at"),
 	VerifiedBy:   metaquery.NewTextCol("verified_by"),
-	Status:       metaquery.NewTextCol("status"),
 	CreatedAt:    metaquery.NewTimeCol("created_at"),
 	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	Status:       metaquery.NewTextCol("status"),
 }
 
 var MetaMarkChunksStaleByFiles = metaquery.Query{
@@ -1164,7 +1164,7 @@ SET body        = $1,
     sha_at_write = CASE WHEN $3::text <> '' THEN $3 ELSE sha_at_write END,
     updated_at  = NOW()
 WHERE project_id = $4 AND id = $5
-RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at`,
+RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_narrative_chunks"},
@@ -1176,9 +1176,9 @@ RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifi
 		{Name: "verifier_kind", OriginalName: "verifier_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "verified_at", OriginalName: "verified_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_narrative_chunks"},
 		{Name: "verified_by", OriginalName: "verified_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "body", GoType: "string", DBType: "text", NotNull: true},
@@ -1206,9 +1206,9 @@ var UpdateChunkBodyAndVerifyCols = struct {
 	VerifierKind metaquery.TextCol
 	VerifiedAt   metaquery.TimeCol
 	VerifiedBy   metaquery.TextCol
-	Status       metaquery.TextCol
 	CreatedAt    metaquery.TimeCol
 	UpdatedAt    metaquery.TimeCol
+	Status       metaquery.TextCol
 }{
 	ID:           metaquery.NewIntCol("id"),
 	ProjectID:    metaquery.NewIntCol("project_id"),
@@ -1220,9 +1220,9 @@ var UpdateChunkBodyAndVerifyCols = struct {
 	VerifierKind: metaquery.NewTextCol("verifier_kind"),
 	VerifiedAt:   metaquery.NewTimeCol("verified_at"),
 	VerifiedBy:   metaquery.NewTextCol("verified_by"),
-	Status:       metaquery.NewTextCol("status"),
 	CreatedAt:    metaquery.NewTimeCol("created_at"),
 	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	Status:       metaquery.NewTextCol("status"),
 }
 
 var MetaVerifyChunkStillAccurate = metaquery.Query{
@@ -1236,7 +1236,7 @@ SET status      = 'fresh',
     sha_at_write = CASE WHEN $2::text <> '' THEN $2 ELSE sha_at_write END,
     updated_at  = NOW()
 WHERE project_id = $3 AND id = $4
-RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at`,
+RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_narrative_chunks"},
@@ -1248,9 +1248,9 @@ RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifi
 		{Name: "verifier_kind", OriginalName: "verifier_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "verified_at", OriginalName: "verified_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_narrative_chunks"},
 		{Name: "verified_by", OriginalName: "verified_by", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
-		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
 		{Name: "updated_at", OriginalName: "updated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_narrative_chunks"},
+		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_narrative_chunks"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "verified_by", GoType: "string", DBType: "text", NotNull: true},
@@ -1277,9 +1277,9 @@ var VerifyChunkStillAccurateCols = struct {
 	VerifierKind metaquery.TextCol
 	VerifiedAt   metaquery.TimeCol
 	VerifiedBy   metaquery.TextCol
-	Status       metaquery.TextCol
 	CreatedAt    metaquery.TimeCol
 	UpdatedAt    metaquery.TimeCol
+	Status       metaquery.TextCol
 }{
 	ID:           metaquery.NewIntCol("id"),
 	ProjectID:    metaquery.NewIntCol("project_id"),
@@ -1291,7 +1291,7 @@ var VerifyChunkStillAccurateCols = struct {
 	VerifierKind: metaquery.NewTextCol("verifier_kind"),
 	VerifiedAt:   metaquery.NewTimeCol("verified_at"),
 	VerifiedBy:   metaquery.NewTextCol("verified_by"),
-	Status:       metaquery.NewTextCol("status"),
 	CreatedAt:    metaquery.NewTimeCol("created_at"),
 	UpdatedAt:    metaquery.NewTimeCol("updated_at"),
+	Status:       metaquery.NewTextCol("status"),
 }

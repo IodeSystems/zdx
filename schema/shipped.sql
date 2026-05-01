@@ -4,7 +4,6 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
--- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -1493,9 +1492,10 @@ CREATE TABLE public.zdx_narrative_chunks (
     verifier_kind text DEFAULT 'agent'::text NOT NULL,
     verified_at timestamp with time zone,
     verified_by text DEFAULT ''::text NOT NULL,
-    status text DEFAULT 'fresh'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    updated_at timestamp with time zone DEFAULT now() NOT NULL
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    status text DEFAULT 'fresh'::text NOT NULL,
+    CONSTRAINT zdx_narrative_chunks_status_check CHECK ((status = ANY (ARRAY['fresh'::text, 'stale'::text, 'broken'::text])))
 );
 
 
@@ -4781,6 +4781,13 @@ CREATE INDEX zdx_integration_token_project ON public.zdx_integration_token USING
 
 
 --
+-- Name: zdx_issues_node_ref_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_issues_node_ref_idx ON public.zdx_issues USING btree (project_id, node_ref) WHERE ((node_ref IS NOT NULL) AND (node_ref <> ''::text));
+
+
+--
 -- Name: zdx_kpi_samples_project_id_scope_check_name_sampled_at_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4827,6 +4834,13 @@ CREATE UNIQUE INDEX zdx_maturity_items_dedup ON public.zdx_maturity_items USING 
 --
 
 CREATE INDEX zdx_narrative_chunks_node_id_idx ON public.zdx_narrative_chunks USING btree (node_id);
+
+
+--
+-- Name: zdx_narrative_chunks_status_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_narrative_chunks_status_idx ON public.zdx_narrative_chunks USING btree (project_id, status);
 
 
 --

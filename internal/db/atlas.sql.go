@@ -14,7 +14,7 @@ import (
 const createAtlasChunk = `-- name: CreateAtlasChunk :one
 INSERT INTO zdx_narrative_chunks (project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at
+RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status
 `
 
 type CreateAtlasChunkParams struct {
@@ -49,9 +49,9 @@ func (q *Queries) CreateAtlasChunk(ctx context.Context, arg CreateAtlasChunkPara
 		&i.VerifierKind,
 		&i.VerifiedAt,
 		&i.VerifiedBy,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
@@ -211,7 +211,7 @@ func (q *Queries) DeleteAtlasNode(ctx context.Context, arg DeleteAtlasNodeParams
 }
 
 const getAtlasChunk = `-- name: GetAtlasChunk :one
-SELECT id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at FROM zdx_narrative_chunks WHERE project_id = $1 AND id = $2
+SELECT id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status FROM zdx_narrative_chunks WHERE project_id = $1 AND id = $2
 `
 
 type GetAtlasChunkParams struct {
@@ -233,9 +233,9 @@ func (q *Queries) GetAtlasChunk(ctx context.Context, arg GetAtlasChunkParams) (Z
 		&i.VerifierKind,
 		&i.VerifiedAt,
 		&i.VerifiedBy,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
@@ -448,7 +448,7 @@ func (q *Queries) GetAtlasNodeSubgraph(ctx context.Context, arg GetAtlasNodeSubg
 }
 
 const listAtlasChunks = `-- name: ListAtlasChunks :many
-SELECT id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at FROM zdx_narrative_chunks WHERE node_id = $1 ORDER BY id
+SELECT id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status FROM zdx_narrative_chunks WHERE node_id = $1 ORDER BY id
 `
 
 func (q *Queries) ListAtlasChunks(ctx context.Context, nodeID int64) ([]ZdxNarrativeChunk, error) {
@@ -471,9 +471,9 @@ func (q *Queries) ListAtlasChunks(ctx context.Context, nodeID int64) ([]ZdxNarra
 			&i.VerifierKind,
 			&i.VerifiedAt,
 			&i.VerifiedBy,
-			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Status,
 		); err != nil {
 			return nil, err
 		}
@@ -683,7 +683,7 @@ func (q *Queries) ListAtlasNodes(ctx context.Context, arg ListAtlasNodesParams) 
 }
 
 const listStaleChunksByProject = `-- name: ListStaleChunksByProject :many
-SELECT c.id, c.project_id, c.node_id, c.coderef_id, c.title, c.body, c.sha_at_write, c.verifier_kind, c.verified_at, c.verified_by, c.status, c.created_at, c.updated_at, n.kind AS node_kind, n.slug AS node_slug,
+SELECT c.id, c.project_id, c.node_id, c.coderef_id, c.title, c.body, c.sha_at_write, c.verifier_kind, c.verified_at, c.verified_by, c.created_at, c.updated_at, c.status, n.kind AS node_kind, n.slug AS node_slug,
        COALESCE(cr.file, '') AS coderef_file
 FROM zdx_narrative_chunks c
 JOIN zdx_nodes n ON n.id = c.node_id
@@ -704,9 +704,9 @@ type ListStaleChunksByProjectRow struct {
 	VerifierKind string             `db:"verifier_kind" json:"verifier_kind"`
 	VerifiedAt   pgtype.Timestamptz `db:"verified_at" json:"verified_at"`
 	VerifiedBy   string             `db:"verified_by" json:"verified_by"`
-	Status       string             `db:"status" json:"status"`
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+	Status       string             `db:"status" json:"status"`
 	NodeKind     string             `db:"node_kind" json:"node_kind"`
 	NodeSlug     string             `db:"node_slug" json:"node_slug"`
 	CoderefFile  string             `db:"coderef_file" json:"coderef_file"`
@@ -732,9 +732,9 @@ func (q *Queries) ListStaleChunksByProject(ctx context.Context, projectID int32)
 			&i.VerifierKind,
 			&i.VerifiedAt,
 			&i.VerifiedBy,
-			&i.Status,
 			&i.CreatedAt,
 			&i.UpdatedAt,
+			&i.Status,
 			&i.NodeKind,
 			&i.NodeSlug,
 			&i.CoderefFile,
@@ -756,7 +756,7 @@ SET status      = 'broken',
     verified_by = $1,
     updated_at  = NOW()
 WHERE project_id = $2 AND id = $3
-RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at
+RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status
 `
 
 type MarkChunkBrokenParams struct {
@@ -779,9 +779,9 @@ func (q *Queries) MarkChunkBroken(ctx context.Context, arg MarkChunkBrokenParams
 		&i.VerifierKind,
 		&i.VerifiedAt,
 		&i.VerifiedBy,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
@@ -873,7 +873,7 @@ SET body        = $1,
     sha_at_write = CASE WHEN $3::text <> '' THEN $3 ELSE sha_at_write END,
     updated_at  = NOW()
 WHERE project_id = $4 AND id = $5
-RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at
+RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status
 `
 
 type UpdateChunkBodyAndVerifyParams struct {
@@ -904,9 +904,9 @@ func (q *Queries) UpdateChunkBodyAndVerify(ctx context.Context, arg UpdateChunkB
 		&i.VerifierKind,
 		&i.VerifiedAt,
 		&i.VerifiedBy,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
@@ -919,7 +919,7 @@ SET status      = 'fresh',
     sha_at_write = CASE WHEN $2::text <> '' THEN $2 ELSE sha_at_write END,
     updated_at  = NOW()
 WHERE project_id = $3 AND id = $4
-RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, status, created_at, updated_at
+RETURNING id, project_id, node_id, coderef_id, title, body, sha_at_write, verifier_kind, verified_at, verified_by, created_at, updated_at, status
 `
 
 type VerifyChunkStillAccurateParams struct {
@@ -948,9 +948,9 @@ func (q *Queries) VerifyChunkStillAccurate(ctx context.Context, arg VerifyChunkS
 		&i.VerifierKind,
 		&i.VerifiedAt,
 		&i.VerifiedBy,
-		&i.Status,
 		&i.CreatedAt,
 		&i.UpdatedAt,
+		&i.Status,
 	)
 	return i, err
 }
