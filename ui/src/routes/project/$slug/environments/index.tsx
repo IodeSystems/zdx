@@ -3,6 +3,8 @@ import { useState } from 'react'
 import {
   Box,
   Button,
+  Card,
+  CardContent,
   Chip,
   CircularProgress,
   Dialog,
@@ -10,14 +12,7 @@ import {
   DialogContent,
   DialogTitle,
   IconButton,
-  Paper,
   Snackbar,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
   TextField,
   Tooltip,
   Typography,
@@ -166,7 +161,7 @@ function EditEnvironmentDialog({ slug, env, open, onClose }: { slug: string; env
   )
 }
 
-function EnvironmentRow({ slug, env }: { slug: string; env: EnvironmentItem }) {
+function EnvironmentCard({ slug, env }: { slug: string; env: EnvironmentItem }) {
   const request = useRequestEnvironmentTodo()
   const del = useDeleteEnvironment()
   const [toast, setToast] = useState<string | null>(null)
@@ -174,7 +169,7 @@ function EnvironmentRow({ slug, env }: { slug: string; env: EnvironmentItem }) {
 
   const handleRequest = (kind: 'test' | 'ship' | 'sync') => {
     request.mutate({ slug, name: env.name, kind }, {
-      onSuccess: () => setToast(`${kind === 'test' ? 'Test' : 'Ship'} todo created for ${env.name}`),
+      onSuccess: () => setToast(`${kind === 'test' ? 'Test' : kind === 'sync' ? 'Sync' : 'Ship'} todo created for ${env.name}`),
       onError: (e) => setToast(`Error: ${e.message}`),
     })
   }
@@ -186,78 +181,75 @@ function EnvironmentRow({ slug, env }: { slug: string; env: EnvironmentItem }) {
     })
   }
 
+  const drifted = (env.drift_count ?? 0) > 0
+
   return (
     <>
-      <TableRow hover>
-        <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-          {env.name}
-        </TableCell>
-        <TableCell>
+      <Card variant="outlined">
+        <CardContent sx={{ pb: '12px !important' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', mb: 0.5 }}>
+            <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, flex: 1 }}>{env.name}</Typography>
+            <Typography variant="caption" color="text.secondary">{formatRelativeTime(env.deployed_at)}</Typography>
+          </Box>
+
           {env.url ? (
-            <Typography variant="body2" component="a" href={env.url} target="_blank" rel="noopener noreferrer"
-              sx={{ color: 'text.secondary', fontSize: '0.8rem', wordBreak: 'break-all' }}>
+            <Typography
+              variant="body2"
+              component="a"
+              href={env.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              sx={{ color: 'text.secondary', fontSize: '0.8rem', wordBreak: 'break-all', display: 'block', mb: 0.75 }}
+            >
               {env.url}
             </Typography>
-          ) : (
-            <Typography variant="body2" color="text.disabled">—</Typography>
-          )}
-        </TableCell>
-        <TableCell>
-          {env.release_branch ? (
-            <Chip
-              label={env.release_branch}
-              size="small"
-              variant="outlined"
-              sx={{ fontFamily: 'monospace', fontSize: '0.75rem', height: 20 }}
-            />
-          ) : (
-            <Typography variant="body2" color="text.disabled">—</Typography>
-          )}
-        </TableCell>
-        <TableCell>
-          {(env.drift_count ?? 0) > 0 ? (
-            <Tooltip title={`release branch is ${env.drift_count} commit${env.drift_count === 1 ? '' : 's'} behind dev, oldest ${formatDriftAge(env.drift_oldest_age_secs ?? 0)} ago`}>
+          ) : null}
+
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center', mb: 0.75 }}>
+            {env.release_branch ? (
               <Chip
-                label={`${env.drift_count} behind`}
-                size="small"
-                color="warning"
-                variant="filled"
-                sx={{ fontSize: '0.7rem', height: 18 }}
-                data-testid="drift-chip"
-              />
-            </Tooltip>
-          ) : (
-            <Typography variant="body2" color="text.disabled" data-testid="drift-none">—</Typography>
-          )}
-        </TableCell>
-        <TableCell>
-          {env.current_build_sha ? (
-            <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5 }}>
-              <Chip
-                label={shortSha(env.current_build_sha)}
+                label={env.release_branch}
                 size="small"
                 variant="outlined"
                 sx={{ fontFamily: 'monospace', fontSize: '0.75rem', height: 20 }}
               />
-              {env.current_build_branch && (
+            ) : null}
+            {drifted ? (
+              <Tooltip title={`release branch is ${env.drift_count} commit${env.drift_count === 1 ? '' : 's'} behind dev, oldest ${formatDriftAge(env.drift_oldest_age_secs ?? 0)} ago`}>
                 <Chip
-                  label={env.current_build_branch}
+                  label={`${env.drift_count} behind`}
                   size="small"
-                  color={env.current_build_branch === 'main' || env.current_build_branch === 'master' ? 'primary' : 'default'}
-                  variant={env.current_build_branch === 'main' || env.current_build_branch === 'master' ? 'filled' : 'outlined'}
+                  color="warning"
+                  variant="filled"
                   sx={{ fontSize: '0.7rem', height: 18 }}
+                  data-testid="drift-chip"
                 />
-              )}
-            </Box>
-          ) : (
-            <Typography variant="body2" color="text.disabled">not deployed</Typography>
-          )}
-        </TableCell>
-        <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }}>
-          {formatRelativeTime(env.deployed_at)}
-        </TableCell>
-        <TableCell>
-          <Box sx={{ display: 'flex', gap: 0.5 }}>
+              </Tooltip>
+            ) : (
+              <Box component="span" data-testid="drift-none" sx={{ display: 'none' }} />
+            )}
+            {env.current_build_sha ? (
+              <>
+                <Chip
+                  label={shortSha(env.current_build_sha)}
+                  size="small"
+                  variant="outlined"
+                  sx={{ fontFamily: 'monospace', fontSize: '0.75rem', height: 20 }}
+                />
+                {env.current_build_branch && (
+                  <Chip
+                    label={env.current_build_branch}
+                    size="small"
+                    color={env.current_build_branch === 'main' || env.current_build_branch === 'master' ? 'primary' : 'default'}
+                    variant={env.current_build_branch === 'main' || env.current_build_branch === 'master' ? 'filled' : 'outlined'}
+                    sx={{ fontSize: '0.7rem', height: 18 }}
+                  />
+                )}
+              </>
+            ) : null}
+          </Box>
+
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
             <Tooltip title="Create a test todo for this environment">
               <Button
                 size="small"
@@ -296,7 +288,8 @@ function EnvironmentRow({ slug, env }: { slug: string; env: EnvironmentItem }) {
                 Ship
               </Button>
             </Tooltip>
-            <Tooltip title="Edit URL">
+            <Box sx={{ flex: 1 }} />
+            <Tooltip title="Edit URL and branch">
               <IconButton size="small" onClick={() => setEditOpen(true)}>
                 <EditIcon fontSize="small" />
               </IconButton>
@@ -307,8 +300,8 @@ function EnvironmentRow({ slug, env }: { slug: string; env: EnvironmentItem }) {
               </IconButton>
             </Tooltip>
           </Box>
-        </TableCell>
-      </TableRow>
+        </CardContent>
+      </Card>
       {editOpen && (
         <EditEnvironmentDialog slug={slug} env={env} open={editOpen} onClose={() => setEditOpen(false)} />
       )}
@@ -356,26 +349,11 @@ function EnvironmentsPage() {
           </Typography>
         </Box>
       ) : (
-        <TableContainer component={Paper} variant="outlined">
-          <Table size="small">
-            <TableHead>
-              <TableRow>
-                <TableCell sx={{ fontWeight: 600 }}>Name</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>URL</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Release Branch</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Drift</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Version</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Deployed</TableCell>
-                <TableCell sx={{ fontWeight: 600 }}>Actions</TableCell>
-              </TableRow>
-            </TableHead>
-            <TableBody>
-              {envs.map(env => (
-                <EnvironmentRow key={env.id} slug={slug} env={env} />
-              ))}
-            </TableBody>
-          </Table>
-        </TableContainer>
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
+          {envs.map(env => (
+            <EnvironmentCard key={env.id} slug={slug} env={env} />
+          ))}
+        </Box>
       )}
 
       {envs.length > 0 && (
