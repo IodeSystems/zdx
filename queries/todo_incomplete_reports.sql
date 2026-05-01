@@ -1,0 +1,33 @@
+-- name: AddTodoIncompleteReport :one
+INSERT INTO zdx_todo_incomplete_reports (
+    project_id, todo_id, reason, explanation, suggested_next, evidence,
+    evidence_fingerprint, agent_id
+) VALUES (
+    @project_id, @todo_id, @reason, @explanation, @suggested_next, @evidence,
+    @evidence_fingerprint, @agent_id
+)
+RETURNING id, project_id, todo_id, reason, explanation, suggested_next, evidence,
+          evidence_fingerprint, agent_id, created_at;
+
+-- name: ListTodoIncompleteReports :many
+SELECT id, project_id, todo_id, reason, explanation, suggested_next, evidence,
+       evidence_fingerprint, agent_id, created_at
+FROM zdx_todo_incomplete_reports
+WHERE project_id = @project_id
+  AND (sqlc.narg('reason')::text IS NULL OR reason = sqlc.narg('reason')::text)
+ORDER BY created_at DESC;
+
+-- name: GetTodoIncompleteReportsByTodo :many
+SELECT id, project_id, todo_id, reason, explanation, suggested_next, evidence,
+       evidence_fingerprint, agent_id, created_at
+FROM zdx_todo_incomplete_reports
+WHERE todo_id = $1
+ORDER BY created_at DESC;
+
+-- name: AggregateTodoIncompleteReports :many
+SELECT reason, evidence_fingerprint, COUNT(*) AS occurrence_count, MAX(created_at) AS last_seen
+FROM zdx_todo_incomplete_reports
+WHERE project_id = @project_id
+  AND (sqlc.narg('reason')::text IS NULL OR reason = sqlc.narg('reason')::text)
+GROUP BY reason, evidence_fingerprint
+ORDER BY occurrence_count DESC, last_seen DESC;
