@@ -290,6 +290,35 @@ func TestRun_RollingPair(t *testing.T) {
 	}
 }
 
+// TestRun_RollingPair_HealthPort verifies that rolling-pair injects
+// HEALTH_PORT per pass: 7600 for the "current" pass and 7602 for the
+// "next" pass, matching the systemd unit ports.
+func TestRun_RollingPair_HealthPort(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyRollingPair,
+		Stages: []config.Stage{
+			{Name: "deploy", Run: `echo $ZDX_PHASE-$HEALTH_PORT`},
+		},
+	}}
+	env := map[string]string{
+		"ZDX_SLOT_A": "current",
+		"ZDX_SLOT_B": "next",
+	}
+	res, err := Run(context.Background(), comp, env, RunOptions{StateDir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("want 2 results, got %d", len(res))
+	}
+	if got := strings.TrimSpace(res[0].Log); got != "current-7600" {
+		t.Errorf("pass1 log = %q, want current-7600", got)
+	}
+	if got := strings.TrimSpace(res[1].Log); got != "next-7602" {
+		t.Errorf("pass2 log = %q, want next-7602", got)
+	}
+}
+
 // TestRun_RollingPair_FirstPassFailureSkipsSecond verifies that a
 // non-optional failure in pass 1 halts before pass 2 runs.
 func TestRun_RollingPair_FirstPassFailureSkipsSecond(t *testing.T) {
