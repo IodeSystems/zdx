@@ -1115,10 +1115,11 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "solo-release", Method: http.MethodPost, Path: "/api/dx/solo/release"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				ID        int32  `json:"id"`
-				AgentID   string `json:"agent_id"`
-				Resolve   bool   `json:"resolve" required:"false"`
-				SessionID string `json:"session_id" required:"false"`
+				ID          int32        `json:"id"`
+				AgentID     string       `json:"agent_id"`
+				Resolve     bool         `json:"resolve" required:"false"`
+				SessionID   string       `json:"session_id" required:"false"`
+				BranchState *BranchState `json:"branch_state,omitempty" required:"false"`
 			}
 		}) (*struct {
 			Body struct {
@@ -1129,6 +1130,13 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 		}, error) {
 			resolve := in.Body.Resolve
 			todo, _ := h.Q.GetTodoByID(ctx, in.Body.ID)
+
+			// IS-915: claim contract validation on resolve.
+			if resolve && in.Body.BranchState != nil && todo.ID != 0 {
+				if err := validateClaimContract(todo.Kind, todo.ClaimBaseSha, todo.ClaimBaseBranch, in.Body.BranchState); err != nil {
+					return nil, err
+				}
+			}
 
 			// IS-514: pre-resolve guard for triage todos. Resolve only succeeds
 			// if the underlying issue has actually been triaged (priority set).

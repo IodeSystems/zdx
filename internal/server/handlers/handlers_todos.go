@@ -12,6 +12,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/todoclaim"
 )
 
 type TodoSessionItem struct {
@@ -171,6 +172,7 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 				CycleCount:       t.CycleCount,
 				ReferenceIssueID: t.ReferenceIssueID,
 				Instructions:     todoInstructions(t.Kind),
+				ClaimContract:    todoclaim.ForKind(t.Kind).Name,
 				ClaimedBy:        t.ClaimedBy,
 				ClaimedAt:        fmtTS(t.ClaimedAt),
 				CreatedAt:        fmtTS(t.CreatedAt),
