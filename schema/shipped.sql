@@ -4,6 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -2518,6 +2519,44 @@ ALTER SEQUENCE public.zdx_timed_id_seq OWNED BY public.zdx_timed.id;
 
 
 --
+-- Name: zdx_todo_incomplete_reports; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_todo_incomplete_reports (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    todo_id integer NOT NULL,
+    reason text NOT NULL,
+    explanation text DEFAULT ''::text NOT NULL,
+    suggested_next jsonb DEFAULT '{}'::jsonb NOT NULL,
+    evidence jsonb DEFAULT '{}'::jsonb NOT NULL,
+    evidence_fingerprint text DEFAULT ''::text NOT NULL,
+    agent_id text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT zdx_todo_incomplete_reports_reason_check CHECK ((reason = ANY (ARRAY['capability_gap'::text, 'ambiguous_spec'::text, 'external_dep'::text, 'needs_decision'::text, 'permission_denied'::text, 'environment_broken'::text, 'preexisting_test_failure'::text, 'flaky_test'::text])))
+);
+
+
+--
+-- Name: zdx_todo_incomplete_reports_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_todo_incomplete_reports_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_todo_incomplete_reports_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_todo_incomplete_reports_id_seq OWNED BY public.zdx_todo_incomplete_reports.id;
+
+
+--
 -- Name: zdx_todos; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3047,6 +3086,13 @@ ALTER TABLE ONLY public.zdx_timed ALTER COLUMN id SET DEFAULT nextval('public.zd
 --
 
 ALTER TABLE ONLY public.zdx_timed_events ALTER COLUMN id SET DEFAULT nextval('public.zdx_timed_events_id_seq'::regclass);
+
+
+--
+-- Name: zdx_todo_incomplete_reports id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_todo_incomplete_reports ALTER COLUMN id SET DEFAULT nextval('public.zdx_todo_incomplete_reports_id_seq'::regclass);
 
 
 --
@@ -3943,6 +3989,14 @@ ALTER TABLE ONLY public.zdx_timed
 
 
 --
+-- Name: zdx_todo_incomplete_reports zdx_todo_incomplete_reports_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_todo_incomplete_reports
+    ADD CONSTRAINT zdx_todo_incomplete_reports_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_todos zdx_todos_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4540,6 +4594,20 @@ CREATE UNIQUE INDEX zdx_timed_name ON public.zdx_timed USING btree (COALESCE(pro
 --
 
 CREATE INDEX zdx_timed_project ON public.zdx_timed USING btree (project_id);
+
+
+--
+-- Name: zdx_todo_incomplete_reports_agg_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_todo_incomplete_reports_agg_idx ON public.zdx_todo_incomplete_reports USING btree (project_id, reason, evidence_fingerprint);
+
+
+--
+-- Name: zdx_todo_incomplete_reports_todo_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_todo_incomplete_reports_todo_idx ON public.zdx_todo_incomplete_reports USING btree (todo_id);
 
 
 --
@@ -5452,6 +5520,22 @@ ALTER TABLE ONLY public.zdx_timed_events
 
 ALTER TABLE ONLY public.zdx_timed
     ADD CONSTRAINT zdx_timed_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_todo_incomplete_reports zdx_todo_incomplete_reports_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_todo_incomplete_reports
+    ADD CONSTRAINT zdx_todo_incomplete_reports_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_todo_incomplete_reports zdx_todo_incomplete_reports_todo_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_todo_incomplete_reports
+    ADD CONSTRAINT zdx_todo_incomplete_reports_todo_id_fkey FOREIGN KEY (todo_id) REFERENCES public.zdx_todos(id) ON DELETE CASCADE;
 
 
 --

@@ -932,6 +932,19 @@ type ZdxTodo struct {
 	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
 }
 
+type ZdxTodoIncompleteReport struct {
+	ID                  int64              `db:"id" json:"id"`
+	ProjectID           int32              `db:"project_id" json:"project_id"`
+	TodoID              int32              `db:"todo_id" json:"todo_id"`
+	Reason              string             `db:"reason" json:"reason"`
+	Explanation         string             `db:"explanation" json:"explanation"`
+	SuggestedNext       []byte             `db:"suggested_next" json:"suggested_next"`
+	Evidence            []byte             `db:"evidence" json:"evidence"`
+	EvidenceFingerprint string             `db:"evidence_fingerprint" json:"evidence_fingerprint"`
+	AgentID             string             `db:"agent_id" json:"agent_id"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxUser struct {
 	ID           int32              `db:"id" json:"id"`
 	Email        string             `db:"email" json:"email"`

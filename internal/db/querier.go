@@ -24,8 +24,10 @@ type Querier interface {
 	AddRevision(ctx context.Context, arg AddRevisionParams) error
 	AddSpec(ctx context.Context, arg AddSpecParams) (ZdxSpec, error)
 	AddSpecDeferral(ctx context.Context, arg AddSpecDeferralParams) error
+	AddTodoIncompleteReport(ctx context.Context, arg AddTodoIncompleteReportParams) (ZdxTodoIncompleteReport, error)
 	// Link an orphan task to a parent issue (zdx_tasks.issue = $2).
 	AdoptTaskToIssue(ctx context.Context, arg AdoptTaskToIssueParams) error
+	AggregateTodoIncompleteReports(ctx context.Context, arg AggregateTodoIncompleteReportsParams) ([]AggregateTodoIncompleteReportsRow, error)
 	AnswerBlockerQuestion(ctx context.Context, arg AnswerBlockerQuestionParams) error
 	AnswerQuestion(ctx context.Context, arg AnswerQuestionParams) (ZdxQuestion, error)
 	AppendIssueWork(ctx context.Context, arg AppendIssueWorkParams) error
@@ -228,6 +230,7 @@ type Querier interface {
 	GetThreadByRoot(ctx context.Context, rootEventID int64) (ZdxEventThread, error)
 	GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, error)
 	GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error)
+	GetTodoIncompleteReportsByTodo(ctx context.Context, todoID int32) ([]ZdxTodoIncompleteReport, error)
 	GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (GetUnreviewedJournalEntryRow, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
@@ -471,6 +474,7 @@ type Querier interface {
 	ListTimedDistinctTagValues(ctx context.Context, arg ListTimedDistinctTagValuesParams) ([]interface{}, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) max(max_ms, duration_ms) sum(sum_ms, duration_ms) min(first_seen, created_at) max(last_seen, created_at)
 	ListTimedEvents(ctx context.Context, arg ListTimedEventsParams) ([]ZdxTimedEvent, error)
+	ListTodoIncompleteReports(ctx context.Context, arg ListTodoIncompleteReportsParams) ([]ZdxTodoIncompleteReport, error)
 	ListTodos(ctx context.Context, projectID int32) ([]ListTodosRow, error)
 	ListTodosFiltered(ctx context.Context, arg ListTodosFilteredParams) ([]ListTodosFilteredRow, error)
 	ListUnansweredQuestions(ctx context.Context, projectID int32) ([]ZdxQuestion, error)
