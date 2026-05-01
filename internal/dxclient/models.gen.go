@@ -692,6 +692,14 @@ type BlockerQuestionItem struct {
 	TargetType string    `json:"target_type"`
 }
 
+// BranchState defines model for BranchState.
+type BranchState struct {
+	CommitsSinceBase *[]string `json:"commits_since_base,omitempty"`
+	HeadBranch       string    `json:"head_branch"`
+	HeadSha          string    `json:"head_sha"`
+	TreeClean        bool      `json:"tree_clean"`
+}
+
 // ClaimIssueRequest defines model for Claim-issueRequest.
 type ClaimIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -779,14 +787,15 @@ type CloseAgentSessionResponse struct {
 // CloseIssueRequest defines model for Close-issueRequest.
 type CloseIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema      *string `json:"$schema,omitempty"`
-	DuplicateOf *string `json:"duplicate_of,omitempty"`
-	Force       *bool   `json:"force,omitempty"`
-	Id          int32   `json:"id"`
-	LinkOf      *string `json:"link_of,omitempty"`
-	Notes       *string `json:"notes,omitempty"`
-	Reason      *string `json:"reason,omitempty"`
-	Slug        string  `json:"slug"`
+	Schema      *string      `json:"$schema,omitempty"`
+	BranchState *BranchState `json:"branch_state,omitempty"`
+	DuplicateOf *string      `json:"duplicate_of,omitempty"`
+	Force       *bool        `json:"force,omitempty"`
+	Id          int32        `json:"id"`
+	LinkOf      *string      `json:"link_of,omitempty"`
+	Notes       *string      `json:"notes,omitempty"`
+	Reason      *string      `json:"reason,omitempty"`
+	Slug        string       `json:"slug"`
 }
 
 // CodeRefItem defines model for CodeRefItem.
@@ -3997,11 +4006,12 @@ type SoloListReservationsResponse struct {
 // SoloReleaseRequest defines model for Solo-releaseRequest.
 type SoloReleaseRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema    *string `json:"$schema,omitempty"`
-	AgentId   string  `json:"agent_id"`
-	Id        int32   `json:"id"`
-	Resolve   *bool   `json:"resolve,omitempty"`
-	SessionId *string `json:"session_id,omitempty"`
+	Schema      *string      `json:"$schema,omitempty"`
+	AgentId     string       `json:"agent_id"`
+	BranchState *BranchState `json:"branch_state,omitempty"`
+	Id          int32        `json:"id"`
+	Resolve     *bool        `json:"resolve,omitempty"`
+	SessionId   *string      `json:"session_id,omitempty"`
 }
 
 // SoloReleaseResponse defines model for Solo-releaseResponse.
@@ -4042,6 +4052,7 @@ type SoloClaimBody struct {
 	Schema           *string      `json:"$schema,omitempty"`
 	Blocked          bool         `json:"blocked"`
 	BlockedReason    *string      `json:"blocked_reason,omitempty"`
+	ClaimContract    *string      `json:"claim_contract,omitempty"`
 	ClaimedAt        *string      `json:"claimed_at,omitempty"`
 	ClaimedBy        *string      `json:"claimed_by,omitempty"`
 	CreatedAt        string       `json:"created_at"`
@@ -4390,6 +4401,7 @@ type TodoItem struct {
 	Schema           *string `json:"$schema,omitempty"`
 	Blocked          bool    `json:"blocked"`
 	BlockedReason    *string `json:"blocked_reason,omitempty"`
+	ClaimContract    *string `json:"claim_contract,omitempty"`
 	ClaimedAt        *string `json:"claimed_at,omitempty"`
 	ClaimedBy        *string `json:"claimed_by,omitempty"`
 	CreatedAt        string  `json:"created_at"`
@@ -4440,16 +4452,17 @@ type TokensStruct struct {
 // TriageIssueRequest defines model for Triage-issueRequest.
 type TriageIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema       *string  `json:"$schema,omitempty"`
-	Context      *string  `json:"context,omitempty"`
-	GoalIds      *[]int32 `json:"goal_ids,omitempty"`
-	Id           int32    `json:"id"`
-	IssueType    *string  `json:"issue_type,omitempty"`
-	Priority     int32    `json:"priority"`
-	Slug         string   `json:"slug"`
-	TargetBranch *string  `json:"target_branch,omitempty"`
-	ThemeIds     *[]int32 `json:"theme_ids,omitempty"`
-	Title        *string  `json:"title,omitempty"`
+	Schema       *string      `json:"$schema,omitempty"`
+	BranchState  *BranchState `json:"branch_state,omitempty"`
+	Context      *string      `json:"context,omitempty"`
+	GoalIds      *[]int32     `json:"goal_ids,omitempty"`
+	Id           int32        `json:"id"`
+	IssueType    *string      `json:"issue_type,omitempty"`
+	Priority     int32        `json:"priority"`
+	Slug         string       `json:"slug"`
+	TargetBranch *string      `json:"target_branch,omitempty"`
+	ThemeIds     *[]int32     `json:"theme_ids,omitempty"`
+	Title        *string      `json:"title,omitempty"`
 }
 
 // UnblockTaskRequest defines model for Unblock-taskRequest.
