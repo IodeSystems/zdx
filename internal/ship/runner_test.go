@@ -112,6 +112,32 @@ func TestBuildCmd_SSH_PreservesRunString(t *testing.T) {
 	}
 }
 
+// TestRun_DefaultsToSimple verifies that an empty Strategy and an
+// explicit "simple" Strategy produce identical behavior (single pass,
+// no extra env injected).
+func TestRun_DefaultsToSimple(t *testing.T) {
+	stages := []config.Stage{
+		{Name: "one", Run: "echo a"},
+		{Name: "two", Run: "echo b"},
+	}
+	empty := config.Component{Ship: config.Ship{Stages: stages}}
+	explicit := config.Component{Ship: config.Ship{Strategy: config.ShipStrategySimple, Stages: stages}}
+
+	resA, errA := Run(context.Background(), empty, nil)
+	resB, errB := Run(context.Background(), explicit, nil)
+	if errA != nil || errB != nil {
+		t.Fatalf("Run errors: empty=%v explicit=%v", errA, errB)
+	}
+	if len(resA) != len(resB) {
+		t.Fatalf("result counts differ: %d vs %d", len(resA), len(resB))
+	}
+	for i := range resA {
+		if resA[i].Name != resB[i].Name || resA[i].Status != resB[i].Status {
+			t.Errorf("result %d differs: %+v vs %+v", i, resA[i], resB[i])
+		}
+	}
+}
+
 // TestRun_SSH_FakeSSH exercises the SSH path end-to-end with a fake `ssh`
 // shim on PATH that just echoes its argv. Hermetic — gated only because
 // it modifies $PATH for the test process.

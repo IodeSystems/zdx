@@ -5,8 +5,6 @@ package ship
 
 import (
 	"context"
-	"fmt"
-	"os"
 	"os/exec"
 	"strings"
 	"time"
@@ -38,33 +36,12 @@ type StageResult struct {
 // Env over ssh: NOT propagated. sshd resets the environment by default. Callers that need
 // vars on the remote must inline them into Stage.Run (e.g. `FOO=bar cmd`) or use ssh -o SendEnv
 // out-of-band — the harness keeps the default minimal.
+//
+// Run dispatches to the Strategy implementation selected by
+// comp.Ship.Strategy; an empty value means "simple" (single pass, no
+// extra env). Per-stage execution lives in runStages (strategy.go).
 func Run(ctx context.Context, comp config.Component, env map[string]string) ([]StageResult, error) {
-	results := make([]StageResult, 0, len(comp.Ship.Stages))
-	for _, stage := range comp.Ship.Stages {
-		start := time.Now()
-		cmd := buildCmd(ctx, stage)
-		if stage.Target == "" {
-			cmd.Env = mergeEnv(os.Environ(), env, comp.Ship.Env)
-		}
-		out, runErr := cmd.CombinedOutput()
-		res := StageResult{
-			Name:     stage.Name,
-			Duration: time.Since(start),
-			Log:      string(out),
-		}
-		if runErr != nil {
-			res.Status = "failed"
-			results = append(results, res)
-			if stage.Optional {
-				fmt.Fprintf(os.Stderr, "ship: optional stage %q failed: %v\n", stage.Name, runErr)
-				continue
-			}
-			return results, fmt.Errorf("stage %q failed: %w", stage.Name, runErr)
-		}
-		res.Status = "ok"
-		results = append(results, res)
-	}
-	return results, nil
+	return dispatch(comp).Run(ctx, comp, env)
 }
 
 // buildCmd constructs the *exec.Cmd for a stage without running it.
