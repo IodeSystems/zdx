@@ -195,6 +195,8 @@ func serviceRungs() []Rung {
 				{"has_deploy_config", "Deploy pipeline configured", ActionPropose},
 				{"has_healthcheck", "Health check endpoint exists", ActionInfo},
 				{"ship_config_defined", "Ship config declared for all components", ActionPropose},
+				{"has_deploy_events", "At least one deploy recorded", ActionInfo},
+				{"last_deploy_verify_passed", "Last deploy succeeded", ActionInfo},
 			},
 		},
 	}
@@ -210,6 +212,8 @@ func saasRungs() []Rung {
 				{"has_deploy_config", "Deploy pipeline configured", ActionPropose},
 				{"has_healthcheck", "Health check endpoint exists", ActionInfo},
 				{"ship_config_defined", "Ship config declared for all components", ActionPropose},
+				{"has_deploy_events", "At least one deploy recorded", ActionInfo},
+				{"last_deploy_verify_passed", "Last deploy succeeded", ActionInfo},
 			},
 		},
 		{

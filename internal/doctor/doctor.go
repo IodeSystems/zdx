@@ -122,7 +122,9 @@ type ProjectState struct {
 	ComponentsWithoutShip int // components declared in config where Ship.IsZero()
 
 	// Deploy pipeline
-	ShipsFromDevDirectly bool // true when project deploys from dev/main without a gate/staging branch
+	ShipsFromDevDirectly bool   // true when project deploys from dev/main without a gate/staging branch
+	DeployEventCount     int    // total deploys recorded across all environments
+	LastDeployStatus     string // "success" | "failure" | "unknown"
 
 	// Concern coverage
 	ConcernCount               int
@@ -589,6 +591,20 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 					"Use `git checkout -b staging && git push -u origin staging` to start."
 		}
 		return true, "deploy pipeline has a gate branch", nil, ""
+
+	case "has_deploy_events":
+		if state.DeployEventCount > 0 {
+			return true, fmt.Sprintf("%d deploys recorded", state.DeployEventCount), nil, ""
+		}
+		return false, "no deploys recorded — run bin/ship or dx ship run to record one", nil, ""
+
+	case "last_deploy_verify_passed":
+		switch state.LastDeployStatus {
+		case "success", "unknown", "":
+			return true, "", nil, ""
+		default:
+			return false, fmt.Sprintf("last deploy status: %s", state.LastDeployStatus), nil, ""
+		}
 
 	// ── concerns ──
 	case "concerns_defined":

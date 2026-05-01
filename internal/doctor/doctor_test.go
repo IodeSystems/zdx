@@ -485,6 +485,63 @@ func TestRunCheckHasDeployConfigGateBranch(t *testing.T) {
 	}
 }
 
+// TestRunCheckHasDeployEvents covers TK-1549: has_deploy_events fails when
+// no deploys are recorded and passes once at least one deploy is captured.
+func TestRunCheckHasDeployEvents(t *testing.T) {
+	cases := []struct {
+		name        string
+		count       int
+		wantPass    bool
+		wantMsgPart string
+	}{
+		{name: "no deploys fails", count: 0, wantPass: false, wantMsgPart: "no deploys recorded"},
+		{name: "one deploy passes", count: 1, wantPass: true},
+		{name: "many deploys passes", count: 42, wantPass: true},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := ProjectState{DeployEventCount: tc.count}
+			pass, msg, _, _ := runCheck("has_deploy_events", &state)
+			if pass != tc.wantPass {
+				t.Fatalf("pass=%v, want %v (msg=%q)", pass, tc.wantPass, msg)
+			}
+			if !tc.wantPass && !strings.Contains(msg, tc.wantMsgPart) {
+				t.Errorf("msg=%q, want substring %q", msg, tc.wantMsgPart)
+			}
+		})
+	}
+}
+
+// TestRunCheckLastDeployVerifyPassed covers TK-1549: last_deploy_verify_passed
+// passes on success and unknown (best-effort passthrough) and fails informationally
+// on any other status.
+func TestRunCheckLastDeployVerifyPassed(t *testing.T) {
+	cases := []struct {
+		name        string
+		status      string
+		wantPass    bool
+		wantMsgPart string
+	}{
+		{name: "success passes", status: "success", wantPass: true},
+		{name: "unknown passes", status: "unknown", wantPass: true},
+		{name: "empty passes", status: "", wantPass: true},
+		{name: "failure fails", status: "failure", wantPass: false, wantMsgPart: "last deploy status: failure"},
+		{name: "in-progress fails", status: "in_progress", wantPass: false, wantMsgPart: "last deploy status: in_progress"},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			state := ProjectState{LastDeployStatus: tc.status}
+			pass, msg, _, _ := runCheck("last_deploy_verify_passed", &state)
+			if pass != tc.wantPass {
+				t.Fatalf("pass=%v, want %v (msg=%q)", pass, tc.wantPass, msg)
+			}
+			if !tc.wantPass && !strings.Contains(msg, tc.wantMsgPart) {
+				t.Errorf("msg=%q, want substring %q", msg, tc.wantMsgPart)
+			}
+		})
+	}
+}
+
 // TestShipConfigDefined covers the ship_config_defined runCheck cases.
 func TestShipConfigDefined(t *testing.T) {
 	configWithShip := &config.Config{

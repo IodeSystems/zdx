@@ -390,6 +390,35 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 	if iResp, err := c.ListMaturityItemsWithResponse(ctx, &dxclient.ListMaturityItemsParams{Slug: slug}); err == nil && iResp.JSON200 != nil && iResp.JSON200.Items != nil {
 		state.MaturityItems = *iResp.JSON200.Items
 	}
+
+	// Deploy summary — best-effort: count recorded deploys across environments and
+	// capture the most-recent deploy's status. On any API error we leave
+	// LastDeployStatus as "unknown" so the check passes by default.
+	state.LastDeployStatus = "unknown"
+	if eResp, err := c.ListEnvironmentsWithResponse(ctx, slug); err == nil && eResp.JSON200 != nil && eResp.JSON200.Items != nil {
+		limit := int32(1)
+		var latestAt string
+		var latestStatus string
+		for _, env := range *eResp.JSON200.Items {
+			dResp, err := c.ListEnvironmentDeploysWithResponse(ctx, slug, env.Name, &dxclient.ListEnvironmentDeploysParams{Limit: &limit})
+			if err != nil || dResp.JSON200 == nil {
+				continue
+			}
+			state.DeployEventCount += int(dResp.JSON200.Total)
+			if dResp.JSON200.Items == nil {
+				continue
+			}
+			for _, d := range *dResp.JSON200.Items {
+				if d.DeployedAt > latestAt {
+					latestAt = d.DeployedAt
+					latestStatus = d.Status
+				}
+			}
+		}
+		if latestStatus != "" {
+			state.LastDeployStatus = latestStatus
+		}
+	}
 }
 
 // extractCloseReason parses the reason out of a close note like
