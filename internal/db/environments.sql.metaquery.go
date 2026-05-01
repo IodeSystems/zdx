@@ -15,9 +15,9 @@ var MetaCreateDeploy = metaquery.Query{
 	Name:   "CreateDeploy",
 	Cmd:    ":one",
 	Source: "environments.sql",
-	SQL: `INSERT INTO zdx_deploys (environment_id, build_sha, build_branch, deployed_by_user_id, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status`,
+	SQL: `INSERT INTO zdx_deploys (environment_id, build_sha, build_branch, deployed_by_user_id, status, duration_secs, log)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status, duration_secs, log`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_deploys"},
 		{Name: "environment_id", OriginalName: "environment_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_deploys"},
@@ -26,6 +26,8 @@ RETURNING id, environment_id, build_sha, build_branch, deployed_at, deployed_by_
 		{Name: "deployed_at", OriginalName: "deployed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_deploys"},
 		{Name: "deployed_by_user_id", OriginalName: "deployed_by_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_deploys"},
 		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_deploys"},
+		{Name: "duration_secs", OriginalName: "duration_secs", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_deploys"},
+		{Name: "log", OriginalName: "log", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_deploys"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "environment_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -33,13 +35,15 @@ RETURNING id, environment_id, build_sha, build_branch, deployed_at, deployed_by_
 		{Position: 3, Name: "build_branch", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 4, Name: "deployed_by_user_id", GoType: "pgtype.Int4", DBType: "pg_catalog.int4"},
 		{Position: 5, Name: "status", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 6, Name: "duration_secs", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 7, Name: "log", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_deploys"},
 }
 
 // WrapCreateDeploy returns a metaquery.Builder over MetaCreateDeploy, pre-bound with typed arguments.
 func WrapCreateDeploy(arg CreateDeployParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateDeploy, arg.EnvironmentID, arg.BuildSha, arg.BuildBranch, arg.DeployedByUserID, arg.Status)
+	return metaquery.Wrap(&MetaCreateDeploy, arg.EnvironmentID, arg.BuildSha, arg.BuildBranch, arg.DeployedByUserID, arg.Status, arg.DurationSecs, arg.Log)
 }
 
 // CreateDeployCols gives typed, name-safe access to CreateDeploy's output columns.
@@ -51,6 +55,8 @@ var CreateDeployCols = struct {
 	DeployedAt       metaquery.TimeCol
 	DeployedByUserID metaquery.IntCol
 	Status           metaquery.TextCol
+	DurationSecs     metaquery.IntCol
+	Log              metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	EnvironmentID:    metaquery.NewIntCol("environment_id"),
@@ -59,6 +65,8 @@ var CreateDeployCols = struct {
 	DeployedAt:       metaquery.NewTimeCol("deployed_at"),
 	DeployedByUserID: metaquery.NewIntCol("deployed_by_user_id"),
 	Status:           metaquery.NewTextCol("status"),
+	DurationSecs:     metaquery.NewIntCol("duration_secs"),
+	Log:              metaquery.NewTextCol("log"),
 }
 
 var MetaCreateEnvironment = metaquery.Query{
@@ -193,7 +201,7 @@ var MetaListDeploys = metaquery.Query{
 	Name:   "ListDeploys",
 	Cmd:    ":many",
 	Source: "environments.sql",
-	SQL: `SELECT id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status
+	SQL: `SELECT id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status, duration_secs, log
 FROM zdx_deploys WHERE environment_id = $1 ORDER BY deployed_at DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_deploys"},
@@ -203,6 +211,8 @@ FROM zdx_deploys WHERE environment_id = $1 ORDER BY deployed_at DESC`,
 		{Name: "deployed_at", OriginalName: "deployed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_deploys"},
 		{Name: "deployed_by_user_id", OriginalName: "deployed_by_user_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_deploys"},
 		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_deploys"},
+		{Name: "duration_secs", OriginalName: "duration_secs", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_deploys"},
+		{Name: "log", OriginalName: "log", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_deploys"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "environment_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -223,6 +233,8 @@ var ListDeploysCols = struct {
 	DeployedAt       metaquery.TimeCol
 	DeployedByUserID metaquery.IntCol
 	Status           metaquery.TextCol
+	DurationSecs     metaquery.IntCol
+	Log              metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	EnvironmentID:    metaquery.NewIntCol("environment_id"),
@@ -231,6 +243,8 @@ var ListDeploysCols = struct {
 	DeployedAt:       metaquery.NewTimeCol("deployed_at"),
 	DeployedByUserID: metaquery.NewIntCol("deployed_by_user_id"),
 	Status:           metaquery.NewTextCol("status"),
+	DurationSecs:     metaquery.NewIntCol("duration_secs"),
+	Log:              metaquery.NewTextCol("log"),
 }
 
 var MetaListEnvironments = metaquery.Query{

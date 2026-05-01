@@ -12,9 +12,9 @@ import (
 )
 
 const createDeploy = `-- name: CreateDeploy :one
-INSERT INTO zdx_deploys (environment_id, build_sha, build_branch, deployed_by_user_id, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status
+INSERT INTO zdx_deploys (environment_id, build_sha, build_branch, deployed_by_user_id, status, duration_secs, log)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status, duration_secs, log
 `
 
 type CreateDeployParams struct {
@@ -23,6 +23,8 @@ type CreateDeployParams struct {
 	BuildBranch      string      `db:"build_branch" json:"build_branch"`
 	DeployedByUserID pgtype.Int4 `db:"deployed_by_user_id" json:"deployed_by_user_id"`
 	Status           string      `db:"status" json:"status"`
+	DurationSecs     int32       `db:"duration_secs" json:"duration_secs"`
+	Log              string      `db:"log" json:"log"`
 }
 
 func (q *Queries) CreateDeploy(ctx context.Context, arg CreateDeployParams) (ZdxDeploy, error) {
@@ -32,6 +34,8 @@ func (q *Queries) CreateDeploy(ctx context.Context, arg CreateDeployParams) (Zdx
 		arg.BuildBranch,
 		arg.DeployedByUserID,
 		arg.Status,
+		arg.DurationSecs,
+		arg.Log,
 	)
 	var i ZdxDeploy
 	err := row.Scan(
@@ -42,6 +46,8 @@ func (q *Queries) CreateDeploy(ctx context.Context, arg CreateDeployParams) (Zdx
 		&i.DeployedAt,
 		&i.DeployedByUserID,
 		&i.Status,
+		&i.DurationSecs,
+		&i.Log,
 	)
 	return i, err
 }
@@ -151,7 +157,7 @@ func (q *Queries) GetEnvironment(ctx context.Context, arg GetEnvironmentParams) 
 }
 
 const listDeploys = `-- name: ListDeploys :many
-SELECT id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status
+SELECT id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status, duration_secs, log
 FROM zdx_deploys WHERE environment_id = $1 ORDER BY deployed_at DESC
 `
 
@@ -172,6 +178,8 @@ func (q *Queries) ListDeploys(ctx context.Context, environmentID int32) ([]ZdxDe
 			&i.DeployedAt,
 			&i.DeployedByUserID,
 			&i.Status,
+			&i.DurationSecs,
+			&i.Log,
 		); err != nil {
 			return nil, err
 		}

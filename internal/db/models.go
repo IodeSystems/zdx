@@ -163,6 +163,8 @@ type ZdxDeploy struct {
 	DeployedAt       pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
 	DeployedByUserID pgtype.Int4        `db:"deployed_by_user_id" json:"deployed_by_user_id"`
 	Status           string             `db:"status" json:"status"`
+	DurationSecs     int32              `db:"duration_secs" json:"duration_secs"`
+	Log              string             `db:"log" json:"log"`
 }
 
 type ZdxDiscussion struct {

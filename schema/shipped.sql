@@ -425,7 +425,9 @@ CREATE TABLE public.zdx_deploys (
     build_branch text DEFAULT ''::text NOT NULL,
     deployed_at timestamp with time zone DEFAULT now() NOT NULL,
     deployed_by_user_id integer,
-    status text DEFAULT 'success'::text NOT NULL
+    status text DEFAULT 'success'::text NOT NULL,
+    duration_secs integer DEFAULT 0 NOT NULL,
+    log text DEFAULT ''::text NOT NULL
 );
 
 
