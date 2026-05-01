@@ -1,0 +1,3 @@
+ALTER TABLE zdx_deploys
+    ADD COLUMN duration_secs INT NOT NULL DEFAULT 0,
+    ADD COLUMN log TEXT NOT NULL DEFAULT '';

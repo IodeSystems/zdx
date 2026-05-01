@@ -29,10 +29,10 @@ SET current_build_sha    = $3,
 WHERE project_id = $1 AND name = $2;
 
 -- name: ListDeploys :many
-SELECT id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status
+SELECT id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status, duration_secs, log
 FROM zdx_deploys WHERE environment_id = $1 ORDER BY deployed_at DESC;
 
 -- name: CreateDeploy :one
-INSERT INTO zdx_deploys (environment_id, build_sha, build_branch, deployed_by_user_id, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status;
+INSERT INTO zdx_deploys (environment_id, build_sha, build_branch, deployed_by_user_id, status, duration_secs, log)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, environment_id, build_sha, build_branch, deployed_at, deployed_by_user_id, status, duration_secs, log;

@@ -37,6 +37,8 @@ type DeployItem struct {
 	DeployedAt       string `json:"deployed_at"`
 	DeployedByUserID int32  `json:"deployed_by_user_id"`
 	Status           string `json:"status"`
+	DurationSecs     int32  `json:"duration_secs"`
+	Log              string `json:"log"`
 }
 
 func toEnvironmentItemFromList(e db.ListEnvironmentsRow) EnvironmentItem {
@@ -87,6 +89,8 @@ func toDeployItem(d db.ZdxDeploy) DeployItem {
 		DeployedAt:       fmtTS(d.DeployedAt),
 		DeployedByUserID: d.DeployedByUserID.Int32,
 		Status:           d.Status,
+		DurationSecs:     d.DurationSecs,
+		Log:              d.Log,
 	}
 }
 
@@ -254,9 +258,11 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 			Slug string `path:"slug"`
 			Name string `path:"name"`
 			Body struct {
-				BuildSha    string `json:"build_sha"`
-				BuildBranch string `json:"build_branch,omitempty"`
-				Status      string `json:"status,omitempty"`
+				BuildSha     string `json:"build_sha"`
+				BuildBranch  string `json:"build_branch,omitempty"`
+				Status       string `json:"status,omitempty"`
+				DurationSecs int32  `json:"duration_secs,omitempty"`
+				Log          string `json:"log,omitempty"`
 			}
 		}) (*struct{ Body DeployItem }, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
@@ -276,6 +282,8 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				BuildSha:      in.Body.BuildSha,
 				BuildBranch:   in.Body.BuildBranch,
 				Status:        status,
+				DurationSecs:  in.Body.DurationSecs,
+				Log:           in.Body.Log,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
