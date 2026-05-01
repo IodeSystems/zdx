@@ -451,6 +451,9 @@ func (s *Server) apiKeyMiddleware(next http.Handler) http.Handler {
 		if v := r.Header.Get("X-ZDX-Session-Id"); v != "" {
 			ctx = context.WithValue(ctx, handlers.CtxSessionID, v)
 		}
+		if len(key.ProjectScope) > 0 {
+			ctx = context.WithValue(ctx, handlers.CtxProjectScope, key.ProjectScope)
+		}
 		next.ServeHTTP(w, r.WithContext(ctx))
 	})
 }

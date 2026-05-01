@@ -12,7 +12,8 @@ const (
 	CtxUserRole   contextKey = 5
 	CtxSkipTiming contextKey = 6
 	CtxAgentID    contextKey = 7
-	CtxSessionID  contextKey = 8
+	CtxSessionID    contextKey = 8
+	CtxProjectScope contextKey = 9
 )
 
 func ctxUserIDVal(ctx context.Context) int32 {
@@ -67,4 +68,26 @@ func WithoutTiming(ctx context.Context) context.Context {
 func SkipTimingFromContext(ctx context.Context) bool {
 	v, _ := ctx.Value(CtxSkipTiming).(bool)
 	return v
+}
+
+// ProjectScopeFromContext returns the project_scope slice stored by apiKeyMiddleware.
+// Returns nil if no scope is set (key is unrestricted).
+func ProjectScopeFromContext(ctx context.Context) []string {
+	v, _ := ctx.Value(CtxProjectScope).([]string)
+	return v
+}
+
+// IsInProjectScope reports whether slug is within the key's project scope.
+// An empty or nil scope means unrestricted — returns true for any slug.
+func IsInProjectScope(ctx context.Context, slug string) bool {
+	scope := ProjectScopeFromContext(ctx)
+	if len(scope) == 0 {
+		return true
+	}
+	for _, s := range scope {
+		if s == slug {
+			return true
+		}
+	}
+	return false
 }
