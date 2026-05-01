@@ -1,5 +1,5 @@
 -- name: GetApiKeyByToken :one
-SELECT id, user_id, token, name, last_used_at, created_at
+SELECT id, user_id, token, name, project_scope, last_used_at, created_at
 FROM zdx_api_keys WHERE token = $1;
 
 -- name: TouchApiKey :exec
@@ -63,7 +63,7 @@ FROM zdx_invites WHERE token = $1 AND used_at IS NULL AND expires_at > NOW();
 UPDATE zdx_invites SET used_at = NOW() WHERE id = $1;
 
 -- name: ListApiKeysByUser :many
-SELECT id, name, last_used_at, created_at
+SELECT id, name, project_scope, last_used_at, created_at
 FROM zdx_api_keys WHERE user_id = $1 ORDER BY created_at DESC;
 
 -- name: DeleteApiKey :exec
