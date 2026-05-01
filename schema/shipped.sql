@@ -233,6 +233,41 @@ ALTER SEQUENCE public.zdx_code_refs_id_seq OWNED BY public.zdx_code_refs.id;
 
 
 --
+-- Name: zdx_coderefs; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_coderefs (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    file text NOT NULL,
+    start_line integer,
+    end_line integer,
+    symbol text DEFAULT ''::text NOT NULL,
+    sha text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_coderefs_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_coderefs_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_coderefs_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_coderefs_id_seq OWNED BY public.zdx_coderefs.id;
+
+
+--
 -- Name: zdx_comments; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -555,6 +590,41 @@ CREATE SEQUENCE public.zdx_doctor_deferrals_id_seq
 --
 
 ALTER SEQUENCE public.zdx_doctor_deferrals_id_seq OWNED BY public.zdx_doctor_deferrals.id;
+
+
+--
+-- Name: zdx_edges; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_edges (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    from_node_id bigint NOT NULL,
+    to_node_id bigint NOT NULL,
+    edge_type text NOT NULL,
+    label text DEFAULT ''::text NOT NULL,
+    weight integer DEFAULT 0 NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_edges_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_edges_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_edges_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_edges_id_seq OWNED BY public.zdx_edges.id;
 
 
 --
@@ -1405,6 +1475,80 @@ CREATE TABLE public.zdx_maturity_questions (
     priority_hint integer DEFAULT 100 NOT NULL,
     applicable_classifications text[] DEFAULT '{}'::text[] NOT NULL
 );
+
+
+--
+-- Name: zdx_narrative_chunks; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_narrative_chunks (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    node_id bigint NOT NULL,
+    coderef_id bigint,
+    title text DEFAULT ''::text NOT NULL,
+    body text NOT NULL,
+    sha_at_write text DEFAULT ''::text NOT NULL,
+    verifier_kind text DEFAULT 'agent'::text NOT NULL,
+    verified_at timestamp with time zone,
+    verified_by text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_narrative_chunks_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_narrative_chunks_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_narrative_chunks_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_narrative_chunks_id_seq OWNED BY public.zdx_narrative_chunks.id;
+
+
+--
+-- Name: zdx_nodes; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_nodes (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    kind text NOT NULL,
+    slug text NOT NULL,
+    title text DEFAULT ''::text NOT NULL,
+    description text DEFAULT ''::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_nodes_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_nodes_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_nodes_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_nodes_id_seq OWNED BY public.zdx_nodes.id;
 
 
 --
@@ -2748,6 +2892,13 @@ ALTER TABLE ONLY public.zdx_code_refs ALTER COLUMN id SET DEFAULT nextval('publi
 
 
 --
+-- Name: zdx_coderefs id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_coderefs ALTER COLUMN id SET DEFAULT nextval('public.zdx_coderefs_id_seq'::regclass);
+
+
+--
 -- Name: zdx_comments id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2801,6 +2952,13 @@ ALTER TABLE ONLY public.zdx_discussions ALTER COLUMN id SET DEFAULT nextval('pub
 --
 
 ALTER TABLE ONLY public.zdx_doctor_deferrals ALTER COLUMN id SET DEFAULT nextval('public.zdx_doctor_deferrals_id_seq'::regclass);
+
+
+--
+-- Name: zdx_edges id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_edges ALTER COLUMN id SET DEFAULT nextval('public.zdx_edges_id_seq'::regclass);
 
 
 --
@@ -2934,6 +3092,20 @@ ALTER TABLE ONLY public.zdx_maturity_answers ALTER COLUMN id SET DEFAULT nextval
 --
 
 ALTER TABLE ONLY public.zdx_maturity_items ALTER COLUMN id SET DEFAULT nextval('public.zdx_maturity_items_id_seq'::regclass);
+
+
+--
+-- Name: zdx_narrative_chunks id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_narrative_chunks ALTER COLUMN id SET DEFAULT nextval('public.zdx_narrative_chunks_id_seq'::regclass);
+
+
+--
+-- Name: zdx_nodes id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_nodes ALTER COLUMN id SET DEFAULT nextval('public.zdx_nodes_id_seq'::regclass);
 
 
 --
@@ -3225,6 +3397,14 @@ ALTER TABLE ONLY public.zdx_code_refs
 
 
 --
+-- Name: zdx_coderefs zdx_coderefs_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_coderefs
+    ADD CONSTRAINT zdx_coderefs_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_comments zdx_comments_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3334,6 +3514,22 @@ ALTER TABLE ONLY public.zdx_doctor_deferrals
 
 ALTER TABLE ONLY public.zdx_doctor_deferrals
     ADD CONSTRAINT zdx_doctor_deferrals_project_id_check_name_key UNIQUE (project_id, check_name);
+
+
+--
+-- Name: zdx_edges zdx_edges_from_node_id_to_node_id_edge_type_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_edges
+    ADD CONSTRAINT zdx_edges_from_node_id_to_node_id_edge_type_key UNIQUE (from_node_id, to_node_id, edge_type);
+
+
+--
+-- Name: zdx_edges zdx_edges_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_edges
+    ADD CONSTRAINT zdx_edges_pkey PRIMARY KEY (id);
 
 
 --
@@ -3614,6 +3810,30 @@ ALTER TABLE ONLY public.zdx_maturity_items
 
 ALTER TABLE ONLY public.zdx_maturity_questions
     ADD CONSTRAINT zdx_maturity_questions_pkey PRIMARY KEY (key);
+
+
+--
+-- Name: zdx_narrative_chunks zdx_narrative_chunks_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_narrative_chunks
+    ADD CONSTRAINT zdx_narrative_chunks_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_nodes zdx_nodes_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_nodes
+    ADD CONSTRAINT zdx_nodes_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_nodes zdx_nodes_project_id_kind_slug_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_nodes
+    ADD CONSTRAINT zdx_nodes_project_id_kind_slug_key UNIQUE (project_id, kind, slug);
 
 
 --
@@ -4482,6 +4702,20 @@ CREATE INDEX zdx_deploys_env_time ON public.zdx_deploys USING btree (environment
 
 
 --
+-- Name: zdx_edges_from_node_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_edges_from_node_id_idx ON public.zdx_edges USING btree (from_node_id);
+
+
+--
+-- Name: zdx_edges_to_node_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_edges_to_node_id_idx ON public.zdx_edges USING btree (to_node_id);
+
+
+--
 -- Name: zdx_environments_project_name; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4584,6 +4818,13 @@ CREATE INDEX zdx_maturity_items_by_project_status ON public.zdx_maturity_items U
 --
 
 CREATE UNIQUE INDEX zdx_maturity_items_dedup ON public.zdx_maturity_items USING btree (project_id, kind, target_type, COALESCE(target_id, 0));
+
+
+--
+-- Name: zdx_narrative_chunks_node_id_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_narrative_chunks_node_id_idx ON public.zdx_narrative_chunks USING btree (node_id);
 
 
 --
@@ -4734,6 +4975,14 @@ ALTER TABLE ONLY public.zdx_code_refs
 
 
 --
+-- Name: zdx_coderefs zdx_coderefs_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_coderefs
+    ADD CONSTRAINT zdx_coderefs_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zdx_comments zdx_comments_parent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4875,6 +5124,30 @@ ALTER TABLE ONLY public.zdx_discussions
 
 ALTER TABLE ONLY public.zdx_doctor_deferrals
     ADD CONSTRAINT zdx_doctor_deferrals_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
+
+
+--
+-- Name: zdx_edges zdx_edges_from_node_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_edges
+    ADD CONSTRAINT zdx_edges_from_node_id_fkey FOREIGN KEY (from_node_id) REFERENCES public.zdx_nodes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_edges zdx_edges_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_edges
+    ADD CONSTRAINT zdx_edges_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_edges zdx_edges_to_node_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_edges
+    ADD CONSTRAINT zdx_edges_to_node_id_fkey FOREIGN KEY (to_node_id) REFERENCES public.zdx_nodes(id) ON DELETE CASCADE;
 
 
 --
@@ -5155,6 +5428,38 @@ ALTER TABLE ONLY public.zdx_maturity_answers
 
 ALTER TABLE ONLY public.zdx_maturity_items
     ADD CONSTRAINT zdx_maturity_items_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id);
+
+
+--
+-- Name: zdx_narrative_chunks zdx_narrative_chunks_coderef_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_narrative_chunks
+    ADD CONSTRAINT zdx_narrative_chunks_coderef_id_fkey FOREIGN KEY (coderef_id) REFERENCES public.zdx_coderefs(id) ON DELETE SET NULL;
+
+
+--
+-- Name: zdx_narrative_chunks zdx_narrative_chunks_node_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_narrative_chunks
+    ADD CONSTRAINT zdx_narrative_chunks_node_id_fkey FOREIGN KEY (node_id) REFERENCES public.zdx_nodes(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_narrative_chunks zdx_narrative_chunks_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_narrative_chunks
+    ADD CONSTRAINT zdx_narrative_chunks_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_nodes zdx_nodes_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_nodes
+    ADD CONSTRAINT zdx_nodes_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

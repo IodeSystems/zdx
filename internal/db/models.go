@@ -90,6 +90,17 @@ type ZdxCodeRef struct {
 	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxCoderef struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	File      string             `db:"file" json:"file"`
+	StartLine pgtype.Int4        `db:"start_line" json:"start_line"`
+	EndLine   pgtype.Int4        `db:"end_line" json:"end_line"`
+	Symbol    string             `db:"symbol" json:"symbol"`
+	Sha       string             `db:"sha" json:"sha"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxComment struct {
 	ID          int32              `db:"id" json:"id"`
 	ProjectID   int32              `db:"project_id" json:"project_id"`
@@ -195,6 +206,17 @@ type ZdxDoctorDeferral struct {
 	CheckName  string             `db:"check_name" json:"check_name"`
 	Rung       string             `db:"rung" json:"rung"`
 	DeferredAt pgtype.Timestamptz `db:"deferred_at" json:"deferred_at"`
+}
+
+type ZdxEdge struct {
+	ID         int64              `db:"id" json:"id"`
+	ProjectID  int32              `db:"project_id" json:"project_id"`
+	FromNodeID int64              `db:"from_node_id" json:"from_node_id"`
+	ToNodeID   int64              `db:"to_node_id" json:"to_node_id"`
+	EdgeType   string             `db:"edge_type" json:"edge_type"`
+	Label      string             `db:"label" json:"label"`
+	Weight     int32              `db:"weight" json:"weight"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 type ZdxEnvironment struct {
@@ -513,6 +535,32 @@ type ZdxMaturityQuestion struct {
 	AnswerType                string   `db:"answer_type" json:"answer_type"`
 	PriorityHint              int32    `db:"priority_hint" json:"priority_hint"`
 	ApplicableClassifications []string `db:"applicable_classifications" json:"applicable_classifications"`
+}
+
+type ZdxNarrativeChunk struct {
+	ID           int64              `db:"id" json:"id"`
+	ProjectID    int32              `db:"project_id" json:"project_id"`
+	NodeID       int64              `db:"node_id" json:"node_id"`
+	CoderefID    pgtype.Int8        `db:"coderef_id" json:"coderef_id"`
+	Title        string             `db:"title" json:"title"`
+	Body         string             `db:"body" json:"body"`
+	ShaAtWrite   string             `db:"sha_at_write" json:"sha_at_write"`
+	VerifierKind string             `db:"verifier_kind" json:"verifier_kind"`
+	VerifiedAt   pgtype.Timestamptz `db:"verified_at" json:"verified_at"`
+	VerifiedBy   string             `db:"verified_by" json:"verified_by"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt    pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+type ZdxNode struct {
+	ID          int64              `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Kind        string             `db:"kind" json:"kind"`
+	Slug        string             `db:"slug" json:"slug"`
+	Title       string             `db:"title" json:"title"`
+	Description string             `db:"description" json:"description"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
 }
 
 type ZdxOauthIdentity struct {

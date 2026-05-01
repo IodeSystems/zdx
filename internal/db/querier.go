@@ -79,6 +79,10 @@ type Querier interface {
 	// Used by the /api/health queue subsystem probe to surface backlog depth.
 	CountUnclaimedTodos(ctx context.Context) (int64, error)
 	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (CreateApiKeyRow, error)
+	CreateAtlasChunk(ctx context.Context, arg CreateAtlasChunkParams) (ZdxNarrativeChunk, error)
+	CreateAtlasCoderef(ctx context.Context, arg CreateAtlasCoderefParams) (ZdxCoderef, error)
+	CreateAtlasEdge(ctx context.Context, arg CreateAtlasEdgeParams) (ZdxEdge, error)
+	CreateAtlasNode(ctx context.Context, arg CreateAtlasNodeParams) (ZdxNode, error)
 	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
@@ -114,6 +118,9 @@ type Querier interface {
 	DeferDoctorCheck(ctx context.Context, arg DeferDoctorCheckParams) error
 	DeleteAgent(ctx context.Context, id string) error
 	DeleteApiKey(ctx context.Context, arg DeleteApiKeyParams) error
+	DeleteAtlasChunk(ctx context.Context, arg DeleteAtlasChunkParams) error
+	DeleteAtlasEdge(ctx context.Context, arg DeleteAtlasEdgeParams) error
+	DeleteAtlasNode(ctx context.Context, arg DeleteAtlasNodeParams) error
 	DeleteCodeRef(ctx context.Context, arg DeleteCodeRefParams) error
 	DeleteCounterEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteDiscussion(ctx context.Context, arg DeleteDiscussionParams) error
@@ -162,6 +169,10 @@ type Querier interface {
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
 	GetApiKeyByToken(ctx context.Context, token string) (GetApiKeyByTokenRow, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
+	GetAtlasChunk(ctx context.Context, arg GetAtlasChunkParams) (ZdxNarrativeChunk, error)
+	GetAtlasCoderef(ctx context.Context, arg GetAtlasCoderefParams) (ZdxCoderef, error)
+	GetAtlasNode(ctx context.Context, arg GetAtlasNodeParams) (ZdxNode, error)
+	GetAtlasNodeByID(ctx context.Context, arg GetAtlasNodeByIDParams) (ZdxNode, error)
 	GetBlockerQuestion(ctx context.Context, arg GetBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error)
 	GetClaudeSessionBySessionID(ctx context.Context, arg GetClaudeSessionBySessionIDParams) (GetClaudeSessionBySessionIDRow, error)
@@ -283,6 +294,12 @@ type Querier interface {
 	// So to walk from a child up, recurse: child's parent = (rows where blocked_by_id = child).id_field=issue_id.
 	ListAncestorSequencingBlockers(ctx context.Context, projectID int32) ([]ListAncestorSequencingBlockersRow, error)
 	ListApiKeysByUser(ctx context.Context, userID int32) ([]ListApiKeysByUserRow, error)
+	ListAtlasChunks(ctx context.Context, nodeID int64) ([]ZdxNarrativeChunk, error)
+	ListAtlasCoderefs(ctx context.Context, projectID int32) ([]ZdxCoderef, error)
+	ListAtlasCoderefsByFile(ctx context.Context, arg ListAtlasCoderefsByFileParams) ([]ZdxCoderef, error)
+	ListAtlasEdgesFrom(ctx context.Context, fromNodeID int64) ([]ListAtlasEdgesFromRow, error)
+	ListAtlasEdgesTo(ctx context.Context, toNodeID int64) ([]ZdxEdge, error)
+	ListAtlasNodes(ctx context.Context, arg ListAtlasNodesParams) ([]ZdxNode, error)
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
 	ListChildFeatures(ctx context.Context, parentFeatureID pgtype.Int4) ([]ListChildFeaturesRow, error)
@@ -629,6 +646,8 @@ type Querier interface {
 	UnlinkSpecTest(ctx context.Context, arg UnlinkSpecTestParams) error
 	UpdateAgentHeartbeat(ctx context.Context, id string) error
 	UpdateAgentStatus(ctx context.Context, arg UpdateAgentStatusParams) error
+	UpdateAtlasChunk(ctx context.Context, arg UpdateAtlasChunkParams) error
+	UpdateAtlasNode(ctx context.Context, arg UpdateAtlasNodeParams) error
 	UpdateClaudeSessionSummary(ctx context.Context, arg UpdateClaudeSessionSummaryParams) error
 	UpdateDiscussionSession(ctx context.Context, arg UpdateDiscussionSessionParams) (ZdxDiscussion, error)
 	UpdateDiscussionStatus(ctx context.Context, arg UpdateDiscussionStatusParams) error

@@ -1814,6 +1814,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/incomplete-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-incomplete-reports"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/issues/similar": {
         parameters: {
             query?: never;
@@ -4667,6 +4683,86 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/projects/{slug}/atlas/coderefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-atlas-coderefs"];
+        put?: never;
+        post: operations["create-atlas-coderef"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{slug}/atlas/edges": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["create-atlas-edge"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{slug}/atlas/nodes": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-atlas-nodes"];
+        put?: never;
+        post: operations["create-atlas-node"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{slug}/atlas/nodes/{kind}/{node_slug}": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-atlas-node"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/projects/{slug}/atlas/nodes/{node_id}/chunks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-atlas-chunks"];
+        put?: never;
+        post: operations["create-atlas-chunk"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/setup/bootstrap": {
         parameters: {
             query?: never;
@@ -5361,6 +5457,112 @@ export interface components {
             issue_id: string;
             proposal: components["schemas"]["ProposalItem"];
         };
+        AtlasChunkItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/AtlasChunkItem.json
+             */
+            readonly $schema?: string;
+            body: string;
+            /** Format: int64 */
+            coderef_id?: number;
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int64 */
+            node_id: number;
+            sha_at_write?: string;
+            title?: string;
+            updated_at: string;
+            verifier_kind: string;
+        };
+        AtlasCoderefItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/AtlasCoderefItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            /** Format: int32 */
+            end_line?: number;
+            file: string;
+            /** Format: int64 */
+            id: number;
+            sha?: string;
+            /** Format: int32 */
+            start_line?: number;
+            symbol?: string;
+        };
+        AtlasEdgeFromItem: {
+            created_at: string;
+            edge_type: string;
+            /** Format: int64 */
+            from_node_id: number;
+            /** Format: int64 */
+            id: number;
+            label?: string;
+            to_kind: string;
+            /** Format: int64 */
+            to_node_id: number;
+            to_slug: string;
+            /** Format: int32 */
+            weight: number;
+        };
+        AtlasEdgeItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/AtlasEdgeItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            edge_type: string;
+            /** Format: int64 */
+            from_node_id: number;
+            /** Format: int64 */
+            id: number;
+            label?: string;
+            /** Format: int64 */
+            to_node_id: number;
+            /** Format: int32 */
+            weight: number;
+        };
+        AtlasNodeDetail: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/AtlasNodeDetail.json
+             */
+            readonly $schema?: string;
+            chunks: components["schemas"]["AtlasChunkItem"][] | null;
+            created_at: string;
+            description: string;
+            edges: components["schemas"]["AtlasEdgeFromItem"][] | null;
+            /** Format: int64 */
+            id: number;
+            kind: string;
+            slug: string;
+            title: string;
+            updated_at: string;
+        };
+        AtlasNodeItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/AtlasNodeItem.json
+             */
+            readonly $schema?: string;
+            created_at: string;
+            description: string;
+            /** Format: int64 */
+            id: number;
+            kind: string;
+            slug: string;
+            title: string;
+            updated_at: string;
+        };
         "Attach-code-ref-to-issueRequest": {
             /**
              * Format: uri
@@ -5813,6 +6015,63 @@ export interface components {
             /** Format: int64 */
             id: number;
             session_id: string;
+        };
+        "Create-atlas-chunkRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-atlas-chunkRequest.json
+             */
+            readonly $schema?: string;
+            body: string;
+            /** Format: int64 */
+            coderef_id?: number;
+            sha_at_write?: string;
+            title?: string;
+            verifier_kind?: string;
+        };
+        "Create-atlas-coderefRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-atlas-coderefRequest.json
+             */
+            readonly $schema?: string;
+            /** Format: int32 */
+            end_line?: number;
+            file: string;
+            sha?: string;
+            /** Format: int32 */
+            start_line?: number;
+            symbol?: string;
+        };
+        "Create-atlas-edgeRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-atlas-edgeRequest.json
+             */
+            readonly $schema?: string;
+            edge_type: string;
+            /** Format: int64 */
+            from_node_id: number;
+            label?: string;
+            /** Format: int64 */
+            to_node_id: number;
+            /** Format: int32 */
+            weight?: number;
+        };
+        "Create-atlas-nodeRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Create-atlas-nodeRequest.json
+             */
+            readonly $schema?: string;
+            description?: string;
+            kind: string;
+            slug: string;
+            title?: string;
         };
         "Create-concernRequest": {
             /**
@@ -6691,6 +6950,14 @@ export interface components {
             to_status?: string;
             user_id: string;
         };
+        IncompleteReportGroup: {
+            affected_todo_ids: number[] | null;
+            evidence_fingerprint: string;
+            last_seen: string;
+            reason: string;
+            /** Format: int64 */
+            total_count: number;
+        };
         IncompleteReportItem: {
             /**
              * Format: uri
@@ -7192,6 +7459,33 @@ export interface components {
             readonly $schema?: string;
             agents: components["schemas"]["AgentItem"][] | null;
         };
+        "List-atlas-chunksResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-atlas-chunksResponse.json
+             */
+            readonly $schema?: string;
+            chunks: components["schemas"]["AtlasChunkItem"][] | null;
+        };
+        "List-atlas-coderefsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-atlas-coderefsResponse.json
+             */
+            readonly $schema?: string;
+            coderefs: components["schemas"]["AtlasCoderefItem"][] | null;
+        };
+        "List-atlas-nodesResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-atlas-nodesResponse.json
+             */
+            readonly $schema?: string;
+            nodes: components["schemas"]["AtlasNodeItem"][] | null;
+        };
         "List-blocker-questions-by-targetResponse": {
             /**
              * Format: uri
@@ -7570,6 +7864,15 @@ export interface components {
              */
             readonly $schema?: string;
             events: components["schemas"]["HistoryEvent"][] | null;
+        };
+        "List-incomplete-reportsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-incomplete-reportsResponse.json
+             */
+            readonly $schema?: string;
+            Groups: components["schemas"]["IncompleteReportGroup"][] | null;
         };
         "List-integration-tokensResponse": {
             /**
@@ -14403,6 +14706,38 @@ export interface operations {
             };
         };
     };
+    "list-incomplete-reports": {
+        parameters: {
+            query?: {
+                slug?: string;
+                reason?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-incomplete-reportsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "similar-issues": {
         parameters: {
             query?: never;
@@ -20669,6 +21004,276 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-projectsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-atlas-coderefs": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-atlas-coderefsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-atlas-coderef": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-atlas-coderefRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtlasCoderefItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-atlas-edge": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-atlas-edgeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtlasEdgeItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-atlas-nodes": {
+        parameters: {
+            query?: {
+                kind?: string;
+            };
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-atlas-nodesResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-atlas-node": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-atlas-nodeRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtlasNodeItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-atlas-node": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                kind: string;
+                node_slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtlasNodeDetail"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-atlas-chunks": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                node_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-atlas-chunksResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "create-atlas-chunk": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                node_id: number;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Create-atlas-chunkRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["AtlasChunkItem"];
                 };
             };
             /** @description Error */

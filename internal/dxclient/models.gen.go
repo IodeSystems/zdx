@@ -443,6 +443,88 @@ type ApproveProposalResponse struct {
 	Proposal ProposalItem `json:"proposal"`
 }
 
+// AtlasChunkItem defines model for AtlasChunkItem.
+type AtlasChunkItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	Body         string  `json:"body"`
+	CoderefId    *int64  `json:"coderef_id,omitempty"`
+	CreatedAt    string  `json:"created_at"`
+	Id           int64   `json:"id"`
+	NodeId       int64   `json:"node_id"`
+	ShaAtWrite   *string `json:"sha_at_write,omitempty"`
+	Title        *string `json:"title,omitempty"`
+	UpdatedAt    string  `json:"updated_at"`
+	VerifierKind string  `json:"verifier_kind"`
+}
+
+// AtlasCoderefItem defines model for AtlasCoderefItem.
+type AtlasCoderefItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string `json:"$schema,omitempty"`
+	CreatedAt string  `json:"created_at"`
+	EndLine   *int32  `json:"end_line,omitempty"`
+	File      string  `json:"file"`
+	Id        int64   `json:"id"`
+	Sha       *string `json:"sha,omitempty"`
+	StartLine *int32  `json:"start_line,omitempty"`
+	Symbol    *string `json:"symbol,omitempty"`
+}
+
+// AtlasEdgeFromItem defines model for AtlasEdgeFromItem.
+type AtlasEdgeFromItem struct {
+	CreatedAt  string  `json:"created_at"`
+	EdgeType   string  `json:"edge_type"`
+	FromNodeId int64   `json:"from_node_id"`
+	Id         int64   `json:"id"`
+	Label      *string `json:"label,omitempty"`
+	ToKind     string  `json:"to_kind"`
+	ToNodeId   int64   `json:"to_node_id"`
+	ToSlug     string  `json:"to_slug"`
+	Weight     int32   `json:"weight"`
+}
+
+// AtlasEdgeItem defines model for AtlasEdgeItem.
+type AtlasEdgeItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string `json:"$schema,omitempty"`
+	CreatedAt  string  `json:"created_at"`
+	EdgeType   string  `json:"edge_type"`
+	FromNodeId int64   `json:"from_node_id"`
+	Id         int64   `json:"id"`
+	Label      *string `json:"label,omitempty"`
+	ToNodeId   int64   `json:"to_node_id"`
+	Weight     int32   `json:"weight"`
+}
+
+// AtlasNodeDetail defines model for AtlasNodeDetail.
+type AtlasNodeDetail struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string              `json:"$schema,omitempty"`
+	Chunks      *[]AtlasChunkItem    `json:"chunks"`
+	CreatedAt   string               `json:"created_at"`
+	Description string               `json:"description"`
+	Edges       *[]AtlasEdgeFromItem `json:"edges"`
+	Id          int64                `json:"id"`
+	Kind        string               `json:"kind"`
+	Slug        string               `json:"slug"`
+	Title       string               `json:"title"`
+	UpdatedAt   string               `json:"updated_at"`
+}
+
+// AtlasNodeItem defines model for AtlasNodeItem.
+type AtlasNodeItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	CreatedAt   string  `json:"created_at"`
+	Description string  `json:"description"`
+	Id          int64   `json:"id"`
+	Kind        string  `json:"kind"`
+	Slug        string  `json:"slug"`
+	Title       string  `json:"title"`
+	UpdatedAt   string  `json:"updated_at"`
+}
+
 // AttachCodeRefToIssueRequest defines model for Attach-code-ref-to-issueRequest.
 type AttachCodeRefToIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -802,6 +884,49 @@ type CreateAgentSessionResponse struct {
 	Created   bool    `json:"created"`
 	Id        int64   `json:"id"`
 	SessionId string  `json:"session_id"`
+}
+
+// CreateAtlasChunkRequest defines model for Create-atlas-chunkRequest.
+type CreateAtlasChunkRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	Body         string  `json:"body"`
+	CoderefId    *int64  `json:"coderef_id,omitempty"`
+	ShaAtWrite   *string `json:"sha_at_write,omitempty"`
+	Title        *string `json:"title,omitempty"`
+	VerifierKind *string `json:"verifier_kind,omitempty"`
+}
+
+// CreateAtlasCoderefRequest defines model for Create-atlas-coderefRequest.
+type CreateAtlasCoderefRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema    *string `json:"$schema,omitempty"`
+	EndLine   *int32  `json:"end_line,omitempty"`
+	File      string  `json:"file"`
+	Sha       *string `json:"sha,omitempty"`
+	StartLine *int32  `json:"start_line,omitempty"`
+	Symbol    *string `json:"symbol,omitempty"`
+}
+
+// CreateAtlasEdgeRequest defines model for Create-atlas-edgeRequest.
+type CreateAtlasEdgeRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string `json:"$schema,omitempty"`
+	EdgeType   string  `json:"edge_type"`
+	FromNodeId int64   `json:"from_node_id"`
+	Label      *string `json:"label,omitempty"`
+	ToNodeId   int64   `json:"to_node_id"`
+	Weight     *int32  `json:"weight,omitempty"`
+}
+
+// CreateAtlasNodeRequest defines model for Create-atlas-nodeRequest.
+type CreateAtlasNodeRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema      *string `json:"$schema,omitempty"`
+	Description *string `json:"description,omitempty"`
+	Kind        string  `json:"kind"`
+	Slug        string  `json:"slug"`
+	Title       *string `json:"title,omitempty"`
 }
 
 // CreateConcernRequest defines model for Create-concernRequest.
@@ -1516,6 +1641,15 @@ type HistoryEvent struct {
 	UserId     string  `json:"user_id"`
 }
 
+// IncompleteReportGroup defines model for IncompleteReportGroup.
+type IncompleteReportGroup struct {
+	AffectedTodoIds     *[]int32 `json:"affected_todo_ids"`
+	EvidenceFingerprint string   `json:"evidence_fingerprint"`
+	LastSeen            string   `json:"last_seen"`
+	Reason              string   `json:"reason"`
+	TotalCount          int64    `json:"total_count"`
+}
+
 // IncompleteReportItem defines model for IncompleteReportItem.
 type IncompleteReportItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1935,6 +2069,27 @@ type ListAgentsResponse struct {
 	Agents *[]AgentItem `json:"agents"`
 }
 
+// ListAtlasChunksResponse defines model for List-atlas-chunksResponse.
+type ListAtlasChunksResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string           `json:"$schema,omitempty"`
+	Chunks *[]AtlasChunkItem `json:"chunks"`
+}
+
+// ListAtlasCoderefsResponse defines model for List-atlas-coderefsResponse.
+type ListAtlasCoderefsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string             `json:"$schema,omitempty"`
+	Coderefs *[]AtlasCoderefItem `json:"coderefs"`
+}
+
+// ListAtlasNodesResponse defines model for List-atlas-nodesResponse.
+type ListAtlasNodesResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string          `json:"$schema,omitempty"`
+	Nodes  *[]AtlasNodeItem `json:"nodes"`
+}
+
 // ListBlockerQuestionsByTargetResponse defines model for List-blocker-questions-by-targetResponse.
 type ListBlockerQuestionsByTargetResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2223,6 +2378,13 @@ type ListHistoryResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string         `json:"$schema,omitempty"`
 	Events *[]HistoryEvent `json:"events"`
+}
+
+// ListIncompleteReportsResponse defines model for List-incomplete-reportsResponse.
+type ListIncompleteReportsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string                  `json:"$schema,omitempty"`
+	Groups *[]IncompleteReportGroup `json:"Groups"`
 }
 
 // ListIntegrationTokensResponse defines model for List-integration-tokensResponse.
@@ -4760,6 +4922,12 @@ type ListHistoryParams struct {
 	TargetId   string `form:"target_id" json:"target_id"`
 }
 
+// ListIncompleteReportsParams defines parameters for ListIncompleteReports.
+type ListIncompleteReportsParams struct {
+	Slug   *string `form:"slug,omitempty" json:"slug,omitempty"`
+	Reason *string `form:"reason,omitempty" json:"reason,omitempty"`
+}
+
 // JournalEntryParams defines parameters for JournalEntry.
 type JournalEntryParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -5239,6 +5407,11 @@ type IngestPromParams struct {
 // IngestTimingsParams defines parameters for IngestTimings.
 type IngestTimingsParams struct {
 	Authorization *string `json:"Authorization,omitempty"`
+}
+
+// ListAtlasNodesParams defines parameters for ListAtlasNodes.
+type ListAtlasNodesParams struct {
+	Kind *string `form:"kind,omitempty" json:"kind,omitempty"`
 }
 
 // GetTaskParams defines parameters for GetTask.
@@ -5745,6 +5918,18 @@ type CreateProjectJSONRequestBody = CreateProjectRequest
 
 // SetProjectVisionJSONRequestBody defines body for SetProjectVision for application/json ContentType.
 type SetProjectVisionJSONRequestBody = SetProjectVisionRequest
+
+// CreateAtlasCoderefJSONRequestBody defines body for CreateAtlasCoderef for application/json ContentType.
+type CreateAtlasCoderefJSONRequestBody = CreateAtlasCoderefRequest
+
+// CreateAtlasEdgeJSONRequestBody defines body for CreateAtlasEdge for application/json ContentType.
+type CreateAtlasEdgeJSONRequestBody = CreateAtlasEdgeRequest
+
+// CreateAtlasNodeJSONRequestBody defines body for CreateAtlasNode for application/json ContentType.
+type CreateAtlasNodeJSONRequestBody = CreateAtlasNodeRequest
+
+// CreateAtlasChunkJSONRequestBody defines body for CreateAtlasChunk for application/json ContentType.
+type CreateAtlasChunkJSONRequestBody = CreateAtlasChunkRequest
 
 // SetupBootstrapJSONRequestBody defines body for SetupBootstrap for application/json ContentType.
 type SetupBootstrapJSONRequestBody = SetupBootstrapRequest
@@ -6338,6 +6523,9 @@ type ClientInterface interface {
 
 	// ListHistory request
 	ListHistory(ctx context.Context, params *ListHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListIncompleteReports request
+	ListIncompleteReports(ctx context.Context, params *ListIncompleteReportsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SimilarIssuesWithBody request with any body
 	SimilarIssuesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7119,6 +7307,38 @@ type ClientInterface interface {
 
 	// ListProjects request
 	ListProjects(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAtlasCoderefs request
+	ListAtlasCoderefs(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAtlasCoderefWithBody request with any body
+	CreateAtlasCoderefWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAtlasCoderef(ctx context.Context, slug string, body CreateAtlasCoderefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAtlasEdgeWithBody request with any body
+	CreateAtlasEdgeWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAtlasEdge(ctx context.Context, slug string, body CreateAtlasEdgeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAtlasNodes request
+	ListAtlasNodes(ctx context.Context, slug string, params *ListAtlasNodesParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAtlasNodeWithBody request with any body
+	CreateAtlasNodeWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAtlasNode(ctx context.Context, slug string, body CreateAtlasNodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetAtlasNode request
+	GetAtlasNode(ctx context.Context, slug string, kind string, nodeSlug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAtlasChunks request
+	ListAtlasChunks(ctx context.Context, slug string, nodeId int64, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// CreateAtlasChunkWithBody request with any body
+	CreateAtlasChunkWithBody(ctx context.Context, slug string, nodeId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	CreateAtlasChunk(ctx context.Context, slug string, nodeId int64, body CreateAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetupBootstrapWithBody request with any body
 	SetupBootstrapWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9371,6 +9591,18 @@ func (c *APIClient) ListGitCommits(ctx context.Context, params *ListGitCommitsPa
 
 func (c *APIClient) ListHistory(ctx context.Context, params *ListHistoryParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListHistoryRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListIncompleteReports(ctx context.Context, params *ListIncompleteReportsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListIncompleteReportsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -12911,6 +13143,150 @@ func (c *APIClient) SetProjectVision(ctx context.Context, body SetProjectVisionJ
 
 func (c *APIClient) ListProjects(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProjectsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListAtlasCoderefs(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAtlasCoderefsRequest(c.Server, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAtlasCoderefWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAtlasCoderefRequestWithBody(c.Server, slug, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAtlasCoderef(ctx context.Context, slug string, body CreateAtlasCoderefJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAtlasCoderefRequest(c.Server, slug, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAtlasEdgeWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAtlasEdgeRequestWithBody(c.Server, slug, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAtlasEdge(ctx context.Context, slug string, body CreateAtlasEdgeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAtlasEdgeRequest(c.Server, slug, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListAtlasNodes(ctx context.Context, slug string, params *ListAtlasNodesParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAtlasNodesRequest(c.Server, slug, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAtlasNodeWithBody(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAtlasNodeRequestWithBody(c.Server, slug, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAtlasNode(ctx context.Context, slug string, body CreateAtlasNodeJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAtlasNodeRequest(c.Server, slug, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) GetAtlasNode(ctx context.Context, slug string, kind string, nodeSlug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAtlasNodeRequest(c.Server, slug, kind, nodeSlug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListAtlasChunks(ctx context.Context, slug string, nodeId int64, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAtlasChunksRequest(c.Server, slug, nodeId)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAtlasChunkWithBody(ctx context.Context, slug string, nodeId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAtlasChunkRequestWithBody(c.Server, slug, nodeId, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) CreateAtlasChunk(ctx context.Context, slug string, nodeId int64, body CreateAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewCreateAtlasChunkRequest(c.Server, slug, nodeId, body)
 	if err != nil {
 		return nil, err
 	}
@@ -19716,6 +20092,71 @@ func NewListHistoryRequest(server string, params *ListHistoryParams) (*http.Requ
 					queryValues.Add(k, v2)
 				}
 			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListIncompleteReportsRequest generates requests for ListIncompleteReports
+func NewListIncompleteReportsRequest(server string, params *ListIncompleteReportsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/incomplete-reports")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Slug != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", *params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.Reason != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "reason", *params.Reason, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
@@ -29476,6 +29917,380 @@ func NewListProjectsRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewListAtlasCoderefsRequest generates requests for ListAtlasCoderefs
+func NewListAtlasCoderefsRequest(server string, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/coderefs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAtlasCoderefRequest calls the generic CreateAtlasCoderef builder with application/json body
+func NewCreateAtlasCoderefRequest(server string, slug string, body CreateAtlasCoderefJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAtlasCoderefRequestWithBody(server, slug, "application/json", bodyReader)
+}
+
+// NewCreateAtlasCoderefRequestWithBody generates requests for CreateAtlasCoderef with any type of body
+func NewCreateAtlasCoderefRequestWithBody(server string, slug string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/coderefs", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewCreateAtlasEdgeRequest calls the generic CreateAtlasEdge builder with application/json body
+func NewCreateAtlasEdgeRequest(server string, slug string, body CreateAtlasEdgeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAtlasEdgeRequestWithBody(server, slug, "application/json", bodyReader)
+}
+
+// NewCreateAtlasEdgeRequestWithBody generates requests for CreateAtlasEdge with any type of body
+func NewCreateAtlasEdgeRequestWithBody(server string, slug string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/edges", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAtlasNodesRequest generates requests for ListAtlasNodes
+func NewListAtlasNodesRequest(server string, slug string, params *ListAtlasNodesParams) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/nodes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.Kind != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "kind", *params.Kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAtlasNodeRequest calls the generic CreateAtlasNode builder with application/json body
+func NewCreateAtlasNodeRequest(server string, slug string, body CreateAtlasNodeJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAtlasNodeRequestWithBody(server, slug, "application/json", bodyReader)
+}
+
+// NewCreateAtlasNodeRequestWithBody generates requests for CreateAtlasNode with any type of body
+func NewCreateAtlasNodeRequestWithBody(server string, slug string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/nodes", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetAtlasNodeRequest generates requests for GetAtlasNode
+func NewGetAtlasNodeRequest(server string, slug string, kind string, nodeSlug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "kind", kind, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam2 string
+
+	pathParam2, err = runtime.StyleParamWithOptions("simple", false, "node_slug", nodeSlug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/nodes/%s/%s", pathParam0, pathParam1, pathParam2)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListAtlasChunksRequest generates requests for ListAtlasChunks
+func NewListAtlasChunksRequest(server string, slug string, nodeId int64) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "node_id", nodeId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/nodes/%s/chunks", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewCreateAtlasChunkRequest calls the generic CreateAtlasChunk builder with application/json body
+func NewCreateAtlasChunkRequest(server string, slug string, nodeId int64, body CreateAtlasChunkJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewCreateAtlasChunkRequestWithBody(server, slug, nodeId, "application/json", bodyReader)
+}
+
+// NewCreateAtlasChunkRequestWithBody generates requests for CreateAtlasChunk with any type of body
+func NewCreateAtlasChunkRequestWithBody(server string, slug string, nodeId int64, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "node_id", nodeId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "integer", Format: "int64"})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/projects/%s/atlas/nodes/%s/chunks", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewSetupBootstrapRequest calls the generic SetupBootstrap builder with application/json body
 func NewSetupBootstrapRequest(server string, body SetupBootstrapJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -30663,6 +31478,9 @@ type ClientWithResponsesInterface interface {
 	// ListHistoryWithResponse request
 	ListHistoryWithResponse(ctx context.Context, params *ListHistoryParams, reqEditors ...RequestEditorFn) (*ParsedListHistoryResponse, error)
 
+	// ListIncompleteReportsWithResponse request
+	ListIncompleteReportsWithResponse(ctx context.Context, params *ListIncompleteReportsParams, reqEditors ...RequestEditorFn) (*ParsedListIncompleteReportsResponse, error)
+
 	// SimilarIssuesWithBodyWithResponse request with any body
 	SimilarIssuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarIssuesResponse, error)
 
@@ -31443,6 +32261,38 @@ type ClientWithResponsesInterface interface {
 
 	// ListProjectsWithResponse request
 	ListProjectsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListProjectsResponse, error)
+
+	// ListAtlasCoderefsWithResponse request
+	ListAtlasCoderefsWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListAtlasCoderefsResponse, error)
+
+	// CreateAtlasCoderefWithBodyWithResponse request with any body
+	CreateAtlasCoderefWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAtlasCoderefResponse, error)
+
+	CreateAtlasCoderefWithResponse(ctx context.Context, slug string, body CreateAtlasCoderefJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasCoderefResponse, error)
+
+	// CreateAtlasEdgeWithBodyWithResponse request with any body
+	CreateAtlasEdgeWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAtlasEdgeResponse, error)
+
+	CreateAtlasEdgeWithResponse(ctx context.Context, slug string, body CreateAtlasEdgeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasEdgeResponse, error)
+
+	// ListAtlasNodesWithResponse request
+	ListAtlasNodesWithResponse(ctx context.Context, slug string, params *ListAtlasNodesParams, reqEditors ...RequestEditorFn) (*ParsedListAtlasNodesResponse, error)
+
+	// CreateAtlasNodeWithBodyWithResponse request with any body
+	CreateAtlasNodeWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAtlasNodeResponse, error)
+
+	CreateAtlasNodeWithResponse(ctx context.Context, slug string, body CreateAtlasNodeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasNodeResponse, error)
+
+	// GetAtlasNodeWithResponse request
+	GetAtlasNodeWithResponse(ctx context.Context, slug string, kind string, nodeSlug string, reqEditors ...RequestEditorFn) (*GetAtlasNodeResponse, error)
+
+	// ListAtlasChunksWithResponse request
+	ListAtlasChunksWithResponse(ctx context.Context, slug string, nodeId int64, reqEditors ...RequestEditorFn) (*ParsedListAtlasChunksResponse, error)
+
+	// CreateAtlasChunkWithBodyWithResponse request with any body
+	CreateAtlasChunkWithBodyWithResponse(ctx context.Context, slug string, nodeId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAtlasChunkResponse, error)
+
+	CreateAtlasChunkWithResponse(ctx context.Context, slug string, nodeId int64, body CreateAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasChunkResponse, error)
 
 	// SetupBootstrapWithBodyWithResponse request with any body
 	SetupBootstrapWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetupBootstrapResponse, error)
@@ -34423,6 +35273,29 @@ func (r ParsedListHistoryResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListHistoryResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListIncompleteReportsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListIncompleteReportsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListIncompleteReportsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListIncompleteReportsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -38819,6 +39692,190 @@ func (r ParsedListProjectsResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListAtlasCoderefsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListAtlasCoderefsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListAtlasCoderefsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListAtlasCoderefsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateAtlasCoderefResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AtlasCoderefItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAtlasCoderefResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAtlasCoderefResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateAtlasEdgeResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AtlasEdgeItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAtlasEdgeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAtlasEdgeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListAtlasNodesResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListAtlasNodesResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListAtlasNodesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListAtlasNodesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateAtlasNodeResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AtlasNodeItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAtlasNodeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAtlasNodeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type GetAtlasNodeResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AtlasNodeDetail
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAtlasNodeResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAtlasNodeResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListAtlasChunksResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListAtlasChunksResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListAtlasChunksResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListAtlasChunksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type CreateAtlasChunkResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *AtlasChunkItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r CreateAtlasChunkResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r CreateAtlasChunkResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedSetupBootstrapResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -40690,6 +41747,15 @@ func (c *ClientWithResponses) ListHistoryWithResponse(ctx context.Context, param
 		return nil, err
 	}
 	return ParseParsedListHistoryResponse(rsp)
+}
+
+// ListIncompleteReportsWithResponse request returning *ParsedListIncompleteReportsResponse
+func (c *ClientWithResponses) ListIncompleteReportsWithResponse(ctx context.Context, params *ListIncompleteReportsParams, reqEditors ...RequestEditorFn) (*ParsedListIncompleteReportsResponse, error) {
+	rsp, err := c.ListIncompleteReports(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListIncompleteReportsResponse(rsp)
 }
 
 // SimilarIssuesWithBodyWithResponse request with arbitrary body returning *ParsedSimilarIssuesResponse
@@ -43241,6 +44307,110 @@ func (c *ClientWithResponses) ListProjectsWithResponse(ctx context.Context, reqE
 		return nil, err
 	}
 	return ParseParsedListProjectsResponse(rsp)
+}
+
+// ListAtlasCoderefsWithResponse request returning *ParsedListAtlasCoderefsResponse
+func (c *ClientWithResponses) ListAtlasCoderefsWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListAtlasCoderefsResponse, error) {
+	rsp, err := c.ListAtlasCoderefs(ctx, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListAtlasCoderefsResponse(rsp)
+}
+
+// CreateAtlasCoderefWithBodyWithResponse request with arbitrary body returning *CreateAtlasCoderefResponse
+func (c *ClientWithResponses) CreateAtlasCoderefWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAtlasCoderefResponse, error) {
+	rsp, err := c.CreateAtlasCoderefWithBody(ctx, slug, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAtlasCoderefResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAtlasCoderefWithResponse(ctx context.Context, slug string, body CreateAtlasCoderefJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasCoderefResponse, error) {
+	rsp, err := c.CreateAtlasCoderef(ctx, slug, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAtlasCoderefResponse(rsp)
+}
+
+// CreateAtlasEdgeWithBodyWithResponse request with arbitrary body returning *CreateAtlasEdgeResponse
+func (c *ClientWithResponses) CreateAtlasEdgeWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAtlasEdgeResponse, error) {
+	rsp, err := c.CreateAtlasEdgeWithBody(ctx, slug, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAtlasEdgeResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAtlasEdgeWithResponse(ctx context.Context, slug string, body CreateAtlasEdgeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasEdgeResponse, error) {
+	rsp, err := c.CreateAtlasEdge(ctx, slug, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAtlasEdgeResponse(rsp)
+}
+
+// ListAtlasNodesWithResponse request returning *ParsedListAtlasNodesResponse
+func (c *ClientWithResponses) ListAtlasNodesWithResponse(ctx context.Context, slug string, params *ListAtlasNodesParams, reqEditors ...RequestEditorFn) (*ParsedListAtlasNodesResponse, error) {
+	rsp, err := c.ListAtlasNodes(ctx, slug, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListAtlasNodesResponse(rsp)
+}
+
+// CreateAtlasNodeWithBodyWithResponse request with arbitrary body returning *CreateAtlasNodeResponse
+func (c *ClientWithResponses) CreateAtlasNodeWithBodyWithResponse(ctx context.Context, slug string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAtlasNodeResponse, error) {
+	rsp, err := c.CreateAtlasNodeWithBody(ctx, slug, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAtlasNodeResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAtlasNodeWithResponse(ctx context.Context, slug string, body CreateAtlasNodeJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasNodeResponse, error) {
+	rsp, err := c.CreateAtlasNode(ctx, slug, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAtlasNodeResponse(rsp)
+}
+
+// GetAtlasNodeWithResponse request returning *GetAtlasNodeResponse
+func (c *ClientWithResponses) GetAtlasNodeWithResponse(ctx context.Context, slug string, kind string, nodeSlug string, reqEditors ...RequestEditorFn) (*GetAtlasNodeResponse, error) {
+	rsp, err := c.GetAtlasNode(ctx, slug, kind, nodeSlug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAtlasNodeResponse(rsp)
+}
+
+// ListAtlasChunksWithResponse request returning *ParsedListAtlasChunksResponse
+func (c *ClientWithResponses) ListAtlasChunksWithResponse(ctx context.Context, slug string, nodeId int64, reqEditors ...RequestEditorFn) (*ParsedListAtlasChunksResponse, error) {
+	rsp, err := c.ListAtlasChunks(ctx, slug, nodeId, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListAtlasChunksResponse(rsp)
+}
+
+// CreateAtlasChunkWithBodyWithResponse request with arbitrary body returning *CreateAtlasChunkResponse
+func (c *ClientWithResponses) CreateAtlasChunkWithBodyWithResponse(ctx context.Context, slug string, nodeId int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*CreateAtlasChunkResponse, error) {
+	rsp, err := c.CreateAtlasChunkWithBody(ctx, slug, nodeId, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAtlasChunkResponse(rsp)
+}
+
+func (c *ClientWithResponses) CreateAtlasChunkWithResponse(ctx context.Context, slug string, nodeId int64, body CreateAtlasChunkJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateAtlasChunkResponse, error) {
+	rsp, err := c.CreateAtlasChunk(ctx, slug, nodeId, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseCreateAtlasChunkResponse(rsp)
 }
 
 // SetupBootstrapWithBodyWithResponse request with arbitrary body returning *ParsedSetupBootstrapResponse
@@ -47538,6 +48708,39 @@ func ParseParsedListHistoryResponse(rsp *http.Response) (*ParsedListHistoryRespo
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListHistoryResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListIncompleteReportsResponse parses an HTTP response from a ListIncompleteReportsWithResponse call
+func ParseParsedListIncompleteReportsResponse(rsp *http.Response) (*ParsedListIncompleteReportsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListIncompleteReportsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListIncompleteReportsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -53820,6 +55023,270 @@ func ParseParsedListProjectsResponse(rsp *http.Response) (*ParsedListProjectsRes
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListProjectsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListAtlasCoderefsResponse parses an HTTP response from a ListAtlasCoderefsWithResponse call
+func ParseParsedListAtlasCoderefsResponse(rsp *http.Response) (*ParsedListAtlasCoderefsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListAtlasCoderefsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListAtlasCoderefsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAtlasCoderefResponse parses an HTTP response from a CreateAtlasCoderefWithResponse call
+func ParseCreateAtlasCoderefResponse(rsp *http.Response) (*CreateAtlasCoderefResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAtlasCoderefResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AtlasCoderefItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAtlasEdgeResponse parses an HTTP response from a CreateAtlasEdgeWithResponse call
+func ParseCreateAtlasEdgeResponse(rsp *http.Response) (*CreateAtlasEdgeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAtlasEdgeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AtlasEdgeItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListAtlasNodesResponse parses an HTTP response from a ListAtlasNodesWithResponse call
+func ParseParsedListAtlasNodesResponse(rsp *http.Response) (*ParsedListAtlasNodesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListAtlasNodesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListAtlasNodesResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAtlasNodeResponse parses an HTTP response from a CreateAtlasNodeWithResponse call
+func ParseCreateAtlasNodeResponse(rsp *http.Response) (*CreateAtlasNodeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAtlasNodeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AtlasNodeItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseGetAtlasNodeResponse parses an HTTP response from a GetAtlasNodeWithResponse call
+func ParseGetAtlasNodeResponse(rsp *http.Response) (*GetAtlasNodeResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAtlasNodeResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AtlasNodeDetail
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListAtlasChunksResponse parses an HTTP response from a ListAtlasChunksWithResponse call
+func ParseParsedListAtlasChunksResponse(rsp *http.Response) (*ParsedListAtlasChunksResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListAtlasChunksResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListAtlasChunksResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseCreateAtlasChunkResponse parses an HTTP response from a CreateAtlasChunkWithResponse call
+func ParseCreateAtlasChunkResponse(rsp *http.Response) (*CreateAtlasChunkResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &CreateAtlasChunkResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest AtlasChunkItem
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
