@@ -18,6 +18,8 @@ export type MeItem = components['schemas']['MeItem']
 export type OKBody = components['schemas']['OKBody']
 export type FocusItem = components['schemas']['FocusItem']
 export type FocusAttribution = components['schemas']['FocusAttribution']
+export type AtlasEdgeFromItem = components['schemas']['AtlasEdgeFromItem']
+export type AtlasCoderefItem = components['schemas']['AtlasCoderefItem']
 
 export interface SoloItem {
   id: number
@@ -2952,3 +2954,29 @@ export const useDeleteEnvironment = () => {
     },
   })
 }
+
+export const useAtlasNode = (slug: string, kind: string, nodeSlug: string) =>
+  useQuery<components['schemas']['AtlasNodeDetail'] | null>({
+    queryKey: ['atlas-node', slug, kind, nodeSlug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/projects/{slug}/atlas/nodes/{kind}/{node_slug}', {
+        params: { path: { slug, kind, node_slug: nodeSlug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data ?? null
+    },
+    enabled: !!slug && !!kind && !!nodeSlug,
+  })
+
+export const useAtlasCoderefs = (slug: string) =>
+  useQuery<components['schemas']['AtlasCoderefItem'][]>({
+    queryKey: ['atlas-coderefs', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/projects/{slug}/atlas/coderefs', {
+        params: { path: { slug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.coderefs ?? []
+    },
+    enabled: !!slug,
+  })
