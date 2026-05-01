@@ -184,6 +184,7 @@ func shipRunCmd() *cobra.Command {
 			}
 			slug := c.SlugOrDie()
 			_ = ship.PostDeployEvent(cmd.Context(), c, slug, envFlag, sha, branch, results)
+			ship.ReportFinalizeFailures(cmd.Context(), c, slug, comp.Ship.Strategy, results)
 
 			return runErr
 		},

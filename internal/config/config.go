@@ -152,7 +152,8 @@ func (s Ship) IsZero() bool {
 // the Run command executes on a remote host (ssh wrapper); Optional
 // stages don't halt the pipeline on failure. Tags are free-form labels
 // strategies may inspect — e.g. blue-green re-runs only stages tagged
-// "verify" after the slot swap.
+// "verify" after the slot swap. Finalize stages run after all main stages
+// succeed; their failure is recorded but never propagates as an error.
 // Exactly one of Run or Builtin must be set. Builtin names a harness-
 // provided primitive (e.g. "deploy-event"); Run is a shell command.
 type Stage struct {
@@ -162,6 +163,7 @@ type Stage struct {
 	Target    string   `yaml:"target"`
 	OnFailure string   `yaml:"on_failure"` // "abort" (default) | "continue" — IS-895 will wire this
 	Optional  bool     `yaml:"optional"`
+	Finalize  bool     `yaml:"finalize"` // post-success; failure never aborts the pipeline (IS-891)
 	Tags      []string `yaml:"tags,omitempty"`
 }
 

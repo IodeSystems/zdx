@@ -18,6 +18,7 @@ type StageResult struct {
 	Status   string // "ok" | "failed" | "skipped"
 	Duration time.Duration
 	Log      string
+	Finalize bool // true when the stage was declared with finalize: true
 }
 
 // Standard ZDX_* env keys the harness understands. Callers pass values

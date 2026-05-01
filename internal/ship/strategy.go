@@ -37,6 +37,59 @@ func dispatch(comp config.Component) Strategy {
 	panic(fmt.Sprintf("ship: no Strategy registered for %q (config validated but dispatch did not)", comp.Ship.Strategy))
 }
 
+// splitStages partitions comp.Ship.Stages into main (Finalize=false) and
+// finalize (Finalize=true) slices in declaration order.
+func splitStages(stages []config.Stage) (main, finalize []config.Stage) {
+	for _, s := range stages {
+		if s.Finalize {
+			finalize = append(finalize, s)
+		} else {
+			main = append(main, s)
+		}
+	}
+	return
+}
+
+// runFinalize runs post-success stages non-fatally. When mainErr != nil every
+// stage is recorded as "skipped" without execution. Failures are logged to
+// stderr but never returned as errors. All results carry Finalize=true.
+func runFinalize(ctx context.Context, comp config.Component, env, extra map[string]string, stages []config.Stage, mainErr error) []StageResult {
+	results := make([]StageResult, 0, len(stages))
+	if mainErr != nil {
+		for _, s := range stages {
+			results = append(results, StageResult{
+				Name:     s.Name,
+				Status:   "skipped",
+				Log:      "skipped (main pipeline failed)",
+				Finalize: true,
+			})
+		}
+		return results
+	}
+	for _, stage := range stages {
+		start := time.Now()
+		cmd := buildCmd(ctx, stage)
+		if stage.Target == "" {
+			cmd.Env = mergeEnv(os.Environ(), env, extra, comp.Ship.Env)
+		}
+		out, runErr := cmd.CombinedOutput()
+		res := StageResult{
+			Name:     stage.Name,
+			Duration: time.Since(start),
+			Log:      string(out),
+			Finalize: true,
+		}
+		if runErr != nil {
+			res.Status = "failed"
+			fmt.Fprintf(os.Stderr, "ship: finalize stage %q failed (non-fatal): %v\n", stage.Name, runErr)
+		} else {
+			res.Status = "ok"
+		}
+		results = append(results, res)
+	}
+	return results
+}
+
 // runStages executes the given stages once and returns per-stage results.
 // Stages whose names appear in skipSet are recorded as "skipped" without
 // execution. On success, each stage name is appended to stateFile (best-

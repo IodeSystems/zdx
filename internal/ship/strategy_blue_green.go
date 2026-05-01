@@ -23,30 +23,31 @@ func (blueGreenStrategy) Run(ctx context.Context, comp config.Component, env map
 	active := env["ZDX_ACTIVE_SLOT"]
 	standby := env["ZDX_STANDBY_SLOT"]
 
+	main, fin := splitStages(comp.Ship.Stages)
+
 	deployEnv := map[string]string{
 		"ZDX_ACTIVE_SLOT":  active,
 		"ZDX_STANDBY_SLOT": standby,
 	}
-	results, err := runStages(ctx, comp, env, deployEnv, comp.Ship.Stages, nil, "")
+	results, err := runStages(ctx, comp, env, deployEnv, main, nil, "")
 	if err != nil {
+		results = append(results, runFinalize(ctx, comp, env, deployEnv, fin, err)...)
 		return results, err
 	}
 
-	verifyStages := filterTagged(comp.Ship.Stages, "verify")
-	if len(verifyStages) == 0 {
-		return results, nil
+	verifyStages := filterTagged(main, "verify")
+	if len(verifyStages) > 0 {
+		verifyEnv := map[string]string{
+			"ZDX_ACTIVE_SLOT":  standby,
+			"ZDX_STANDBY_SLOT": active,
+		}
+		verifyResults, verifyErr := runStages(ctx, comp, env, verifyEnv, verifyStages, nil, "")
+		results = append(results, verifyResults...)
+		err = verifyErr
 	}
 
-	verifyEnv := map[string]string{
-		"ZDX_ACTIVE_SLOT":  standby,
-		"ZDX_STANDBY_SLOT": active,
-	}
-	verifyResults, err := runStages(ctx, comp, env, verifyEnv, verifyStages, nil, "")
-	results = append(results, verifyResults...)
-	if err != nil {
-		return results, err
-	}
-	return results, nil
+	results = append(results, runFinalize(ctx, comp, env, deployEnv, fin, err)...)
+	return results, err
 }
 
 // filterTagged returns the subset of stages whose Tags contain tag.

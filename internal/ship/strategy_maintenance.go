@@ -13,5 +13,8 @@ type maintenanceStrategy struct{}
 
 func (maintenanceStrategy) Run(ctx context.Context, comp config.Component, env map[string]string, _ RunOptions) ([]StageResult, error) {
 	extra := map[string]string{"ZDX_MAINTENANCE": "1"}
-	return runStages(ctx, comp, env, extra, comp.Ship.Stages, nil, "")
+	main, fin := splitStages(comp.Ship.Stages)
+	results, err := runStages(ctx, comp, env, extra, main, nil, "")
+	results = append(results, runFinalize(ctx, comp, env, extra, fin, err)...)
+	return results, err
 }

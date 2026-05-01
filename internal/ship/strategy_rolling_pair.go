@@ -27,6 +27,7 @@ type rollingPairStrategy struct{}
 
 func (rollingPairStrategy) Run(ctx context.Context, comp config.Component, env map[string]string, opts RunOptions) ([]StageResult, error) {
 	sha := gitSHA()
+	main, fin := splitStages(comp.Ship.Stages)
 
 	passes := []struct {
 		phase string
@@ -37,6 +38,7 @@ func (rollingPairStrategy) Run(ctx context.Context, comp config.Component, env m
 	}
 
 	var results []StageResult
+	var runErr error
 	for _, pass := range passes {
 		sf := stateFilePath(opts.StateDir, sha, opts.ComponentName, pass.phase)
 		if opts.NoResume {
@@ -47,13 +49,15 @@ func (rollingPairStrategy) Run(ctx context.Context, comp config.Component, env m
 			"ZDX_PHASE": pass.phase,
 			"ZDX_SLOT":  pass.slot,
 		}
-		r, err := runStages(ctx, comp, env, extraEnv, comp.Ship.Stages, skip, sf)
+		r, err := runStages(ctx, comp, env, extraEnv, main, skip, sf)
 		results = append(results, r...)
 		if err != nil {
-			return results, err
+			runErr = err
+			break
 		}
 	}
-	return results, nil
+	results = append(results, runFinalize(ctx, comp, env, nil, fin, runErr)...)
+	return results, runErr
 }
 
 func gitSHA() string {

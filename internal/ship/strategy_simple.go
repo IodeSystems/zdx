@@ -11,5 +11,8 @@ import (
 type simpleStrategy struct{}
 
 func (simpleStrategy) Run(ctx context.Context, comp config.Component, env map[string]string, _ RunOptions) ([]StageResult, error) {
-	return runStages(ctx, comp, env, nil, comp.Ship.Stages, nil, "")
+	main, fin := splitStages(comp.Ship.Stages)
+	results, err := runStages(ctx, comp, env, nil, main, nil, "")
+	results = append(results, runFinalize(ctx, comp, env, nil, fin, err)...)
+	return results, err
 }

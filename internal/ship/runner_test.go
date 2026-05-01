@@ -389,6 +389,103 @@ func TestRun_RollingPair_NoResume(t *testing.T) {
 	}
 }
 
+// TestRun_FinalizeRunsAfterMainSuccess verifies that a finalize stage
+// executes after all main stages succeed, and that its result is tagged
+// Finalize=true.
+func TestRun_FinalizeRunsAfterMainSuccess(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{Stages: []config.Stage{
+		{Name: "main", Run: "echo main-ran"},
+		{Name: "post", Run: "echo post-ran", Finalize: true},
+	}}}
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("want 2 results, got %d", len(res))
+	}
+	if res[0].Finalize || res[0].Status != "ok" {
+		t.Errorf("res[0]: Finalize=%v Status=%q, want Finalize=false ok", res[0].Finalize, res[0].Status)
+	}
+	if !res[1].Finalize || res[1].Status != "ok" {
+		t.Errorf("res[1]: Finalize=%v Status=%q, want Finalize=true ok", res[1].Finalize, res[1].Status)
+	}
+	if !strings.Contains(res[1].Log, "post-ran") {
+		t.Errorf("finalize log = %q, want post-ran", res[1].Log)
+	}
+}
+
+// TestRun_FinalizeFailureDoesNotFailHarness verifies that a failing finalize
+// stage is recorded as "failed" but Run returns nil error.
+func TestRun_FinalizeFailureDoesNotFailHarness(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{Stages: []config.Stage{
+		{Name: "main", Run: "echo ok"},
+		{Name: "post", Run: "exit 1", Finalize: true},
+	}}}
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
+	if err != nil {
+		t.Fatalf("Run returned error, want nil: %v", err)
+	}
+	if len(res) != 2 {
+		t.Fatalf("want 2 results, got %d", len(res))
+	}
+	if res[1].Status != "failed" || !res[1].Finalize {
+		t.Errorf("res[1]: Finalize=%v Status=%q, want Finalize=true failed", res[1].Finalize, res[1].Status)
+	}
+}
+
+// TestRun_FinalizeSkippedWhenMainFails verifies that finalize stages are
+// recorded as "skipped" (not run) when any main stage fails.
+func TestRun_FinalizeSkippedWhenMainFails(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{Stages: []config.Stage{
+		{Name: "main", Run: "exit 1"},
+		{Name: "post", Run: "echo never", Finalize: true},
+	}}}
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
+	if err == nil {
+		t.Fatal("want error from main failure, got nil")
+	}
+	if len(res) != 2 {
+		t.Fatalf("want 2 results (main+finalize skipped), got %d", len(res))
+	}
+	if !res[1].Finalize || res[1].Status != "skipped" {
+		t.Errorf("res[1]: Finalize=%v Status=%q, want Finalize=true skipped", res[1].Finalize, res[1].Status)
+	}
+}
+
+// TestRun_RollingPair_FinalizeRunsOnce verifies that rolling-pair runs
+// finalize stages exactly once after both passes — not per-pass.
+func TestRun_RollingPair_FinalizeRunsOnce(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyRollingPair,
+		Stages: []config.Stage{
+			{Name: "deploy", Run: "echo $ZDX_PHASE"},
+			{Name: "post", Run: "echo finalize-ran", Finalize: true},
+		},
+	}}
+	env := map[string]string{"ZDX_SLOT_A": "a0", "ZDX_SLOT_B": "b1"}
+	res, err := Run(context.Background(), comp, env, RunOptions{StateDir: t.TempDir()})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	// Expect: deploy(current), deploy(next), post(finalize x1)
+	if len(res) != 3 {
+		t.Fatalf("want 3 results (2 deploy + 1 finalize), got %d", len(res))
+	}
+	var finCount int
+	for _, r := range res {
+		if r.Finalize {
+			finCount++
+		}
+	}
+	if finCount != 1 {
+		t.Errorf("finalize result count = %d, want 1", finCount)
+	}
+	if res[2].Name != "post" || res[2].Status != "ok" || !res[2].Finalize {
+		t.Errorf("res[2] = {%s %s Finalize=%v}, want {post ok true}", res[2].Name, res[2].Status, res[2].Finalize)
+	}
+}
+
 // TestRun_SSH_FakeSSH exercises the SSH path end-to-end with a fake `ssh`
 // shim on PATH that just echoes its argv. Hermetic — gated only because
 // it modifies $PATH for the test process.
