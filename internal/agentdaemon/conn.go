@@ -359,6 +359,16 @@ func (d *Daemon) removePauseState() {
 	}
 }
 
+// PauseSnapshot reports whether the daemon is currently paused, plus the
+// session id and issue id captured at pause time. Safe to call from any
+// goroutine. A task loop polls this between LLM turns to gate spawning new
+// ones without exclusively consuming ControlCh (spec 180).
+func (d *Daemon) PauseSnapshot() (paused bool, sessionID, issueID string) {
+	d.mu.Lock()
+	defer d.mu.Unlock()
+	return d.paused, d.pausedSID, d.pausedIssueID
+}
+
 // SendMsg sends a raw JSON message over the active WS connection. Returns an
 // error if the daemon is not connected. Implements AgentConn.
 func (d *Daemon) SendMsg(ctx context.Context, data []byte) error {
