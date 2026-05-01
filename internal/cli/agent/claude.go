@@ -482,6 +482,7 @@ func buildSessionPrompt(vision, issueID string, todo *claimedTodo) string {
 		// kind-specific playbooks (triage, decompose, etc.) reach the agent.
 		prompt += fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
+		prompt += "\n\nCOMMIT RULE: Only commit intent files (migrations, queries/*.sql, handler source). Do not commit internal/db/*.sql.go, internal/dxclient/models.gen.go, ui/src/api.gen.ts, schema/shipped.sql. Use dx commit --intent."
 	} else if issueID != "" {
 		prompt += fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
 	}

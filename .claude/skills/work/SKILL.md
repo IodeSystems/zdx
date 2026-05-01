@@ -31,7 +31,7 @@ For any claimed todo, route by target:
 3. Repeat until solo prints nothing to do.
 4. `./bin/dx issue close IS-N --reason=done` (if not already closed by the closable candidate).
 5. **Ship** if the vertical produced production code:
-   - Commit: `git add <files> && git commit -m '...'`
+   - Commit: `dx commit --intent -m "..."` (or: `git add <intent-only files> && git commit`). Do NOT stage `internal/db/*.sql.go`, `internal/dxclient/models.gen.go`, `ui/src/api.gen.ts`, `schema/shipped.sql` — the merge-train regenerates them.
    - If `internal/migrate/sql/` or `queries/*.sql` changed: `~/go/bin/sqlc generate && go build ./...`
    - `./bin/ship` (never `--allow-dirty` — emergency only).
    - Skip ship for docs/skill/planning-only changes — just commit.
@@ -39,6 +39,8 @@ For any claimed todo, route by target:
 
 **Blocked issues:** if IS-N is blocked, `dx todo show IS-N` lists blockers. Recurse to unblocked leaves, work each leaf
 vertical, then re-run solo on IS-N. Stop after closing the original.
+
+**Generated files:** Never stage or commit `*.sql.go`, `models.gen.go`, `api.gen.ts`, `shipped.sql`. Use `dx commit --intent` to enforce this automatically.
 
 **Blockers:** if you hit a DX gap you can't resolve in one step: `./bin/dx issue add --title=... --context=...`, report
 the new issue ID, stop. Do not work around it.
