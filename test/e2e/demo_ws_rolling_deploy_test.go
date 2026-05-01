@@ -39,23 +39,24 @@ func TestDemoWS_RollingDeployFanout(t *testing.T) {
 		{FilePath: "internal/server/ws_handlers.go", Note: "WS subscribe/relay path"},
 	})
 
-	// Start slot-a (bootstrapped — owns the admin token).
+	// Both slots share the DB already bootstrapped by TestMain; reuse its admin
+	// token and skip bootstrap to avoid the 409 from CountApiKeys > 0.
 	slotA, cleanA, err := devserver.Start(devserver.Options{
-		DSN:        srv.DSN,
-		ValkeyAddr: valkeyAddr,
+		DSN:           srv.DSN,
+		ValkeyAddr:    valkeyAddr,
+		SkipBootstrap: true,
+		AdminToken:    srv.AdminToken,
 	})
 	if err != nil {
 		t.Fatalf("slot-a start: %v", err)
 	}
 	t.Cleanup(cleanA)
 
-	// Start slot-b sharing the same DB and Valkey. Skip bootstrap — the admin
-	// token from slot-a is valid on both servers since they share the DB.
 	slotB, cleanB, err := devserver.Start(devserver.Options{
 		DSN:           srv.DSN,
 		ValkeyAddr:    valkeyAddr,
 		SkipBootstrap: true,
-		AdminToken:    slotA.AdminToken,
+		AdminToken:    srv.AdminToken,
 	})
 	if err != nil {
 		t.Fatalf("slot-b start: %v", err)
