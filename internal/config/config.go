@@ -2,6 +2,8 @@
 package config
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -120,6 +122,39 @@ type Component struct {
 	Lint  Lint             `yaml:"lint"`
 	Watch map[string]Watch `yaml:"watch"`
 	Close Close            `yaml:"close"`
+	Ship  Ship             `yaml:"ship"`
+}
+
+// Ship-strategy constants. See IS-793 for the design.
+const (
+	ShipStrategySimple      = "simple"
+	ShipStrategyRollingPair = "rolling-pair"
+	ShipStrategyMaintenance = "maintenance"
+	ShipStrategyBlueGreen   = "blue-green"
+)
+
+// Ship declares how a component deploys. Stages run in declared order;
+// a non-empty Strategy or Stages list means Ship is configured.
+type Ship struct {
+	Strategy string            `yaml:"strategy"`
+	Env      map[string]string `yaml:"env"`
+	Stages   []Stage           `yaml:"stages"`
+}
+
+// IsZero reports whether Ship has no user-supplied fields. Used to skip
+// validation for components that don't declare a ship section.
+func (s Ship) IsZero() bool {
+	return s.Strategy == "" && len(s.Env) == 0 && len(s.Stages) == 0
+}
+
+// Stage is one step in a ship pipeline. Target, when non-empty, means
+// the Run command executes on a remote host (ssh wrapper); Optional
+// stages don't halt the pipeline on failure.
+type Stage struct {
+	Name     string `yaml:"name"`
+	Run      string `yaml:"run"`
+	Target   string `yaml:"target"`
+	Optional bool   `yaml:"optional"`
 }
 
 type Close struct {
@@ -159,17 +194,122 @@ type Watch struct {
 	Run     string   `yaml:"run"`
 }
 
-// Load reads .zdx/config.yaml from cwd. Returns nil if not found.
+// Load reads .zdx/config.yaml from cwd. Returns nil if not found,
+// unparseable, or fails validation. Validation errors are written to
+// stderr so users see actionable feedback without callers needing to
+// thread errors through every callsite. Use LoadAndValidate when the
+// caller wants to consume errors directly (e.g. the ship harness).
 func Load() *Config {
+	cfg, err := LoadAndValidate()
+	if err != nil {
+		// Distinguish "no config" (silent) from "broken config" (loud).
+		if !errors.Is(err, os.ErrNotExist) {
+			fmt.Fprintf(os.Stderr, "config: %v\n", err)
+		}
+		return nil
+	}
+	return cfg
+}
+
+// LoadAndValidate reads .zdx/config.yaml, unmarshals it, and runs
+// validate(). Returns os.ErrNotExist (wrapped) when the file is absent.
+func LoadAndValidate() (*Config, error) {
 	data, err := os.ReadFile(".zdx/config.yaml")
 	if err != nil {
-		return nil
+		return nil, err
 	}
 	var cfg Config
 	if err := yaml.Unmarshal(data, &cfg); err != nil {
+		return nil, fmt.Errorf("parse .zdx/config.yaml: %w", err)
+	}
+	if err := cfg.validate(); err != nil {
+		return nil, err
+	}
+	return &cfg, nil
+}
+
+// validate runs structural checks across the parsed config. Today it
+// only enforces the Ship schema (IS-794); add more concerns here as
+// other component sections grow validation needs.
+func (c *Config) validate() error {
+	// Sort component names so error ordering is deterministic — tests
+	// and humans both benefit. Iterating a map directly would yield
+	// errors in random order on each run.
+	names := make([]string, 0, len(c.Components))
+	for name := range c.Components {
+		names = append(names, name)
+	}
+	sortStrings(names)
+
+	var errs []string
+	for _, name := range names {
+		comp := c.Components[name]
+		if comp.Ship.IsZero() {
+			continue
+		}
+		errs = append(errs, validateShip(name, comp.Ship)...)
+	}
+	if len(errs) == 0 {
 		return nil
 	}
-	return &cfg
+	return errors.New(strings.Join(errs, "\n"))
+}
+
+// sortStrings is a tiny in-place sort to avoid pulling sort just for
+// determinism in validate().
+func sortStrings(s []string) {
+	for i := 1; i < len(s); i++ {
+		for j := i; j > 0 && s[j-1] > s[j]; j-- {
+			s[j-1], s[j] = s[j], s[j-1]
+		}
+	}
+}
+
+// validateShip returns a flat list of error strings (one per problem)
+// scoped to a single component. Errors include the components.<name>
+// prefix so the Config-level aggregator doesn't need to re-prefix.
+func validateShip(comp string, s Ship) []string {
+	var errs []string
+	prefix := fmt.Sprintf("components.%s.ship", comp)
+
+	if s.Strategy != "" && !validShipStrategy(s.Strategy) {
+		errs = append(errs, fmt.Sprintf("%s.strategy: unknown strategy %q (want one of: %s, %s, %s, %s)",
+			prefix, s.Strategy,
+			ShipStrategySimple, ShipStrategyRollingPair, ShipStrategyMaintenance, ShipStrategyBlueGreen))
+	}
+
+	if len(s.Stages) == 0 {
+		errs = append(errs, fmt.Sprintf("%s.stages: must declare at least one stage", prefix))
+		return errs
+	}
+
+	seen := make(map[string]int, len(s.Stages))
+	for i, st := range s.Stages {
+		stagePrefix := fmt.Sprintf("%s.stages[%d]", prefix, i)
+		if st.Run == "" {
+			errs = append(errs, fmt.Sprintf("%s: missing run command", stagePrefix))
+		}
+		if st.Name == "" {
+			// Unnamed stages can't be deduped meaningfully; report and
+			// move on rather than collapsing them in `seen`.
+			continue
+		}
+		if prev, dup := seen[st.Name]; dup {
+			errs = append(errs, fmt.Sprintf("%s: duplicate stage name %q (also at stages[%d])",
+				stagePrefix, st.Name, prev))
+			continue
+		}
+		seen[st.Name] = i
+	}
+	return errs
+}
+
+func validShipStrategy(s string) bool {
+	switch s {
+	case ShipStrategySimple, ShipStrategyRollingPair, ShipStrategyMaintenance, ShipStrategyBlueGreen:
+		return true
+	}
+	return false
 }
 
 // GlobalConfig mirrors the ~/.zdx/config.yaml schema for srcless (multi-project) agent operation.
