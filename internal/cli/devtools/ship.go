@@ -348,7 +348,8 @@ Exit codes: 0=compatible, 1=incompatible migration, 2=broken tests or infra fail
 			if err := compatRunTests(dsnNext, pkgs); err != nil {
 				fmt.Println("[compat] FAIL: tests broken against next schema.")
 				_ = os.WriteFile("schema/compat-result.txt", []byte("incompatible"), 0o644)
-				return fmt.Errorf("compat-check: tests failed on next schema: exit code 2")
+				fmt.Fprintln(os.Stderr, "compat-check: tests failed on next schema")
+				os.Exit(2)
 			}
 			fmt.Println("[compat] NEXT schema: OK")
 
