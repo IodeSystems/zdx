@@ -466,7 +466,7 @@ func atlasReviewCmd() *cobra.Command {
 			currentSHA := strings.TrimSpace(string(shaOut))
 
 			resp, err := c.ReviewAtlasWithResponse(cmd.Context(), c.SlugOrDie(), dxclient.ReviewAtlasJSONRequestBody{
-				Files:      files,
+				Files:      &files,
 				CurrentSha: currentSHA,
 			})
 			if err != nil {
@@ -481,12 +481,14 @@ func atlasReviewCmd() *cobra.Command {
 				return nil
 			}
 			fmt.Printf("atlas: %d stale chunk(s)\n", r.StaleCount)
-			for _, ch := range r.Chunks {
-				fmt.Printf("  %-6d  %s:%s  %s  %s\n",
-					ch.Id, ch.NodeKind, ch.NodeSlug,
-					cli.Truncate(atlasStr(ch.Title), 30),
-					atlasStr(ch.File),
-				)
+			if r.Chunks != nil {
+				for _, ch := range *r.Chunks {
+					fmt.Printf("  %-6d  %s:%s  %s  %s\n",
+						ch.Id, ch.NodeKind, ch.NodeSlug,
+						cli.Truncate(atlasStr(ch.Title), 30),
+						atlasStr(ch.File),
+					)
+				}
 			}
 			return nil
 		},

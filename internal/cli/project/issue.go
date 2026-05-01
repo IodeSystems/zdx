@@ -144,7 +144,7 @@ func issueListCmd() *cobra.Command {
 }
 
 func issueAddCmd() *cobra.Command {
-	var title, ctx, component, blockedBy, issueType, issueURL, parent string
+	var title, ctx, component, blockedBy, issueType, issueURL, parent, againstNode string
 	var autoReady bool
 	cmd := &cobra.Command{
 		Use:   "add",
@@ -194,6 +194,14 @@ Example:
 			if blockedBy != "" {
 				blockers := strings.Split(blockedBy, ",")
 				body.BlockedBy = &blockers
+			}
+			if againstNode != "" {
+				ref := strings.TrimSpace(againstNode)
+				parts := strings.SplitN(ref, ":", 2)
+				if len(parts) != 2 || strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" || strings.Contains(parts[1], ":") {
+					return fmt.Errorf("--against-node must be formatted as kind:slug (e.g. flow:dx-ship)")
+				}
+				body.NodeRef = &ref
 			}
 			resp, err := c.AddIssueWithResponse(cmd.Context(), body)
 			if err != nil {
@@ -264,6 +272,7 @@ Example:
 	cmd.Flags().StringVar(&issueType, "type", "", "issue type: ops, impl, ask, or tracker (default: unknown)")
 	cmd.Flags().StringVar(&issueURL, "url", "", "URL related to the issue")
 	cmd.Flags().StringVar(&parent, "parent", "", "parent issue (IS-N): new issue blocks the parent")
+	cmd.Flags().StringVar(&againstNode, "against-node", "", "Atlas node this issue is filed against (kind:slug, e.g. flow:dx-ship)")
 	cmd.Flags().BoolVar(&autoReady, "auto-ready", false, "skip similarity check and create as open")
 	cmd.MarkFlagRequired("title")
 	return cmd

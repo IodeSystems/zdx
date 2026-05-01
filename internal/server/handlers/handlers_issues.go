@@ -26,6 +26,22 @@ import (
 // either side prevent matching things like "MIS-1" or "IS-12abc".
 var issueRefRe = regexp.MustCompile(`\bIS-\d+\b`)
 
+// validNodeRef checks that ref is exactly one "kind:slug" pair with both halves
+// non-empty. Soft reference — no FK lookup; the renderer resolves at read time.
+func validNodeRef(ref string) bool {
+	parts := strings.SplitN(ref, ":", 2)
+	if len(parts) != 2 {
+		return false
+	}
+	if strings.TrimSpace(parts[0]) == "" || strings.TrimSpace(parts[1]) == "" {
+		return false
+	}
+	if strings.Contains(parts[1], ":") {
+		return false
+	}
+	return true
+}
+
 // extractIssueRefs returns deduped IS-N references found in text, excluding
 // excludeID (the newly-created issue's own ID). Order is preserved by first
 // occurrence so the agent sees references in the order they appear in the body.
@@ -181,6 +197,7 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 				AutoReady     bool     `json:"auto_ready,omitempty"`
 				URL           *string  `json:"url,omitempty"`
 				SourceErrorID *int64   `json:"source_error_id,omitempty"`
+				NodeRef       *string  `json:"node_ref,omitempty" doc:"Atlas node this issue is filed against, formatted as kind:slug"`
 			}
 		}) (*struct {
 			Body struct {
@@ -224,6 +241,13 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 			}
 			if in.Body.SourceErrorID != nil {
 				params.SourceErrorID = pgtype.Int8{Int64: *in.Body.SourceErrorID, Valid: true}
+			}
+			if in.Body.NodeRef != nil && *in.Body.NodeRef != "" {
+				ref := strings.TrimSpace(*in.Body.NodeRef)
+				if !validNodeRef(ref) {
+					return nil, apiErr(400, "node_ref must be formatted as kind:slug with both parts non-empty")
+				}
+				params.NodeRef = pgtype.Text{String: ref, Valid: true}
 			}
 
 			issueText := params.Title + " " + params.Context
@@ -1489,6 +1513,10 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 // ── Model → response converter ────────────────────────────────────────────
 
 func toIssueItem(r db.ZdxIssue) IssueItem {
+	nodeRef := ""
+	if r.NodeRef.Valid {
+		nodeRef = r.NodeRef.String
+	}
 	return IssueItem{
 		ID:              issueIntID(r.ID),
 		Title:           r.Title,
@@ -1504,6 +1532,7 @@ func toIssueItem(r db.ZdxIssue) IssueItem {
 		InteractiveOnly: r.InteractiveOnly,
 		TargetBranch:    r.TargetBranch,
 		URL:             r.Url,
+		NodeRef:         nodeRef,
 		CreatedAt:       fmtTS(r.CreatedAt),
 		UpdatedAt:       fmtTS(r.UpdatedAt),
 		BlockedBy:       []string{},

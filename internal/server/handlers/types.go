@@ -21,6 +21,7 @@ type IssueItem struct {
 	InteractiveOnly bool              `json:"interactive_only,omitempty"`
 	TargetBranch    string            `json:"target_branch,omitempty"`
 	URL             string            `json:"url"`
+	NodeRef         string            `json:"node_ref,omitempty" doc:"Atlas node this issue is filed against, formatted as kind:slug; empty when not filed against a node"`
 	CreatedAt       string            `json:"created_at"`
 	UpdatedAt       string            `json:"updated_at"`
 }
