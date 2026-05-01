@@ -719,18 +719,6 @@ export function SessionDetail({
 
   useChannel(wsChannel, onWsMessage)
 
-  useEffect(() => {
-    if (liveEvents.length > 0) {
-      const el = containerRef.current
-      if (el) {
-        const isNearBottom = el.scrollHeight - el.scrollTop - el.clientHeight < 200
-        if (isNearBottom) {
-          requestAnimationFrame(() => el.scrollTo({ top: el.scrollHeight, behavior: 'smooth' }))
-        }
-      }
-    }
-  }, [liveEvents.length])
-
   const allEvents = useMemo(() => {
     const fetched = data?.pages.flatMap((p) => p.events) ?? []
     const fetchedSeqs = new Set(fetched.map((e) => e.seq))
@@ -895,15 +883,10 @@ export function SessionDetail({
         sx={{
           flex: 1,
           overflow: 'auto',
+          display: 'flex',
+          flexDirection: 'column-reverse',
         }}
       >
-        {displayItems.map((item, idx) =>
-          item.kind === 'event' ? (
-            <EventRow key={item.event.id} event={item.event} toolDurations={toolDurations} toolResultMap={toolResultMap} turnMetrics={turnMetrics} />
-          ) : (
-            <AgentGroupRow key={`agent-${item.agentId}-${idx}`} item={item} toolDurations={toolDurations} toolResultMap={toolResultMap} turnMetrics={turnMetrics} />
-          )
-        )}
         {hasNextPage && (
           <Box ref={sentinelRef} sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
             <CircularProgress size={20} />
@@ -913,6 +896,13 @@ export function SessionDetail({
           <Box sx={{ display: 'flex', justifyContent: 'center', py: 2 }}>
             <CircularProgress size={24} />
           </Box>
+        )}
+        {displayItems.map((item, idx) =>
+          item.kind === 'event' ? (
+            <EventRow key={item.event.id} event={item.event} toolDurations={toolDurations} toolResultMap={toolResultMap} turnMetrics={turnMetrics} />
+          ) : (
+            <AgentGroupRow key={`agent-${item.agentId}-${idx}`} item={item} toolDurations={toolDurations} toolResultMap={toolResultMap} turnMetrics={turnMetrics} />
+          )
         )}
       </Box>
     </Box>
