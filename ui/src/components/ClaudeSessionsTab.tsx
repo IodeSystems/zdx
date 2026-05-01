@@ -343,6 +343,34 @@ function AgentBlock({ input }: { input: Record<string, unknown> }) {
   )
 }
 
+function TodoWriteBlock({ input }: { input: Record<string, unknown> }) {
+  const todos = (input.todos as Record<string, unknown>[] | undefined) ?? []
+  if (todos.length === 0) {
+    return <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>(empty list)</Typography>
+  }
+  const statusIcon = (s: string) => s === 'completed' ? '✓' : s === 'in_progress' ? '⚡' : '☐'
+  const statusColor = (s: string) => s === 'completed' ? 'success.main' : s === 'in_progress' ? 'info.main' : 'text.secondary'
+  const priorityColor = (p: string) => p === 'high' ? 'error.main' : p === 'medium' ? 'warning.main' : 'text.secondary'
+  return (
+    <Box sx={{ mt: 0.5, display: 'flex', flexDirection: 'column', gap: 0.25 }}>
+      {todos.map((t, j) => {
+        const status = (t.status as string) || 'pending'
+        const priority = t.priority as string | undefined
+        const content = (t.content as string) || ''
+        const activeForm = t.activeForm as string | undefined
+        const text = status === 'in_progress' && activeForm ? activeForm : content
+        return (
+          <Box key={j} sx={{ display: 'flex', alignItems: 'flex-start', gap: 0.75, fontSize: '0.75rem' }}>
+            <Box sx={{ color: statusColor(status), fontFamily: 'monospace', minWidth: 14, textAlign: 'center', fontWeight: 600 }}>{statusIcon(status)}</Box>
+            {priority && <Chip label={priority} size="small" sx={{ height: 16, fontSize: '0.6rem', bgcolor: priorityColor(priority), color: '#fff', '& .MuiChip-label': { px: 0.75 } }} />}
+            <Typography variant="caption" sx={{ fontSize: '0.75rem', textDecoration: status === 'completed' ? 'line-through' : 'none', color: status === 'completed' ? 'text.secondary' : 'text.primary' }}>{text}</Typography>
+          </Box>
+        )
+      })}
+    </Box>
+  )
+}
+
 function ToolResultInline({ content }: { content: ToolResultContent }) {
   if (typeof content === 'string') {
     return (
@@ -430,6 +458,8 @@ function RichContent({ event, toolResultMap }: { event: ClaudeEventItem; toolRes
                 <AgentBlock input={input} />
               ) : name === 'Grep' || name === 'Glob' ? (
                 <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>{input.pattern as string}{input.path ? ` in ${input.path}` : ''}</Typography>
+              ) : name === 'TodoWrite' ? (
+                <TodoWriteBlock input={input} />
               ) : (
                 <Box component="pre" sx={{ m: 0, mt: 0.5, fontSize: '0.7rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 200, overflow: 'auto' }}>
                   {JSON.stringify(input, null, 2)}
