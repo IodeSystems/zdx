@@ -158,7 +158,7 @@ func (s Ship) IsZero() bool {
 type Stage struct {
 	Name      string   `yaml:"name"`
 	Run       string   `yaml:"run"`
-	Builtin   string   `yaml:"builtin"`   // harness primitive (IS-888/891/797); alternative to Run
+	Builtin   string   `yaml:"builtin"` // harness primitive (IS-888/891/797); alternative to Run
 	Target    string   `yaml:"target"`
 	OnFailure string   `yaml:"on_failure"` // "abort" (default) | "continue" — IS-895 will wire this
 	Optional  bool     `yaml:"optional"`
