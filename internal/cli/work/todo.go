@@ -77,8 +77,110 @@ func TodoCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
 	}
-	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd(), todoUnblockAllCmd())
+	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd(), todoUnblockAllCmd(), todoIncompleteCmd())
 	return cmd
+}
+
+var incompleteReasons = []string{
+	"capability_gap",
+	"ambiguous_spec",
+	"external_dep",
+	"needs_decision",
+	"permission_denied",
+	"environment_broken",
+	"preexisting_test_failure",
+	"flaky_test",
+}
+
+func todoIncompleteCmd() *cobra.Command {
+	var reason, explanation, suggestedNext, agentID string
+	var evidenceArgs []string
+	cmd := &cobra.Command{
+		Use:   "incomplete <TK-N>",
+		Short: "Report a todo as incomplete with structured reason + evidence",
+		Long: "Emit a structured incomplete-report so the project tracker can dedup and route blockers.\n" +
+			"Allowed --reason values: " + strings.Join(incompleteReasons, ", ") + ".\n" +
+			"--evidence is repeatable; each value uses key=val syntax. Empty evidence is valid; later --evidence with the same key wins.",
+		Args: cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			return todoIncompleteRun(cmd, args[0], reason, explanation, suggestedNext, agentID, evidenceArgs)
+		},
+	}
+	cmd.Flags().StringVar(&reason, "reason", "", "structured reason (required); one of: "+strings.Join(incompleteReasons, ", "))
+	cmd.Flags().StringVar(&explanation, "explanation", "", "human-readable explanation (required, non-empty)")
+	cmd.Flags().StringVar(&suggestedNext, "suggested-next", "", "free-form next-step hint (e.g. 'block on IS-N', 'ask user: ...')")
+	cmd.Flags().StringArrayVar(&evidenceArgs, "evidence", nil, "evidence as key=val; repeatable; later keys overwrite earlier ones")
+	cmd.Flags().StringVar(&agentID, "agent-id", "", "agent ID (default 'cli')")
+	_ = cmd.MarkFlagRequired("reason")
+	_ = cmd.MarkFlagRequired("explanation")
+	return cmd
+}
+
+func validateIncompleteReason(reason string) error {
+	for _, r := range incompleteReasons {
+		if r == reason {
+			return nil
+		}
+	}
+	return fmt.Errorf("invalid --reason %q; must be one of: %s", reason, strings.Join(incompleteReasons, ", "))
+}
+
+// parseIncompleteEvidence parses repeatable --evidence key=val pairs. Later
+// occurrences of the same key overwrite earlier ones (documented behavior).
+// Returns an error on any entry without "=" or with an empty key.
+func parseIncompleteEvidence(args []string) (map[string]string, error) {
+	out := map[string]string{}
+	for _, e := range args {
+		idx := strings.Index(e, "=")
+		if idx <= 0 {
+			return nil, fmt.Errorf("invalid --evidence %q; expected key=val", e)
+		}
+		out[e[:idx]] = e[idx+1:]
+	}
+	return out, nil
+}
+
+func todoIncompleteRun(cmd *cobra.Command, key, reason, explanation, suggestedNext, agentID string, evidenceArgs []string) error {
+	if err := validateIncompleteReason(reason); err != nil {
+		return err
+	}
+	if strings.TrimSpace(explanation) == "" {
+		return fmt.Errorf("--explanation must be non-empty")
+	}
+	evidence, err := parseIncompleteEvidence(evidenceArgs)
+	if err != nil {
+		return err
+	}
+	if agentID == "" {
+		agentID = "cli"
+	}
+
+	c := cli.MustClient()
+	slug := c.SlugOrDie()
+	body := dxclient.PostTodoIncompleteReportJSONRequestBody{
+		Reason:      reason,
+		Explanation: explanation,
+		AgentId:     &agentID,
+	}
+	if suggestedNext != "" {
+		body.SuggestedNext = &suggestedNext
+	}
+	if len(evidence) > 0 {
+		body.Evidence = &evidence
+	}
+	resp, postErr := c.PostTodoIncompleteReportWithResponse(cmd.Context(), slug, key, body)
+	if postErr != nil {
+		return fmt.Errorf("post incomplete report: %w", postErr)
+	}
+	if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+		return fmt.Errorf("post incomplete report: %w", err)
+	}
+	if resp.JSON200 == nil {
+		return fmt.Errorf("post incomplete report: empty response")
+	}
+	fmt.Printf("%s reported incomplete: %s\n", key, resp.JSON200.Reason)
+	fmt.Printf("  fingerprint: %s\n", resp.JSON200.EvidenceFingerprint)
+	return nil
 }
 
 func todoTakeCmd() *cobra.Command {

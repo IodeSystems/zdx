@@ -1,9 +1,61 @@
 package work
 
 import (
+	"strings"
 	"testing"
 	"time"
 )
+
+func TestValidateIncompleteReason(t *testing.T) {
+	for _, r := range incompleteReasons {
+		if err := validateIncompleteReason(r); err != nil {
+			t.Errorf("expected %q to be valid: %v", r, err)
+		}
+	}
+	if err := validateIncompleteReason("bogus"); err == nil {
+		t.Error("expected error for bogus reason")
+	} else if !strings.Contains(err.Error(), "must be one of") {
+		t.Errorf("error should list allowed values: %v", err)
+	}
+	if err := validateIncompleteReason(""); err == nil {
+		t.Error("expected error for empty reason")
+	}
+}
+
+func TestParseIncompleteEvidence(t *testing.T) {
+	m, err := parseIncompleteEvidence(nil)
+	if err != nil || len(m) != 0 {
+		t.Fatalf("nil input: got (%v,%v); want (empty,nil)", m, err)
+	}
+
+	m, err = parseIncompleteEvidence([]string{"file=foo.go", "line=42"})
+	if err != nil {
+		t.Fatalf("happy path err: %v", err)
+	}
+	if m["file"] != "foo.go" || m["line"] != "42" {
+		t.Errorf("happy path map: %v", m)
+	}
+
+	// Repeated key: last one wins (documented behavior).
+	m, err = parseIncompleteEvidence([]string{"file=foo.go", "file=bar.go"})
+	if err != nil || m["file"] != "bar.go" {
+		t.Errorf("repeated key: got (%v,%v); want last-write-wins", m, err)
+	}
+
+	// Value containing '=' is preserved (split on first only).
+	m, err = parseIncompleteEvidence([]string{"query=k=v&x=1"})
+	if err != nil || m["query"] != "k=v&x=1" {
+		t.Errorf("value with '=': got (%v,%v)", m, err)
+	}
+
+	// Errors: no '=', empty key.
+	if _, err := parseIncompleteEvidence([]string{"noequals"}); err == nil {
+		t.Error("expected error for no '='")
+	}
+	if _, err := parseIncompleteEvidence([]string{"=val"}); err == nil {
+		t.Error("expected error for empty key")
+	}
+}
 
 // daysAgo returns a date string N days before today, using local time so the
 // resulting (now - parsedUTC) duration brackets N. Margins in TestJournalOverdue

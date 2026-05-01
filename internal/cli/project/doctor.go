@@ -239,7 +239,7 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 
 	// Health check
 	if hResp, err := c.HealthWithResponse(ctx); err == nil && hResp.JSON200 != nil {
-		if status, ok := (*hResp.JSON200)["status"]; ok && status == "ok" {
+		if hResp.JSON200.Status == "ok" {
 			state.RemoteReachable = true
 		}
 	}
