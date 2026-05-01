@@ -305,3 +305,39 @@ var ListResolutionsByProjectCols = struct {
 	ParentResolutionID: metaquery.NewTextCol("parent_resolution_id"),
 	CreatedAt:          metaquery.NewTimeCol("created_at"),
 }
+
+var MetaListUnresolvedNamedBranchesForIssue = metaquery.Query{
+	Name:   "ListUnresolvedNamedBranchesForIssue",
+	Cmd:    ":many",
+	Source: "issue_resolutions.sql",
+	SQL: `SELECT vb.name
+FROM zdx_version_branches vb
+WHERE vb.project_id = $1
+  AND vb.type = 'named'
+  AND vb.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_issue_resolutions r
+    WHERE r.issue_id = $2
+      AND r.branch_of_origin = vb.name
+  )
+ORDER BY vb.name`,
+	Columns: []metaquery.Column{
+		{Name: "name", OriginalName: "name", GoType: "string"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "issue_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListUnresolvedNamedBranchesForIssue returns a metaquery.Builder over MetaListUnresolvedNamedBranchesForIssue, pre-bound with typed arguments.
+func WrapListUnresolvedNamedBranchesForIssue(arg ListUnresolvedNamedBranchesForIssueParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListUnresolvedNamedBranchesForIssue, arg.ProjectID, arg.IssueID)
+}
+
+// ListUnresolvedNamedBranchesForIssueCols gives typed, name-safe access to ListUnresolvedNamedBranchesForIssue's output columns.
+var ListUnresolvedNamedBranchesForIssueCols = struct {
+	Name metaquery.TextCol
+}{
+	Name: metaquery.NewTextCol("name"),
+}

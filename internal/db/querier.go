@@ -506,6 +506,7 @@ type Querier interface {
 	// with varied titles or put the spec reference in the task body, so both fields
 	// are checked to avoid re-emitting the nudge when work is already queued.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
+	ListUnresolvedNamedBranchesForIssue(ctx context.Context, arg ListUnresolvedNamedBranchesForIssueParams) ([]string, error)
 	ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error)
 	ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)

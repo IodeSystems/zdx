@@ -208,3 +208,42 @@ func (q *Queries) ListResolutionsByProject(ctx context.Context, projectID int32)
 	}
 	return items, nil
 }
+
+const listUnresolvedNamedBranchesForIssue = `-- name: ListUnresolvedNamedBranchesForIssue :many
+SELECT vb.name
+FROM zdx_version_branches vb
+WHERE vb.project_id = $1
+  AND vb.type = 'named'
+  AND vb.status = 'active'
+  AND NOT EXISTS (
+    SELECT 1 FROM zdx_issue_resolutions r
+    WHERE r.issue_id = $2
+      AND r.branch_of_origin = vb.name
+  )
+ORDER BY vb.name
+`
+
+type ListUnresolvedNamedBranchesForIssueParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	IssueID   string `db:"issue_id" json:"issue_id"`
+}
+
+func (q *Queries) ListUnresolvedNamedBranchesForIssue(ctx context.Context, arg ListUnresolvedNamedBranchesForIssueParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listUnresolvedNamedBranchesForIssue, arg.ProjectID, arg.IssueID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
