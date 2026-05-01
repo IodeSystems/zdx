@@ -5,13 +5,13 @@ import "context"
 type contextKey int
 
 const (
-	CtxAPIKeyID   contextKey = 1
-	CtxUserID     contextKey = 2
-	CtxQueryStart contextKey = 3
-	CtxSource     contextKey = 4
-	CtxUserRole   contextKey = 5
-	CtxSkipTiming contextKey = 6
-	CtxAgentID    contextKey = 7
+	CtxAPIKeyID     contextKey = 1
+	CtxUserID       contextKey = 2
+	CtxQueryStart   contextKey = 3
+	CtxSource       contextKey = 4
+	CtxUserRole     contextKey = 5
+	CtxSkipTiming   contextKey = 6
+	CtxAgentID      contextKey = 7
 	CtxSessionID    contextKey = 8
 	CtxProjectScope contextKey = 9
 )
