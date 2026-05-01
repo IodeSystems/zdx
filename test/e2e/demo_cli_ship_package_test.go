@@ -2,6 +2,7 @@ package e2e
 
 import (
 	"bytes"
+	"encoding/json"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -213,6 +214,232 @@ func TestDemoCLI_ShipRollingDeployCallSequence(t *testing.T) {
 		"versions/current/",
 		"restart zdx-current",
 		"rolling finalize",
+	}, out)
+}
+
+// TestDemoCLI_ShipDeployRecordPost is a demo for spec 173 (must):
+// Given a successful rolling deploy via bin/ship, when the deploy completes,
+// then post_deploy_record() POSTs exactly once to the dx-server /deploys
+// endpoint with build_sha, build_branch, status=success, duration_secs, log,
+// and an Authorization: Bearer header — and the POST happens AFTER the
+// 'rolling finalize' transition (so a failed finalize does not record a
+// successful deploy).
+//
+// All infra calls are stubbed via PATH shims (curl included) so no real
+// host or network is touched.
+func TestDemoCLI_ShipDeployRecordPost(t *testing.T) {
+	writeDemoCoderefs(t, t.Name(), []coderef{
+		{FilePath: "test/e2e/demo_cli_ship_package_test.go", Note: "spec 173 demo source"},
+		{FilePath: "bin/ship", LineStart: 268, LineEnd: 296, Note: "post_deploy_record() POST body + auth"},
+		{FilePath: "bin/ship", LineStart: 658, LineEnd: 685, Note: "post_deploy_record called after rolling finalize"},
+	})
+
+	root, err := findRoot()
+	if err != nil {
+		t.Fatalf("findRoot: %v", err)
+	}
+
+	repo := newShipRepo(t, root)
+
+	// ── Marker files for the curl shim ────────────────────────────────────────
+	tmp := t.TempDir()
+	callLog := filepath.Join(tmp, "calls.log")
+	deployBody := filepath.Join(tmp, "deploy_body")
+	deployAuth := filepath.Join(tmp, "deploy_auth")
+	deployOrder := filepath.Join(tmp, "deploy_order")
+
+	repo.env = append(repo.env,
+		"CALL_LOG="+callLog,
+		"DEPLOY_BODY_FILE="+deployBody,
+		"DEPLOY_AUTH_FILE="+deployAuth,
+		"DEPLOY_ORDER_FILE="+deployOrder,
+	)
+
+	// ── PATH shims ────────────────────────────────────────────────────────────
+	shimDir := t.TempDir()
+	logPreamble := "CALL_LOG=\"${CALL_LOG:-/tmp/calls.log}\"\n"
+
+	writeShim(t, shimDir, "docker", "#!/usr/bin/env bash\n"+logPreamble+
+		"echo \"docker $*\" >> \"$CALL_LOG\"\n"+
+		"for arg in \"$@\"; do\n"+
+		"  [ \"$arg\" = \"pg_isready\" ] && exit 0\n"+
+		"  if [ \"$arg\" = \"pg_dump\" ]; then echo \"-- stub schema\"; exit 0; fi\n"+
+		"done\n"+
+		"exit 0\n")
+	writeShim(t, shimDir, "go", "#!/usr/bin/env bash\n"+logPreamble+
+		"echo \"go $*\" >> \"$CALL_LOG\"\n"+
+		"exit 0\n")
+	writeShim(t, shimDir, "rsync", "#!/usr/bin/env bash\n"+logPreamble+
+		"echo \"rsync $*\" >> \"$CALL_LOG\"\n"+
+		"exit 0\n")
+	writeShim(t, shimDir, "ssh", "#!/usr/bin/env bash\n"+logPreamble+
+		"echo \"ssh $*\" >> \"$CALL_LOG\"\n"+
+		"exit 0\n")
+	writeShim(t, shimDir, "sqlc", "#!/usr/bin/env bash\nexit 0\n")
+
+	// curl shim — captures POST body + Authorization header for /deploys, logs
+	// every invocation to CALL_LOG so we can assert ordering vs 'rolling finalize'.
+	writeShim(t, shimDir, "curl", "#!/usr/bin/env bash\n"+logPreamble+
+		"echo \"curl $*\" >> \"$CALL_LOG\"\n"+
+		"body=\"\"\n"+
+		"auth=\"\"\n"+
+		"url=\"\"\n"+
+		"prev=\"\"\n"+
+		"for arg in \"$@\"; do\n"+
+		"  case \"$prev\" in\n"+
+		"    -d|--data) body=\"$arg\" ;;\n"+
+		"    -H)\n"+
+		"      case \"$arg\" in Authorization:*) auth=\"$arg\" ;; esac\n"+
+		"      ;;\n"+
+		"  esac\n"+
+		"  case \"$arg\" in http://*|https://*) url=\"$arg\" ;; esac\n"+
+		"  prev=\"$arg\"\n"+
+		"done\n"+
+		"case \"$url\" in\n"+
+		"  */deploys)\n"+
+		"    printf '%s' \"$body\" > \"$DEPLOY_BODY_FILE\"\n"+
+		"    printf '%s\\n' \"$auth\" > \"$DEPLOY_AUTH_FILE\"\n"+
+		"    echo \"deploy-post\" >> \"$DEPLOY_ORDER_FILE\"\n"+
+		"    echo '{\"id\":1}'\n"+
+		"    ;;\n"+
+		"esac\n"+
+		"exit 0\n")
+
+	// Prepend shim dir so it shadows real docker/go/rsync/ssh/sqlc/curl.
+	for i, e := range repo.env {
+		if strings.HasPrefix(e, "PATH=") {
+			repo.env[i] = "PATH=" + shimDir + ":" + strings.TrimPrefix(e, "PATH=")
+			break
+		}
+	}
+
+	// ── Repo-relative stubs ───────────────────────────────────────────────────
+
+	infraDir := filepath.Join(repo.root, "infra")
+	if err := os.MkdirAll(infraDir, 0o755); err != nil {
+		t.Fatalf("mkdir infra: %v", err)
+	}
+	writeShim(t, infraDir, "hz-client", "#!/usr/bin/env bash\n"+logPreamble+
+		"echo \"hz-client $*\" >> \"$CALL_LOG\"\n"+
+		"prev=\"\"\n"+
+		"for arg in \"$@\"; do\n"+
+		"  if [ \"$prev\" = \"rolling\" ] && [ \"$arg\" = \"status\" ]; then\n"+
+		"    echo \"Rolling phase: idle\"\n"+
+		"  fi\n"+
+		"  prev=\"$arg\"\n"+
+		"done\n"+
+		"exit 0\n")
+
+	deployDistDir := filepath.Join(repo.root, "deploy", "dist")
+	if err := os.MkdirAll(deployDistDir, 0o755); err != nil {
+		t.Fatalf("mkdir deploy/dist: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(deployDistDir, "dx-server"), []byte("stub"), 0o644); err != nil {
+		t.Fatalf("write dx-server stub: %v", err)
+	}
+	writeShim(t, deployDistDir, "dx", "#!/usr/bin/env bash\n"+logPreamble+
+		"echo \"dx $*\" >> \"$CALL_LOG\"\n"+
+		"exit 0\n")
+
+	if err := os.MkdirAll(filepath.Join(repo.root, "deploy", "provision"), 0o755); err != nil {
+		t.Fatalf("mkdir deploy/provision: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(repo.root, "schema"), 0o755); err != nil {
+		t.Fatalf("mkdir schema: %v", err)
+	}
+	if err := os.WriteFile(filepath.Join(repo.root, "schema", "shipped.sql"), nil, 0o644); err != nil {
+		t.Fatalf("write shipped.sql: %v", err)
+	}
+
+	if err := os.MkdirAll(filepath.Join(repo.root, "internal", "migrate", "sql"), 0o755); err != nil {
+		t.Fatalf("mkdir internal/migrate/sql: %v", err)
+	}
+
+	// home/deploy.secret.properties — includes the four new keys (IS-667) so
+	// post_deploy_record fires instead of warn-and-skipping.
+	homeDir := filepath.Join(repo.root, "home")
+	if err := os.MkdirAll(homeDir, 0o755); err != nil {
+		t.Fatalf("mkdir home: %v", err)
+	}
+	props := strings.Join([]string{
+		"deploy.host=stub-host",
+		"deploy.token=stub-token",
+		"deploy.hz_url=http://localhost:19999",
+		"deploy.project_slug=stub-project",
+		"deploy.environment_name=stub-env",
+		"deploy.api_url=http://stub-api",
+		"deploy.api_token=stub-api-token",
+		"",
+	}, "\n")
+	if err := os.WriteFile(filepath.Join(homeDir, "deploy.secret.properties"), []byte(props), 0o644); err != nil {
+		t.Fatalf("write deploy.secret.properties: %v", err)
+	}
+
+	// ── Run bin/ship --no-package ─────────────────────────────────────────────
+	out, _ := repo.runShip(t, "--no-package")
+
+	// (a) POST happened exactly once.
+	orderBytes, err := os.ReadFile(deployOrder)
+	if err != nil {
+		t.Fatalf("read deploy order file %s: %v\nship output:\n%s", deployOrder, err, out)
+	}
+	orderLines := strings.Split(strings.TrimRight(string(orderBytes), "\n"), "\n")
+	if len(orderLines) != 1 || orderLines[0] != "deploy-post" {
+		t.Errorf("expected exactly one POST to /deploys; got %d:\n%s\nship output:\n%s",
+			len(orderLines), string(orderBytes), out)
+	}
+
+	// (b) JSON body has required fields with sane values.
+	bodyBytes, err := os.ReadFile(deployBody)
+	if err != nil {
+		t.Fatalf("read deploy body file: %v\nship output:\n%s", err, out)
+	}
+	var body map[string]any
+	if err := json.Unmarshal(bodyBytes, &body); err != nil {
+		t.Fatalf("deploy body is not valid JSON: %v\nbody: %s", err, bodyBytes)
+	}
+	if s, _ := body["build_sha"].(string); s == "" {
+		t.Errorf("build_sha is empty in body: %s", bodyBytes)
+	}
+	if s, _ := body["build_branch"].(string); s == "" {
+		t.Errorf("build_branch is empty in body: %s", bodyBytes)
+	}
+	if s, _ := body["status"].(string); s != "success" {
+		t.Errorf("status != \"success\" in body: %s", bodyBytes)
+	}
+	// jq emits numeric values as float64 in Go's JSON decoder.
+	if d, _ := body["duration_secs"].(float64); d < 0 {
+		t.Errorf("duration_secs < 0 in body: %s", bodyBytes)
+	} else if _, ok := body["duration_secs"]; !ok {
+		t.Errorf("duration_secs missing from body: %s", bodyBytes)
+	}
+	if _, ok := body["log"]; !ok {
+		t.Errorf("log missing from body: %s", bodyBytes)
+	}
+
+	// (c) Authorization: Bearer header present with the configured token.
+	authBytes, err := os.ReadFile(deployAuth)
+	if err != nil {
+		t.Fatalf("read deploy auth file: %v\nship output:\n%s", err, out)
+	}
+	auth := strings.TrimSpace(string(authBytes))
+	if !strings.HasPrefix(auth, "Authorization: Bearer ") {
+		t.Errorf("expected Authorization: Bearer header; got %q", auth)
+	}
+	if !strings.Contains(auth, "stub-api-token") {
+		t.Errorf("expected configured api token in auth header; got %q", auth)
+	}
+
+	// (d) curl POST to /deploys appears AFTER 'rolling finalize' in the call log.
+	callBytes, err := os.ReadFile(callLog)
+	if err != nil {
+		t.Fatalf("read call log %s: %v\nship output:\n%s", callLog, err, out)
+	}
+	calls := strings.Split(strings.TrimRight(string(callBytes), "\n"), "\n")
+	assertCallOrder(t, calls, []string{
+		"rolling finalize",
+		"/deploys",
 	}, out)
 }
 
