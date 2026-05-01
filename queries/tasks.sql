@@ -212,7 +212,7 @@ SELECT id, project_id, title, text, feature, status, reason, issue, depends, tes
 FROM zdx_tasks
 WHERE project_id = @project_id
   AND text = @text
-  AND status IN ('ready', 'active', 'wip', 'done')
+  AND status IN ('ready', 'active', 'wip')
   AND (@issue::text = '' OR issue = @issue)
 ORDER BY created_at DESC;
 

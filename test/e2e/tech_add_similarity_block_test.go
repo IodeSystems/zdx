@@ -198,4 +198,7 @@ func TestTechAddSimilarityIgnoresClosed(t *testing.T) {
 	if second.ID == 0 {
 		t.Fatalf("after-close add: expected task id, got 0")
 	}
+
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/dev/done",
+		map[string]any{"id": second.ID, "test_plan": "covered"}, nil))
 }
