@@ -982,6 +982,8 @@ type ZdxTodo struct {
 	BlockedReason    string             `db:"blocked_reason" json:"blocked_reason"`
 	CycleCount       int32              `db:"cycle_count" json:"cycle_count"`
 	ReferenceIssueID string             `db:"reference_issue_id" json:"reference_issue_id"`
+	ClaimBaseSha     string             `db:"claim_base_sha" json:"claim_base_sha"`
+	ClaimBaseBranch  string             `db:"claim_base_branch" json:"claim_base_branch"`
 }
 
 type ZdxTodoIncompleteReport struct {

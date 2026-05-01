@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net/http"
 	"os"
+	"os/exec"
 	"sort"
 	"strings"
 	"time"
@@ -1042,10 +1043,13 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 						ProjectID: p.ID, Keys: keys,
 					})
 				}
+				baseSha, baseBranch := resolveGitHead()
 				row, err := h.Q.ClaimNextTodo(ctx, db.ClaimNextTodoParams{
-					ProjectID:    p.ID,
-					AgentID:      in.Body.AgentID,
-					LeaseMinutes: leaseMin,
+					ProjectID:       p.ID,
+					AgentID:         in.Body.AgentID,
+					LeaseMinutes:    leaseMin,
+					ClaimBaseSha:    baseSha,
+					ClaimBaseBranch: baseBranch,
 				})
 				if err != nil {
 					return nil, err
@@ -1463,6 +1467,18 @@ func toTodoItemFromFiltered(r db.ListTodosFilteredRow) TodoItem {
 		CreatedAt:        fmtTS(r.CreatedAt),
 		ResolvedAt:       fmtTS(r.ResolvedAt),
 	}
+}
+
+// resolveGitHead returns the HEAD SHA and branch of the current working directory.
+// Returns empty strings if git is unavailable or CWD is not a git repo (non-fatal).
+func resolveGitHead() (sha, branch string) {
+	if out, err := exec.Command("git", "rev-parse", "HEAD").Output(); err == nil {
+		sha = strings.TrimSpace(string(out))
+	}
+	if out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output(); err == nil {
+		branch = strings.TrimSpace(string(out))
+	}
+	return
 }
 
 // maybeAutoFileBlockIssue creates a system-gap issue when a todo hits its second

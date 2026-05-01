@@ -19,7 +19,8 @@ var MetaBlockTodoByKey = metaquery.Query{
 WHERE project_id = $2 AND key = $3
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+          claim_base_sha, claim_base_branch`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -44,6 +45,8 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "reason", GoType: "string", DBType: "text", NotNull: true},
@@ -82,6 +85,8 @@ var BlockTodoByKeyCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -106,6 +111,8 @@ var BlockTodoByKeyCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
 
 var MetaClaimNextTodo = metaquery.Query{
@@ -114,12 +121,14 @@ var MetaClaimNextTodo = metaquery.Query{
 	Source: "todos.sql",
 	SQL: `WITH claimed AS (
   UPDATE zdx_todos SET
-    claimed_by = $1,
-    claimed_at = NOW(),
-    lease_expires_at = NOW() + ($2::int || ' minutes')::interval
+    claimed_by        = $1,
+    claimed_at        = NOW(),
+    lease_expires_at  = NOW() + ($2::int || ' minutes')::interval,
+    claim_base_sha    = $3,
+    claim_base_branch = $4
   WHERE id = (
     SELECT t.id FROM zdx_todos t
-    WHERE t.project_id = $3
+    WHERE t.project_id = $5
       AND t.status = 'open'
       AND t.blocked = false
       AND (t.claimed_by = '' OR t.lease_expires_at < NOW())
@@ -129,11 +138,13 @@ var MetaClaimNextTodo = metaquery.Query{
   )
   RETURNING id, project_id, text, title, description, key, persona, priority, status,
             target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+            claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+            claim_base_sha, claim_base_branch
 )
 SELECT c.id, c.project_id, c.text, c.title, c.description, c.key, c.persona, c.priority, c.status,
        c.target_type, c.target_id, c.kind, c.issue_ref, c.blocked, c.blocked_reason, c.cycle_count, c.reference_issue_id,
        c.claimed_by, c.claimed_at, c.lease_expires_at, c.created_at, c.resolved_at, c.reopen_count,
+       c.claim_base_sha, c.claim_base_branch,
        COALESCE(i.target_branch, 'dev') AS target_branch
 FROM claimed c
 LEFT JOIN zdx_issues i ON i.id = c.issue_ref`,
@@ -161,18 +172,22 @@ LEFT JOIN zdx_issues i ON i.id = c.issue_ref`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "claimed"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "claimed"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "claimed"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "claimed"},
 		{Name: "target_branch", OriginalName: "target_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_issues"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "agent_id", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 2, Name: "lease_minutes", GoType: "int32", DBType: "int4", NotNull: true},
-		{Position: 3, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 3, Name: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 4, Name: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 5, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 	},
 }
 
 // WrapClaimNextTodo returns a metaquery.Builder over MetaClaimNextTodo, pre-bound with typed arguments.
 func WrapClaimNextTodo(arg ClaimNextTodoParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaClaimNextTodo, arg.AgentID, arg.LeaseMinutes, arg.ProjectID)
+	return metaquery.Wrap(&MetaClaimNextTodo, arg.AgentID, arg.LeaseMinutes, arg.ClaimBaseSha, arg.ClaimBaseBranch, arg.ProjectID)
 }
 
 // ClaimNextTodoCols gives typed, name-safe access to ClaimNextTodo's output columns.
@@ -200,6 +215,8 @@ var ClaimNextTodoCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 	TargetBranch     metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
@@ -225,6 +242,8 @@ var ClaimNextTodoCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 	TargetBranch:     metaquery.NewTextCol("target_branch"),
 }
 
@@ -263,7 +282,8 @@ VALUES ($1, $2, $3, $4, $5, $6, $7, $8,
         $9, $10, $11, $12, $13, $14)
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+          claim_base_sha, claim_base_branch`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -288,6 +308,8 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -338,6 +360,8 @@ var CreateTodoCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -362,6 +386,8 @@ var CreateTodoCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
 
 var MetaDeleteTodosForProject = metaquery.Query{
@@ -411,7 +437,8 @@ var MetaGetTodoByID = metaquery.Query{
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos WHERE id = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -437,6 +464,8 @@ FROM zdx_todos WHERE id = $1`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -473,6 +502,8 @@ var GetTodoByIDCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -497,6 +528,8 @@ var GetTodoByIDCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
 
 var MetaGetTodoByKey = metaquery.Query{
@@ -505,7 +538,8 @@ var MetaGetTodoByKey = metaquery.Query{
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos WHERE project_id = $1 AND key = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -531,6 +565,8 @@ FROM zdx_todos WHERE project_id = $1 AND key = $2`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -568,6 +604,8 @@ var GetTodoByKeyCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -592,6 +630,8 @@ var GetTodoByKeyCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
 
 var MetaListActiveTodoClaims = metaquery.Query{
@@ -600,7 +640,8 @@ var MetaListActiveTodoClaims = metaquery.Query{
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos
 WHERE project_id = $1
   AND claimed_by != ''
@@ -630,6 +671,8 @@ ORDER BY claimed_at DESC`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -666,6 +709,8 @@ var ListActiveTodoClaimsCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -690,6 +735,8 @@ var ListActiveTodoClaimsCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
 
 var MetaListTodos = metaquery.Query{
@@ -698,7 +745,8 @@ var MetaListTodos = metaquery.Query{
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -724,6 +772,8 @@ FROM zdx_todos WHERE project_id = $1 ORDER BY priority, created_at`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -760,6 +810,8 @@ var ListTodosCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -784,6 +836,8 @@ var ListTodosCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
 
 var MetaListTodosFiltered = metaquery.Query{
@@ -792,7 +846,8 @@ var MetaListTodosFiltered = metaquery.Query{
 	Source: "todos.sql",
 	SQL: `SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count
+       claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+       claim_base_sha, claim_base_branch
 FROM zdx_todos
 WHERE project_id = $1
   AND ($2::boolean IS NULL OR blocked = $2::boolean)
@@ -824,6 +879,8 @@ ORDER BY priority, created_at`,
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -864,6 +921,8 @@ var ListTodosFilteredCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -888,6 +947,8 @@ var ListTodosFilteredCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
 
 var MetaReclaimExpiredTodos = metaquery.Query{
@@ -895,15 +956,18 @@ var MetaReclaimExpiredTodos = metaquery.Query{
 	Cmd:    ":many",
 	Source: "todos.sql",
 	SQL: `UPDATE zdx_todos SET
-  claimed_by = '',
-  claimed_at = NULL,
-  lease_expires_at = NULL
+  claimed_by        = '',
+  claimed_at        = NULL,
+  lease_expires_at  = NULL,
+  claim_base_sha    = '',
+  claim_base_branch = ''
 WHERE project_id = $1
   AND claimed_by != ''
   AND lease_expires_at < NOW()
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+          claim_base_sha, claim_base_branch`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -928,6 +992,8 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -964,6 +1030,8 @@ var ReclaimExpiredTodosCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -988,6 +1056,8 @@ var ReclaimExpiredTodosCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
 
 var MetaReleaseTodo = metaquery.Query{
@@ -995,9 +1065,11 @@ var MetaReleaseTodo = metaquery.Query{
 	Cmd:    ":exec",
 	Source: "todos.sql",
 	SQL: `UPDATE zdx_todos SET
-  claimed_by = '',
-  claimed_at = NULL,
-  lease_expires_at = NULL
+  claimed_by        = '',
+  claimed_at        = NULL,
+  lease_expires_at  = NULL,
+  claim_base_sha    = '',
+  claim_base_branch = ''
 WHERE id = $1 AND claimed_by = $2`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -1015,9 +1087,11 @@ var MetaReleaseTodoAdmin = metaquery.Query{
 	Cmd:    ":exec",
 	Source: "todos.sql",
 	SQL: `UPDATE zdx_todos SET
-  claimed_by = '',
-  claimed_at = NULL,
-  lease_expires_at = NULL
+  claimed_by        = '',
+  claimed_at        = NULL,
+  lease_expires_at  = NULL,
+  claim_base_sha    = '',
+  claim_base_branch = ''
 WHERE id = $1`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -1070,7 +1144,8 @@ var MetaResolveTodoByID = metaquery.Query{
 	Cmd:    ":exec",
 	Source: "todos.sql",
 	SQL: `UPDATE zdx_todos SET status = 'resolved', resolved_at = NOW(),
-  claimed_by = '', claimed_at = NULL, lease_expires_at = NULL
+  claimed_by = '', claimed_at = NULL, lease_expires_at = NULL,
+  claim_base_sha = '', claim_base_branch = ''
 WHERE id = $1`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -1209,7 +1284,8 @@ ON CONFLICT (project_id, key) DO UPDATE SET
   -- claimed_by, claimed_at, lease_expires_at, cycle_count, reference_issue_id intentionally NOT updated
 RETURNING id, project_id, text, title, description, key, persona, priority, status,
           target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
-          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count`,
+          claimed_by, claimed_at, lease_expires_at, created_at, resolved_at, reopen_count,
+          claim_base_sha, claim_base_branch`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
@@ -1234,6 +1310,8 @@ RETURNING id, project_id, text, title, description, key, persona, priority, stat
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_todos"},
 		{Name: "resolved_at", OriginalName: "resolved_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_todos"},
 		{Name: "reopen_count", OriginalName: "reopen_count", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_sha", OriginalName: "claim_base_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+		{Name: "claim_base_branch", OriginalName: "claim_base_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -1284,6 +1362,8 @@ var UpsertTodoCols = struct {
 	CreatedAt        metaquery.TimeCol
 	ResolvedAt       metaquery.TimeCol
 	ReopenCount      metaquery.IntCol
+	ClaimBaseSha     metaquery.TextCol
+	ClaimBaseBranch  metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -1308,4 +1388,6 @@ var UpsertTodoCols = struct {
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
 	ResolvedAt:       metaquery.NewTimeCol("resolved_at"),
 	ReopenCount:      metaquery.NewIntCol("reopen_count"),
+	ClaimBaseSha:     metaquery.NewTextCol("claim_base_sha"),
+	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
