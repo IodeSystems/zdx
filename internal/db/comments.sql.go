@@ -303,6 +303,38 @@ func (q *Queries) ListCommentsByAuthor(ctx context.Context, arg ListCommentsByAu
 	return items, nil
 }
 
+const listFeaturesWithPendingComments = `-- name: ListFeaturesWithPendingComments :many
+WITH last_comment AS (
+    SELECT DISTINCT ON (target_id) target_id, author_alias
+    FROM zdx_comments
+    WHERE project_id = $1 AND target_type = 'feature'
+    ORDER BY target_id, created_at DESC
+)
+SELECT target_id FROM last_comment WHERE author_alias = ''
+`
+
+// Returns feature target_ids where the most-recent comment has no author_alias
+// (human posted last and the agent has not yet replied).
+func (q *Queries) ListFeaturesWithPendingComments(ctx context.Context, projectID int32) ([]string, error) {
+	rows, err := q.db.Query(ctx, listFeaturesWithPendingComments, projectID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var target_id string
+		if err := rows.Scan(&target_id); err != nil {
+			return nil, err
+		}
+		items = append(items, target_id)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listRevisions = `-- name: ListRevisions :many
 SELECT id, project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id, created_at
 FROM zdx_revisions WHERE project_id = $1 AND target_type = $2 AND target_id = $3

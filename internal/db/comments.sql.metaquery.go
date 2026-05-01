@@ -325,6 +325,37 @@ var ListCommentsByAuthorCols = struct {
 	AuthorAlias: metaquery.NewTextCol("author_alias"),
 }
 
+var MetaListFeaturesWithPendingComments = metaquery.Query{
+	Name:   "ListFeaturesWithPendingComments",
+	Cmd:    ":many",
+	Source: "comments.sql",
+	SQL: `WITH last_comment AS (
+    SELECT DISTINCT ON (target_id) target_id, author_alias
+    FROM zdx_comments
+    WHERE project_id = $1 AND target_type = 'feature'
+    ORDER BY target_id, created_at DESC
+)
+SELECT target_id FROM last_comment WHERE author_alias = ''`,
+	Columns: []metaquery.Column{
+		{Name: "target_id", OriginalName: "target_id", GoType: "string"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListFeaturesWithPendingComments returns a metaquery.Builder over MetaListFeaturesWithPendingComments, pre-bound with typed arguments.
+func WrapListFeaturesWithPendingComments(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListFeaturesWithPendingComments, projectID)
+}
+
+// ListFeaturesWithPendingCommentsCols gives typed, name-safe access to ListFeaturesWithPendingComments's output columns.
+var ListFeaturesWithPendingCommentsCols = struct {
+	TargetID metaquery.TextCol
+}{
+	TargetID: metaquery.NewTextCol("target_id"),
+}
+
 var MetaListRevisions = metaquery.Query{
 	Name:   "ListRevisions",
 	Cmd:    ":many",

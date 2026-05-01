@@ -336,6 +336,9 @@ type Querier interface {
 	ListFeatureMultipliers(ctx context.Context, featureID int32) ([]ListFeatureMultipliersRow, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ListFeaturesRow, error)
 	ListFeaturesByGoal(ctx context.Context, goalID pgtype.Int4) ([]ListFeaturesByGoalRow, error)
+	// Returns feature target_ids where the most-recent comment has no author_alias
+	// (human posted last and the agent has not yet replied).
+	ListFeaturesWithPendingComments(ctx context.Context, projectID int32) ([]string, error)
 	ListFocusFeatures(ctx context.Context, focusID int32) ([]ListFocusFeaturesRow, error)
 	// metaquery: off
 	ListFocuses(ctx context.Context, projectID int32) ([]ListFocusesRow, error)
