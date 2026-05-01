@@ -479,6 +479,15 @@ function RichContent({ event, toolResultMap }: { event: ClaudeEventItem; toolRes
                     <SyntaxHighlighter style={oneDark} language="text" PreTag="div" customStyle={{ fontSize: '0.7rem', margin: '4px 0 0', borderRadius: 4, maxHeight: 200 }}>{input.content.slice(0, 2000)}</SyntaxHighlighter>
                   )}
                 </Box>
+              ) : name === 'WebFetch' || name === 'WebSearch' ? (
+                <Box sx={{ mt: 0.5 }}>
+                  {typeof input.url === 'string' && (
+                    <Typography variant="caption" color="text.secondary" sx={{ display: 'block', wordBreak: 'break-all' }}>{input.url}</Typography>
+                  )}
+                  {typeof input.prompt === 'string' && (
+                    <Box component="pre" sx={{ m: 0, mt: 0.5, fontSize: '0.7rem', whiteSpace: 'pre-wrap', wordBreak: 'break-word', maxHeight: 100, overflow: 'auto', color: 'text.secondary' }}>{input.prompt}</Box>
+                  )}
+                </Box>
               ) : name === 'Agent' ? (
                 <AgentBlock input={input} />
               ) : name === 'Grep' || name === 'Glob' ? (
@@ -587,6 +596,27 @@ function getSummary(event: ClaudeEventItem): string {
       if (Array.isArray(content)) {
         const text = content.find((c: Record<string, unknown>) => c.type === 'text')
         if (text && typeof text.text === 'string') return (text.text as string).slice(0, 120)
+        const toolSummaries = (content as Record<string, unknown>[]).flatMap((c) => {
+          if (c.type !== 'tool_use') return []
+          const name = c.name as string
+          const inp = (c.input as Record<string, unknown>) ?? {}
+          if (name === 'Edit') {
+            const fp = typeof inp.file_path === 'string' ? inp.file_path : ''
+            const oldL = typeof inp.old_string === 'string' ? inp.old_string.split('\n').length : 0
+            const newL = typeof inp.new_string === 'string' ? inp.new_string.split('\n').length : 0
+            return [`Edit ${fp} +${newL}/-${oldL}`]
+          }
+          if (name === 'Write') {
+            const fp = typeof inp.file_path === 'string' ? inp.file_path : ''
+            const lines = typeof inp.content === 'string' ? inp.content.split('\n').length : 0
+            return [`Write ${fp} (${lines} lines)`]
+          }
+          if (name === 'WebFetch' || name === 'WebSearch') {
+            return typeof inp.url === 'string' ? [`${name} ${inp.url}`] : [name]
+          }
+          return []
+        })
+        if (toolSummaries.length > 0) return toolSummaries.join(', ').slice(0, 120)
       }
     }
   }
