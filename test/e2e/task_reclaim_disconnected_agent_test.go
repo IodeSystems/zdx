@@ -89,8 +89,9 @@ func TestReclaimExpiredTaskPausedIgnoresDisconnectAt(t *testing.T) {
 
 	expireTaskLease(t, taskInt)
 	registerAgentWithStatus(t, d.Slug, agentID, "session-paused-dc", "", "paused")
-	// Set a stale disconnect_at that would otherwise trigger reclaim.
-	setAgentDisconnectAt(t, agentID, -90*time.Second)
+	// Set a stale disconnect_at without touching status, so the agent stays
+	// 'paused' while disconnect_at is past the grace window.
+	setDisconnectAtOnly(t, agentID, -90*time.Second)
 
 	var reclaimResp struct {
 		Reclaimed int `json:"reclaimed"`
@@ -120,5 +121,25 @@ func setAgentDisconnectAt(t *testing.T, agentID string, offset time.Duration) {
 		`UPDATE zdx_agents SET status = 'disconnected', disconnect_at = $2 WHERE id = $1`,
 		agentID, disconnectAt); err != nil {
 		t.Fatalf("set agent disconnect_at: %v", err)
+	}
+}
+
+// setDisconnectAtOnly sets disconnect_at to now()+offset without mutating
+// status, so callers can preserve a previously-set status (e.g. 'paused')
+// while exercising the disconnect_at branch of reclaim SQL.
+func setDisconnectAtOnly(t *testing.T, agentID string, offset time.Duration) {
+	t.Helper()
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := pgx.Connect(ctx, srv.DSN)
+	if err != nil {
+		t.Fatalf("pgx connect: %v", err)
+	}
+	defer conn.Close(ctx)
+	disconnectAt := time.Now().Add(offset)
+	if _, err := conn.Exec(ctx,
+		`UPDATE zdx_agents SET disconnect_at = $2 WHERE id = $1`,
+		agentID, disconnectAt); err != nil {
+		t.Fatalf("set agent disconnect_at only: %v", err)
 	}
 }
