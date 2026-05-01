@@ -55,30 +55,33 @@ func (h *Handler) findSimilarQuestions(ctx context.Context, projectID int32, que
 }
 
 func (h *Handler) findSimilarProposals(ctx context.Context, projectID int32, queryText string, n int, excludeID int32) ([]SimilarProposalItem, error) {
-	seen := make(map[int32]bool)
+	seen := map[int32]int{} // id -> index in out (-1 means excluded)
 	if excludeID != 0 {
-		seen[excludeID] = true
+		seen[excludeID] = -1
 	}
 	out := make([]SimilarProposalItem, 0, n)
 
 	// text search first
 	rows, _ := h.Q.SearchProposals(ctx, db.SearchProposalsParams{ProjectID: projectID, Query: queryText})
 	for _, r := range rows {
-		if seen[r.ID] {
+		if _, exists := seen[r.ID]; exists {
 			continue
 		}
-		seen[r.ID] = true
-		out = append(out, SimilarProposalItem{ID: r.ID, Title: r.Title, Body: r.Body, Status: r.Status})
+		seen[r.ID] = len(out)
+		out = append(out, SimilarProposalItem{ID: r.ID, Title: r.Title, Body: r.Body, Status: r.Status, MatchedVia: "text"})
 	}
 
 	// vector search
 	results, _ := h.Emb.TopNProposals(ctx, projectID, queryText, n)
 	for _, r := range results {
 		id := int32(r.ID) //nolint:gosec
-		if seen[id] {
+		if idx, exists := seen[id]; exists {
+			if idx >= 0 {
+				out[idx].MatchedVia = "both"
+				out[idx].Score = r.Score
+			}
 			continue
 		}
-		seen[id] = true
 		p, err := h.Q.GetProposal(ctx, db.GetProposalParams{ProjectID: projectID, ID: id})
 		if err != nil {
 			continue
@@ -86,7 +89,8 @@ func (h *Handler) findSimilarProposals(ctx context.Context, projectID int32, que
 		if p.Status == "rejected" || p.Status == "approved" {
 			continue
 		}
-		out = append(out, SimilarProposalItem{ID: p.ID, Title: p.Title, Body: p.Body, Status: p.Status, Score: r.Score})
+		seen[id] = len(out)
+		out = append(out, SimilarProposalItem{ID: p.ID, Title: p.Title, Body: p.Body, Status: p.Status, Score: r.Score, MatchedVia: "vector"})
 	}
 
 	if len(out) > n {

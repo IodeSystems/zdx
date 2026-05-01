@@ -277,3 +277,12 @@ ORDER BY created_at;
 -- name: AdoptTaskToIssue :exec
 -- Link an orphan task to a parent issue (zdx_tasks.issue = $2).
 UPDATE zdx_tasks SET issue = @issue::text, updated_at = NOW() WHERE id = @id;
+
+-- name: SearchTasks :many
+-- metaquery: off
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+FROM zdx_tasks
+WHERE project_id = @project_id
+  AND (title ILIKE '%' || @query::text || '%' OR text ILIKE '%' || @query::text || '%')
+ORDER BY updated_at DESC
+LIMIT 10;

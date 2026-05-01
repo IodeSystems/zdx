@@ -191,3 +191,13 @@ WHERE project_id = @project_id
   AND (name ILIKE '%' || @query::text || '%' OR description ILIKE '%' || @query::text || '%')
 ORDER BY name
 LIMIT 10;
+
+-- name: SearchSpecs :many
+-- metaquery: off
+SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = @project_id
+  AND s.description ILIKE '%' || @query::text || '%'
+ORDER BY s.id DESC
+LIMIT 10;

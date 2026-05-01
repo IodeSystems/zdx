@@ -318,28 +318,31 @@ type CodeRefItem struct {
 }
 
 type SimilarIssueItem struct {
-	ID      string  `json:"id"`
-	Title   string  `json:"title"`
-	Context string  `json:"context"`
-	Status  string  `json:"status"`
-	Score   float32 `json:"score"`
+	ID         string  `json:"id"`
+	Title      string  `json:"title"`
+	Context    string  `json:"context"`
+	Status     string  `json:"status"`
+	Score      float32 `json:"score"`
+	MatchedVia string  `json:"matched_via"`
 }
 
 type SimilarTaskItem struct {
-	ID     string  `json:"id"`
-	Title  string  `json:"title"`
-	Text   string  `json:"text"`
-	Status string  `json:"status"`
-	Reason string  `json:"reason"`
-	Issue  string  `json:"issue"`
-	Score  float32 `json:"score"`
+	ID         string  `json:"id"`
+	Title      string  `json:"title"`
+	Text       string  `json:"text"`
+	Status     string  `json:"status"`
+	Reason     string  `json:"reason"`
+	Issue      string  `json:"issue"`
+	Score      float32 `json:"score"`
+	MatchedVia string  `json:"matched_via"`
 }
 
 type SimilarQuestionItem struct {
-	ID       int32   `json:"id"`
-	Question string  `json:"question"`
-	Answer   string  `json:"answer"`
-	Score    float32 `json:"score"`
+	ID         int32   `json:"id"`
+	Question   string  `json:"question"`
+	Answer     string  `json:"answer"`
+	Score      float32 `json:"score"`
+	MatchedVia string  `json:"matched_via"`
 }
 
 type SearchFeatureItem struct {
@@ -363,6 +366,7 @@ type SimilarFeatureItem struct {
 	Category    string  `json:"category"`
 	Kind        string  `json:"kind"`
 	Score       float32 `json:"score"`
+	MatchedVia  string  `json:"matched_via"`
 }
 
 type SimilarSpecItem struct {
@@ -372,14 +376,16 @@ type SimilarSpecItem struct {
 	Description string  `json:"description"`
 	Importance  string  `json:"importance"`
 	Score       float32 `json:"score"`
+	MatchedVia  string  `json:"matched_via"`
 }
 
 type SimilarProposalItem struct {
-	ID     int32   `json:"id"`
-	Title  string  `json:"title"`
-	Body   string  `json:"body"`
-	Status string  `json:"status"`
-	Score  float32 `json:"score"`
+	ID         int32   `json:"id"`
+	Title      string  `json:"title"`
+	Body       string  `json:"body"`
+	Status     string  `json:"status"`
+	Score      float32 `json:"score"`
+	MatchedVia string  `json:"matched_via"`
 }
 
 type ProposalDedupGroup struct {

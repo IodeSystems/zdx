@@ -34,3 +34,12 @@ SELECT id, project_id, category, question, answer, created_at, updated_at, paren
 FROM zdx_questions
 WHERE project_id = $1 AND answer IS NULL
 ORDER BY created_at;
+
+-- name: SearchQuestions :many
+-- metaquery: off
+SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
+FROM zdx_questions
+WHERE project_id = @project_id
+  AND (question ILIKE '%' || @query::text || '%' OR answer ILIKE '%' || @query::text || '%')
+ORDER BY created_at DESC
+LIMIT 10;
