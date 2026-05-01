@@ -379,6 +379,7 @@ func TestSoloTriageResolveRefusedWhenUntriaged(t *testing.T) {
 // Closing that issue must automatically unblock the todo so it re-enters the queue.
 func TestSoloCycleDetectionAutoFilesIssue(t *testing.T) {
 	d := NewApiDriver(t, "solo-cycle-autofile", "Solo Cycle Autofile")
+	t.Setenv("AUTO_FILE_AGENT_FAILURES", "true")
 	Given(d).
 		Issue("Cycle test issue", "auto-file system gap").
 		HealthPrereqs().
