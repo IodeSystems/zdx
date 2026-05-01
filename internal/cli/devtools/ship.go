@@ -526,7 +526,11 @@ func compatRunTests(dsn string, pkgs []string) error {
 	args := append([]string{"test"}, pkgs...)
 	args = append(args, "-count=1", "-timeout=60s")
 	cmd := exec.Command("go", args...)
-	cmd.Env = append(os.Environ(), "DATABASE_URL="+dsn)
+	pgx5DSN := strings.Replace(dsn, "postgres://", "pgx5://", 1)
+	cmd.Env = append(os.Environ(),
+		"DATABASE_URL="+pgx5DSN,
+		"DATABASE_URL_PG="+dsn,
+	)
 	cmd.Stdout = os.Stdout
 	cmd.Stderr = os.Stderr
 	return cmd.Run()
