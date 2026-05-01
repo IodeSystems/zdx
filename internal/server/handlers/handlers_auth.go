@@ -322,6 +322,9 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 				Projects []ProjectItem `json:"projects"`
 			}
 		}, error) {
+			if ProjectScopeFromContext(ctx) != nil {
+				return nil, apiErr(http.StatusForbidden, "scoped tokens cannot list all projects")
+			}
 			rows, err := h.Q.ListProjects(ctx)
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -353,6 +356,9 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 				LocalGit            bool   `json:"local_git,omitempty"`
 			}
 		}) (*struct{ Body ProjectItem }, error) {
+			if ProjectScopeFromContext(ctx) != nil {
+				return nil, apiErr(http.StatusForbidden, "scoped tokens cannot create projects")
+			}
 			if in.Body.Classification != "" {
 				switch in.Body.Classification {
 				case "library", "tool", "service", "saas", "site":
