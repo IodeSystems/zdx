@@ -492,9 +492,9 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 					continue
 				}
 				trace.Note(ctx, "dedup hit", map[string]any{
-					"proposal_id":     proposal.ID,
-					"title":           proposal.Title,
-					"similar_issues":  len(issues),
+					"proposal_id":       proposal.ID,
+					"title":             proposal.Title,
+					"similar_issues":    len(issues),
 					"similar_proposals": len(duplicates),
 				})
 				for _, d := range duplicates {
