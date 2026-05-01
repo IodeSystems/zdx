@@ -141,6 +141,21 @@ func resolveDeployedSHAFromAPI(ctx context.Context, env string) (string, error) 
 	return resp.JSON200.CurrentBuildSha, nil
 }
 
+// resolveShipSecretsPath returns the secrets-file path for ship run.
+// Precedence: SHIP_SECRETS_FILE env var > comp.Ship.SecretsFile config field
+// > default "home/deploy.secret.properties". The default mirrors the legacy
+// bin/ship script (IS-892) so existing checkouts keep working without config
+// changes.
+func resolveShipSecretsPath(configured string) string {
+	if v := os.Getenv("SHIP_SECRETS_FILE"); v != "" {
+		return v
+	}
+	if configured != "" {
+		return configured
+	}
+	return "home/deploy.secret.properties"
+}
+
 func shipGitOutput(args ...string) string {
 	out, err := exec.Command("git", args...).Output()
 	if err != nil {
@@ -172,11 +187,17 @@ func shipRunCmd() *cobra.Command {
 			sha := shipGitOutput("rev-parse", "HEAD")
 			branch := shipGitOutput("rev-parse", "--abbrev-ref", "HEAD")
 
+			secretsPath := resolveShipSecretsPath(comp.Ship.SecretsFile)
+			secrets, err := ship.LoadSecretsFile(secretsPath)
+			if err != nil {
+				return fmt.Errorf("ship: load secrets file %s: %w", secretsPath, err)
+			}
+
 			opts := ship.RunOptions{
 				NoResume:      noResume,
 				ComponentName: compName,
 			}
-			results, runErr := ship.Run(cmd.Context(), comp, nil, opts)
+			results, runErr := ship.Run(cmd.Context(), comp, secrets, opts)
 
 			c, err := cli.DefaultClient()
 			if err != nil {
