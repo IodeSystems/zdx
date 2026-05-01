@@ -954,6 +954,16 @@ type ZdxUser struct {
 	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
+type ZdxVersionBranch struct {
+	ID        int64              `db:"id" json:"id"`
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	Name      string             `db:"name" json:"name"`
+	Type      string             `db:"type" json:"type"`
+	Semver    pgtype.Text        `db:"semver" json:"semver"`
+	Status    string             `db:"status" json:"status"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxWorkLog struct {
 	ID        int32              `db:"id" json:"id"`
 	IssueID   string             `db:"issue_id" json:"issue_id"`

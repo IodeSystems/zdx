@@ -4,6 +4,7 @@
 
 
 -- Dumped from database version 17.9 (Debian 17.9-1.pgdg13+1)
+-- Dumped by pg_dump version 18.3 (Ubuntu 18.3-1.pgdg24.04+1)
 
 SET statement_timeout = 0;
 SET lock_timeout = 0;
@@ -2641,6 +2642,42 @@ ALTER SEQUENCE public.zdx_users_id_seq OWNED BY public.zdx_users.id;
 
 
 --
+-- Name: zdx_version_branches; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_version_branches (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    name text NOT NULL,
+    type text NOT NULL,
+    semver text,
+    status text DEFAULT 'active'::text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT zdx_version_branches_status_check CHECK ((status = ANY (ARRAY['active'::text, 'eol'::text]))),
+    CONSTRAINT zdx_version_branches_type_check CHECK ((type = ANY (ARRAY['dev'::text, 'named'::text])))
+);
+
+
+--
+-- Name: zdx_version_branches_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_version_branches_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_version_branches_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_version_branches_id_seq OWNED BY public.zdx_version_branches.id;
+
+
+--
 -- Name: zdx_work_log; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -3106,6 +3143,13 @@ ALTER TABLE ONLY public.zdx_todos ALTER COLUMN id SET DEFAULT nextval('public.zd
 --
 
 ALTER TABLE ONLY public.zdx_users ALTER COLUMN id SET DEFAULT nextval('public.zdx_users_id_seq'::regclass);
+
+
+--
+-- Name: zdx_version_branches id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_version_branches ALTER COLUMN id SET DEFAULT nextval('public.zdx_version_branches_id_seq'::regclass);
 
 
 --
@@ -4025,6 +4069,22 @@ ALTER TABLE ONLY public.zdx_users
 
 ALTER TABLE ONLY public.zdx_users
     ADD CONSTRAINT zdx_users_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_version_branches zdx_version_branches_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_version_branches
+    ADD CONSTRAINT zdx_version_branches_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_version_branches zdx_version_branches_project_id_name_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_version_branches
+    ADD CONSTRAINT zdx_version_branches_project_id_name_key UNIQUE (project_id, name);
 
 
 --
@@ -5543,6 +5603,14 @@ ALTER TABLE ONLY public.zdx_todo_incomplete_reports
 
 ALTER TABLE ONLY public.zdx_todos
     ADD CONSTRAINT zdx_todos_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_version_branches zdx_version_branches_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_version_branches
+    ADD CONSTRAINT zdx_version_branches_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

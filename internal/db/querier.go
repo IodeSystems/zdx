@@ -110,6 +110,7 @@ type Querier interface {
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
+	CreateVersionBranch(ctx context.Context, arg CreateVersionBranchParams) (ZdxVersionBranch, error)
 	DeferDoctorCheck(ctx context.Context, arg DeferDoctorCheckParams) error
 	DeleteAgent(ctx context.Context, id string) error
 	DeleteApiKey(ctx context.Context, arg DeleteApiKeyParams) error
@@ -237,6 +238,7 @@ type Querier interface {
 	GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (GetUnreviewedJournalEntryRow, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
+	GetVersionBranchByName(ctx context.Context, arg GetVersionBranchByNameParams) (ZdxVersionBranch, error)
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
@@ -490,6 +492,7 @@ type Querier interface {
 	ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error)
 	ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
+	ListVersionBranches(ctx context.Context, projectID int32) ([]ZdxVersionBranch, error)
 	// metaquery: off
 	ListWorklogCrossProject(ctx context.Context, arg ListWorklogCrossProjectParams) ([]ListWorklogCrossProjectRow, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error)
@@ -503,6 +506,7 @@ type Querier interface {
 	MarkTaskDone(ctx context.Context, arg MarkTaskDoneParams) error
 	MarkTaskReviewed(ctx context.Context, id string) error
 	MarkTaskUndone(ctx context.Context, id string) error
+	MarkVersionBranchEOL(ctx context.Context, arg MarkVersionBranchEOLParams) error
 	NextID(ctx context.Context, kind string) (int32, error)
 	NextLLMConfigPriority(ctx context.Context) (int32, error)
 	// Average minutes from blocker_question creation to answer for resolved
