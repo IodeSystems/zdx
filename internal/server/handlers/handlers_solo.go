@@ -192,9 +192,8 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 
 	features, _ := h.Q.ListFeatures(ctx, projectID)
 
-	// Surface read:comments for any issue or feature that has at least one comment.
-	// zdx_comment_reads was dropped in migration 122; presence of any comment is now
-	// the signal. The agent reads and replies; the item is resolved on next evaluate.
+	// Surface read:comments for issues with any comment, and for features only when
+	// the last comment has no author_alias (human posted last, agent hasn't replied).
 	{
 		targetsWithComments, _ := h.Q.ListTargetsWithComments(ctx, projectID)
 		allIssues, _ := h.Q.ListIssues(ctx, projectID)
@@ -203,41 +202,42 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 			allIssuesByID[iss.ID] = iss
 		}
 		for _, t := range targetsWithComments {
-			switch t.TargetType {
-			case "issue":
-				if issueFilter != "" && t.TargetID != issueFilter {
-					continue
-				}
-				iss, ok := allIssuesByID[t.TargetID]
-				if !ok {
-					continue
-				}
-				hint := workflowhints.UnreadCommentsText(iss.ID, iss.Title)
+			if t.TargetType != "issue" {
+				continue
+			}
+			if issueFilter != "" && t.TargetID != issueFilter {
+				continue
+			}
+			iss, ok := allIssuesByID[t.TargetID]
+			if !ok {
+				continue
+			}
+			hint := workflowhints.UnreadCommentsText(iss.ID, iss.Title)
+			candidates = append(candidates, soloCandidate{
+				Key:         fmt.Sprintf("comment-issue-%s", iss.ID),
+				Title:       hint.Title,
+				Description: hint.Description,
+				Text:        hint.Instructions,
+				Kind:        "read:comments",
+				TargetType:  "issue",
+				TargetID:    iss.ID,
+				IssueRef:    iss.ID,
+				Priority:    5,
+				Persona:     "dev",
+			})
+		}
+		if issueFilter == "" {
+			pendingFeatures, _ := h.Q.ListFeaturesWithPendingComments(ctx, projectID)
+			for _, featureID := range pendingFeatures {
+				hint := workflowhints.UnreadFeatureCommentsText(featureID)
 				candidates = append(candidates, soloCandidate{
-					Key:         fmt.Sprintf("comment-issue-%s", iss.ID),
-					Title:       hint.Title,
-					Description: hint.Description,
-					Text:        hint.Instructions,
-					Kind:        "read:comments",
-					TargetType:  "issue",
-					TargetID:    iss.ID,
-					IssueRef:    iss.ID,
-					Priority:    5,
-					Persona:     "dev",
-				})
-			case "feature":
-				if issueFilter != "" {
-					continue
-				}
-				hint := workflowhints.UnreadFeatureCommentsText(t.TargetID)
-				candidates = append(candidates, soloCandidate{
-					Key:         fmt.Sprintf("comment-feature-%s", t.TargetID),
+					Key:         fmt.Sprintf("comment-feature-%s", featureID),
 					Title:       hint.Title,
 					Description: hint.Description,
 					Text:        hint.Instructions,
 					Kind:        "read:comments",
 					TargetType:  "feature",
-					TargetID:    t.TargetID,
+					TargetID:    featureID,
 					Priority:    8,
 					Persona:     "dev",
 				})

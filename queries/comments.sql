@@ -28,6 +28,17 @@ FROM zdx_comments
 WHERE project_id = $1
 ORDER BY target_type, target_id;
 
+-- name: ListFeaturesWithPendingComments :many
+-- Returns feature target_ids where the most-recent comment has no author_alias
+-- (human posted last and the agent has not yet replied).
+WITH last_comment AS (
+    SELECT DISTINCT ON (target_id) target_id, author_alias
+    FROM zdx_comments
+    WHERE project_id = $1 AND target_type = 'feature'
+    ORDER BY target_id, created_at DESC
+)
+SELECT target_id FROM last_comment WHERE author_alias = '';
+
 -- name: AddRevision :exec
 INSERT INTO zdx_revisions (project_id, target_type, target_id, field, old_val, new_val, agent, session_id, user_id)
 VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9);
