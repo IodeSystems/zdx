@@ -18,6 +18,10 @@
 #   deploy.host=ubuntu@192.168.1.89
 #   deploy.token=<hz-token>
 #   deploy.hz_url=http://hz.office.iodesystems.com
+#   deploy.project_slug=<dx project slug>          # optional; enables deploy-record POST
+#   deploy.environment_name=<dx environment name>  # optional; enables deploy-record POST
+#   deploy.api_url=<https://dx.example.com>        # optional; target dx-server base URL
+#   deploy.api_token=<bearer token>                # optional; bearer for the deploy POST
 #
 # Normal rolling deploy flow (compatible migration):
 # 1. Build + package (cross-compile linux/amd64)
@@ -130,6 +134,13 @@ load_deploy_config() {
   export HZ_URL=$(prop deploy.hz_url)
   RSYNC_PATH="sudo -u $SERVICE rsync"
 
+  # Optional: deploy-record POST to a dx-server. Missing keys → warn-and-skip in
+  # post_deploy_record so --package and partial configs keep working.
+  DEPLOY_PROJECT_SLUG=$(prop deploy.project_slug)
+  DEPLOY_ENV_NAME=$(prop deploy.environment_name)
+  DEPLOY_API_URL=$(prop deploy.api_url)
+  DEPLOY_API_TOKEN=$(prop deploy.api_token)
+
   [ -z "$HOST" ]     && echo "[ship] Missing deploy.host"   && exit 1
   [ -z "$HZ_TOKEN" ] && echo "[ship] Missing deploy.token"  && exit 1
   [ -z "$HZ_URL" ]   && echo "[ship] Missing deploy.hz_url" && exit 1
@@ -238,6 +249,51 @@ else
 fi
 
 load_deploy_config
+
+# ── Deploy-record context ─────────────────────────────────────────────────────
+# Capture start time, deploy SHA, and stdout/stderr so post_deploy_record can
+# include duration_secs + log in the POST body. SHIP_START is the wall-clock at
+# deploy-config load (excludes lint/build/compat-check, which is what operators
+# care about as "how long did the deploy itself take").
+
+SHIP_START=$(date +%s)
+SHIP_LOG_FILE=$(mktemp -t zdx-ship-log.XXXXXX)
+DEPLOYED_GIT_HASH=$(git rev-parse HEAD)
+$IS_DIRTY && DEPLOYED_GIT_HASH="${DEPLOYED_GIT_HASH}-dirty"
+
+# Mirror everything from here on into SHIP_LOG_FILE. The original stdout/stderr
+# still go to the terminal (tee), and the file is what gets POSTed.
+exec > >(tee -a "$SHIP_LOG_FILE") 2>&1
+
+post_deploy_record() {
+  if [ -z "$DEPLOY_API_URL" ] || [ -z "$DEPLOY_PROJECT_SLUG" ] || [ -z "$DEPLOY_ENV_NAME" ]; then
+    echo "[ship] WARN: deploy.api_url/project_slug/environment_name missing — skipping deploy record POST."
+    return 0
+  fi
+  local duration_secs=$(( $(date +%s) - SHIP_START ))
+  local branch
+  branch=$(git rev-parse --abbrev-ref HEAD)
+  local log_content
+  log_content=$(cat "$SHIP_LOG_FILE" 2>/dev/null || echo "")
+  local body
+  body=$(jq -n \
+    --arg sha "$DEPLOYED_GIT_HASH" \
+    --arg branch "$branch" \
+    --argjson duration "$duration_secs" \
+    --arg log "$log_content" \
+    '{build_sha: $sha, build_branch: $branch, status: "success", duration_secs: $duration, log: $log}')
+  local auth_header=()
+  [ -n "$DEPLOY_API_TOKEN" ] && auth_header=(-H "Authorization: Bearer $DEPLOY_API_TOKEN")
+  if curl -sf -X POST \
+    "${auth_header[@]}" \
+    -H "Content-Type: application/json" \
+    -d "$body" \
+    "$DEPLOY_API_URL/api/dx/projects/$DEPLOY_PROJECT_SLUG/environments/$DEPLOY_ENV_NAME/deploys" >/dev/null; then
+    echo "[ship] Deploy record posted (env=$DEPLOY_ENV_NAME, sha=${DEPLOYED_GIT_HASH:0:12}, duration=${duration_secs}s)."
+  else
+    echo "[ship] WARN: deploy record POST failed (deploy itself succeeded)."
+  fi
+}
 
 # ── Validate migration history unchanged ──────────────────────────────────────
 #
@@ -609,6 +665,7 @@ if ! $NON_COMPAT; then
       deploy_current
       echo "[ship] Phase 3: rolling finalize..."
       $HZ rolling finalize
+      post_deploy_record
       ;;
     next-down)
       deploy_next
@@ -617,11 +674,13 @@ if ! $NON_COMPAT; then
       deploy_current
       echo "[ship] Phase 3: rolling finalize..."
       $HZ rolling finalize
+      post_deploy_record
       ;;
     current-down)
       deploy_current
       echo "[ship] Phase 3: rolling finalize..."
       $HZ rolling finalize
+      post_deploy_record
       ;;
   esac
 
@@ -671,12 +730,13 @@ else
   wait_health 7600 "current"
 
   echo "[ship] Both slots serving new code, maintenance cleared."
+  post_deploy_record
 fi
 
 # ── Verify and record ─────────────────────────────────────────────────────────
 
-DEPLOYED_GIT_HASH=$(git rev-parse HEAD)
-$IS_DIRTY && DEPLOYED_GIT_HASH="${DEPLOYED_GIT_HASH}-dirty"
+# DEPLOYED_GIT_HASH was computed early (before the deploy phases) so
+# post_deploy_record can include it in its POST body.
 ssh "$HOST" "sudo -u $SERVICE bash -c \"echo '$DEPLOYED_GIT_HASH' > $REMOTE_HOME/home/shipped-commit\""
 echo "[ship] Deployed commit: $DEPLOYED_GIT_HASH"
 
