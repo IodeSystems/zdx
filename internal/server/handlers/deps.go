@@ -44,6 +44,7 @@ type TodoIncompleteStore interface {
 	GetTodoByKey(ctx context.Context, arg db.GetTodoByKeyParams) (db.GetTodoByKeyRow, error)
 	AddTodoIncompleteReport(ctx context.Context, arg db.AddTodoIncompleteReportParams) (db.ZdxTodoIncompleteReport, error)
 	GetTodoIncompleteReportsByTodo(ctx context.Context, todoID int32) ([]db.ZdxTodoIncompleteReport, error)
+	AggregateTodoIncompleteReports(ctx context.Context, arg db.AggregateTodoIncompleteReportsParams) ([]db.AggregateTodoIncompleteReportsRow, error)
 }
 
 type SchemaFeatures struct {

@@ -45,6 +45,17 @@ func fmtTS(ts pgtype.Timestamptz) string {
 	return ts.Time.UTC().Format(time.RFC3339)
 }
 
+func fmtTSAny(v interface{}) string {
+	switch t := v.(type) {
+	case pgtype.Timestamptz:
+		return fmtTS(t)
+	case time.Time:
+		return t.UTC().Format(time.RFC3339)
+	default:
+		return ""
+	}
+}
+
 // ptrStr dereferences a *string, returning "" for nil.
 func ptrStr(s *string) string {
 	if s == nil {

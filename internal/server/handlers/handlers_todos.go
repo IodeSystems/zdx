@@ -350,4 +350,56 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 			}
 			return &struct{ Body []IncompleteReportItem }{Body: items}, nil
 		})
+
+	type IncompleteReportGroup struct {
+		Reason              string  `json:"reason"`
+		EvidenceFingerprint string  `json:"evidence_fingerprint"`
+		TotalCount          int64   `json:"total_count"`
+		AffectedTodoIDs     []int32 `json:"affected_todo_ids"`
+		LastSeen            string  `json:"last_seen"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-incomplete-reports", Method: http.MethodGet, Path: "/api/dx/incomplete-reports"},
+		func(ctx context.Context, in *struct {
+			Slug   string `query:"slug"`
+			Reason string `query:"reason"`
+		}) (*struct {
+			Body struct{ Groups []IncompleteReportGroup }
+		}, error) {
+			store := h.todoIncompleteStore()
+			p, err := store.GetProjectBySlug(ctx, in.Slug)
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Slug)
+			}
+			var reasonParam pgtype.Text
+			if in.Reason != "" {
+				reasonParam = pgtype.Text{String: in.Reason, Valid: true}
+			}
+			rows, err := store.AggregateTodoIncompleteReports(ctx, db.AggregateTodoIncompleteReportsParams{
+				ProjectID: p.ID,
+				Reason:    reasonParam,
+			})
+			if err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			groups := make([]IncompleteReportGroup, len(rows))
+			for i, row := range rows {
+				ids := row.AffectedTodoIds
+				if ids == nil {
+					ids = []int32{}
+				}
+				groups[i] = IncompleteReportGroup{
+					Reason:              row.Reason,
+					EvidenceFingerprint: row.EvidenceFingerprint,
+					TotalCount:          row.TotalCount,
+					AffectedTodoIDs:     ids,
+					LastSeen:            fmtTSAny(row.LastSeen),
+				}
+			}
+			return &struct {
+				Body struct{ Groups []IncompleteReportGroup }
+			}{
+				Body: struct{ Groups []IncompleteReportGroup }{Groups: groups},
+			}, nil
+		})
 }

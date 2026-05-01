@@ -64,6 +64,33 @@ func (s *stubTodoIncompleteStore) GetTodoIncompleteReportsByTodo(_ context.Conte
 	return out, nil
 }
 
+func (s *stubTodoIncompleteStore) AggregateTodoIncompleteReports(_ context.Context, arg db.AggregateTodoIncompleteReportsParams) ([]db.AggregateTodoIncompleteReportsRow, error) {
+	type key struct{ reason, fp string }
+	counts := map[key]int64{}
+	ids := map[key][]int32{}
+	for _, r := range s.reports {
+		if r.ProjectID != arg.ProjectID {
+			continue
+		}
+		if arg.Reason.Valid && r.Reason != arg.Reason.String {
+			continue
+		}
+		k := key{r.Reason, r.EvidenceFingerprint}
+		counts[k]++
+		ids[k] = append(ids[k], r.TodoID)
+	}
+	var rows []db.AggregateTodoIncompleteReportsRow
+	for k, c := range counts {
+		rows = append(rows, db.AggregateTodoIncompleteReportsRow{
+			Reason:              k.reason,
+			EvidenceFingerprint: k.fp,
+			TotalCount:          c,
+			AffectedTodoIds:     ids[k],
+		})
+	}
+	return rows, nil
+}
+
 func newTodoIncompleteAPI(t *testing.T, store TodoIncompleteStore) humatest.TestAPI {
 	t.Helper()
 	_, api := humatest.New(t, huma.DefaultConfig("test", "1.0.0"))
@@ -122,6 +149,59 @@ func TestIncompleteReportFingerprintDifferentEvidence(t *testing.T) {
 	fp2 := incompleteEvidenceFingerprint(map[string]string{"key": "b"})
 	if fp1 == fp2 {
 		t.Errorf("different evidence produced identical fingerprint: %q", fp1)
+	}
+}
+
+func TestAggregateIncompleteReports(t *testing.T) {
+	store := newTestStore()
+	api := newTodoIncompleteAPI(t, store)
+
+	// Two reports with same (reason, evidence) → one group with total_count=2
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason": "capability_gap", "explanation": "missing tool",
+	})
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason": "capability_gap", "explanation": "missing tool",
+	})
+	// Different fingerprint → second group
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason": "capability_gap", "explanation": "other", "evidence": map[string]string{"k": "v"},
+	})
+
+	resp := api.Get("/api/dx/incomplete-reports?slug=proj")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	body := resp.Body.String()
+	if !strings.Contains(body, "capability_gap") {
+		t.Errorf("body missing reason: %s", body)
+	}
+	if !strings.Contains(body, "affected_todo_ids") {
+		t.Errorf("body missing affected_todo_ids: %s", body)
+	}
+}
+
+func TestAggregateIncompleteReportsReasonFilter(t *testing.T) {
+	store := newTestStore()
+	api := newTodoIncompleteAPI(t, store)
+
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason": "capability_gap", "explanation": "x",
+	})
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason": "flaky_test", "explanation": "y",
+	})
+
+	resp := api.Get("/api/dx/incomplete-reports?slug=proj&reason=capability_gap")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	body := resp.Body.String()
+	if !strings.Contains(body, "capability_gap") {
+		t.Errorf("missing capability_gap: %s", body)
+	}
+	if strings.Contains(body, "flaky_test") {
+		t.Errorf("filter should exclude flaky_test: %s", body)
 	}
 }
 

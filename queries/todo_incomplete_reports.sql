@@ -25,9 +25,13 @@ WHERE todo_id = $1
 ORDER BY created_at DESC;
 
 -- name: AggregateTodoIncompleteReports :many
-SELECT reason, evidence_fingerprint, COUNT(*) AS occurrence_count, MAX(created_at) AS last_seen
+SELECT reason,
+       evidence_fingerprint,
+       COUNT(*)::bigint                    AS total_count,
+       array_agg(DISTINCT todo_id)::int[]  AS affected_todo_ids,
+       MAX(created_at)                     AS last_seen
 FROM zdx_todo_incomplete_reports
 WHERE project_id = @project_id
-  AND (sqlc.narg('reason')::text IS NULL OR reason = sqlc.narg('reason')::text)
+  AND (sqlc.narg(reason)::text IS NULL OR reason = sqlc.narg(reason)::text)
 GROUP BY reason, evidence_fingerprint
-ORDER BY occurrence_count DESC, last_seen DESC;
+ORDER BY total_count DESC, last_seen DESC;
