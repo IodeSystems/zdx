@@ -2534,6 +2534,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/projects/{slug}/todos/{key}/incomplete-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-todo-incomplete-reports"];
+        put?: never;
+        post: operations["post-todo-incomplete-report"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/proposals": {
         parameters: {
             query?: never;
@@ -2830,6 +2846,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list-revisions"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/ship/must-spec-gate": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-must-spec-ship-gate-offenders"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4747,6 +4779,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/tasks/test/expire-lease": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["expire-task-lease-for-test"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/tasks/{id}/release": {
         parameters: {
             query?: never;
@@ -5812,6 +5860,9 @@ export interface components {
             readonly $schema?: string;
             build_branch?: string;
             build_sha: string;
+            /** Format: int32 */
+            duration_secs?: number;
+            log?: string;
             status?: string;
         };
         "Create-environmentRequest": {
@@ -6107,9 +6158,12 @@ export interface components {
             /** Format: int32 */
             deployed_by_user_id: number;
             /** Format: int32 */
+            duration_secs: number;
+            /** Format: int32 */
             environment_id: number;
             /** Format: int32 */
             id: number;
+            log: string;
             status: string;
         };
         "Detach-code-ref-from-issueRequest": {
@@ -6362,6 +6416,15 @@ export interface components {
             /** Format: int64 */
             thread_id?: number;
         };
+        "Expire-task-lease-for-testRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Expire-task-lease-for-testRequest.json
+             */
+            readonly $schema?: string;
+            task_id: string;
+        };
         FeatureItem: {
             /**
              * Format: uri
@@ -6596,6 +6659,19 @@ export interface components {
             title: string;
             updated_at: string;
         };
+        HealthOutput: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/HealthOutput.json
+             */
+            readonly $schema?: string;
+            build_sha: string;
+            status: string;
+            subsystems: {
+                [key: string]: components["schemas"]["SubsystemState"];
+            };
+        };
         HistoricalCloseGateOffender: {
             detail: string;
             gate: string;
@@ -6614,6 +6690,27 @@ export interface components {
             session_id: string;
             to_status?: string;
             user_id: string;
+        };
+        IncompleteReportItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/IncompleteReportItem.json
+             */
+            readonly $schema?: string;
+            agent_id?: string;
+            created_at: string;
+            evidence?: string;
+            evidence_fingerprint: string;
+            explanation: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int32 */
+            project_id: number;
+            reason: string;
+            suggested_next?: string;
+            /** Format: int32 */
+            todo_id: number;
         };
         "Ingest-countersResponse": {
             /**
@@ -7616,6 +7713,15 @@ export interface components {
             readonly $schema?: string;
             offenders: components["schemas"]["SpecCloseGateOffender"][] | null;
         };
+        "List-must-spec-ship-gate-offendersResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-must-spec-ship-gate-offendersResponse.json
+             */
+            readonly $schema?: string;
+            offenders: components["schemas"]["SpecCloseGateOffender"][] | null;
+        };
         "List-my-api-keysResponse": {
             /**
              * Format: uri
@@ -8250,6 +8356,21 @@ export interface components {
             /** Format: int64 */
             id: number;
             sampled_at: string;
+        };
+        PostIncompleteReportInputBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/PostIncompleteReportInputBody.json
+             */
+            readonly $schema?: string;
+            agent_id?: string;
+            evidence?: {
+                [key: string]: string;
+            };
+            explanation: string;
+            reason: string;
+            suggested_next?: string;
         };
         ProjectItem: {
             /**
@@ -9117,6 +9238,7 @@ export interface components {
             /** Format: int32 */
             id: number;
             kind: string;
+            matched_via: string;
             name: string;
             /** Format: float */
             score: number;
@@ -9124,6 +9246,7 @@ export interface components {
         SimilarIssueItem: {
             context: string;
             id: string;
+            matched_via: string;
             /** Format: float */
             score: number;
             status: string;
@@ -9140,6 +9263,7 @@ export interface components {
             body: string;
             /** Format: int32 */
             id: number;
+            matched_via: string;
             /** Format: float */
             score: number;
             status: string;
@@ -9149,6 +9273,7 @@ export interface components {
             answer: string;
             /** Format: int32 */
             id: number;
+            matched_via: string;
             question: string;
             /** Format: float */
             score: number;
@@ -9161,12 +9286,14 @@ export interface components {
             /** Format: int32 */
             id: number;
             importance: string;
+            matched_via: string;
             /** Format: float */
             score: number;
         };
         SimilarTaskItem: {
             id: string;
             issue: string;
+            matched_via: string;
             reason: string;
             /** Format: float */
             score: number;
@@ -9456,6 +9583,14 @@ export interface components {
             readonly $schema?: string;
             results: components["schemas"]["TestResultInput"][] | null;
             slug: string;
+        };
+        SubsystemState: {
+            /** Format: int64 */
+            depth?: number;
+            reason?: string;
+            /** Format: date-time */
+            since?: string;
+            state: string;
         };
         "Sweep-stale-tasksRequest": {
             /**
@@ -15922,6 +16057,74 @@ export interface operations {
             };
         };
     };
+    "list-todo-incomplete-reports": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncompleteReportItem"][] | null;
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "post-todo-incomplete-report": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                key: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["PostIncompleteReportInputBody"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["IncompleteReportItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-proposals": {
         parameters: {
             query: {
@@ -16611,6 +16814,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-revisionsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-must-spec-ship-gate-offenders": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-must-spec-ship-gate-offendersResponse"];
                 };
             };
             /** @description Error */
@@ -20045,9 +20279,7 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": {
-                        [key: string]: string;
-                    };
+                    "application/json": components["schemas"]["HealthOutput"];
                 };
             };
             /** @description Error */
@@ -20702,6 +20934,37 @@ export interface operations {
                 content: {
                     "application/json": components["schemas"]["Reclaim-expired-tasksResponse"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "expire-task-lease-for-test": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Expire-task-lease-for-testRequest"];
+            };
+        };
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {

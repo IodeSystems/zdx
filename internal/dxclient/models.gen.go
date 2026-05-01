@@ -12,6 +12,7 @@ import (
 	"net/http"
 	"net/url"
 	"strings"
+	"time"
 
 	"github.com/oapi-codegen/runtime"
 )
@@ -836,10 +837,12 @@ type CreateDiscussionRequest struct {
 // CreateEnvironmentDeployRequest defines model for Create-environment-deployRequest.
 type CreateEnvironmentDeployRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema      *string `json:"$schema,omitempty"`
-	BuildBranch *string `json:"build_branch,omitempty"`
-	BuildSha    string  `json:"build_sha"`
-	Status      *string `json:"status,omitempty"`
+	Schema       *string `json:"$schema,omitempty"`
+	BuildBranch  *string `json:"build_branch,omitempty"`
+	BuildSha     string  `json:"build_sha"`
+	DurationSecs *int32  `json:"duration_secs,omitempty"`
+	Log          *string `json:"log,omitempty"`
+	Status       *string `json:"status,omitempty"`
 }
 
 // CreateEnvironmentRequest defines model for Create-environmentRequest.
@@ -1077,8 +1080,10 @@ type DeployItem struct {
 	BuildSha         string  `json:"build_sha"`
 	DeployedAt       string  `json:"deployed_at"`
 	DeployedByUserId int32   `json:"deployed_by_user_id"`
+	DurationSecs     int32   `json:"duration_secs"`
 	EnvironmentId    int32   `json:"environment_id"`
 	Id               int32   `json:"id"`
+	Log              string  `json:"log"`
 	Status           string  `json:"status"`
 }
 
@@ -1280,6 +1285,13 @@ type EventItem struct {
 	ThreadId           *int64      `json:"thread_id,omitempty"`
 }
 
+// ExpireTaskLeaseForTestRequest defines model for Expire-task-lease-for-testRequest.
+type ExpireTaskLeaseForTestRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	TaskId string  `json:"task_id"`
+}
+
 // FeatureItem defines model for FeatureItem.
 type FeatureItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1473,6 +1485,15 @@ type GoalItem struct {
 	UpdatedAt   string  `json:"updated_at"`
 }
 
+// HealthOutput defines model for HealthOutput.
+type HealthOutput struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema     *string                   `json:"$schema,omitempty"`
+	BuildSha   string                    `json:"build_sha"`
+	Status     string                    `json:"status"`
+	Subsystems map[string]SubsystemState `json:"subsystems"`
+}
+
 // HistoricalCloseGateOffender defines model for HistoricalCloseGateOffender.
 type HistoricalCloseGateOffender struct {
 	Detail  string `json:"detail"`
@@ -1493,6 +1514,22 @@ type HistoryEvent struct {
 	SessionId  string  `json:"session_id"`
 	ToStatus   *string `json:"to_status,omitempty"`
 	UserId     string  `json:"user_id"`
+}
+
+// IncompleteReportItem defines model for IncompleteReportItem.
+type IncompleteReportItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema              *string `json:"$schema,omitempty"`
+	AgentId             *string `json:"agent_id,omitempty"`
+	CreatedAt           string  `json:"created_at"`
+	Evidence            *string `json:"evidence,omitempty"`
+	EvidenceFingerprint string  `json:"evidence_fingerprint"`
+	Explanation         string  `json:"explanation"`
+	Id                  int64   `json:"id"`
+	ProjectId           int32   `json:"project_id"`
+	Reason              string  `json:"reason"`
+	SuggestedNext       *string `json:"suggested_next,omitempty"`
+	TodoId              int32   `json:"todo_id"`
 }
 
 // IngestCountersResponse defines model for Ingest-countersResponse.
@@ -2797,6 +2834,17 @@ type PostKpiSampleResponse struct {
 	SampledAt string  `json:"sampled_at"`
 }
 
+// PostIncompleteReportInputBody defines model for PostIncompleteReportInputBody.
+type PostIncompleteReportInputBody struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema        *string            `json:"$schema,omitempty"`
+	AgentId       *string            `json:"agent_id,omitempty"`
+	Evidence      *map[string]string `json:"evidence,omitempty"`
+	Explanation   string             `json:"explanation"`
+	Reason        string             `json:"reason"`
+	SuggestedNext *string            `json:"suggested_next,omitempty"`
+}
+
 // ProjectItem defines model for ProjectItem.
 type ProjectItem struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -3502,17 +3550,19 @@ type SimilarFeatureItem struct {
 	Description string  `json:"description"`
 	Id          int32   `json:"id"`
 	Kind        string  `json:"kind"`
+	MatchedVia  string  `json:"matched_via"`
 	Name        string  `json:"name"`
 	Score       float32 `json:"score"`
 }
 
 // SimilarIssueItem defines model for SimilarIssueItem.
 type SimilarIssueItem struct {
-	Context string  `json:"context"`
-	Id      string  `json:"id"`
-	Score   float32 `json:"score"`
-	Status  string  `json:"status"`
-	Title   string  `json:"title"`
+	Context    string  `json:"context"`
+	Id         string  `json:"id"`
+	MatchedVia string  `json:"matched_via"`
+	Score      float32 `json:"score"`
+	Status     string  `json:"status"`
+	Title      string  `json:"title"`
 }
 
 // SimilarPatternItem defines model for SimilarPatternItem.
@@ -3525,19 +3575,21 @@ type SimilarPatternItem struct {
 
 // SimilarProposalItem defines model for SimilarProposalItem.
 type SimilarProposalItem struct {
-	Body   string  `json:"body"`
-	Id     int32   `json:"id"`
-	Score  float32 `json:"score"`
-	Status string  `json:"status"`
-	Title  string  `json:"title"`
+	Body       string  `json:"body"`
+	Id         int32   `json:"id"`
+	MatchedVia string  `json:"matched_via"`
+	Score      float32 `json:"score"`
+	Status     string  `json:"status"`
+	Title      string  `json:"title"`
 }
 
 // SimilarQuestionItem defines model for SimilarQuestionItem.
 type SimilarQuestionItem struct {
-	Answer   string  `json:"answer"`
-	Id       int32   `json:"id"`
-	Question string  `json:"question"`
-	Score    float32 `json:"score"`
+	Answer     string  `json:"answer"`
+	Id         int32   `json:"id"`
+	MatchedVia string  `json:"matched_via"`
+	Question   string  `json:"question"`
+	Score      float32 `json:"score"`
 }
 
 // SimilarSpecItem defines model for SimilarSpecItem.
@@ -3547,18 +3599,20 @@ type SimilarSpecItem struct {
 	FeatureName string  `json:"feature_name"`
 	Id          int32   `json:"id"`
 	Importance  string  `json:"importance"`
+	MatchedVia  string  `json:"matched_via"`
 	Score       float32 `json:"score"`
 }
 
 // SimilarTaskItem defines model for SimilarTaskItem.
 type SimilarTaskItem struct {
-	Id     string  `json:"id"`
-	Issue  string  `json:"issue"`
-	Reason string  `json:"reason"`
-	Score  float32 `json:"score"`
-	Status string  `json:"status"`
-	Text   string  `json:"text"`
-	Title  string  `json:"title"`
+	Id         string  `json:"id"`
+	Issue      string  `json:"issue"`
+	MatchedVia string  `json:"matched_via"`
+	Reason     string  `json:"reason"`
+	Score      float32 `json:"score"`
+	Status     string  `json:"status"`
+	Text       string  `json:"text"`
+	Title      string  `json:"title"`
 }
 
 // SlowQueryItem defines model for SlowQueryItem.
@@ -3799,6 +3853,14 @@ type SubmitTestResultsRequest struct {
 	Schema  *string            `json:"$schema,omitempty"`
 	Results *[]TestResultInput `json:"results"`
 	Slug    string             `json:"slug"`
+}
+
+// SubsystemState defines model for SubsystemState.
+type SubsystemState struct {
+	Depth  *int64     `json:"depth,omitempty"`
+	Reason *string    `json:"reason,omitempty"`
+	Since  *time.Time `json:"since,omitempty"`
+	State  string     `json:"state"`
 }
 
 // SweepStaleTasksRequest defines model for Sweep-stale-tasksRequest.
@@ -5444,6 +5506,9 @@ type ClaimIssueJSONRequestBody = ClaimIssueRequest
 // RenewIssueLeaseJSONRequestBody defines body for RenewIssueLease for application/json ContentType.
 type RenewIssueLeaseJSONRequestBody = RenewIssueLeaseRequest
 
+// PostTodoIncompleteReportJSONRequestBody defines body for PostTodoIncompleteReport for application/json ContentType.
+type PostTodoIncompleteReportJSONRequestBody = PostIncompleteReportInputBody
+
 // CreateProposalJSONRequestBody defines body for CreateProposal for application/json ContentType.
 type CreateProposalJSONRequestBody = CreateProposalRequest
 
@@ -5692,6 +5757,9 @@ type UpdateTaskStatusJSONRequestBody = UpdateTaskStatusRequest
 
 // ClaimTaskJSONRequestBody defines body for ClaimTask for application/json ContentType.
 type ClaimTaskJSONRequestBody = ClaimTaskRequest
+
+// ExpireTaskLeaseForTestJSONRequestBody defines body for ExpireTaskLeaseForTest for application/json ContentType.
+type ExpireTaskLeaseForTestJSONRequestBody = ExpireTaskLeaseForTestRequest
 
 // ReleaseTaskJSONRequestBody defines body for ReleaseTask for application/json ContentType.
 type ReleaseTaskJSONRequestBody = ReleaseTaskRequest
@@ -6469,6 +6537,14 @@ type ClientInterface interface {
 	// GetTodoDetail request
 	GetTodoDetail(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListTodoIncompleteReports request
+	ListTodoIncompleteReports(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// PostTodoIncompleteReportWithBody request with any body
+	PostTodoIncompleteReportWithBody(ctx context.Context, slug string, key string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	PostTodoIncompleteReport(ctx context.Context, slug string, key string, body PostTodoIncompleteReportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListProposals request
 	ListProposals(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -7075,6 +7151,11 @@ type ClientInterface interface {
 
 	// ReclaimExpiredTasks request
 	ReclaimExpiredTasks(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ExpireTaskLeaseForTestWithBody request with any body
+	ExpireTaskLeaseForTestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ExpireTaskLeaseForTest(ctx context.Context, body ExpireTaskLeaseForTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ReleaseTaskWithBody request with any body
 	ReleaseTaskWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -10188,6 +10269,42 @@ func (c *APIClient) GetTodoDetail(ctx context.Context, slug string, key string, 
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) ListTodoIncompleteReports(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListTodoIncompleteReportsRequest(c.Server, slug, key)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) PostTodoIncompleteReportWithBody(ctx context.Context, slug string, key string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostTodoIncompleteReportRequestWithBody(c.Server, slug, key, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) PostTodoIncompleteReport(ctx context.Context, slug string, key string, body PostTodoIncompleteReportJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewPostTodoIncompleteReportRequest(c.Server, slug, key, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListProposals(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListProposalsRequest(c.Server, params)
 	if err != nil {
@@ -12938,6 +13055,30 @@ func (c *APIClient) ClaimTask(ctx context.Context, body ClaimTaskJSONRequestBody
 
 func (c *APIClient) ReclaimExpiredTasks(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewReclaimExpiredTasksRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ExpireTaskLeaseForTestWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExpireTaskLeaseForTestRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ExpireTaskLeaseForTest(ctx context.Context, body ExpireTaskLeaseForTestJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewExpireTaskLeaseForTestRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -22188,6 +22329,101 @@ func NewGetTodoDetailRequest(server string, slug string, key string) (*http.Requ
 	return req, nil
 }
 
+// NewListTodoIncompleteReportsRequest generates requests for ListTodoIncompleteReports
+func NewListTodoIncompleteReportsRequest(server string, slug string, key string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/todos/%s/incomplete-reports", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewPostTodoIncompleteReportRequest calls the generic PostTodoIncompleteReport builder with application/json body
+func NewPostTodoIncompleteReportRequest(server string, slug string, key string, body PostTodoIncompleteReportJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewPostTodoIncompleteReportRequestWithBody(server, slug, key, "application/json", bodyReader)
+}
+
+// NewPostTodoIncompleteReportRequestWithBody generates requests for PostTodoIncompleteReport with any type of body
+func NewPostTodoIncompleteReportRequestWithBody(server string, slug string, key string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "key", key, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/todos/%s/incomplete-reports", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewListProposalsRequest generates requests for ListProposals
 func NewListProposalsRequest(server string, params *ListProposalsParams) (*http.Request, error) {
 	var err error
@@ -29714,6 +29950,46 @@ func NewReclaimExpiredTasksRequest(server string) (*http.Request, error) {
 	return req, nil
 }
 
+// NewExpireTaskLeaseForTestRequest calls the generic ExpireTaskLeaseForTest builder with application/json body
+func NewExpireTaskLeaseForTestRequest(server string, body ExpireTaskLeaseForTestJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewExpireTaskLeaseForTestRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewExpireTaskLeaseForTestRequestWithBody generates requests for ExpireTaskLeaseForTest with any type of body
+func NewExpireTaskLeaseForTestRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/tasks/test/expire-lease")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewReleaseTaskRequest calls the generic ReleaseTask builder with application/json body
 func NewReleaseTaskRequest(server string, id string, body ReleaseTaskJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -30585,6 +30861,14 @@ type ClientWithResponsesInterface interface {
 	// GetTodoDetailWithResponse request
 	GetTodoDetailWithResponse(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*GetTodoDetailResponse, error)
 
+	// ListTodoIncompleteReportsWithResponse request
+	ListTodoIncompleteReportsWithResponse(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*ListTodoIncompleteReportsResponse, error)
+
+	// PostTodoIncompleteReportWithBodyWithResponse request with any body
+	PostTodoIncompleteReportWithBodyWithResponse(ctx context.Context, slug string, key string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostTodoIncompleteReportResponse, error)
+
+	PostTodoIncompleteReportWithResponse(ctx context.Context, slug string, key string, body PostTodoIncompleteReportJSONRequestBody, reqEditors ...RequestEditorFn) (*PostTodoIncompleteReportResponse, error)
+
 	// ListProposalsWithResponse request
 	ListProposalsWithResponse(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*ParsedListProposalsResponse, error)
 
@@ -31191,6 +31475,11 @@ type ClientWithResponsesInterface interface {
 
 	// ReclaimExpiredTasksWithResponse request
 	ReclaimExpiredTasksWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedReclaimExpiredTasksResponse, error)
+
+	// ExpireTaskLeaseForTestWithBodyWithResponse request with any body
+	ExpireTaskLeaseForTestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExpireTaskLeaseForTestResponse, error)
+
+	ExpireTaskLeaseForTestWithResponse(ctx context.Context, body ExpireTaskLeaseForTestJSONRequestBody, reqEditors ...RequestEditorFn) (*ExpireTaskLeaseForTestResponse, error)
 
 	// ReleaseTaskWithBodyWithResponse request with any body
 	ReleaseTaskWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ReleaseTaskResponse, error)
@@ -35290,6 +35579,52 @@ func (r GetTodoDetailResponse) StatusCode() int {
 	return 0
 }
 
+type ListTodoIncompleteReportsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *[]IncompleteReportItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ListTodoIncompleteReportsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ListTodoIncompleteReportsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type PostTodoIncompleteReportResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *IncompleteReportItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r PostTodoIncompleteReportResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r PostTodoIncompleteReportResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListProposalsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -38190,7 +38525,7 @@ func (r ParsedListGoalsResponse) StatusCode() int {
 type HealthResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
-	JSON200                       *map[string]string
+	JSON200                       *HealthOutput
 	ApplicationproblemJSONDefault *ErrorModel
 }
 
@@ -38662,6 +38997,28 @@ func (r ParsedReclaimExpiredTasksResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedReclaimExpiredTasksResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ExpireTaskLeaseForTestResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ExpireTaskLeaseForTestResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ExpireTaskLeaseForTestResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -40977,6 +41334,32 @@ func (c *ClientWithResponses) GetTodoDetailWithResponse(ctx context.Context, slu
 	return ParseGetTodoDetailResponse(rsp)
 }
 
+// ListTodoIncompleteReportsWithResponse request returning *ListTodoIncompleteReportsResponse
+func (c *ClientWithResponses) ListTodoIncompleteReportsWithResponse(ctx context.Context, slug string, key string, reqEditors ...RequestEditorFn) (*ListTodoIncompleteReportsResponse, error) {
+	rsp, err := c.ListTodoIncompleteReports(ctx, slug, key, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseListTodoIncompleteReportsResponse(rsp)
+}
+
+// PostTodoIncompleteReportWithBodyWithResponse request with arbitrary body returning *PostTodoIncompleteReportResponse
+func (c *ClientWithResponses) PostTodoIncompleteReportWithBodyWithResponse(ctx context.Context, slug string, key string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*PostTodoIncompleteReportResponse, error) {
+	rsp, err := c.PostTodoIncompleteReportWithBody(ctx, slug, key, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostTodoIncompleteReportResponse(rsp)
+}
+
+func (c *ClientWithResponses) PostTodoIncompleteReportWithResponse(ctx context.Context, slug string, key string, body PostTodoIncompleteReportJSONRequestBody, reqEditors ...RequestEditorFn) (*PostTodoIncompleteReportResponse, error) {
+	rsp, err := c.PostTodoIncompleteReport(ctx, slug, key, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParsePostTodoIncompleteReportResponse(rsp)
+}
+
 // ListProposalsWithResponse request returning *ParsedListProposalsResponse
 func (c *ClientWithResponses) ListProposalsWithResponse(ctx context.Context, params *ListProposalsParams, reqEditors ...RequestEditorFn) (*ParsedListProposalsResponse, error) {
 	rsp, err := c.ListProposals(ctx, params, reqEditors...)
@@ -42962,6 +43345,23 @@ func (c *ClientWithResponses) ReclaimExpiredTasksWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseParsedReclaimExpiredTasksResponse(rsp)
+}
+
+// ExpireTaskLeaseForTestWithBodyWithResponse request with arbitrary body returning *ExpireTaskLeaseForTestResponse
+func (c *ClientWithResponses) ExpireTaskLeaseForTestWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ExpireTaskLeaseForTestResponse, error) {
+	rsp, err := c.ExpireTaskLeaseForTestWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExpireTaskLeaseForTestResponse(rsp)
+}
+
+func (c *ClientWithResponses) ExpireTaskLeaseForTestWithResponse(ctx context.Context, body ExpireTaskLeaseForTestJSONRequestBody, reqEditors ...RequestEditorFn) (*ExpireTaskLeaseForTestResponse, error) {
+	rsp, err := c.ExpireTaskLeaseForTest(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseExpireTaskLeaseForTestResponse(rsp)
 }
 
 // ReleaseTaskWithBodyWithResponse request with arbitrary body returning *ReleaseTaskResponse
@@ -48805,6 +49205,72 @@ func ParseGetTodoDetailResponse(rsp *http.Response) (*GetTodoDetailResponse, err
 	return response, nil
 }
 
+// ParseListTodoIncompleteReportsResponse parses an HTTP response from a ListTodoIncompleteReportsWithResponse call
+func ParseListTodoIncompleteReportsResponse(rsp *http.Response) (*ListTodoIncompleteReportsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ListTodoIncompleteReportsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest []IncompleteReportItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParsePostTodoIncompleteReportResponse parses an HTTP response from a PostTodoIncompleteReportWithResponse call
+func ParsePostTodoIncompleteReportResponse(rsp *http.Response) (*PostTodoIncompleteReportResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &PostTodoIncompleteReportResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest IncompleteReportItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListProposalsResponse parses an HTTP response from a ListProposalsWithResponse call
 func ParseParsedListProposalsResponse(rsp *http.Response) (*ParsedListProposalsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -52971,7 +53437,7 @@ func ParseHealthResponse(rsp *http.Response) (*HealthResponse, error) {
 
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
-		var dest map[string]string
+		var dest HealthOutput
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -53623,6 +54089,32 @@ func ParseParsedReclaimExpiredTasksResponse(rsp *http.Response) (*ParsedReclaimE
 		}
 		response.JSON200 = &dest
 
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseExpireTaskLeaseForTestResponse parses an HTTP response from a ExpireTaskLeaseForTestWithResponse call
+func ParseExpireTaskLeaseForTestResponse(rsp *http.Response) (*ExpireTaskLeaseForTestResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ExpireTaskLeaseForTestResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
 		var dest ErrorModel
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
