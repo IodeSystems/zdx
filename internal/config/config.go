@@ -149,12 +149,15 @@ func (s Ship) IsZero() bool {
 
 // Stage is one step in a ship pipeline. Target, when non-empty, means
 // the Run command executes on a remote host (ssh wrapper); Optional
-// stages don't halt the pipeline on failure.
+// stages don't halt the pipeline on failure. Tags are free-form labels
+// strategies may inspect — e.g. blue-green re-runs only stages tagged
+// "verify" after the slot swap.
 type Stage struct {
-	Name     string `yaml:"name"`
-	Run      string `yaml:"run"`
-	Target   string `yaml:"target"`
-	Optional bool   `yaml:"optional"`
+	Name     string   `yaml:"name"`
+	Run      string   `yaml:"run"`
+	Target   string   `yaml:"target"`
+	Optional bool     `yaml:"optional"`
+	Tags     []string `yaml:"tags,omitempty"`
 }
 
 type Close struct {

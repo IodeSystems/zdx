@@ -138,6 +138,91 @@ func TestRun_DefaultsToSimple(t *testing.T) {
 	}
 }
 
+// TestRun_BlueGreen verifies the two-pass blue-green flow: deploy pass
+// runs every stage with caller's slot vars; verify pass re-runs only
+// stages tagged "verify" with the slot vars swapped.
+func TestRun_BlueGreen(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyBlueGreen,
+		Stages: []config.Stage{
+			{Name: "deploy", Run: "echo deploy:$ZDX_ACTIVE_SLOT"},
+			{Name: "smoke", Run: "echo smoke:$ZDX_ACTIVE_SLOT", Tags: []string{"verify"}},
+		},
+	}}
+	env := map[string]string{
+		"ZDX_ACTIVE_SLOT":  "a",
+		"ZDX_STANDBY_SLOT": "b",
+	}
+	res, err := Run(context.Background(), comp, env)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res) != 3 {
+		t.Fatalf("want 3 results (2 deploy + 1 verify), got %d", len(res))
+	}
+	if got := strings.TrimSpace(res[0].Log); got != "deploy:a" {
+		t.Errorf("pass1 deploy log = %q, want deploy:a", got)
+	}
+	if got := strings.TrimSpace(res[1].Log); got != "smoke:a" {
+		t.Errorf("pass1 smoke log = %q, want smoke:a", got)
+	}
+	if res[2].Name != "smoke" {
+		t.Errorf("pass2 stage name = %q, want smoke", res[2].Name)
+	}
+	if got := strings.TrimSpace(res[2].Log); got != "smoke:b" {
+		t.Errorf("pass2 smoke log = %q, want smoke:b (swapped)", got)
+	}
+}
+
+// TestRun_BlueGreen_NoVerifyStages verifies that blue-green with no
+// verify-tagged stages skips the second pass cleanly.
+func TestRun_BlueGreen_NoVerifyStages(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyBlueGreen,
+		Stages: []config.Stage{
+			{Name: "deploy", Run: "echo $ZDX_ACTIVE_SLOT-$ZDX_STANDBY_SLOT"},
+		},
+	}}
+	res, err := Run(context.Background(), comp, map[string]string{
+		"ZDX_ACTIVE_SLOT":  "a",
+		"ZDX_STANDBY_SLOT": "b",
+	})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res) != 1 {
+		t.Fatalf("want 1 result (no verify pass), got %d", len(res))
+	}
+	if got := strings.TrimSpace(res[0].Log); got != "a-b" {
+		t.Errorf("log = %q, want a-b", got)
+	}
+}
+
+// TestRun_BlueGreen_DeployFailureSkipsVerify verifies that a failure
+// in the deploy pass aborts before the verify pass runs.
+func TestRun_BlueGreen_DeployFailureSkipsVerify(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyBlueGreen,
+		Stages: []config.Stage{
+			{Name: "deploy", Run: "exit 1"},
+			{Name: "smoke", Run: "echo never", Tags: []string{"verify"}},
+		},
+	}}
+	res, err := Run(context.Background(), comp, map[string]string{
+		"ZDX_ACTIVE_SLOT":  "a",
+		"ZDX_STANDBY_SLOT": "b",
+	})
+	if err == nil {
+		t.Fatalf("want error, got nil")
+	}
+	if len(res) != 1 {
+		t.Fatalf("want 1 result (deploy failure halts), got %d", len(res))
+	}
+	if res[0].Status != "failed" {
+		t.Errorf("status = %q, want failed", res[0].Status)
+	}
+}
+
 // TestRun_SSH_FakeSSH exercises the SSH path end-to-end with a fake `ssh`
 // shim on PATH that just echoes its argv. Hermetic — gated only because
 // it modifies $PATH for the test process.
