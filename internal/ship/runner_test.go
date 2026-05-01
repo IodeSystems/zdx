@@ -223,6 +223,43 @@ func TestRun_BlueGreen_DeployFailureSkipsVerify(t *testing.T) {
 	}
 }
 
+// TestRun_Maintenance verifies that maintenance strategy injects ZDX_MAINTENANCE=1
+// and that simple strategy does not.
+func TestRun_Maintenance(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategyMaintenance,
+		Stages: []config.Stage{
+			{Name: "check", Run: `echo ZDX_MAINTENANCE=$ZDX_MAINTENANCE`},
+		},
+	}}
+	res, err := Run(context.Background(), comp, nil)
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	if len(res) != 1 {
+		t.Fatalf("want 1 result, got %d", len(res))
+	}
+	if !strings.Contains(res[0].Log, "ZDX_MAINTENANCE=1") {
+		t.Errorf("log = %q, want ZDX_MAINTENANCE=1", res[0].Log)
+	}
+
+	// simple strategy must NOT inject ZDX_MAINTENANCE
+	simple := config.Component{Ship: config.Ship{
+		Strategy: config.ShipStrategySimple,
+		Stages: []config.Stage{
+			{Name: "check", Run: `echo ZDX_MAINTENANCE=$ZDX_MAINTENANCE`},
+		},
+	}}
+	t.Setenv("ZDX_MAINTENANCE", "") // ensure it's absent from ambient env
+	res2, err := Run(context.Background(), simple, nil)
+	if err != nil {
+		t.Fatalf("Run (simple): %v", err)
+	}
+	if strings.Contains(strings.TrimSpace(res2[0].Log), "ZDX_MAINTENANCE=1") {
+		t.Errorf("simple strategy log = %q, must not contain ZDX_MAINTENANCE=1", res2[0].Log)
+	}
+}
+
 // TestRun_SSH_FakeSSH exercises the SSH path end-to-end with a fake `ssh`
 // shim on PATH that just echoes its argv. Hermetic — gated only because
 // it modifies $PATH for the test process.
