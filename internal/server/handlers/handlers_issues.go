@@ -18,6 +18,7 @@ import (
 	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
 	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
 
+	"github.com/iodesystems/zdx-go/internal/atlas/trace"
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -676,12 +677,20 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "list-must-spec-ship-gate-offenders", Method: http.MethodGet, Path: "/api/dx/ship/must-spec-gate"},
 		func(ctx context.Context, in *struct {
-			Slug string `query:"slug" required:"true"`
+			Slug        string `query:"slug" required:"true"`
+			Debug       string `query:"debug" required:"false"`
+			XAtlasDebug string `header:"X-Atlas-Debug" required:"false"`
 		}) (*struct {
 			Body struct {
 				Offenders []SpecCloseGateOffender `json:"offenders"`
+				Debug     *DebugOutput            `json:"debug,omitempty"`
 			}
 		}, error) {
+			var err error
+			ctx, _, err = debugStart(ctx, in.Debug, in.XAtlasDebug)
+			if err != nil {
+				return nil, err
+			}
 			p, err := getProject(ctx, h.Q, in.Slug)
 			if err != nil {
 				return nil, err
@@ -698,14 +707,22 @@ func (h *Handler) registerIssueRoutes(api huma.API) {
 					Feature:     r.FeatureName,
 					Reason:      r.Reason,
 				}
+				trace.Note(ctx, "gate offender", map[string]any{
+					"spec":    r.SpecID,
+					"feature": r.FeatureName,
+					"reason":  r.Reason,
+				})
 			}
+			trace.Note(ctx, "offender_count", len(offenders))
 			return &struct {
 				Body struct {
 					Offenders []SpecCloseGateOffender `json:"offenders"`
+					Debug     *DebugOutput            `json:"debug,omitempty"`
 				}
 			}{Body: struct {
 				Offenders []SpecCloseGateOffender `json:"offenders"`
-			}{Offenders: offenders}}, nil
+				Debug     *DebugOutput            `json:"debug,omitempty"`
+			}{Offenders: offenders, Debug: debugOutput(ctx)}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "reopen-issue", Method: http.MethodPost, Path: "/api/dx/todo/issue/reopen"},

@@ -14,6 +14,7 @@ import (
 	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery"
 	"github.com/iodesystems/sqlc-go-codegen-metaquery/metaquery/mqpgx"
 
+	"github.com/iodesystems/zdx-go/internal/atlas/trace"
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/kpidelta"
 	"github.com/iodesystems/zdx-go/internal/techmetrics"
@@ -613,16 +614,23 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "journal-generate", Method: http.MethodPost, Path: "/api/dx/journal/generate"},
 		func(ctx context.Context, in *struct {
-			Body struct {
+			Debug       string `query:"debug" required:"false"`
+			XAtlasDebug string `header:"X-Atlas-Debug" required:"false"`
+			Body        struct {
 				Slug string `json:"slug"`
 				Role string `json:"role"`
 			}
 		}) (*struct {
 			Body struct {
 				Entry JournalEntryItem `json:"entry"`
+				Debug *DebugOutput     `json:"debug,omitempty"`
 			}
 		}, error) {
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
+			if err != nil {
+				return nil, err
+			}
+			ctx, _, err = debugStart(ctx, in.Debug, in.XAtlasDebug)
 			if err != nil {
 				return nil, err
 			}
@@ -933,13 +941,17 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			// finds the existing open issue and appends a recurrence comment instead
 			// of duplicating. Bodies carry definition + units + threshold + diagnosis +
 			// suggested action + the journal entry that triggered.
-			if os.Getenv("STANDUP_AUTO_FILE_ALERTS") == "true" {
+			autoFileEnabled := os.Getenv("STANDUP_AUTO_FILE_ALERTS") == "true"
+			trace.Note(ctx, "auto_file_enabled", autoFileEnabled)
+			if autoFileEnabled {
 				allBreaches := append([]yieldBreach{}, ownerBreaches...)
 				allBreaches = append(allBreaches, techBreaches...)
+				trace.Note(ctx, "breach_count", len(allBreaches))
 				for _, br := range allBreaches {
 					title := br.Title()
 					existingID, err := h.Q.FindOpenIssueByTitle(ctx, db.FindOpenIssueByTitleParams{ProjectID: p.ID, Title: title})
 					if err == nil && existingID != "" {
+						trace.Note(ctx, "breach_recurrence", map[string]any{"key": br.Key, "existing_issue": existingID})
 						_, _ = h.Q.AddComment(ctx, db.AddCommentParams{
 							ProjectID:   p.ID,
 							TargetType:  "issue",
@@ -952,6 +964,7 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					}
 					issueID, err2 := h.Q.NextIssueID(ctx)
 					if err2 == nil {
+						trace.Note(ctx, "breach_filed", map[string]any{"key": br.Key, "title": title, "issue_id": issueID})
 						_, _ = h.Q.CreateIssue(ctx, db.CreateIssueParams{
 							ID:        issueID,
 							ProjectID: p.ID,
@@ -980,10 +993,12 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 			return &struct {
 				Body struct {
 					Entry JournalEntryItem `json:"entry"`
+					Debug *DebugOutput     `json:"debug,omitempty"`
 				}
 			}{Body: struct {
 				Entry JournalEntryItem `json:"entry"`
-			}{Entry: entry}}, nil
+				Debug *DebugOutput     `json:"debug,omitempty"`
+			}{Entry: entry, Debug: debugOutput(ctx)}}, nil
 		})
 
 	// ── Journal Review ──────────────────────────────────────────────────────

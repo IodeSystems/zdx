@@ -13,6 +13,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/zdx-go/internal/atlas/trace"
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
@@ -442,14 +443,22 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 
 	huma.Register(api, huma.Operation{OperationID: "deduplicate-proposals", Method: http.MethodPost, Path: "/api/dx/proposals/deduplicate"},
 		func(ctx context.Context, in *struct {
-			Body struct {
+			Debug       string `query:"debug" required:"false"`
+			XAtlasDebug string `header:"X-Atlas-Debug" required:"false"`
+			Body        struct {
 				Slug string `json:"slug"`
 			}
 		}) (*struct {
 			Body struct {
 				Groups []ProposalDedupGroup `json:"groups"`
+				Debug  *DebugOutput         `json:"debug,omitempty"`
 			}
 		}, error) {
+			var err error
+			ctx, _, err = debugStart(ctx, in.Debug, in.XAtlasDebug)
+			if err != nil {
+				return nil, err
+			}
 			p, err := getProject(ctx, h.Q, in.Body.Slug)
 			if err != nil {
 				return nil, err
@@ -476,8 +485,18 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 				duplicates, _ := h.findSimilarProposals(ctx, p.ID, queryText, 10, proposal.ID)
 				issues, _ := h.findSimilarIssues(ctx, p.ID, queryText, 5)
 				if len(duplicates) == 0 && len(issues) == 0 {
+					trace.Note(ctx, "dedup miss", map[string]any{
+						"proposal_id": proposal.ID,
+						"title":       proposal.Title,
+					})
 					continue
 				}
+				trace.Note(ctx, "dedup hit", map[string]any{
+					"proposal_id":     proposal.ID,
+					"title":           proposal.Title,
+					"similar_issues":  len(issues),
+					"similar_proposals": len(duplicates),
+				})
 				for _, d := range duplicates {
 					coveredIDs[d.ID] = true
 				}
@@ -489,7 +508,8 @@ func (h *Handler) registerProposalRoutes(api huma.API) {
 			}
 			type respBody = struct {
 				Groups []ProposalDedupGroup `json:"groups"`
+				Debug  *DebugOutput         `json:"debug,omitempty"`
 			}
-			return &struct{ Body respBody }{Body: respBody{Groups: groups}}, nil
+			return &struct{ Body respBody }{Body: respBody{Groups: groups, Debug: debugOutput(ctx)}}, nil
 		})
 }

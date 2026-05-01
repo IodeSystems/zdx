@@ -12,6 +12,7 @@ import (
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
 
+	"github.com/iodesystems/zdx-go/internal/atlas/trace"
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/maturity"
 	"github.com/iodesystems/zdx-go/internal/workflowhints"
@@ -959,20 +960,33 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 		})
 
 	// POST /api/dx/solo/claim — generate queue, merge, claim next unclaimed todo
+	type soloClaimBody struct {
+		TodoItem
+		Debug *DebugOutput `json:"debug,omitempty"`
+	}
 	huma.Register(api, huma.Operation{OperationID: "solo-claim", Method: http.MethodPost, Path: "/api/dx/solo/claim"},
 		func(ctx context.Context, in *struct {
-			Body struct {
+			Debug       string `query:"debug" required:"false"`
+			XAtlasDebug string `header:"X-Atlas-Debug" required:"false"`
+			Body        struct {
 				Slug         string `json:"slug"`
 				AgentID      string `json:"agent_id"`
 				LeaseMinutes int32  `json:"lease_minutes" required:"false"`
 				Mode         string `json:"mode" required:"false"`
 			}
-		}) (*struct{ Body TodoItem }, error) {
+		}) (*struct{ Body soloClaimBody }, error) {
+			var err error
+			ctx, _, err = debugStart(ctx, in.Debug, in.XAtlasDebug)
+			if err != nil {
+				return nil, err
+			}
+
 			leaseMin := in.Body.LeaseMinutes
 			if leaseMin == 0 {
 				leaseMin = 10
 			}
 			autonomous := in.Body.Mode == "autonomous"
+			trace.Note(ctx, "lease_minutes", leaseMin)
 
 			claimFromProject := func(p db.ZdxProject) (*TodoItem, error) {
 				if expired, _ := h.Q.ReclaimExpiredTodos(ctx, p.ID); len(expired) > 0 {
@@ -987,6 +1001,14 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				proposed, err := h.generateSoloQueue(ctx, p.ID, "", autonomous)
 				if err != nil {
 					return nil, err
+				}
+				for _, c := range proposed {
+					trace.Note(ctx, "candidate", map[string]any{
+						"key":      c.Key,
+						"kind":     c.Kind,
+						"priority": c.Priority,
+						"blocked":  c.Blocked,
+					})
 				}
 				keys := make([]string, 0, len(proposed))
 				for _, c := range proposed {
@@ -1021,6 +1043,12 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 				if err != nil {
 					return nil, err
 				}
+				trace.Note(ctx, "claimed_atomic", map[string]any{
+					"id":    row.ID,
+					"key":   row.Key,
+					"kind":  row.Kind,
+					"title": row.Title,
+				})
 				_, _ = h.Q.InsertReservation(ctx, db.InsertReservationParams{
 					ProjectID:      row.ProjectID,
 					TargetType:     "todo",
@@ -1044,7 +1072,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 					if err != nil {
 						continue
 					}
-					return &struct{ Body TodoItem }{Body: *item}, nil
+					return &struct{ Body soloClaimBody }{Body: soloClaimBody{TodoItem: *item, Debug: debugOutput(ctx)}}, nil
 				}
 				return nil, apiErr(404, "no claimable todo items")
 			}
@@ -1057,7 +1085,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			if err != nil {
 				return nil, apiErr(404, "no claimable todo items")
 			}
-			return &struct{ Body TodoItem }{Body: *item}, nil
+			return &struct{ Body soloClaimBody }{Body: soloClaimBody{TodoItem: *item, Debug: debugOutput(ctx)}}, nil
 		})
 
 	// POST /api/dx/solo/release — release or resolve a claimed todo
