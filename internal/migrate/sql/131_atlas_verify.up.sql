@@ -4,3 +4,5 @@ ALTER TABLE zdx_narrative_chunks
 
 CREATE INDEX zdx_narrative_chunks_status_idx
   ON zdx_narrative_chunks(project_id, status);
+
+ALTER TABLE zdx_issues ADD COLUMN node_ref TEXT;
