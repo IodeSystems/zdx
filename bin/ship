@@ -646,56 +646,13 @@ fi
 ssh "$HOST" "sudo -u $SERVICE bash -c \"echo '$DEPLOYED_GIT_HASH' > $REMOTE_HOME/home/shipped-commit\""
 echo "[ship] Deployed commit: $DEPLOYED_GIT_HASH"
 
-# Promote next schema to shipped.
-if [ -f schema/next.sql ]; then
-  cp schema/next.sql schema/shipped.sql
-  echo "[ship] schema/shipped.sql updated."
-
-  # Validate shipped.sql contains every table from up-migrations (minus dropped/renamed tables).
-  DROPPED_TABLES=$(grep -hioP 'DROP TABLE\s+(IF EXISTS\s+)?(\K[a-z_]+)' "$MIGRATION_DIR"/*.up.sql 2>/dev/null | sort -u)
-  # Tables renamed via ALTER TABLE ... RENAME TO ... are no longer expected under their old name.
-  RENAMED_TABLES=$(grep -hioP 'ALTER TABLE\s+\K[a-z_]+(?=\s+RENAME TO)' "$MIGRATION_DIR"/*.up.sql 2>/dev/null | sort -u)
-  DROPPED_TABLES=$(printf "%s\n%s" "$DROPPED_TABLES" "$RENAMED_TABLES" | sort -u)
-  MISSING=0
-  while IFS= read -r tbl; do
-    if echo "$DROPPED_TABLES" | grep -qx "$tbl"; then
-      continue
-    fi
-    if ! grep -qi "CREATE TABLE.*${tbl}" schema/shipped.sql; then
-      echo "[ship] ERROR: shipped.sql missing table: $tbl"
-      MISSING=1
-    fi
-  done < <(grep -hoi 'CREATE TABLE [a-z_]*' "$MIGRATION_DIR"/*.up.sql | awk '{print $3}' | sort -u)
-  if [ "$MISSING" -ne 0 ]; then
-    echo "[ship] REFUSING to commit shipped.sql — pg_dump produced incomplete schema."
-    echo "[ship] Investigate the compat-check pg_dump or regenerate manually."
-    exit 1
-  fi
-  echo "[ship] shipped.sql validation: OK (all migration tables present)."
-
-  # Regenerate sqlc against the new shipped.sql. If the schema added columns
-  # that explicit-column SELECTs in queries/*.sql don't enumerate, sqlc starts
-  # emitting custom Row types instead of returning the model struct — handlers
-  # written against the model break (IS-475 root cause). Surface that NOW so
-  # it doesn't sit in main until the next agent regenerates via `dev done`.
-  echo "[ship] Regenerating sqlc against new shipped.sql..."
-  SQLC=$(command -v sqlc || echo "$HOME/go/bin/sqlc")
-  "$SQLC" generate
-  if ! git diff --quiet -- internal/db/; then
-    echo "[ship] sqlc regenerate produced changes — commit them alongside shipped.sql:"
-    git status -s -- internal/db/
-    echo "[ship] Verifying handlers still build against regenerated sqlc..."
-    if ! go build ./...; then
-      echo ""
-      echo "[ship] ERROR: handlers no longer compile against regenerated sqlc."
-      echo "[ship] A schema column added by this migration is missing from explicit-column"
-      echo "[ship] SELECTs in queries/*.sql, so sqlc switched to custom Row types."
-      echo "[ship] Add the new column(s) to every SELECT enumerating that table, then re-run ship."
-      exit 1
-    fi
-    echo "[ship] Build OK with regenerated sqlc."
-  fi
-fi
+# Finalize: dump live schema to shipped.sql, regen sqlc, validate coverage.
+# Shared with the harness's finalize stages — see bin/post-deploy-finalize.
+# Live-DB pg_dump (vs cp from schema/next.sql) catches drift introduced by
+# out-of-band schema mods that next.sql wouldn't see.
+./bin/post-deploy-finalize promote-shipped
+./bin/post-deploy-finalize regen-sqlc
+./bin/post-deploy-finalize validate-coverage
 
 # ── Install dx locally ────────────────────────────────────────────────────────
 

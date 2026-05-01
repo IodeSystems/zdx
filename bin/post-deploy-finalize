@@ -1,0 +1,147 @@
+#!/usr/bin/env bash
+# Post-deploy finalize steps shared between bin/ship (legacy bash path) and the
+# harness YAML (components.server.ship.stages with finalize: true). Sourcing one
+# implementation prevents drift while we transition.
+#
+# Subcommands:
+#   promote-shipped    pg_dump live zdx DB → schema/shipped.sql (replaces the
+#                      cp-from-next.sql shortcut so out-of-band schema drift on
+#                      the live DB surfaces here, not on the next deploy).
+#   regen-sqlc         sqlc generate; if internal/db/ moved, go build ./... to
+#                      catch handlers that no longer compile against the new
+#                      Row types (IS-475 root cause).
+#   validate-coverage  every CREATE TABLE in *.up.sql (minus DROP/RENAME) must
+#                      appear in schema/shipped.sql — guards against pg_dump
+#                      producing an incomplete dump.
+set -euo pipefail
+cd "$(dirname "$0")/.."
+
+DEPLOY_PROPS="home/deploy.secret.properties"
+MIGRATION_DIR="internal/migrate/sql"
+SERVICE="zdx"
+DUMP_SLOT="${ZDX_DUMP_SLOT:-current}"
+
+prop() {
+  [ -f "$DEPLOY_PROPS" ] || return 0
+  grep "^$1=" "$DEPLOY_PROPS" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]' || true
+}
+
+cmd_promote_shipped() {
+  local host
+  host=$(prop deploy.host)
+  if [ -z "$host" ]; then
+    echo "[finalize] ERROR: deploy.host missing from $DEPLOY_PROPS" >&2
+    exit 1
+  fi
+
+  local unit="${SERVICE}-${DUMP_SLOT}"
+  local tmp
+  tmp=$(mktemp -t zdx-shipped.XXXXXX.sql)
+  trap 'rm -f "$tmp"' RETURN
+
+  echo "[finalize] Dumping live schema from $host ($unit)..."
+  # Heredoc is single-quoted so the remote shell expands $unit/$DATABASE_URL,
+  # not us. The unit name is interpolated with sed before send.
+  ssh "$host" "sudo -u $SERVICE bash -s" <<REMOTESCRIPT > "$tmp"
+DATABASE_URL=\$(systemctl show ${unit} --property=Environment \
+  | sed 's/^Environment=//' | tr -d '"' | tr ' ' '\n' \
+  | grep '^DATABASE_URL=' | head -1 | cut -d= -f2-)
+if [ -z "\$DATABASE_URL" ]; then
+  echo "[finalize] no DATABASE_URL on ${unit}" >&2
+  exit 1
+fi
+pg_dump "\$DATABASE_URL" \
+  --schema-only --no-owner --no-privileges \
+  --exclude-table=schema_migrations
+REMOTESCRIPT
+
+  # Filter pg_dump noise (matches bin/regen-schema): backslash meta-commands
+  # and the "Dumped by pg_dump version" line, both of which churn between
+  # postgres minor versions and have no semantic value.
+  grep -v '^\\' "$tmp" \
+    | grep -v '^-- Dumped by pg_dump version' \
+    > schema/shipped.sql
+
+  echo "[finalize] schema/shipped.sql updated from live DB."
+}
+
+cmd_regen_sqlc() {
+  local sqlc
+  sqlc=$(command -v sqlc || echo "$HOME/go/bin/sqlc")
+  if [ ! -x "$sqlc" ]; then
+    echo "[finalize] ERROR: sqlc not found (looked at \$PATH and $HOME/go/bin/sqlc)" >&2
+    exit 1
+  fi
+  echo "[finalize] Regenerating sqlc against schema/shipped.sql..."
+  "$sqlc" generate
+
+  if git diff --quiet -- internal/db/; then
+    echo "[finalize] sqlc regenerate: no changes."
+    return 0
+  fi
+
+  echo "[finalize] sqlc regenerate produced changes:"
+  git status -s -- internal/db/
+  echo "[finalize] Verifying handlers still build against regenerated sqlc..."
+  if ! go build ./...; then
+    echo ""
+    echo "[finalize] ERROR: handlers no longer compile against regenerated sqlc." >&2
+    echo "[finalize] A schema column added by this migration is missing from explicit-column" >&2
+    echo "[finalize] SELECTs in queries/*.sql, so sqlc switched to custom Row types." >&2
+    echo "[finalize] Add the new column(s) to every SELECT enumerating that table, then re-run." >&2
+    exit 1
+  fi
+  echo "[finalize] Build OK with regenerated sqlc."
+}
+
+cmd_validate_coverage() {
+  if [ ! -f schema/shipped.sql ]; then
+    echo "[finalize] ERROR: schema/shipped.sql missing" >&2
+    exit 1
+  fi
+
+  local dropped renamed missing=0 tbl
+  dropped=$(grep -hioP 'DROP TABLE\s+(IF EXISTS\s+)?(\K[a-z_]+)' "$MIGRATION_DIR"/*.up.sql 2>/dev/null | sort -u)
+  renamed=$(grep -hioP 'ALTER TABLE\s+\K[a-z_]+(?=\s+RENAME TO)' "$MIGRATION_DIR"/*.up.sql 2>/dev/null | sort -u)
+  dropped=$(printf "%s\n%s" "$dropped" "$renamed" | sort -u)
+
+  while IFS= read -r tbl; do
+    [ -z "$tbl" ] && continue
+    if echo "$dropped" | grep -qx "$tbl"; then
+      continue
+    fi
+    if ! grep -qi "CREATE TABLE.*${tbl}" schema/shipped.sql; then
+      echo "[finalize] ERROR: shipped.sql missing table: $tbl" >&2
+      missing=1
+    fi
+  done < <(grep -hoi 'CREATE TABLE [a-z_]*' "$MIGRATION_DIR"/*.up.sql | awk '{print $3}' | sort -u)
+
+  if [ "$missing" -ne 0 ]; then
+    echo "[finalize] REFUSING: shipped.sql missing tables — pg_dump produced incomplete schema." >&2
+    exit 1
+  fi
+  echo "[finalize] shipped.sql validation: OK (all migration tables present)."
+}
+
+usage() {
+  cat >&2 <<EOF
+usage: $(basename "$0") <subcommand>
+
+subcommands:
+  promote-shipped    pg_dump live zdx DB → schema/shipped.sql
+  regen-sqlc         sqlc generate + go build ./... if internal/db/ changed
+  validate-coverage  every up-migration table must appear in shipped.sql
+
+env:
+  ZDX_DUMP_SLOT      slot to dump from (default: current)
+EOF
+  exit 2
+}
+
+case "${1:-}" in
+  promote-shipped)   shift; cmd_promote_shipped "$@" ;;
+  regen-sqlc)        shift; cmd_regen_sqlc "$@" ;;
+  validate-coverage) shift; cmd_validate_coverage "$@" ;;
+  ""|-h|--help)      usage ;;
+  *)                 echo "[finalize] unknown subcommand: $1" >&2; usage ;;
+esac

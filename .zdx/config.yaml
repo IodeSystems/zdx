@@ -173,11 +173,24 @@ components:
           run: sudo -u zdx bash -c 'echo "${DEPLOYED_GIT_HASH}" > /home/zdx/home/shipped-commit'
           tags: [finalize]
 
-        # IS-891: finalize-shipped-sql promotes schema/next.sql → shipped.sql + sqlc regen.
-        # optional: true so a failure warns but does not roll back the deploy.
-        - name: finalize-shipped-sql
-          builtin: finalize-shipped-sql
-          optional: true
+        # IS-891 / TK-1557: finalize schema artifacts after a successful deploy.
+        # finalize: true → failures are logged but never roll back the deploy
+        # (see runFinalize in internal/ship/strategy.go). bin/post-deploy-finalize
+        # is also invoked by the legacy bin/ship bash path so both routes share
+        # one implementation.
+        - name: promote-shipped
+          run: ./bin/post-deploy-finalize promote-shipped
+          finalize: true
+          tags: [finalize]
+
+        - name: regen-sqlc
+          run: ./bin/post-deploy-finalize regen-sqlc
+          finalize: true
+          tags: [finalize]
+
+        - name: validate-coverage
+          run: ./bin/post-deploy-finalize validate-coverage
+          finalize: true
           tags: [finalize]
 
         # IS-797: deploy-event POSTs commit/duration/status to dx-server.
