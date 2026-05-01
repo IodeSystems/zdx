@@ -675,11 +675,26 @@ var MetaStandupSpecDelta = metaquery.Query{
      JOIN zdx_specs    s ON s.id = sd.spec_id
      JOIN zdx_features f ON f.id = s.feature_id
      WHERE f.project_id = $1
-       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS specs_deferred`,
+       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS specs_deferred,
+  (SELECT array_agg(DISTINCT s.id ORDER BY s.id)
+     FROM zdx_specs       s
+     JOIN zdx_features    f  ON f.id  = s.feature_id
+     JOIN zdx_spec_issues si ON si.spec_id = s.id
+     JOIN zdx_issues      i  ON i.id  = si.issue_id
+     WHERE f.project_id = $1
+       AND i.closed_at > NOW() - INTERVAL '30 days')                            AS covered_spec_ids,
+  (SELECT array_agg(sd.spec_id ORDER BY sd.spec_id)
+     FROM zdx_spec_deferrals sd
+     JOIN zdx_specs    s ON s.id = sd.spec_id
+     JOIN zdx_features f ON f.id = s.feature_id
+     WHERE f.project_id = $1
+       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS deferred_spec_ids`,
 	Columns: []metaquery.Column{
 		{Name: "specs_added", OriginalName: "specs_added", GoType: "int64", DBType: "bigint", NotNull: true},
 		{Name: "specs_covered", OriginalName: "specs_covered", GoType: "int64", DBType: "bigint", NotNull: true},
 		{Name: "specs_deferred", OriginalName: "specs_deferred", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "covered_spec_ids", OriginalName: "covered_spec_ids", GoType: "interface{}", DBType: "anyarray", NotNull: true},
+		{Name: "deferred_spec_ids", OriginalName: "deferred_spec_ids", GoType: "interface{}", DBType: "anyarray", NotNull: true},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -693,13 +708,17 @@ func WrapStandupSpecDelta(projectID int32) *metaquery.Builder {
 
 // StandupSpecDeltaCols gives typed, name-safe access to StandupSpecDelta's output columns.
 var StandupSpecDeltaCols = struct {
-	SpecsAdded    metaquery.IntCol
-	SpecsCovered  metaquery.IntCol
-	SpecsDeferred metaquery.IntCol
+	SpecsAdded      metaquery.IntCol
+	SpecsCovered    metaquery.IntCol
+	SpecsDeferred   metaquery.IntCol
+	CoveredSpecIds  metaquery.AnyCol
+	DeferredSpecIds metaquery.AnyCol
 }{
-	SpecsAdded:    metaquery.NewIntCol("specs_added"),
-	SpecsCovered:  metaquery.NewIntCol("specs_covered"),
-	SpecsDeferred: metaquery.NewIntCol("specs_deferred"),
+	SpecsAdded:      metaquery.NewIntCol("specs_added"),
+	SpecsCovered:    metaquery.NewIntCol("specs_covered"),
+	SpecsDeferred:   metaquery.NewIntCol("specs_deferred"),
+	CoveredSpecIds:  metaquery.NewAnyCol("covered_spec_ids"),
+	DeferredSpecIds: metaquery.NewAnyCol("deferred_spec_ids"),
 }
 
 var MetaStandupTechYield = metaquery.Query{
@@ -764,4 +783,38 @@ var StandupTopReopenedIssuesCols = struct {
 	ID:          metaquery.NewTextCol("id"),
 	Title:       metaquery.NewTextCol("title"),
 	ReopenCount: metaquery.NewIntCol("reopen_count"),
+}
+
+var MetaStandupTopThrashingIssues = metaquery.Query{
+	Name:   "StandupTopThrashingIssues",
+	Cmd:    ":many",
+	Source: "journal.sql",
+	SQL: `SELECT issue_id, count(*) AS session_count
+FROM zdx_claude_sessions
+WHERE project_id = $1 AND created_at >= $2 AND issue_id != ''
+GROUP BY issue_id
+ORDER BY session_count DESC
+LIMIT 3`,
+	Columns: []metaquery.Column{
+		{Name: "issue_id", OriginalName: "issue_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_claude_sessions"},
+		{Name: "session_count", OriginalName: "session_count", GoType: "int64", DBType: "bigint", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "created_at", GoType: "pgtype.Timestamptz", DBType: "pg_catalog.timestamptz", NotNull: true},
+	},
+}
+
+// WrapStandupTopThrashingIssues returns a metaquery.Builder over MetaStandupTopThrashingIssues, pre-bound with typed arguments.
+func WrapStandupTopThrashingIssues(arg StandupTopThrashingIssuesParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaStandupTopThrashingIssues, arg.ProjectID, arg.CreatedAt)
+}
+
+// StandupTopThrashingIssuesCols gives typed, name-safe access to StandupTopThrashingIssues's output columns.
+var StandupTopThrashingIssuesCols = struct {
+	IssueID      metaquery.TextCol
+	SessionCount metaquery.IntCol
+}{
+	IssueID:      metaquery.NewTextCol("issue_id"),
+	SessionCount: metaquery.NewIntCol("session_count"),
 }

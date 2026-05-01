@@ -535,13 +535,28 @@ SELECT
      JOIN zdx_specs    s ON s.id = sd.spec_id
      JOIN zdx_features f ON f.id = s.feature_id
      WHERE f.project_id = $1
-       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS specs_deferred
+       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS specs_deferred,
+  (SELECT array_agg(DISTINCT s.id ORDER BY s.id)
+     FROM zdx_specs       s
+     JOIN zdx_features    f  ON f.id  = s.feature_id
+     JOIN zdx_spec_issues si ON si.spec_id = s.id
+     JOIN zdx_issues      i  ON i.id  = si.issue_id
+     WHERE f.project_id = $1
+       AND i.closed_at > NOW() - INTERVAL '30 days')                            AS covered_spec_ids,
+  (SELECT array_agg(sd.spec_id ORDER BY sd.spec_id)
+     FROM zdx_spec_deferrals sd
+     JOIN zdx_specs    s ON s.id = sd.spec_id
+     JOIN zdx_features f ON f.id = s.feature_id
+     WHERE f.project_id = $1
+       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS deferred_spec_ids
 `
 
 type StandupSpecDeltaRow struct {
-	SpecsAdded    int64 `db:"specs_added" json:"specs_added"`
-	SpecsCovered  int64 `db:"specs_covered" json:"specs_covered"`
-	SpecsDeferred int64 `db:"specs_deferred" json:"specs_deferred"`
+	SpecsAdded      int64       `db:"specs_added" json:"specs_added"`
+	SpecsCovered    int64       `db:"specs_covered" json:"specs_covered"`
+	SpecsDeferred   int64       `db:"specs_deferred" json:"specs_deferred"`
+	CoveredSpecIds  interface{} `db:"covered_spec_ids" json:"covered_spec_ids"`
+	DeferredSpecIds interface{} `db:"deferred_spec_ids" json:"deferred_spec_ids"`
 }
 
 // Spec activity in a 30d window for the project's specs (joined via zdx_features → project_id).
@@ -551,10 +566,17 @@ type StandupSpecDeltaRow struct {
 //
 // specs_covered: specs linked to issues that closed in the window.
 // specs_deferred: spec deferrals created in the window.
+// covered_spec_ids / deferred_spec_ids: arrays of spec IDs for the body of yield alerts.
 func (q *Queries) StandupSpecDelta(ctx context.Context, projectID int32) (StandupSpecDeltaRow, error) {
 	row := q.db.QueryRow(ctx, standupSpecDelta, projectID)
 	var i StandupSpecDeltaRow
-	err := row.Scan(&i.SpecsAdded, &i.SpecsCovered, &i.SpecsDeferred)
+	err := row.Scan(
+		&i.SpecsAdded,
+		&i.SpecsCovered,
+		&i.SpecsDeferred,
+		&i.CoveredSpecIds,
+		&i.DeferredSpecIds,
+	)
 	return i, err
 }
 
@@ -603,6 +625,47 @@ func (q *Queries) StandupTopReopenedIssues(ctx context.Context, projectID int32)
 	for rows.Next() {
 		var i StandupTopReopenedIssuesRow
 		if err := rows.Scan(&i.ID, &i.Title, &i.ReopenCount); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const standupTopThrashingIssues = `-- name: StandupTopThrashingIssues :many
+SELECT issue_id, count(*) AS session_count
+FROM zdx_claude_sessions
+WHERE project_id = $1 AND created_at >= $2 AND issue_id != ''
+GROUP BY issue_id
+ORDER BY session_count DESC
+LIMIT 3
+`
+
+type StandupTopThrashingIssuesParams struct {
+	ProjectID int32              `db:"project_id" json:"project_id"`
+	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+type StandupTopThrashingIssuesRow struct {
+	IssueID      string `db:"issue_id" json:"issue_id"`
+	SessionCount int64  `db:"session_count" json:"session_count"`
+}
+
+// Top issues by claude session count in the period — surfaces which issues are consuming the most
+// agent attention, useful when sessions/closed is high (agent thrashing breach).
+func (q *Queries) StandupTopThrashingIssues(ctx context.Context, arg StandupTopThrashingIssuesParams) ([]StandupTopThrashingIssuesRow, error) {
+	rows, err := q.db.Query(ctx, standupTopThrashingIssues, arg.ProjectID, arg.CreatedAt)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []StandupTopThrashingIssuesRow
+	for rows.Next() {
+		var i StandupTopThrashingIssuesRow
+		if err := rows.Scan(&i.IssueID, &i.SessionCount); err != nil {
 			return nil, err
 		}
 		items = append(items, i)

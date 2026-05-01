@@ -583,9 +583,13 @@ type Querier interface {
 	//   created_at column, so the earliest spec-issue link is used as a proxy for "newly tracked".
 	// specs_covered: specs linked to issues that closed in the window.
 	// specs_deferred: spec deferrals created in the window.
+	// covered_spec_ids / deferred_spec_ids: arrays of spec IDs for the body of yield alerts.
 	StandupSpecDelta(ctx context.Context, projectID int32) (StandupSpecDeltaRow, error)
 	StandupTechYield(ctx context.Context, arg StandupTechYieldParams) (StandupTechYieldRow, error)
 	StandupTopReopenedIssues(ctx context.Context, projectID int32) ([]StandupTopReopenedIssuesRow, error)
+	// Top issues by claude session count in the period — surfaces which issues are consuming the most
+	// agent attention, useful when sessions/closed is high (agent thrashing breach).
+	StandupTopThrashingIssues(ctx context.Context, arg StandupTopThrashingIssuesParams) ([]StandupTopThrashingIssuesRow, error)
 	// metaquery: off
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
