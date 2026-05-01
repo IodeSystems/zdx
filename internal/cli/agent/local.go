@@ -123,12 +123,35 @@ func applyComplexityModel(ctx context.Context, llmCfg config.LLMLocal, complexit
 // it through the shared RunLifecycle runner. Event tailing, WS streaming,
 // and session close are all owned by RunLifecycle.
 func runLocalSession(ctx context.Context, rc remoteConfig, llmCfg config.LLMLocal, sid, issueID, alias, seedPrompt string, maxTurns int) error {
+	if rc.slug == "" {
+		return fmt.Errorf("local agent requires a project config with a remote slug")
+	}
+
+	token, tokenID, err := mintScopedToken(ctx, rc, "agent-local-"+alias+"-"+sid[:8])
+	if err != nil {
+		return fmt.Errorf("mint scoped token: %w", err)
+	}
+
+	// Swap DX_REMOTE_API_KEY in the host process env so both in-process
+	// dxclient calls (e.g. applyComplexityModel → cli.DefaultClient) and
+	// run_bash subprocesses (which inherit os.Environ) see the scoped token.
+	prev, hadKey := os.LookupEnv("DX_REMOTE_API_KEY")
+	os.Setenv("DX_REMOTE_API_KEY", token)
+	defer func() {
+		revokeScopedToken(context.Background(), rc, tokenID)
+		if hadKey {
+			os.Setenv("DX_REMOTE_API_KEY", prev)
+		} else {
+			os.Unsetenv("DX_REMOTE_API_KEY")
+		}
+	}()
+
 	adapter := &localAdapter{
 		llmCfg:     llmCfg,
 		maxTurns:   maxTurns,
 		seedPrompt: seedPrompt,
 	}
-	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "local-cli", 0)
+	_, err = RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "local-cli", 0)
 	return err
 }
 
