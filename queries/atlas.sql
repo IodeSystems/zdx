@@ -88,3 +88,33 @@ LEFT JOIN zdx_coderefs cr ON cr.id = c.coderef_id
 WHERE c.project_id = @project_id
   AND c.status = 'stale'
 ORDER BY c.id;
+
+-- name: VerifyChunkStillAccurate :one
+UPDATE zdx_narrative_chunks
+SET status      = 'fresh',
+    verified_at = NOW(),
+    verified_by = @verified_by,
+    sha_at_write = CASE WHEN @sha::text <> '' THEN @sha ELSE sha_at_write END,
+    updated_at  = NOW()
+WHERE project_id = @project_id AND id = @id
+RETURNING *;
+
+-- name: UpdateChunkBodyAndVerify :one
+UPDATE zdx_narrative_chunks
+SET body        = @body,
+    status      = 'fresh',
+    verified_at = NOW(),
+    verified_by = @verified_by,
+    sha_at_write = CASE WHEN @sha::text <> '' THEN @sha ELSE sha_at_write END,
+    updated_at  = NOW()
+WHERE project_id = @project_id AND id = @id
+RETURNING *;
+
+-- name: MarkChunkBroken :one
+UPDATE zdx_narrative_chunks
+SET status      = 'broken',
+    verified_at = NOW(),
+    verified_by = @verified_by,
+    updated_at  = NOW()
+WHERE project_id = @project_id AND id = @id
+RETURNING *;

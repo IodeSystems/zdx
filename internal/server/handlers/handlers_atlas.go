@@ -3,6 +3,7 @@ package handlers
 import (
 	"context"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -33,16 +34,18 @@ type AtlasCoderefItem struct {
 }
 
 type AtlasChunkItem struct {
-	ID           int64  `json:"id"`
-	NodeID       int64  `json:"node_id"`
-	CoderefID    *int64 `json:"coderef_id,omitempty"`
-	Title        string `json:"title,omitempty"`
-	Body         string `json:"body"`
-	ShaAtWrite   string `json:"sha_at_write,omitempty"`
-	VerifierKind string `json:"verifier_kind"`
-	Status       string `json:"status"`
-	CreatedAt    string `json:"created_at"`
-	UpdatedAt    string `json:"updated_at"`
+	ID           int64   `json:"id"`
+	NodeID       int64   `json:"node_id"`
+	CoderefID    *int64  `json:"coderef_id,omitempty"`
+	Title        string  `json:"title,omitempty"`
+	Body         string  `json:"body"`
+	ShaAtWrite   string  `json:"sha_at_write,omitempty"`
+	VerifierKind string  `json:"verifier_kind"`
+	Status       string  `json:"status"`
+	VerifiedAt   *string `json:"verified_at,omitempty"`
+	VerifiedBy   string  `json:"verified_by,omitempty"`
+	CreatedAt    string  `json:"created_at"`
+	UpdatedAt    string  `json:"updated_at"`
 }
 
 type AtlasStaleChunkItem struct {
@@ -117,12 +120,17 @@ func toAtlasChunkItem(c db.ZdxNarrativeChunk) AtlasChunkItem {
 		ShaAtWrite:   c.ShaAtWrite,
 		VerifierKind: c.VerifierKind,
 		Status:       c.Status,
+		VerifiedBy:   c.VerifiedBy,
 		CreatedAt:    fmtTS(c.CreatedAt),
 		UpdatedAt:    fmtTS(c.UpdatedAt),
 	}
 	if c.CoderefID.Valid {
 		v := c.CoderefID.Int64
 		item.CoderefID = &v
+	}
+	if c.VerifiedAt.Valid {
+		s := fmtTS(c.VerifiedAt)
+		item.VerifiedAt = &s
 	}
 	return item
 }
@@ -435,6 +443,78 @@ func (h *Handler) registerAtlasRoutes(api huma.API) {
 			}{Body: struct {
 				Chunks []AtlasChunkItem `json:"chunks"`
 			}{Chunks: out}}, nil
+		})
+
+	// ── Chunk verification ────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "verify-atlas-chunk", Method: http.MethodPost, Path: "/api/projects/{slug}/atlas/chunks/{chunk_id}/verify"},
+		func(ctx context.Context, in *struct {
+			Slug    string `path:"slug"`
+			ChunkID int64  `path:"chunk_id"`
+			Body    struct {
+				Verb    string `json:"verb"`
+				Comment string `json:"comment,omitempty"`
+				Body    string `json:"body,omitempty"`
+				Sha     string `json:"sha,omitempty"`
+			}
+		}) (*struct{ Body AtlasChunkItem }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+
+			actorEmail := ""
+			if uid := ctxUserIDVal(ctx); uid != 0 {
+				if u, uErr := h.Q.GetUserByID(ctx, uid); uErr == nil {
+					actorEmail = u.Email
+				}
+			}
+
+			var chunk db.ZdxNarrativeChunk
+			switch in.Body.Verb {
+			case "still-accurate":
+				if len(strings.TrimSpace(in.Body.Comment)) == 0 {
+					return nil, apiErr(http.StatusUnprocessableEntity, "proof-of-read required: provide a non-empty comment")
+				}
+				chunk, err = h.Q.VerifyChunkStillAccurate(ctx, db.VerifyChunkStillAccurateParams{
+					ProjectID:  p.ID,
+					ID:         in.ChunkID,
+					Sha:        in.Body.Sha,
+					VerifiedBy: actorEmail,
+				})
+			case "edit-prose":
+				if len(strings.TrimSpace(in.Body.Body)) == 0 {
+					return nil, apiErr(http.StatusUnprocessableEntity, "proof-of-read required: edit the prose")
+				}
+				existing, gErr := h.Q.GetAtlasChunk(ctx, db.GetAtlasChunkParams{ProjectID: p.ID, ID: in.ChunkID})
+				if gErr != nil {
+					return nil, apiErr(http.StatusNotFound, "chunk not found")
+				}
+				if in.Body.Body == existing.Body {
+					return nil, apiErr(http.StatusUnprocessableEntity, "proof-of-read required: edit the prose")
+				}
+				chunk, err = h.Q.UpdateChunkBodyAndVerify(ctx, db.UpdateChunkBodyAndVerifyParams{
+					ProjectID:  p.ID,
+					ID:         in.ChunkID,
+					Body:       in.Body.Body,
+					Sha:        in.Body.Sha,
+					VerifiedBy: actorEmail,
+				})
+			case "mark-broken":
+				chunk, err = h.Q.MarkChunkBroken(ctx, db.MarkChunkBrokenParams{
+					ProjectID:  p.ID,
+					ID:         in.ChunkID,
+					VerifiedBy: actorEmail,
+				})
+			case "agent-regen":
+				return nil, apiErr(http.StatusNotImplemented, "agent-regen not yet implemented")
+			default:
+				return nil, apiErr(http.StatusBadRequest, "unknown verb: "+in.Body.Verb)
+			}
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			return &struct{ Body AtlasChunkItem }{Body: toAtlasChunkItem(chunk)}, nil
 		})
 
 	// ── Edges ─────────────────────────────────────────────────────────────

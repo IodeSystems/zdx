@@ -3,6 +3,8 @@ package project
 import (
 	"fmt"
 	"os"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -226,7 +228,7 @@ func atlasCoderefListCmd() *cobra.Command {
 
 func atlasChunkCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "chunk", Short: "Narrative chunk management"}
-	cmd.AddCommand(atlasChunkAddCmd(), atlasChunkListCmd())
+	cmd.AddCommand(atlasChunkAddCmd(), atlasChunkListCmd(), atlasChunkVerifyCmd())
 	return cmd
 }
 
@@ -319,6 +321,49 @@ func atlasChunkListCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func atlasChunkVerifyCmd() *cobra.Command {
+	var verb, comment, body, sha string
+	cmd := &cobra.Command{
+		Use:   "verify <chunk-id>",
+		Short: "Verify a chunk (still-accurate, edit-prose, mark-broken, agent-regen)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			var chunkID int64
+			if _, err := fmt.Sscanf(args[0], "%d", &chunkID); err != nil {
+				return fmt.Errorf("invalid chunk-id: %s", args[0])
+			}
+			if sha == "" {
+				out, err := exec.Command("git", "rev-parse", "HEAD").Output()
+				if err == nil {
+					sha = strings.TrimSpace(string(out))
+				}
+			}
+			resp, err := c.VerifyAtlasChunkWithResponse(cmd.Context(), c.SlugOrDie(), chunkID, dxclient.VerifyAtlasChunkJSONRequestBody{
+				Verb:    verb,
+				Comment: &comment,
+				Body:    &body,
+				Sha:     &sha,
+			})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			ch := resp.JSON200
+			fmt.Printf("chunk %-6d  verb=%-15s  status=%s\n", ch.Id, verb, ch.Status)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&verb, "verb", "", "Verification verb: still-accurate, edit-prose, mark-broken, agent-regen")
+	cmd.Flags().StringVar(&comment, "comment", "", "Proof-of-read comment (required for still-accurate)")
+	cmd.Flags().StringVar(&body, "body", "", "New prose body (required for edit-prose)")
+	cmd.Flags().StringVar(&sha, "sha", "", "Git SHA (defaults to HEAD)")
+	_ = cmd.MarkFlagRequired("verb")
+	return cmd
 }
 
 // ── edge ──────────────────────────────────────────────────────────────────────
