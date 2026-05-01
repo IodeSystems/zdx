@@ -2,6 +2,7 @@ package devtools
 
 import (
 	"bytes"
+	"context"
 	"fmt"
 	"os"
 	"os/exec"
@@ -15,6 +16,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/dxclient"
 	"github.com/iodesystems/zdx-go/internal/migrate"
 	"github.com/iodesystems/zdx-go/internal/ship"
+	"github.com/iodesystems/zdx-go/internal/ship/preflight"
 )
 
 func ShipCmd() *cobra.Command {
@@ -25,7 +27,118 @@ func ShipCmd() *cobra.Command {
 	cmd.AddCommand(shipGateCmd())
 	cmd.AddCommand(shipRunCmd())
 	cmd.AddCommand(shipCompatCheckCmd())
+	cmd.AddCommand(shipMigratePreflightCmd())
 	return cmd
+}
+
+func shipMigratePreflightCmd() *cobra.Command {
+	var deployedSHA, migDir, fixesDir, sshHost, remoteHome, envName string
+	cmd := &cobra.Command{
+		Use:   "migrate-preflight",
+		Short: "Validate shipped migration history against the deployed commit",
+		Long: `Replays bin/ship's migration history check in Go.
+
+Resolves the deployed commit SHA in this order: --deployed-sha, dx-server
+environment record (--env), or 'ssh <host> cat <remote-home>/home/shipped-commit'.
+For each migration in the deployed commit's tree, refuses to ship if the local
+copy diverges without a matching internal/migrate/sql/migration-fixes/<base>-<server8>-<dev8>.sql
+file. Pure renames are allowed; first deploy is a no-op.
+
+Pending fix files (acknowledged divergences) are printed under a PENDING_FIXES:
+prefix on stdout so callers (the ship pipeline, packaging stages) can rsync
+them to the host.`,
+		SilenceUsage: true,
+		RunE: func(cmd *cobra.Command, _ []string) error {
+			ctx := cmd.Context()
+
+			sha := deployedSHA
+			if sha == "" && envName != "" {
+				resolved, err := resolveDeployedSHAFromAPI(ctx, envName)
+				if err != nil {
+					fmt.Fprintf(os.Stderr, "[ship] WARN: API lookup of deployed SHA failed: %v\n", err)
+				} else {
+					sha = resolved
+				}
+			}
+			if sha == "" && sshHost != "" {
+				home := remoteHome
+				if home == "" {
+					home = "/home/zdx"
+				}
+				out, err := exec.CommandContext(ctx, "ssh", sshHost,
+					"cat "+home+"/home/shipped-commit 2>/dev/null").Output()
+				if err == nil {
+					sha = strings.TrimSpace(string(out))
+				}
+			}
+
+			fmt.Println("[ship] Validating migration history...")
+			notes, fixes, runErr := preflight.MigrationHistory(ctx, preflight.Options{
+				DeployedSHA:  sha,
+				MigrationDir: migDir,
+				FixesDir:     fixesDir,
+			})
+
+			for _, n := range notes {
+				if n.Kind == preflight.NoteFirstDeploy {
+					fmt.Println("[ship] No deployed commit — first deploy, skipping history check.")
+					continue
+				}
+				fmt.Printf("[ship] NOTE: %s\n", n.Msg)
+			}
+
+			if runErr != nil {
+				for _, line := range strings.Split(runErr.Error(), "\n") {
+					if strings.HasPrefix(line, "  ") {
+						fmt.Printf("[ship] %s\n", line)
+					} else {
+						fmt.Printf("[ship] ERROR: %s\n", line)
+					}
+				}
+				fmt.Println("[ship] REFUSING: shipped migrations modified — create a new migration instead.")
+				return runErr
+			}
+
+			if len(fixes) > 0 {
+				fmt.Println("PENDING_FIXES:")
+				for _, f := range fixes {
+					fmt.Println(f.Path)
+				}
+			}
+
+			// FIRST_DEPLOY note already printed above; suppress the OK line in that case.
+			if !(len(notes) == 1 && notes[0].Kind == preflight.NoteFirstDeploy) {
+				fmt.Println("[ship] Migration history OK.")
+			}
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&deployedSHA, "deployed-sha", "", "deployed commit SHA (skips API+ssh resolution)")
+	cmd.Flags().StringVar(&migDir, "migration-dir", "internal/migrate/sql", "directory holding *.sql migrations")
+	cmd.Flags().StringVar(&fixesDir, "fixes-dir", "", "directory holding migration-fixes/ files (default: <migration-dir>/migration-fixes)")
+	cmd.Flags().StringVar(&sshHost, "ssh-host", "", "ssh host for shipped-commit fallback (e.g. user@host)")
+	cmd.Flags().StringVar(&remoteHome, "remote-home", "", "remote home dir for shipped-commit (default: /home/zdx)")
+	cmd.Flags().StringVar(&envName, "env", "", "environment name to query for current_build_sha via dx-server API")
+	return cmd
+}
+
+// resolveDeployedSHAFromAPI hits GET /api/dx/projects/{slug}/environments/{env}
+// and returns CurrentBuildSha. Empty SHA → empty string + nil error (legitimate
+// first-deploy state).
+func resolveDeployedSHAFromAPI(ctx context.Context, env string) (string, error) {
+	c, err := cli.DefaultClient()
+	if err != nil {
+		return "", err
+	}
+	slug := c.SlugOrDie()
+	resp, err := c.GetEnvironmentWithResponse(ctx, slug, env)
+	if err != nil {
+		return "", err
+	}
+	if resp.JSON200 == nil {
+		return "", fmt.Errorf("HTTP %d", resp.StatusCode())
+	}
+	return resp.JSON200.CurrentBuildSha, nil
 }
 
 func shipGitOutput(args ...string) string {
