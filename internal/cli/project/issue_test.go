@@ -161,6 +161,21 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 			want: nil,
 		},
 		{
+			name:  "'todos' noun does not trigger 'todo' future signal",
+			input: "## Root cause\nThe gate matches todos and other nouns containing the word as a substring.",
+			want:  nil,
+		},
+		{
+			name:  "Examples section suppresses bullet extraction",
+			input: "Examples observed:\n- IS-682 alert title string quoted as evidence\n- IS-683 another example\n",
+			want:  nil,
+		},
+		{
+			name:  "Examples markdown header suppresses bullet extraction",
+			input: "## Examples observed\n- IS-682 alert title string quoted as evidence\n",
+			want:  nil,
+		},
+		{
 			name: "code-fenced content is not extracted",
 			input: "Here's a diff:\n" +
 				"```\n" +

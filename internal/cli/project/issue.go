@@ -494,7 +494,7 @@ var (
 	// work — list items and future-tense signals inside them must not be
 	// extracted as decomposition candidates. Matches with or without leading
 	// markdown hashes and optional trailing colon. (IS-675)
-	decompExemptHeaderRe = regexp.MustCompile(`(?i)^\s*(?:#+\s*)?(WHAT SHOULD HAPPEN|WHAT DID HAPPEN|WHAT THE TOOL SHOULD DO|IMPLEMENTATION DIRECTION|REPRO|CANDIDATE FIXES|FIX|OUT OF SCOPE)\b`)
+	decompExemptHeaderRe = regexp.MustCompile(`(?i)^\s*(?:#+\s*)?(WHAT SHOULD HAPPEN|WHAT DID HAPPEN|WHAT THE TOOL SHOULD DO|IMPLEMENTATION DIRECTION|REPRO|CANDIDATE FIXES|FIX|OUT OF SCOPE|EXAMPLES)\b`)
 	// decompCodeFenceRe matches a markdown code-fence opening or closing line.
 	// Lines inside fences must not be extracted — they are example commands or
 	// quoted output, not pending work. Without this guard, a diff line like
@@ -504,8 +504,30 @@ var (
 )
 
 // decompFutureSignals are case-insensitive substrings that flag a line as
-// describing pending work even when it is not in a list.
+// describing pending work even when it is not in a list. Signals that end with
+// a letter/digit are matched with a word-boundary check so "todo" does not
+// match "todos". Signals with trailing spaces are already boundary-safe.
 var decompFutureSignals = []string{"will ", "should ", "needs to ", "todo", "next step"}
+
+// decompFutureSignalMatches returns true when lc contains sig. For signals
+// whose last character is a word character (a-z, 0-9, _), the character
+// immediately after the match must not also be a word character — this
+// prevents "todo" from firing on "todos".
+func decompFutureSignalMatches(lc, sig string) bool {
+	idx := strings.Index(lc, sig)
+	if idx < 0 {
+		return false
+	}
+	last := sig[len(sig)-1]
+	isWordChar := func(c byte) bool { return (c >= 'a' && c <= 'z') || (c >= '0' && c <= '9') || c == '_' }
+	if isWordChar(last) {
+		end := idx + len(sig)
+		if end < len(lc) && isWordChar(lc[end]) {
+			return false
+		}
+	}
+	return true
+}
 
 const decompCandidateCap = 20
 
@@ -570,7 +592,7 @@ func extractDecompositionCandidates(context string) []string {
 		}
 		lc := strings.ToLower(line)
 		for _, sig := range decompFutureSignals {
-			if strings.Contains(lc, sig) {
+			if decompFutureSignalMatches(lc, sig) {
 				add(line)
 				break
 			}
