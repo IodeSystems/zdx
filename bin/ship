@@ -127,7 +127,7 @@ load_deploy_config() {
     exit 1
   fi
 
-  prop() { grep "^$1=" "$DEPLOY_PROPS" | cut -d= -f2- | tr -d '[:space:]'; }
+  prop() { grep "^$1=" "$DEPLOY_PROPS" 2>/dev/null | cut -d= -f2- | tr -d '[:space:]' || true; }
 
   HOST=$(prop deploy.host)
   export HZ_TOKEN=$(prop deploy.token)
