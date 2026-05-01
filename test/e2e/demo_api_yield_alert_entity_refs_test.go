@@ -140,6 +140,17 @@ func TestDemoAPI_YieldAlertEntityRefs(t *testing.T) {
 			"name": "Yield Alert Thrash",
 		}, nil))
 
+		// Tech standup requires git config; use the local repo so EnsureRepo can
+		// clone without network access. RepoDir will clone to a temp path under
+		// the server's home directory.
+		repoRoot, err := findRoot()
+		if err != nil {
+			t.Skipf("could not find repo root for git config: %v", err)
+		}
+		mustOK(t, rec.Do(http.MethodPut, "/api/admin/project-git-config", map[string]any{
+			"slug": slug, "git_url": "file://" + repoRoot, "git_branch": "dev",
+		}, nil))
+
 		// Close 3 issues to meet standupMinClosedForRatios.
 		for i := range 3 {
 			var iss struct {

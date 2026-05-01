@@ -1084,9 +1084,10 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 
 // ── Model → response converter ────────────────────────────────────────────
 
-// intArrayToStrings converts a pgtype.Array[pgtype.Int4] (returned by sqlc for
-// array_agg(integer) columns typed as interface{}) into a slice of formatted strings.
+// intArrayToStrings converts integer arrays (returned by sqlc for array_agg(integer)
+// columns typed as interface{}) into a slice of formatted strings.
 // Each element is formatted as prefix + integer (e.g. "S-42"). Nil input → nil output.
+// Handles pgtype.Array[pgtype.Int4], []int32, and []interface{} (pgx5 may return any).
 func intArrayToStrings(v interface{}, prefix string) []string {
 	if v == nil {
 		return nil
@@ -1104,6 +1105,19 @@ func intArrayToStrings(v interface{}, prefix string) []string {
 		out := make([]string, 0, len(arr))
 		for _, n := range arr {
 			out = append(out, fmt.Sprintf("%s%d", prefix, n))
+		}
+		return out
+	case []interface{}:
+		out := make([]string, 0, len(arr))
+		for _, el := range arr {
+			switch n := el.(type) {
+			case int32:
+				out = append(out, fmt.Sprintf("%s%d", prefix, n))
+			case int64:
+				out = append(out, fmt.Sprintf("%s%d", prefix, n))
+			case int:
+				out = append(out, fmt.Sprintf("%s%d", prefix, n))
+			}
 		}
 		return out
 	}

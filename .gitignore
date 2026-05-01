@@ -38,3 +38,4 @@ ui/.tanstack/
 vec/
 test/e2e/vec/
 ui/.eslintcache
+test/e2e/repos/
