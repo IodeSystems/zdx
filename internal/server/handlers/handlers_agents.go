@@ -44,6 +44,20 @@ type AgentTaskItem struct {
 	LeaseExpiresAt string `json:"lease_expires_at"`
 }
 
+// statusUpdater returns the configured AgentStatusUpdater, falling back to h.Q
+// (which satisfies the interface) so prod wiring keeps working without an
+// explicit Deps.AgentStatusUpdater. Returns nil when neither is set so unit
+// tests that don't care about status updates can omit both.
+func (h *Handler) statusUpdater() AgentStatusUpdater {
+	if h.AgentStatusUpdater != nil {
+		return h.AgentStatusUpdater
+	}
+	if h.Q != nil {
+		return h.Q
+	}
+	return nil
+}
+
 // agentItemFrom converts a DB row to an API item. reg may be nil (no live state).
 // Connection-state precedence: if status is paused/draining it takes priority over
 // registry presence, since those states persist across reconnects.
@@ -383,11 +397,12 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 			if err := h.AgentCommander.SendAgentCommand(ctx, in.ID, msg); err != nil {
 				return nil, apiErr(404, "agent not connected")
 			}
-			// Update DB status so reclaim-expired correctly exempts paused agents.
-			if h.Q != nil {
+			// Update DB status so reclaim-expired correctly exempts paused agents
+			// and dx agent list (IS-819) reflects the new state.
+			if updater := h.statusUpdater(); updater != nil {
 				statusFor := map[string]string{"pause": "paused", "resume": "active"}
 				if newStatus, ok := statusFor[in.Body.Command]; ok {
-					_ = h.Q.UpdateAgentStatus(ctx, db.UpdateAgentStatusParams{ID: in.ID, Status: newStatus})
+					_ = updater.UpdateAgentStatus(ctx, db.UpdateAgentStatusParams{ID: in.ID, Status: newStatus})
 				}
 			}
 			return &struct{}{}, nil

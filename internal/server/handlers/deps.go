@@ -29,6 +29,14 @@ type AgentConnRegistry interface {
 	ConnectedAt(agentID string) time.Time
 }
 
+// AgentStatusUpdater persists agent status transitions (e.g., pause → "paused")
+// so list/reflect endpoints see the new state. Narrow surface to keep the
+// send-command handler unit-testable without a real DB. *db.Queries satisfies
+// this interface in production wiring.
+type AgentStatusUpdater interface {
+	UpdateAgentStatus(ctx context.Context, arg db.UpdateAgentStatusParams) error
+}
+
 type SchemaFeatures struct {
 	HasLLMConfig        bool
 	HasProjectGitConfig bool
@@ -106,6 +114,7 @@ type Deps struct {
 	Mux                     chi.Router
 	AgentCommander          AgentCommander
 	AgentConnRegistry       AgentConnRegistry
+	AgentStatusUpdater      AgentStatusUpdater
 	AgentDisconnectGraceSec int
 }
 
