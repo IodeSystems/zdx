@@ -78,7 +78,7 @@ type Querier interface {
 	// Count open, unblocked todos that are not currently claimed (or whose lease has expired).
 	// Used by the /api/health queue subsystem probe to surface backlog depth.
 	CountUnclaimedTodos(ctx context.Context) (int64, error)
-	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error)
+	CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (CreateApiKeyRow, error)
 	CreateClaudeEvent(ctx context.Context, arg CreateClaudeEventParams) error
 	CreateClaudeSession(ctx context.Context, arg CreateClaudeSessionParams) (CreateClaudeSessionRow, error)
 	CreateCodeRef(ctx context.Context, arg CreateCodeRefParams) (ZdxCodeRef, error)
@@ -160,7 +160,7 @@ type Querier interface {
 	// Return the active (unreleased, unexpired) reservation for a specific issue, if any.
 	GetActiveIssueReservation(ctx context.Context, arg GetActiveIssueReservationParams) (ZdxReservation, error)
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
-	GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error)
+	GetApiKeyByToken(ctx context.Context, token string) (GetApiKeyByTokenRow, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
 	GetBlockerQuestion(ctx context.Context, arg GetBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	GetClaudeSession(ctx context.Context, arg GetClaudeSessionParams) (GetClaudeSessionRow, error)

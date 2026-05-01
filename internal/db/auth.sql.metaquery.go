@@ -245,13 +245,14 @@ var MetaGetApiKeyByToken = metaquery.Query{
 	Name:   "GetApiKeyByToken",
 	Cmd:    ":one",
 	Source: "auth.sql",
-	SQL: `SELECT id, user_id, token, name, last_used_at, created_at
+	SQL: `SELECT id, user_id, token, name, project_scope, last_used_at, created_at
 FROM zdx_api_keys WHERE token = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_api_keys"},
 		{Name: "user_id", OriginalName: "user_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_api_keys"},
 		{Name: "token", OriginalName: "token", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_api_keys"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_api_keys"},
+		{Name: "project_scope", OriginalName: "project_scope", GoType: "[]string", DBType: "text", IsArray: true, Table: "zdx_api_keys"},
 		{Name: "last_used_at", OriginalName: "last_used_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_api_keys"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_api_keys"},
 	},
@@ -267,19 +268,21 @@ func WrapGetApiKeyByToken(token string) *metaquery.Builder {
 
 // GetApiKeyByTokenCols gives typed, name-safe access to GetApiKeyByToken's output columns.
 var GetApiKeyByTokenCols = struct {
-	ID         metaquery.IntCol
-	UserID     metaquery.IntCol
-	Token      metaquery.TextCol
-	Name       metaquery.TextCol
-	LastUsedAt metaquery.TimeCol
-	CreatedAt  metaquery.TimeCol
+	ID           metaquery.IntCol
+	UserID       metaquery.IntCol
+	Token        metaquery.TextCol
+	Name         metaquery.TextCol
+	ProjectScope metaquery.AnyCol
+	LastUsedAt   metaquery.TimeCol
+	CreatedAt    metaquery.TimeCol
 }{
-	ID:         metaquery.NewIntCol("id"),
-	UserID:     metaquery.NewIntCol("user_id"),
-	Token:      metaquery.NewTextCol("token"),
-	Name:       metaquery.NewTextCol("name"),
-	LastUsedAt: metaquery.NewTimeCol("last_used_at"),
-	CreatedAt:  metaquery.NewTimeCol("created_at"),
+	ID:           metaquery.NewIntCol("id"),
+	UserID:       metaquery.NewIntCol("user_id"),
+	Token:        metaquery.NewTextCol("token"),
+	Name:         metaquery.NewTextCol("name"),
+	ProjectScope: metaquery.NewAnyCol("project_scope"),
+	LastUsedAt:   metaquery.NewTimeCol("last_used_at"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
 }
 
 var MetaGetApiKeyUserRole = metaquery.Query{
@@ -432,11 +435,12 @@ var MetaListApiKeysByUser = metaquery.Query{
 	Name:   "ListApiKeysByUser",
 	Cmd:    ":many",
 	Source: "auth.sql",
-	SQL: `SELECT id, name, last_used_at, created_at
+	SQL: `SELECT id, name, project_scope, last_used_at, created_at
 FROM zdx_api_keys WHERE user_id = $1 ORDER BY created_at DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_api_keys"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_api_keys"},
+		{Name: "project_scope", OriginalName: "project_scope", GoType: "[]string", DBType: "text", IsArray: true, Table: "zdx_api_keys"},
 		{Name: "last_used_at", OriginalName: "last_used_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_api_keys"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_api_keys"},
 	},
@@ -452,15 +456,17 @@ func WrapListApiKeysByUser(userID int32) *metaquery.Builder {
 
 // ListApiKeysByUserCols gives typed, name-safe access to ListApiKeysByUser's output columns.
 var ListApiKeysByUserCols = struct {
-	ID         metaquery.IntCol
-	Name       metaquery.TextCol
-	LastUsedAt metaquery.TimeCol
-	CreatedAt  metaquery.TimeCol
+	ID           metaquery.IntCol
+	Name         metaquery.TextCol
+	ProjectScope metaquery.AnyCol
+	LastUsedAt   metaquery.TimeCol
+	CreatedAt    metaquery.TimeCol
 }{
-	ID:         metaquery.NewIntCol("id"),
-	Name:       metaquery.NewTextCol("name"),
-	LastUsedAt: metaquery.NewTimeCol("last_used_at"),
-	CreatedAt:  metaquery.NewTimeCol("created_at"),
+	ID:           metaquery.NewIntCol("id"),
+	Name:         metaquery.NewTextCol("name"),
+	ProjectScope: metaquery.NewAnyCol("project_scope"),
+	LastUsedAt:   metaquery.NewTimeCol("last_used_at"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
 }
 
 var MetaListInvites = metaquery.Query{

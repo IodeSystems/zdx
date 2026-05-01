@@ -34,9 +34,18 @@ type CreateApiKeyParams struct {
 	Name   string `db:"name" json:"name"`
 }
 
-func (q *Queries) CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (ZdxApiKey, error) {
+type CreateApiKeyRow struct {
+	ID         int32              `db:"id" json:"id"`
+	UserID     int32              `db:"user_id" json:"user_id"`
+	Token      string             `db:"token" json:"token"`
+	Name       string             `db:"name" json:"name"`
+	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CreateApiKey(ctx context.Context, arg CreateApiKeyParams) (CreateApiKeyRow, error) {
 	row := q.db.QueryRow(ctx, createApiKey, arg.UserID, arg.Token, arg.Name)
-	var i ZdxApiKey
+	var i CreateApiKeyRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
@@ -170,18 +179,29 @@ func (q *Queries) DeleteInvite(ctx context.Context, id int32) error {
 }
 
 const getApiKeyByToken = `-- name: GetApiKeyByToken :one
-SELECT id, user_id, token, name, last_used_at, created_at
+SELECT id, user_id, token, name, project_scope, last_used_at, created_at
 FROM zdx_api_keys WHERE token = $1
 `
 
-func (q *Queries) GetApiKeyByToken(ctx context.Context, token string) (ZdxApiKey, error) {
+type GetApiKeyByTokenRow struct {
+	ID           int32              `db:"id" json:"id"`
+	UserID       int32              `db:"user_id" json:"user_id"`
+	Token        string             `db:"token" json:"token"`
+	Name         string             `db:"name" json:"name"`
+	ProjectScope []string           `db:"project_scope" json:"project_scope"`
+	LastUsedAt   pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetApiKeyByToken(ctx context.Context, token string) (GetApiKeyByTokenRow, error) {
 	row := q.db.QueryRow(ctx, getApiKeyByToken, token)
-	var i ZdxApiKey
+	var i GetApiKeyByTokenRow
 	err := row.Scan(
 		&i.ID,
 		&i.UserID,
 		&i.Token,
 		&i.Name,
+		&i.ProjectScope,
 		&i.LastUsedAt,
 		&i.CreatedAt,
 	)
@@ -263,15 +283,16 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, er
 }
 
 const listApiKeysByUser = `-- name: ListApiKeysByUser :many
-SELECT id, name, last_used_at, created_at
+SELECT id, name, project_scope, last_used_at, created_at
 FROM zdx_api_keys WHERE user_id = $1 ORDER BY created_at DESC
 `
 
 type ListApiKeysByUserRow struct {
-	ID         int32              `db:"id" json:"id"`
-	Name       string             `db:"name" json:"name"`
-	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID           int32              `db:"id" json:"id"`
+	Name         string             `db:"name" json:"name"`
+	ProjectScope []string           `db:"project_scope" json:"project_scope"`
+	LastUsedAt   pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
 }
 
 func (q *Queries) ListApiKeysByUser(ctx context.Context, userID int32) ([]ListApiKeysByUserRow, error) {
@@ -286,6 +307,7 @@ func (q *Queries) ListApiKeysByUser(ctx context.Context, userID int32) ([]ListAp
 		if err := rows.Scan(
 			&i.ID,
 			&i.Name,
+			&i.ProjectScope,
 			&i.LastUsedAt,
 			&i.CreatedAt,
 		); err != nil {

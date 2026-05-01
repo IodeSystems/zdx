@@ -55,7 +55,8 @@ CREATE TABLE public.zdx_api_keys (
     token text NOT NULL,
     name text NOT NULL,
     last_used_at timestamp with time zone,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    project_scope text[]
 );
 
 
@@ -4401,6 +4402,13 @@ CREATE INDEX idx_tests_status ON public.zdx_tests USING btree (project_id, statu
 --
 
 CREATE INDEX zdx_agents_disconnect_at_idx ON public.zdx_agents USING btree (disconnect_at) WHERE (disconnect_at IS NOT NULL);
+
+
+--
+-- Name: zdx_api_keys_project_scope_gin_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_api_keys_project_scope_gin_idx ON public.zdx_api_keys USING gin (project_scope) WHERE (project_scope IS NOT NULL);
 
 
 --

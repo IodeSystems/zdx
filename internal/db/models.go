@@ -27,12 +27,13 @@ type ZdxAgent struct {
 }
 
 type ZdxApiKey struct {
-	ID         int32              `db:"id" json:"id"`
-	UserID     int32              `db:"user_id" json:"user_id"`
-	Token      string             `db:"token" json:"token"`
-	Name       string             `db:"name" json:"name"`
-	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID           int32              `db:"id" json:"id"`
+	UserID       int32              `db:"user_id" json:"user_id"`
+	Token        string             `db:"token" json:"token"`
+	Name         string             `db:"name" json:"name"`
+	LastUsedAt   pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ProjectScope []string           `db:"project_scope" json:"project_scope"`
 }
 
 type ZdxBlockerQuestion struct {
