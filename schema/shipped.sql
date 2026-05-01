@@ -707,12 +707,12 @@ ALTER SEQUENCE public.zdx_error_events_id_seq OWNED BY public.zdx_error_events.i
 
 CREATE TABLE public.zdx_error_reports (
     id bigint NOT NULL,
-    project_id integer,
     source text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     error_name text DEFAULT ''::text NOT NULL,
     stack_trace text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    project_id integer
 );
 
 
@@ -2204,13 +2204,13 @@ ALTER SEQUENCE public.zdx_sessions_id_seq OWNED BY public.zdx_sessions.id;
 
 CREATE TABLE public.zdx_slow_queries (
     id bigint NOT NULL,
-    project_id integer,
     sql_hash text NOT NULL,
     sql_text text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     duration_ms integer NOT NULL,
     explain_json text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    project_id integer
 );
 
 
@@ -3642,11 +3642,11 @@ ALTER TABLE ONLY public.zdx_goal_issues
 
 
 --
--- Name: zdx_id_seq zdx_id_seq_pkey1; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: zdx_id_seq zdx_id_seq_global_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_id_seq
-    ADD CONSTRAINT zdx_id_seq_pkey1 PRIMARY KEY (kind);
+    ADD CONSTRAINT zdx_id_seq_global_pkey PRIMARY KEY (kind);
 
 
 --
@@ -4378,6 +4378,13 @@ CREATE INDEX idx_error_reports_created_at ON public.zdx_error_reports USING btre
 
 
 --
+-- Name: idx_error_reports_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_error_reports_project_id ON public.zdx_error_reports USING btree (project_id);
+
+
+--
 -- Name: idx_error_reports_source; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4543,6 +4550,13 @@ CREATE INDEX idx_slow_queries_created_at ON public.zdx_slow_queries USING btree 
 --
 
 CREATE INDEX idx_slow_queries_endpoint ON public.zdx_slow_queries USING btree (endpoint);
+
+
+--
+-- Name: idx_slow_queries_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_slow_queries_project_id ON public.zdx_slow_queries USING btree (project_id);
 
 
 --
