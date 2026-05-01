@@ -28,9 +28,17 @@ SELECT id, email, name, role, created_at FROM zdx_users WHERE id = $1;
 SELECT u.role FROM zdx_api_keys k JOIN zdx_users u ON u.id = k.user_id WHERE k.token = $1;
 
 -- name: CreateApiKey :one
-INSERT INTO zdx_api_keys (user_id, token, name)
-VALUES ($1, $2, $3)
-RETURNING id, user_id, token, name, last_used_at, created_at;
+INSERT INTO zdx_api_keys (user_id, token, name, project_scope)
+VALUES ($1, $2, $3, $4)
+RETURNING id, user_id, token, name, project_scope, last_used_at, created_at;
+
+-- name: AdminListApiKeys :many
+SELECT k.id, k.name, u.email AS user_email, k.project_scope, k.last_used_at, k.created_at
+FROM zdx_api_keys k JOIN zdx_users u ON u.id = k.user_id
+ORDER BY k.created_at DESC;
+
+-- name: AdminDeleteApiKey :execrows
+DELETE FROM zdx_api_keys WHERE id = $1;
 
 -- name: ListUsers :many
 SELECT id, email, name, role, created_at FROM zdx_users ORDER BY created_at DESC;
