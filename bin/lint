@@ -163,7 +163,12 @@ run "sql-metaquery-candidates" bash -c '
   fi
 '
 
-ADVISORY_LABELS=("raw-api-calls" "sql-metaquery-candidates")
+run "atlas-drift" bash -c '
+  command -v ./bin/dx >/dev/null 2>&1 || exit 0
+  ./bin/dx atlas drift
+'
+
+ADVISORY_LABELS=("raw-api-calls" "sql-metaquery-candidates" "atlas-drift")
 
 # ── Wait and report ──────────────────────────────────────────────────────────
 

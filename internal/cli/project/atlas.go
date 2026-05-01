@@ -2,6 +2,7 @@ package project
 
 import (
 	"fmt"
+	"os"
 
 	"github.com/spf13/cobra"
 
@@ -11,7 +12,7 @@ import (
 
 func AtlasCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "atlas", Short: "Atlas substrate (nodes, coderefs, chunks, edges)"}
-	cmd.AddCommand(atlasNodeCmd(), atlasCoderefCmd(), atlasChunkCmd(), atlasEdgeCmd())
+	cmd.AddCommand(atlasNodeCmd(), atlasCoderefCmd(), atlasChunkCmd(), atlasEdgeCmd(), atlasChunkDriftCmd())
 	return cmd
 }
 
@@ -363,6 +364,51 @@ func atlasEdgeAddCmd() *cobra.Command {
 	_ = cmd.MarkFlagRequired("from")
 	_ = cmd.MarkFlagRequired("to")
 	return cmd
+}
+
+// ── drift ────────────────────────────────────────────────────────────────────
+
+func atlasChunkDriftCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "drift",
+		Short: "Show stale chunk count (exit 1 if any stale)",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c, err := cli.DefaultClient()
+			if err != nil || c.Slug() == "" {
+				return nil
+			}
+			var result struct {
+				StaleCount int `json:"stale_count"`
+				Chunks     []struct {
+					ID       int64  `json:"id"`
+					NodeKind string `json:"node_kind"`
+					NodeSlug string `json:"node_slug"`
+					Title    string `json:"title"`
+					File     string `json:"file"`
+				} `json:"chunks"`
+			}
+			if err := c.Get(
+				"/api/projects/"+c.Slug()+"/atlas/chunks/stale",
+				nil,
+				&result,
+			); err != nil {
+				return nil // server doesn't support endpoint yet; exit 0
+			}
+			if result.StaleCount == 0 {
+				return nil
+			}
+			fmt.Printf("atlas-drift: %d stale chunk(s)\n", result.StaleCount)
+			for _, ch := range result.Chunks {
+				fmt.Printf("  %-6d  %s:%s  %s  %s\n",
+					ch.ID, ch.NodeKind, ch.NodeSlug,
+					cli.Truncate(ch.Title, 30),
+					ch.File,
+				)
+			}
+			os.Exit(1)
+			return nil
+		},
+	}
 }
 
 // ── helpers ───────────────────────────────────────────────────────────────────

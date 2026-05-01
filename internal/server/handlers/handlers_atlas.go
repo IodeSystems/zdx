@@ -40,8 +40,17 @@ type AtlasChunkItem struct {
 	Body         string `json:"body"`
 	ShaAtWrite   string `json:"sha_at_write,omitempty"`
 	VerifierKind string `json:"verifier_kind"`
+	Status       string `json:"status"`
 	CreatedAt    string `json:"created_at"`
 	UpdatedAt    string `json:"updated_at"`
+}
+
+type AtlasStaleChunkItem struct {
+	ID       int64  `json:"id"`
+	NodeKind string `json:"node_kind"`
+	NodeSlug string `json:"node_slug"`
+	Title    string `json:"title,omitempty"`
+	File     string `json:"file,omitempty"`
 }
 
 type AtlasEdgeItem struct {
@@ -107,6 +116,7 @@ func toAtlasChunkItem(c db.ZdxNarrativeChunk) AtlasChunkItem {
 		Body:         c.Body,
 		ShaAtWrite:   c.ShaAtWrite,
 		VerifierKind: c.VerifierKind,
+		Status:       c.Status,
 		CreatedAt:    fmtTS(c.CreatedAt),
 		UpdatedAt:    fmtTS(c.UpdatedAt),
 	}
@@ -244,6 +254,46 @@ func (h *Handler) registerAtlasRoutes(api huma.API) {
 				Edges:         edgeItems,
 			}
 			return &struct{ Body AtlasNodeDetail }{Body: detail}, nil
+		})
+
+	// ── Stale chunks ──────────────────────────────────────────────────────
+
+	huma.Register(api, huma.Operation{OperationID: "list-stale-atlas-chunks", Method: http.MethodGet, Path: "/api/projects/{slug}/atlas/chunks/stale"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug"`
+		}) (*struct {
+			Body struct {
+				StaleCount int                   `json:"stale_count"`
+				Chunks     []AtlasStaleChunkItem `json:"chunks"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListStaleChunksByProject(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]AtlasStaleChunkItem, len(rows))
+			for i, r := range rows {
+				out[i] = AtlasStaleChunkItem{
+					ID:       r.ID,
+					NodeKind: r.NodeKind,
+					NodeSlug: r.NodeSlug,
+					Title:    r.Title,
+					File:     r.CoderefFile,
+				}
+			}
+			return &struct {
+				Body struct {
+					StaleCount int                   `json:"stale_count"`
+					Chunks     []AtlasStaleChunkItem `json:"chunks"`
+				}
+			}{Body: struct {
+				StaleCount int                   `json:"stale_count"`
+				Chunks     []AtlasStaleChunkItem `json:"chunks"`
+			}{StaleCount: len(out), Chunks: out}}, nil
 		})
 
 	// ── Coderefs ──────────────────────────────────────────────────────────

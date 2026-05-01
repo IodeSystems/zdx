@@ -78,3 +78,13 @@ WHERE project_id = @project_id AND id = @id;
 
 -- name: DeleteAtlasChunk :exec
 DELETE FROM zdx_narrative_chunks WHERE project_id = @project_id AND id = @id;
+
+-- name: ListStaleChunksByProject :many
+SELECT c.*, n.kind AS node_kind, n.slug AS node_slug,
+       COALESCE(cr.file, '') AS coderef_file
+FROM zdx_narrative_chunks c
+JOIN zdx_nodes n ON n.id = c.node_id
+LEFT JOIN zdx_coderefs cr ON cr.id = c.coderef_id
+WHERE c.project_id = @project_id
+  AND c.status = 'stale'
+ORDER BY c.id;
