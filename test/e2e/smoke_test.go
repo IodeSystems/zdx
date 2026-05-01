@@ -46,7 +46,8 @@ func mustOK(t *testing.T, resp *http.Response) {
 // ── Tests ──────────────────────────────────────────────────────────────────
 
 // TestHealth verifies spec 59: GET /api/health returns the build SHA and
-// status so deployments can be probed.
+// status so deployments can be probed. Also asserts the IS-809 subsystems
+// shape: subsystems.queue is present and non-fatal (top-level stays ok).
 func TestHealth(t *testing.T) {
 	resp, err := http.Get(srv.URL + "/api/health")
 	if err != nil {
@@ -57,8 +58,12 @@ func TestHealth(t *testing.T) {
 		t.Fatalf("want 200, got %d", resp.StatusCode)
 	}
 	var body struct {
-		Status   string `json:"status"`
-		BuildSHA string `json:"build_sha"`
+		Status     string `json:"status"`
+		BuildSHA   string `json:"build_sha"`
+		Subsystems map[string]struct {
+			State string `json:"state"`
+			Depth *int64 `json:"depth,omitempty"`
+		} `json:"subsystems"`
 	}
 	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
 		t.Fatalf("decode: %v", err)
@@ -68,6 +73,13 @@ func TestHealth(t *testing.T) {
 	}
 	if body.BuildSHA == "" {
 		t.Error("build_sha: empty (ldflags wiring lost)")
+	}
+	q, ok := body.Subsystems["queue"]
+	if !ok {
+		t.Fatalf("subsystems.queue: missing (got %+v)", body.Subsystems)
+	}
+	if q.State != "ok" {
+		t.Errorf("subsystems.queue.state: want %q got %q", "ok", q.State)
 	}
 }
 

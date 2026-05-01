@@ -195,6 +195,14 @@ WHERE project_id = $1
   AND lease_expires_at > NOW()
 ORDER BY claimed_at DESC;
 
+-- name: CountUnclaimedTodos :one
+-- Count open, unblocked todos that are not currently claimed (or whose lease has expired).
+-- Used by the /api/health queue subsystem probe to surface backlog depth.
+SELECT COUNT(*) FROM zdx_todos
+WHERE status = 'open'
+  AND blocked = false
+  AND (claimed_by = '' OR lease_expires_at < NOW());
+
 -- name: GetState :one
 SELECT value FROM zdx_state WHERE project_id = $1 AND key = $2;
 

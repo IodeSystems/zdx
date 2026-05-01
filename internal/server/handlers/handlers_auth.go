@@ -13,10 +13,18 @@ import (
 )
 
 func (h *Handler) registerAuthRoutes(api huma.API) {
-	// Health
+	// Health — see IS-809; subsystems map reports per-component state so operators
+	// can detect a stuck queue, offline embedder, or laggy DB without auth.
 	huma.Register(api, huma.Operation{OperationID: "health", Method: http.MethodGet, Path: "/api/health"},
-		func(ctx context.Context, _ *struct{}) (*struct{ Body map[string]string }, error) {
-			return &struct{ Body map[string]string }{Body: map[string]string{"status": "ok", "build_sha": h.BuildSHA}}, nil
+		func(ctx context.Context, _ *struct{}) (*struct{ Body HealthOutput }, error) {
+			subsystems := map[string]SubsystemState{
+				"queue": h.checkQueue(ctx),
+			}
+			return &struct{ Body HealthOutput }{Body: HealthOutput{
+				Status:     rollupTopLevelStatus(subsystems),
+				BuildSHA:   h.BuildSHA,
+				Subsystems: subsystems,
+			}}, nil
 		})
 
 	// Config (authenticated)
