@@ -12,6 +12,7 @@ import (
 	"syscall"
 
 	"github.com/iodesystems/zdx-go/internal/agentdaemon"
+	"github.com/iodesystems/zdx-go/internal/cli/agent"
 )
 
 func main() {
@@ -56,16 +57,32 @@ func main() {
 		Holder: agentdaemon.NoopHolder(),
 	}
 
-	// Consume control signals. When a resume arrives, log the session that
-	// should be resumed; the full task-loop wiring happens in IS-602 follow-up
-	// tasks — this goroutine ensures ControlCh never blocks.
+	// Consume control signals. Resume spawns a fresh Take goroutine using the
+	// session/issue captured at pause time; pause is informational only (the
+	// daemon's hold loop already prevents new LLM turns).
 	go func() {
 		for msg := range ctrlCh {
 			switch msg.Type {
-			case "resume":
-				log.Printf("resume signal: session=%s issue=%s (task loop not yet wired)", msg.SessionID, msg.IssueID)
 			case "pause":
 				log.Printf("pause signal: session=%s issue=%s", msg.SessionID, msg.IssueID)
+			case "resume":
+				log.Printf("resume signal: session=%s issue=%s — spawning Take", msg.SessionID, msg.IssueID)
+				go func(m agentdaemon.ControlMsg) {
+					res := agent.RunResume(ctx, agent.ResumeRunnerConfig{
+						ServerURL: *server,
+						APIKey:    *apiKey,
+						AgentID:   *agentID,
+						WorkDir:   *worktree,
+						SessionID: m.SessionID,
+						IssueID:   m.IssueID,
+						LogFn:     func(format string, a ...any) { log.Printf(format, a...) },
+					})
+					if res.Err != nil {
+						log.Printf("resume failed: %v", res.Err)
+					} else {
+						log.Printf("resume completed: session=%s success=%v", m.SessionID, res.Success)
+					}
+				}(msg)
 			}
 		}
 	}()
