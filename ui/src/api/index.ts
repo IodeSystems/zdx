@@ -95,6 +95,20 @@ export const useZdxConfig = () =>
     staleTime: 300_000,
   })
 
+export type HealthOutput = components['schemas']['HealthOutput']
+
+export const useHealthStatus = () =>
+  useQuery<HealthOutput>({
+    queryKey: ['health'],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/health')
+      if (error) throw new Error(JSON.stringify(error))
+      return data!
+    },
+    refetchInterval: 30_000,
+    retry: false,
+  })
+
 export const useLogin = () => {
   const qc = useQueryClient()
   return useMutation<components['schemas']['Auth-loginResponse'], Error, components['schemas']['Auth-loginRequest']>({

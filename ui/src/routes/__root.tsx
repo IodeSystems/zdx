@@ -57,6 +57,7 @@ import { ErrorBoundary } from '../components/ErrorBoundary'
 import { AuthPage } from '../components/AuthPage'
 import { IssueReportFab } from '../components/IssueReportFab'
 import { ActivityToast } from '../components/ActivityToast'
+import { SystemHealthBadge } from '../components/SystemHealthBadge'
 import { useComponentFilter } from '../components/ComponentContext'
 import { useState, useCallback, useEffect, type FormEvent } from 'react'
 import { Paper, Popper, ClickAwayListener, CircularProgress } from '@mui/material'
@@ -753,6 +754,7 @@ function AppShell() {
           <ProjectLabel />
           <Omnibox />
           <Box sx={{ flexGrow: 1 }} />
+          <SystemHealthBadge />
           {currentSlug && <ActivityToast slug={currentSlug} />}
           <AvatarMenu />
         </Toolbar>
