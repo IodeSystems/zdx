@@ -214,3 +214,47 @@ func (q *Queries) ListUnansweredQuestions(ctx context.Context, projectID int32) 
 	}
 	return items, nil
 }
+
+const searchQuestions = `-- name: SearchQuestions :many
+SELECT id, project_id, category, question, answer, created_at, updated_at, parent_question_id
+FROM zdx_questions
+WHERE project_id = $1
+  AND (question ILIKE '%' || $2::text || '%' OR answer ILIKE '%' || $2::text || '%')
+ORDER BY created_at DESC
+LIMIT 10
+`
+
+type SearchQuestionsParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Query     string `db:"query" json:"query"`
+}
+
+// metaquery: off
+func (q *Queries) SearchQuestions(ctx context.Context, arg SearchQuestionsParams) ([]ZdxQuestion, error) {
+	rows, err := q.db.Query(ctx, searchQuestions, arg.ProjectID, arg.Query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxQuestion
+	for rows.Next() {
+		var i ZdxQuestion
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Category,
+			&i.Question,
+			&i.Answer,
+			&i.CreatedAt,
+			&i.UpdatedAt,
+			&i.ParentQuestionID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}

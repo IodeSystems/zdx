@@ -829,6 +829,56 @@ func (q *Queries) SearchFeatures(ctx context.Context, arg SearchFeaturesParams) 
 	return items, nil
 }
 
+const searchSpecs = `-- name: SearchSpecs :many
+SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE f.project_id = $1
+  AND s.description ILIKE '%' || $2::text || '%'
+ORDER BY s.id DESC
+LIMIT 10
+`
+
+type SearchSpecsParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Query     string `db:"query" json:"query"`
+}
+
+type SearchSpecsRow struct {
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	Description string `db:"description" json:"description"`
+	Importance  string `db:"importance" json:"importance"`
+	FeatureName string `db:"feature_name" json:"feature_name"`
+}
+
+// metaquery: off
+func (q *Queries) SearchSpecs(ctx context.Context, arg SearchSpecsParams) ([]SearchSpecsRow, error) {
+	rows, err := q.db.Query(ctx, searchSpecs, arg.ProjectID, arg.Query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchSpecsRow
+	for rows.Next() {
+		var i SearchSpecsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FeatureID,
+			&i.Description,
+			&i.Importance,
+			&i.FeatureName,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const unlinkSpecIssue = `-- name: UnlinkSpecIssue :exec
 DELETE FROM zdx_spec_issues WHERE spec_id = $1 AND issue_id = $2
 `

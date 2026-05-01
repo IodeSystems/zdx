@@ -1512,6 +1512,77 @@ func (q *Queries) ReleaseTaskAdmin(ctx context.Context, id string) error {
 	return err
 }
 
+const searchTasks = `-- name: SearchTasks :many
+SELECT id, project_id, title, text, feature, status, reason, issue, depends, test_plan, test_refs, task_group, spec, created_at, completed_at, updated_at
+FROM zdx_tasks
+WHERE project_id = $1
+  AND (title ILIKE '%' || $2::text || '%' OR text ILIKE '%' || $2::text || '%')
+ORDER BY updated_at DESC
+LIMIT 10
+`
+
+type SearchTasksParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Query     string `db:"query" json:"query"`
+}
+
+type SearchTasksRow struct {
+	ID          string             `db:"id" json:"id"`
+	ProjectID   int32              `db:"project_id" json:"project_id"`
+	Title       string             `db:"title" json:"title"`
+	Text        string             `db:"text" json:"text"`
+	Feature     string             `db:"feature" json:"feature"`
+	Status      string             `db:"status" json:"status"`
+	Reason      string             `db:"reason" json:"reason"`
+	Issue       string             `db:"issue" json:"issue"`
+	Depends     string             `db:"depends" json:"depends"`
+	TestPlan    string             `db:"test_plan" json:"test_plan"`
+	TestRefs    string             `db:"test_refs" json:"test_refs"`
+	TaskGroup   string             `db:"task_group" json:"task_group"`
+	Spec        string             `db:"spec" json:"spec"`
+	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	CompletedAt pgtype.Timestamptz `db:"completed_at" json:"completed_at"`
+	UpdatedAt   pgtype.Timestamptz `db:"updated_at" json:"updated_at"`
+}
+
+// metaquery: off
+func (q *Queries) SearchTasks(ctx context.Context, arg SearchTasksParams) ([]SearchTasksRow, error) {
+	rows, err := q.db.Query(ctx, searchTasks, arg.ProjectID, arg.Query)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []SearchTasksRow
+	for rows.Next() {
+		var i SearchTasksRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.Title,
+			&i.Text,
+			&i.Feature,
+			&i.Status,
+			&i.Reason,
+			&i.Issue,
+			&i.Depends,
+			&i.TestPlan,
+			&i.TestRefs,
+			&i.TaskGroup,
+			&i.Spec,
+			&i.CreatedAt,
+			&i.CompletedAt,
+			&i.UpdatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const updateTaskFields = `-- name: UpdateTaskFields :exec
 UPDATE zdx_tasks
 SET title      = CASE WHEN $1::text = 'title'      THEN $2::text ELSE title      END,

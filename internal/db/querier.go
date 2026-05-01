@@ -570,6 +570,12 @@ type Querier interface {
 	SearchPatterns(ctx context.Context, arg SearchPatternsParams) ([]ZdxPattern, error)
 	// metaquery: off
 	SearchProposals(ctx context.Context, arg SearchProposalsParams) ([]ZdxProposal, error)
+	// metaquery: off
+	SearchQuestions(ctx context.Context, arg SearchQuestionsParams) ([]ZdxQuestion, error)
+	// metaquery: off
+	SearchSpecs(ctx context.Context, arg SearchSpecsParams) ([]SearchSpecsRow, error)
+	// metaquery: off
+	SearchTasks(ctx context.Context, arg SearchTasksParams) ([]SearchTasksRow, error)
 	SearchUsers(ctx context.Context, q_ string) ([]SearchUsersRow, error)
 	SetEventVerdict(ctx context.Context, arg SetEventVerdictParams) (ZdxEvent, error)
 	SetIssueField(ctx context.Context, arg SetIssueFieldParams) error
