@@ -499,10 +499,10 @@ func TestRun_TagFilter(t *testing.T) {
 	comp := config.Component{Ship: config.Ship{Stages: stages}}
 
 	cases := []struct {
-		name       string
-		opts       RunOptions
-		wantNames  []string
-		wantCount  int
+		name      string
+		opts      RunOptions
+		wantNames []string
+		wantCount int
 	}{
 		{
 			name:      "no filter runs all",
