@@ -27,6 +27,9 @@ SELECT id, email, name, role, created_at FROM zdx_users WHERE id = $1;
 -- name: GetApiKeyUserRole :one
 SELECT u.role FROM zdx_api_keys k JOIN zdx_users u ON u.id = k.user_id WHERE k.token = $1;
 
+-- name: GetApiKeyProjectScope :one
+SELECT project_scope FROM zdx_api_keys WHERE id = $1;
+
 -- name: CreateApiKey :one
 INSERT INTO zdx_api_keys (user_id, token, name, project_scope)
 VALUES ($1, $2, $3, $4)

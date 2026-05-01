@@ -127,6 +127,7 @@ type Deps struct {
 	AgentStatusUpdater      AgentStatusUpdater
 	AgentDisconnectGraceSec int
 	TodoIncompleteStore     TodoIncompleteStore
+	AdminTokenStore         AdminTokenStore
 }
 
 type Handler struct {

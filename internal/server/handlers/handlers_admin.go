@@ -16,6 +16,7 @@ import (
 
 func (h *Handler) registerAdminRoutes(api huma.API) {
 	h.registerAdminLLMConfigRoutes(api)
+	h.registerAdminTokenRoutes(api)
 
 	// ── Admin: project git config ─────────────────────────────────────────────
 
