@@ -38,12 +38,23 @@ SELECT
   (SELECT count(*) FROM zdx_claude_sessions s WHERE s.project_id = $1 AND s.created_at >= $2) AS sessions_in_period,
   (SELECT count(*) FROM zdx_issues          i WHERE i.project_id = $1 AND i.closed_at  >= $2) AS closed_in_period;
 
+-- name: StandupTopThrashingIssues :many
+-- Top issues by claude session count in the period — surfaces which issues are consuming the most
+-- agent attention, useful when sessions/closed is high (agent thrashing breach).
+SELECT issue_id, count(*) AS session_count
+FROM zdx_claude_sessions
+WHERE project_id = $1 AND created_at >= $2 AND issue_id != ''
+GROUP BY issue_id
+ORDER BY session_count DESC
+LIMIT 3;
+
 -- name: StandupSpecDelta :one
 -- Spec activity in a 30d window for the project's specs (joined via zdx_features → project_id).
 -- specs_added: distinct specs whose first issue link landed in the window. zdx_specs has no
 --   created_at column, so the earliest spec-issue link is used as a proxy for "newly tracked".
 -- specs_covered: specs linked to issues that closed in the window.
 -- specs_deferred: spec deferrals created in the window.
+-- covered_spec_ids / deferred_spec_ids: arrays of spec IDs for the body of yield alerts.
 SELECT
   (SELECT count(*) FROM (
      SELECT si.spec_id, MIN(si.created_at) AS first_link
@@ -65,7 +76,20 @@ SELECT
      JOIN zdx_specs    s ON s.id = sd.spec_id
      JOIN zdx_features f ON f.id = s.feature_id
      WHERE f.project_id = $1
-       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS specs_deferred;
+       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS specs_deferred,
+  (SELECT array_agg(DISTINCT s.id ORDER BY s.id)
+     FROM zdx_specs       s
+     JOIN zdx_features    f  ON f.id  = s.feature_id
+     JOIN zdx_spec_issues si ON si.spec_id = s.id
+     JOIN zdx_issues      i  ON i.id  = si.issue_id
+     WHERE f.project_id = $1
+       AND i.closed_at > NOW() - INTERVAL '30 days')                            AS covered_spec_ids,
+  (SELECT array_agg(sd.spec_id ORDER BY sd.spec_id)
+     FROM zdx_spec_deferrals sd
+     JOIN zdx_specs    s ON s.id = sd.spec_id
+     JOIN zdx_features f ON f.id = s.feature_id
+     WHERE f.project_id = $1
+       AND sd.created_at > NOW() - INTERVAL '30 days')                          AS deferred_spec_ids;
 
 -- name: JournalVelocity :one
 -- closed_at is set by CloseIssue and cleared by ReopenIssue/ReadyIssue, so

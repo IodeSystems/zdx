@@ -813,6 +813,8 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 						CurrentValue:    fmt.Sprintf("%d deferred vs %d verified", specDelta.SpecsDeferred, specDelta.SpecsCovered),
 						Diagnosis:       "specs are getting pushed off faster than they're being verified; coverage debt is widening.",
 						SuggestedAction: "list deferred specs (`dx spec list --deferred`) — for each, either cover it with new tests/issues or downgrade kind from must to nice-to-have.",
+						EntityRefs:      intArrayToStrings(specDelta.DeferredSpecIds, "S-"),
+						EntityRefsLabel: "Deferred specs",
 					})
 				}
 				if churnNote != "" {
@@ -866,6 +868,11 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 					sessionsPerClose := float64(techYield.SessionsInPeriod) / float64(techYield.ClosedInPeriod)
 					if sessionsPerClose > 5.0 {
 						concernParts = append(concernParts, fmt.Sprintf("**Agent efficiency:** sessions/closed: %.1f (threshold 5.0) — high session count per close may indicate thrashing.", sessionsPerClose))
+						topThrashing, _ := h.Q.StandupTopThrashingIssues(ctx, db.StandupTopThrashingIssuesParams{ProjectID: p.ID, CreatedAt: since})
+						var thrashingRefs []string
+						for _, t := range topThrashing {
+							thrashingRefs = append(thrashingRefs, fmt.Sprintf("%s (%d sessions)", t.IssueID, t.SessionCount))
+						}
 						techBreaches = append(techBreaches, yieldBreach{
 							Key:             "claude_sessions_per_closed_issue",
 							Label:           "Agent thrashing",
@@ -875,6 +882,8 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 							CurrentValue:    fmt.Sprintf("%.1f sessions per closed issue", sessionsPerClose),
 							Diagnosis:       "high session count per close suggests agents are claiming, failing, and re-claiming without making progress.",
 							SuggestedAction: "check the queue for stuck todos (cycle_count > 1); investigate root causes (capability gaps, ambiguous specs); see IS-662 for structured incomplete-report tracking.",
+							EntityRefs:      thrashingRefs,
+							EntityRefsLabel: "Top thrashing issues",
 						})
 					}
 					commitsPerClose := float64(metrics.GitCommits) / float64(techYield.ClosedInPeriod)
@@ -1059,6 +1068,32 @@ func (h *Handler) registerDxRoutes(api huma.API) {
 }
 
 // ── Model → response converter ────────────────────────────────────────────
+
+// intArrayToStrings converts a pgtype.Array[pgtype.Int4] (returned by sqlc for
+// array_agg(integer) columns typed as interface{}) into a slice of formatted strings.
+// Each element is formatted as prefix + integer (e.g. "S-42"). Nil input → nil output.
+func intArrayToStrings(v interface{}, prefix string) []string {
+	if v == nil {
+		return nil
+	}
+	switch arr := v.(type) {
+	case pgtype.Array[pgtype.Int4]:
+		out := make([]string, 0, len(arr.Elements))
+		for _, el := range arr.Elements {
+			if el.Valid {
+				out = append(out, fmt.Sprintf("%s%d", prefix, el.Int32))
+			}
+		}
+		return out
+	case []int32:
+		out := make([]string, 0, len(arr))
+		for _, n := range arr {
+			out = append(out, fmt.Sprintf("%s%d", prefix, n))
+		}
+		return out
+	}
+	return nil
+}
 
 func toTodoItemFromRow(r db.ListTodosRow) TodoItem {
 	return TodoItem{

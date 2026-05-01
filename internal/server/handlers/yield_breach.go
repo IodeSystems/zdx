@@ -10,14 +10,16 @@ import (
 // stable across runs so re-emission updates the existing issue with a fresh
 // recurrence comment instead of duplicating it. (IS-684)
 type yieldBreach struct {
-	Key             string // stable metric key (e.g. "claude_sessions_per_closed_issue") — for dedup and search
-	Label           string // human-readable name — drives the issue title
-	Definition      string // what the metric measures, including the underlying tables
-	Units           string // metric units (e.g. "sessions / closed issues (30d)")
-	Threshold       string // when the metric is bad and why
-	CurrentValue    string // the value that tripped this breach (e.g. "6.6")
-	Diagnosis       string // prose from concernParts — already user-facing in the journal
-	SuggestedAction string // concrete next step the triager can take
+	Key             string   // stable metric key (e.g. "claude_sessions_per_closed_issue") — for dedup and search
+	Label           string   // human-readable name — drives the issue title
+	Definition      string   // what the metric measures, including the underlying tables
+	Units           string   // metric units (e.g. "sessions / closed issues (30d)")
+	Threshold       string   // when the metric is bad and why
+	CurrentValue    string   // the value that tripped this breach (e.g. "6.6")
+	Diagnosis       string   // prose from concernParts — already user-facing in the journal
+	SuggestedAction string   // concrete next step the triager can take
+	EntityRefs      []string // optional entity IDs surfaced in the body (e.g. deferred spec IDs, thrashing issue IDs)
+	EntityRefsLabel string   // label for the EntityRefs section (e.g. "Deferred specs", "Top thrashing issues")
 }
 
 // Title returns the stable auto-file title — same across runs so dedup works.
@@ -42,6 +44,13 @@ func (b yieldBreach) Body(entryID int32, entryDate string) string {
 	}
 	if b.SuggestedAction != "" {
 		p = append(p, fmt.Sprintf("**Suggested action:** %s", b.SuggestedAction))
+	}
+	if len(b.EntityRefs) > 0 {
+		label := b.EntityRefsLabel
+		if label == "" {
+			label = "Entities"
+		}
+		p = append(p, fmt.Sprintf("**%s:** %s", label, strings.Join(b.EntityRefs, ", ")))
 	}
 	p = append(p, fmt.Sprintf("Auto-filed from journal entry %d on %s. Subsequent breaches of the same metric append a recurrence comment.", entryID, entryDate))
 	return strings.Join(p, "\n\n")
