@@ -83,16 +83,21 @@ var MetaAggregateTodoIncompleteReports = metaquery.Query{
 	Name:   "AggregateTodoIncompleteReports",
 	Cmd:    ":many",
 	Source: "todo_incomplete_reports.sql",
-	SQL: `SELECT reason, evidence_fingerprint, COUNT(*) AS occurrence_count, MAX(created_at) AS last_seen
+	SQL: `SELECT reason,
+       evidence_fingerprint,
+       COUNT(*)::bigint                    AS total_count,
+       array_agg(DISTINCT todo_id)::int[]  AS affected_todo_ids,
+       MAX(created_at)                     AS last_seen
 FROM zdx_todo_incomplete_reports
 WHERE project_id = $1
   AND ($2::text IS NULL OR reason = $2::text)
 GROUP BY reason, evidence_fingerprint
-ORDER BY occurrence_count DESC, last_seen DESC`,
+ORDER BY total_count DESC, last_seen DESC`,
 	Columns: []metaquery.Column{
 		{Name: "reason", OriginalName: "reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todo_incomplete_reports"},
 		{Name: "evidence_fingerprint", OriginalName: "evidence_fingerprint", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todo_incomplete_reports"},
-		{Name: "occurrence_count", OriginalName: "occurrence_count", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "total_count", OriginalName: "total_count", GoType: "int64", DBType: "int8", NotNull: true},
+		{Name: "affected_todo_ids", OriginalName: "affected_todo_ids", GoType: "[]int32", DBType: "int4", NotNull: true, IsArray: true},
 		{Name: "last_seen", OriginalName: "last_seen", GoType: "interface{}", DBType: "anyarray", NotNull: true},
 	},
 	Args: []metaquery.Arg{
@@ -110,12 +115,14 @@ func WrapAggregateTodoIncompleteReports(arg AggregateTodoIncompleteReportsParams
 var AggregateTodoIncompleteReportsCols = struct {
 	Reason              metaquery.TextCol
 	EvidenceFingerprint metaquery.TextCol
-	OccurrenceCount     metaquery.IntCol
+	TotalCount          metaquery.IntCol
+	AffectedTodoIds     metaquery.AnyCol
 	LastSeen            metaquery.AnyCol
 }{
 	Reason:              metaquery.NewTextCol("reason"),
 	EvidenceFingerprint: metaquery.NewTextCol("evidence_fingerprint"),
-	OccurrenceCount:     metaquery.NewIntCol("occurrence_count"),
+	TotalCount:          metaquery.NewIntCol("total_count"),
+	AffectedTodoIds:     metaquery.NewAnyCol("affected_todo_ids"),
 	LastSeen:            metaquery.NewAnyCol("last_seen"),
 }
 

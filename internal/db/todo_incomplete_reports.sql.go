@@ -62,12 +62,16 @@ func (q *Queries) AddTodoIncompleteReport(ctx context.Context, arg AddTodoIncomp
 }
 
 const aggregateTodoIncompleteReports = `-- name: AggregateTodoIncompleteReports :many
-SELECT reason, evidence_fingerprint, COUNT(*) AS occurrence_count, MAX(created_at) AS last_seen
+SELECT reason,
+       evidence_fingerprint,
+       COUNT(*)::bigint                    AS total_count,
+       array_agg(DISTINCT todo_id)::int[]  AS affected_todo_ids,
+       MAX(created_at)                     AS last_seen
 FROM zdx_todo_incomplete_reports
 WHERE project_id = $1
   AND ($2::text IS NULL OR reason = $2::text)
 GROUP BY reason, evidence_fingerprint
-ORDER BY occurrence_count DESC, last_seen DESC
+ORDER BY total_count DESC, last_seen DESC
 `
 
 type AggregateTodoIncompleteReportsParams struct {
@@ -78,7 +82,8 @@ type AggregateTodoIncompleteReportsParams struct {
 type AggregateTodoIncompleteReportsRow struct {
 	Reason              string      `db:"reason" json:"reason"`
 	EvidenceFingerprint string      `db:"evidence_fingerprint" json:"evidence_fingerprint"`
-	OccurrenceCount     int64       `db:"occurrence_count" json:"occurrence_count"`
+	TotalCount          int64       `db:"total_count" json:"total_count"`
+	AffectedTodoIds     []int32     `db:"affected_todo_ids" json:"affected_todo_ids"`
 	LastSeen            interface{} `db:"last_seen" json:"last_seen"`
 }
 
@@ -94,7 +99,8 @@ func (q *Queries) AggregateTodoIncompleteReports(ctx context.Context, arg Aggreg
 		if err := rows.Scan(
 			&i.Reason,
 			&i.EvidenceFingerprint,
-			&i.OccurrenceCount,
+			&i.TotalCount,
+			&i.AffectedTodoIds,
 			&i.LastSeen,
 		); err != nil {
 			return nil, err
