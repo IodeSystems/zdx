@@ -435,9 +435,13 @@ func issueCloseCmd() *cobra.Command {
 					}
 				}
 			}
+			slug := c.SlugOrDie()
 			body := dxclient.CloseIssueRequest{
-				Slug: c.SlugOrDie(),
+				Slug: slug,
 				Id:   int32(n),
+			}
+			if bs := cli.CollectBranchState(c.FetchClaimBaseSHA(slug, id)); bs != nil {
+				body.BranchState = bs
 			}
 			if reason != "" {
 				body.Reason = &reason

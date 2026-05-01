@@ -200,6 +200,7 @@ type TodoItem struct {
 	Instructions     string `json:"instructions,omitempty"`
 	SuggestedAction  string `json:"suggested_action,omitempty"`
 	ClaimContract    string `json:"claim_contract,omitempty"`
+	ClaimBaseSha     string `json:"claim_base_sha,omitempty"`
 	ClaimedBy        string `json:"claimed_by,omitempty"`
 	ClaimedAt        string `json:"claimed_at,omitempty"`
 	CreatedAt        string `json:"created_at"`
