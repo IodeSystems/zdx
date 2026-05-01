@@ -32,9 +32,10 @@ func TestAgentHeartbeatLoopAdvancesLastHeartbeat(t *testing.T) {
 		close(done)
 	}()
 
-	// Allow several ticks (~4–5) so we are robust to scheduler jitter and
-	// the postgres timestamp resolution (microseconds).
-	time.Sleep(250 * time.Millisecond)
+	// Allow the timestamp to advance past second resolution (fmtTS uses RFC3339,
+	// which truncates to seconds). Sleep >1s ensures a measurable delta even
+	// under heavy scheduler load.
+	time.Sleep(1200 * time.Millisecond)
 	close(stop)
 	<-done
 
