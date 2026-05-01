@@ -502,6 +502,7 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 	prompt := buildSessionPrompt(vision, issueID, todo)
 
 	adapter := &claudeAdapter{
+		rc:      rc,
 		projDir: projDir,
 		chrome:  chrome,
 		prevSID: prevSID,
@@ -540,6 +541,7 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 	prompt := fmt.Sprintf("%s\n\nThis session is a continuation of a stalled session. The previous session was automatically terminated because it stopped producing output (likely a stuck tool call). Below is a summary of what it accomplished. Continue the work from where it left off — do NOT repeat already-completed steps.\n\n%s", taskPrompt, summary)
 
 	adapter := &claudeAdapter{
+		rc:      rc,
 		projDir: projDir,
 		chrome:  chrome,
 		alias:   alias,
@@ -563,6 +565,7 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 // launches the process with ZDX-aware environment vars and returns the
 // transcript path that Claude writes its JSONL session to.
 type claudeAdapter struct {
+	rc      remoteConfig
 	projDir string
 	chrome  bool
 	prevSID string
@@ -571,6 +574,8 @@ type claudeAdapter struct {
 	model   string
 	prompt  string // custom prompt; empty = "/work"
 	srcless bool   // when true, inject DX_GLOBAL=1 into the subprocess env
+
+	scopedTokenID int32
 
 	proc       *exec.Cmd
 	exited     chan struct{}
@@ -583,8 +588,19 @@ type claudeAdapter struct {
 // buildClaudeEnv builds the environment passed to the spawned claude CLI.
 // Extracted from Start() so the env wiring (including DX_GLOBAL in srcless
 // mode) is unit-testable without spawning a subprocess.
-func buildClaudeEnv(base []string, sid, alias string, srcless bool) []string {
-	env := append(base,
+// scopedToken replaces any DX_REMOTE_API_KEY in base; pass "" to skip injection.
+func buildClaudeEnv(base []string, sid, alias string, srcless bool, scopedToken string) []string {
+	filtered := make([]string, 0, len(base))
+	for _, kv := range base {
+		if strings.HasPrefix(kv, "DX_REMOTE_API_KEY=") {
+			continue
+		}
+		filtered = append(filtered, kv)
+	}
+	if scopedToken != "" {
+		filtered = append(filtered, "DX_REMOTE_API_KEY="+scopedToken)
+	}
+	env := append(filtered,
 		"ZDX_SESSION_ID="+sid,
 		"ZDX_AGENT_ID="+alias,
 		"DX_AUTHOR_ALIAS="+alias,
@@ -621,12 +637,18 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 		cmdArgs = append(cmdArgs, "--session-id", sid, "-p", prompt)
 	}
 
+	scopedToken, tokenID, err := mintScopedToken(ctx, a.rc, "agent-claude-"+a.alias+"-"+sid[:8])
+	if err != nil {
+		return "", fmt.Errorf("mint scoped token: %w", err)
+	}
+	a.scopedTokenID = tokenID
+
 	a.proc = exec.Command(claudePath, cmdArgs...)
 	a.proc.SysProcAttr = &syscall.SysProcAttr{Setpgid: true}
 	a.proc.Stdin = os.Stdin
 	a.proc.Stdout = os.Stdout
 	a.proc.Stderr = os.Stderr
-	a.proc.Env = buildClaudeEnv(os.Environ(), sid, a.alias, a.srcless)
+	a.proc.Env = buildClaudeEnv(os.Environ(), sid, a.alias, a.srcless, scopedToken)
 
 	if err := a.proc.Start(); err != nil {
 		return "", err
@@ -662,6 +684,9 @@ func (a *claudeAdapter) Wait() (int, error) {
 	}
 	err := a.proc.Wait()
 	a.exitedOnce.Do(func() { close(a.exited) })
+	if a.scopedTokenID != 0 {
+		revokeScopedToken(context.Background(), a.rc, a.scopedTokenID)
+	}
 	if err != nil {
 		if ee, ok := err.(*exec.ExitError); ok {
 			return ee.ExitCode(), nil
