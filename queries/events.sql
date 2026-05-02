@@ -112,3 +112,28 @@ WHERE s.project_id = @project_id
       AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
   )
 ORDER BY s.target_type, s.target_id;
+
+-- name: ListStaleProposalStreams :many
+-- Like ListStaleStreams but with a required target_type and returns the newest
+-- user event timestamp so callers can prioritize work.
+SELECT s.id, s.project_id, s.target_type, s.target_id,
+       s.last_evaluated_at, s.last_evaluated_by,
+       (SELECT MAX(e.created_at) FROM zdx_events e
+        WHERE e.project_id = s.project_id
+          AND e.target_type = s.target_type
+          AND e.target_id = s.target_id
+          AND e.author_kind = 'user'
+          AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
+       ) AS newest_user_event_at
+FROM zdx_event_streams s
+WHERE s.project_id = @project_id
+  AND s.target_type = @target_type
+  AND EXISTS (
+    SELECT 1 FROM zdx_events e
+    WHERE e.project_id = s.project_id
+      AND e.target_type = s.target_type
+      AND e.target_id = s.target_id
+      AND e.author_kind = 'user'
+      AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
+  )
+ORDER BY newest_user_event_at DESC NULLS LAST;

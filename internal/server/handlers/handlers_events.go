@@ -357,6 +357,61 @@ func (h *Handler) registerEventRoutes(api huma.API) {
 			}{Streams: out}}, nil
 		})
 
+	type StaleStreamItem struct {
+		ID                int64   `json:"id"`
+		TargetType        string  `json:"target_type"`
+		TargetID          string  `json:"target_id"`
+		LastEvaluatedAt   *string `json:"last_evaluated_at,omitempty"`
+		LastEvaluatedBy   *string `json:"last_evaluated_by,omitempty"`
+		NewestUserEventAt string  `json:"newest_user_event_at"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-stale-proposal-streams", Method: http.MethodGet, Path: "/api/events/streams/stale"},
+		func(ctx context.Context, in *struct {
+			Slug       string `query:"slug" required:"true"`
+			TargetType string `query:"target_type" required:"true"`
+		}) (*struct {
+			Body struct {
+				Streams []StaleStreamItem `json:"streams"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListStaleProposalStreams(ctx, db.ListStaleProposalStreamsParams{
+				ProjectID:  p.ID,
+				TargetType: in.TargetType,
+			})
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]StaleStreamItem, len(rows))
+			for i, r := range rows {
+				item := StaleStreamItem{
+					ID:                r.ID,
+					TargetType:        r.TargetType,
+					TargetID:          r.TargetID,
+					NewestUserEventAt: fmtTSAny(r.NewestUserEventAt),
+				}
+				if r.LastEvaluatedAt.Valid {
+					s := fmtTS(r.LastEvaluatedAt)
+					item.LastEvaluatedAt = &s
+				}
+				if r.LastEvaluatedBy.Valid {
+					item.LastEvaluatedBy = &r.LastEvaluatedBy.String
+				}
+				out[i] = item
+			}
+			return &struct {
+				Body struct {
+					Streams []StaleStreamItem `json:"streams"`
+				}
+			}{Body: struct {
+				Streams []StaleStreamItem `json:"streams"`
+			}{Streams: out}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "set-event-thread-title", Method: http.MethodPatch, Path: "/api/events/threads/{id}/title"},
 		func(ctx context.Context, in *struct {
 			ID   int64 `path:"id"`
