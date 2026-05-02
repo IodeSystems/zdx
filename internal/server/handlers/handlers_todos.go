@@ -359,6 +359,7 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 		TotalCount          int64   `json:"total_count"`
 		AffectedTodoIDs     []int32 `json:"affected_todo_ids"`
 		LastSeen            string  `json:"last_seen"`
+		SuggestedNext       string  `json:"suggested_next,omitempty"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-incomplete-reports", Method: http.MethodGet, Path: "/api/dx/incomplete-reports"},
@@ -396,6 +397,9 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 					TotalCount:          row.TotalCount,
 					AffectedTodoIDs:     ids,
 					LastSeen:            fmtTSAny(row.LastSeen),
+				}
+				if len(row.SuggestedNext) > 0 && string(row.SuggestedNext) != "null" {
+					groups[i].SuggestedNext = string(row.SuggestedNext)
 				}
 			}
 			return &struct {

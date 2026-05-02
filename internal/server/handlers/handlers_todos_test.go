@@ -68,6 +68,7 @@ func (s *stubTodoIncompleteStore) AggregateTodoIncompleteReports(_ context.Conte
 	type key struct{ reason, fp string }
 	counts := map[key]int64{}
 	ids := map[key][]int32{}
+	suggested := map[key][]byte{}
 	for _, r := range s.reports {
 		if r.ProjectID != arg.ProjectID {
 			continue
@@ -78,6 +79,9 @@ func (s *stubTodoIncompleteStore) AggregateTodoIncompleteReports(_ context.Conte
 		k := key{r.Reason, r.EvidenceFingerprint}
 		counts[k]++
 		ids[k] = append(ids[k], r.TodoID)
+		if len(r.SuggestedNext) > 0 && string(r.SuggestedNext) != "{}" {
+			suggested[k] = r.SuggestedNext
+		}
 	}
 	var rows []db.AggregateTodoIncompleteReportsRow
 	for k, c := range counts {
@@ -86,6 +90,7 @@ func (s *stubTodoIncompleteStore) AggregateTodoIncompleteReports(_ context.Conte
 			EvidenceFingerprint: k.fp,
 			TotalCount:          c,
 			AffectedTodoIds:     ids[k],
+			SuggestedNext:       suggested[k],
 		})
 	}
 	return rows, nil
@@ -178,6 +183,33 @@ func TestAggregateIncompleteReports(t *testing.T) {
 	}
 	if !strings.Contains(body, "affected_todo_ids") {
 		t.Errorf("body missing affected_todo_ids: %s", body)
+	}
+}
+
+func TestAggregateIncompleteReportsSurfacesSuggestedNext(t *testing.T) {
+	store := newTestStore()
+	api := newTodoIncompleteAPI(t, store)
+
+	// First report has no suggested_next; second adds one. Aggregate should surface it.
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason": "capability_gap", "explanation": "missing tool",
+	})
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":         "capability_gap",
+		"explanation":    "missing tool",
+		"suggested_next": "open IS-X tracker",
+	})
+
+	resp := api.Get("/api/dx/incomplete-reports?slug=proj")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	body := resp.Body.String()
+	if !strings.Contains(body, `"suggested_next"`) {
+		t.Errorf("body missing suggested_next field: %s", body)
+	}
+	if !strings.Contains(body, "open IS-X tracker") {
+		t.Errorf("body missing suggested_next payload: %s", body)
 	}
 }
 

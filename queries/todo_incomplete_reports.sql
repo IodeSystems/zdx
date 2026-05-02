@@ -29,7 +29,9 @@ SELECT reason,
        evidence_fingerprint,
        COUNT(*)::bigint                    AS total_count,
        array_agg(DISTINCT todo_id)::int[]  AS affected_todo_ids,
-       MAX(created_at)                     AS last_seen
+       MAX(created_at)                     AS last_seen,
+       ((array_agg(suggested_next ORDER BY created_at DESC)
+            FILTER (WHERE suggested_next != '{}'::jsonb))[1])::jsonb AS suggested_next
 FROM zdx_todo_incomplete_reports
 WHERE project_id = @project_id
   AND (sqlc.narg(reason)::text IS NULL OR reason = sqlc.narg(reason)::text)
