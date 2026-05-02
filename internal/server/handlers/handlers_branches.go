@@ -28,6 +28,8 @@ type VersionBranchItem struct {
 	Semver           string `json:"semver,omitempty"`
 	Status           string `json:"status"`
 	CreatedAt        string `json:"created_at"`
+	MergeStyle       string `json:"merge_style,omitempty"`
+	RequiredChecks   string `json:"required_checks,omitempty"`
 }
 
 // CreateVersionBranchResult mirrors VersionBranchItem and adds the count of
@@ -149,7 +151,7 @@ func seedClassificationBranches(ctx context.Context, q branchSeeder, projectID i
 	return nil
 }
 
-func versionBranchItemFrom(id int64, name, role string, semver pgtype.Text, status string, createdAt pgtype.Timestamptz, sourceBranchName pgtype.Text) VersionBranchItem {
+func versionBranchItemFrom(id int64, name, role string, semver pgtype.Text, status string, createdAt pgtype.Timestamptz, sourceBranchName, mergeStyle, requiredChecks pgtype.Text) VersionBranchItem {
 	sv := ""
 	if semver.Valid {
 		sv = semver.String
@@ -157,6 +159,14 @@ func versionBranchItemFrom(id int64, name, role string, semver pgtype.Text, stat
 	src := ""
 	if sourceBranchName.Valid {
 		src = sourceBranchName.String
+	}
+	ms := ""
+	if mergeStyle.Valid {
+		ms = mergeStyle.String
+	}
+	rc := ""
+	if requiredChecks.Valid {
+		rc = requiredChecks.String
 	}
 	return VersionBranchItem{
 		ID:               id,
@@ -167,6 +177,8 @@ func versionBranchItemFrom(id int64, name, role string, semver pgtype.Text, stat
 		Semver:           sv,
 		Status:           status,
 		CreatedAt:        fmtTS(createdAt),
+		MergeStyle:       ms,
+		RequiredChecks:   rc,
 	}
 }
 
@@ -241,7 +253,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				h.refreshQueueAsync(p.ID)
 			}
 			result := CreateVersionBranchResult{
-				VersionBranchItem:    versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt, row.SourceBranchName),
+				VersionBranchItem:    versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt, row.SourceBranchName, row.MergeStyle, row.RequiredChecks),
 				BackportTasksCreated: created,
 			}
 			return &struct{ Body CreateVersionBranchResult }{Body: result}, nil
@@ -265,7 +277,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 			}
 			out := make([]VersionBranchItem, len(rows))
 			for i, r := range rows {
-				out[i] = versionBranchItemFrom(r.ID, r.Name, r.Role, r.Semver, r.Status, r.CreatedAt, r.SourceBranchName)
+				out[i] = versionBranchItemFrom(r.ID, r.Name, r.Role, r.Semver, r.Status, r.CreatedAt, r.SourceBranchName, r.MergeStyle, r.RequiredChecks)
 			}
 			return &struct {
 				Body struct {
@@ -308,7 +320,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				}
 			}
 			detail := VersionBranchDetail{
-				VersionBranchItem: versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt, row.SourceBranchName),
+				VersionBranchItem: versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt, row.SourceBranchName, row.MergeStyle, row.RequiredChecks),
 				OpenCount:         openCount,
 				ResolvedCount:     resolvedCount,
 			}
@@ -441,6 +453,45 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				ProjectID:        p.ID,
 				Name:             in.Name,
 				SourceBranchName: src,
+			}); err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "update-version-branch-settings", Method: http.MethodPatch, Path: "/api/dx/projects/{slug}/branches/{name}/settings"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			Name string `path:"name" required:"true"`
+			Body struct {
+				MergeStyle     *string `json:"merge_style,omitempty"`
+				RequiredChecks *string `json:"required_checks,omitempty"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if in.Body.MergeStyle != nil {
+				switch *in.Body.MergeStyle {
+				case "squash", "merge", "rebase", "":
+				default:
+					return nil, apiErr(http.StatusUnprocessableEntity, "merge_style must be one of squash, merge, rebase")
+				}
+			}
+			ms := pgtype.Text{}
+			if in.Body.MergeStyle != nil && *in.Body.MergeStyle != "" {
+				ms = pgtype.Text{String: *in.Body.MergeStyle, Valid: true}
+			}
+			rc := pgtype.Text{}
+			if in.Body.RequiredChecks != nil {
+				rc = pgtype.Text{String: *in.Body.RequiredChecks, Valid: true}
+			}
+			if err := h.Q.UpdateVersionBranchSettings(ctx, db.UpdateVersionBranchSettingsParams{
+				ProjectID:      p.ID,
+				Name:           in.Name,
+				MergeStyle:     ms,
+				RequiredChecks: rc,
 			}); err != nil {
 				return nil, apiErr(http.StatusInternalServerError, err.Error())
 			}

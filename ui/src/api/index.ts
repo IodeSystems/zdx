@@ -3135,6 +3135,22 @@ export const useDeferDoctorCheck = () => {
   })
 }
 
+export const useUpdateBranchSettings = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; name: string; merge_style?: string | null; required_checks?: string | null }>({
+    mutationFn: async ({ slug, name, merge_style, required_checks }) => {
+      const { error } = await client.PATCH('/api/dx/projects/{slug}/branches/{name}/settings', {
+        params: { path: { slug, name } },
+        body: { merge_style: merge_style ?? undefined, required_checks: required_checks ?? undefined },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['branches', v.slug] })
+    },
+  })
+}
+
 // ── environments ──────────────────────────────────────────────────────────────
 
 export type EnvironmentItem = components['schemas']['EnvironmentItem'] & {

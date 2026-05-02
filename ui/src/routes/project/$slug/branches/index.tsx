@@ -1,7 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Alert, Box, Card, CardContent, Chip, CircularProgress, IconButton, Skeleton, Tooltip, Typography } from '@mui/material'
+import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Skeleton, TextField, Tooltip, Typography } from '@mui/material'
 import { Snooze as SnoozeIcon } from '@mui/icons-material'
-import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, type VersionBranchItem } from '../../../../api'
+import { useState } from 'react'
+import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useUpdateBranchSettings, type VersionBranchItem } from '../../../../api'
 
 const ROLE_ORDER = ['rolling-release', 'dev', 'pr-target', 'named-release']
 
@@ -87,7 +88,67 @@ function SourceChain({ branches }: { branches: VersionBranchItem[] }) {
   )
 }
 
-function BranchCard({ branch }: { branch: VersionBranchItem }) {
+function BranchSettingsPanel({ branch, slug }: { branch: VersionBranchItem; slug: string }) {
+  const [mergeStyle, setMergeStyle] = useState(branch.merge_style ?? '')
+  const [requiredChecks, setRequiredChecks] = useState(branch.required_checks ?? '')
+  const update = useUpdateBranchSettings()
+
+  const handleSave = () => {
+    update.mutate({
+      slug,
+      name: branch.name,
+      merge_style: mergeStyle || null,
+      required_checks: requiredChecks || null,
+    })
+  }
+
+  return (
+    <Box sx={{ mt: 1.5 }}>
+      <Divider sx={{ mb: 1.5 }} />
+      <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mb: 1, fontWeight: 600, textTransform: 'uppercase', letterSpacing: 0.5 }}>
+        PR Settings
+      </Typography>
+      <Box sx={{ display: 'flex', gap: 1.5, flexWrap: 'wrap', alignItems: 'flex-start' }}>
+        <FormControl size="small" sx={{ minWidth: 140 }}>
+          <InputLabel>Merge style</InputLabel>
+          <Select
+            label="Merge style"
+            value={mergeStyle}
+            onChange={e => setMergeStyle(e.target.value)}
+          >
+            <MenuItem value=""><em>None</em></MenuItem>
+            <MenuItem value="squash">Squash</MenuItem>
+            <MenuItem value="merge">Merge</MenuItem>
+            <MenuItem value="rebase">Rebase</MenuItem>
+          </Select>
+        </FormControl>
+        <TextField
+          size="small"
+          label="Required checks"
+          value={requiredChecks}
+          onChange={e => setRequiredChecks(e.target.value)}
+          placeholder="ci,lint"
+          sx={{ minWidth: 200 }}
+        />
+        <Button
+          size="small"
+          variant="contained"
+          onClick={handleSave}
+          disabled={update.isPending}
+        >
+          Save
+        </Button>
+        {update.isError && (
+          <Typography variant="caption" color="error" sx={{ alignSelf: 'center' }}>
+            {update.error?.message ?? 'Save failed'}
+          </Typography>
+        )}
+      </Box>
+    </Box>
+  )
+}
+
+function BranchCard({ branch, slug }: { branch: VersionBranchItem; slug: string }) {
   const role = branch.role ?? branch.type
   const isEol = branch.status === 'eol'
 
@@ -128,6 +189,7 @@ function BranchCard({ branch }: { branch: VersionBranchItem }) {
             </Typography>
           )}
         </Box>
+        {role === 'pr-target' && <BranchSettingsPanel branch={branch} slug={slug} />}
       </CardContent>
     </Card>
   )
@@ -221,7 +283,7 @@ function BranchesPage() {
           <SourceChain branches={sorted} />
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {sorted.map(b => (
-              <BranchCard key={b.id} branch={b} />
+              <BranchCard key={b.id} branch={b} slug={slug} />
             ))}
           </Box>
         </>
