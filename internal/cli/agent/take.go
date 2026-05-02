@@ -238,6 +238,17 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 	log("SESSION END  session=%s  duration=%s", sid, elapsed.Truncate(time.Second))
 	log("──────────────────────────────────────────────")
 
+	// ── Fallback incomplete-report ─────────────────────────────────────
+	// If the session failed without the agent filing a done/incomplete signal,
+	// emit a fallback report so the tracker always has signal on error paths.
+	if activeTodo != nil && sessionErr != nil {
+		slug := activeTodo.ProjectSlug
+		if slug == "" {
+			slug = cfg.RC.slug
+		}
+		emitFallbackIncompleteReport(cfg.RC, slug, activeTodo.Key, cfg.AgentID, log)
+	}
+
 	// ── Release / resolve ──────────────────────────────────────────────
 	result := TakeResult{Success: sessionErr == nil}
 	if activeTodo != nil {

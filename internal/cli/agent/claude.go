@@ -1383,6 +1383,68 @@ func releaseTodo(rc remoteConfig, todoID int32, agentID, sessionID, claimBaseSHA
 	return releaseResult{ChurnDowngraded: r.ChurnDowngraded, CycleDetected: r.CycleDetected}
 }
 
+// emitFallbackIncompleteReport checks whether a todo already has an
+// incomplete-report and, if not, posts a generic one. Best-effort: errors are
+// logged but never block the release flow.
+func emitFallbackIncompleteReport(rc remoteConfig, slug, key, agentID string, log func(string, ...any)) {
+	if rc.url == "" || rc.key == "" || slug == "" || key == "" {
+		return
+	}
+	client := &http.Client{Timeout: 10 * time.Second}
+	reportsURL := fmt.Sprintf("%s/api/dx/projects/%s/todos/%s/incomplete-reports",
+		rc.url, url.PathEscape(slug), url.PathEscape(key))
+
+	req, err := http.NewRequest("GET", reportsURL, nil)
+	if err != nil {
+		log("fallback-report: build req: %v", err)
+		return
+	}
+	req.Header.Set("X-Api-Key", rc.key)
+	resp, err := client.Do(req)
+	if err != nil {
+		log("fallback-report: list: %v", err)
+		return
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		log("fallback-report: list HTTP %d", resp.StatusCode)
+		return
+	}
+	var items []json.RawMessage
+	if err := json.NewDecoder(resp.Body).Decode(&items); err != nil {
+		log("fallback-report: decode: %v", err)
+		return
+	}
+	if len(items) > 0 {
+		return // already has a report — skip duplicate
+	}
+
+	payload, _ := json.Marshal(map[string]any{
+		"reason":         "needs_decision",
+		"explanation":    "Session ended without emitting an incomplete-report or a done signal. Manual triage required.",
+		"agent_id":       agentID,
+		"suggested_next": "Investigate session transcript and re-claim or reassign.",
+	})
+	postReq, err := http.NewRequest("POST", reportsURL, bytes.NewReader(payload))
+	if err != nil {
+		log("fallback-report: build post req: %v", err)
+		return
+	}
+	postReq.Header.Set("X-Api-Key", rc.key)
+	postReq.Header.Set("Content-Type", "application/json")
+	postResp, err := client.Do(postReq)
+	if err != nil {
+		log("fallback-report: post: %v", err)
+		return
+	}
+	defer postResp.Body.Close()
+	if postResp.StatusCode != http.StatusOK && postResp.StatusCode != http.StatusCreated {
+		log("fallback-report: post HTTP %d", postResp.StatusCode)
+		return
+	}
+	log("fallback-report: emitted for %s/%s", slug, key)
+}
+
 func fileHash(path string) string {
 	data, err := os.ReadFile(path)
 	if err != nil {
