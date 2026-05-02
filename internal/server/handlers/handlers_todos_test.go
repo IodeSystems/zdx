@@ -9,6 +9,7 @@ import (
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/humatest"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
@@ -16,10 +17,15 @@ import (
 
 // stubTodoIncompleteStore implements TodoIncompleteStore for unit tests.
 type stubTodoIncompleteStore struct {
-	project db.ZdxProject
-	todo    db.GetTodoByKeyRow
-	reports []db.ZdxTodoIncompleteReport
-	nextID  int64
+	project      db.ZdxProject
+	todo         db.GetTodoByKeyRow
+	reports      []db.ZdxTodoIncompleteReport
+	nextID       int64
+	sideEffects  map[string]bool // key = "projectID:reason:fp:actionType"
+	blocks       []db.AddIssueBlockParams
+	questions    []db.ZdxQuestion
+	issues       map[string]db.ZdxIssue
+	issueCounter int32
 }
 
 func (s *stubTodoIncompleteStore) GetProjectBySlug(_ context.Context, slug string) (db.ZdxProject, error) {
@@ -94,6 +100,72 @@ func (s *stubTodoIncompleteStore) AggregateTodoIncompleteReports(_ context.Conte
 		})
 	}
 	return rows, nil
+}
+
+func (s *stubTodoIncompleteStore) GetTodoByID(_ context.Context, id int32) (db.GetTodoByIDRow, error) {
+	if s.todo.ID != id {
+		return db.GetTodoByIDRow{}, fmt.Errorf("not found")
+	}
+	return db.GetTodoByIDRow{
+		ID:        s.todo.ID,
+		ProjectID: s.todo.ProjectID,
+		Key:       s.todo.Key,
+		TargetID:  s.todo.TargetID,
+	}, nil
+}
+
+func (s *stubTodoIncompleteStore) InsertSideEffectIfNew(_ context.Context, arg db.InsertSideEffectIfNewParams) (db.ZdxIncompleteReportSideEffect, error) {
+	if s.sideEffects == nil {
+		s.sideEffects = map[string]bool{}
+	}
+	key := fmt.Sprintf("%d:%s:%s:%s", arg.ProjectID, arg.Reason, arg.EvidenceFingerprint, arg.ActionType)
+	if s.sideEffects[key] {
+		return db.ZdxIncompleteReportSideEffect{}, pgx.ErrNoRows
+	}
+	s.sideEffects[key] = true
+	return db.ZdxIncompleteReportSideEffect{
+		ID:                  1,
+		ProjectID:           arg.ProjectID,
+		Reason:              arg.Reason,
+		EvidenceFingerprint: arg.EvidenceFingerprint,
+		ActionType:          arg.ActionType,
+		Meta:                arg.Meta,
+	}, nil
+}
+
+func (s *stubTodoIncompleteStore) GetIssueByAnyProject(_ context.Context, id string) (db.ZdxIssue, error) {
+	if s.issues != nil {
+		if issue, ok := s.issues[id]; ok {
+			return issue, nil
+		}
+	}
+	return db.ZdxIssue{}, fmt.Errorf("not found: %s", id)
+}
+
+func (s *stubTodoIncompleteStore) AddIssueBlock(_ context.Context, arg db.AddIssueBlockParams) error {
+	s.blocks = append(s.blocks, arg)
+	return nil
+}
+
+func (s *stubTodoIncompleteStore) InsertQuestion(_ context.Context, arg db.InsertQuestionParams) (db.ZdxQuestion, error) {
+	s.issueCounter++
+	q := db.ZdxQuestion{ID: s.issueCounter, ProjectID: arg.ProjectID, Category: arg.Category, Question: arg.Question}
+	s.questions = append(s.questions, q)
+	return q, nil
+}
+
+func (s *stubTodoIncompleteStore) NextIssueID(_ context.Context) (string, error) {
+	s.issueCounter++
+	return fmt.Sprintf("IS-%d", s.issueCounter), nil
+}
+
+func (s *stubTodoIncompleteStore) CreateIssue(_ context.Context, arg db.CreateIssueParams) (db.ZdxIssue, error) {
+	issue := db.ZdxIssue{ID: arg.ID, ProjectID: arg.ProjectID, Title: arg.Title, IssueType: arg.IssueType, Status: arg.Status}
+	if s.issues == nil {
+		s.issues = map[string]db.ZdxIssue{}
+	}
+	s.issues[arg.ID] = issue
+	return issue, nil
 }
 
 func newTodoIncompleteAPI(t *testing.T, store TodoIncompleteStore) humatest.TestAPI {
@@ -260,5 +332,138 @@ func TestGetIncompleteReports(t *testing.T) {
 	}
 	if !strings.Contains(body, "flaky_test") {
 		t.Errorf("GET missing second report: %s", body)
+	}
+}
+
+func TestApplyIncompleteReportSideEffectsBlockOn(t *testing.T) {
+	store := newTestStore()
+	store.todo.TargetID = "IS-2"
+	store.issues = map[string]db.ZdxIssue{"IS-1": {ID: "IS-1", ProjectID: 1}}
+	api := newTodoIncompleteAPI(t, store)
+
+	// Seed 2 reports with same (reason, fingerprint) and block-on suggested_next.
+	for i := 0; i < 2; i++ {
+		api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+			"reason":         "capability_gap",
+			"explanation":    "blocked",
+			"suggested_next": "block on IS-1",
+		})
+	}
+
+	resp := api.Post("/api/dx/incomplete-reports/apply", map[string]any{"slug": "proj"})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	body := resp.Body.String()
+	if !strings.Contains(body, `"block_on"`) {
+		t.Errorf("missing block_on action: %s", body)
+	}
+	if len(store.blocks) != 1 {
+		t.Errorf("expected 1 issue block, got %d", len(store.blocks))
+	}
+	if store.blocks[0].IssueID != "IS-2" || store.blocks[0].BlockedByID != "IS-1" {
+		t.Errorf("wrong block: %+v", store.blocks[0])
+	}
+
+	// Second call — idempotent, 0 applied.
+	resp2 := api.Post("/api/dx/incomplete-reports/apply", map[string]any{"slug": "proj"})
+	if resp2.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp2.Code, resp2.Body)
+	}
+	if strings.Contains(resp2.Body.String(), `"block_on"`) {
+		t.Errorf("second call should return 0 applied, got: %s", resp2.Body)
+	}
+}
+
+func TestApplyIncompleteReportSideEffectsAskUser(t *testing.T) {
+	store := newTestStore()
+	api := newTodoIncompleteAPI(t, store)
+
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":         "ambiguous_spec",
+		"explanation":    "unclear",
+		"suggested_next": "ask user: what is the expected format?",
+	})
+
+	resp := api.Post("/api/dx/incomplete-reports/apply", map[string]any{"slug": "proj"})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	body := resp.Body.String()
+	if !strings.Contains(body, `"ask_user"`) {
+		t.Errorf("missing ask_user action: %s", body)
+	}
+	if len(store.questions) != 1 {
+		t.Errorf("expected 1 question, got %d", len(store.questions))
+	}
+	if store.questions[0].Question != "what is the expected format?" {
+		t.Errorf("wrong question text: %q", store.questions[0].Question)
+	}
+
+	// Idempotent.
+	resp2 := api.Post("/api/dx/incomplete-reports/apply", map[string]any{"slug": "proj"})
+	if resp2.Code != http.StatusOK {
+		t.Fatalf("second call status = %d", resp2.Code)
+	}
+	if strings.Contains(resp2.Body.String(), `"ask_user"`) {
+		t.Errorf("second call should return 0 applied")
+	}
+}
+
+func TestApplyIncompleteReportSideEffectsFileCapability(t *testing.T) {
+	store := newTestStore()
+	api := newTodoIncompleteAPI(t, store)
+
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":         "capability_gap",
+		"explanation":    "no tool",
+		"suggested_next": "file capability request: add pdf parsing support",
+	})
+
+	resp := api.Post("/api/dx/incomplete-reports/apply", map[string]any{"slug": "proj"})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	body := resp.Body.String()
+	if !strings.Contains(body, `"file_capability_request"`) {
+		t.Errorf("missing file_capability_request action: %s", body)
+	}
+	if len(store.issues) != 1 {
+		t.Errorf("expected 1 issue created, got %d", len(store.issues))
+	}
+	for _, iss := range store.issues {
+		if iss.Title != "add pdf parsing support" {
+			t.Errorf("wrong issue title: %q", iss.Title)
+		}
+	}
+
+	// Idempotent.
+	resp2 := api.Post("/api/dx/incomplete-reports/apply", map[string]any{"slug": "proj"})
+	if resp2.Code != http.StatusOK {
+		t.Fatalf("second call status = %d", resp2.Code)
+	}
+	if strings.Contains(resp2.Body.String(), `"file_capability_request"`) {
+		t.Errorf("second call should return 0 applied")
+	}
+}
+
+func TestApplyIncompleteReportSideEffectsUnstructured(t *testing.T) {
+	store := newTestStore()
+	api := newTodoIncompleteAPI(t, store)
+
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":         "capability_gap",
+		"explanation":    "misc",
+		"suggested_next": "do something unrecognized",
+	})
+
+	resp := api.Post("/api/dx/incomplete-reports/apply", map[string]any{"slug": "proj"})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	body := resp.Body.String()
+	// Unstructured suggested_next → 0 applied.
+	if strings.Contains(body, `"action_type"`) {
+		t.Errorf("unstructured text should produce 0 applied, got: %s", body)
 	}
 }

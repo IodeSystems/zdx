@@ -4,11 +4,14 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"net/http"
 	"sort"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
@@ -408,4 +411,130 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 				Body: struct{ Groups []IncompleteReportGroup }{Groups: groups},
 			}, nil
 		})
+
+	type AppliedSideEffect struct {
+		Reason              string `json:"reason"`
+		EvidenceFingerprint string `json:"evidence_fingerprint"`
+		ActionType          string `json:"action_type"`
+		Detail              string `json:"detail"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "apply-incomplete-report-side-effects", Method: http.MethodPost, Path: "/api/dx/incomplete-reports/apply"},
+		func(ctx context.Context, in *struct {
+			Body struct {
+				Slug string `json:"slug"`
+			}
+		}) (*struct {
+			Body struct{ Applied []AppliedSideEffect }
+		}, error) {
+			store := h.todoIncompleteStore()
+			p, err := store.GetProjectBySlug(ctx, in.Body.Slug)
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "project not found: "+in.Body.Slug)
+			}
+			rows, err := store.AggregateTodoIncompleteReports(ctx, db.AggregateTodoIncompleteReportsParams{ProjectID: p.ID})
+			if err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+
+			applied := make([]AppliedSideEffect, 0)
+			for _, group := range rows {
+				if len(group.SuggestedNext) == 0 || string(group.SuggestedNext) == "null" {
+					continue
+				}
+				var sn struct{ Text string }
+				if err := json.Unmarshal(group.SuggestedNext, &sn); err != nil || sn.Text == "" {
+					continue
+				}
+				text := sn.Text
+
+				var actionType, detail string
+				if rest, ok := strings.CutPrefix(text, "block on IS-"); ok && isAllDigits(rest) {
+					actionType = "block_on"
+					detail = "IS-" + rest
+				} else if rest, ok := strings.CutPrefix(text, "ask user: "); ok {
+					actionType = "ask_user"
+					detail = rest
+				} else if rest, ok := strings.CutPrefix(text, "file capability request: "); ok {
+					actionType = "file_capability_request"
+					detail = rest
+				} else {
+					continue
+				}
+
+				_, sideEffectErr := store.InsertSideEffectIfNew(ctx, db.InsertSideEffectIfNewParams{
+					ProjectID:           p.ID,
+					Reason:              group.Reason,
+					EvidenceFingerprint: group.EvidenceFingerprint,
+					ActionType:          actionType,
+					Meta:                []byte("{}"),
+				})
+				if sideEffectErr != nil {
+					if errors.Is(sideEffectErr, pgx.ErrNoRows) {
+						continue
+					}
+					return nil, apiErr(http.StatusInternalServerError, sideEffectErr.Error())
+				}
+
+				switch actionType {
+				case "block_on":
+					if len(group.AffectedTodoIds) > 0 {
+						todo, tErr := store.GetTodoByID(ctx, group.AffectedTodoIds[0])
+						if tErr == nil && todo.TargetID != "" {
+							blocker, bErr := store.GetIssueByAnyProject(ctx, detail)
+							if bErr == nil {
+								_ = store.AddIssueBlock(ctx, db.AddIssueBlockParams{
+									IssueID:     todo.TargetID,
+									BlockedByID: blocker.ID,
+									Kind:        "sequencing",
+								})
+							}
+						}
+					}
+				case "ask_user":
+					_, _ = store.InsertQuestion(ctx, db.InsertQuestionParams{
+						ProjectID: p.ID,
+						Category:  "incomplete-report",
+						Question:  detail,
+					})
+				case "file_capability_request":
+					issueID, idErr := store.NextIssueID(ctx)
+					if idErr == nil {
+						_, _ = store.CreateIssue(ctx, db.CreateIssueParams{
+							ID:        issueID,
+							ProjectID: p.ID,
+							Title:     detail,
+							IssueType: "impl",
+							Status:    "open",
+							Priority:  "3",
+							Component: "capability",
+						})
+					}
+				}
+
+				applied = append(applied, AppliedSideEffect{
+					Reason:              group.Reason,
+					EvidenceFingerprint: group.EvidenceFingerprint,
+					ActionType:          actionType,
+					Detail:              detail,
+				})
+			}
+			return &struct {
+				Body struct{ Applied []AppliedSideEffect }
+			}{
+				Body: struct{ Applied []AppliedSideEffect }{Applied: applied},
+			}, nil
+		})
+}
+
+func isAllDigits(s string) bool {
+	if len(s) == 0 {
+		return false
+	}
+	for _, c := range s {
+		if c < '0' || c > '9' {
+			return false
+		}
+	}
+	return true
 }

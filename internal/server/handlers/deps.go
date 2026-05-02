@@ -42,9 +42,16 @@ type AgentStatusUpdater interface {
 type TodoIncompleteStore interface {
 	GetProjectBySlug(ctx context.Context, slug string) (db.ZdxProject, error)
 	GetTodoByKey(ctx context.Context, arg db.GetTodoByKeyParams) (db.GetTodoByKeyRow, error)
+	GetTodoByID(ctx context.Context, id int32) (db.GetTodoByIDRow, error)
 	AddTodoIncompleteReport(ctx context.Context, arg db.AddTodoIncompleteReportParams) (db.ZdxTodoIncompleteReport, error)
 	GetTodoIncompleteReportsByTodo(ctx context.Context, todoID int32) ([]db.ZdxTodoIncompleteReport, error)
 	AggregateTodoIncompleteReports(ctx context.Context, arg db.AggregateTodoIncompleteReportsParams) ([]db.AggregateTodoIncompleteReportsRow, error)
+	InsertSideEffectIfNew(ctx context.Context, arg db.InsertSideEffectIfNewParams) (db.ZdxIncompleteReportSideEffect, error)
+	GetIssueByAnyProject(ctx context.Context, id string) (db.ZdxIssue, error)
+	AddIssueBlock(ctx context.Context, arg db.AddIssueBlockParams) error
+	InsertQuestion(ctx context.Context, arg db.InsertQuestionParams) (db.ZdxQuestion, error)
+	NextIssueID(ctx context.Context) (string, error)
+	CreateIssue(ctx context.Context, arg db.CreateIssueParams) (db.ZdxIssue, error)
 }
 
 type SchemaFeatures struct {
