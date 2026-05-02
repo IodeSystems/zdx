@@ -3079,6 +3079,26 @@ export const useAddDiscussionMessage = () => {
   })
 }
 
+// ── branches ──────────────────────────────────────────────────────────────────
+
+export type VersionBranchItem = components['schemas']['VersionBranchItem'] & {
+  role?: string
+  source_branch_name?: string
+}
+
+export const useBranches = (slug: string) =>
+  useQuery<VersionBranchItem[]>({
+    queryKey: ['branches', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/projects/{slug}/branches', {
+        params: { path: { slug } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data?.branches ?? []) as VersionBranchItem[]
+    },
+    enabled: !!slug,
+  })
+
 // ── environments ──────────────────────────────────────────────────────────────
 
 export type EnvironmentItem = components['schemas']['EnvironmentItem'] & {

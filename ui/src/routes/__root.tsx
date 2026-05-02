@@ -48,6 +48,7 @@ import {
   ExpandLess as ExpandLessIcon,
   ExpandMore as ExpandMoreIcon,
   AccountTree as AccountTreeIcon,
+  CallSplit as CallSplitIcon,
   ChatBubbleOutlined as ChatBubbleOutlineIcon,
   Lightbulb as LightbulbIcon,
   ShieldOutlined as ShieldOutlinedIcon,
@@ -95,6 +96,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
       { label: 'Tests', icon: <ScienceIcon fontSize="small" />, path: 'tests' },
       { label: 'Environments', icon: <LayersIcon fontSize="small" />, path: 'environments' },
+      { label: 'Branches', icon: <CallSplitIcon fontSize="small" />, path: 'branches' },
     ],
   },
   {
