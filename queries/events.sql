@@ -91,3 +91,24 @@ UPDATE zdx_event_threads
 SET title = @title
 WHERE id = @id
 RETURNING id, project_id, target_type, target_id, root_event_id, title, created_at;
+
+-- name: ListStaleStreams :many
+-- A stream is "stale" when there exists at least one user-authored event newer
+-- than its last_evaluated_at (or the stream has never been evaluated). The
+-- agent loop polls this to discover proposals/tasks/etc. with unprocessed
+-- comments. Optional target_type filter scopes the result to a single surface
+-- (e.g. "proposal").
+SELECT s.id, s.project_id, s.target_type, s.target_id,
+       s.last_evaluated_at, s.last_evaluated_by
+FROM zdx_event_streams s
+WHERE s.project_id = @project_id
+  AND (sqlc.narg('target_type')::text IS NULL OR s.target_type = sqlc.narg('target_type')::text)
+  AND EXISTS (
+    SELECT 1 FROM zdx_events e
+    WHERE e.project_id = s.project_id
+      AND e.target_type = s.target_type
+      AND e.target_id = s.target_id
+      AND e.author_kind = 'user'
+      AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
+  )
+ORDER BY s.target_type, s.target_id;

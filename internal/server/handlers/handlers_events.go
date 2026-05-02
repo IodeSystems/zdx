@@ -304,6 +304,59 @@ func (h *Handler) registerEventRoutes(api huma.API) {
 			return &struct{ Body EventItem }{Body: toEventItem(e)}, nil
 		})
 
+	type StreamItem struct {
+		ID              int64  `json:"id"`
+		TargetType      string `json:"target_type"`
+		TargetID        string `json:"target_id"`
+		LastEvaluatedAt string `json:"last_evaluated_at,omitempty"`
+		LastEvaluatedBy string `json:"last_evaluated_by,omitempty"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "list-stale-streams", Method: http.MethodGet, Path: "/api/streams/stale"},
+		func(ctx context.Context, in *struct {
+			Slug       string `query:"slug" required:"true"`
+			TargetType string `query:"target_type"`
+		}) (*struct {
+			Body struct {
+				Streams []StreamItem `json:"streams"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			params := db.ListStaleStreamsParams{ProjectID: p.ID}
+			if in.TargetType != "" {
+				params.TargetType = pgtype.Text{String: in.TargetType, Valid: true}
+			}
+			rows, err := h.Q.ListStaleStreams(ctx, params)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]StreamItem, len(rows))
+			for i, r := range rows {
+				item := StreamItem{
+					ID:         r.ID,
+					TargetType: r.TargetType,
+					TargetID:   r.TargetID,
+				}
+				if r.LastEvaluatedAt.Valid {
+					item.LastEvaluatedAt = fmtTS(r.LastEvaluatedAt)
+				}
+				if r.LastEvaluatedBy.Valid {
+					item.LastEvaluatedBy = r.LastEvaluatedBy.String
+				}
+				out[i] = item
+			}
+			return &struct {
+				Body struct {
+					Streams []StreamItem `json:"streams"`
+				}
+			}{Body: struct {
+				Streams []StreamItem `json:"streams"`
+			}{Streams: out}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "set-event-thread-title", Method: http.MethodPatch, Path: "/api/events/threads/{id}/title"},
 		func(ctx context.Context, in *struct {
 			ID   int64 `path:"id"`

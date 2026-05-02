@@ -21,6 +21,7 @@ func ProposalCmd() *cobra.Command {
 		proposalApproveCmd(),
 		proposalRejectCmd(),
 		proposalSnoozeCmd(),
+		proposalEvaluateCmd(),
 	)
 	return cmd
 }
