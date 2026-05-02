@@ -133,6 +133,7 @@ func commonVine() []Rung {
 				{"no_overspecced_features", "No features with >8 must/should specs (decomposition signal)", ActionPropose},
 				{"no_raw_api_calls", "CLI and UI use typed API clients (no raw URL callsites)", ActionInfo},
 				{"layered-bdd-tests", "Projects with 5+ UX specs should use layered BDD tests with swappable API/UI drivers", ActionPropose},
+				{"kpi_check_breaches", "No KPI check exceeds 2× trailing median or 15s absolute", ActionInfo},
 			},
 		},
 		{

@@ -97,6 +97,9 @@ type ProjectState struct {
 	StaleAgentSessions        int   // sessions still open beyond the stale threshold
 	StaleAgentSessionsMinutes int32 // threshold used for the check
 
+	// KPI breach detection (from server)
+	KpiBreachedChecks []string // check_names exceeding 2× trailing median or >15s absolute
+
 	// Files
 	HasReadme        bool
 	HasLicense       bool
@@ -475,6 +478,12 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		}
 		return false, fmt.Sprintf("%d features have >8 must/should specs (decompose them)", state.OverspeccedCount), nil,
 			"Split over-specced features into sub-features with `dx feature add --parent <name>`"
+
+	case "kpi_check_breaches":
+		if len(state.KpiBreachedChecks) == 0 {
+			return true, "", nil, ""
+		}
+		return false, fmt.Sprintf("%d check(s) breached: %s", len(state.KpiBreachedChecks), strings.Join(state.KpiBreachedChecks, ", ")), nil, ""
 
 	// ── agents ──
 	case "claude_installed":

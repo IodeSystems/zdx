@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"sort"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -380,6 +381,39 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		state.StaleAgentSessionsMinutes = sResp.JSON200.Minutes
 	}
 
+	// KPI breaches: any check whose trailing median exceeds 15s, or whose
+	// recent samples exceed 2× the trailing median. Skips silently when the
+	// table is empty.
+	{
+		scope := "tech"
+		n := int32(20)
+		if kResp, err := c.GetKpiTrendWithResponse(ctx, &dxclient.GetKpiTrendParams{Slug: &slug, Scope: &scope, N: &n}); err == nil && kResp.JSON200 != nil && kResp.JSON200.Items != nil {
+			byCheck := map[string][]float64{}
+			for _, item := range *kResp.JSON200.Items {
+				byCheck[item.CheckName] = append(byCheck[item.CheckName], item.Value)
+			}
+			names := make([]string, 0, len(byCheck))
+			for name := range byCheck {
+				names = append(names, name)
+			}
+			sort.Strings(names)
+			for _, name := range names {
+				vals := byCheck[name]
+				median := kpiMedian(vals)
+				if median > 15 {
+					state.KpiBreachedChecks = append(state.KpiBreachedChecks, name)
+					continue
+				}
+				for _, v := range vals {
+					if v > 2*median {
+						state.KpiBreachedChecks = append(state.KpiBreachedChecks, name)
+						break
+					}
+				}
+			}
+		}
+	}
+
 	// Deferrals
 	if dResp, err := c.ListDoctorDeferralsWithResponse(ctx, &dxclient.ListDoctorDeferralsParams{Slug: slug}); err == nil && dResp.JSON200 != nil && dResp.JSON200.Deferrals != nil {
 		for _, d := range *dResp.JSON200.Deferrals {
@@ -425,6 +459,19 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 			state.LastDeployStatus = latestStatus
 		}
 	}
+}
+
+// kpiMedian returns the median of vals (sorts in place).
+func kpiMedian(vals []float64) float64 {
+	sort.Float64s(vals)
+	n := len(vals)
+	if n == 0 {
+		return 0
+	}
+	if n%2 == 0 {
+		return (vals[n/2-1] + vals[n/2]) / 2
+	}
+	return vals[n/2]
 }
 
 // extractCloseReason parses the reason out of a close note like
