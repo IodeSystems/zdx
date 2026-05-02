@@ -19,20 +19,35 @@ import (
 func DoctorCmd() *cobra.Command {
 	var autoFix bool
 	var reQuestionnaire bool
+	var classType string
+	var noDefer bool
+	var autoDeferAll bool
+	var nonInteractive bool
 	cmd := &cobra.Command{
 		Use:   "doctor",
 		Short: "Diagnose project health and propose fixes",
 		Long:  "Doctor checks the project against its maturity vine, auto-fixes what it can, and proposes actions for the rest. Deferred proposals don't nag until the next rung.",
 		RunE: func(cmd *cobra.Command, args []string) error {
-			return runDoctor(cmd.Context(), autoFix, reQuestionnaire)
+			return runDoctor(cmd.Context(), autoFix, reQuestionnaire, classType, noDefer, autoDeferAll, nonInteractive)
 		},
 	}
 	cmd.Flags().BoolVar(&autoFix, "fix", false, "auto-apply fixable issues without prompting")
 	cmd.Flags().BoolVar(&reQuestionnaire, "re-questionnaire", false, "re-prompt already-answered maturity questions")
+	cmd.Flags().StringVar(&classType, "type", "", "project classification (library|tool|service|saas|site); skips prompt")
+	cmd.Flags().BoolVar(&noDefer, "no-defer", false, "skip defer prompts; report only")
+	cmd.Flags().BoolVar(&autoDeferAll, "auto-defer-all", false, "defer every failed proposal non-interactively")
+	cmd.Flags().BoolVar(&nonInteractive, "non-interactive", false, "implies --no-defer; skip maturity questions with a warning; requires --type if unclassified")
 	return cmd
 }
 
-func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool) error {
+func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool, classType string, noDefer bool, autoDeferAll bool, nonInteractive bool) error {
+	if noDefer && autoDeferAll {
+		return fmt.Errorf("--no-defer and --auto-defer-all are mutually exclusive")
+	}
+	if nonInteractive {
+		noDefer = true
+	}
+
 	state := &doctor.ProjectState{
 		Deferred: map[string]bool{},
 	}
@@ -45,8 +60,24 @@ func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool) error {
 		populateRemoteState(ctx, state)
 	}
 
-	// 3. If no classification, ask
-	if state.Classification == "" {
+	// 3. Classification: --type flag takes priority; fall back to interactive prompt
+	if classType != "" {
+		class, err := parseClassification(classType)
+		if err != nil {
+			return err
+		}
+		state.Classification = class
+		if state.RemoteReachable {
+			c := cli.MustClient()
+			_, _ = c.SetClassificationWithResponse(ctx, dxclient.SetClassificationRequest{
+				Slug:           c.SlugOrDie(),
+				Classification: string(class),
+			})
+		}
+	} else if state.Classification == "" {
+		if nonInteractive {
+			return fmt.Errorf("project has no classification; re-run with --type=<library|tool|service|saas|site>")
+		}
 		class, err := promptClassification(os.Stdin)
 		if err != nil {
 			return err
@@ -66,8 +97,12 @@ func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool) error {
 	if state.RemoteReachable && len(state.MaturityQuestions) > 0 {
 		c := cli.MustClient()
 		slug := c.SlugOrDie()
-		reader := bufio.NewReader(os.Stdin)
 		classification := string(state.Classification)
+		var reader *bufio.Reader
+		if !nonInteractive {
+			reader = bufio.NewReader(os.Stdin)
+		}
+		skipped := 0
 		for _, q := range state.MaturityQuestions {
 			if !reQuestionnaire && q.Answer != "" {
 				continue
@@ -85,6 +120,10 @@ func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool) error {
 				applicable = true
 			}
 			if !applicable {
+				continue
+			}
+			if nonInteractive {
+				skipped++
 				continue
 			}
 			fmt.Printf("\nMaturity question: %s [yes/no/skip]: ", q.Prompt)
@@ -109,6 +148,9 @@ func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool) error {
 			}); err != nil {
 				fmt.Printf("  warning: failed to submit answer: %v\n", err)
 			}
+		}
+		if skipped > 0 {
+			fmt.Printf("  warning: %d maturity question(s) skipped — re-run interactively or with answers\n", skipped)
 		}
 		// Reload items after answering
 		if iResp, err := c.ListMaturityItemsWithResponse(ctx, &dxclient.ListMaturityItemsParams{Slug: slug}); err == nil && iResp.JSON200 != nil && iResp.JSON200.Items != nil {
@@ -199,21 +241,15 @@ func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool) error {
 		fmt.Printf("  %d open, %d done, %d dismissed, %d snoozed\n", open, counts["done"], counts["dismissed"], counts["snoozed"])
 	}
 
-	// 9. Interactive defer prompt for remaining failures
+	// 9. Defer prompt / auto-defer / skip
 	if sum.Failed > 0 && !autoFix {
-		reader := bufio.NewReader(os.Stdin)
-		for i := range findings {
-			f := &findings[i]
-			if f.Status != doctor.StatusFail || f.FixFunc != nil {
-				continue
-			}
-			if f.Proposal == "" {
-				continue
-			}
-			fmt.Printf("\nDefer '%s'? [y/N] ", f.Check.Name)
-			line, _ := reader.ReadString('\n')
-			line = strings.TrimSpace(strings.ToLower(line))
-			if line == "y" || line == "yes" {
+		switch {
+		case autoDeferAll:
+			for i := range findings {
+				f := &findings[i]
+				if f.Status != doctor.StatusFail || f.FixFunc != nil || f.Proposal == "" {
+					continue
+				}
 				if state.RemoteReachable {
 					c := cli.MustClient()
 					rung := f.Rung
@@ -224,8 +260,41 @@ func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool) error {
 					})
 				}
 				fmt.Printf("  deferred: %s\n", f.Check.Name)
+				sum.Deferred++
+			}
+		case noDefer:
+			// report-only; no prompts
+		default:
+			reader := bufio.NewReader(os.Stdin)
+			for i := range findings {
+				f := &findings[i]
+				if f.Status != doctor.StatusFail || f.FixFunc != nil || f.Proposal == "" {
+					continue
+				}
+				fmt.Printf("\nDefer '%s'? [y/N] ", f.Check.Name)
+				line, _ := reader.ReadString('\n')
+				line = strings.TrimSpace(strings.ToLower(line))
+				if line == "y" || line == "yes" {
+					if state.RemoteReachable {
+						c := cli.MustClient()
+						rung := f.Rung
+						_, _ = c.DeferDoctorCheckWithResponse(ctx, dxclient.DeferDoctorCheckRequest{
+							Slug:      c.SlugOrDie(),
+							CheckName: f.Check.Name,
+							Rung:      &rung,
+						})
+					}
+					fmt.Printf("  deferred: %s\n", f.Check.Name)
+					sum.Deferred++
+				}
 			}
 		}
+	}
+
+	// Return non-zero when running non-interactively and failures remain
+	remaining := sum.Failed - sum.Deferred
+	if remaining > 0 && (nonInteractive || noDefer) {
+		return fmt.Errorf("%d check(s) failed", remaining)
 	}
 
 	return nil
@@ -488,6 +557,15 @@ func extractCloseReason(note string) string {
 		return ""
 	}
 	return rest[:end]
+}
+
+func parseClassification(s string) (doctor.Classification, error) {
+	for _, c := range doctor.AllClassifications {
+		if strings.EqualFold(s, string(c)) {
+			return c, nil
+		}
+	}
+	return "", fmt.Errorf("unknown classification %q; must be one of: library, tool, service, saas, site", s)
 }
 
 func promptClassification(in io.Reader) (doctor.Classification, error) {
