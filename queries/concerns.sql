@@ -65,6 +65,23 @@ JOIN zdx_concern_issues ci ON ci.concern_id = c.id
 WHERE ci.issue_id = $1
 ORDER BY c.name;
 
+-- name: GetConcernByID :one
+SELECT id, project_id, name, description, created_at
+FROM zdx_concerns WHERE project_id = $1 AND id = $2;
+
+-- name: ListFeaturesForConcern :many
+SELECT id, name, description, kind
+FROM zdx_features
+WHERE id IN (SELECT feature_id FROM zdx_concern_features WHERE concern_id = $1)
+ORDER BY name;
+
+-- name: ListSpecsForConcern :many
+SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE s.id IN (SELECT spec_id FROM zdx_concern_specs WHERE concern_id = $1)
+ORDER BY s.id;
+
 -- name: GetConcernDoctorState :one
 SELECT
     (SELECT COUNT(*) FROM zdx_concerns cc WHERE cc.project_id = p.id)::int                                AS concern_count,

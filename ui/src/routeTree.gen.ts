@@ -73,6 +73,7 @@ import { Route as ProjectSlugFeaturesNameRouteImport } from './routes/project/$s
 import { Route as ProjectSlugErrorsIdRouteImport } from './routes/project/$slug/errors/$id'
 import { Route as ProjectSlugDiscussionsIdRouteImport } from './routes/project/$slug/discussions/$id'
 import { Route as ProjectSlugDemosDemoIdRouteImport } from './routes/project/$slug/demos/$demoId'
+import { Route as ProjectSlugConcernsIdRouteImport } from './routes/project/$slug/concerns/$id'
 import { Route as ProjectSlugAgentsSessionIdRouteImport } from './routes/project/$slug/agents/$sessionId'
 import { Route as ProjectSlugDocsNodeKindNodeSlugRouteImport } from './routes/project/$slug/docs/node/$kind/$nodeSlug'
 
@@ -406,6 +407,11 @@ const ProjectSlugDemosDemoIdRoute = ProjectSlugDemosDemoIdRouteImport.update({
   path: '/$demoId',
   getParentRoute: () => ProjectSlugDemosRoute,
 } as any)
+const ProjectSlugConcernsIdRoute = ProjectSlugConcernsIdRouteImport.update({
+  id: '/$id',
+  path: '/$id',
+  getParentRoute: () => ProjectSlugConcernsRoute,
+} as any)
 const ProjectSlugAgentsSessionIdRoute =
   ProjectSlugAgentsSessionIdRouteImport.update({
     id: '/$sessionId',
@@ -455,6 +461,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug/worklog': typeof ProjectSlugWorklogRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
   '/project/$slug/agents/$sessionId': typeof ProjectSlugAgentsSessionIdRoute
+  '/project/$slug/concerns/$id': typeof ProjectSlugConcernsIdRoute
   '/project/$slug/demos/$demoId': typeof ProjectSlugDemosDemoIdRoute
   '/project/$slug/discussions/$id': typeof ProjectSlugDiscussionsIdRoute
   '/project/$slug/errors/$id': typeof ProjectSlugErrorsIdRoute
@@ -510,6 +517,7 @@ export interface FileRoutesByTo {
   '/project/$slug/worklog': typeof ProjectSlugWorklogRoute
   '/project/$slug': typeof ProjectSlugIndexRoute
   '/project/$slug/agents/$sessionId': typeof ProjectSlugAgentsSessionIdRoute
+  '/project/$slug/concerns/$id': typeof ProjectSlugConcernsIdRoute
   '/project/$slug/demos/$demoId': typeof ProjectSlugDemosDemoIdRoute
   '/project/$slug/discussions/$id': typeof ProjectSlugDiscussionsIdRoute
   '/project/$slug/errors/$id': typeof ProjectSlugErrorsIdRoute
@@ -579,6 +587,7 @@ export interface FileRoutesById {
   '/project/$slug/worklog': typeof ProjectSlugWorklogRoute
   '/project/$slug/': typeof ProjectSlugIndexRoute
   '/project/$slug/agents/$sessionId': typeof ProjectSlugAgentsSessionIdRoute
+  '/project/$slug/concerns/$id': typeof ProjectSlugConcernsIdRoute
   '/project/$slug/demos/$demoId': typeof ProjectSlugDemosDemoIdRoute
   '/project/$slug/discussions/$id': typeof ProjectSlugDiscussionsIdRoute
   '/project/$slug/errors/$id': typeof ProjectSlugErrorsIdRoute
@@ -649,6 +658,7 @@ export interface FileRouteTypes {
     | '/project/$slug/worklog'
     | '/project/$slug/'
     | '/project/$slug/agents/$sessionId'
+    | '/project/$slug/concerns/$id'
     | '/project/$slug/demos/$demoId'
     | '/project/$slug/discussions/$id'
     | '/project/$slug/errors/$id'
@@ -704,6 +714,7 @@ export interface FileRouteTypes {
     | '/project/$slug/worklog'
     | '/project/$slug'
     | '/project/$slug/agents/$sessionId'
+    | '/project/$slug/concerns/$id'
     | '/project/$slug/demos/$demoId'
     | '/project/$slug/discussions/$id'
     | '/project/$slug/errors/$id'
@@ -772,6 +783,7 @@ export interface FileRouteTypes {
     | '/project/$slug/worklog'
     | '/project/$slug/'
     | '/project/$slug/agents/$sessionId'
+    | '/project/$slug/concerns/$id'
     | '/project/$slug/demos/$demoId'
     | '/project/$slug/discussions/$id'
     | '/project/$slug/errors/$id'
@@ -1269,6 +1281,13 @@ declare module '@tanstack/react-router' {
       preLoaderRoute: typeof ProjectSlugDemosDemoIdRouteImport
       parentRoute: typeof ProjectSlugDemosRoute
     }
+    '/project/$slug/concerns/$id': {
+      id: '/project/$slug/concerns/$id'
+      path: '/$id'
+      fullPath: '/project/$slug/concerns/$id'
+      preLoaderRoute: typeof ProjectSlugConcernsIdRouteImport
+      parentRoute: typeof ProjectSlugConcernsRoute
+    }
     '/project/$slug/agents/$sessionId': {
       id: '/project/$slug/agents/$sessionId'
       path: '/$sessionId'
@@ -1300,10 +1319,12 @@ const ProjectSlugAgentsRouteWithChildren =
   ProjectSlugAgentsRoute._addFileChildren(ProjectSlugAgentsRouteChildren)
 
 interface ProjectSlugConcernsRouteChildren {
+  ProjectSlugConcernsIdRoute: typeof ProjectSlugConcernsIdRoute
   ProjectSlugConcernsIndexRoute: typeof ProjectSlugConcernsIndexRoute
 }
 
 const ProjectSlugConcernsRouteChildren: ProjectSlugConcernsRouteChildren = {
+  ProjectSlugConcernsIdRoute: ProjectSlugConcernsIdRoute,
   ProjectSlugConcernsIndexRoute: ProjectSlugConcernsIndexRoute,
 }
 

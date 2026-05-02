@@ -2688,12 +2688,14 @@ export const useCreateConcern = () => {
 
 const invalidateConcernLink = (qc: ReturnType<typeof useQueryClient>, v: LinkConcernRequest | UnlinkConcernRequest) => {
   qc.invalidateQueries({ queryKey: ['concerns', v.slug] })
+  qc.invalidateQueries({ queryKey: ['concern', v.slug] })
   if (v.feature) {
     qc.invalidateQueries({ queryKey: ['concerns', v.slug, 'feature', v.feature] })
     qc.invalidateQueries({ queryKey: ['feature', v.slug, v.feature] })
   }
   if (v.spec_id) {
     qc.invalidateQueries({ queryKey: ['concerns', 'spec', v.spec_id] })
+    qc.invalidateQueries({ queryKey: ['concern', v.spec_id, 'specs'] })
     qc.invalidateQueries({ queryKey: ['spec-detail', v.spec_id] })
   }
 }
@@ -2746,6 +2748,58 @@ export const useListConcernsForSpec = (specId: number) =>
       return data?.concerns ?? []
     },
     enabled: specId > 0,
+  })
+
+export interface ConcernLinkedFeatureItem {
+  id: number
+  name: string
+  description: string
+  kind: string
+}
+
+export interface ConcernLinkedSpecItem {
+  id: number
+  feature_id: number
+  feature_name: string
+  description: string
+  importance: string
+}
+
+export const useGetConcernById = (slug: string, id: number) =>
+  useQuery<ConcernItem | null>({
+    queryKey: ['concern', slug, id],
+    queryFn: async () => {
+      const { data, error } = await (client as any).GET('/api/dx/concerns/get', { params: { query: { slug, id } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data as ConcernItem
+    },
+    enabled: !!slug && id > 0,
+  })
+
+export const useListFeaturesForConcern = (slug: string, concernId: number) =>
+  useQuery<ConcernLinkedFeatureItem[]>({
+    queryKey: ['concern', slug, concernId, 'features'],
+    queryFn: async () => {
+      const { data, error } = await (client as any).GET('/api/dx/features/concern', {
+        params: { query: { slug, concern_id: concernId } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data?.features ?? []) as ConcernLinkedFeatureItem[]
+    },
+    enabled: !!slug && concernId > 0,
+  })
+
+export const useListSpecsForConcern = (concernId: number) =>
+  useQuery<ConcernLinkedSpecItem[]>({
+    queryKey: ['concern', concernId, 'specs'],
+    queryFn: async () => {
+      const { data, error } = await (client as any).GET('/api/dx/specs/concern', {
+        params: { query: { concern_id: concernId } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data?.specs ?? []) as ConcernLinkedSpecItem[]
+    },
+    enabled: concernId > 0,
   })
 
 // ── proposals ─────────────────────────────────────────────────────────────────

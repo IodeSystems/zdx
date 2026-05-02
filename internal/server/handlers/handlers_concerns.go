@@ -16,6 +16,21 @@ type ConcernItem struct {
 	CreatedAt   string `json:"created_at"`
 }
 
+type ConcernLinkedFeatureItem struct {
+	ID          int32  `json:"id"`
+	Name        string `json:"name"`
+	Description string `json:"description"`
+	Kind        string `json:"kind"`
+}
+
+type ConcernLinkedSpecItem struct {
+	ID          int32  `json:"id"`
+	FeatureID   int32  `json:"feature_id"`
+	FeatureName string `json:"feature_name"`
+	Description string `json:"description"`
+	Importance  string `json:"importance"`
+}
+
 func toConcernItem(r db.ZdxConcern) ConcernItem {
 	return ConcernItem{
 		ID:          r.ID,
@@ -180,6 +195,82 @@ func (h *Handler) registerConcernRoutes(api huma.API) {
 				return nil, apiErr(http.StatusBadRequest, "one of feature, spec_id, pattern_id, or issue must be set")
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "get-concern-by-id", Method: http.MethodGet, Path: "/api/dx/concerns/get"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+			ID   int32  `query:"id" required:"true"`
+		}) (*struct{ Body ConcernItem }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := h.Q.GetConcernByID(ctx, db.GetConcernByIDParams{ProjectID: p.ID, ID: in.ID})
+			if err != nil {
+				return nil, apiErr(http.StatusNotFound, "concern not found")
+			}
+			return &struct{ Body ConcernItem }{Body: toConcernItem(row)}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-features-for-concern", Method: http.MethodGet, Path: "/api/dx/features/concern"},
+		func(ctx context.Context, in *struct {
+			Slug      string `query:"slug" required:"true"`
+			ConcernID int32  `query:"concern_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Features []ConcernLinkedFeatureItem `json:"features"`
+			}
+		}, error) {
+			if _, err := getProject(ctx, h.Q, in.Slug); err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListFeaturesForConcern(ctx, in.ConcernID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			items := make([]ConcernLinkedFeatureItem, len(rows))
+			for i, r := range rows {
+				items[i] = ConcernLinkedFeatureItem{ID: r.ID, Name: r.Name, Description: r.Description, Kind: r.Kind}
+			}
+			return &struct {
+				Body struct {
+					Features []ConcernLinkedFeatureItem `json:"features"`
+				}
+			}{Body: struct {
+				Features []ConcernLinkedFeatureItem `json:"features"`
+			}{Features: items}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "list-specs-for-concern", Method: http.MethodGet, Path: "/api/dx/specs/concern"},
+		func(ctx context.Context, in *struct {
+			ConcernID int32 `query:"concern_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Specs []ConcernLinkedSpecItem `json:"specs"`
+			}
+		}, error) {
+			rows, err := h.Q.ListSpecsForConcern(ctx, in.ConcernID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			items := make([]ConcernLinkedSpecItem, len(rows))
+			for i, r := range rows {
+				items[i] = ConcernLinkedSpecItem{
+					ID:          r.ID,
+					FeatureID:   r.FeatureID,
+					FeatureName: r.FeatureName,
+					Description: r.Description,
+					Importance:  r.Importance,
+				}
+			}
+			return &struct {
+				Body struct {
+					Specs []ConcernLinkedSpecItem `json:"specs"`
+				}
+			}{Body: struct {
+				Specs []ConcernLinkedSpecItem `json:"specs"`
+			}{Specs: items}}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "list-concerns-for-feature", Method: http.MethodGet, Path: "/api/dx/concerns/feature"},
