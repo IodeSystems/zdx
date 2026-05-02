@@ -513,6 +513,26 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		state.MaturityItems = *iResp.JSON200.Items
 	}
 
+	// Version branches — drives the branching_strategy_appropriate rung.
+	// We read `Type` (the API still publishes the legacy passthrough; new
+	// roles like pr-target/rolling-release surface verbatim as Type until
+	// the API fully renames in IS-967). The legacy alias "named" maps to
+	// the named-release role.
+	if vbResp, err := c.ListVersionBranchesWithResponse(ctx, slug); err == nil && vbResp.JSON200 != nil && vbResp.JSON200.Branches != nil {
+		for _, b := range *vbResp.JSON200.Branches {
+			switch b.Type {
+			case "dev":
+				state.BranchingStrategyHasDev = true
+			case "pr-target":
+				state.BranchingStrategyHasPRTarget = true
+			case "named", "named-release":
+				state.BranchingStrategyHasNamedRelease = true
+			case "rolling-release":
+				state.BranchingStrategyHasRollingRelease = true
+			}
+		}
+	}
+
 	// Deploy summary — best-effort: count recorded deploys across environments and
 	// capture the most-recent deploy's status. On any API error we leave
 	// LastDeployStatus as "unknown" so the check passes by default.

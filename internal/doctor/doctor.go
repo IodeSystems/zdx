@@ -169,6 +169,22 @@ type ProjectState struct {
 
 	// Deferred checks (from server)
 	Deferred map[string]bool
+
+	// Branching strategy (IS-967): role-flag presence drives the
+	// branching_strategy_appropriate rung. Highest matched rung wins:
+	//   rung4 = HasDev && HasNamedRelease
+	//   rung3 = HasDev
+	//   rung2 = HasPRTarget
+	//   rung1 = otherwise (incl. zero rows or only rolling-release)
+	BranchingStrategyRung              int
+	BranchingStrategyHasDev            bool
+	BranchingStrategyHasPRTarget       bool
+	BranchingStrategyHasNamedRelease   bool
+	BranchingStrategyHasRollingRelease bool
+
+	// CommitterCount drives the tool/site nudge threshold; populated locally
+	// from `git log --format=%ae | sort -u | wc -l`. Zero in non-git dirs.
+	CommitterCount int
 }
 
 // DetectLocal populates filesystem and environment checks.
@@ -229,6 +245,28 @@ func DetectLocal(state *ProjectState) {
 
 	// Release-branch detection: any local or remote `release/*` branch counts.
 	state.HasReleaseBranch = detectReleaseBranch()
+
+	// Distinct git committers — feeds the branching_strategy_appropriate
+	// nudge threshold for tool/site projects.
+	state.CommitterCount = gitCommitterCount()
+}
+
+// gitCommitterCount returns the number of distinct committer emails in the
+// current repository's history. Returns 0 in non-git directories or on any
+// git error so the rung degrades gracefully rather than failing the run.
+func gitCommitterCount() int {
+	out, err := exec.Command("git", "log", "--format=%ae").Output()
+	if err != nil {
+		return 0
+	}
+	seen := map[string]struct{}{}
+	for _, line := range strings.Split(string(out), "\n") {
+		e := strings.TrimSpace(line)
+		if e != "" {
+			seen[e] = struct{}{}
+		}
+	}
+	return len(seen)
 }
 
 func codebaseUsesStepDriver() bool {
@@ -767,12 +805,78 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		return false, "Security concern has no specs", nil,
 			"Add a security spec: `dx spec add <feature> --kind must --concern Security --desc '...'`"
 
+	case "branching_strategy_appropriate":
+		return runBranchingStrategyCheck(state)
+
 	case "has_healthcheck", "has_auth", "has_tenant_isolation":
 		// Placeholder — these require deeper inspection
 		return true, "not yet checked", nil, ""
 
 	default:
 		return true, "unknown check", nil, ""
+	}
+}
+
+// computeBranchingRung returns the highest matched rung (1–4) for the role
+// flags in state. Order matters: rung4 wins over rung3 wins over rung2.
+func computeBranchingRung(state *ProjectState) int {
+	switch {
+	case state.BranchingStrategyHasDev && state.BranchingStrategyHasNamedRelease:
+		return 4
+	case state.BranchingStrategyHasDev:
+		return 3
+	case state.BranchingStrategyHasPRTarget:
+		return 2
+	default:
+		return 1
+	}
+}
+
+// runBranchingStrategyCheck evaluates the branching_strategy_appropriate rung.
+// Library passes at any rung. Service/SaaS at rung 1 fail with a nudge to
+// rung 3. Tool/Site at rung 1 with prior deploys fail with a nudge to rung 2.
+// Everything else passes. The proposal text names the classification, current
+// rung, target rung, and the concrete CLI command to advance.
+func runBranchingStrategyCheck(state *ProjectState) (pass bool, msg string, fixFunc func() error, proposal string) {
+	rung := computeBranchingRung(state)
+	state.BranchingStrategyRung = rung
+
+	class := state.Classification
+	if class == "" {
+		class = ClassTool
+	}
+
+	rungLabel := fmt.Sprintf("rung %d", rung)
+	if rung == 1 {
+		rungLabel = "rung 1 (no version-branch rows)"
+	}
+
+	switch class {
+	case ClassLibrary:
+		return true, fmt.Sprintf("library at %s — branching strategy not gated", rungLabel), nil, ""
+
+	case ClassService, ClassSaaS:
+		if rung == 1 {
+			return false,
+				fmt.Sprintf("%s at rung 1 — no dev branch row; deploys lack a buffer", class),
+				nil,
+				"Advance to rung 3: add a dev branch and wire main.source_branch_name=dev for a deploy buffer. " +
+					"Run `dx branch add-role dev --name dev` and `dx branch set-source main --source dev`."
+		}
+		return true, fmt.Sprintf("%s at %s", class, rungLabel), nil, ""
+
+	case ClassTool, ClassSite:
+		if rung == 1 && state.DeployEventCount > 0 {
+			return false,
+				fmt.Sprintf("%s at rung 1 with %d recorded deploy(s) — no pr-target buffer for review", class, state.DeployEventCount),
+				nil,
+				"Advance to rung 2: introduce a pr-target branch so changes can be reviewed before they ship. " +
+					"Run `dx branch add-role pr-target --name <branch>`."
+		}
+		return true, fmt.Sprintf("%s at %s", class, rungLabel), nil, ""
+
+	default:
+		return true, fmt.Sprintf("%s at %s", class, rungLabel), nil, ""
 	}
 }
 

@@ -115,6 +115,13 @@ func commonVine() []Rung {
 			},
 		},
 		{
+			Name:        "branching",
+			Description: "Branching strategy fits project maturity and classification",
+			Checks: []Check{
+				{"branching_strategy_appropriate", "Branching model fits project maturity & classification", ActionPropose},
+			},
+		},
+		{
 			Name:        "concerns",
 			Description: "Concerns are defined and attributed — coverage, gaps, security",
 			Checks: []Check{
