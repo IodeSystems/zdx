@@ -107,7 +107,7 @@ func TestRunDoctorWithFix(t *testing.T) {
 		close(copyDone)
 	}()
 
-	runErr := runDoctor(context.Background(), true, false)
+	runErr := runDoctor(context.Background(), true, false, "", false, false, false)
 
 	pw.Close()
 	<-copyDone
@@ -159,7 +159,7 @@ func TestRunDoctorWithoutFix(t *testing.T) {
 		close(copyDone)
 	}()
 
-	runErr := runDoctor(context.Background(), false, false)
+	runErr := runDoctor(context.Background(), false, false, "", false, false, false)
 
 	pw.Close()
 	<-copyDone
