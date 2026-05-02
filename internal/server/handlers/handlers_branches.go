@@ -18,8 +18,9 @@ import (
 const backportPriorityCutoff = 2
 
 type VersionBranchItem struct {
-	ID        int64  `json:"id"`
-	Name      string `json:"name"`
+	ID   int64  `json:"id"`
+	Name string `json:"name"`
+	// Legacy 'dev'/'named' value mapped from db role; full rename is IS-967.
 	Type      string `json:"type"`
 	Semver    string `json:"semver,omitempty"`
 	Status    string `json:"status"`
@@ -87,18 +88,30 @@ type VersionBranchDetail struct {
 	ResolvedCount int `json:"resolved_count"`
 }
 
-func versionBranchItem(r db.ZdxVersionBranch) VersionBranchItem {
-	semver := ""
-	if r.Semver.Valid {
-		semver = r.Semver.String
+// roleToLegacyType maps the new role enum back to the legacy type values
+// the API still publishes. Values outside the legacy pair pass through
+// unchanged so future roles surface verbatim once IS-967 widens the API.
+func roleToLegacyType(role string) string {
+	switch role {
+	case "named-release":
+		return "named"
+	default:
+		return role
+	}
+}
+
+func versionBranchItemFrom(id int64, name, role string, semver pgtype.Text, status string, createdAt pgtype.Timestamptz) VersionBranchItem {
+	sv := ""
+	if semver.Valid {
+		sv = semver.String
 	}
 	return VersionBranchItem{
-		ID:        r.ID,
-		Name:      r.Name,
-		Type:      r.Type,
-		Semver:    semver,
-		Status:    r.Status,
-		CreatedAt: fmtTS(r.CreatedAt),
+		ID:        id,
+		Name:      name,
+		Type:      roleToLegacyType(role),
+		Semver:    sv,
+		Status:    status,
+		CreatedAt: fmtTS(createdAt),
 	}
 }
 
@@ -125,7 +138,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 			row, err := h.Q.CreateVersionBranch(ctx, db.CreateVersionBranchParams{
 				ProjectID: p.ID,
 				Name:      in.Body.Name,
-				Type:      "named",
+				Role:      "named-release",
 				Semver:    semver,
 				Status:    "active",
 			})
@@ -157,7 +170,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				h.refreshQueueAsync(p.ID)
 			}
 			result := CreateVersionBranchResult{
-				VersionBranchItem:    versionBranchItem(row),
+				VersionBranchItem:    versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt),
 				BackportTasksCreated: created,
 			}
 			return &struct{ Body CreateVersionBranchResult }{Body: result}, nil
@@ -181,7 +194,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 			}
 			out := make([]VersionBranchItem, len(rows))
 			for i, r := range rows {
-				out[i] = versionBranchItem(r)
+				out[i] = versionBranchItemFrom(r.ID, r.Name, r.Role, r.Semver, r.Status, r.CreatedAt)
 			}
 			return &struct {
 				Body struct {
@@ -224,7 +237,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				}
 			}
 			detail := VersionBranchDetail{
-				VersionBranchItem: versionBranchItem(row),
+				VersionBranchItem: versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt),
 				OpenCount:         openCount,
 				ResolvedCount:     resolvedCount,
 			}

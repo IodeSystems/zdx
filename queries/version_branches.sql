@@ -1,15 +1,15 @@
 -- name: CreateVersionBranch :one
-INSERT INTO zdx_version_branches (project_id, name, type, semver, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, name, type, semver, status, created_at;
+INSERT INTO zdx_version_branches (project_id, name, role, semver, status, source_branch_name, auto_seed)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at;
 
 -- name: GetVersionBranchByName :one
-SELECT id, project_id, name, type, semver, status, created_at
+SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
 FROM zdx_version_branches
 WHERE project_id = $1 AND name = $2;
 
 -- name: ListVersionBranches :many
-SELECT id, project_id, name, type, semver, status, created_at
+SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
 FROM zdx_version_branches
 WHERE project_id = $1
 ORDER BY created_at ASC;
@@ -17,4 +17,9 @@ ORDER BY created_at ASC;
 -- name: MarkVersionBranchEOL :exec
 UPDATE zdx_version_branches
 SET status = 'eol'
+WHERE project_id = $1 AND name = $2;
+
+-- name: GetReleaseBranchSource :one
+SELECT source_branch_name
+FROM zdx_version_branches
 WHERE project_id = $1 AND name = $2;

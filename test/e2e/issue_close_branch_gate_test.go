@@ -49,8 +49,8 @@ func TestIssueCloseBranchGate(t *testing.T) {
 		}
 		defer conn.Close(ctx)
 		if _, err := conn.Exec(ctx,
-			`INSERT INTO zdx_version_branches (project_id, name, type, status)
-			 SELECT id, $2, 'named', 'active' FROM zdx_projects WHERE slug = $1`,
+			`INSERT INTO zdx_version_branches (project_id, name, role, status)
+			 SELECT id, $2, 'named-release', 'active' FROM zdx_projects WHERE slug = $1`,
 			projectSlug, branchName); err != nil {
 			t.Fatalf("insert named branch %q: %v", branchName, err)
 		}

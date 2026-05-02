@@ -373,8 +373,9 @@ func (h *Handler) registerAuthRoutes(api huma.API) {
 			if _, err := h.Q.CreateVersionBranch(ctx, db.CreateVersionBranchParams{
 				ProjectID: row.ID,
 				Name:      "dev",
-				Type:      "dev",
+				Role:      "dev",
 				Status:    "active",
+				AutoSeed:  true,
 			}); err != nil {
 				return nil, apiErr(500, err.Error())
 			}
