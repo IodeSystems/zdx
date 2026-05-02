@@ -223,6 +223,20 @@ WHERE status = 'open'
   AND blocked = false
   AND (claimed_by = '' OR lease_expires_at < NOW());
 
+-- name: GetTodoQueueHealth :one
+-- Aggregate open todo queue health: total open, blocked count, unblocked count,
+-- and the single most common blocked_reason (null if none).
+SELECT
+  COUNT(*) FILTER (WHERE t.status = 'open')                        AS total_open,
+  COUNT(*) FILTER (WHERE t.status = 'open' AND t.blocked = true)   AS blocked_count,
+  COUNT(*) FILTER (WHERE t.status = 'open' AND t.blocked = false)  AS unblocked_count,
+  (SELECT sub.blocked_reason
+   FROM zdx_todos sub
+   WHERE sub.project_id = $1 AND sub.status = 'open' AND sub.blocked = true AND sub.blocked_reason != ''
+   GROUP BY sub.blocked_reason ORDER BY COUNT(*) DESC LIMIT 1)     AS dominant_blocked_reason
+FROM zdx_todos t
+WHERE t.project_id = $1;
+
 -- name: GetState :one
 SELECT value FROM zdx_state WHERE project_id = $1 AND key = $2;
 

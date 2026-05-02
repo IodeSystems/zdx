@@ -489,9 +489,17 @@ func StandupOverdueText(role string) Hint {
 			"Be quantitative. Spread content across --assessment / --concerns / --next.\n"
 	}
 
-	techExtras := ""
-	if role == "tech" {
-		techExtras = "   - observability: timings / errors / counters pages — system KPIs\n"
+	roleExtras := ""
+	switch role {
+	case "owner":
+		roleExtras = "   - `dx todo queue-health` — claimable / blocked / total + dominant reason\n"
+	case "tech":
+		roleExtras = "   - observability: timings / errors / counters pages — system KPIs\n"
+	}
+
+	queueHealthAntiPattern := ""
+	if role == "owner" {
+		queueHealthAntiPattern = "- Do NOT conclude 'project is healthy' or 'no blockers' if `dx todo queue-health` exits non-zero. Surface the blocked count and dominant reason in the 'Health / risks' section instead.\n"
 	}
 
 	kind := "owner:standup"
@@ -526,9 +534,10 @@ func StandupOverdueText(role string) Hint {
 				"- Do NOT produce vague qualitative assessments (\"strong velocity\") without backing numbers.\n"+
 				"- Do NOT skip the report because \"nothing to do\" — an empty queue is itself a reportable state; say so explicitly.\n"+
 				"- Do NOT bury problems in positive framing. If something is wrong, say it plainly.\n"+
-				"- Do NOT close this item with `dx standup review` — review is for acknowledging someone ELSE's entry, not for writing your own. Use `dx standup checkin`.\n\n"+
+				"- Do NOT close this item with `dx standup review` — review is for acknowledging someone ELSE's entry, not for writing your own. Use `dx standup checkin`.\n"+
+				"%s\n"+
 				"Stop after submitting — one standup per session.",
-			roleCap, role, techExtras, structure, role,
+			roleCap, role, roleExtras, structure, role, queueHealthAntiPattern,
 		) + ContractFooter(kind),
 	}
 }

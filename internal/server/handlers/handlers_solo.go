@@ -1087,6 +1087,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 			}
 			item, err := claimFromProject(p)
 			if err != nil {
+				h.maybeAutoFileQueueStall(ctx, p.ID, p.Slug)
 				return nil, apiErr(404, "no claimable todo items")
 			}
 			return &struct{ Body soloClaimBody }{Body: soloClaimBody{TodoItem: *item, Debug: debugOutput(ctx)}}, nil
@@ -1549,5 +1550,91 @@ func (h *Handler) maybeAutoFileBlockIssue(ctx context.Context, blocked db.BlockT
 		ProjectID:        p.ID,
 		Key:              blocked.Key,
 		ReferenceIssueID: issue.ID,
+	})
+}
+
+const stallIssuePrefix = "System gap: todo queue fully stalled"
+
+// maybeAutoFileQueueStall fires when the claim handler finds no claimable todos.
+// If total_open > 0 and unblocked_count == 0, the queue is fully stalled: every
+// open todo is blocked. Auto-files a system-gap issue so agents can self-heal.
+// On recovery (unblocked_count > 0), closes any existing stall issue and unblocks
+// todos tied to it.
+// Gated on AUTO_FILE_AGENT_FAILURES=true (same as maybeAutoFileBlockIssue, IS-677).
+func (h *Handler) maybeAutoFileQueueStall(ctx context.Context, projectID int32, slug string) {
+	if os.Getenv("AUTO_FILE_AGENT_FAILURES") != "true" {
+		return
+	}
+	health, err := h.Q.GetTodoQueueHealth(ctx, projectID)
+	if err != nil {
+		return
+	}
+
+	// Find any existing open stall issue for dedup and recovery.
+	var existingStallID string
+	issues, err := h.Q.ListIssues(ctx, projectID)
+	if err == nil {
+		for _, iss := range issues {
+			if iss.Status == "open" && len(iss.Title) >= len(stallIssuePrefix) && iss.Title[:len(stallIssuePrefix)] == stallIssuePrefix {
+				existingStallID = iss.ID
+				break
+			}
+		}
+	}
+
+	if health.UnblockedCount > 0 {
+		// Queue recovered — close the stall issue if one is open.
+		if existingStallID != "" {
+			_ = h.Q.CloseIssue(ctx, db.CloseIssueParams{
+				ProjectID:   projectID,
+				ID:          existingStallID,
+				CloseReason: "Queue stall resolved: unblocked todos are now claimable",
+			})
+			_ = h.Q.UnblockTodosByReferenceIssue(ctx, db.UnblockTodosByReferenceIssueParams{
+				ProjectID:        projectID,
+				ReferenceIssueID: existingStallID,
+			})
+		}
+		return
+	}
+
+	// Queue fully stalled: open todos exist but none are claimable.
+	if health.TotalOpen == 0 || existingStallID != "" {
+		return
+	}
+
+	dominantReason := ""
+	if health.DominantBlockedReason.Valid {
+		dominantReason = health.DominantBlockedReason.String
+	}
+	issueID, err := h.Q.NextIssueID(ctx)
+	if err != nil {
+		return
+	}
+	title := fmt.Sprintf("%s (%d/%d blocked: %s)", stallIssuePrefix, health.BlockedCount, health.TotalOpen, dominantReason)
+	description := fmt.Sprintf(
+		"Every open todo in project %q is blocked (%d/%d). No agent work can proceed until at least one todo is unblocked. "+
+			"Dominant blocked reason: %q. "+
+			"Investigate and resolve the blocked todos. When this issue is closed the affected todos will automatically unblock. "+
+			"(See IS-956 for the queue-stall self-healing design.)",
+		slug, health.BlockedCount, health.TotalOpen, dominantReason,
+	)
+	issue, err := h.Q.CreateIssue(ctx, db.CreateIssueParams{
+		ID:        issueID,
+		ProjectID: projectID,
+		Title:     title,
+		Context:   description,
+		IssueType: "impl",
+		Status:    "open",
+		Priority:  "1",
+	})
+	if err != nil {
+		return
+	}
+	_ = h.Q.AppendIssueWork(ctx, db.AppendIssueWorkParams{
+		IssueID: issue.ID,
+		Agent:   "system",
+		Note: fmt.Sprintf("[auto-filed] Queue fully stalled: %d/%d todos blocked. Dominant reason: %q. Unblock todos or close this issue to resume agent work.",
+			health.BlockedCount, health.TotalOpen, dominantReason),
 	})
 }
