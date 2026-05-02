@@ -62,7 +62,7 @@ func envListCmd() *cobra.Command {
 }
 
 func envAddCmd() *cobra.Command {
-	var url, releaseBranch string
+	var url, releaseBranch, trunkBranch string
 	cmd := &cobra.Command{
 		Use:   "add <name>",
 		Short: "Add an environment",
@@ -75,6 +75,9 @@ func envAddCmd() *cobra.Command {
 			}
 			if releaseBranch != "" {
 				req.ReleaseBranch = &releaseBranch
+			}
+			if trunkBranch != "" {
+				req.TrunkBranch = &trunkBranch
 			}
 			resp, err := c.CreateEnvironmentWithResponse(cmd.Context(), c.SlugOrDie(), req)
 			if err != nil {
@@ -92,6 +95,7 @@ func envAddCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&url, "url", "", "environment URL")
 	cmd.Flags().StringVar(&releaseBranch, "release-branch", "", "git branch to deploy from (e.g. release/production)")
+	cmd.Flags().StringVar(&trunkBranch, "trunk-branch", "", "git branch that is the integration trunk (e.g. dev, main)")
 	return cmd
 }
 
@@ -119,6 +123,9 @@ func envShowCmd() *cobra.Command {
 			fmt.Printf("Name:           %s\n", e.Name)
 			fmt.Printf("URL:            %s\n", e.Url)
 			fmt.Printf("Release branch: %s\n", e.ReleaseBranch)
+			if e.TrunkBranch != nil && *e.TrunkBranch != "" {
+				fmt.Printf("Trunk branch:   %s\n", *e.TrunkBranch)
+			}
 			fmt.Printf("Created:        %s\n", e.CreatedAt)
 			fmt.Printf("Deployed:       %s\n", e.DeployedAt)
 			fmt.Printf("Branch:         %s\n", e.CurrentBuildBranch)
@@ -200,7 +207,7 @@ func envDeployCmd() *cobra.Command {
 }
 
 func envEditCmd() *cobra.Command {
-	var url, releaseBranch string
+	var url, releaseBranch, trunkBranch string
 	cmd := &cobra.Command{
 		Use:   "edit <name>",
 		Short: "Edit an environment",
@@ -213,6 +220,9 @@ func envEditCmd() *cobra.Command {
 			}
 			if releaseBranch != "" {
 				req.ReleaseBranch = &releaseBranch
+			}
+			if trunkBranch != "" {
+				req.TrunkBranch = &trunkBranch
 			}
 			resp, err := c.UpdateEnvironmentWithResponse(cmd.Context(), c.SlugOrDie(), args[0], req)
 			if err != nil {
@@ -227,6 +237,7 @@ func envEditCmd() *cobra.Command {
 	}
 	cmd.Flags().StringVar(&url, "url", "", "environment URL")
 	cmd.Flags().StringVar(&releaseBranch, "release-branch", "", "git branch to deploy from (e.g. release/production)")
+	cmd.Flags().StringVar(&trunkBranch, "trunk-branch", "", "git branch that is the integration trunk (e.g. dev, main)")
 	return cmd
 }
 

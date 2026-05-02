@@ -3661,6 +3661,9 @@
           "release_branch": {
             "type": "string"
           },
+          "trunk_branch": {
+            "type": "string"
+          },
           "url": {
             "type": "string"
           }
@@ -4848,6 +4851,9 @@
             "type": "string"
           },
           "release_branch": {
+            "type": "string"
+          },
+          "trunk_branch": {
             "type": "string"
           },
           "url": {
@@ -16310,6 +16316,9 @@
             "type": "string"
           },
           "release_branch": {
+            "type": "string"
+          },
+          "trunk_branch": {
             "type": "string"
           },
           "url": {
