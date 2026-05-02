@@ -348,6 +348,41 @@ func TestBuildSessionPrompt(t *testing.T) {
 				}
 			},
 		},
+		{
+			name: "todo prompt embeds incomplete-report protocol",
+			todo: todo,
+			check: func(t *testing.T, got string) {
+				wantSubstrings := []string{
+					"INCOMPLETE-REPORT PROTOCOL",
+					"dx todo incomplete TK-1",
+					"--reason=",
+					"--explanation=",
+					"capability_gap",
+					"ambiguous_spec",
+					"external_dep",
+					"needs_decision",
+					"permission_denied",
+					"environment_broken",
+					"preexisting_test_failure",
+					"flaky_test",
+					"protocol violation",
+				}
+				for _, s := range wantSubstrings {
+					if !strings.Contains(got, s) {
+						t.Fatalf("prompt missing %q\n--- prompt ---\n%s", s, got)
+					}
+				}
+			},
+		},
+		{
+			name:    "issue-only prompt does not embed incomplete-report protocol",
+			issueID: "IS-99",
+			check: func(t *testing.T, got string) {
+				if strings.Contains(got, "INCOMPLETE-REPORT PROTOCOL") {
+					t.Fatalf("issue-only prompt must not include todo-only protocol section, got %q", got)
+				}
+			},
+		},
 	}
 
 	for _, tc := range cases {
