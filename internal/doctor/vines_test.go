@@ -7,21 +7,21 @@ import (
 	"testing"
 )
 
-// TestVine verifies spec 127: Vine() composes the seven common rungs (in order)
+// TestVine verifies spec 127: Vine() composes the eight common rungs (in order)
 // followed by the classification-specific rung(s) for each classification.
 func TestVine(t *testing.T) {
-	commonRungs := []string{"scaffold", "identity", "planning", "concerns", "verification", "retroactive_audit", "agents"}
+	commonRungs := []string{"scaffold", "identity", "planning", "concerns", "verification", "retroactive_audit", "agents", "queue_health"}
 
 	cases := []struct {
 		class    Classification
 		extra    []string
 		minTotal int
 	}{
-		{ClassLibrary, []string{"distribution"}, 8},
-		{ClassTool, []string{"distribution"}, 8},
-		{ClassService, []string{"operations"}, 8},
-		{ClassSaaS, []string{"operations", "multi-tenancy"}, 9},
-		{ClassSite, []string{"publication"}, 8},
+		{ClassLibrary, []string{"distribution"}, 9},
+		{ClassTool, []string{"distribution"}, 9},
+		{ClassService, []string{"operations"}, 9},
+		{ClassSaaS, []string{"operations", "multi-tenancy"}, 10},
+		{ClassSite, []string{"publication"}, 9},
 	}
 
 	for _, tc := range cases {

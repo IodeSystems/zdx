@@ -38,6 +38,15 @@ type HistoricalOffender struct {
 	Detail  string // e.g. failing task ID, first must-spec ID
 }
 
+// TodoQueueHealth captures aggregate todo-queue state for the queue_health
+// rung (IS-956). Populated from GET /api/dx/todos/queue-health.
+type TodoQueueHealth struct {
+	TotalOpen             int
+	BlockedCount          int
+	UnblockedCount        int
+	DominantBlockedReason string
+}
+
 type FindingStatus int
 
 const (
@@ -149,6 +158,10 @@ type ProjectState struct {
 	HistoricalOffenderCount   int
 	HistoricalOffendersByGate map[string]int
 	HistoricalOffenderSample  []HistoricalOffender // capped to first 5
+
+	// Todo queue health — drives the queue_health rung (IS-956).
+	TodoQueueHealth TodoQueueHealth
+	OpenIssueCount  int // total non-closed issues; gates queue_has_claimable_work
 
 	// Maturity questionnaire (from server)
 	MaturityQuestions []dxclient.MaturityQuestion
@@ -535,6 +548,34 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "", nil, ""
 		}
 		return false, fmt.Sprintf("%d agent sessions open past %dm idle (server auto-closes as 'orphaned'; inspect the agents UI)", state.StaleAgentSessions, state.StaleAgentSessionsMinutes), nil, ""
+
+	// ── queue_health (IS-956) ──
+	case "queue_has_claimable_work":
+		if state.OpenIssueCount > 0 && state.TodoQueueHealth.TotalOpen > 0 && state.TodoQueueHealth.UnblockedCount == 0 {
+			reason := state.TodoQueueHealth.DominantBlockedReason
+			if reason == "" {
+				reason = "unknown"
+			}
+			return false,
+				fmt.Sprintf("%d/%d open todos blocked; dominant reason: %q",
+					state.TodoQueueHealth.BlockedCount, state.TodoQueueHealth.TotalOpen, reason),
+				nil,
+				"File a system-gap issue describing why all todos are blocked, or run `dx todo unblock-all` if the blocks are stale"
+		}
+		return true, "queue has claimable work", nil, ""
+
+	case "queue_blocked_ratio_ok":
+		if state.TodoQueueHealth.TotalOpen > 0 {
+			ratio := float64(state.TodoQueueHealth.BlockedCount) / float64(state.TodoQueueHealth.TotalOpen)
+			if ratio > 0.8 {
+				return false,
+					fmt.Sprintf("%.0f%% of open todos blocked (%d/%d)",
+						ratio*100, state.TodoQueueHealth.BlockedCount, state.TodoQueueHealth.TotalOpen),
+					nil,
+					"Investigate and resolve the dominant blocked reason; run `dx todo unblock-all` if blocks are stale"
+			}
+		}
+		return true, "blocked ratio within threshold", nil, ""
 
 	case "dev_container_defined":
 		switch {

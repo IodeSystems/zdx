@@ -392,12 +392,25 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		}
 	}
 
-	// Untriaged issues
+	// Untriaged issues + open issue count (drives queue_has_claimable_work)
 	if iResp, err := c.ListIssuesWithResponse(ctx, &dxclient.ListIssuesParams{Slug: slug}); err == nil && iResp.JSON200 != nil && iResp.JSON200.Issues != nil {
 		for _, iss := range *iResp.JSON200.Issues {
+			if iss.Status != "closed" {
+				state.OpenIssueCount++
+			}
 			if iss.Priority == "" && iss.Status != "closed" {
 				state.UntriagedIssues++
 			}
+		}
+	}
+
+	// Todo queue health (IS-956)
+	if qResp, err := c.GetTodoQueueHealthWithResponse(ctx, &dxclient.GetTodoQueueHealthParams{Slug: slug}); err == nil && qResp.JSON200 != nil {
+		state.TodoQueueHealth = doctor.TodoQueueHealth{
+			TotalOpen:             int(qResp.JSON200.TotalOpen),
+			BlockedCount:          int(qResp.JSON200.BlockedCount),
+			UnblockedCount:        int(qResp.JSON200.UnblockedCount),
+			DominantBlockedReason: qResp.JSON200.DominantBlockedReason,
 		}
 	}
 

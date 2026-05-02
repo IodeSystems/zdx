@@ -5813,6 +5813,42 @@
         ],
         "type": "object"
       },
+      "Get-todo-queue-healthResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/Get-todo-queue-healthResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "blocked_count": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "dominant_blocked_reason": {
+            "type": "string"
+          },
+          "total_open": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "unblocked_count": {
+            "format": "int64",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "total_open",
+          "blocked_count",
+          "unblocked_count",
+          "dominant_blocked_reason"
+        ],
+        "type": "object"
+      },
       "GitCommit": {
         "additionalProperties": false,
         "properties": {
@@ -30346,6 +30382,44 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/OKBody"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/api/dx/todos/queue-health": {
+      "get": {
+        "operationId": "get-todo-queue-health",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Get-todo-queue-healthResponse"
                 }
               }
             },

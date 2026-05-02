@@ -531,6 +531,35 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 				Body: struct{ Applied []AppliedSideEffect }{Applied: applied},
 			}, nil
 		})
+
+	type TodoQueueHealthBody struct {
+		TotalOpen             int64  `json:"total_open"`
+		BlockedCount          int64  `json:"blocked_count"`
+		UnblockedCount        int64  `json:"unblocked_count"`
+		DominantBlockedReason string `json:"dominant_blocked_reason"`
+	}
+
+	huma.Register(api, huma.Operation{OperationID: "get-todo-queue-health", Method: http.MethodGet, Path: "/api/dx/todos/queue-health"},
+		func(ctx context.Context, in *struct {
+			Slug string `query:"slug" required:"true"`
+		}) (*struct{ Body TodoQueueHealthBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			row, err := h.Q.GetTodoQueueHealth(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			return &struct{ Body TodoQueueHealthBody }{
+				Body: TodoQueueHealthBody{
+					TotalOpen:             row.TotalOpen,
+					BlockedCount:          row.BlockedCount,
+					UnblockedCount:        row.UnblockedCount,
+					DominantBlockedReason: row.DominantBlockedReason,
+				},
+			}, nil
+		})
 }
 
 func isAllDigits(s string) bool {

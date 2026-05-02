@@ -154,6 +154,14 @@ func commonVine() []Rung {
 				{"no_stale_agent_sessions", "No orphaned agent sessions on the remote", ActionInfo},
 			},
 		},
+		{
+			Name:        "queue_health",
+			Description: "Agent queue can produce claimable work",
+			Checks: []Check{
+				{"queue_has_claimable_work", "Queue has at least one claimable todo when issues are open", ActionPropose},
+				{"queue_blocked_ratio_ok", "Fewer than 80% of open todos are blocked", ActionPropose},
+			},
+		},
 	}
 }
 
