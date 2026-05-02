@@ -24,7 +24,7 @@ import (
 func AgentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "agent", Short: "Agent lifecycle management"}
 	cmd.PersistentFlags().Bool("global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
-	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd())
+	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
 }
 
@@ -611,6 +611,187 @@ func countActiveWorktrees() int {
 		}
 	}
 	return count
+}
+
+// ── Budget subcommand tree ────────────────────────────────────────────────
+
+func agentBudgetCmd() *cobra.Command {
+	cmd := &cobra.Command{Use: "budget", Short: "Manage per-agent and per-project spend ceilings"}
+	cmd.AddCommand(agentBudgetSetCmd(), agentBudgetShowCmd(), agentBudgetListCmd(), agentBudgetLiftCmd())
+	return cmd
+}
+
+func agentBudgetSetCmd() *cobra.Command {
+	var agentID string
+	var projectID int32
+	var tokens int64
+	var cost float64
+	cmd := &cobra.Command{
+		Use:   "set",
+		Short: "Set token/cost ceiling for an agent or project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if agentID == "" && projectID == 0 {
+				return fmt.Errorf("provide --agent or --project")
+			}
+			if agentID != "" && projectID != 0 {
+				return fmt.Errorf("provide only one of --agent or --project")
+			}
+			c := cli.MustClient()
+			req := dxclient.SetAgentBudgetRequest{}
+			if agentID != "" {
+				req.AgentId = &agentID
+			}
+			if projectID != 0 {
+				req.ProjectId = &projectID
+			}
+			if tokens != 0 {
+				req.TokenCeiling = &tokens
+			}
+			if cost != 0 {
+				req.CostCeiling = &cost
+			}
+			resp, err := c.SetAgentBudgetWithResponse(cmd.Context(), req)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			b := resp.JSON200
+			fmt.Printf("budget set: id=%d agent=%s project=%d tokens=%d cost=%.4f\n",
+				b.Id, b.AgentId, b.ProjectId, b.TokenCeiling, b.CostCeiling)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&agentID, "agent", "", "agent ID")
+	cmd.Flags().Int32Var(&projectID, "project", 0, "project ID")
+	cmd.Flags().Int64Var(&tokens, "tokens", 0, "token ceiling (0 = unlimited)")
+	cmd.Flags().Float64Var(&cost, "cost", 0, "cost ceiling in USD (0 = unlimited)")
+	return cmd
+}
+
+func agentBudgetShowCmd() *cobra.Command {
+	var agentID string
+	var projectID int32
+	cmd := &cobra.Command{
+		Use:   "show",
+		Short: "Show budget ceiling and current usage for an agent or project",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			if agentID == "" && projectID == 0 {
+				return fmt.Errorf("provide --agent or --project")
+			}
+			c := cli.MustClient()
+			params := &dxclient.GetAgentBudgetParams{}
+			if agentID != "" {
+				params.AgentId = &agentID
+			}
+			if projectID != 0 {
+				params.ProjectId = &projectID
+			}
+			resp, err := c.GetAgentBudgetWithResponse(cmd.Context(), params)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			b := resp.JSON200
+			pause := ""
+			if b.ActivePause {
+				pause = " [PAUSED]"
+			}
+			fmt.Printf("budget id=%d%s\n", b.Id, pause)
+			if b.AgentId != "" {
+				fmt.Printf("  agent:   %s\n", b.AgentId)
+			}
+			if b.ProjectId != 0 {
+				fmt.Printf("  project: %d\n", b.ProjectId)
+			}
+			fmt.Printf("  tokens:  %d / %d\n", b.TokensUsed, b.TokenCeiling)
+			fmt.Printf("  cost:    $%.4f / $%.4f\n", b.CostUsed, b.CostCeiling)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&agentID, "agent", "", "agent ID")
+	cmd.Flags().Int32Var(&projectID, "project", 0, "project ID")
+	return cmd
+}
+
+func agentBudgetListCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "list",
+		Short: "List all budget ceilings with current usage",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			resp, err := c.ListAgentBudgetsWithResponse(cmd.Context())
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil || resp.JSON200.Budgets == nil || len(*resp.JSON200.Budgets) == 0 {
+				fmt.Println("no budgets set")
+				return nil
+			}
+			fmt.Printf("%-6s %-14s %-10s %14s %14s %10s %8s\n",
+				"ID", "AGENT/PROJECT", "SCOPE", "TOKENS USED", "TOKEN CEIL", "COST USED", "PAUSED")
+			for _, b := range *resp.JSON200.Budgets {
+				scope := "agent"
+				who := b.AgentId
+				if who == "" {
+					scope = "project"
+					who = fmt.Sprintf("%d", b.ProjectId)
+				}
+				paused := ""
+				if b.ActivePause {
+					paused = "yes"
+				}
+				fmt.Printf("%-6d %-14s %-10s %14d %14d %10.4f %8s\n",
+					b.Id, cli.Truncate(who, 14), scope, b.TokensUsed, b.TokenCeiling, b.CostUsed, paused)
+			}
+			return nil
+		},
+	}
+}
+
+func agentBudgetLiftCmd() *cobra.Command {
+	var liftedBy string
+	cmd := &cobra.Command{
+		Use:   "lift <agent-id>",
+		Short: "Lift an active budget pause and resume the agent",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			req := dxclient.LiftAgentBudgetPauseRequest{}
+			if liftedBy != "" {
+				req.LiftedBy = &liftedBy
+			}
+			resp, err := c.LiftAgentBudgetPauseWithResponse(cmd.Context(), args[0], req)
+			if err != nil {
+				return err
+			}
+			if resp.StatusCode() == http.StatusNotFound {
+				return fmt.Errorf("agent %s has no active budget pause", args[0])
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			if resp.JSON200 == nil {
+				return fmt.Errorf("empty response")
+			}
+			fmt.Println(resp.JSON200.Message)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&liftedBy, "by", "", "identity of the approver (defaults to 'operator')")
+	return cmd
 }
 
 func discoverComposePort(project, composeFile, service string, containerPort int) (int, error) {
