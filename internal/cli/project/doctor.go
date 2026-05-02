@@ -315,10 +315,18 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 	}
 	slug := c.SlugOrDie()
 
-	// Health check
+	// Health check + embedder/index subsystem state (IS-811).
 	if hResp, err := c.HealthWithResponse(ctx); err == nil && hResp.JSON200 != nil {
 		if hResp.JSON200.Status == "ok" {
 			state.RemoteReachable = true
+		}
+		subs := hResp.JSON200.Subsystems
+		if emb, ok := subs["embedder"]; ok && emb.State == "ok" {
+			state.EmbedderConfigured = true
+			state.EmbedderResponsive = emb.Reason == nil
+		}
+		if idx, ok := subs["index"]; ok && idx.State == "ok" {
+			state.IndexBuilt = true
 		}
 	}
 	if !state.RemoteReachable {

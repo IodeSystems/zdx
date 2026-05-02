@@ -169,6 +169,15 @@ func commonVine() []Rung {
 				{"queue_blocked_ratio_ok", "Fewer than 80% of open todos are blocked", ActionPropose},
 			},
 		},
+		{
+			Name:        "embedder_health",
+			Description: "LLM embedder is configured, the index is built, and recent embed attempts succeed",
+			Checks: []Check{
+				{"embedder_configured", "Server has a live LLM client (embedder subsystem ok)", ActionPropose},
+				{"index_built", "Vector index files are present", ActionPropose},
+				{"embedder_responsive", "Most recent embed attempt succeeded", ActionInfo},
+			},
+		},
 	}
 }
 

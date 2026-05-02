@@ -185,6 +185,14 @@ type ProjectState struct {
 	// CommitterCount drives the tool/site nudge threshold; populated locally
 	// from `git log --format=%ae | sort -u | wc -l`. Zero in non-git dirs.
 	CommitterCount int
+
+	// Embedder/index health (IS-811): populated from /api/health subsystems.
+	// EmbedderConfigured is true when the server has a live LLM client
+	// (subsystems.embedder.state == "ok"). When false, IndexBuilt and
+	// EmbedderResponsive auto-pass (the rung is N/A until an LLM is wired up).
+	EmbedderConfigured bool
+	IndexBuilt         bool
+	EmbedderResponsive bool
 }
 
 // DetectLocal populates filesystem and environment checks.
@@ -586,6 +594,30 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "", nil, ""
 		}
 		return false, fmt.Sprintf("%d agent sessions open past %dm idle (server auto-closes as 'orphaned'; inspect the agents UI)", state.StaleAgentSessions, state.StaleAgentSessionsMinutes), nil, ""
+
+	// ── embedder_health (IS-811) ──
+	case "embedder_configured":
+		if state.EmbedderConfigured {
+			return true, "embedder subsystem ok", nil, ""
+		}
+		return false, "embedder subsystem not configured (no live LLM client)", nil,
+			"Run `dx config llm add --provider <name> --model <id>` to wire an LLM provider, then restart dx-server"
+
+	case "index_built":
+		if !state.EmbedderConfigured {
+			return true, "embedder unconfigured — index check N/A", nil, ""
+		}
+		if state.IndexBuilt {
+			return true, "index files present", nil, ""
+		}
+		return false, "index subsystem reports no zvec files yet", nil,
+			"Restart dx-server to trigger ReindexAllIssues, or run `dx reindex` once available"
+
+	case "embedder_responsive":
+		if !state.EmbedderConfigured || state.EmbedderResponsive {
+			return true, "", nil, ""
+		}
+		return false, "embedder reports a recent failure (subsystems.embedder.reason set)", nil, ""
 
 	// ── queue_health (IS-956) ──
 	case "queue_has_claimable_work":

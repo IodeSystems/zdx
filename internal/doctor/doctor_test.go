@@ -667,3 +667,96 @@ func TestShipConfigDefined(t *testing.T) {
 		})
 	}
 }
+
+// TestRunCheckEmbedderHealth covers the IS-811 embedder_health rung:
+// embedder_configured fails when no live LLM client exists; index_built
+// auto-passes while the embedder is unconfigured (N/A) and fails when an
+// embedder is configured but no zvec files have been written; embedder_responsive
+// auto-passes when no embedder is configured and fails when the most-recent
+// embed attempt reported a reason.
+func TestRunCheckEmbedderHealth(t *testing.T) {
+	t.Run("embedder_configured fails without live client", func(t *testing.T) {
+		state := &ProjectState{EmbedderConfigured: false}
+		pass, msg, fixFunc, proposal := runCheck("embedder_configured", state)
+		if pass {
+			t.Fatalf("expected fail, got pass (msg=%q)", msg)
+		}
+		if fixFunc != nil {
+			t.Error("expected nil FixFunc for ActionPropose check")
+		}
+		if !strings.Contains(msg, "not configured") {
+			t.Errorf("msg=%q, want substring 'not configured'", msg)
+		}
+		if !strings.Contains(proposal, "dx config llm add") {
+			t.Errorf("proposal=%q, want substring 'dx config llm add'", proposal)
+		}
+	})
+
+	t.Run("embedder_configured passes with live client", func(t *testing.T) {
+		state := &ProjectState{EmbedderConfigured: true}
+		pass, _, _, _ := runCheck("embedder_configured", state)
+		if !pass {
+			t.Fatal("expected pass")
+		}
+	})
+
+	t.Run("index_built auto-passes when embedder unconfigured", func(t *testing.T) {
+		state := &ProjectState{EmbedderConfigured: false, IndexBuilt: false}
+		pass, msg, _, _ := runCheck("index_built", state)
+		if !pass {
+			t.Fatalf("expected pass (N/A), got fail (msg=%q)", msg)
+		}
+		if !strings.Contains(msg, "N/A") {
+			t.Errorf("msg=%q, want substring 'N/A'", msg)
+		}
+	})
+
+	t.Run("index_built fails when embedder configured but no index", func(t *testing.T) {
+		state := &ProjectState{EmbedderConfigured: true, IndexBuilt: false}
+		pass, msg, _, proposal := runCheck("index_built", state)
+		if pass {
+			t.Fatalf("expected fail, got pass (msg=%q)", msg)
+		}
+		if !strings.Contains(msg, "no zvec files") {
+			t.Errorf("msg=%q, want substring 'no zvec files'", msg)
+		}
+		if !strings.Contains(proposal, "dx-server") {
+			t.Errorf("proposal=%q, want substring 'dx-server'", proposal)
+		}
+	})
+
+	t.Run("index_built passes when files present", func(t *testing.T) {
+		state := &ProjectState{EmbedderConfigured: true, IndexBuilt: true}
+		pass, _, _, _ := runCheck("index_built", state)
+		if !pass {
+			t.Fatal("expected pass")
+		}
+	})
+
+	t.Run("embedder_responsive passes when embedder unconfigured", func(t *testing.T) {
+		state := &ProjectState{EmbedderConfigured: false, EmbedderResponsive: false}
+		pass, _, _, _ := runCheck("embedder_responsive", state)
+		if !pass {
+			t.Fatal("expected pass when embedder unconfigured")
+		}
+	})
+
+	t.Run("embedder_responsive fails when last embed reported a reason", func(t *testing.T) {
+		state := &ProjectState{EmbedderConfigured: true, EmbedderResponsive: false}
+		pass, msg, _, _ := runCheck("embedder_responsive", state)
+		if pass {
+			t.Fatalf("expected fail, got pass (msg=%q)", msg)
+		}
+		if !strings.Contains(msg, "recent failure") {
+			t.Errorf("msg=%q, want substring 'recent failure'", msg)
+		}
+	})
+
+	t.Run("embedder_responsive passes when last embed succeeded", func(t *testing.T) {
+		state := &ProjectState{EmbedderConfigured: true, EmbedderResponsive: true}
+		pass, _, _, _ := runCheck("embedder_responsive", state)
+		if !pass {
+			t.Fatal("expected pass")
+		}
+	})
+}
