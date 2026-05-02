@@ -1449,6 +1449,78 @@
         ],
         "type": "object"
       },
+      "AppliedSideEffect": {
+        "additionalProperties": false,
+        "properties": {
+          "action_type": {
+            "type": "string"
+          },
+          "detail": {
+            "type": "string"
+          },
+          "evidence_fingerprint": {
+            "type": "string"
+          },
+          "reason": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "reason",
+          "evidence_fingerprint",
+          "action_type",
+          "detail"
+        ],
+        "type": "object"
+      },
+      "Apply-incomplete-report-side-effectsRequest": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/Apply-incomplete-report-side-effectsRequest.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "slug": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "slug"
+        ],
+        "type": "object"
+      },
+      "Apply-incomplete-report-side-effectsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/Apply-incomplete-report-side-effectsResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "Applied": {
+            "items": {
+              "$ref": "#/components/schemas/AppliedSideEffect"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "Applied"
+        ],
+        "type": "object"
+      },
       "Approve-proposalRequest": {
         "additionalProperties": false,
         "properties": {
@@ -2859,6 +2931,61 @@
           "name",
           "description",
           "created_at"
+        ],
+        "type": "object"
+      },
+      "ConcernLinkedFeatureItem": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "kind": {
+            "type": "string"
+          },
+          "name": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "name",
+          "description",
+          "kind"
+        ],
+        "type": "object"
+      },
+      "ConcernLinkedSpecItem": {
+        "additionalProperties": false,
+        "properties": {
+          "description": {
+            "type": "string"
+          },
+          "feature_id": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "feature_name": {
+            "type": "string"
+          },
+          "id": {
+            "format": "int32",
+            "type": "integer"
+          },
+          "importance": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "feature_id",
+          "feature_name",
+          "description",
+          "importance"
         ],
         "type": "object"
       },
@@ -5457,6 +5584,33 @@
         ],
         "type": "object"
       },
+      "Get-feature-coverageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/Get-feature-coverageResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "coverage": {
+            "items": {
+              "$ref": "#/components/schemas/SpecCoverageItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "coverage"
+        ],
+        "type": "object"
+      },
       "Get-kpi-trendResponse": {
         "additionalProperties": false,
         "properties": {
@@ -5883,6 +6037,15 @@
               "null"
             ]
           },
+          "affected_todo_keys": {
+            "items": {
+              "type": "string"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          },
           "evidence_fingerprint": {
             "type": "string"
           },
@@ -5890,6 +6053,9 @@
             "type": "string"
           },
           "reason": {
+            "type": "string"
+          },
+          "suggested_next": {
             "type": "string"
           },
           "total_count": {
@@ -5902,6 +6068,7 @@
           "evidence_fingerprint",
           "total_count",
           "affected_todo_ids",
+          "affected_todo_keys",
           "last_seen"
         ],
         "type": "object"
@@ -7101,6 +7268,9 @@
             "type": "string"
           }
         },
+        "required": [
+          "lifted_by"
+        ],
         "type": "object"
       },
       "Lift-agent-budget-pauseResponse": {
@@ -8399,6 +8569,33 @@
         ],
         "type": "object"
       },
+      "List-features-for-concernResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/List-features-for-concernResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "features": {
+            "items": {
+              "$ref": "#/components/schemas/ConcernLinkedFeatureItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "features"
+        ],
+        "type": "object"
+      },
       "List-features-todoResponse": {
         "additionalProperties": false,
         "properties": {
@@ -9556,6 +9753,33 @@
         ],
         "type": "object"
       },
+      "List-specs-for-concernResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/List-specs-for-concernResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "specs": {
+            "items": {
+              "$ref": "#/components/schemas/ConcernLinkedSpecItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "specs"
+        ],
+        "type": "object"
+      },
       "List-specs-without-demosResponse": {
         "additionalProperties": false,
         "properties": {
@@ -9676,6 +9900,60 @@
           "sessions",
           "total",
           "minutes"
+        ],
+        "type": "object"
+      },
+      "List-stale-proposal-streamsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/List-stale-proposal-streamsResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "streams": {
+            "items": {
+              "$ref": "#/components/schemas/StaleStreamItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "streams"
+        ],
+        "type": "object"
+      },
+      "List-stale-streamsResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/List-stale-streamsResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "streams": {
+            "items": {
+              "$ref": "#/components/schemas/StreamItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "streams"
         ],
         "type": "object"
       },
@@ -12688,6 +12966,12 @@
             "type": "integer"
           }
         },
+        "required": [
+          "agent_id",
+          "project_id",
+          "token_ceiling",
+          "cost_ceiling"
+        ],
         "type": "object"
       },
       "Set-classificationRequest": {
@@ -14203,6 +14487,9 @@
           "blocked_reason": {
             "type": "string"
           },
+          "claim_base_branch": {
+            "type": "string"
+          },
           "claim_base_sha": {
             "type": "string"
           },
@@ -14387,6 +14674,31 @@
         ],
         "type": "object"
       },
+      "SpecCoverageItem": {
+        "additionalProperties": false,
+        "properties": {
+          "has_demo": {
+            "type": "boolean"
+          },
+          "has_integration": {
+            "type": "boolean"
+          },
+          "has_unit": {
+            "type": "boolean"
+          },
+          "spec_id": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "spec_id",
+          "has_unit",
+          "has_integration",
+          "has_demo"
+        ],
+        "type": "object"
+      },
       "SpecDeferralItem": {
         "additionalProperties": false,
         "properties": {
@@ -14554,6 +14866,37 @@
         ],
         "type": "object"
       },
+      "StaleStreamItem": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_evaluated_at": {
+            "type": "string"
+          },
+          "last_evaluated_by": {
+            "type": "string"
+          },
+          "newest_user_event_at": {
+            "type": "string"
+          },
+          "target_id": {
+            "type": "string"
+          },
+          "target_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "target_type",
+          "target_id",
+          "newest_user_event_at"
+        ],
+        "type": "object"
+      },
       "Start-taskRequest": {
         "additionalProperties": false,
         "properties": {
@@ -14580,6 +14923,33 @@
         },
         "required": [
           "id"
+        ],
+        "type": "object"
+      },
+      "StreamItem": {
+        "additionalProperties": false,
+        "properties": {
+          "id": {
+            "format": "int64",
+            "type": "integer"
+          },
+          "last_evaluated_at": {
+            "type": "string"
+          },
+          "last_evaluated_by": {
+            "type": "string"
+          },
+          "target_id": {
+            "type": "string"
+          },
+          "target_type": {
+            "type": "string"
+          }
+        },
+        "required": [
+          "id",
+          "target_type",
+          "target_id"
         ],
         "type": "object"
       },
@@ -15374,6 +15744,9 @@
             "type": "boolean"
           },
           "blocked_reason": {
+            "type": "string"
+          },
+          "claim_base_branch": {
             "type": "string"
           },
           "claim_base_sha": {
@@ -16604,164 +16977,6 @@
           "token"
         ],
         "type": "object"
-      },
-      "Get-feature-coverageResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "https://example.com/schemas/Get-feature-coverageResponse.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "coverage": {
-            "items": {
-              "$ref": "#/components/schemas/SpecCoverageItem"
-            },
-            "type": [
-              "array",
-              "null"
-            ]
-          }
-        },
-        "required": [
-          "coverage"
-        ],
-        "type": "object"
-      },
-      "SpecCoverageItem": {
-        "additionalProperties": false,
-        "properties": {
-          "has_demo": {
-            "type": "boolean"
-          },
-          "has_integration": {
-            "type": "boolean"
-          },
-          "has_unit": {
-            "type": "boolean"
-          },
-          "spec_id": {
-            "format": "int32",
-            "type": "integer"
-          }
-        },
-        "required": [
-          "spec_id",
-          "has_unit",
-          "has_integration",
-          "has_demo"
-        ],
-        "type": "object"
-      },
-      "StreamItem": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "last_evaluated_at": {
-            "type": "string"
-          },
-          "last_evaluated_by": {
-            "type": "string"
-          },
-          "target_id": {
-            "type": "string"
-          },
-          "target_type": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "target_type",
-          "target_id"
-        ],
-        "type": "object"
-      },
-      "List-stale-streamsResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "https://example.com/schemas/List-stale-streamsResponse.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "streams": {
-            "items": {
-              "$ref": "#/components/schemas/StreamItem"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "streams"
-        ],
-        "type": "object"
-      },
-      "StaleStreamItem": {
-        "additionalProperties": false,
-        "properties": {
-          "id": {
-            "format": "int64",
-            "type": "integer"
-          },
-          "last_evaluated_at": {
-            "type": "string"
-          },
-          "last_evaluated_by": {
-            "type": "string"
-          },
-          "newest_user_event_at": {
-            "type": "string"
-          },
-          "target_id": {
-            "type": "string"
-          },
-          "target_type": {
-            "type": "string"
-          }
-        },
-        "required": [
-          "id",
-          "target_type",
-          "target_id",
-          "newest_user_event_at"
-        ],
-        "type": "object"
-      },
-      "List-stale-proposal-streamsResponse": {
-        "additionalProperties": false,
-        "properties": {
-          "$schema": {
-            "description": "A URL to the JSON Schema for this object.",
-            "examples": [
-              "https://example.com/schemas/List-stale-proposal-streamsResponse.json"
-            ],
-            "format": "uri",
-            "readOnly": true,
-            "type": "string"
-          },
-          "streams": {
-            "items": {
-              "$ref": "#/components/schemas/StaleStreamItem"
-            },
-            "type": "array"
-          }
-        },
-        "required": [
-          "streams"
-        ],
-        "type": "object"
       }
     }
   },
@@ -17815,6 +18030,7 @@
         "operationId": "get-agent-budget",
         "parameters": [
           {
+            "explode": false,
             "in": "query",
             "name": "agent_id",
             "schema": {
@@ -17822,6 +18038,7 @@
             }
           },
           {
+            "explode": false,
             "in": "query",
             "name": "project_id",
             "schema": {
@@ -20364,6 +20581,54 @@
         }
       }
     },
+    "/api/dx/concerns/get": {
+      "get": {
+        "operationId": "get-concern-by-id",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ConcernItem"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        }
+      }
+    },
     "/api/dx/concerns/spec": {
       "get": {
         "operationId": "list-concerns-for-spec",
@@ -21852,6 +22117,102 @@
         }
       }
     },
+    "/api/dx/features/concern": {
+      "get": {
+        "operationId": "list-features-for-concern",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "concern_id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List-features-for-concernResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/api/dx/features/coverage": {
+      "get": {
+        "operationId": "get-feature-coverage",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "feature_id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Get-feature-coverageResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        }
+      }
+    },
     "/api/dx/features/field": {
       "post": {
         "operationId": "set-feature-field",
@@ -22465,6 +22826,43 @@
               "application/json": {
                 "schema": {
                   "$ref": "#/components/schemas/List-incomplete-reportsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        }
+      }
+    },
+    "/api/dx/incomplete-reports/apply": {
+      "post": {
+        "operationId": "apply-incomplete-report-side-effects",
+        "requestBody": {
+          "content": {
+            "application/json": {
+              "schema": {
+                "$ref": "#/components/schemas/Apply-incomplete-report-side-effectsRequest"
+              }
+            }
+          },
+          "required": true
+        },
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Apply-incomplete-report-side-effectsResponse"
                 }
               }
             },
@@ -26650,6 +27048,45 @@
         }
       }
     },
+    "/api/dx/specs/concern": {
+      "get": {
+        "operationId": "list-specs-for-concern",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "concern_id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List-specs-for-concernResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        }
+      }
+    },
     "/api/dx/specs/deferrals": {
       "get": {
         "operationId": "list-spec-deferrals",
@@ -30121,6 +30558,53 @@
         }
       }
     },
+    "/api/events/streams/stale": {
+      "get": {
+        "operationId": "list-stale-proposal-streams",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "target_type",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List-stale-proposal-streamsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        }
+      }
+    },
     "/api/events/threads/{id}/title": {
       "patch": {
         "operationId": "set-event-thread-title",
@@ -31565,6 +32049,52 @@
         }
       }
     },
+    "/api/streams/stale": {
+      "get": {
+        "operationId": "list-stale-streams",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "target_type",
+            "schema": {
+              "type": "string"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/List-stale-streamsResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        }
+      }
+    },
     "/api/task": {
       "delete": {
         "operationId": "delete-task",
@@ -32047,145 +32577,6 @@
           }
         },
         "summary": "Sign a channel subscription request"
-      }
-    },
-    "/api/dx/features/coverage": {
-      "get": {
-        "operationId": "get-feature-coverage",
-        "parameters": [
-          {
-            "explode": false,
-            "in": "query",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "explode": false,
-            "in": "query",
-            "name": "feature_id",
-            "required": true,
-            "schema": {
-              "format": "int32",
-              "type": "integer"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/Get-feature-coverageResponse"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        }
-      }
-    },
-    "/api/events/streams/stale": {
-      "get": {
-        "operationId": "list-stale-proposal-streams",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "target_type",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/List-stale-proposal-streamsResponse"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "list-stale-proposal-streams"
-      }
-    },
-    "/api/streams/stale": {
-      "get": {
-        "operationId": "list-stale-streams",
-        "parameters": [
-          {
-            "in": "query",
-            "name": "slug",
-            "required": true,
-            "schema": {
-              "type": "string"
-            }
-          },
-          {
-            "in": "query",
-            "name": "target_type",
-            "schema": {
-              "type": "string"
-            }
-          }
-        ],
-        "responses": {
-          "200": {
-            "content": {
-              "application/json": {
-                "schema": {
-                  "$ref": "#/components/schemas/List-stale-streamsResponse"
-                }
-              }
-            },
-            "description": "OK"
-          },
-          "default": {
-            "content": {
-              "application/problem+json": {
-                "schema": {
-                  "$ref": "#/components/schemas/ErrorModel"
-                }
-              }
-            },
-            "description": "Error"
-          }
-        },
-        "summary": "list-stale-streams"
       }
     }
   }
