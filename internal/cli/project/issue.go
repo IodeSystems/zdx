@@ -547,7 +547,7 @@ func runDecompositionPathGate(cmd *cobra.Command, c *cli.Client, issueID, issueC
 }
 
 var (
-	decompListItemRe = regexp.MustCompile(`^\s*(?:\d+\.|[-*])\s+(.+)$`)
+	decompListItemRe = regexp.MustCompile(`^\s*(?:\d+\.|[-*])\s+\[[ xX]\]\s+(.+)$`)
 	decompHeaderRe   = regexp.MustCompile(`(?i)^\s*#*\s*DECOMPOSITION\b`)
 	decompAnyHeader  = regexp.MustCompile(`^\s*#+\s+\S`)
 	// decompExemptHeaderRe matches the standard impl-issue template section

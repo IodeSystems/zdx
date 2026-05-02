@@ -53,11 +53,11 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 			want:  nil,
 		},
 		{
-			name: "numbered list",
+			name: "numbered list with task markers",
 			input: "Plan:\n" +
-				"1. Wire the gate into issueCloseCmd\n" +
-				"2. Add detector helper\n" +
-				"3. Cover with unit tests",
+				"1. [ ] Wire the gate into issueCloseCmd\n" +
+				"2. [ ] Add detector helper\n" +
+				"3. [x] Cover with unit tests",
 			want: []string{
 				"Wire the gate into issueCloseCmd",
 				"Add detector helper",
@@ -65,11 +65,18 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 			},
 		},
 		{
-			name: "bulleted list with - and *",
+			name: "numbered list plain items no task marker yields no candidates",
+			input: "Plan:\n" +
+				"1. Wire the gate into issueCloseCmd\n" +
+				"2. Add detector helper\n",
+			want: nil,
+		},
+		{
+			name: "bulleted list with - and * and task markers",
 			input: "Outstanding:\n" +
-				"- Migrate caller A\n" +
-				"* Migrate caller B\n" +
-				"  - Indented child\n",
+				"- [ ] Migrate caller A\n" +
+				"* [ ] Migrate caller B\n" +
+				"  - [ ] Indented child\n",
 			want: []string{
 				"Migrate caller A",
 				"Migrate caller B",
@@ -77,16 +84,23 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 			},
 		},
 		{
+			name: "plain bullets without task markers yield no candidates",
+			input: "Outstanding:\n" +
+				"- Migrate caller A\n" +
+				"- Migrate caller B\n",
+			want: nil,
+		},
+		{
 			name:  "future-tense without list marker",
 			input: "We should rename the helper before the next release.",
 			want:  []string{"We should rename the helper before the next release."},
 		},
 		{
-			name: "explicit DECOMPOSITION header captures bare and list lines",
+			name: "explicit DECOMPOSITION header captures bare and task-marked list lines",
 			input: "Context body unrelated to children.\n" +
 				"\n" +
 				"## DECOMPOSITION\n" +
-				"- File child A\n" +
+				"- [ ] File child A\n" +
 				"Bare line counts too\n" +
 				"\n" +
 				"## NEXT SECTION\n" +
@@ -99,15 +113,15 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 		{
 			name: "DECOMPOSITION header without leading hashes",
 			input: "DECOMPOSITION\n" +
-				"- one\n" +
-				"- two\n",
+				"- [ ] one\n" +
+				"- [ ] two\n",
 			want: []string{"one", "two"},
 		},
 		{
 			name: "dedup duplicate candidates",
-			input: "1. same item\n" +
-				"2. same item\n" +
-				"- same item\n",
+			input: "1. [ ] same item\n" +
+				"2. [ ] same item\n" +
+				"- [ ] same item\n",
 			want: []string{"same item"},
 		},
 		{
@@ -134,8 +148,8 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 				"The thing should work; needs to be fixed.\n" +
 				"\n" +
 				"## DECOMPOSITION\n" +
-				"- File child A\n" +
-				"- File child B\n",
+				"- [ ] File child A\n" +
+				"- [ ] File child B\n",
 			want: []string{"File child A", "File child B"},
 		},
 		{
@@ -145,7 +159,8 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 				"\n" +
 				"## OTHER NOTES\n" +
 				"- We should ship this next.\n",
-			want: []string{"We should ship this next."},
+			// future-tense signal fires on the full line; list prefix is preserved
+			want: []string{"- We should ship this next."},
 		},
 		{
 			name: "exempt headers tolerate trailing decoration",
@@ -183,8 +198,32 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 				"+ -- Dumped by pg_dump version 17.9\n" +
 				"```\n" +
 				"And a real candidate after the fence:\n" +
-				"- Real follow-up\n",
+				"- [ ] Real follow-up\n",
 			want: []string{"Real follow-up"},
+		},
+		{
+			name:  "task-marker unchecked bullet is a candidate",
+			input: "- [ ] implement the new handler\n",
+			want:  []string{"implement the new handler"},
+		},
+		{
+			name:  "task-marker checked bullet is still a candidate",
+			input: "- [x] done thing\n",
+			want:  []string{"done thing"},
+		},
+		{
+			name:  "task-marker uppercase X checked bullet is a candidate",
+			input: "- [X] done thing\n",
+			want:  []string{"done thing"},
+		},
+		{
+			name: "IS-966 regression: classification-to-branch-role mapping prose bullets are not candidates",
+			input: "## Context\n" +
+				"Classification mapping:\n" +
+				"- library: read-only\n" +
+				"- service: deployer\n" +
+				"- saas: owner\n",
+			want: nil,
 		},
 	}
 
@@ -243,7 +282,7 @@ func TestParseUnresolvedBranchesError(t *testing.T) {
 func TestExtractDecompositionCandidates_CapsAt20(t *testing.T) {
 	var b strings.Builder
 	for i := 0; i < 50; i++ {
-		fmt.Fprintf(&b, "- item %d\n", i)
+		fmt.Fprintf(&b, "- [ ] item %d\n", i)
 	}
 	got := extractDecompositionCandidates(b.String())
 	if len(got) != decompCandidateCap {
