@@ -1,7 +1,7 @@
 -- name: ListEventsByTarget :many
 SELECT id, project_id, target_type, target_id, thread_id, event_type,
        author, author_kind, summary_json, detail_json,
-       agent_process_result, created_at
+       agent_process_result, created_at, addressing_event_id
 FROM zdx_events
 WHERE project_id = @project_id
   AND target_type = @target_type
@@ -11,7 +11,7 @@ ORDER BY created_at, id;
 -- name: ListEventsByThread :many
 SELECT id, project_id, target_type, target_id, thread_id, event_type,
        author, author_kind, summary_json, detail_json,
-       agent_process_result, created_at
+       agent_process_result, created_at, addressing_event_id
 FROM zdx_events
 WHERE project_id = @project_id
   AND target_type = @target_type
@@ -22,15 +22,17 @@ ORDER BY created_at, id;
 -- name: InsertEvent :one
 INSERT INTO zdx_events (
   project_id, target_type, target_id, thread_id, event_type,
-  author, author_kind, summary_json, detail_json, agent_process_result
+  author, author_kind, summary_json, detail_json, agent_process_result,
+  addressing_event_id
 )
 VALUES (
   @project_id, @target_type, @target_id, @thread_id, @event_type,
-  @author, @author_kind, @summary_json, @detail_json, @agent_process_result
+  @author, @author_kind, @summary_json, @detail_json, @agent_process_result,
+  @addressing_event_id
 )
 RETURNING id, project_id, target_type, target_id, thread_id, event_type,
           author, author_kind, summary_json, detail_json,
-          agent_process_result, created_at;
+          agent_process_result, created_at, addressing_event_id;
 
 -- name: GetStreamByTarget :one
 SELECT id, project_id, target_type, target_id,
@@ -69,7 +71,7 @@ ORDER BY created_at, id;
 -- name: GetEventByID :one
 SELECT id, project_id, target_type, target_id, thread_id, event_type,
        author, author_kind, summary_json, detail_json,
-       agent_process_result, created_at
+       agent_process_result, created_at, addressing_event_id
 FROM zdx_events
 WHERE id = @id;
 
@@ -84,7 +86,7 @@ SET agent_process_result = @agent_process_result
 WHERE id = @id
 RETURNING id, project_id, target_type, target_id, thread_id, event_type,
           author, author_kind, summary_json, detail_json,
-          agent_process_result, created_at;
+          agent_process_result, created_at, addressing_event_id;
 
 -- name: SetThreadTitle :one
 UPDATE zdx_event_threads
@@ -137,3 +139,18 @@ WHERE s.project_id = @project_id
       AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
   )
 ORDER BY newest_user_event_at DESC NULLS LAST;
+
+-- name: ListUnprocessedEventsByTarget :many
+-- Pending user-authored events that the agent loop has not yet posted a
+-- verdict for. Ordered chronologically so handlers can resolve them in the
+-- same order they arrived.
+SELECT id, project_id, target_type, target_id, thread_id, event_type,
+       author, author_kind, summary_json, detail_json,
+       agent_process_result, created_at, addressing_event_id
+FROM zdx_events
+WHERE project_id = @project_id
+  AND target_type = @target_type
+  AND target_id = @target_id
+  AND author_kind = 'user'
+  AND agent_process_result IS NULL
+ORDER BY created_at, id;
