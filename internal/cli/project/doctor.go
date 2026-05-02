@@ -286,8 +286,14 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		state.FeatureCount = len(feats)
 		for _, f := range feats {
 			specCount := 0
+			mustShouldCount := 0
 			if f.Specs != nil {
-				specCount = len(*f.Specs)
+				for _, s := range *f.Specs {
+					specCount++
+					if s.Importance == "must" || s.Importance == "should" {
+						mustShouldCount++
+					}
+				}
 				state.SpecCount += specCount
 			}
 			if specCount > 0 {
@@ -297,7 +303,7 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 				state.FeaturesAttributed++
 			}
 			state.SpecsTotal += specCount
-			if specCount > 8 {
+			if mustShouldCount > 8 {
 				state.OverspeccedCount++
 			}
 			if doctor.IsImplDetailFeature(f.Name, f.Description) {

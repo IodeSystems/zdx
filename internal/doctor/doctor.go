@@ -473,7 +473,7 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 		if state.OverspeccedCount == 0 {
 			return true, "", nil, ""
 		}
-		return false, fmt.Sprintf("%d features have >8 specs (decompose them)", state.OverspeccedCount), nil,
+		return false, fmt.Sprintf("%d features have >8 must/should specs (decompose them)", state.OverspeccedCount), nil,
 			"Split over-specced features into sub-features with `dx feature add --parent <name>`"
 
 	// ── agents ──
