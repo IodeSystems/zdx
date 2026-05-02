@@ -21,10 +21,12 @@ type VersionBranchItem struct {
 	ID   int64  `json:"id"`
 	Name string `json:"name"`
 	// Legacy 'dev'/'named' value mapped from db role; full rename is IS-967.
-	Type      string `json:"type"`
-	Semver    string `json:"semver,omitempty"`
-	Status    string `json:"status"`
-	CreatedAt string `json:"created_at"`
+	Type             string `json:"type"`
+	Role             string `json:"role,omitempty"`
+	SourceBranchName string `json:"source_branch_name,omitempty"`
+	Semver           string `json:"semver,omitempty"`
+	Status           string `json:"status"`
+	CreatedAt        string `json:"created_at"`
 }
 
 // CreateVersionBranchResult mirrors VersionBranchItem and adds the count of
@@ -100,18 +102,24 @@ func roleToLegacyType(role string) string {
 	}
 }
 
-func versionBranchItemFrom(id int64, name, role string, semver pgtype.Text, status string, createdAt pgtype.Timestamptz) VersionBranchItem {
+func versionBranchItemFrom(id int64, name, role string, semver pgtype.Text, status string, createdAt pgtype.Timestamptz, sourceBranchName pgtype.Text) VersionBranchItem {
 	sv := ""
 	if semver.Valid {
 		sv = semver.String
 	}
+	src := ""
+	if sourceBranchName.Valid {
+		src = sourceBranchName.String
+	}
 	return VersionBranchItem{
-		ID:        id,
-		Name:      name,
-		Type:      roleToLegacyType(role),
-		Semver:    sv,
-		Status:    status,
-		CreatedAt: fmtTS(createdAt),
+		ID:               id,
+		Name:             name,
+		Type:             roleToLegacyType(role),
+		Role:             role,
+		SourceBranchName: src,
+		Semver:           sv,
+		Status:           status,
+		CreatedAt:        fmtTS(createdAt),
 	}
 }
 
@@ -170,7 +178,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				h.refreshQueueAsync(p.ID)
 			}
 			result := CreateVersionBranchResult{
-				VersionBranchItem:    versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt),
+				VersionBranchItem:    versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt, row.SourceBranchName),
 				BackportTasksCreated: created,
 			}
 			return &struct{ Body CreateVersionBranchResult }{Body: result}, nil
@@ -194,7 +202,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 			}
 			out := make([]VersionBranchItem, len(rows))
 			for i, r := range rows {
-				out[i] = versionBranchItemFrom(r.ID, r.Name, r.Role, r.Semver, r.Status, r.CreatedAt)
+				out[i] = versionBranchItemFrom(r.ID, r.Name, r.Role, r.Semver, r.Status, r.CreatedAt, r.SourceBranchName)
 			}
 			return &struct {
 				Body struct {
@@ -237,7 +245,7 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				}
 			}
 			detail := VersionBranchDetail{
-				VersionBranchItem: versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt),
+				VersionBranchItem: versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt, row.SourceBranchName),
 				OpenCount:         openCount,
 				ResolvedCount:     resolvedCount,
 			}
@@ -256,6 +264,32 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 			if err := h.Q.MarkVersionBranchEOL(ctx, db.MarkVersionBranchEOLParams{
 				ProjectID: p.ID,
 				Name:      in.Name,
+			}); err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "set-version-branch-source", Method: http.MethodPatch, Path: "/api/dx/projects/{slug}/branches/{name}/source"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			Name string `path:"name" required:"true"`
+			Body struct {
+				SourceBranchName string `json:"source_branch_name"`
+			}
+		}) (*struct{ Body OKBody }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			src := pgtype.Text{}
+			if in.Body.SourceBranchName != "" {
+				src = pgtype.Text{String: in.Body.SourceBranchName, Valid: true}
+			}
+			if err := h.Q.UpdateVersionBranchSource(ctx, db.UpdateVersionBranchSourceParams{
+				ProjectID:        p.ID,
+				Name:             in.Name,
+				SourceBranchName: src,
 			}); err != nil {
 				return nil, apiErr(http.StatusInternalServerError, err.Error())
 			}

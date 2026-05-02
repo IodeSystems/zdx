@@ -11,7 +11,7 @@ import (
 
 func BranchCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "branch", Short: "Version branch management"}
-	cmd.AddCommand(branchCutCmd(), branchListCmd(), branchShowCmd(), branchEolCmd())
+	cmd.AddCommand(branchCutCmd(), branchListCmd(), branchShowCmd(), branchEolCmd(), branchSetSourceCmd())
 	return cmd
 }
 
@@ -65,26 +65,48 @@ func branchListCmd() *cobra.Command {
 			}
 			branches := *resp.JSON200.Branches
 			hasSemver := false
+			hasSource := false
 			for _, b := range branches {
 				if b.Semver != nil && *b.Semver != "" {
 					hasSemver = true
-					break
+				}
+				if b.SourceBranchName != nil && *b.SourceBranchName != "" {
+					hasSource = true
 				}
 			}
+			printBranchRow := func(name, role, status, semver, source string) {
+				line := fmt.Sprintf("%-20s %-12s %-8s", name, role, status)
+				if hasSemver {
+					line += fmt.Sprintf(" %-12s", semver)
+				}
+				if hasSource {
+					line += fmt.Sprintf(" %s", source)
+				}
+				fmt.Println(line)
+			}
+			semverHdr := ""
 			if hasSemver {
-				fmt.Printf("%-20s %-8s %-8s %s\n", "NAME", "TYPE", "STATUS", "SEMVER")
-				for _, b := range branches {
-					semver := ""
-					if b.Semver != nil {
-						semver = *b.Semver
-					}
-					fmt.Printf("%-20s %-8s %-8s %s\n", b.Name, b.Type, b.Status, semver)
+				semverHdr = "SEMVER"
+			}
+			sourceHdr := ""
+			if hasSource {
+				sourceHdr = "SOURCE"
+			}
+			printBranchRow("NAME", "ROLE", "STATUS", semverHdr, sourceHdr)
+			for _, b := range branches {
+				role := b.Type
+				if b.Role != nil && *b.Role != "" {
+					role = *b.Role
 				}
-			} else {
-				fmt.Printf("%-20s %-8s %s\n", "NAME", "TYPE", "STATUS")
-				for _, b := range branches {
-					fmt.Printf("%-20s %-8s %s\n", b.Name, b.Type, b.Status)
+				sv := ""
+				if b.Semver != nil {
+					sv = *b.Semver
 				}
+				src := ""
+				if b.SourceBranchName != nil {
+					src = *b.SourceBranchName
+				}
+				printBranchRow(b.Name, role, b.Status, sv, src)
 			}
 			return nil
 		},
@@ -110,18 +132,43 @@ func branchShowCmd() *cobra.Command {
 				return fmt.Errorf("empty response")
 			}
 			b := resp.JSON200
-			semver := ""
-			if b.Semver != nil {
-				semver = *b.Semver
+			role := b.Type
+			if b.Role != nil && *b.Role != "" {
+				role = *b.Role
 			}
 			fmt.Printf("Name:    %s\n", b.Name)
-			fmt.Printf("Type:    %s\n", b.Type)
+			fmt.Printf("Role:    %s\n", role)
 			fmt.Printf("Status:  %s\n", b.Status)
-			if semver != "" {
-				fmt.Printf("Semver:  %s\n", semver)
+			if b.Semver != nil && *b.Semver != "" {
+				fmt.Printf("Semver:  %s\n", *b.Semver)
+			}
+			if b.SourceBranchName != nil && *b.SourceBranchName != "" {
+				fmt.Printf("Source:  %s\n", *b.SourceBranchName)
 			}
 			fmt.Printf("Created: %s\n", b.CreatedAt)
 			fmt.Printf("Open issues: %d / Resolved: %d\n", b.OpenCount, b.ResolvedCount)
+			return nil
+		},
+	}
+}
+
+func branchSetSourceCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "set-source <name> <source-branch>",
+		Short: "Set the source branch for a version branch",
+		Args:  cobra.ExactArgs(2),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+			body := dxclient.SetVersionBranchSourceRequest{SourceBranchName: args[1]}
+			resp, err := c.SetVersionBranchSourceWithResponse(cmd.Context(), slug, args[0], body)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("Source of %s set to %s.\n", args[0], args[1])
 			return nil
 		},
 	}

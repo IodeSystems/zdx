@@ -19,6 +19,11 @@ UPDATE zdx_version_branches
 SET status = 'eol'
 WHERE project_id = $1 AND name = $2;
 
+-- name: UpdateVersionBranchSource :exec
+UPDATE zdx_version_branches
+SET source_branch_name = $3
+WHERE project_id = $1 AND name = $2;
+
 -- name: GetReleaseBranchSource :one
 SELECT source_branch_name
 FROM zdx_version_branches
