@@ -77,7 +77,7 @@ func TodoCmd() *cobra.Command {
 		Args:  cobra.NoArgs,
 		RunE:  func(cmd *cobra.Command, args []string) error { return soloRun(cmd, args) },
 	}
-	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd(), todoUnblockAllCmd(), todoIncompleteCmd())
+	cmd.AddCommand(todoTakeCmd(), todoSoloCmd(), todoListCmd(), todoShowCmd(), todoDevCmd(), todoOwnerCmd(), todoTechCmd(), todoReservationsCmd(), todoReleaseCmd(), todoUnblockAllCmd(), todoIncompleteCmd(), todoQueueHealthCmd())
 	return cmd
 }
 
@@ -2040,4 +2040,31 @@ func todoReservationsRun(cmd *cobra.Command, limit int32) error {
 			r.TargetType, r.TargetId, r.ClaimedBy, r.ClaimedAt, r.ReleasedAt, status)
 	}
 	return nil
+}
+
+func todoQueueHealthCmd() *cobra.Command {
+	return &cobra.Command{
+		Use:   "queue-health",
+		Short: "Show todo queue depth: claimable, blocked, total",
+		RunE: func(cmd *cobra.Command, args []string) error {
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+			resp, err := c.GetTodoQueueHealthWithResponse(cmd.Context(), &dxclient.GetTodoQueueHealthParams{Slug: slug})
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			h := resp.JSON200
+			fmt.Printf("claimable: %d  blocked: %d  total: %d\n", h.UnblockedCount, h.BlockedCount, h.TotalOpen)
+			if h.DominantBlockedReason != "" {
+				fmt.Printf("dominant_reason: %s\n", h.DominantBlockedReason)
+			}
+			if h.TotalOpen > 0 && h.UnblockedCount == 0 {
+				os.Exit(1)
+			}
+			return nil
+		},
+	}
 }
