@@ -2644,6 +2644,33 @@ export const useDeletePattern = () => {
   })
 }
 
+// ── concerns ──────────────────────────────────────────────────────────────────
+
+export type ConcernItem = components['schemas']['ConcernItem']
+
+export const useListConcerns = (slug: string) =>
+  useQuery<ConcernItem[]>({
+    queryKey: ['concerns', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/concerns', { params: { query: { slug } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as any)?.concerns ?? []
+    },
+    enabled: !!slug,
+  })
+
+export const useCreateConcern = () => {
+  const qc = useQueryClient()
+  return useMutation<ConcernItem, Error, { slug: string; name: string; description: string }>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/concern', { body: body as any })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as ConcernItem
+    },
+    onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['concerns', v.slug] }),
+  })
+}
+
 // ── proposals ─────────────────────────────────────────────────────────────────
 
 export type ProposalItem = components['schemas']['ProposalItem']

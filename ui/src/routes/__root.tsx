@@ -49,6 +49,7 @@ import {
   AccountTree as AccountTreeIcon,
   ChatBubbleOutlined as ChatBubbleOutlineIcon,
   Lightbulb as LightbulbIcon,
+  ShieldOutlined as ShieldOutlinedIcon,
 } from '@mui/icons-material'
 import { theme } from '../theme'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
@@ -87,6 +88,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Focuses', icon: <BookmarkIcon fontSize="small" />, path: 'focuses' },
       { label: 'Features', icon: <ExtensionIcon fontSize="small" />, path: 'features' },
       { label: 'Patterns', icon: <AccountTreeIcon fontSize="small" />, path: 'patterns' },
+      { label: 'Concerns', icon: <ShieldOutlinedIcon fontSize="small" />, path: 'concerns' },
       { label: 'Standup', icon: <AutoStoriesIcon fontSize="small" />, path: 'journal' },
       { label: 'Demos', icon: <PlaylistPlayIcon fontSize="small" />, path: 'demos' },
       { label: 'Tests', icon: <ScienceIcon fontSize="small" />, path: 'tests' },
