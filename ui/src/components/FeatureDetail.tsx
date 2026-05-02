@@ -245,11 +245,17 @@ export function FeatureDetail({
           integration: 'has_integration',
           demo: 'has_demo',
         }
+        const isMissing = (s: Spec, layer: Layer) => {
+          const cov = coverageMap.get(s.id)
+          return !cov || !cov[layerMissingKey[layer]]
+        }
+        const gapCounts: Record<Layer, number> = {
+          unit: specList.filter(s => isMissing(s, 'unit')).length,
+          integration: specList.filter(s => isMissing(s, 'integration')).length,
+          demo: specList.filter(s => isMissing(s, 'demo')).length,
+        }
         const filteredSpecList = layerFilter
-          ? specList.filter(s => {
-              const cov = coverageMap.get(s.id)
-              return !cov || !cov[layerMissingKey[layerFilter]]
-            })
+          ? specList.filter(s => isMissing(s, layerFilter))
           : specList
 
         return (
@@ -265,18 +271,27 @@ export function FeatureDetail({
               <Typography variant="subtitle2" color="text.secondary">
                 Specs ({specList.length})
               </Typography>
-              {LAYERS.map(layer => (
-                <Chip
-                  key={layer}
-                  label={layer}
-                  size="small"
-                  color={layerFilter === layer ? 'primary' : 'default'}
-                  variant={layerFilter === layer ? 'filled' : 'outlined'}
-                  onClick={() => setLayerFilter(prev => prev === layer ? null : layer)}
-                  data-testid={`layer-filter-${layer}`}
-                  sx={{ cursor: 'pointer' }}
-                />
-              ))}
+              <Typography variant="caption" color="text.secondary">
+                Gaps:
+              </Typography>
+              {LAYERS.map(layer => {
+                const gaps = gapCounts[layer]
+                const disabled = gaps === 0
+                return (
+                  <Chip
+                    key={layer}
+                    label={`${layer} (${gaps})`}
+                    size="small"
+                    color={layerFilter === layer ? 'primary' : 'default'}
+                    variant={layerFilter === layer ? 'filled' : 'outlined'}
+                    onClick={disabled ? undefined : () => setLayerFilter(prev => prev === layer ? null : layer)}
+                    disabled={disabled}
+                    data-testid={`layer-filter-${layer}`}
+                    data-gap-count={gaps}
+                    sx={{ cursor: disabled ? 'default' : 'pointer' }}
+                  />
+                )
+              })}
             </Box>
             {tiers.map(({ key, label }) => {
               const tier = filteredSpecList.filter(s => s.importance === key)

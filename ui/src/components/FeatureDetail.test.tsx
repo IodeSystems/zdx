@@ -269,4 +269,38 @@ describe('FeatureDetail — coverage badges and layer filter (spec 31)', () => {
     expect(screen.getByText('Spec without unit coverage')).toBeInTheDocument()
     expect(screen.getByText('Spec with all layers')).toBeInTheDocument()
   })
+
+  test('spec 31: filter chips show gap counts and disable when no gaps', () => {
+    const specs: SpecItem[] = [
+      makeSpec({ id: 10, importance: 'must', description: 'A', green_demos: 1, total_demos: 1 }),
+      makeSpec({ id: 11, importance: 'must', description: 'B', green_demos: 0, total_demos: 0 }),
+      makeSpec({ id: 20, importance: 'should', description: 'C', green_demos: 2, total_demos: 2 }),
+    ]
+    const coverage: SpecCoverageItem[] = [
+      makeCoverage({ spec_id: 10, has_unit: true, has_integration: true, has_demo: true }),
+      makeCoverage({ spec_id: 11, has_unit: false, has_integration: false, has_demo: true }),
+      makeCoverage({ spec_id: 20, has_unit: true, has_integration: true, has_demo: true }),
+    ]
+    const feature = makeFeature({ id: 5, specs })
+    mockedUseFeature.mockReturnValue({ data: feature, isLoading: false } as any)
+    mockedUseTasks.mockReturnValue({ data: { tasks: [], total: 0 }, isLoading: false } as any)
+    mockedUseFeatureCoverage.mockReturnValue({ data: coverage, isLoading: false } as any)
+
+    renderDetail()
+
+    // Gap counts: unit=1 (spec 11), integration=1 (spec 11), demo=0
+    expect(screen.getByTestId('layer-filter-unit')).toHaveAttribute('data-gap-count', '1')
+    expect(screen.getByTestId('layer-filter-integration')).toHaveAttribute('data-gap-count', '1')
+    expect(screen.getByTestId('layer-filter-demo')).toHaveAttribute('data-gap-count', '0')
+
+    // Demo chip with zero gaps should be disabled (no clickable filter)
+    const demoFilter = screen.getByTestId('layer-filter-demo')
+    expect(demoFilter).toHaveClass('Mui-disabled')
+
+    // Clicking disabled demo filter should not narrow the list
+    fireEvent.click(demoFilter)
+    expect(screen.getByText('A')).toBeInTheDocument()
+    expect(screen.getByText('B')).toBeInTheDocument()
+    expect(screen.getByText('C')).toBeInTheDocument()
+  })
 })
