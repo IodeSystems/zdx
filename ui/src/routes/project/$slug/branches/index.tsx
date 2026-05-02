@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Skeleton, TextField, Tooltip, Typography } from '@mui/material'
-import { Snooze as SnoozeIcon } from '@mui/icons-material'
+import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Skeleton, Snackbar, TextField, Tooltip, Typography } from '@mui/material'
+import { Delete as DeleteIcon, PowerSettingsNew as EolIcon, Snooze as SnoozeIcon } from '@mui/icons-material'
 import { useState } from 'react'
-import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useUpdateBranchSettings, type VersionBranchItem } from '../../../../api'
+import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useDeleteBranch, useMarkBranchEOL, useUpdateBranchSettings, type VersionBranchItem } from '../../../../api'
 
 const ROLE_ORDER = ['rolling-release', 'dev', 'pr-target', 'named-release']
 
@@ -151,47 +151,122 @@ function BranchSettingsPanel({ branch, slug }: { branch: VersionBranchItem; slug
 function BranchCard({ branch, slug }: { branch: VersionBranchItem; slug: string }) {
   const role = branch.role ?? branch.type
   const isEol = branch.status === 'eol'
+  const eol = useMarkBranchEOL()
+  const del = useDeleteBranch()
+  const [toast, setToast] = useState<string | null>(null)
+  const [confirmingDelete, setConfirmingDelete] = useState(false)
+
+  const handleConfirmDelete = () => {
+    del.mutate({ slug, name: branch.name }, {
+      onError: (e) => {
+        const msg = e.message
+        if (msg.includes('blocked by environments:')) {
+          setToast(`Cannot delete: ${msg}`)
+        } else {
+          setToast(`Delete failed: ${msg}`)
+        }
+      },
+      onSettled: () => setConfirmingDelete(false),
+    })
+  }
 
   return (
-    <Card variant="outlined" id={`branch-${branch.name}`}>
-      <CardContent sx={{ pb: '12px !important' }}>
-        <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
-          <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, flex: 1 }}>{branch.name}</Typography>
-          <Typography variant="caption" color="text.secondary">{formatRelativeTime(branch.created_at)}</Typography>
-        </Box>
-        <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
-          <Chip
-            label={role}
-            size="small"
-            color={ROLE_CHIP_COLOR[role] ?? 'default'}
-            sx={{ fontSize: '0.7rem', height: 20 }}
-          />
-          {branch.semver && (
+    <>
+      <Card variant="outlined" id={`branch-${branch.name}`}>
+        <CardContent sx={{ pb: '12px !important' }}>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
+            <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, flex: 1 }}>{branch.name}</Typography>
+            <Typography variant="caption" color="text.secondary">{formatRelativeTime(branch.created_at)}</Typography>
+            <Tooltip title={isEol ? 'Mark active' : 'Mark EOL'}>
+              <IconButton
+                size="small"
+                aria-label={isEol ? 'Mark active' : 'Mark EOL'}
+                onClick={() => eol.mutate({ slug, name: branch.name })}
+                disabled={eol.isPending}
+                color={isEol ? 'error' : 'default'}
+                data-testid={`branch-eol-${branch.name}`}
+              >
+                <EolIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            {confirmingDelete ? (
+              <>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="error"
+                  onClick={handleConfirmDelete}
+                  disabled={del.isPending}
+                  sx={{ fontSize: '0.75rem', py: 0.25 }}
+                  data-testid={`branch-confirm-delete-${branch.name}`}
+                >
+                  Confirm delete
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => setConfirmingDelete(false)}
+                  disabled={del.isPending}
+                  sx={{ fontSize: '0.75rem', py: 0.25 }}
+                  data-testid={`branch-cancel-delete-${branch.name}`}
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Tooltip title="Delete branch">
+                <IconButton
+                  size="small"
+                  aria-label="Delete branch"
+                  onClick={() => setConfirmingDelete(true)}
+                  disabled={del.isPending}
+                  data-testid={`branch-delete-${branch.name}`}
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
+          </Box>
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
             <Chip
-              label={branch.semver}
+              label={role}
               size="small"
-              variant="outlined"
-              sx={{ fontFamily: 'monospace', fontSize: '0.7rem', height: 20 }}
+              color={ROLE_CHIP_COLOR[role] ?? 'default'}
+              sx={{ fontSize: '0.7rem', height: 20 }}
             />
-          )}
-          {isEol && (
-            <Chip label="EOL" size="small" color="error" sx={{ fontSize: '0.7rem', height: 20 }} />
-          )}
-          {branch.source_branch_name && (
-            <Typography
-              component="a"
-              href={`#branch-${branch.source_branch_name}`}
-              variant="caption"
-              color="text.secondary"
-              sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
-            >
-              → {branch.source_branch_name}
-            </Typography>
-          )}
-        </Box>
-        {role === 'pr-target' && <BranchSettingsPanel branch={branch} slug={slug} />}
-      </CardContent>
-    </Card>
+            {branch.semver && (
+              <Chip
+                label={branch.semver}
+                size="small"
+                variant="outlined"
+                sx={{ fontFamily: 'monospace', fontSize: '0.7rem', height: 20 }}
+              />
+            )}
+            {isEol && (
+              <Chip label="EOL" size="small" color="error" sx={{ fontSize: '0.7rem', height: 20 }} />
+            )}
+            {branch.source_branch_name && (
+              <Typography
+                component="a"
+                href={`#branch-${branch.source_branch_name}`}
+                variant="caption"
+                color="text.secondary"
+                sx={{ textDecoration: 'none', '&:hover': { textDecoration: 'underline' } }}
+              >
+                → {branch.source_branch_name}
+              </Typography>
+            )}
+          </Box>
+          {role === 'pr-target' && <BranchSettingsPanel branch={branch} slug={slug} />}
+        </CardContent>
+      </Card>
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={5000}
+        onClose={() => setToast(null)}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+    </>
   )
 }
 

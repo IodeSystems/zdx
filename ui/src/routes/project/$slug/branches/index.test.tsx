@@ -11,6 +11,8 @@ jest.mock('../../../../api', () => {
     useBranches: jest.fn(),
     useBranchDoctorRung: jest.fn(),
     useDeferDoctorCheck: jest.fn(),
+    useMarkBranchEOL: jest.fn(),
+    useDeleteBranch: jest.fn(),
   }
 })
 
@@ -25,11 +27,13 @@ jest.mock('@tanstack/react-router', () => ({
   Link: (props: any) => <a href={props.to}>{props.children}</a>,
 }))
 
-import { useBranches, useBranchDoctorRung, useDeferDoctorCheck } from '../../../../api'
+import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useMarkBranchEOL, useDeleteBranch } from '../../../../api'
 
 const mockedUseBranches = jest.mocked(useBranches)
 const mockedUseBranchDoctorRung = jest.mocked(useBranchDoctorRung)
 const mockedUseDeferDoctorCheck = jest.mocked(useDeferDoctorCheck)
+const mockedUseMarkBranchEOL = jest.mocked(useMarkBranchEOL)
+const mockedUseDeleteBranch = jest.mocked(useDeleteBranch)
 
 function makeBranch(overrides: Partial<VersionBranchItem> = {}): VersionBranchItem {
   return {
@@ -59,10 +63,9 @@ let queryClient: QueryClient
 
 beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
-  mockedUseDeferDoctorCheck.mockReturnValue({
-    mutate: jest.fn(),
-    isPending: false,
-  } as any)
+  mockedUseDeferDoctorCheck.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
+  mockedUseMarkBranchEOL.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
+  mockedUseDeleteBranch.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
 })
 
 afterEach(() => {
@@ -141,5 +144,77 @@ describe('Branches UI', () => {
     await renderPage()
 
     expect(screen.getByTestId('empty-state')).toBeInTheDocument()
+  })
+})
+
+describe('BranchCard delete (TK-1680)', () => {
+  beforeEach(() => {
+    mockedUseBranchDoctorRung.mockReturnValue({ data: makeRung(), isLoading: false } as any)
+  })
+
+  test('clicking Delete shows inline confirm without calling mutate', async () => {
+    const mutate = jest.fn()
+    mockedUseDeleteBranch.mockReturnValue({ mutate, isPending: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'feature-x', role: 'named-release' })],
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('branch-delete-feature-x'))
+
+    expect(screen.getByTestId('branch-confirm-delete-feature-x')).toBeInTheDocument()
+    expect(screen.getByTestId('branch-cancel-delete-feature-x')).toBeInTheDocument()
+    expect(screen.queryByTestId('branch-delete-feature-x')).not.toBeInTheDocument()
+    expect(mutate).not.toHaveBeenCalled()
+  })
+
+  test('confirming delete calls mutate with slug and name then hides confirm', async () => {
+    const mutate = jest.fn((_vars: any, opts: any) => opts?.onSettled?.())
+    mockedUseDeleteBranch.mockReturnValue({ mutate, isPending: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'feature-x', role: 'named-release' })],
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('branch-delete-feature-x'))
+    fe.click(screen.getByTestId('branch-confirm-delete-feature-x'))
+
+    expect(mutate).toHaveBeenCalledWith(
+      { slug: 'test-project', name: 'feature-x' },
+      expect.objectContaining({ onError: expect.any(Function), onSettled: expect.any(Function) }),
+    )
+    expect(screen.queryByTestId('branch-confirm-delete-feature-x')).not.toBeInTheDocument()
+    expect(screen.getByTestId('branch-delete-feature-x')).toBeInTheDocument()
+  })
+
+  test('409 with blocking env names shows toast with Cannot delete message', async () => {
+    let capturedOnError: ((e: Error) => void) | undefined
+    const mutate = jest.fn((_vars: any, opts: any) => {
+      capturedOnError = opts?.onError
+      opts?.onSettled?.()
+    })
+    mockedUseDeleteBranch.mockReturnValue({ mutate, isPending: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'feature-x', role: 'named-release' })],
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe, act } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('branch-delete-feature-x'))
+    fe.click(screen.getByTestId('branch-confirm-delete-feature-x'))
+
+    act(() => {
+      capturedOnError?.(new Error('blocked by environments: staging, prod'))
+    })
+
+    expect(screen.getByText('Cannot delete: blocked by environments: staging, prod')).toBeInTheDocument()
   })
 })

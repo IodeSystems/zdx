@@ -3151,6 +3151,39 @@ export const useUpdateBranchSettings = () => {
   })
 }
 
+export const useMarkBranchEOL = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; name: string }>({
+    mutationFn: async ({ slug, name }) => {
+      const { error } = await client.PATCH('/api/dx/projects/{slug}/branches/{name}/eol', {
+        params: { path: { slug, name } },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['branches', v.slug] })
+    },
+  })
+}
+
+export const useDeleteBranch = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; name: string }>({
+    mutationFn: async ({ slug, name }) => {
+      const { error } = await client.DELETE('/api/dx/projects/{slug}/branches/{name}' as never, {
+        params: { path: { slug, name } },
+      } as never)
+      if (error) {
+        const detail = (error as any).detail ?? JSON.stringify(error)
+        throw new Error(detail)
+      }
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['branches', v.slug] })
+    },
+  })
+}
+
 // ── environments ──────────────────────────────────────────────────────────────
 
 export type EnvironmentItem = components['schemas']['EnvironmentItem'] & {
