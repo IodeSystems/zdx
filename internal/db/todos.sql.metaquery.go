@@ -634,6 +634,49 @@ var GetTodoByKeyCols = struct {
 	ClaimBaseBranch:  metaquery.NewTextCol("claim_base_branch"),
 }
 
+var MetaGetTodoQueueHealth = metaquery.Query{
+	Name:   "GetTodoQueueHealth",
+	Cmd:    ":one",
+	Source: "todos.sql",
+	SQL: `SELECT
+  COUNT(*) FILTER (WHERE t.status = 'open')                        AS total_open,
+  COUNT(*) FILTER (WHERE t.status = 'open' AND t.blocked = true)   AS blocked_count,
+  COUNT(*) FILTER (WHERE t.status = 'open' AND t.blocked = false)  AS unblocked_count,
+  (SELECT sub.blocked_reason
+   FROM zdx_todos sub
+   WHERE sub.project_id = $1 AND sub.status = 'open' AND sub.blocked = true AND sub.blocked_reason != ''
+   GROUP BY sub.blocked_reason ORDER BY COUNT(*) DESC LIMIT 1)     AS dominant_blocked_reason
+FROM zdx_todos t
+WHERE t.project_id = $1`,
+	Columns: []metaquery.Column{
+		{Name: "total_open", OriginalName: "total_open", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "blocked_count", OriginalName: "blocked_count", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "unblocked_count", OriginalName: "unblocked_count", GoType: "int64", DBType: "bigint", NotNull: true},
+		{Name: "dominant_blocked_reason", OriginalName: "blocked_reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todos"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapGetTodoQueueHealth returns a metaquery.Builder over MetaGetTodoQueueHealth, pre-bound with typed arguments.
+func WrapGetTodoQueueHealth(projectID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetTodoQueueHealth, projectID)
+}
+
+// GetTodoQueueHealthCols gives typed, name-safe access to GetTodoQueueHealth's output columns.
+var GetTodoQueueHealthCols = struct {
+	TotalOpen             metaquery.IntCol
+	BlockedCount          metaquery.IntCol
+	UnblockedCount        metaquery.IntCol
+	DominantBlockedReason metaquery.TextCol
+}{
+	TotalOpen:             metaquery.NewIntCol("total_open"),
+	BlockedCount:          metaquery.NewIntCol("blocked_count"),
+	UnblockedCount:        metaquery.NewIntCol("unblocked_count"),
+	DominantBlockedReason: metaquery.NewTextCol("blocked_reason"),
+}
+
 var MetaListActiveTodoClaims = metaquery.Query{
 	Name:   "ListActiveTodoClaims",
 	Cmd:    ":many",
@@ -1216,7 +1259,7 @@ var MetaUnblockAllTodos = metaquery.Query{
 	Name:   "UnblockAllTodos",
 	Cmd:    ":exec",
 	Source: "todos.sql",
-	SQL: `UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = ''
+	SQL: `UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = '', reopen_count = 0
 WHERE project_id = $1 AND blocked = true AND status = 'open'`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},

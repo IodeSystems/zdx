@@ -709,7 +709,8 @@ CREATE TABLE public.zdx_environments (
     deployed_at timestamp with time zone,
     deployed_by_user_id integer,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    release_branch text DEFAULT ''::text NOT NULL
+    release_branch text DEFAULT ''::text NOT NULL,
+    trunk_branch text DEFAULT ''::text NOT NULL
 );
 
 
@@ -887,7 +888,8 @@ CREATE TABLE public.zdx_events (
     summary_json jsonb DEFAULT '{}'::jsonb NOT NULL,
     detail_json jsonb DEFAULT '{}'::jsonb NOT NULL,
     agent_process_result jsonb,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    addressing_event_id bigint
 );
 
 
@@ -1077,6 +1079,40 @@ CREATE TABLE public.zdx_id_seq (
     kind text NOT NULL,
     next_val integer DEFAULT 1 NOT NULL
 );
+
+
+--
+-- Name: zdx_incomplete_report_side_effects; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_incomplete_report_side_effects (
+    id bigint NOT NULL,
+    project_id integer NOT NULL,
+    reason text NOT NULL,
+    evidence_fingerprint text NOT NULL,
+    action_type text NOT NULL,
+    meta jsonb DEFAULT '{}'::jsonb NOT NULL,
+    fired_at timestamp with time zone DEFAULT now() NOT NULL
+);
+
+
+--
+-- Name: zdx_incomplete_report_side_effects_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_incomplete_report_side_effects_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_incomplete_report_side_effects_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_incomplete_report_side_effects_id_seq OWNED BY public.zdx_incomplete_report_side_effects.id;
 
 
 --
@@ -2868,12 +2904,14 @@ CREATE TABLE public.zdx_version_branches (
     id bigint NOT NULL,
     project_id integer NOT NULL,
     name text NOT NULL,
-    type text NOT NULL,
     semver text,
     status text DEFAULT 'active'::text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    CONSTRAINT zdx_version_branches_status_check CHECK ((status = ANY (ARRAY['active'::text, 'eol'::text]))),
-    CONSTRAINT zdx_version_branches_type_check CHECK ((type = ANY (ARRAY['dev'::text, 'named'::text])))
+    role text NOT NULL,
+    source_branch_name text,
+    auto_seed boolean DEFAULT false NOT NULL,
+    CONSTRAINT zdx_version_branches_role_check CHECK ((role = ANY (ARRAY['rolling-release'::text, 'dev'::text, 'pr-target'::text, 'named-release'::text]))),
+    CONSTRAINT zdx_version_branches_status_check CHECK ((status = ANY (ARRAY['active'::text, 'eol'::text])))
 );
 
 
@@ -3110,6 +3148,13 @@ ALTER TABLE ONLY public.zdx_files ALTER COLUMN id SET DEFAULT nextval('public.zd
 --
 
 ALTER TABLE ONLY public.zdx_focuses ALTER COLUMN id SET DEFAULT nextval('public.zdx_focuses_id_seq'::regclass);
+
+
+--
+-- Name: zdx_incomplete_report_side_effects id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_incomplete_report_side_effects ALTER COLUMN id SET DEFAULT nextval('public.zdx_incomplete_report_side_effects_id_seq'::regclass);
 
 
 --
@@ -3746,6 +3791,22 @@ ALTER TABLE ONLY public.zdx_goal_issues
 
 ALTER TABLE ONLY public.zdx_id_seq
     ADD CONSTRAINT zdx_id_seq_pkey1 PRIMARY KEY (kind);
+
+
+--
+-- Name: zdx_incomplete_report_side_effects zdx_incomplete_report_side_ef_project_id_reason_evidence_fi_key; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_incomplete_report_side_effects
+    ADD CONSTRAINT zdx_incomplete_report_side_ef_project_id_reason_evidence_fi_key UNIQUE (project_id, reason, evidence_fingerprint, action_type);
+
+
+--
+-- Name: zdx_incomplete_report_side_effects zdx_incomplete_report_side_effects_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_incomplete_report_side_effects
+    ADD CONSTRAINT zdx_incomplete_report_side_effects_pkey PRIMARY KEY (id);
 
 
 --
@@ -4862,6 +4923,13 @@ CREATE INDEX zdx_event_threads_target_idx ON public.zdx_event_threads USING btre
 
 
 --
+-- Name: zdx_events_addressing_idx; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX zdx_events_addressing_idx ON public.zdx_events USING btree (addressing_event_id) WHERE (addressing_event_id IS NOT NULL);
+
+
+--
 -- Name: zdx_events_target_created_idx; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -5347,6 +5415,14 @@ ALTER TABLE ONLY public.zdx_error_reports
 
 
 --
+-- Name: zdx_events zdx_events_addressing_event_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_events
+    ADD CONSTRAINT zdx_events_addressing_event_id_fkey FOREIGN KEY (addressing_event_id) REFERENCES public.zdx_events(id);
+
+
+--
 -- Name: zdx_feature_multipliers zdx_feature_multipliers_feature_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -5416,6 +5492,14 @@ ALTER TABLE ONLY public.zdx_goal_issues
 
 ALTER TABLE ONLY public.zdx_goal_issues
     ADD CONSTRAINT zdx_goal_issues_issue_id_fkey FOREIGN KEY (issue_id) REFERENCES public.zdx_issues(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_incomplete_report_side_effects zdx_incomplete_report_side_effects_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_incomplete_report_side_effects
+    ADD CONSTRAINT zdx_incomplete_report_side_effects_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

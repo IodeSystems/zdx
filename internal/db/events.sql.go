@@ -51,7 +51,7 @@ func (q *Queries) CreateThread(ctx context.Context, arg CreateThreadParams) (Zdx
 const getEventByID = `-- name: GetEventByID :one
 SELECT id, project_id, target_type, target_id, thread_id, event_type,
        author, author_kind, summary_json, detail_json,
-       agent_process_result, created_at
+       agent_process_result, created_at, addressing_event_id
 FROM zdx_events
 WHERE id = $1
 `
@@ -72,6 +72,7 @@ func (q *Queries) GetEventByID(ctx context.Context, id int64) (ZdxEvent, error) 
 		&i.DetailJson,
 		&i.AgentProcessResult,
 		&i.CreatedAt,
+		&i.AddressingEventID,
 	)
 	return i, err
 }
@@ -129,15 +130,17 @@ func (q *Queries) GetThreadByRoot(ctx context.Context, rootEventID int64) (ZdxEv
 const insertEvent = `-- name: InsertEvent :one
 INSERT INTO zdx_events (
   project_id, target_type, target_id, thread_id, event_type,
-  author, author_kind, summary_json, detail_json, agent_process_result
+  author, author_kind, summary_json, detail_json, agent_process_result,
+  addressing_event_id
 )
 VALUES (
   $1, $2, $3, $4, $5,
-  $6, $7, $8, $9, $10
+  $6, $7, $8, $9, $10,
+  $11
 )
 RETURNING id, project_id, target_type, target_id, thread_id, event_type,
           author, author_kind, summary_json, detail_json,
-          agent_process_result, created_at
+          agent_process_result, created_at, addressing_event_id
 `
 
 type InsertEventParams struct {
@@ -151,6 +154,7 @@ type InsertEventParams struct {
 	SummaryJson        []byte      `db:"summary_json" json:"summary_json"`
 	DetailJson         []byte      `db:"detail_json" json:"detail_json"`
 	AgentProcessResult []byte      `db:"agent_process_result" json:"agent_process_result"`
+	AddressingEventID  pgtype.Int8 `db:"addressing_event_id" json:"addressing_event_id"`
 }
 
 func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (ZdxEvent, error) {
@@ -165,6 +169,7 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (ZdxEv
 		arg.SummaryJson,
 		arg.DetailJson,
 		arg.AgentProcessResult,
+		arg.AddressingEventID,
 	)
 	var i ZdxEvent
 	err := row.Scan(
@@ -180,6 +185,7 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (ZdxEv
 		&i.DetailJson,
 		&i.AgentProcessResult,
 		&i.CreatedAt,
+		&i.AddressingEventID,
 	)
 	return i, err
 }
@@ -187,7 +193,7 @@ func (q *Queries) InsertEvent(ctx context.Context, arg InsertEventParams) (ZdxEv
 const listEventsByTarget = `-- name: ListEventsByTarget :many
 SELECT id, project_id, target_type, target_id, thread_id, event_type,
        author, author_kind, summary_json, detail_json,
-       agent_process_result, created_at
+       agent_process_result, created_at, addressing_event_id
 FROM zdx_events
 WHERE project_id = $1
   AND target_type = $2
@@ -223,6 +229,7 @@ func (q *Queries) ListEventsByTarget(ctx context.Context, arg ListEventsByTarget
 			&i.DetailJson,
 			&i.AgentProcessResult,
 			&i.CreatedAt,
+			&i.AddressingEventID,
 		); err != nil {
 			return nil, err
 		}
@@ -237,7 +244,7 @@ func (q *Queries) ListEventsByTarget(ctx context.Context, arg ListEventsByTarget
 const listEventsByThread = `-- name: ListEventsByThread :many
 SELECT id, project_id, target_type, target_id, thread_id, event_type,
        author, author_kind, summary_json, detail_json,
-       agent_process_result, created_at
+       agent_process_result, created_at, addressing_event_id
 FROM zdx_events
 WHERE project_id = $1
   AND target_type = $2
@@ -280,6 +287,130 @@ func (q *Queries) ListEventsByThread(ctx context.Context, arg ListEventsByThread
 			&i.DetailJson,
 			&i.AgentProcessResult,
 			&i.CreatedAt,
+			&i.AddressingEventID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaleProposalStreams = `-- name: ListStaleProposalStreams :many
+SELECT s.id, s.project_id, s.target_type, s.target_id,
+       s.last_evaluated_at, s.last_evaluated_by,
+       (SELECT MAX(e.created_at) FROM zdx_events e
+        WHERE e.project_id = s.project_id
+          AND e.target_type = s.target_type
+          AND e.target_id = s.target_id
+          AND e.author_kind = 'user'
+          AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
+       ) AS newest_user_event_at
+FROM zdx_event_streams s
+WHERE s.project_id = $1
+  AND s.target_type = $2
+  AND EXISTS (
+    SELECT 1 FROM zdx_events e
+    WHERE e.project_id = s.project_id
+      AND e.target_type = s.target_type
+      AND e.target_id = s.target_id
+      AND e.author_kind = 'user'
+      AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
+  )
+ORDER BY newest_user_event_at DESC NULLS LAST
+`
+
+type ListStaleProposalStreamsParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+}
+
+type ListStaleProposalStreamsRow struct {
+	ID                int64              `db:"id" json:"id"`
+	ProjectID         int32              `db:"project_id" json:"project_id"`
+	TargetType        string             `db:"target_type" json:"target_type"`
+	TargetID          string             `db:"target_id" json:"target_id"`
+	LastEvaluatedAt   pgtype.Timestamptz `db:"last_evaluated_at" json:"last_evaluated_at"`
+	LastEvaluatedBy   pgtype.Text        `db:"last_evaluated_by" json:"last_evaluated_by"`
+	NewestUserEventAt interface{}        `db:"newest_user_event_at" json:"newest_user_event_at"`
+}
+
+// Like ListStaleStreams but with a required target_type and returns the newest
+// user event timestamp so callers can prioritize work.
+func (q *Queries) ListStaleProposalStreams(ctx context.Context, arg ListStaleProposalStreamsParams) ([]ListStaleProposalStreamsRow, error) {
+	rows, err := q.db.Query(ctx, listStaleProposalStreams, arg.ProjectID, arg.TargetType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListStaleProposalStreamsRow
+	for rows.Next() {
+		var i ListStaleProposalStreamsRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.LastEvaluatedAt,
+			&i.LastEvaluatedBy,
+			&i.NewestUserEventAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listStaleStreams = `-- name: ListStaleStreams :many
+SELECT s.id, s.project_id, s.target_type, s.target_id,
+       s.last_evaluated_at, s.last_evaluated_by
+FROM zdx_event_streams s
+WHERE s.project_id = $1
+  AND ($2::text IS NULL OR s.target_type = $2::text)
+  AND EXISTS (
+    SELECT 1 FROM zdx_events e
+    WHERE e.project_id = s.project_id
+      AND e.target_type = s.target_type
+      AND e.target_id = s.target_id
+      AND e.author_kind = 'user'
+      AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
+  )
+ORDER BY s.target_type, s.target_id
+`
+
+type ListStaleStreamsParams struct {
+	ProjectID  int32       `db:"project_id" json:"project_id"`
+	TargetType pgtype.Text `db:"target_type" json:"target_type"`
+}
+
+// A stream is "stale" when there exists at least one user-authored event newer
+// than its last_evaluated_at (or the stream has never been evaluated). The
+// agent loop polls this to discover proposals/tasks/etc. with unprocessed
+// comments. Optional target_type filter scopes the result to a single surface
+// (e.g. "proposal").
+func (q *Queries) ListStaleStreams(ctx context.Context, arg ListStaleStreamsParams) ([]ZdxEventStream, error) {
+	rows, err := q.db.Query(ctx, listStaleStreams, arg.ProjectID, arg.TargetType)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxEventStream
+	for rows.Next() {
+		var i ZdxEventStream
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.LastEvaluatedAt,
+			&i.LastEvaluatedBy,
 		); err != nil {
 			return nil, err
 		}
@@ -334,13 +465,69 @@ func (q *Queries) ListThreadsByTarget(ctx context.Context, arg ListThreadsByTarg
 	return items, nil
 }
 
+const listUnprocessedEventsByTarget = `-- name: ListUnprocessedEventsByTarget :many
+SELECT id, project_id, target_type, target_id, thread_id, event_type,
+       author, author_kind, summary_json, detail_json,
+       agent_process_result, created_at, addressing_event_id
+FROM zdx_events
+WHERE project_id = $1
+  AND target_type = $2
+  AND target_id = $3
+  AND author_kind = 'user'
+  AND agent_process_result IS NULL
+ORDER BY created_at, id
+`
+
+type ListUnprocessedEventsByTargetParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	TargetType string `db:"target_type" json:"target_type"`
+	TargetID   string `db:"target_id" json:"target_id"`
+}
+
+// Pending user-authored events that the agent loop has not yet posted a
+// verdict for. Ordered chronologically so handlers can resolve them in the
+// same order they arrived.
+func (q *Queries) ListUnprocessedEventsByTarget(ctx context.Context, arg ListUnprocessedEventsByTargetParams) ([]ZdxEvent, error) {
+	rows, err := q.db.Query(ctx, listUnprocessedEventsByTarget, arg.ProjectID, arg.TargetType, arg.TargetID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ZdxEvent
+	for rows.Next() {
+		var i ZdxEvent
+		if err := rows.Scan(
+			&i.ID,
+			&i.ProjectID,
+			&i.TargetType,
+			&i.TargetID,
+			&i.ThreadID,
+			&i.EventType,
+			&i.Author,
+			&i.AuthorKind,
+			&i.SummaryJson,
+			&i.DetailJson,
+			&i.AgentProcessResult,
+			&i.CreatedAt,
+			&i.AddressingEventID,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const setEventVerdict = `-- name: SetEventVerdict :one
 UPDATE zdx_events
 SET agent_process_result = $1
 WHERE id = $2
 RETURNING id, project_id, target_type, target_id, thread_id, event_type,
           author, author_kind, summary_json, detail_json,
-          agent_process_result, created_at
+          agent_process_result, created_at, addressing_event_id
 `
 
 type SetEventVerdictParams struct {
@@ -364,6 +551,7 @@ func (q *Queries) SetEventVerdict(ctx context.Context, arg SetEventVerdictParams
 		&i.DetailJson,
 		&i.AgentProcessResult,
 		&i.CreatedAt,
+		&i.AddressingEventID,
 	)
 	return i, err
 }

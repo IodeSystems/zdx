@@ -122,7 +122,7 @@ type Querier interface {
 	CreateTodo(ctx context.Context, arg CreateTodoParams) (CreateTodoRow, error)
 	CreateUser(ctx context.Context, arg CreateUserParams) (CreateUserRow, error)
 	CreateUserWithPassword(ctx context.Context, arg CreateUserWithPasswordParams) (CreateUserWithPasswordRow, error)
-	CreateVersionBranch(ctx context.Context, arg CreateVersionBranchParams) (ZdxVersionBranch, error)
+	CreateVersionBranch(ctx context.Context, arg CreateVersionBranchParams) (CreateVersionBranchRow, error)
 	DeferDoctorCheck(ctx context.Context, arg DeferDoctorCheckParams) error
 	DeleteAgent(ctx context.Context, id string) error
 	DeleteApiKey(ctx context.Context, arg DeleteApiKeyParams) error
@@ -205,6 +205,7 @@ type Querier interface {
 	GetCodeRef(ctx context.Context, arg GetCodeRefParams) (ZdxCodeRef, error)
 	GetCommentByID(ctx context.Context, id int32) (GetCommentByIDRow, error)
 	GetCommentsByIDs(ctx context.Context, dollar_1 []int32) ([]GetCommentsByIDsRow, error)
+	GetConcernByID(ctx context.Context, arg GetConcernByIDParams) (ZdxConcern, error)
 	GetConcernByName(ctx context.Context, arg GetConcernByNameParams) (ZdxConcern, error)
 	GetConcernDoctorState(ctx context.Context, id int32) (GetConcernDoctorStateRow, error)
 	// file_id falls back to any sibling row with the same (demo_type, artifact_path)
@@ -255,6 +256,7 @@ type Querier interface {
 	GetProposal(ctx context.Context, arg GetProposalParams) (ZdxProposal, error)
 	GetQuestion(ctx context.Context, arg GetQuestionParams) (ZdxQuestion, error)
 	GetQuestionProposal(ctx context.Context, arg GetQuestionProposalParams) (ZdxQuestionProposal, error)
+	GetReleaseBranchSource(ctx context.Context, arg GetReleaseBranchSourceParams) (pgtype.Text, error)
 	GetSpec(ctx context.Context, id int32) (ZdxSpec, error)
 	// Fetch a spec by id, validating it belongs to the given project.
 	GetSpecForProject(ctx context.Context, arg GetSpecForProjectParams) (ZdxSpec, error)
@@ -271,10 +273,13 @@ type Querier interface {
 	GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, error)
 	GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error)
 	GetTodoIncompleteReportsByTodo(ctx context.Context, todoID int32) ([]ZdxTodoIncompleteReport, error)
+	// Aggregate open todo queue health: total open, blocked count, unblocked count,
+	// and the single most common blocked_reason (null if none).
+	GetTodoQueueHealth(ctx context.Context, projectID int32) (GetTodoQueueHealthRow, error)
 	GetUnreviewedJournalEntry(ctx context.Context, arg GetUnreviewedJournalEntryParams) (GetUnreviewedJournalEntryRow, error)
 	GetUserByEmail(ctx context.Context, email string) (ZdxUser, error)
 	GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, error)
-	GetVersionBranchByName(ctx context.Context, arg GetVersionBranchByNameParams) (ZdxVersionBranch, error)
+	GetVersionBranchByName(ctx context.Context, arg GetVersionBranchByNameParams) (GetVersionBranchByNameRow, error)
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
@@ -287,6 +292,7 @@ type Querier interface {
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertQuestionProposal(ctx context.Context, arg InsertQuestionProposalParams) (ZdxQuestionProposal, error)
 	InsertReservation(ctx context.Context, arg InsertReservationParams) (ZdxReservation, error)
+	InsertSideEffectIfNew(ctx context.Context, arg InsertSideEffectIfNewParams) (ZdxIncompleteReportSideEffect, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
@@ -388,6 +394,7 @@ type Querier interface {
 	ListFeatureMultipliers(ctx context.Context, featureID int32) ([]ListFeatureMultipliersRow, error)
 	ListFeatures(ctx context.Context, projectID int32) ([]ListFeaturesRow, error)
 	ListFeaturesByGoal(ctx context.Context, goalID pgtype.Int4) ([]ListFeaturesByGoalRow, error)
+	ListFeaturesForConcern(ctx context.Context, concernID int32) ([]ListFeaturesForConcernRow, error)
 	// Returns feature target_ids where the most-recent comment has no author_alias
 	// (human posted last and the agent has not yet replied).
 	ListFeaturesWithPendingComments(ctx context.Context, projectID int32) ([]string, error)
@@ -493,6 +500,7 @@ type Querier interface {
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
 	ListRevisionsByTarget(ctx context.Context, arg ListRevisionsByTargetParams) ([]ListRevisionsByTargetRow, error)
 	ListSessionAuditEvents(ctx context.Context, sessionPk int64) ([]ZdxSessionAuditEvent, error)
+	ListSideEffects(ctx context.Context, projectID int32) ([]ZdxIncompleteReportSideEffect, error)
 	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	ListSpecDeferrals(ctx context.Context, specID int32) ([]ListSpecDeferralsRow, error)
 	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
@@ -500,6 +508,7 @@ type Querier interface {
 	ListSpecs(ctx context.Context, featureID int32) ([]ZdxSpec, error)
 	// Used to show what breaks if a test is deleted.
 	ListSpecsCoveredByTest(ctx context.Context, testID int32) ([]ZdxSpec, error)
+	ListSpecsForConcern(ctx context.Context, concernID int32) ([]ListSpecsForConcernRow, error)
 	ListSpecsForProject(ctx context.Context, projectID int32) ([]ZdxSpec, error)
 	ListSpecsWithAllBlockersClosed(ctx context.Context) ([]ZdxSpec, error)
 	// metaquery: off
@@ -509,6 +518,15 @@ type Querier interface {
 	ListStaleChunksByProject(ctx context.Context, projectID int32) ([]ListStaleChunksByProjectRow, error)
 	ListStaleFeatures(ctx context.Context, arg ListStaleFeaturesParams) ([]ListStaleFeaturesRow, error)
 	ListStaleOpenClaudeSessions(ctx context.Context, arg ListStaleOpenClaudeSessionsParams) ([]ListStaleOpenClaudeSessionsRow, error)
+	// Like ListStaleStreams but with a required target_type and returns the newest
+	// user event timestamp so callers can prioritize work.
+	ListStaleProposalStreams(ctx context.Context, arg ListStaleProposalStreamsParams) ([]ListStaleProposalStreamsRow, error)
+	// A stream is "stale" when there exists at least one user-authored event newer
+	// than its last_evaluated_at (or the stream has never been evaluated). The
+	// agent loop polls this to discover proposals/tasks/etc. with unprocessed
+	// comments. Optional target_type filter scopes the result to a single surface
+	// (e.g. "proposal").
+	ListStaleStreams(ctx context.Context, arg ListStaleStreamsParams) ([]ZdxEventStream, error)
 	ListStaleTasks(ctx context.Context, projectID int32) ([]ListStaleTasksRow, error)
 	ListStaleTasksByIssue(ctx context.Context, arg ListStaleTasksByIssueParams) ([]ListStaleTasksByIssueRow, error)
 	ListTargetsWithComments(ctx context.Context, projectID int32) ([]ListTargetsWithCommentsRow, error)
@@ -543,11 +561,15 @@ type Querier interface {
 	// with varied titles or put the spec reference in the task body, so both fields
 	// are checked to avoid re-emitting the nudge when work is already queued.
 	ListUncoveredSpecs(ctx context.Context, projectID int32) ([]ListUncoveredSpecsRow, error)
+	// Pending user-authored events that the agent loop has not yet posted a
+	// verdict for. Ordered chronologically so handlers can resolve them in the
+	// same order they arrived.
+	ListUnprocessedEventsByTarget(ctx context.Context, arg ListUnprocessedEventsByTargetParams) ([]ZdxEvent, error)
 	ListUnresolvedNamedBranchesForIssue(ctx context.Context, arg ListUnresolvedNamedBranchesForIssueParams) ([]string, error)
 	ListUnreviewedDoneTasks(ctx context.Context, projectID int32) ([]ListUnreviewedDoneTasksRow, error)
 	ListUnreviewedDoneTasksByIssue(ctx context.Context, arg ListUnreviewedDoneTasksByIssueParams) ([]ListUnreviewedDoneTasksByIssueRow, error)
 	ListUsers(ctx context.Context) ([]ListUsersRow, error)
-	ListVersionBranches(ctx context.Context, projectID int32) ([]ZdxVersionBranch, error)
+	ListVersionBranches(ctx context.Context, projectID int32) ([]ListVersionBranchesRow, error)
 	// metaquery: off
 	ListWorklogCrossProject(ctx context.Context, arg ListWorklogCrossProjectParams) ([]ListWorklogCrossProjectRow, error)
 	ListWorklogForProject(ctx context.Context, projectID int32) ([]ListWorklogForProjectRow, error)
@@ -672,8 +694,11 @@ type Querier interface {
 	TopPriorityOpenIssues(ctx context.Context, projectID int32) ([]TopPriorityOpenIssuesRow, error)
 	TouchApiKey(ctx context.Context, id int32) error
 	TouchClaudeSession(ctx context.Context, id int64) error
-	// Clear blocked flag on all blocked todos for a project. Preserves cycle_count so the auto-file
-	// threshold is not reset by a manual admin unblock.
+	// Clear blocked flag and reopen_count on all blocked todos for a project.
+	// reopen_count is reset because the upsert re-block guard (queries/todos.sql:56-65)
+	// fires on reopen_count >= 3 and would otherwise immediately re-block every row on
+	// the next claim's upsert. cycle_count is preserved so the auto-file threshold is
+	// not reset by a manual admin unblock.
 	UnblockAllTodos(ctx context.Context, projectID int32) error
 	// When the referenced issue is closed/fixed, automatically unblock the todo.
 	UnblockTodosByReferenceIssue(ctx context.Context, arg UnblockTodosByReferenceIssueParams) error
@@ -717,6 +742,7 @@ type Querier interface {
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error
+	UpdateVersionBranchSource(ctx context.Context, arg UpdateVersionBranchSourceParams) error
 	UpsertAgentBudget(ctx context.Context, arg UpsertAgentBudgetParams) (ZdxAgentBudget, error)
 	UpsertCounted(ctx context.Context, arg UpsertCountedParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (UpsertFeatureRow, error)
@@ -736,6 +762,7 @@ type Querier interface {
 	// Tracks resolve→open churn: reopen_count increments each time a resolved key is re-emitted.
 	// Auto-blocks at 3+ reopens so agents don't churn indefinitely on an untriageable item.
 	UpsertTodo(ctx context.Context, arg UpsertTodoParams) (UpsertTodoRow, error)
+	UpsertVersionBranchIfMissing(ctx context.Context, arg UpsertVersionBranchIfMissingParams) error
 	VerifyChunkStillAccurate(ctx context.Context, arg VerifyChunkStillAccurateParams) (ZdxNarrativeChunk, error)
 }
 

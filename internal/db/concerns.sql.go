@@ -35,6 +35,29 @@ func (q *Queries) CreateConcern(ctx context.Context, arg CreateConcernParams) (Z
 	return i, err
 }
 
+const getConcernByID = `-- name: GetConcernByID :one
+SELECT id, project_id, name, description, created_at
+FROM zdx_concerns WHERE project_id = $1 AND id = $2
+`
+
+type GetConcernByIDParams struct {
+	ProjectID int32 `db:"project_id" json:"project_id"`
+	ID        int32 `db:"id" json:"id"`
+}
+
+func (q *Queries) GetConcernByID(ctx context.Context, arg GetConcernByIDParams) (ZdxConcern, error) {
+	row := q.db.QueryRow(ctx, getConcernByID, arg.ProjectID, arg.ID)
+	var i ZdxConcern
+	err := row.Scan(
+		&i.ID,
+		&i.ProjectID,
+		&i.Name,
+		&i.Description,
+		&i.CreatedAt,
+	)
+	return i, err
+}
+
 const getConcernByName = `-- name: GetConcernByName :one
 SELECT id, project_id, name, description, created_at
 FROM zdx_concerns WHERE project_id = $1 AND name = $2
@@ -288,6 +311,87 @@ func (q *Queries) ListConcernsForSpec(ctx context.Context, specID int32) ([]ZdxC
 			&i.Name,
 			&i.Description,
 			&i.CreatedAt,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listFeaturesForConcern = `-- name: ListFeaturesForConcern :many
+SELECT id, name, description, kind
+FROM zdx_features
+WHERE id IN (SELECT feature_id FROM zdx_concern_features WHERE concern_id = $1)
+ORDER BY name
+`
+
+type ListFeaturesForConcernRow struct {
+	ID          int32  `db:"id" json:"id"`
+	Name        string `db:"name" json:"name"`
+	Description string `db:"description" json:"description"`
+	Kind        string `db:"kind" json:"kind"`
+}
+
+func (q *Queries) ListFeaturesForConcern(ctx context.Context, concernID int32) ([]ListFeaturesForConcernRow, error) {
+	rows, err := q.db.Query(ctx, listFeaturesForConcern, concernID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListFeaturesForConcernRow
+	for rows.Next() {
+		var i ListFeaturesForConcernRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.Name,
+			&i.Description,
+			&i.Kind,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
+const listSpecsForConcern = `-- name: ListSpecsForConcern :many
+SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE s.id IN (SELECT spec_id FROM zdx_concern_specs WHERE concern_id = $1)
+ORDER BY s.id
+`
+
+type ListSpecsForConcernRow struct {
+	ID          int32  `db:"id" json:"id"`
+	FeatureID   int32  `db:"feature_id" json:"feature_id"`
+	Description string `db:"description" json:"description"`
+	Importance  string `db:"importance" json:"importance"`
+	FeatureName string `db:"feature_name" json:"feature_name"`
+}
+
+func (q *Queries) ListSpecsForConcern(ctx context.Context, concernID int32) ([]ListSpecsForConcernRow, error) {
+	rows, err := q.db.Query(ctx, listSpecsForConcern, concernID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListSpecsForConcernRow
+	for rows.Next() {
+		var i ListSpecsForConcernRow
+		if err := rows.Scan(
+			&i.ID,
+			&i.FeatureID,
+			&i.Description,
+			&i.Importance,
+			&i.FeatureName,
 		); err != nil {
 			return nil, err
 		}

@@ -448,6 +448,28 @@ type AppendIssueWorkRequest struct {
 	Note      string  `json:"note"`
 }
 
+// AppliedSideEffect defines model for AppliedSideEffect.
+type AppliedSideEffect struct {
+	ActionType          string `json:"action_type"`
+	Detail              string `json:"detail"`
+	EvidenceFingerprint string `json:"evidence_fingerprint"`
+	Reason              string `json:"reason"`
+}
+
+// ApplyIncompleteReportSideEffectsRequest defines model for Apply-incomplete-report-side-effectsRequest.
+type ApplyIncompleteReportSideEffectsRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string `json:"$schema,omitempty"`
+	Slug   string  `json:"slug"`
+}
+
+// ApplyIncompleteReportSideEffectsResponse defines model for Apply-incomplete-report-side-effectsResponse.
+type ApplyIncompleteReportSideEffectsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string              `json:"$schema,omitempty"`
+	Applied *[]AppliedSideEffect `json:"Applied"`
+}
+
 // ApproveProposalRequest defines model for Approve-proposalRequest.
 type ApproveProposalRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -692,6 +714,17 @@ type BlockerQuestionItem struct {
 	TargetType string    `json:"target_type"`
 }
 
+// BranchDoctorRungResult defines model for BranchDoctorRungResult.
+type BranchDoctorRungResult struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema         *string `json:"$schema,omitempty"`
+	Classification string  `json:"classification"`
+	CurrentRung    int64   `json:"current_rung"`
+	Message        string  `json:"message"`
+	Proposal       *string `json:"proposal,omitempty"`
+	Status         string  `json:"status"`
+}
+
 // BranchState defines model for BranchState.
 type BranchState struct {
 	CommitsSinceBase *[]string `json:"commits_since_base,omitempty"`
@@ -850,6 +883,23 @@ type ConcernItem struct {
 	Description string  `json:"description"`
 	Id          int32   `json:"id"`
 	Name        string  `json:"name"`
+}
+
+// ConcernLinkedFeatureItem defines model for ConcernLinkedFeatureItem.
+type ConcernLinkedFeatureItem struct {
+	Description string `json:"description"`
+	Id          int32  `json:"id"`
+	Kind        string `json:"kind"`
+	Name        string `json:"name"`
+}
+
+// ConcernLinkedSpecItem defines model for ConcernLinkedSpecItem.
+type ConcernLinkedSpecItem struct {
+	Description string `json:"description"`
+	FeatureId   int32  `json:"feature_id"`
+	FeatureName string `json:"feature_name"`
+	Id          int32  `json:"id"`
+	Importance  string `json:"importance"`
 }
 
 // ConstraintItem defines model for ConstraintItem.
@@ -1056,6 +1106,7 @@ type CreateEnvironmentRequest struct {
 	Schema        *string `json:"$schema,omitempty"`
 	Name          string  `json:"name"`
 	ReleaseBranch *string `json:"release_branch,omitempty"`
+	TrunkBranch   *string `json:"trunk_branch,omitempty"`
 	Url           *string `json:"url,omitempty"`
 }
 
@@ -1141,9 +1192,11 @@ type CreateProposalRequest struct {
 // CreateVersionBranchRequest defines model for Create-version-branchRequest.
 type CreateVersionBranchRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema *string `json:"$schema,omitempty"`
-	Name   string  `json:"name"`
-	Semver *string `json:"semver,omitempty"`
+	Schema           *string `json:"$schema,omitempty"`
+	Name             string  `json:"name"`
+	Role             *string `json:"role,omitempty"`
+	Semver           *string `json:"semver,omitempty"`
+	SourceBranchName *string `json:"source_branch_name,omitempty"`
 }
 
 // CreateProposalBody defines model for CreateProposalBody.
@@ -1163,7 +1216,9 @@ type CreateVersionBranchResult struct {
 	CreatedAt            string  `json:"created_at"`
 	Id                   int64   `json:"id"`
 	Name                 string  `json:"name"`
+	Role                 *string `json:"role,omitempty"`
 	Semver               *string `json:"semver,omitempty"`
+	SourceBranchName     *string `json:"source_branch_name,omitempty"`
 	Status               string  `json:"status"`
 	Type                 string  `json:"type"`
 }
@@ -1416,6 +1471,7 @@ type EnvironmentItem struct {
 	Id                 int32   `json:"id"`
 	Name               string  `json:"name"`
 	ReleaseBranch      string  `json:"release_branch"`
+	TrunkBranch        string  `json:"trunk_branch"`
 	Url                string  `json:"url"`
 }
 
@@ -1764,11 +1820,13 @@ type HistoryEvent struct {
 
 // IncompleteReportGroup defines model for IncompleteReportGroup.
 type IncompleteReportGroup struct {
-	AffectedTodoIds     *[]int32 `json:"affected_todo_ids"`
-	EvidenceFingerprint string   `json:"evidence_fingerprint"`
-	LastSeen            string   `json:"last_seen"`
-	Reason              string   `json:"reason"`
-	TotalCount          int64    `json:"total_count"`
+	AffectedTodoIds     *[]int32  `json:"affected_todo_ids"`
+	AffectedTodoKeys    *[]string `json:"affected_todo_keys"`
+	EvidenceFingerprint string    `json:"evidence_fingerprint"`
+	LastSeen            string    `json:"last_seen"`
+	Reason              string    `json:"reason"`
+	SuggestedNext       *string   `json:"suggested_next,omitempty"`
+	TotalCount          int64     `json:"total_count"`
 }
 
 // IncompleteReportItem defines model for IncompleteReportItem.
@@ -2135,7 +2193,7 @@ type LLMConfigBody struct {
 type LiftAgentBudgetPauseRequest struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema   *string `json:"$schema,omitempty"`
-	LiftedBy *string `json:"lifted_by,omitempty"`
+	LiftedBy string  `json:"lifted_by"`
 }
 
 // LiftAgentBudgetPauseResponse defines model for Lift-agent-budget-pauseResponse.
@@ -2477,6 +2535,13 @@ type ListEventsResponse struct {
 	Events *[]EventItem `json:"events"`
 }
 
+// ListFeaturesForConcernResponse defines model for List-features-for-concernResponse.
+type ListFeaturesForConcernResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string                     `json:"$schema,omitempty"`
+	Features *[]ConcernLinkedFeatureItem `json:"features"`
+}
+
 // ListFeaturesTodoResponse defines model for List-features-todoResponse.
 type ListFeaturesTodoResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2774,6 +2839,13 @@ type ListSpecsBlockerResolvedResponse struct {
 	Specs  *[]UncoveredSpecItem `json:"specs"`
 }
 
+// ListSpecsForConcernResponse defines model for List-specs-for-concernResponse.
+type ListSpecsForConcernResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema *string                  `json:"$schema,omitempty"`
+	Specs  *[]ConcernLinkedSpecItem `json:"specs"`
+}
+
 // ListSpecsWithoutDemosResponse defines model for List-specs-without-demosResponse.
 type ListSpecsWithoutDemosResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2803,6 +2875,20 @@ type ListStaleOpenClaudeSessionsResponse struct {
 	Minutes  int32                `json:"minutes"`
 	Sessions *[]ClaudeSessionItem `json:"sessions"`
 	Total    int64                `json:"total"`
+}
+
+// ListStaleProposalStreamsResponse defines model for List-stale-proposal-streamsResponse.
+type ListStaleProposalStreamsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string            `json:"$schema,omitempty"`
+	Streams *[]StaleStreamItem `json:"streams"`
+}
+
+// ListStaleStreamsResponse defines model for List-stale-streamsResponse.
+type ListStaleStreamsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string       `json:"$schema,omitempty"`
+	Streams *[]StreamItem `json:"streams"`
 }
 
 // ListStaleTasksResponse defines model for List-stale-tasksResponse.
@@ -3652,11 +3738,11 @@ type SendAgentCommandRequest struct {
 // SetAgentBudgetRequest defines model for Set-agent-budgetRequest.
 type SetAgentBudgetRequest struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema       *string  `json:"$schema,omitempty"`
-	AgentId      *string  `json:"agent_id,omitempty"`
-	CostCeiling  *float64 `json:"cost_ceiling,omitempty"`
-	ProjectId    *int32   `json:"project_id,omitempty"`
-	TokenCeiling *int64   `json:"token_ceiling,omitempty"`
+	Schema       *string `json:"$schema,omitempty"`
+	AgentId      string  `json:"agent_id"`
+	CostCeiling  float64 `json:"cost_ceiling"`
+	ProjectId    int32   `json:"project_id"`
+	TokenCeiling int64   `json:"token_ceiling"`
 }
 
 // SetClassificationRequest defines model for Set-classificationRequest.
@@ -3769,6 +3855,13 @@ type SetStateRequest struct {
 	Key    string  `json:"key"`
 	Slug   string  `json:"slug"`
 	Value  string  `json:"value"`
+}
+
+// SetVersionBranchSourceRequest defines model for Set-version-branch-sourceRequest.
+type SetVersionBranchSourceRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string `json:"$schema,omitempty"`
+	SourceBranchName string  `json:"source_branch_name"`
 }
 
 // SetupBootstrapRequest defines model for Setup-bootstrapRequest.
@@ -4108,6 +4201,7 @@ type SoloClaimBody struct {
 	Schema           *string      `json:"$schema,omitempty"`
 	Blocked          bool         `json:"blocked"`
 	BlockedReason    *string      `json:"blocked_reason,omitempty"`
+	ClaimBaseBranch  *string      `json:"claim_base_branch,omitempty"`
 	ClaimBaseSha     *string      `json:"claim_base_sha,omitempty"`
 	ClaimContract    *string      `json:"claim_contract,omitempty"`
 	ClaimedAt        *string      `json:"claimed_at,omitempty"`
@@ -4222,6 +4316,16 @@ type SpecTestItem struct {
 	Status    string `json:"status"`
 }
 
+// StaleStreamItem defines model for StaleStreamItem.
+type StaleStreamItem struct {
+	Id                int64   `json:"id"`
+	LastEvaluatedAt   *string `json:"last_evaluated_at,omitempty"`
+	LastEvaluatedBy   *string `json:"last_evaluated_by,omitempty"`
+	NewestUserEventAt string  `json:"newest_user_event_at"`
+	TargetId          string  `json:"target_id"`
+	TargetType        string  `json:"target_type"`
+}
+
 // StartTaskRequest defines model for Start-taskRequest.
 type StartTaskRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4229,6 +4333,15 @@ type StartTaskRequest struct {
 	ClaimedBy        *string `json:"claimed_by,omitempty"`
 	Id               int32   `json:"id"`
 	LeaseDurationMin *int32  `json:"lease_duration_min,omitempty"`
+}
+
+// StreamItem defines model for StreamItem.
+type StreamItem struct {
+	Id              int64   `json:"id"`
+	LastEvaluatedAt *string `json:"last_evaluated_at,omitempty"`
+	LastEvaluatedBy *string `json:"last_evaluated_by,omitempty"`
+	TargetId        string  `json:"target_id"`
+	TargetType      string  `json:"target_type"`
 }
 
 // SubmitMaturityAnswerRequest defines model for Submit-maturity-answerRequest.
@@ -4466,6 +4579,7 @@ type TodoItem struct {
 	Schema           *string `json:"$schema,omitempty"`
 	Blocked          bool    `json:"blocked"`
 	BlockedReason    *string `json:"blocked_reason,omitempty"`
+	ClaimBaseBranch  *string `json:"claim_base_branch,omitempty"`
 	ClaimBaseSha     *string `json:"claim_base_sha,omitempty"`
 	ClaimContract    *string `json:"claim_contract,omitempty"`
 	ClaimedAt        *string `json:"claimed_at,omitempty"`
@@ -4490,6 +4604,16 @@ type TodoItem struct {
 	TargetType       string  `json:"target_type"`
 	Text             string  `json:"text"`
 	Title            *string `json:"title,omitempty"`
+}
+
+// TodoQueueHealthBody defines model for TodoQueueHealthBody.
+type TodoQueueHealthBody struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema                *string `json:"$schema,omitempty"`
+	BlockedCount          int64   `json:"blocked_count"`
+	DominantBlockedReason string  `json:"dominant_blocked_reason"`
+	TotalOpen             int64   `json:"total_open"`
+	UnblockedCount        int64   `json:"unblocked_count"`
 }
 
 // TodoSessionItem defines model for TodoSessionItem.
@@ -4624,6 +4748,7 @@ type UpdateEnvironmentRequest struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema        *string `json:"$schema,omitempty"`
 	ReleaseBranch *string `json:"release_branch,omitempty"`
+	TrunkBranch   *string `json:"trunk_branch,omitempty"`
 	Url           *string `json:"url,omitempty"`
 }
 
@@ -4758,25 +4883,29 @@ type VerifyAtlasChunkRequest struct {
 // VersionBranchDetail defines model for VersionBranchDetail.
 type VersionBranchDetail struct {
 	// Schema A URL to the JSON Schema for this object.
-	Schema        *string `json:"$schema,omitempty"`
-	CreatedAt     string  `json:"created_at"`
-	Id            int64   `json:"id"`
-	Name          string  `json:"name"`
-	OpenCount     int64   `json:"open_count"`
-	ResolvedCount int64   `json:"resolved_count"`
-	Semver        *string `json:"semver,omitempty"`
-	Status        string  `json:"status"`
-	Type          string  `json:"type"`
+	Schema           *string `json:"$schema,omitempty"`
+	CreatedAt        string  `json:"created_at"`
+	Id               int64   `json:"id"`
+	Name             string  `json:"name"`
+	OpenCount        int64   `json:"open_count"`
+	ResolvedCount    int64   `json:"resolved_count"`
+	Role             *string `json:"role,omitempty"`
+	Semver           *string `json:"semver,omitempty"`
+	SourceBranchName *string `json:"source_branch_name,omitempty"`
+	Status           string  `json:"status"`
+	Type             string  `json:"type"`
 }
 
 // VersionBranchItem defines model for VersionBranchItem.
 type VersionBranchItem struct {
-	CreatedAt string  `json:"created_at"`
-	Id        int64   `json:"id"`
-	Name      string  `json:"name"`
-	Semver    *string `json:"semver,omitempty"`
-	Status    string  `json:"status"`
-	Type      string  `json:"type"`
+	CreatedAt        string  `json:"created_at"`
+	Id               int64   `json:"id"`
+	Name             string  `json:"name"`
+	Role             *string `json:"role,omitempty"`
+	Semver           *string `json:"semver,omitempty"`
+	SourceBranchName *string `json:"source_branch_name,omitempty"`
+	Status           string  `json:"status"`
+	Type             string  `json:"type"`
 }
 
 // VisionItem defines model for VisionItem.
@@ -5039,6 +5168,12 @@ type ListConcernsForFeatureParams struct {
 	Feature string `form:"feature" json:"feature"`
 }
 
+// GetConcernByIdParams defines parameters for GetConcernById.
+type GetConcernByIdParams struct {
+	Slug string `form:"slug" json:"slug"`
+	Id   int32  `form:"id" json:"id"`
+}
+
 // ListConcernsForSpecParams defines parameters for ListConcernsForSpec.
 type ListConcernsForSpecParams struct {
 	SpecId int32 `form:"spec_id" json:"spec_id"`
@@ -5183,6 +5318,12 @@ type GetErrorParams struct {
 type GetFeatureParams struct {
 	Slug string `form:"slug" json:"slug"`
 	Name string `form:"name" json:"name"`
+}
+
+// ListFeaturesForConcernParams defines parameters for ListFeaturesForConcern.
+type ListFeaturesForConcernParams struct {
+	Slug      string `form:"slug" json:"slug"`
+	ConcernId int32  `form:"concern_id" json:"concern_id"`
 }
 
 // GetFeatureCoverageParams defines parameters for GetFeatureCoverage.
@@ -5452,6 +5593,11 @@ type ListSpecsBlockerResolvedParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// ListSpecsForConcernParams defines parameters for ListSpecsForConcern.
+type ListSpecsForConcernParams struct {
+	ConcernId int32 `form:"concern_id" json:"concern_id"`
+}
+
 // ListSpecDeferralsParams defines parameters for ListSpecDeferrals.
 type ListSpecDeferralsParams struct {
 	SpecId int32 `form:"spec_id" json:"spec_id"`
@@ -5668,6 +5814,11 @@ type ListTodosParams struct {
 	Slug string `form:"slug" json:"slug"`
 }
 
+// GetTodoQueueHealthParams defines parameters for GetTodoQueueHealth.
+type GetTodoQueueHealthParams struct {
+	Slug string `form:"slug" json:"slug"`
+}
+
 // ListWorklogParams defines parameters for ListWorklog.
 type ListWorklogParams struct {
 	Slug   string  `form:"slug" json:"slug"`
@@ -5683,6 +5834,12 @@ type ListEventsParams struct {
 	TargetType string `form:"target_type" json:"target_type"`
 	TargetId   string `form:"target_id" json:"target_id"`
 	ThreadId   *int64 `form:"thread_id,omitempty" json:"thread_id,omitempty"`
+}
+
+// ListStaleProposalStreamsParams defines parameters for ListStaleProposalStreams.
+type ListStaleProposalStreamsParams struct {
+	Slug       string `form:"slug" json:"slug"`
+	TargetType string `form:"target_type" json:"target_type"`
 }
 
 // ListFeaturesParams defines parameters for ListFeatures.
@@ -5729,6 +5886,12 @@ type ListAtlasNodesParams struct {
 // GetAtlasNodeParams defines parameters for GetAtlasNode.
 type GetAtlasNodeParams struct {
 	Depth *int32 `form:"depth,omitempty" json:"depth,omitempty"`
+}
+
+// ListStaleStreamsParams defines parameters for ListStaleStreams.
+type ListStaleStreamsParams struct {
+	Slug       string  `form:"slug" json:"slug"`
+	TargetType *string `form:"target_type,omitempty" json:"target_type,omitempty"`
 }
 
 // GetTaskParams defines parameters for GetTask.
@@ -5933,6 +6096,9 @@ type SetFocusStatusJSONRequestBody = SetFocusStatusRequest
 // RemoveFocusBlockerJSONRequestBody defines body for RemoveFocusBlocker for application/json ContentType.
 type RemoveFocusBlockerJSONRequestBody = RemoveFocusBlockerRequest
 
+// ApplyIncompleteReportSideEffectsJSONRequestBody defines body for ApplyIncompleteReportSideEffects for application/json ContentType.
+type ApplyIncompleteReportSideEffectsJSONRequestBody = ApplyIncompleteReportSideEffectsRequest
+
 // SimilarIssuesJSONRequestBody defines body for SimilarIssues for application/json ContentType.
 type SimilarIssuesJSONRequestBody = SimilarIssuesRequest
 
@@ -5989,6 +6155,9 @@ type UpdatePlanJSONRequestBody = UpdatePlanRequest
 
 // CreateVersionBranchJSONRequestBody defines body for CreateVersionBranch for application/json ContentType.
 type CreateVersionBranchJSONRequestBody = CreateVersionBranchRequest
+
+// SetVersionBranchSourceJSONRequestBody defines body for SetVersionBranchSource for application/json ContentType.
+type SetVersionBranchSourceJSONRequestBody = SetVersionBranchSourceRequest
 
 // CreateEnvironmentJSONRequestBody defines body for CreateEnvironment for application/json ContentType.
 type CreateEnvironmentJSONRequestBody = CreateEnvironmentRequest
@@ -6707,6 +6876,9 @@ type ClientInterface interface {
 	// ListConcernsForFeature request
 	ListConcernsForFeature(ctx context.Context, params *ListConcernsForFeatureParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetConcernById request
+	GetConcernById(ctx context.Context, params *GetConcernByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListConcernsForSpec request
 	ListConcernsForSpec(ctx context.Context, params *ListConcernsForSpecParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -6819,6 +6991,9 @@ type ClientInterface interface {
 
 	MarkFeatureReviewed(ctx context.Context, body MarkFeatureReviewedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// ListFeaturesForConcern request
+	ListFeaturesForConcern(ctx context.Context, params *ListFeaturesForConcernParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// GetFeatureCoverage request
 	GetFeatureCoverage(ctx context.Context, params *GetFeatureCoverageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -6891,6 +7066,11 @@ type ClientInterface interface {
 
 	// ListIncompleteReports request
 	ListIncompleteReports(ctx context.Context, params *ListIncompleteReportsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ApplyIncompleteReportSideEffectsWithBody request with any body
+	ApplyIncompleteReportSideEffectsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	ApplyIncompleteReportSideEffects(ctx context.Context, body ApplyIncompleteReportSideEffectsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SimilarIssuesWithBody request with any body
 	SimilarIssuesWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7041,11 +7221,22 @@ type ClientInterface interface {
 
 	CreateVersionBranch(ctx context.Context, slug string, body CreateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetBranchDoctorRung request
+	GetBranchDoctorRung(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SeedVersionBranches request
+	SeedVersionBranches(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ShowVersionBranch request
 	ShowVersionBranch(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// MarkVersionBranchEol request
 	MarkVersionBranchEol(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetVersionBranchSourceWithBody request with any body
+	SetVersionBranchSourceWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetVersionBranchSource(ctx context.Context, slug string, name string, body SetVersionBranchSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListEnvironments request
 	ListEnvironments(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7256,6 +7447,9 @@ type ClientInterface interface {
 
 	// ListSpecsBlockerResolved request
 	ListSpecsBlockerResolved(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListSpecsForConcern request
+	ListSpecsForConcern(ctx context.Context, params *ListSpecsForConcernParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListSpecDeferrals request
 	ListSpecDeferrals(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7574,6 +7768,9 @@ type ClientInterface interface {
 
 	WriteTodos(ctx context.Context, body WriteTodosJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetTodoQueueHealth request
+	GetTodoQueueHealth(ctx context.Context, params *GetTodoQueueHealthParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListWorklog request
 	ListWorklog(ctx context.Context, params *ListWorklogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -7587,6 +7784,9 @@ type ClientInterface interface {
 	AddEventCommentWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	AddEventComment(ctx context.Context, body AddEventCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListStaleProposalStreams request
+	ListStaleProposalStreams(ctx context.Context, params *ListStaleProposalStreamsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetEventThreadTitleWithBody request with any body
 	SetEventThreadTitleWithBody(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7736,6 +7936,9 @@ type ClientInterface interface {
 	SetupBootstrapWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	SetupBootstrap(ctx context.Context, body SetupBootstrapJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListStaleStreams request
+	ListStaleStreams(ctx context.Context, params *ListStaleStreamsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// DeleteTaskWithBody request with any body
 	DeleteTaskWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -9321,6 +9524,18 @@ func (c *APIClient) ListConcernsForFeature(ctx context.Context, params *ListConc
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) GetConcernById(ctx context.Context, params *GetConcernByIdParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetConcernByIdRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListConcernsForSpec(ctx context.Context, params *ListConcernsForSpecParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListConcernsForSpecRequest(c.Server, params)
 	if err != nil {
@@ -9801,6 +10016,18 @@ func (c *APIClient) MarkFeatureReviewed(ctx context.Context, body MarkFeatureRev
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) ListFeaturesForConcern(ctx context.Context, params *ListFeaturesForConcernParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListFeaturesForConcernRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) GetFeatureCoverage(ctx context.Context, params *GetFeatureCoverageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetFeatureCoverageRequest(c.Server, params)
 	if err != nil {
@@ -10127,6 +10354,30 @@ func (c *APIClient) ListHistory(ctx context.Context, params *ListHistoryParams, 
 
 func (c *APIClient) ListIncompleteReports(ctx context.Context, params *ListIncompleteReportsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListIncompleteReportsRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ApplyIncompleteReportSideEffectsWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplyIncompleteReportSideEffectsRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ApplyIncompleteReportSideEffects(ctx context.Context, body ApplyIncompleteReportSideEffectsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewApplyIncompleteReportSideEffectsRequest(c.Server, body)
 	if err != nil {
 		return nil, err
 	}
@@ -10809,6 +11060,30 @@ func (c *APIClient) CreateVersionBranch(ctx context.Context, slug string, body C
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) GetBranchDoctorRung(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetBranchDoctorRungRequest(c.Server, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SeedVersionBranches(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSeedVersionBranchesRequest(c.Server, slug)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ShowVersionBranch(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewShowVersionBranchRequest(c.Server, slug, name)
 	if err != nil {
@@ -10823,6 +11098,30 @@ func (c *APIClient) ShowVersionBranch(ctx context.Context, slug string, name str
 
 func (c *APIClient) MarkVersionBranchEol(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewMarkVersionBranchEolRequest(c.Server, slug, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetVersionBranchSourceWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetVersionBranchSourceRequestWithBody(c.Server, slug, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetVersionBranchSource(ctx context.Context, slug string, name string, body SetVersionBranchSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetVersionBranchSourceRequest(c.Server, slug, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -11771,6 +12070,18 @@ func (c *APIClient) SoloUnblockAll(ctx context.Context, body SoloUnblockAllJSONR
 
 func (c *APIClient) ListSpecsBlockerResolved(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListSpecsBlockerResolvedRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListSpecsForConcern(ctx context.Context, params *ListSpecsForConcernParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListSpecsForConcernRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -13221,6 +13532,18 @@ func (c *APIClient) WriteTodos(ctx context.Context, body WriteTodosJSONRequestBo
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) GetTodoQueueHealth(ctx context.Context, params *GetTodoQueueHealthParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetTodoQueueHealthRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListWorklog(ctx context.Context, params *ListWorklogParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListWorklogRequest(c.Server, params)
 	if err != nil {
@@ -13271,6 +13594,18 @@ func (c *APIClient) AddEventCommentWithBody(ctx context.Context, contentType str
 
 func (c *APIClient) AddEventComment(ctx context.Context, body AddEventCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewAddEventCommentRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListStaleProposalStreams(ctx context.Context, params *ListStaleProposalStreamsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListStaleProposalStreamsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -13955,6 +14290,18 @@ func (c *APIClient) SetupBootstrapWithBody(ctx context.Context, contentType stri
 
 func (c *APIClient) SetupBootstrap(ctx context.Context, body SetupBootstrapJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewSetupBootstrapRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListStaleStreams(ctx context.Context, params *ListStaleStreamsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListStaleStreamsRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -15374,7 +15721,7 @@ func NewGetAgentBudgetRequest(server string, params *GetAgentBudgetParams) (*htt
 
 		if params.AgentId != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "agent_id", *params.AgentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "agent_id", *params.AgentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -15390,7 +15737,7 @@ func NewGetAgentBudgetRequest(server string, params *GetAgentBudgetParams) (*htt
 
 		if params.ProjectId != nil {
 
-			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
 				return nil, err
 			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 				return nil, err
@@ -18391,6 +18738,63 @@ func NewListConcernsForFeatureRequest(server string, params *ListConcernsForFeat
 	return req, nil
 }
 
+// NewGetConcernByIdRequest generates requests for GetConcernById
+func NewGetConcernByIdRequest(server string, params *GetConcernByIdParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/concerns/get")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "id", params.Id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListConcernsForSpecRequest generates requests for ListConcernsForSpec
 func NewListConcernsForSpecRequest(server string, params *ListConcernsForSpecParams) (*http.Request, error) {
 	var err error
@@ -20365,6 +20769,63 @@ func NewMarkFeatureReviewedRequestWithBody(server string, contentType string, bo
 	return req, nil
 }
 
+// NewListFeaturesForConcernRequest generates requests for ListFeaturesForConcern
+func NewListFeaturesForConcernRequest(server string, params *ListFeaturesForConcernParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/features/concern")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "concern_id", params.ConcernId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewGetFeatureCoverageRequest generates requests for GetFeatureCoverage
 func NewGetFeatureCoverageRequest(server string, params *GetFeatureCoverageParams) (*http.Request, error) {
 	var err error
@@ -21147,6 +21608,46 @@ func NewListIncompleteReportsRequest(server string, params *ListIncompleteReport
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewApplyIncompleteReportSideEffectsRequest calls the generic ApplyIncompleteReportSideEffects builder with application/json body
+func NewApplyIncompleteReportSideEffectsRequest(server string, body ApplyIncompleteReportSideEffectsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewApplyIncompleteReportSideEffectsRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewApplyIncompleteReportSideEffectsRequestWithBody generates requests for ApplyIncompleteReportSideEffects with any type of body
+func NewApplyIncompleteReportSideEffectsRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/incomplete-reports/apply")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -23152,6 +23653,74 @@ func NewCreateVersionBranchRequestWithBody(server string, slug string, contentTy
 	return req, nil
 }
 
+// NewGetBranchDoctorRungRequest generates requests for GetBranchDoctorRung
+func NewGetBranchDoctorRungRequest(server string, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches/doctor-rung", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSeedVersionBranchesRequest generates requests for SeedVersionBranches
+func NewSeedVersionBranchesRequest(server string, slug string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches/seed", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewShowVersionBranchRequest generates requests for ShowVersionBranch
 func NewShowVersionBranchRequest(server string, slug string, name string) (*http.Request, error) {
 	var err error
@@ -23230,6 +23799,60 @@ func NewMarkVersionBranchEolRequest(server string, slug string, name string) (*h
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewSetVersionBranchSourceRequest calls the generic SetVersionBranchSource builder with application/json body
+func NewSetVersionBranchSourceRequest(server string, slug string, name string, body SetVersionBranchSourceJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetVersionBranchSourceRequestWithBody(server, slug, name, "application/json", bodyReader)
+}
+
+// NewSetVersionBranchSourceRequestWithBody generates requests for SetVersionBranchSource with any type of body
+func NewSetVersionBranchSourceRequestWithBody(server string, slug string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches/%s/source", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -25986,6 +26609,51 @@ func NewListSpecsBlockerResolvedRequest(server string, params *ListSpecsBlockerR
 		queryValues := queryURL.Query()
 
 		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewListSpecsForConcernRequest generates requests for ListSpecsForConcern
+func NewListSpecsForConcernRequest(server string, params *ListSpecsForConcernParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/specs/concern")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "concern_id", params.ConcernId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
 			return nil, err
 		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
 			return nil, err
@@ -29974,6 +30642,51 @@ func NewWriteTodosRequestWithBody(server string, contentType string, body io.Rea
 	return req, nil
 }
 
+// NewGetTodoQueueHealthRequest generates requests for GetTodoQueueHealth
+func NewGetTodoQueueHealthRequest(server string, params *GetTodoQueueHealthParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/todos/queue-health")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListWorklogRequest generates requests for ListWorklog
 func NewListWorklogRequest(server string, params *ListWorklogParams) (*http.Request, error) {
 	var err error
@@ -30231,6 +30944,63 @@ func NewAddEventCommentRequestWithBody(server string, contentType string, body i
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListStaleProposalStreamsRequest generates requests for ListStaleProposalStreams
+func NewListStaleProposalStreamsRequest(server string, params *ListStaleProposalStreamsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/events/streams/stale")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "target_type", params.TargetType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -31774,6 +32544,67 @@ func NewSetupBootstrapRequestWithBody(server string, contentType string, body io
 	return req, nil
 }
 
+// NewListStaleStreamsRequest generates requests for ListStaleStreams
+func NewListStaleStreamsRequest(server string, params *ListStaleStreamsParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/streams/stale")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if params.TargetType != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", false, "target_type", *params.TargetType, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewDeleteTaskRequest calls the generic DeleteTask builder with application/json body
 func NewDeleteTaskRequest(server string, body DeleteTaskJSONRequestBody) (*http.Request, error) {
 	var bodyReader io.Reader
@@ -32769,6 +33600,9 @@ type ClientWithResponsesInterface interface {
 	// ListConcernsForFeatureWithResponse request
 	ListConcernsForFeatureWithResponse(ctx context.Context, params *ListConcernsForFeatureParams, reqEditors ...RequestEditorFn) (*ParsedListConcernsForFeatureResponse, error)
 
+	// GetConcernByIdWithResponse request
+	GetConcernByIdWithResponse(ctx context.Context, params *GetConcernByIdParams, reqEditors ...RequestEditorFn) (*GetConcernByIdResponse, error)
+
 	// ListConcernsForSpecWithResponse request
 	ListConcernsForSpecWithResponse(ctx context.Context, params *ListConcernsForSpecParams, reqEditors ...RequestEditorFn) (*ParsedListConcernsForSpecResponse, error)
 
@@ -32881,6 +33715,9 @@ type ClientWithResponsesInterface interface {
 
 	MarkFeatureReviewedWithResponse(ctx context.Context, body MarkFeatureReviewedJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkFeatureReviewedResponse, error)
 
+	// ListFeaturesForConcernWithResponse request
+	ListFeaturesForConcernWithResponse(ctx context.Context, params *ListFeaturesForConcernParams, reqEditors ...RequestEditorFn) (*ParsedListFeaturesForConcernResponse, error)
+
 	// GetFeatureCoverageWithResponse request
 	GetFeatureCoverageWithResponse(ctx context.Context, params *GetFeatureCoverageParams, reqEditors ...RequestEditorFn) (*ParsedGetFeatureCoverageResponse, error)
 
@@ -32953,6 +33790,11 @@ type ClientWithResponsesInterface interface {
 
 	// ListIncompleteReportsWithResponse request
 	ListIncompleteReportsWithResponse(ctx context.Context, params *ListIncompleteReportsParams, reqEditors ...RequestEditorFn) (*ParsedListIncompleteReportsResponse, error)
+
+	// ApplyIncompleteReportSideEffectsWithBodyWithResponse request with any body
+	ApplyIncompleteReportSideEffectsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedApplyIncompleteReportSideEffectsResponse, error)
+
+	ApplyIncompleteReportSideEffectsWithResponse(ctx context.Context, body ApplyIncompleteReportSideEffectsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedApplyIncompleteReportSideEffectsResponse, error)
 
 	// SimilarIssuesWithBodyWithResponse request with any body
 	SimilarIssuesWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSimilarIssuesResponse, error)
@@ -33103,11 +33945,22 @@ type ClientWithResponsesInterface interface {
 
 	CreateVersionBranchWithResponse(ctx context.Context, slug string, body CreateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*CreateVersionBranchResponse, error)
 
+	// GetBranchDoctorRungWithResponse request
+	GetBranchDoctorRungWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*GetBranchDoctorRungResponse, error)
+
+	// SeedVersionBranchesWithResponse request
+	SeedVersionBranchesWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*SeedVersionBranchesResponse, error)
+
 	// ShowVersionBranchWithResponse request
 	ShowVersionBranchWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*ShowVersionBranchResponse, error)
 
 	// MarkVersionBranchEolWithResponse request
 	MarkVersionBranchEolWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*MarkVersionBranchEolResponse, error)
+
+	// SetVersionBranchSourceWithBodyWithResponse request with any body
+	SetVersionBranchSourceWithBodyWithResponse(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetVersionBranchSourceResponse, error)
+
+	SetVersionBranchSourceWithResponse(ctx context.Context, slug string, name string, body SetVersionBranchSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetVersionBranchSourceResponse, error)
 
 	// ListEnvironmentsWithResponse request
 	ListEnvironmentsWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*ParsedListEnvironmentsResponse, error)
@@ -33318,6 +34171,9 @@ type ClientWithResponsesInterface interface {
 
 	// ListSpecsBlockerResolvedWithResponse request
 	ListSpecsBlockerResolvedWithResponse(ctx context.Context, params *ListSpecsBlockerResolvedParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsBlockerResolvedResponse, error)
+
+	// ListSpecsForConcernWithResponse request
+	ListSpecsForConcernWithResponse(ctx context.Context, params *ListSpecsForConcernParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsForConcernResponse, error)
 
 	// ListSpecDeferralsWithResponse request
 	ListSpecDeferralsWithResponse(ctx context.Context, params *ListSpecDeferralsParams, reqEditors ...RequestEditorFn) (*ParsedListSpecDeferralsResponse, error)
@@ -33636,6 +34492,9 @@ type ClientWithResponsesInterface interface {
 
 	WriteTodosWithResponse(ctx context.Context, body WriteTodosJSONRequestBody, reqEditors ...RequestEditorFn) (*WriteTodosResponse, error)
 
+	// GetTodoQueueHealthWithResponse request
+	GetTodoQueueHealthWithResponse(ctx context.Context, params *GetTodoQueueHealthParams, reqEditors ...RequestEditorFn) (*GetTodoQueueHealthResponse, error)
+
 	// ListWorklogWithResponse request
 	ListWorklogWithResponse(ctx context.Context, params *ListWorklogParams, reqEditors ...RequestEditorFn) (*ParsedListWorklogResponse, error)
 
@@ -33649,6 +34508,9 @@ type ClientWithResponsesInterface interface {
 	AddEventCommentWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*AddEventCommentResponse, error)
 
 	AddEventCommentWithResponse(ctx context.Context, body AddEventCommentJSONRequestBody, reqEditors ...RequestEditorFn) (*AddEventCommentResponse, error)
+
+	// ListStaleProposalStreamsWithResponse request
+	ListStaleProposalStreamsWithResponse(ctx context.Context, params *ListStaleProposalStreamsParams, reqEditors ...RequestEditorFn) (*ParsedListStaleProposalStreamsResponse, error)
 
 	// SetEventThreadTitleWithBodyWithResponse request with any body
 	SetEventThreadTitleWithBodyWithResponse(ctx context.Context, id int64, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetEventThreadTitleResponse, error)
@@ -33798,6 +34660,9 @@ type ClientWithResponsesInterface interface {
 	SetupBootstrapWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedSetupBootstrapResponse, error)
 
 	SetupBootstrapWithResponse(ctx context.Context, body SetupBootstrapJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedSetupBootstrapResponse, error)
+
+	// ListStaleStreamsWithResponse request
+	ListStaleStreamsWithResponse(ctx context.Context, params *ListStaleStreamsParams, reqEditors ...RequestEditorFn) (*ParsedListStaleStreamsResponse, error)
 
 	// DeleteTaskWithBodyWithResponse request with any body
 	DeleteTaskWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*DeleteTaskResponse, error)
@@ -35862,6 +36727,29 @@ func (r ParsedListConcernsForFeatureResponse) StatusCode() int {
 	return 0
 }
 
+type GetConcernByIdResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ConcernItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetConcernByIdResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetConcernByIdResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListConcernsForSpecResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -36594,6 +37482,29 @@ func (r MarkFeatureReviewedResponse) StatusCode() int {
 	return 0
 }
 
+type ParsedListFeaturesForConcernResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListFeaturesForConcernResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListFeaturesForConcernResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListFeaturesForConcernResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedGetFeatureCoverageResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -36979,6 +37890,29 @@ func (r ParsedListIncompleteReportsResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListIncompleteReportsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedApplyIncompleteReportSideEffectsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ApplyIncompleteReportSideEffectsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedApplyIncompleteReportSideEffectsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedApplyIncompleteReportSideEffectsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -37836,6 +38770,51 @@ func (r CreateVersionBranchResponse) StatusCode() int {
 	return 0
 }
 
+type GetBranchDoctorRungResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *BranchDoctorRungResult
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetBranchDoctorRungResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetBranchDoctorRungResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SeedVersionBranchesResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SeedVersionBranchesResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SeedVersionBranchesResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ShowVersionBranchResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -37876,6 +38855,29 @@ func (r MarkVersionBranchEolResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r MarkVersionBranchEolResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SetVersionBranchSourceResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SetVersionBranchSourceResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetVersionBranchSourceResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -39072,6 +40074,29 @@ func (r ParsedListSpecsBlockerResolvedResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListSpecsBlockerResolvedResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListSpecsForConcernResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListSpecsForConcernResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListSpecsForConcernResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListSpecsForConcernResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -40849,6 +41874,29 @@ func (r WriteTodosResponse) StatusCode() int {
 	return 0
 }
 
+type GetTodoQueueHealthResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *TodoQueueHealthBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetTodoQueueHealthResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetTodoQueueHealthResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListWorklogResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -40934,6 +41982,29 @@ func (r AddEventCommentResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r AddEventCommentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListStaleProposalStreamsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListStaleProposalStreamsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListStaleProposalStreamsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListStaleProposalStreamsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -41737,6 +42808,29 @@ func (r ParsedSetupBootstrapResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedSetupBootstrapResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListStaleStreamsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListStaleStreamsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListStaleStreamsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListStaleStreamsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -43105,6 +44199,15 @@ func (c *ClientWithResponses) ListConcernsForFeatureWithResponse(ctx context.Con
 	return ParseParsedListConcernsForFeatureResponse(rsp)
 }
 
+// GetConcernByIdWithResponse request returning *GetConcernByIdResponse
+func (c *ClientWithResponses) GetConcernByIdWithResponse(ctx context.Context, params *GetConcernByIdParams, reqEditors ...RequestEditorFn) (*GetConcernByIdResponse, error) {
+	rsp, err := c.GetConcernById(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetConcernByIdResponse(rsp)
+}
+
 // ListConcernsForSpecWithResponse request returning *ParsedListConcernsForSpecResponse
 func (c *ClientWithResponses) ListConcernsForSpecWithResponse(ctx context.Context, params *ListConcernsForSpecParams, reqEditors ...RequestEditorFn) (*ParsedListConcernsForSpecResponse, error) {
 	rsp, err := c.ListConcernsForSpec(ctx, params, reqEditors...)
@@ -43457,6 +44560,15 @@ func (c *ClientWithResponses) MarkFeatureReviewedWithResponse(ctx context.Contex
 	return ParseMarkFeatureReviewedResponse(rsp)
 }
 
+// ListFeaturesForConcernWithResponse request returning *ParsedListFeaturesForConcernResponse
+func (c *ClientWithResponses) ListFeaturesForConcernWithResponse(ctx context.Context, params *ListFeaturesForConcernParams, reqEditors ...RequestEditorFn) (*ParsedListFeaturesForConcernResponse, error) {
+	rsp, err := c.ListFeaturesForConcern(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListFeaturesForConcernResponse(rsp)
+}
+
 // GetFeatureCoverageWithResponse request returning *ParsedGetFeatureCoverageResponse
 func (c *ClientWithResponses) GetFeatureCoverageWithResponse(ctx context.Context, params *GetFeatureCoverageParams, reqEditors ...RequestEditorFn) (*ParsedGetFeatureCoverageResponse, error) {
 	rsp, err := c.GetFeatureCoverage(ctx, params, reqEditors...)
@@ -43696,6 +44808,23 @@ func (c *ClientWithResponses) ListIncompleteReportsWithResponse(ctx context.Cont
 		return nil, err
 	}
 	return ParseParsedListIncompleteReportsResponse(rsp)
+}
+
+// ApplyIncompleteReportSideEffectsWithBodyWithResponse request with arbitrary body returning *ParsedApplyIncompleteReportSideEffectsResponse
+func (c *ClientWithResponses) ApplyIncompleteReportSideEffectsWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedApplyIncompleteReportSideEffectsResponse, error) {
+	rsp, err := c.ApplyIncompleteReportSideEffectsWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedApplyIncompleteReportSideEffectsResponse(rsp)
+}
+
+func (c *ClientWithResponses) ApplyIncompleteReportSideEffectsWithResponse(ctx context.Context, body ApplyIncompleteReportSideEffectsJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedApplyIncompleteReportSideEffectsResponse, error) {
+	rsp, err := c.ApplyIncompleteReportSideEffects(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedApplyIncompleteReportSideEffectsResponse(rsp)
 }
 
 // SimilarIssuesWithBodyWithResponse request with arbitrary body returning *ParsedSimilarIssuesResponse
@@ -44183,6 +45312,24 @@ func (c *ClientWithResponses) CreateVersionBranchWithResponse(ctx context.Contex
 	return ParseCreateVersionBranchResponse(rsp)
 }
 
+// GetBranchDoctorRungWithResponse request returning *GetBranchDoctorRungResponse
+func (c *ClientWithResponses) GetBranchDoctorRungWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*GetBranchDoctorRungResponse, error) {
+	rsp, err := c.GetBranchDoctorRung(ctx, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetBranchDoctorRungResponse(rsp)
+}
+
+// SeedVersionBranchesWithResponse request returning *SeedVersionBranchesResponse
+func (c *ClientWithResponses) SeedVersionBranchesWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*SeedVersionBranchesResponse, error) {
+	rsp, err := c.SeedVersionBranches(ctx, slug, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSeedVersionBranchesResponse(rsp)
+}
+
 // ShowVersionBranchWithResponse request returning *ShowVersionBranchResponse
 func (c *ClientWithResponses) ShowVersionBranchWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*ShowVersionBranchResponse, error) {
 	rsp, err := c.ShowVersionBranch(ctx, slug, name, reqEditors...)
@@ -44199,6 +45346,23 @@ func (c *ClientWithResponses) MarkVersionBranchEolWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseMarkVersionBranchEolResponse(rsp)
+}
+
+// SetVersionBranchSourceWithBodyWithResponse request with arbitrary body returning *SetVersionBranchSourceResponse
+func (c *ClientWithResponses) SetVersionBranchSourceWithBodyWithResponse(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetVersionBranchSourceResponse, error) {
+	rsp, err := c.SetVersionBranchSourceWithBody(ctx, slug, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetVersionBranchSourceResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetVersionBranchSourceWithResponse(ctx context.Context, slug string, name string, body SetVersionBranchSourceJSONRequestBody, reqEditors ...RequestEditorFn) (*SetVersionBranchSourceResponse, error) {
+	rsp, err := c.SetVersionBranchSource(ctx, slug, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetVersionBranchSourceResponse(rsp)
 }
 
 // ListEnvironmentsWithResponse request returning *ParsedListEnvironmentsResponse
@@ -44883,6 +46047,15 @@ func (c *ClientWithResponses) ListSpecsBlockerResolvedWithResponse(ctx context.C
 		return nil, err
 	}
 	return ParseParsedListSpecsBlockerResolvedResponse(rsp)
+}
+
+// ListSpecsForConcernWithResponse request returning *ParsedListSpecsForConcernResponse
+func (c *ClientWithResponses) ListSpecsForConcernWithResponse(ctx context.Context, params *ListSpecsForConcernParams, reqEditors ...RequestEditorFn) (*ParsedListSpecsForConcernResponse, error) {
+	rsp, err := c.ListSpecsForConcern(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListSpecsForConcernResponse(rsp)
 }
 
 // ListSpecDeferralsWithResponse request returning *ParsedListSpecDeferralsResponse
@@ -45922,6 +47095,15 @@ func (c *ClientWithResponses) WriteTodosWithResponse(ctx context.Context, body W
 	return ParseWriteTodosResponse(rsp)
 }
 
+// GetTodoQueueHealthWithResponse request returning *GetTodoQueueHealthResponse
+func (c *ClientWithResponses) GetTodoQueueHealthWithResponse(ctx context.Context, params *GetTodoQueueHealthParams, reqEditors ...RequestEditorFn) (*GetTodoQueueHealthResponse, error) {
+	rsp, err := c.GetTodoQueueHealth(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetTodoQueueHealthResponse(rsp)
+}
+
 // ListWorklogWithResponse request returning *ParsedListWorklogResponse
 func (c *ClientWithResponses) ListWorklogWithResponse(ctx context.Context, params *ListWorklogParams, reqEditors ...RequestEditorFn) (*ParsedListWorklogResponse, error) {
 	rsp, err := c.ListWorklog(ctx, params, reqEditors...)
@@ -45964,6 +47146,15 @@ func (c *ClientWithResponses) AddEventCommentWithResponse(ctx context.Context, b
 		return nil, err
 	}
 	return ParseAddEventCommentResponse(rsp)
+}
+
+// ListStaleProposalStreamsWithResponse request returning *ParsedListStaleProposalStreamsResponse
+func (c *ClientWithResponses) ListStaleProposalStreamsWithResponse(ctx context.Context, params *ListStaleProposalStreamsParams, reqEditors ...RequestEditorFn) (*ParsedListStaleProposalStreamsResponse, error) {
+	rsp, err := c.ListStaleProposalStreams(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListStaleProposalStreamsResponse(rsp)
 }
 
 // SetEventThreadTitleWithBodyWithResponse request with arbitrary body returning *SetEventThreadTitleResponse
@@ -46455,6 +47646,15 @@ func (c *ClientWithResponses) SetupBootstrapWithResponse(ctx context.Context, bo
 		return nil, err
 	}
 	return ParseParsedSetupBootstrapResponse(rsp)
+}
+
+// ListStaleStreamsWithResponse request returning *ParsedListStaleStreamsResponse
+func (c *ClientWithResponses) ListStaleStreamsWithResponse(ctx context.Context, params *ListStaleStreamsParams, reqEditors ...RequestEditorFn) (*ParsedListStaleStreamsResponse, error) {
+	rsp, err := c.ListStaleStreams(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListStaleStreamsResponse(rsp)
 }
 
 // DeleteTaskWithBodyWithResponse request with arbitrary body returning *DeleteTaskResponse
@@ -49453,6 +50653,39 @@ func ParseParsedListConcernsForFeatureResponse(rsp *http.Response) (*ParsedListC
 	return response, nil
 }
 
+// ParseGetConcernByIdResponse parses an HTTP response from a GetConcernByIdWithResponse call
+func ParseGetConcernByIdResponse(rsp *http.Response) (*GetConcernByIdResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetConcernByIdResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ConcernItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListConcernsForSpecResponse parses an HTTP response from a ListConcernsForSpecWithResponse call
 func ParseParsedListConcernsForSpecResponse(rsp *http.Response) (*ParsedListConcernsForSpecResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -50481,6 +51714,39 @@ func ParseMarkFeatureReviewedResponse(rsp *http.Response) (*MarkFeatureReviewedR
 	return response, nil
 }
 
+// ParseParsedListFeaturesForConcernResponse parses an HTTP response from a ListFeaturesForConcernWithResponse call
+func ParseParsedListFeaturesForConcernResponse(rsp *http.Response) (*ParsedListFeaturesForConcernResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListFeaturesForConcernResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListFeaturesForConcernResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedGetFeatureCoverageResponse parses an HTTP response from a GetFeatureCoverageWithResponse call
 func ParseParsedGetFeatureCoverageResponse(rsp *http.Response) (*ParsedGetFeatureCoverageResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -51025,6 +52291,39 @@ func ParseParsedListIncompleteReportsResponse(rsp *http.Response) (*ParsedListIn
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListIncompleteReportsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedApplyIncompleteReportSideEffectsResponse parses an HTTP response from a ApplyIncompleteReportSideEffectsWithResponse call
+func ParseParsedApplyIncompleteReportSideEffectsResponse(rsp *http.Response) (*ParsedApplyIncompleteReportSideEffectsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedApplyIncompleteReportSideEffectsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ApplyIncompleteReportSideEffectsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -52263,6 +53562,65 @@ func ParseCreateVersionBranchResponse(rsp *http.Response) (*CreateVersionBranchR
 	return response, nil
 }
 
+// ParseGetBranchDoctorRungResponse parses an HTTP response from a GetBranchDoctorRungWithResponse call
+func ParseGetBranchDoctorRungResponse(rsp *http.Response) (*GetBranchDoctorRungResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetBranchDoctorRungResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BranchDoctorRungResult
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSeedVersionBranchesResponse parses an HTTP response from a SeedVersionBranchesWithResponse call
+func ParseSeedVersionBranchesResponse(rsp *http.Response) (*SeedVersionBranchesResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SeedVersionBranchesResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseShowVersionBranchResponse parses an HTTP response from a ShowVersionBranchWithResponse call
 func ParseShowVersionBranchResponse(rsp *http.Response) (*ShowVersionBranchResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -52305,6 +53663,39 @@ func ParseMarkVersionBranchEolResponse(rsp *http.Response) (*MarkVersionBranchEo
 	}
 
 	response := &MarkVersionBranchEolResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetVersionBranchSourceResponse parses an HTTP response from a SetVersionBranchSourceWithResponse call
+func ParseSetVersionBranchSourceResponse(rsp *http.Response) (*SetVersionBranchSourceResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetVersionBranchSourceResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
@@ -54028,6 +55419,39 @@ func ParseParsedListSpecsBlockerResolvedResponse(rsp *http.Response) (*ParsedLis
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListSpecsBlockerResolvedResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListSpecsForConcernResponse parses an HTTP response from a ListSpecsForConcernWithResponse call
+func ParseParsedListSpecsForConcernResponse(rsp *http.Response) (*ParsedListSpecsForConcernResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListSpecsForConcernResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListSpecsForConcernResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -56586,6 +58010,39 @@ func ParseWriteTodosResponse(rsp *http.Response) (*WriteTodosResponse, error) {
 	return response, nil
 }
 
+// ParseGetTodoQueueHealthResponse parses an HTTP response from a GetTodoQueueHealthWithResponse call
+func ParseGetTodoQueueHealthResponse(rsp *http.Response) (*GetTodoQueueHealthResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetTodoQueueHealthResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest TodoQueueHealthBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListWorklogResponse parses an HTTP response from a ListWorklogWithResponse call
 func ParseParsedListWorklogResponse(rsp *http.Response) (*ParsedListWorklogResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -56694,6 +58151,39 @@ func ParseAddEventCommentResponse(rsp *http.Response) (*AddEventCommentResponse,
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest EventItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListStaleProposalStreamsResponse parses an HTTP response from a ListStaleProposalStreamsWithResponse call
+func ParseParsedListStaleProposalStreamsResponse(rsp *http.Response) (*ParsedListStaleProposalStreamsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListStaleProposalStreamsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListStaleProposalStreamsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -57835,6 +59325,39 @@ func ParseParsedSetupBootstrapResponse(rsp *http.Response) (*ParsedSetupBootstra
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest SetupBootstrapResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListStaleStreamsResponse parses an HTTP response from a ListStaleStreamsWithResponse call
+func ParseParsedListStaleStreamsResponse(rsp *http.Response) (*ParsedListStaleStreamsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListStaleStreamsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListStaleStreamsResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}

@@ -83,22 +83,28 @@ var MetaAggregateTodoIncompleteReports = metaquery.Query{
 	Name:   "AggregateTodoIncompleteReports",
 	Cmd:    ":many",
 	Source: "todo_incomplete_reports.sql",
-	SQL: `SELECT reason,
-       evidence_fingerprint,
-       COUNT(*)::bigint                    AS total_count,
-       array_agg(DISTINCT todo_id)::int[]  AS affected_todo_ids,
-       MAX(created_at)                     AS last_seen
-FROM zdx_todo_incomplete_reports
-WHERE project_id = $1
-  AND ($2::text IS NULL OR reason = $2::text)
-GROUP BY reason, evidence_fingerprint
+	SQL: `SELECT r.reason,
+       r.evidence_fingerprint,
+       COUNT(*)::bigint                       AS total_count,
+       array_agg(DISTINCT r.todo_id)::int[]   AS affected_todo_ids,
+       array_agg(DISTINCT t.key)::text[]      AS affected_todo_keys,
+       MAX(r.created_at)                      AS last_seen,
+       ((array_agg(r.suggested_next ORDER BY r.created_at DESC)
+            FILTER (WHERE r.suggested_next != '{}'::jsonb))[1])::jsonb AS suggested_next
+FROM zdx_todo_incomplete_reports r
+JOIN zdx_todos t ON t.id = r.todo_id
+WHERE r.project_id = $1
+  AND ($2::text IS NULL OR r.reason = $2::text)
+GROUP BY r.reason, r.evidence_fingerprint
 ORDER BY total_count DESC, last_seen DESC`,
 	Columns: []metaquery.Column{
 		{Name: "reason", OriginalName: "reason", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todo_incomplete_reports"},
 		{Name: "evidence_fingerprint", OriginalName: "evidence_fingerprint", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_todo_incomplete_reports"},
 		{Name: "total_count", OriginalName: "total_count", GoType: "int64", DBType: "int8", NotNull: true},
 		{Name: "affected_todo_ids", OriginalName: "affected_todo_ids", GoType: "[]int32", DBType: "int4", NotNull: true, IsArray: true},
+		{Name: "affected_todo_keys", OriginalName: "affected_todo_keys", GoType: "[]string", DBType: "text", NotNull: true, IsArray: true},
 		{Name: "last_seen", OriginalName: "last_seen", GoType: "interface{}", DBType: "anyarray", NotNull: true},
+		{Name: "suggested_next", OriginalName: "suggested_next", GoType: "[]byte", DBType: "jsonb", NotNull: true},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -117,13 +123,17 @@ var AggregateTodoIncompleteReportsCols = struct {
 	EvidenceFingerprint metaquery.TextCol
 	TotalCount          metaquery.IntCol
 	AffectedTodoIds     metaquery.AnyCol
+	AffectedTodoKeys    metaquery.AnyCol
 	LastSeen            metaquery.AnyCol
+	SuggestedNext       metaquery.BytesCol
 }{
 	Reason:              metaquery.NewTextCol("reason"),
 	EvidenceFingerprint: metaquery.NewTextCol("evidence_fingerprint"),
 	TotalCount:          metaquery.NewIntCol("total_count"),
 	AffectedTodoIds:     metaquery.NewAnyCol("affected_todo_ids"),
+	AffectedTodoKeys:    metaquery.NewAnyCol("affected_todo_keys"),
 	LastSeen:            metaquery.NewAnyCol("last_seen"),
+	SuggestedNext:       metaquery.NewBytesCol("suggested_next"),
 }
 
 var MetaGetTodoIncompleteReportsByTodo = metaquery.Query{

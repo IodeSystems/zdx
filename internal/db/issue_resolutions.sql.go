@@ -213,7 +213,7 @@ const listUnresolvedNamedBranchesForIssue = `-- name: ListUnresolvedNamedBranche
 SELECT vb.name
 FROM zdx_version_branches vb
 WHERE vb.project_id = $1
-  AND vb.type = 'named'
+  AND vb.role = 'named-release'
   AND vb.status = 'active'
   AND NOT EXISTS (
     SELECT 1 FROM zdx_issue_resolutions r

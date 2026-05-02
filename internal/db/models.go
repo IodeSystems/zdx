@@ -250,6 +250,7 @@ type ZdxEnvironment struct {
 	DeployedByUserID   pgtype.Int4        `db:"deployed_by_user_id" json:"deployed_by_user_id"`
 	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
 	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
+	TrunkBranch        string             `db:"trunk_branch" json:"trunk_branch"`
 }
 
 type ZdxErrorEvent struct {
@@ -288,6 +289,7 @@ type ZdxEvent struct {
 	DetailJson         []byte             `db:"detail_json" json:"detail_json"`
 	AgentProcessResult []byte             `db:"agent_process_result" json:"agent_process_result"`
 	CreatedAt          pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	AddressingEventID  pgtype.Int8        `db:"addressing_event_id" json:"addressing_event_id"`
 }
 
 type ZdxEventStream struct {
@@ -375,6 +377,16 @@ type ZdxGoalIssue struct {
 type ZdxIDSeq struct {
 	Kind    string `db:"kind" json:"kind"`
 	NextVal int32  `db:"next_val" json:"next_val"`
+}
+
+type ZdxIncompleteReportSideEffect struct {
+	ID                  int64              `db:"id" json:"id"`
+	ProjectID           int32              `db:"project_id" json:"project_id"`
+	Reason              string             `db:"reason" json:"reason"`
+	EvidenceFingerprint string             `db:"evidence_fingerprint" json:"evidence_fingerprint"`
+	ActionType          string             `db:"action_type" json:"action_type"`
+	Meta                []byte             `db:"meta" json:"meta"`
+	FiredAt             pgtype.Timestamptz `db:"fired_at" json:"fired_at"`
 }
 
 type ZdxIntegrationToken struct {
@@ -1029,13 +1041,15 @@ type ZdxUser struct {
 }
 
 type ZdxVersionBranch struct {
-	ID        int64              `db:"id" json:"id"`
-	ProjectID int32              `db:"project_id" json:"project_id"`
-	Name      string             `db:"name" json:"name"`
-	Type      string             `db:"type" json:"type"`
-	Semver    pgtype.Text        `db:"semver" json:"semver"`
-	Status    string             `db:"status" json:"status"`
-	CreatedAt pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	ID               int64              `db:"id" json:"id"`
+	ProjectID        int32              `db:"project_id" json:"project_id"`
+	Name             string             `db:"name" json:"name"`
+	Semver           pgtype.Text        `db:"semver" json:"semver"`
+	Status           string             `db:"status" json:"status"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	Role             string             `db:"role" json:"role"`
+	SourceBranchName pgtype.Text        `db:"source_branch_name" json:"source_branch_name"`
+	AutoSeed         bool               `db:"auto_seed" json:"auto_seed"`
 }
 
 type ZdxWorkLog struct {

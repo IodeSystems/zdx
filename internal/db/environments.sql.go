@@ -53,9 +53,9 @@ func (q *Queries) CreateDeploy(ctx context.Context, arg CreateDeployParams) (Zdx
 }
 
 const createEnvironment = `-- name: CreateEnvironment :one
-INSERT INTO zdx_environments (project_id, name, url, release_branch)
-VALUES ($1, $2, $3, $4)
-RETURNING id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+INSERT INTO zdx_environments (project_id, name, url, release_branch, trunk_branch)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 `
 
 type CreateEnvironmentParams struct {
@@ -63,6 +63,7 @@ type CreateEnvironmentParams struct {
 	Name          string `db:"name" json:"name"`
 	Url           string `db:"url" json:"url"`
 	ReleaseBranch string `db:"release_branch" json:"release_branch"`
+	TrunkBranch   string `db:"trunk_branch" json:"trunk_branch"`
 }
 
 type CreateEnvironmentRow struct {
@@ -71,6 +72,7 @@ type CreateEnvironmentRow struct {
 	Name               string             `db:"name" json:"name"`
 	Url                string             `db:"url" json:"url"`
 	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
+	TrunkBranch        string             `db:"trunk_branch" json:"trunk_branch"`
 	CurrentBuildSha    string             `db:"current_build_sha" json:"current_build_sha"`
 	CurrentBuildBranch string             `db:"current_build_branch" json:"current_build_branch"`
 	DeployedAt         pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
@@ -84,6 +86,7 @@ func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentPa
 		arg.Name,
 		arg.Url,
 		arg.ReleaseBranch,
+		arg.TrunkBranch,
 	)
 	var i CreateEnvironmentRow
 	err := row.Scan(
@@ -92,6 +95,7 @@ func (q *Queries) CreateEnvironment(ctx context.Context, arg CreateEnvironmentPa
 		&i.Name,
 		&i.Url,
 		&i.ReleaseBranch,
+		&i.TrunkBranch,
 		&i.CurrentBuildSha,
 		&i.CurrentBuildBranch,
 		&i.DeployedAt,
@@ -116,7 +120,7 @@ func (q *Queries) DeleteEnvironment(ctx context.Context, arg DeleteEnvironmentPa
 }
 
 const getEnvironment = `-- name: GetEnvironment :one
-SELECT id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+SELECT id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 FROM zdx_environments WHERE project_id = $1 AND name = $2
 `
 
@@ -131,6 +135,7 @@ type GetEnvironmentRow struct {
 	Name               string             `db:"name" json:"name"`
 	Url                string             `db:"url" json:"url"`
 	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
+	TrunkBranch        string             `db:"trunk_branch" json:"trunk_branch"`
 	CurrentBuildSha    string             `db:"current_build_sha" json:"current_build_sha"`
 	CurrentBuildBranch string             `db:"current_build_branch" json:"current_build_branch"`
 	DeployedAt         pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
@@ -147,6 +152,7 @@ func (q *Queries) GetEnvironment(ctx context.Context, arg GetEnvironmentParams) 
 		&i.Name,
 		&i.Url,
 		&i.ReleaseBranch,
+		&i.TrunkBranch,
 		&i.CurrentBuildSha,
 		&i.CurrentBuildBranch,
 		&i.DeployedAt,
@@ -192,7 +198,7 @@ func (q *Queries) ListDeploys(ctx context.Context, environmentID int32) ([]ZdxDe
 }
 
 const listEnvironments = `-- name: ListEnvironments :many
-SELECT id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+SELECT id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 FROM zdx_environments WHERE project_id = $1 ORDER BY name ASC
 `
 
@@ -202,6 +208,7 @@ type ListEnvironmentsRow struct {
 	Name               string             `db:"name" json:"name"`
 	Url                string             `db:"url" json:"url"`
 	ReleaseBranch      string             `db:"release_branch" json:"release_branch"`
+	TrunkBranch        string             `db:"trunk_branch" json:"trunk_branch"`
 	CurrentBuildSha    string             `db:"current_build_sha" json:"current_build_sha"`
 	CurrentBuildBranch string             `db:"current_build_branch" json:"current_build_branch"`
 	DeployedAt         pgtype.Timestamptz `db:"deployed_at" json:"deployed_at"`
@@ -224,6 +231,7 @@ func (q *Queries) ListEnvironments(ctx context.Context, projectID int32) ([]List
 			&i.Name,
 			&i.Url,
 			&i.ReleaseBranch,
+			&i.TrunkBranch,
 			&i.CurrentBuildSha,
 			&i.CurrentBuildBranch,
 			&i.DeployedAt,
@@ -243,13 +251,15 @@ func (q *Queries) ListEnvironments(ctx context.Context, projectID int32) ([]List
 const updateEnvironment = `-- name: UpdateEnvironment :exec
 UPDATE zdx_environments
 SET url            = COALESCE(NULLIF($1, ''), url),
-    release_branch = COALESCE(NULLIF($2, ''), release_branch)
-WHERE project_id = $3 AND name = $4
+    release_branch = COALESCE(NULLIF($2, ''), release_branch),
+    trunk_branch   = COALESCE(NULLIF($3, ''), trunk_branch)
+WHERE project_id = $4 AND name = $5
 `
 
 type UpdateEnvironmentParams struct {
 	Url           interface{} `db:"url" json:"url"`
 	ReleaseBranch interface{} `db:"release_branch" json:"release_branch"`
+	TrunkBranch   interface{} `db:"trunk_branch" json:"trunk_branch"`
 	ProjectID     int32       `db:"project_id" json:"project_id"`
 	Name          string      `db:"name" json:"name"`
 }
@@ -258,6 +268,7 @@ func (q *Queries) UpdateEnvironment(ctx context.Context, arg UpdateEnvironmentPa
 	_, err := q.db.Exec(ctx, updateEnvironment,
 		arg.Url,
 		arg.ReleaseBranch,
+		arg.TrunkBranch,
 		arg.ProjectID,
 		arg.Name,
 	)

@@ -62,15 +62,19 @@ func (q *Queries) AddTodoIncompleteReport(ctx context.Context, arg AddTodoIncomp
 }
 
 const aggregateTodoIncompleteReports = `-- name: AggregateTodoIncompleteReports :many
-SELECT reason,
-       evidence_fingerprint,
-       COUNT(*)::bigint                    AS total_count,
-       array_agg(DISTINCT todo_id)::int[]  AS affected_todo_ids,
-       MAX(created_at)                     AS last_seen
-FROM zdx_todo_incomplete_reports
-WHERE project_id = $1
-  AND ($2::text IS NULL OR reason = $2::text)
-GROUP BY reason, evidence_fingerprint
+SELECT r.reason,
+       r.evidence_fingerprint,
+       COUNT(*)::bigint                       AS total_count,
+       array_agg(DISTINCT r.todo_id)::int[]   AS affected_todo_ids,
+       array_agg(DISTINCT t.key)::text[]      AS affected_todo_keys,
+       MAX(r.created_at)                      AS last_seen,
+       ((array_agg(r.suggested_next ORDER BY r.created_at DESC)
+            FILTER (WHERE r.suggested_next != '{}'::jsonb))[1])::jsonb AS suggested_next
+FROM zdx_todo_incomplete_reports r
+JOIN zdx_todos t ON t.id = r.todo_id
+WHERE r.project_id = $1
+  AND ($2::text IS NULL OR r.reason = $2::text)
+GROUP BY r.reason, r.evidence_fingerprint
 ORDER BY total_count DESC, last_seen DESC
 `
 
@@ -84,7 +88,9 @@ type AggregateTodoIncompleteReportsRow struct {
 	EvidenceFingerprint string      `db:"evidence_fingerprint" json:"evidence_fingerprint"`
 	TotalCount          int64       `db:"total_count" json:"total_count"`
 	AffectedTodoIds     []int32     `db:"affected_todo_ids" json:"affected_todo_ids"`
+	AffectedTodoKeys    []string    `db:"affected_todo_keys" json:"affected_todo_keys"`
 	LastSeen            interface{} `db:"last_seen" json:"last_seen"`
+	SuggestedNext       []byte      `db:"suggested_next" json:"suggested_next"`
 }
 
 func (q *Queries) AggregateTodoIncompleteReports(ctx context.Context, arg AggregateTodoIncompleteReportsParams) ([]AggregateTodoIncompleteReportsRow, error) {
@@ -101,7 +107,9 @@ func (q *Queries) AggregateTodoIncompleteReports(ctx context.Context, arg Aggreg
 			&i.EvidenceFingerprint,
 			&i.TotalCount,
 			&i.AffectedTodoIds,
+			&i.AffectedTodoKeys,
 			&i.LastSeen,
+			&i.SuggestedNext,
 		); err != nil {
 			return nil, err
 		}

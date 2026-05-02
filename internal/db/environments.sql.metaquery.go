@@ -73,15 +73,16 @@ var MetaCreateEnvironment = metaquery.Query{
 	Name:   "CreateEnvironment",
 	Cmd:    ":one",
 	Source: "environments.sql",
-	SQL: `INSERT INTO zdx_environments (project_id, name, url, release_branch)
-VALUES ($1, $2, $3, $4)
-RETURNING id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at`,
+	SQL: `INSERT INTO zdx_environments (project_id, name, url, release_branch, trunk_branch)
+VALUES ($1, $2, $3, $4, $5)
+RETURNING id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_environments"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_environments"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "url", OriginalName: "url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "release_branch", OriginalName: "release_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
+		{Name: "trunk_branch", OriginalName: "trunk_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "current_build_sha", OriginalName: "current_build_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "current_build_branch", OriginalName: "current_build_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "deployed_at", OriginalName: "deployed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_environments"},
@@ -93,13 +94,14 @@ RETURNING id, project_id, name, url, release_branch, current_build_sha, current_
 		{Position: 2, Name: "name", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 3, Name: "url", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 4, Name: "release_branch", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 5, Name: "trunk_branch", GoType: "string", DBType: "text", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_environments"},
 }
 
 // WrapCreateEnvironment returns a metaquery.Builder over MetaCreateEnvironment, pre-bound with typed arguments.
 func WrapCreateEnvironment(arg CreateEnvironmentParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateEnvironment, arg.ProjectID, arg.Name, arg.Url, arg.ReleaseBranch)
+	return metaquery.Wrap(&MetaCreateEnvironment, arg.ProjectID, arg.Name, arg.Url, arg.ReleaseBranch, arg.TrunkBranch)
 }
 
 // CreateEnvironmentCols gives typed, name-safe access to CreateEnvironment's output columns.
@@ -109,6 +111,7 @@ var CreateEnvironmentCols = struct {
 	Name               metaquery.TextCol
 	Url                metaquery.TextCol
 	ReleaseBranch      metaquery.TextCol
+	TrunkBranch        metaquery.TextCol
 	CurrentBuildSha    metaquery.TextCol
 	CurrentBuildBranch metaquery.TextCol
 	DeployedAt         metaquery.TimeCol
@@ -120,6 +123,7 @@ var CreateEnvironmentCols = struct {
 	Name:               metaquery.NewTextCol("name"),
 	Url:                metaquery.NewTextCol("url"),
 	ReleaseBranch:      metaquery.NewTextCol("release_branch"),
+	TrunkBranch:        metaquery.NewTextCol("trunk_branch"),
 	CurrentBuildSha:    metaquery.NewTextCol("current_build_sha"),
 	CurrentBuildBranch: metaquery.NewTextCol("current_build_branch"),
 	DeployedAt:         metaquery.NewTimeCol("deployed_at"),
@@ -147,7 +151,7 @@ var MetaGetEnvironment = metaquery.Query{
 	Name:   "GetEnvironment",
 	Cmd:    ":one",
 	Source: "environments.sql",
-	SQL: `SELECT id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+	SQL: `SELECT id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 FROM zdx_environments WHERE project_id = $1 AND name = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_environments"},
@@ -155,6 +159,7 @@ FROM zdx_environments WHERE project_id = $1 AND name = $2`,
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "url", OriginalName: "url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "release_branch", OriginalName: "release_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
+		{Name: "trunk_branch", OriginalName: "trunk_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "current_build_sha", OriginalName: "current_build_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "current_build_branch", OriginalName: "current_build_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "deployed_at", OriginalName: "deployed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_environments"},
@@ -179,6 +184,7 @@ var GetEnvironmentCols = struct {
 	Name               metaquery.TextCol
 	Url                metaquery.TextCol
 	ReleaseBranch      metaquery.TextCol
+	TrunkBranch        metaquery.TextCol
 	CurrentBuildSha    metaquery.TextCol
 	CurrentBuildBranch metaquery.TextCol
 	DeployedAt         metaquery.TimeCol
@@ -190,6 +196,7 @@ var GetEnvironmentCols = struct {
 	Name:               metaquery.NewTextCol("name"),
 	Url:                metaquery.NewTextCol("url"),
 	ReleaseBranch:      metaquery.NewTextCol("release_branch"),
+	TrunkBranch:        metaquery.NewTextCol("trunk_branch"),
 	CurrentBuildSha:    metaquery.NewTextCol("current_build_sha"),
 	CurrentBuildBranch: metaquery.NewTextCol("current_build_branch"),
 	DeployedAt:         metaquery.NewTimeCol("deployed_at"),
@@ -251,7 +258,7 @@ var MetaListEnvironments = metaquery.Query{
 	Name:   "ListEnvironments",
 	Cmd:    ":many",
 	Source: "environments.sql",
-	SQL: `SELECT id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+	SQL: `SELECT id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 FROM zdx_environments WHERE project_id = $1 ORDER BY name ASC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_environments"},
@@ -259,6 +266,7 @@ FROM zdx_environments WHERE project_id = $1 ORDER BY name ASC`,
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "url", OriginalName: "url", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "release_branch", OriginalName: "release_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
+		{Name: "trunk_branch", OriginalName: "trunk_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "current_build_sha", OriginalName: "current_build_sha", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "current_build_branch", OriginalName: "current_build_branch", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_environments"},
 		{Name: "deployed_at", OriginalName: "deployed_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_environments"},
@@ -282,6 +290,7 @@ var ListEnvironmentsCols = struct {
 	Name               metaquery.TextCol
 	Url                metaquery.TextCol
 	ReleaseBranch      metaquery.TextCol
+	TrunkBranch        metaquery.TextCol
 	CurrentBuildSha    metaquery.TextCol
 	CurrentBuildBranch metaquery.TextCol
 	DeployedAt         metaquery.TimeCol
@@ -293,6 +302,7 @@ var ListEnvironmentsCols = struct {
 	Name:               metaquery.NewTextCol("name"),
 	Url:                metaquery.NewTextCol("url"),
 	ReleaseBranch:      metaquery.NewTextCol("release_branch"),
+	TrunkBranch:        metaquery.NewTextCol("trunk_branch"),
 	CurrentBuildSha:    metaquery.NewTextCol("current_build_sha"),
 	CurrentBuildBranch: metaquery.NewTextCol("current_build_branch"),
 	DeployedAt:         metaquery.NewTimeCol("deployed_at"),
@@ -306,19 +316,21 @@ var MetaUpdateEnvironment = metaquery.Query{
 	Source: "environments.sql",
 	SQL: `UPDATE zdx_environments
 SET url            = COALESCE(NULLIF($1, ''), url),
-    release_branch = COALESCE(NULLIF($2, ''), release_branch)
-WHERE project_id = $3 AND name = $4`,
+    release_branch = COALESCE(NULLIF($2, ''), release_branch),
+    trunk_branch   = COALESCE(NULLIF($3, ''), trunk_branch)
+WHERE project_id = $4 AND name = $5`,
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "url", GoType: "interface{}", DBType: "any"},
 		{Position: 2, Name: "release_branch", GoType: "interface{}", DBType: "any"},
-		{Position: 3, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
-		{Position: 4, Name: "name", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "trunk_branch", GoType: "interface{}", DBType: "any"},
+		{Position: 4, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 5, Name: "name", GoType: "string", DBType: "text", NotNull: true},
 	},
 }
 
 // WrapUpdateEnvironment returns a metaquery.Builder over MetaUpdateEnvironment, pre-bound with typed arguments.
 func WrapUpdateEnvironment(arg UpdateEnvironmentParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaUpdateEnvironment, arg.Url, arg.ReleaseBranch, arg.ProjectID, arg.Name)
+	return metaquery.Wrap(&MetaUpdateEnvironment, arg.Url, arg.ReleaseBranch, arg.TrunkBranch, arg.ProjectID, arg.Name)
 }
 
 var MetaUpdateEnvironmentDeploy = metaquery.Query{

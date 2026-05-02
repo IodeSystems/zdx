@@ -489,6 +489,40 @@ func (q *Queries) GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (Get
 	return i, err
 }
 
+const getTodoQueueHealth = `-- name: GetTodoQueueHealth :one
+SELECT
+  COUNT(*) FILTER (WHERE t.status = 'open')                        AS total_open,
+  COUNT(*) FILTER (WHERE t.status = 'open' AND t.blocked = true)   AS blocked_count,
+  COUNT(*) FILTER (WHERE t.status = 'open' AND t.blocked = false)  AS unblocked_count,
+  (SELECT sub.blocked_reason
+   FROM zdx_todos sub
+   WHERE sub.project_id = $1 AND sub.status = 'open' AND sub.blocked = true AND sub.blocked_reason != ''
+   GROUP BY sub.blocked_reason ORDER BY COUNT(*) DESC LIMIT 1)     AS dominant_blocked_reason
+FROM zdx_todos t
+WHERE t.project_id = $1
+`
+
+type GetTodoQueueHealthRow struct {
+	TotalOpen             int64  `db:"total_open" json:"total_open"`
+	BlockedCount          int64  `db:"blocked_count" json:"blocked_count"`
+	UnblockedCount        int64  `db:"unblocked_count" json:"unblocked_count"`
+	DominantBlockedReason string `db:"dominant_blocked_reason" json:"dominant_blocked_reason"`
+}
+
+// Aggregate open todo queue health: total open, blocked count, unblocked count,
+// and the single most common blocked_reason (null if none).
+func (q *Queries) GetTodoQueueHealth(ctx context.Context, projectID int32) (GetTodoQueueHealthRow, error) {
+	row := q.db.QueryRow(ctx, getTodoQueueHealth, projectID)
+	var i GetTodoQueueHealthRow
+	err := row.Scan(
+		&i.TotalOpen,
+		&i.BlockedCount,
+		&i.UnblockedCount,
+		&i.DominantBlockedReason,
+	)
+	return i, err
+}
+
 const listActiveTodoClaims = `-- name: ListActiveTodoClaims :many
 SELECT id, project_id, text, title, description, key, persona, priority, status,
        target_type, target_id, kind, issue_ref, blocked, blocked_reason, cycle_count, reference_issue_id,
@@ -983,12 +1017,15 @@ func (q *Queries) SetTodoReferenceIssue(ctx context.Context, arg SetTodoReferenc
 }
 
 const unblockAllTodos = `-- name: UnblockAllTodos :exec
-UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = ''
+UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = '', reopen_count = 0
 WHERE project_id = $1 AND blocked = true AND status = 'open'
 `
 
-// Clear blocked flag on all blocked todos for a project. Preserves cycle_count so the auto-file
-// threshold is not reset by a manual admin unblock.
+// Clear blocked flag and reopen_count on all blocked todos for a project.
+// reopen_count is reset because the upsert re-block guard (queries/todos.sql:56-65)
+// fires on reopen_count >= 3 and would otherwise immediately re-block every row on
+// the next claim's upsert. cycle_count is preserved so the auto-file threshold is
+// not reset by a manual admin unblock.
 func (q *Queries) UnblockAllTodos(ctx context.Context, projectID int32) error {
 	_, err := q.db.Exec(ctx, unblockAllTodos, projectID)
 	return err

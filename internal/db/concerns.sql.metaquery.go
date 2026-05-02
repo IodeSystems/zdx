@@ -54,6 +54,45 @@ var CreateConcernCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
+var MetaGetConcernByID = metaquery.Query{
+	Name:   "GetConcernByID",
+	Cmd:    ":one",
+	Source: "concerns.sql",
+	SQL: `SELECT id, project_id, name, description, created_at
+FROM zdx_concerns WHERE project_id = $1 AND id = $2`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_concerns"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_concerns"},
+		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_concerns"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_concerns"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_concerns"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapGetConcernByID returns a metaquery.Builder over MetaGetConcernByID, pre-bound with typed arguments.
+func WrapGetConcernByID(arg GetConcernByIDParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetConcernByID, arg.ProjectID, arg.ID)
+}
+
+// GetConcernByIDCols gives typed, name-safe access to GetConcernByID's output columns.
+var GetConcernByIDCols = struct {
+	ID          metaquery.IntCol
+	ProjectID   metaquery.IntCol
+	Name        metaquery.TextCol
+	Description metaquery.TextCol
+	CreatedAt   metaquery.TimeCol
+}{
+	ID:          metaquery.NewIntCol("id"),
+	ProjectID:   metaquery.NewIntCol("project_id"),
+	Name:        metaquery.NewTextCol("name"),
+	Description: metaquery.NewTextCol("description"),
+	CreatedAt:   metaquery.NewTimeCol("created_at"),
+}
+
 var MetaGetConcernByName = metaquery.Query{
 	Name:   "GetConcernByName",
 	Cmd:    ":one",
@@ -383,6 +422,84 @@ var ListConcernsForSpecCols = struct {
 	Name:        metaquery.NewTextCol("name"),
 	Description: metaquery.NewTextCol("description"),
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
+}
+
+var MetaListFeaturesForConcern = metaquery.Query{
+	Name:   "ListFeaturesForConcern",
+	Cmd:    ":many",
+	Source: "concerns.sql",
+	SQL: `SELECT id, name, description, kind
+FROM zdx_features
+WHERE id IN (SELECT feature_id FROM zdx_concern_features WHERE concern_id = $1)
+ORDER BY name`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_features"},
+		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_features"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_features"},
+		{Name: "kind", OriginalName: "kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_features"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "concern_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListFeaturesForConcern returns a metaquery.Builder over MetaListFeaturesForConcern, pre-bound with typed arguments.
+func WrapListFeaturesForConcern(concernID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListFeaturesForConcern, concernID)
+}
+
+// ListFeaturesForConcernCols gives typed, name-safe access to ListFeaturesForConcern's output columns.
+var ListFeaturesForConcernCols = struct {
+	ID          metaquery.IntCol
+	Name        metaquery.TextCol
+	Description metaquery.TextCol
+	Kind        metaquery.TextCol
+}{
+	ID:          metaquery.NewIntCol("id"),
+	Name:        metaquery.NewTextCol("name"),
+	Description: metaquery.NewTextCol("description"),
+	Kind:        metaquery.NewTextCol("kind"),
+}
+
+var MetaListSpecsForConcern = metaquery.Query{
+	Name:   "ListSpecsForConcern",
+	Cmd:    ":many",
+	Source: "concerns.sql",
+	SQL: `SELECT s.id, s.feature_id, s.description, s.importance, f.name AS feature_name
+FROM zdx_specs s
+JOIN zdx_features f ON f.id = s.feature_id
+WHERE s.id IN (SELECT spec_id FROM zdx_concern_specs WHERE concern_id = $1)
+ORDER BY s.id`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
+		{Name: "feature_id", OriginalName: "feature_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
+		{Name: "description", OriginalName: "description", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "importance", OriginalName: "importance", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_specs"},
+		{Name: "feature_name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_features"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "concern_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapListSpecsForConcern returns a metaquery.Builder over MetaListSpecsForConcern, pre-bound with typed arguments.
+func WrapListSpecsForConcern(concernID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListSpecsForConcern, concernID)
+}
+
+// ListSpecsForConcernCols gives typed, name-safe access to ListSpecsForConcern's output columns.
+var ListSpecsForConcernCols = struct {
+	ID          metaquery.IntCol
+	FeatureID   metaquery.IntCol
+	Description metaquery.TextCol
+	Importance  metaquery.TextCol
+	FeatureName metaquery.TextCol
+}{
+	ID:          metaquery.NewIntCol("id"),
+	FeatureID:   metaquery.NewIntCol("feature_id"),
+	Description: metaquery.NewTextCol("description"),
+	Importance:  metaquery.NewTextCol("importance"),
+	FeatureName: metaquery.NewTextCol("name"),
 }
 
 var MetaUnlinkConcernFeature = metaquery.Query{

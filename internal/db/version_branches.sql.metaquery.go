@@ -15,66 +15,104 @@ var MetaCreateVersionBranch = metaquery.Query{
 	Name:   "CreateVersionBranch",
 	Cmd:    ":one",
 	Source: "version_branches.sql",
-	SQL: `INSERT INTO zdx_version_branches (project_id, name, type, semver, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, name, type, semver, status, created_at`,
+	SQL: `INSERT INTO zdx_version_branches (project_id, name, role, semver, status, source_branch_name, auto_seed)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
-		{Name: "type", OriginalName: "type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
+		{Name: "role", OriginalName: "role", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "semver", OriginalName: "semver", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
 		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
+		{Name: "source_branch_name", OriginalName: "source_branch_name", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
+		{Name: "auto_seed", OriginalName: "auto_seed", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_version_branches"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
 		{Position: 2, Name: "name", GoType: "string", DBType: "text", NotNull: true},
-		{Position: 3, Name: "type", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "role", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 4, Name: "semver", GoType: "pgtype.Text", DBType: "text"},
 		{Position: 5, Name: "status", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 6, Name: "source_branch_name", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 7, Name: "auto_seed", GoType: "bool", DBType: "pg_catalog.bool", NotNull: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_version_branches"},
 }
 
 // WrapCreateVersionBranch returns a metaquery.Builder over MetaCreateVersionBranch, pre-bound with typed arguments.
 func WrapCreateVersionBranch(arg CreateVersionBranchParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateVersionBranch, arg.ProjectID, arg.Name, arg.Type, arg.Semver, arg.Status)
+	return metaquery.Wrap(&MetaCreateVersionBranch, arg.ProjectID, arg.Name, arg.Role, arg.Semver, arg.Status, arg.SourceBranchName, arg.AutoSeed)
 }
 
 // CreateVersionBranchCols gives typed, name-safe access to CreateVersionBranch's output columns.
 var CreateVersionBranchCols = struct {
-	ID        metaquery.IntCol
-	ProjectID metaquery.IntCol
-	Name      metaquery.TextCol
-	Type      metaquery.TextCol
-	Semver    metaquery.TextCol
-	Status    metaquery.TextCol
-	CreatedAt metaquery.TimeCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Name             metaquery.TextCol
+	Role             metaquery.TextCol
+	Semver           metaquery.TextCol
+	Status           metaquery.TextCol
+	SourceBranchName metaquery.TextCol
+	AutoSeed         metaquery.BoolCol
+	CreatedAt        metaquery.TimeCol
 }{
-	ID:        metaquery.NewIntCol("id"),
-	ProjectID: metaquery.NewIntCol("project_id"),
-	Name:      metaquery.NewTextCol("name"),
-	Type:      metaquery.NewTextCol("type"),
-	Semver:    metaquery.NewTextCol("semver"),
-	Status:    metaquery.NewTextCol("status"),
-	CreatedAt: metaquery.NewTimeCol("created_at"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Name:             metaquery.NewTextCol("name"),
+	Role:             metaquery.NewTextCol("role"),
+	Semver:           metaquery.NewTextCol("semver"),
+	Status:           metaquery.NewTextCol("status"),
+	SourceBranchName: metaquery.NewTextCol("source_branch_name"),
+	AutoSeed:         metaquery.NewBoolCol("auto_seed"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
+}
+
+var MetaGetReleaseBranchSource = metaquery.Query{
+	Name:   "GetReleaseBranchSource",
+	Cmd:    ":one",
+	Source: "version_branches.sql",
+	SQL: `SELECT source_branch_name
+FROM zdx_version_branches
+WHERE project_id = $1 AND name = $2`,
+	Columns: []metaquery.Column{
+		{Name: "source_branch_name", OriginalName: "source_branch_name", GoType: "pgtype.Text"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "name", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapGetReleaseBranchSource returns a metaquery.Builder over MetaGetReleaseBranchSource, pre-bound with typed arguments.
+func WrapGetReleaseBranchSource(arg GetReleaseBranchSourceParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetReleaseBranchSource, arg.ProjectID, arg.Name)
+}
+
+// GetReleaseBranchSourceCols gives typed, name-safe access to GetReleaseBranchSource's output columns.
+var GetReleaseBranchSourceCols = struct {
+	SourceBranchName metaquery.TextCol
+}{
+	SourceBranchName: metaquery.NewTextCol("source_branch_name"),
 }
 
 var MetaGetVersionBranchByName = metaquery.Query{
 	Name:   "GetVersionBranchByName",
 	Cmd:    ":one",
 	Source: "version_branches.sql",
-	SQL: `SELECT id, project_id, name, type, semver, status, created_at
+	SQL: `SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
 FROM zdx_version_branches
 WHERE project_id = $1 AND name = $2`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
-		{Name: "type", OriginalName: "type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
+		{Name: "role", OriginalName: "role", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "semver", OriginalName: "semver", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
 		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
+		{Name: "source_branch_name", OriginalName: "source_branch_name", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
+		{Name: "auto_seed", OriginalName: "auto_seed", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_version_branches"},
 	},
 	Args: []metaquery.Arg{
@@ -90,28 +128,32 @@ func WrapGetVersionBranchByName(arg GetVersionBranchByNameParams) *metaquery.Bui
 
 // GetVersionBranchByNameCols gives typed, name-safe access to GetVersionBranchByName's output columns.
 var GetVersionBranchByNameCols = struct {
-	ID        metaquery.IntCol
-	ProjectID metaquery.IntCol
-	Name      metaquery.TextCol
-	Type      metaquery.TextCol
-	Semver    metaquery.TextCol
-	Status    metaquery.TextCol
-	CreatedAt metaquery.TimeCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Name             metaquery.TextCol
+	Role             metaquery.TextCol
+	Semver           metaquery.TextCol
+	Status           metaquery.TextCol
+	SourceBranchName metaquery.TextCol
+	AutoSeed         metaquery.BoolCol
+	CreatedAt        metaquery.TimeCol
 }{
-	ID:        metaquery.NewIntCol("id"),
-	ProjectID: metaquery.NewIntCol("project_id"),
-	Name:      metaquery.NewTextCol("name"),
-	Type:      metaquery.NewTextCol("type"),
-	Semver:    metaquery.NewTextCol("semver"),
-	Status:    metaquery.NewTextCol("status"),
-	CreatedAt: metaquery.NewTimeCol("created_at"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Name:             metaquery.NewTextCol("name"),
+	Role:             metaquery.NewTextCol("role"),
+	Semver:           metaquery.NewTextCol("semver"),
+	Status:           metaquery.NewTextCol("status"),
+	SourceBranchName: metaquery.NewTextCol("source_branch_name"),
+	AutoSeed:         metaquery.NewBoolCol("auto_seed"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
 }
 
 var MetaListVersionBranches = metaquery.Query{
 	Name:   "ListVersionBranches",
 	Cmd:    ":many",
 	Source: "version_branches.sql",
-	SQL: `SELECT id, project_id, name, type, semver, status, created_at
+	SQL: `SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
 FROM zdx_version_branches
 WHERE project_id = $1
 ORDER BY created_at ASC`,
@@ -119,9 +161,11 @@ ORDER BY created_at ASC`,
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
-		{Name: "type", OriginalName: "type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
+		{Name: "role", OriginalName: "role", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "semver", OriginalName: "semver", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
 		{Name: "status", OriginalName: "status", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_version_branches"},
+		{Name: "source_branch_name", OriginalName: "source_branch_name", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
+		{Name: "auto_seed", OriginalName: "auto_seed", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_version_branches"},
 	},
 	Args: []metaquery.Arg{
@@ -136,21 +180,25 @@ func WrapListVersionBranches(projectID int32) *metaquery.Builder {
 
 // ListVersionBranchesCols gives typed, name-safe access to ListVersionBranches's output columns.
 var ListVersionBranchesCols = struct {
-	ID        metaquery.IntCol
-	ProjectID metaquery.IntCol
-	Name      metaquery.TextCol
-	Type      metaquery.TextCol
-	Semver    metaquery.TextCol
-	Status    metaquery.TextCol
-	CreatedAt metaquery.TimeCol
+	ID               metaquery.IntCol
+	ProjectID        metaquery.IntCol
+	Name             metaquery.TextCol
+	Role             metaquery.TextCol
+	Semver           metaquery.TextCol
+	Status           metaquery.TextCol
+	SourceBranchName metaquery.TextCol
+	AutoSeed         metaquery.BoolCol
+	CreatedAt        metaquery.TimeCol
 }{
-	ID:        metaquery.NewIntCol("id"),
-	ProjectID: metaquery.NewIntCol("project_id"),
-	Name:      metaquery.NewTextCol("name"),
-	Type:      metaquery.NewTextCol("type"),
-	Semver:    metaquery.NewTextCol("semver"),
-	Status:    metaquery.NewTextCol("status"),
-	CreatedAt: metaquery.NewTimeCol("created_at"),
+	ID:               metaquery.NewIntCol("id"),
+	ProjectID:        metaquery.NewIntCol("project_id"),
+	Name:             metaquery.NewTextCol("name"),
+	Role:             metaquery.NewTextCol("role"),
+	Semver:           metaquery.NewTextCol("semver"),
+	Status:           metaquery.NewTextCol("status"),
+	SourceBranchName: metaquery.NewTextCol("source_branch_name"),
+	AutoSeed:         metaquery.NewBoolCol("auto_seed"),
+	CreatedAt:        metaquery.NewTimeCol("created_at"),
 }
 
 var MetaMarkVersionBranchEOL = metaquery.Query{
@@ -169,4 +217,44 @@ WHERE project_id = $1 AND name = $2`,
 // WrapMarkVersionBranchEOL returns a metaquery.Builder over MetaMarkVersionBranchEOL, pre-bound with typed arguments.
 func WrapMarkVersionBranchEOL(arg MarkVersionBranchEOLParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaMarkVersionBranchEOL, arg.ProjectID, arg.Name)
+}
+
+var MetaUpdateVersionBranchSource = metaquery.Query{
+	Name:   "UpdateVersionBranchSource",
+	Cmd:    ":exec",
+	Source: "version_branches.sql",
+	SQL: `UPDATE zdx_version_branches
+SET source_branch_name = $3
+WHERE project_id = $1 AND name = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "name", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "source_branch_name", GoType: "pgtype.Text", DBType: "text"},
+	},
+}
+
+// WrapUpdateVersionBranchSource returns a metaquery.Builder over MetaUpdateVersionBranchSource, pre-bound with typed arguments.
+func WrapUpdateVersionBranchSource(arg UpdateVersionBranchSourceParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUpdateVersionBranchSource, arg.ProjectID, arg.Name, arg.SourceBranchName)
+}
+
+var MetaUpsertVersionBranchIfMissing = metaquery.Query{
+	Name:   "UpsertVersionBranchIfMissing",
+	Cmd:    ":exec",
+	Source: "version_branches.sql",
+	SQL: `INSERT INTO zdx_version_branches (project_id, name, role, source_branch_name, status, auto_seed)
+VALUES ($1, $2, $3, $4, 'active', true)
+ON CONFLICT (project_id, name) DO NOTHING`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "name", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "role", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 4, Name: "source_branch_name", GoType: "pgtype.Text", DBType: "text"},
+	},
+	Table: &metaquery.Table{Name: "zdx_version_branches"},
+}
+
+// WrapUpsertVersionBranchIfMissing returns a metaquery.Builder over MetaUpsertVersionBranchIfMissing, pre-bound with typed arguments.
+func WrapUpsertVersionBranchIfMissing(arg UpsertVersionBranchIfMissingParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUpsertVersionBranchIfMissing, arg.ProjectID, arg.Name, arg.Role, arg.SourceBranchName)
 }

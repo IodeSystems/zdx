@@ -358,6 +358,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/agents/budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-agent-budget"];
+        put?: never;
+        post: operations["set-agent-budget"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-agent-budgets"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/agents/list": {
         parameters: {
             query?: never;
@@ -417,6 +449,22 @@ export interface paths {
         put?: never;
         post?: never;
         delete: operations["delete-agent"];
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/agents/{id}/budget/lift": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["lift-agent-budget-pause"];
+        delete?: never;
         options?: never;
         head?: never;
         patch?: never;
@@ -1158,6 +1206,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/concerns/get": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-concern-by-id"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/concerns/spec": {
         parameters: {
             query?: never;
@@ -1606,6 +1670,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/features/concern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-features-for-concern"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/features/coverage": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-feature-coverage"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/features/field": {
         parameters: {
             query?: never;
@@ -1856,6 +1952,22 @@ export interface paths {
         get: operations["list-incomplete-reports"];
         put?: never;
         post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/incomplete-reports/apply": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["apply-incomplete-report-side-effects"];
         delete?: never;
         options?: never;
         head?: never;
@@ -2422,6 +2534,38 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/projects/{slug}/branches/doctor-rung": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-branch-doctor-rung"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/branches/seed": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post: operations["seed-version-branches"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/projects/{slug}/branches/{name}": {
         parameters: {
             query?: never;
@@ -2452,6 +2596,22 @@ export interface paths {
         options?: never;
         head?: never;
         patch: operations["mark-version-branch-eol"];
+        trace?: never;
+    };
+    "/api/dx/projects/{slug}/branches/{name}/source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch: operations["set-version-branch-source"];
         trace?: never;
     };
     "/api/dx/projects/{slug}/environments": {
@@ -3166,6 +3326,22 @@ export interface paths {
             cookie?: never;
         };
         get: operations["list-specs-blocker-resolved"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/dx/specs/concern": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-specs-for-concern"];
         put?: never;
         post?: never;
         delete?: never;
@@ -4374,6 +4550,22 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/dx/todos/queue-health": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["get-todo-queue-health"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/dx/worklog": {
         parameters: {
             query?: never;
@@ -4432,6 +4624,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["add-event-comment"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/events/streams/stale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-stale-proposal-streams"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -4901,6 +5109,22 @@ export interface paths {
         get?: never;
         put?: never;
         post: operations["setup-bootstrap"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/streams/stale": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get: operations["list-stale-streams"];
+        put?: never;
+        post?: never;
         delete?: never;
         options?: never;
         head?: never;
@@ -5422,6 +5646,8 @@ export interface components {
             spec?: string;
             stale_since?: string;
             status: string;
+            /** @description Branch the task targets; defaults to dev. Backport tasks point at a named version branch. */
+            target_branch?: string;
             task_group: string;
             test_plan: string;
             test_refs: string;
@@ -5583,6 +5809,30 @@ export interface components {
             issue_id: number;
             note: string;
         };
+        AppliedSideEffect: {
+            action_type: string;
+            detail: string;
+            evidence_fingerprint: string;
+            reason: string;
+        };
+        "Apply-incomplete-report-side-effectsRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Apply-incomplete-report-side-effectsRequest.json
+             */
+            readonly $schema?: string;
+            slug: string;
+        };
+        "Apply-incomplete-report-side-effectsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Apply-incomplete-report-side-effectsResponse.json
+             */
+            readonly $schema?: string;
+            Applied: components["schemas"]["AppliedSideEffect"][] | null;
+        };
         "Approve-proposalRequest": {
             /**
              * Format: uri
@@ -5689,12 +5939,17 @@ export interface components {
             readonly $schema?: string;
             chunks: components["schemas"]["AtlasChunkItem"][] | null;
             created_at: string;
+            /** Format: int32 */
+            demo_coverage_count: number;
             description: string;
             edges: components["schemas"]["AtlasEdgeFromItem"][] | null;
             /** Format: int64 */
             id: number;
             kind: string;
             slug: string;
+            /** Format: double */
+            stale_fraction: number;
+            subgraph: components["schemas"]["AtlasSubgraphNodeItem"][] | null;
             title: string;
             updated_at: string;
         };
@@ -5721,6 +5976,15 @@ export interface components {
             node_kind: string;
             node_slug: string;
             title?: string;
+        };
+        AtlasSubgraphNodeItem: {
+            /** Format: int32 */
+            depth: number;
+            kind: string;
+            slug: string;
+            summary?: string;
+            title: string;
+            via_edge_type?: string;
         };
         "Attach-code-ref-to-issueRequest": {
             /**
@@ -5876,6 +6140,50 @@ export interface components {
             target_id: string;
             target_type: string;
         };
+        BranchDoctorRungResult: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/BranchDoctorRungResult.json
+             */
+            readonly $schema?: string;
+            classification: string;
+            /** Format: int64 */
+            current_rung: number;
+            message: string;
+            proposal?: string;
+            status: string;
+        };
+        BranchState: {
+            commits_since_base?: string[] | null;
+            head_branch: string;
+            head_sha: string;
+            tree_clean: boolean;
+        };
+        BudgetItem: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/BudgetItem.json
+             */
+            readonly $schema?: string;
+            active_pause: boolean;
+            agent_id: string;
+            /** Format: double */
+            cost_ceiling: number;
+            /** Format: double */
+            cost_used: number;
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            /** Format: int32 */
+            project_id: number;
+            /** Format: int64 */
+            token_ceiling: number;
+            /** Format: int64 */
+            tokens_used: number;
+            updated_at: string;
+        };
         "Claim-issueRequest": {
             /**
              * Format: uri
@@ -5985,6 +6293,7 @@ export interface components {
              * @example https://example.com/schemas/Close-issueRequest.json
              */
             readonly $schema?: string;
+            branch_state?: components["schemas"]["BranchState"];
             duplicate_of?: string;
             force?: boolean;
             /** Format: int32 */
@@ -6043,6 +6352,22 @@ export interface components {
             /** Format: int32 */
             id: number;
             name: string;
+        };
+        ConcernLinkedFeatureItem: {
+            description: string;
+            /** Format: int32 */
+            id: number;
+            kind: string;
+            name: string;
+        };
+        ConcernLinkedSpecItem: {
+            description: string;
+            /** Format: int32 */
+            feature_id: number;
+            feature_name: string;
+            /** Format: int32 */
+            id: number;
+            importance: string;
         };
         ConstraintItem: {
             /**
@@ -6302,6 +6627,7 @@ export interface components {
             readonly $schema?: string;
             name: string;
             release_branch?: string;
+            trunk_branch?: string;
             url?: string;
         };
         "Create-goalRequest": {
@@ -6408,7 +6734,9 @@ export interface components {
              */
             readonly $schema?: string;
             name: string;
+            role?: string;
             semver?: string;
+            source_branch_name?: string;
         };
         CreateProposalBody: {
             /**
@@ -6420,6 +6748,25 @@ export interface components {
             duplicates_review_token?: string;
             proposal?: components["schemas"]["ProposalItem"];
             similar?: components["schemas"]["SimilarProposalItem"][] | null;
+        };
+        CreateVersionBranchResult: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/CreateVersionBranchResult.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            backport_tasks_created: number;
+            created_at: string;
+            /** Format: int64 */
+            id: number;
+            name: string;
+            role?: string;
+            semver?: string;
+            source_branch_name?: string;
+            status: string;
+            type: string;
         };
         DebugOutput: {
             trace: components["schemas"]["Entry"][] | null;
@@ -6736,6 +7083,7 @@ export interface components {
             id: number;
             name: string;
             release_branch: string;
+            trunk_branch: string;
             url: string;
         };
         ErrorDetail: {
@@ -6996,6 +7344,15 @@ export interface components {
             readonly $schema?: string;
             zdx_project_slug: string;
         };
+        "Get-feature-coverageResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Get-feature-coverageResponse.json
+             */
+            readonly $schema?: string;
+            coverage: components["schemas"]["SpecCoverageItem"][] | null;
+        };
         "Get-kpi-trendResponse": {
             /**
              * Format: uri
@@ -7140,9 +7497,11 @@ export interface components {
         };
         IncompleteReportGroup: {
             affected_todo_ids: number[] | null;
+            affected_todo_keys: string[] | null;
             evidence_fingerprint: string;
             last_seen: string;
             reason: string;
+            suggested_next?: string;
             /** Format: int64 */
             total_count: number;
         };
@@ -7566,6 +7925,25 @@ export interface components {
             type: string;
             url: string;
         };
+        "Lift-agent-budget-pauseRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Lift-agent-budget-pauseRequest.json
+             */
+            readonly $schema?: string;
+            lifted_by: string;
+        };
+        "Lift-agent-budget-pauseResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Lift-agent-budget-pauseResponse.json
+             */
+            readonly $schema?: string;
+            lifted: boolean;
+            message: string;
+        };
         "Link-concernRequest": {
             /**
              * Format: uri
@@ -7640,6 +8018,15 @@ export interface components {
              */
             readonly $schema?: string;
             users: components["schemas"]["AdminUserItem"][] | null;
+        };
+        "List-agent-budgetsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-agent-budgetsResponse.json
+             */
+            readonly $schema?: string;
+            budgets: components["schemas"]["BudgetItem"][] | null;
         };
         "List-agent-tasksResponse": {
             /**
@@ -7991,6 +8378,15 @@ export interface components {
              */
             readonly $schema?: string;
             events: components["schemas"]["EventItem"][] | null;
+        };
+        "List-features-for-concernResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-features-for-concernResponse.json
+             */
+            readonly $schema?: string;
+            features: components["schemas"]["ConcernLinkedFeatureItem"][] | null;
         };
         "List-features-todoResponse": {
             /**
@@ -8380,6 +8776,15 @@ export interface components {
             readonly $schema?: string;
             specs: components["schemas"]["UncoveredSpecItem"][] | null;
         };
+        "List-specs-for-concernResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-specs-for-concernResponse.json
+             */
+            readonly $schema?: string;
+            specs: components["schemas"]["ConcernLinkedSpecItem"][] | null;
+        };
         "List-specs-without-demosResponse": {
             /**
              * Format: uri
@@ -8421,6 +8826,24 @@ export interface components {
             sessions: components["schemas"]["ClaudeSessionItem"][] | null;
             /** Format: int64 */
             total: number;
+        };
+        "List-stale-proposal-streamsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-stale-proposal-streamsResponse.json
+             */
+            readonly $schema?: string;
+            streams: components["schemas"]["StaleStreamItem"][] | null;
+        };
+        "List-stale-streamsResponse": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/List-stale-streamsResponse.json
+             */
+            readonly $schema?: string;
+            streams: components["schemas"]["StreamItem"][] | null;
         };
         "List-stale-tasksResponse": {
             /**
@@ -9469,6 +9892,21 @@ export interface components {
             readonly $schema?: string;
             command: string;
         };
+        "Set-agent-budgetRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-agent-budgetRequest.json
+             */
+            readonly $schema?: string;
+            agent_id: string;
+            /** Format: double */
+            cost_ceiling: number;
+            /** Format: int32 */
+            project_id: number;
+            /** Format: int64 */
+            token_ceiling: number;
+        };
         "Set-classificationRequest": {
             /**
              * Format: uri
@@ -9607,6 +10045,15 @@ export interface components {
             key: string;
             slug: string;
             value: string;
+        };
+        "Set-version-branch-sourceRequest": {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/Set-version-branch-sourceRequest.json
+             */
+            readonly $schema?: string;
+            source_branch_name: string;
         };
         "Setup-bootstrapRequest": {
             /**
@@ -9966,6 +10413,8 @@ export interface components {
              */
             readonly $schema?: string;
             agent_id: string;
+            branch_state?: components["schemas"]["BranchState"];
+            force?: boolean;
             /** Format: int32 */
             id: number;
             resolve?: boolean;
@@ -10022,6 +10471,9 @@ export interface components {
             readonly $schema?: string;
             blocked: boolean;
             blocked_reason?: string;
+            claim_base_branch?: string;
+            claim_base_sha?: string;
+            claim_contract?: string;
             claimed_at?: string;
             claimed_by?: string;
             created_at: string;
@@ -10074,6 +10526,13 @@ export interface components {
             /** Format: int32 */
             spec_id: number;
         };
+        SpecCoverageItem: {
+            has_demo: boolean;
+            has_integration: boolean;
+            has_unit: boolean;
+            /** Format: int32 */
+            spec_id: number;
+        };
         SpecDeferralItem: {
             issue_id: string;
             issue_status: string;
@@ -10121,6 +10580,15 @@ export interface components {
             name: string;
             status: string;
         };
+        StaleStreamItem: {
+            /** Format: int64 */
+            id: number;
+            last_evaluated_at?: string;
+            last_evaluated_by?: string;
+            newest_user_event_at: string;
+            target_id: string;
+            target_type: string;
+        };
         "Start-taskRequest": {
             /**
              * Format: uri
@@ -10133,6 +10601,14 @@ export interface components {
             id: number;
             /** Format: int32 */
             lease_duration_min?: number;
+        };
+        StreamItem: {
+            /** Format: int64 */
+            id: number;
+            last_evaluated_at?: string;
+            last_evaluated_by?: string;
+            target_id: string;
+            target_type: string;
         };
         "Submit-maturity-answerRequest": {
             /**
@@ -10224,6 +10700,8 @@ export interface components {
             spec?: string;
             stale_since?: string;
             status: string;
+            /** @description Branch the task targets; defaults to dev. Backport tasks point at a named version branch. */
+            target_branch?: string;
             task_group: string;
             test_plan: string;
             test_refs: string;
@@ -10407,6 +10885,9 @@ export interface components {
             readonly $schema?: string;
             blocked: boolean;
             blocked_reason?: string;
+            claim_base_branch?: string;
+            claim_base_sha?: string;
+            claim_contract?: string;
             claimed_at?: string;
             claimed_by?: string;
             created_at: string;
@@ -10432,6 +10913,21 @@ export interface components {
             target_type: string;
             text: string;
             title?: string;
+        };
+        TodoQueueHealthBody: {
+            /**
+             * Format: uri
+             * @description A URL to the JSON Schema for this object.
+             * @example https://example.com/schemas/TodoQueueHealthBody.json
+             */
+            readonly $schema?: string;
+            /** Format: int64 */
+            blocked_count: number;
+            dominant_blocked_reason: string;
+            /** Format: int64 */
+            total_open: number;
+            /** Format: int64 */
+            unblocked_count: number;
         };
         TodoSessionItem: {
             alias?: string;
@@ -10464,7 +10960,9 @@ export interface components {
              * @example https://example.com/schemas/Triage-issueRequest.json
              */
             readonly $schema?: string;
+            branch_state?: components["schemas"]["BranchState"];
             context?: string;
+            force?: boolean;
             goal_ids?: number[] | null;
             /** Format: int32 */
             id: number;
@@ -10597,6 +11095,7 @@ export interface components {
              */
             readonly $schema?: string;
             release_branch?: string;
+            trunk_branch?: string;
             url?: string;
         };
         "Update-goalRequest": {
@@ -10777,22 +11276,20 @@ export interface components {
             open_count: number;
             /** Format: int64 */
             resolved_count: number;
+            role?: string;
             semver?: string;
+            source_branch_name?: string;
             status: string;
             type: string;
         };
         VersionBranchItem: {
-            /**
-             * Format: uri
-             * @description A URL to the JSON Schema for this object.
-             * @example https://example.com/schemas/VersionBranchItem.json
-             */
-            readonly $schema?: string;
             created_at: string;
             /** Format: int64 */
             id: number;
             name: string;
+            role?: string;
             semver?: string;
+            source_branch_name?: string;
             status: string;
             type: string;
         };
@@ -11783,6 +12280,100 @@ export interface operations {
             };
         };
     };
+    "get-agent-budget": {
+        parameters: {
+            query?: {
+                agent_id?: string;
+                project_id?: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-agent-budget": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-agent-budgetRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BudgetItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-agent-budgets": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-agent-budgetsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-agents": {
         parameters: {
             query: {
@@ -11928,6 +12519,41 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content?: never;
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "lift-agent-budget-pause": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                id: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Lift-agent-budget-pauseRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Lift-agent-budget-pauseResponse"];
+                };
             };
             /** @description Error */
             default: {
@@ -13586,6 +14212,38 @@ export interface operations {
             };
         };
     };
+    "get-concern-by-id": {
+        parameters: {
+            query: {
+                slug: string;
+                id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["ConcernItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-concerns-for-spec": {
         parameters: {
             query: {
@@ -14631,6 +15289,70 @@ export interface operations {
             };
         };
     };
+    "list-features-for-concern": {
+        parameters: {
+            query: {
+                slug: string;
+                concern_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-features-for-concernResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-feature-coverage": {
+        parameters: {
+            query: {
+                slug: string;
+                feature_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Get-feature-coverageResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "set-feature-field": {
         parameters: {
             query?: never;
@@ -15140,6 +15862,39 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-incomplete-reportsResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "apply-incomplete-report-side-effects": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Apply-incomplete-report-side-effectsRequest"];
+            };
+        };
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Apply-incomplete-report-side-effectsResponse"];
                 };
             };
             /** @description Error */
@@ -16358,8 +17113,68 @@ export interface operations {
                     [name: string]: unknown;
                 };
                 content: {
-                    "application/json": components["schemas"]["VersionBranchItem"];
+                    "application/json": components["schemas"]["CreateVersionBranchResult"];
                 };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "get-branch-doctor-rung": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["BranchDoctorRungResult"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "seed-version-branches": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description No Content */
+            204: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content?: never;
             };
             /** @description Error */
             default: {
@@ -16415,6 +17230,42 @@ export interface operations {
             cookie?: never;
         };
         requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["OKBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "set-version-branch-source": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path: {
+                slug: string;
+                name: string;
+            };
+            cookie?: never;
+        };
+        requestBody: {
+            content: {
+                "application/json": components["schemas"]["Set-version-branch-sourceRequest"];
+            };
+        };
         responses: {
             /** @description OK */
             200: {
@@ -18166,6 +19017,37 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["List-specs-blocker-resolvedResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-specs-for-concern": {
+        parameters: {
+            query: {
+                concern_id: number;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-specs-for-concernResponse"];
                 };
             };
             /** @description Error */
@@ -20698,6 +21580,37 @@ export interface operations {
             };
         };
     };
+    "get-todo-queue-health": {
+        parameters: {
+            query: {
+                slug: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["TodoQueueHealthBody"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
     "list-worklog": {
         parameters: {
             query: {
@@ -20814,6 +21727,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["EventItem"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-stale-proposal-streams": {
+        parameters: {
+            query: {
+                slug: string;
+                target_type: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-stale-proposal-streamsResponse"];
                 };
             };
             /** @description Error */
@@ -21815,7 +22760,9 @@ export interface operations {
     };
     "get-atlas-node": {
         parameters: {
-            query?: never;
+            query?: {
+                depth?: number;
+            };
             header?: never;
             path: {
                 slug: string;
@@ -21969,6 +22916,38 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["Setup-bootstrapResponse"];
+                };
+            };
+            /** @description Error */
+            default: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/problem+json": components["schemas"]["ErrorModel"];
+                };
+            };
+        };
+    };
+    "list-stale-streams": {
+        parameters: {
+            query: {
+                slug: string;
+                target_type?: string;
+            };
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description OK */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["List-stale-streamsResponse"];
                 };
             };
             /** @description Error */

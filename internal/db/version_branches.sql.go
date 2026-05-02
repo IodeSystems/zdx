@@ -12,42 +12,78 @@ import (
 )
 
 const createVersionBranch = `-- name: CreateVersionBranch :one
-INSERT INTO zdx_version_branches (project_id, name, type, semver, status)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, name, type, semver, status, created_at
+INSERT INTO zdx_version_branches (project_id, name, role, semver, status, source_branch_name, auto_seed)
+VALUES ($1, $2, $3, $4, $5, $6, $7)
+RETURNING id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
 `
 
 type CreateVersionBranchParams struct {
-	ProjectID int32       `db:"project_id" json:"project_id"`
-	Name      string      `db:"name" json:"name"`
-	Type      string      `db:"type" json:"type"`
-	Semver    pgtype.Text `db:"semver" json:"semver"`
-	Status    string      `db:"status" json:"status"`
+	ProjectID        int32       `db:"project_id" json:"project_id"`
+	Name             string      `db:"name" json:"name"`
+	Role             string      `db:"role" json:"role"`
+	Semver           pgtype.Text `db:"semver" json:"semver"`
+	Status           string      `db:"status" json:"status"`
+	SourceBranchName pgtype.Text `db:"source_branch_name" json:"source_branch_name"`
+	AutoSeed         bool        `db:"auto_seed" json:"auto_seed"`
 }
 
-func (q *Queries) CreateVersionBranch(ctx context.Context, arg CreateVersionBranchParams) (ZdxVersionBranch, error) {
+type CreateVersionBranchRow struct {
+	ID               int64              `db:"id" json:"id"`
+	ProjectID        int32              `db:"project_id" json:"project_id"`
+	Name             string             `db:"name" json:"name"`
+	Role             string             `db:"role" json:"role"`
+	Semver           pgtype.Text        `db:"semver" json:"semver"`
+	Status           string             `db:"status" json:"status"`
+	SourceBranchName pgtype.Text        `db:"source_branch_name" json:"source_branch_name"`
+	AutoSeed         bool               `db:"auto_seed" json:"auto_seed"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) CreateVersionBranch(ctx context.Context, arg CreateVersionBranchParams) (CreateVersionBranchRow, error) {
 	row := q.db.QueryRow(ctx, createVersionBranch,
 		arg.ProjectID,
 		arg.Name,
-		arg.Type,
+		arg.Role,
 		arg.Semver,
 		arg.Status,
+		arg.SourceBranchName,
+		arg.AutoSeed,
 	)
-	var i ZdxVersionBranch
+	var i CreateVersionBranchRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
 		&i.Name,
-		&i.Type,
+		&i.Role,
 		&i.Semver,
 		&i.Status,
+		&i.SourceBranchName,
+		&i.AutoSeed,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
+const getReleaseBranchSource = `-- name: GetReleaseBranchSource :one
+SELECT source_branch_name
+FROM zdx_version_branches
+WHERE project_id = $1 AND name = $2
+`
+
+type GetReleaseBranchSourceParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Name      string `db:"name" json:"name"`
+}
+
+func (q *Queries) GetReleaseBranchSource(ctx context.Context, arg GetReleaseBranchSourceParams) (pgtype.Text, error) {
+	row := q.db.QueryRow(ctx, getReleaseBranchSource, arg.ProjectID, arg.Name)
+	var source_branch_name pgtype.Text
+	err := row.Scan(&source_branch_name)
+	return source_branch_name, err
+}
+
 const getVersionBranchByName = `-- name: GetVersionBranchByName :one
-SELECT id, project_id, name, type, semver, status, created_at
+SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
 FROM zdx_version_branches
 WHERE project_id = $1 AND name = $2
 `
@@ -57,44 +93,72 @@ type GetVersionBranchByNameParams struct {
 	Name      string `db:"name" json:"name"`
 }
 
-func (q *Queries) GetVersionBranchByName(ctx context.Context, arg GetVersionBranchByNameParams) (ZdxVersionBranch, error) {
+type GetVersionBranchByNameRow struct {
+	ID               int64              `db:"id" json:"id"`
+	ProjectID        int32              `db:"project_id" json:"project_id"`
+	Name             string             `db:"name" json:"name"`
+	Role             string             `db:"role" json:"role"`
+	Semver           pgtype.Text        `db:"semver" json:"semver"`
+	Status           string             `db:"status" json:"status"`
+	SourceBranchName pgtype.Text        `db:"source_branch_name" json:"source_branch_name"`
+	AutoSeed         bool               `db:"auto_seed" json:"auto_seed"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) GetVersionBranchByName(ctx context.Context, arg GetVersionBranchByNameParams) (GetVersionBranchByNameRow, error) {
 	row := q.db.QueryRow(ctx, getVersionBranchByName, arg.ProjectID, arg.Name)
-	var i ZdxVersionBranch
+	var i GetVersionBranchByNameRow
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
 		&i.Name,
-		&i.Type,
+		&i.Role,
 		&i.Semver,
 		&i.Status,
+		&i.SourceBranchName,
+		&i.AutoSeed,
 		&i.CreatedAt,
 	)
 	return i, err
 }
 
 const listVersionBranches = `-- name: ListVersionBranches :many
-SELECT id, project_id, name, type, semver, status, created_at
+SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
 FROM zdx_version_branches
 WHERE project_id = $1
 ORDER BY created_at ASC
 `
 
-func (q *Queries) ListVersionBranches(ctx context.Context, projectID int32) ([]ZdxVersionBranch, error) {
+type ListVersionBranchesRow struct {
+	ID               int64              `db:"id" json:"id"`
+	ProjectID        int32              `db:"project_id" json:"project_id"`
+	Name             string             `db:"name" json:"name"`
+	Role             string             `db:"role" json:"role"`
+	Semver           pgtype.Text        `db:"semver" json:"semver"`
+	Status           string             `db:"status" json:"status"`
+	SourceBranchName pgtype.Text        `db:"source_branch_name" json:"source_branch_name"`
+	AutoSeed         bool               `db:"auto_seed" json:"auto_seed"`
+	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
+func (q *Queries) ListVersionBranches(ctx context.Context, projectID int32) ([]ListVersionBranchesRow, error) {
 	rows, err := q.db.Query(ctx, listVersionBranches, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ZdxVersionBranch
+	var items []ListVersionBranchesRow
 	for rows.Next() {
-		var i ZdxVersionBranch
+		var i ListVersionBranchesRow
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
 			&i.Name,
-			&i.Type,
+			&i.Role,
 			&i.Semver,
 			&i.Status,
+			&i.SourceBranchName,
+			&i.AutoSeed,
 			&i.CreatedAt,
 		); err != nil {
 			return nil, err
@@ -120,5 +184,45 @@ type MarkVersionBranchEOLParams struct {
 
 func (q *Queries) MarkVersionBranchEOL(ctx context.Context, arg MarkVersionBranchEOLParams) error {
 	_, err := q.db.Exec(ctx, markVersionBranchEOL, arg.ProjectID, arg.Name)
+	return err
+}
+
+const updateVersionBranchSource = `-- name: UpdateVersionBranchSource :exec
+UPDATE zdx_version_branches
+SET source_branch_name = $3
+WHERE project_id = $1 AND name = $2
+`
+
+type UpdateVersionBranchSourceParams struct {
+	ProjectID        int32       `db:"project_id" json:"project_id"`
+	Name             string      `db:"name" json:"name"`
+	SourceBranchName pgtype.Text `db:"source_branch_name" json:"source_branch_name"`
+}
+
+func (q *Queries) UpdateVersionBranchSource(ctx context.Context, arg UpdateVersionBranchSourceParams) error {
+	_, err := q.db.Exec(ctx, updateVersionBranchSource, arg.ProjectID, arg.Name, arg.SourceBranchName)
+	return err
+}
+
+const upsertVersionBranchIfMissing = `-- name: UpsertVersionBranchIfMissing :exec
+INSERT INTO zdx_version_branches (project_id, name, role, source_branch_name, status, auto_seed)
+VALUES ($1, $2, $3, $4, 'active', true)
+ON CONFLICT (project_id, name) DO NOTHING
+`
+
+type UpsertVersionBranchIfMissingParams struct {
+	ProjectID        int32       `db:"project_id" json:"project_id"`
+	Name             string      `db:"name" json:"name"`
+	Role             string      `db:"role" json:"role"`
+	SourceBranchName pgtype.Text `db:"source_branch_name" json:"source_branch_name"`
+}
+
+func (q *Queries) UpsertVersionBranchIfMissing(ctx context.Context, arg UpsertVersionBranchIfMissingParams) error {
+	_, err := q.db.Exec(ctx, upsertVersionBranchIfMissing,
+		arg.ProjectID,
+		arg.Name,
+		arg.Role,
+		arg.SourceBranchName,
+	)
 	return err
 }

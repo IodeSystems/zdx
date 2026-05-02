@@ -69,7 +69,7 @@ var MetaGetEventByID = metaquery.Query{
 	Source: "events.sql",
 	SQL: `SELECT id, project_id, target_type, target_id, thread_id, event_type,
        author, author_kind, summary_json, detail_json,
-       agent_process_result, created_at
+       agent_process_result, created_at, addressing_event_id
 FROM zdx_events
 WHERE id = $1`,
 	Columns: []metaquery.Column{
@@ -85,6 +85,7 @@ WHERE id = $1`,
 		{Name: "detail_json", OriginalName: "detail_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
 		{Name: "agent_process_result", OriginalName: "agent_process_result", GoType: "[]byte", DBType: "jsonb", Table: "zdx_events"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_events"},
+		{Name: "addressing_event_id", OriginalName: "addressing_event_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_events"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "id", GoType: "int64", DBType: "pg_catalog.int8", NotNull: true},
@@ -110,6 +111,7 @@ var GetEventByIDCols = struct {
 	DetailJson         metaquery.BytesCol
 	AgentProcessResult metaquery.BytesCol
 	CreatedAt          metaquery.TimeCol
+	AddressingEventID  metaquery.IntCol
 }{
 	ID:                 metaquery.NewIntCol("id"),
 	ProjectID:          metaquery.NewIntCol("project_id"),
@@ -123,6 +125,7 @@ var GetEventByIDCols = struct {
 	DetailJson:         metaquery.NewBytesCol("detail_json"),
 	AgentProcessResult: metaquery.NewBytesCol("agent_process_result"),
 	CreatedAt:          metaquery.NewTimeCol("created_at"),
+	AddressingEventID:  metaquery.NewIntCol("addressing_event_id"),
 }
 
 var MetaGetStreamByTarget = metaquery.Query{
@@ -223,15 +226,17 @@ var MetaInsertEvent = metaquery.Query{
 	Source: "events.sql",
 	SQL: `INSERT INTO zdx_events (
   project_id, target_type, target_id, thread_id, event_type,
-  author, author_kind, summary_json, detail_json, agent_process_result
+  author, author_kind, summary_json, detail_json, agent_process_result,
+  addressing_event_id
 )
 VALUES (
   $1, $2, $3, $4, $5,
-  $6, $7, $8, $9, $10
+  $6, $7, $8, $9, $10,
+  $11
 )
 RETURNING id, project_id, target_type, target_id, thread_id, event_type,
           author, author_kind, summary_json, detail_json,
-          agent_process_result, created_at`,
+          agent_process_result, created_at, addressing_event_id`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_events"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_events"},
@@ -245,6 +250,7 @@ RETURNING id, project_id, target_type, target_id, thread_id, event_type,
 		{Name: "detail_json", OriginalName: "detail_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
 		{Name: "agent_process_result", OriginalName: "agent_process_result", GoType: "[]byte", DBType: "jsonb", Table: "zdx_events"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_events"},
+		{Name: "addressing_event_id", OriginalName: "addressing_event_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_events"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -257,13 +263,14 @@ RETURNING id, project_id, target_type, target_id, thread_id, event_type,
 		{Position: 8, Name: "summary_json", GoType: "[]byte", DBType: "jsonb", NotNull: true},
 		{Position: 9, Name: "detail_json", GoType: "[]byte", DBType: "jsonb", NotNull: true},
 		{Position: 10, Name: "agent_process_result", GoType: "[]byte", DBType: "jsonb"},
+		{Position: 11, Name: "addressing_event_id", GoType: "pgtype.Int8", DBType: "pg_catalog.int8"},
 	},
 	Table: &metaquery.Table{Name: "zdx_events"},
 }
 
 // WrapInsertEvent returns a metaquery.Builder over MetaInsertEvent, pre-bound with typed arguments.
 func WrapInsertEvent(arg InsertEventParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaInsertEvent, arg.ProjectID, arg.TargetType, arg.TargetID, arg.ThreadID, arg.EventType, arg.Author, arg.AuthorKind, arg.SummaryJson, arg.DetailJson, arg.AgentProcessResult)
+	return metaquery.Wrap(&MetaInsertEvent, arg.ProjectID, arg.TargetType, arg.TargetID, arg.ThreadID, arg.EventType, arg.Author, arg.AuthorKind, arg.SummaryJson, arg.DetailJson, arg.AgentProcessResult, arg.AddressingEventID)
 }
 
 // InsertEventCols gives typed, name-safe access to InsertEvent's output columns.
@@ -280,6 +287,7 @@ var InsertEventCols = struct {
 	DetailJson         metaquery.BytesCol
 	AgentProcessResult metaquery.BytesCol
 	CreatedAt          metaquery.TimeCol
+	AddressingEventID  metaquery.IntCol
 }{
 	ID:                 metaquery.NewIntCol("id"),
 	ProjectID:          metaquery.NewIntCol("project_id"),
@@ -293,6 +301,7 @@ var InsertEventCols = struct {
 	DetailJson:         metaquery.NewBytesCol("detail_json"),
 	AgentProcessResult: metaquery.NewBytesCol("agent_process_result"),
 	CreatedAt:          metaquery.NewTimeCol("created_at"),
+	AddressingEventID:  metaquery.NewIntCol("addressing_event_id"),
 }
 
 var MetaListEventsByTarget = metaquery.Query{
@@ -301,7 +310,7 @@ var MetaListEventsByTarget = metaquery.Query{
 	Source: "events.sql",
 	SQL: `SELECT id, project_id, target_type, target_id, thread_id, event_type,
        author, author_kind, summary_json, detail_json,
-       agent_process_result, created_at
+       agent_process_result, created_at, addressing_event_id
 FROM zdx_events
 WHERE project_id = $1
   AND target_type = $2
@@ -320,6 +329,7 @@ ORDER BY created_at, id`,
 		{Name: "detail_json", OriginalName: "detail_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
 		{Name: "agent_process_result", OriginalName: "agent_process_result", GoType: "[]byte", DBType: "jsonb", Table: "zdx_events"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_events"},
+		{Name: "addressing_event_id", OriginalName: "addressing_event_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_events"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -347,6 +357,7 @@ var ListEventsByTargetCols = struct {
 	DetailJson         metaquery.BytesCol
 	AgentProcessResult metaquery.BytesCol
 	CreatedAt          metaquery.TimeCol
+	AddressingEventID  metaquery.IntCol
 }{
 	ID:                 metaquery.NewIntCol("id"),
 	ProjectID:          metaquery.NewIntCol("project_id"),
@@ -360,6 +371,7 @@ var ListEventsByTargetCols = struct {
 	DetailJson:         metaquery.NewBytesCol("detail_json"),
 	AgentProcessResult: metaquery.NewBytesCol("agent_process_result"),
 	CreatedAt:          metaquery.NewTimeCol("created_at"),
+	AddressingEventID:  metaquery.NewIntCol("addressing_event_id"),
 }
 
 var MetaListEventsByThread = metaquery.Query{
@@ -368,7 +380,7 @@ var MetaListEventsByThread = metaquery.Query{
 	Source: "events.sql",
 	SQL: `SELECT id, project_id, target_type, target_id, thread_id, event_type,
        author, author_kind, summary_json, detail_json,
-       agent_process_result, created_at
+       agent_process_result, created_at, addressing_event_id
 FROM zdx_events
 WHERE project_id = $1
   AND target_type = $2
@@ -388,6 +400,7 @@ ORDER BY created_at, id`,
 		{Name: "detail_json", OriginalName: "detail_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
 		{Name: "agent_process_result", OriginalName: "agent_process_result", GoType: "[]byte", DBType: "jsonb", Table: "zdx_events"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_events"},
+		{Name: "addressing_event_id", OriginalName: "addressing_event_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_events"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -416,6 +429,7 @@ var ListEventsByThreadCols = struct {
 	DetailJson         metaquery.BytesCol
 	AgentProcessResult metaquery.BytesCol
 	CreatedAt          metaquery.TimeCol
+	AddressingEventID  metaquery.IntCol
 }{
 	ID:                 metaquery.NewIntCol("id"),
 	ProjectID:          metaquery.NewIntCol("project_id"),
@@ -429,6 +443,125 @@ var ListEventsByThreadCols = struct {
 	DetailJson:         metaquery.NewBytesCol("detail_json"),
 	AgentProcessResult: metaquery.NewBytesCol("agent_process_result"),
 	CreatedAt:          metaquery.NewTimeCol("created_at"),
+	AddressingEventID:  metaquery.NewIntCol("addressing_event_id"),
+}
+
+var MetaListStaleProposalStreams = metaquery.Query{
+	Name:   "ListStaleProposalStreams",
+	Cmd:    ":many",
+	Source: "events.sql",
+	SQL: `SELECT s.id, s.project_id, s.target_type, s.target_id,
+       s.last_evaluated_at, s.last_evaluated_by,
+       (SELECT MAX(e.created_at) FROM zdx_events e
+        WHERE e.project_id = s.project_id
+          AND e.target_type = s.target_type
+          AND e.target_id = s.target_id
+          AND e.author_kind = 'user'
+          AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
+       ) AS newest_user_event_at
+FROM zdx_event_streams s
+WHERE s.project_id = $1
+  AND s.target_type = $2
+  AND EXISTS (
+    SELECT 1 FROM zdx_events e
+    WHERE e.project_id = s.project_id
+      AND e.target_type = s.target_type
+      AND e.target_id = s.target_id
+      AND e.author_kind = 'user'
+      AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
+  )
+ORDER BY newest_user_event_at DESC NULLS LAST`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_event_streams"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_event_streams"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_event_streams"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_event_streams"},
+		{Name: "last_evaluated_at", OriginalName: "last_evaluated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_event_streams"},
+		{Name: "last_evaluated_by", OriginalName: "last_evaluated_by", GoType: "pgtype.Text", DBType: "text", Table: "zdx_event_streams"},
+		{Name: "newest_user_event_at", OriginalName: "newest_user_event_at", GoType: "interface{}", DBType: "anyarray", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "target_type", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListStaleProposalStreams returns a metaquery.Builder over MetaListStaleProposalStreams, pre-bound with typed arguments.
+func WrapListStaleProposalStreams(arg ListStaleProposalStreamsParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListStaleProposalStreams, arg.ProjectID, arg.TargetType)
+}
+
+// ListStaleProposalStreamsCols gives typed, name-safe access to ListStaleProposalStreams's output columns.
+var ListStaleProposalStreamsCols = struct {
+	ID                metaquery.IntCol
+	ProjectID         metaquery.IntCol
+	TargetType        metaquery.TextCol
+	TargetID          metaquery.TextCol
+	LastEvaluatedAt   metaquery.TimeCol
+	LastEvaluatedBy   metaquery.TextCol
+	NewestUserEventAt metaquery.AnyCol
+}{
+	ID:                metaquery.NewIntCol("id"),
+	ProjectID:         metaquery.NewIntCol("project_id"),
+	TargetType:        metaquery.NewTextCol("target_type"),
+	TargetID:          metaquery.NewTextCol("target_id"),
+	LastEvaluatedAt:   metaquery.NewTimeCol("last_evaluated_at"),
+	LastEvaluatedBy:   metaquery.NewTextCol("last_evaluated_by"),
+	NewestUserEventAt: metaquery.NewAnyCol("newest_user_event_at"),
+}
+
+var MetaListStaleStreams = metaquery.Query{
+	Name:   "ListStaleStreams",
+	Cmd:    ":many",
+	Source: "events.sql",
+	SQL: `SELECT s.id, s.project_id, s.target_type, s.target_id,
+       s.last_evaluated_at, s.last_evaluated_by
+FROM zdx_event_streams s
+WHERE s.project_id = $1
+  AND ($2::text IS NULL OR s.target_type = $2::text)
+  AND EXISTS (
+    SELECT 1 FROM zdx_events e
+    WHERE e.project_id = s.project_id
+      AND e.target_type = s.target_type
+      AND e.target_id = s.target_id
+      AND e.author_kind = 'user'
+      AND (s.last_evaluated_at IS NULL OR e.created_at > s.last_evaluated_at)
+  )
+ORDER BY s.target_type, s.target_id`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_event_streams"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_event_streams"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_event_streams"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_event_streams"},
+		{Name: "last_evaluated_at", OriginalName: "last_evaluated_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_event_streams"},
+		{Name: "last_evaluated_by", OriginalName: "last_evaluated_by", GoType: "pgtype.Text", DBType: "text", Table: "zdx_event_streams"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "target_type", GoType: "pgtype.Text", DBType: "text"},
+	},
+}
+
+// WrapListStaleStreams returns a metaquery.Builder over MetaListStaleStreams, pre-bound with typed arguments.
+func WrapListStaleStreams(arg ListStaleStreamsParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListStaleStreams, arg.ProjectID, arg.TargetType)
+}
+
+// ListStaleStreamsCols gives typed, name-safe access to ListStaleStreams's output columns.
+var ListStaleStreamsCols = struct {
+	ID              metaquery.IntCol
+	ProjectID       metaquery.IntCol
+	TargetType      metaquery.TextCol
+	TargetID        metaquery.TextCol
+	LastEvaluatedAt metaquery.TimeCol
+	LastEvaluatedBy metaquery.TextCol
+}{
+	ID:              metaquery.NewIntCol("id"),
+	ProjectID:       metaquery.NewIntCol("project_id"),
+	TargetType:      metaquery.NewTextCol("target_type"),
+	TargetID:        metaquery.NewTextCol("target_id"),
+	LastEvaluatedAt: metaquery.NewTimeCol("last_evaluated_at"),
+	LastEvaluatedBy: metaquery.NewTextCol("last_evaluated_by"),
 }
 
 var MetaListThreadsByTarget = metaquery.Query{
@@ -481,16 +614,20 @@ var ListThreadsByTargetCols = struct {
 	CreatedAt:   metaquery.NewTimeCol("created_at"),
 }
 
-var MetaSetEventVerdict = metaquery.Query{
-	Name:   "SetEventVerdict",
-	Cmd:    ":one",
+var MetaListUnprocessedEventsByTarget = metaquery.Query{
+	Name:   "ListUnprocessedEventsByTarget",
+	Cmd:    ":many",
 	Source: "events.sql",
-	SQL: `UPDATE zdx_events
-SET agent_process_result = $1
-WHERE id = $2
-RETURNING id, project_id, target_type, target_id, thread_id, event_type,
-          author, author_kind, summary_json, detail_json,
-          agent_process_result, created_at`,
+	SQL: `SELECT id, project_id, target_type, target_id, thread_id, event_type,
+       author, author_kind, summary_json, detail_json,
+       agent_process_result, created_at, addressing_event_id
+FROM zdx_events
+WHERE project_id = $1
+  AND target_type = $2
+  AND target_id = $3
+  AND author_kind = 'user'
+  AND agent_process_result IS NULL
+ORDER BY created_at, id`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_events"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_events"},
@@ -504,6 +641,75 @@ RETURNING id, project_id, target_type, target_id, thread_id, event_type,
 		{Name: "detail_json", OriginalName: "detail_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
 		{Name: "agent_process_result", OriginalName: "agent_process_result", GoType: "[]byte", DBType: "jsonb", Table: "zdx_events"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_events"},
+		{Name: "addressing_event_id", OriginalName: "addressing_event_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_events"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "target_type", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 3, Name: "target_id", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListUnprocessedEventsByTarget returns a metaquery.Builder over MetaListUnprocessedEventsByTarget, pre-bound with typed arguments.
+func WrapListUnprocessedEventsByTarget(arg ListUnprocessedEventsByTargetParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListUnprocessedEventsByTarget, arg.ProjectID, arg.TargetType, arg.TargetID)
+}
+
+// ListUnprocessedEventsByTargetCols gives typed, name-safe access to ListUnprocessedEventsByTarget's output columns.
+var ListUnprocessedEventsByTargetCols = struct {
+	ID                 metaquery.IntCol
+	ProjectID          metaquery.IntCol
+	TargetType         metaquery.TextCol
+	TargetID           metaquery.TextCol
+	ThreadID           metaquery.IntCol
+	EventType          metaquery.TextCol
+	Author             metaquery.TextCol
+	AuthorKind         metaquery.TextCol
+	SummaryJson        metaquery.BytesCol
+	DetailJson         metaquery.BytesCol
+	AgentProcessResult metaquery.BytesCol
+	CreatedAt          metaquery.TimeCol
+	AddressingEventID  metaquery.IntCol
+}{
+	ID:                 metaquery.NewIntCol("id"),
+	ProjectID:          metaquery.NewIntCol("project_id"),
+	TargetType:         metaquery.NewTextCol("target_type"),
+	TargetID:           metaquery.NewTextCol("target_id"),
+	ThreadID:           metaquery.NewIntCol("thread_id"),
+	EventType:          metaquery.NewTextCol("event_type"),
+	Author:             metaquery.NewTextCol("author"),
+	AuthorKind:         metaquery.NewTextCol("author_kind"),
+	SummaryJson:        metaquery.NewBytesCol("summary_json"),
+	DetailJson:         metaquery.NewBytesCol("detail_json"),
+	AgentProcessResult: metaquery.NewBytesCol("agent_process_result"),
+	CreatedAt:          metaquery.NewTimeCol("created_at"),
+	AddressingEventID:  metaquery.NewIntCol("addressing_event_id"),
+}
+
+var MetaSetEventVerdict = metaquery.Query{
+	Name:   "SetEventVerdict",
+	Cmd:    ":one",
+	Source: "events.sql",
+	SQL: `UPDATE zdx_events
+SET agent_process_result = $1
+WHERE id = $2
+RETURNING id, project_id, target_type, target_id, thread_id, event_type,
+          author, author_kind, summary_json, detail_json,
+          agent_process_result, created_at, addressing_event_id`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_events"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_events"},
+		{Name: "target_type", OriginalName: "target_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "target_id", OriginalName: "target_id", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "thread_id", OriginalName: "thread_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_events"},
+		{Name: "event_type", OriginalName: "event_type", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "author", OriginalName: "author", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "author_kind", OriginalName: "author_kind", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_events"},
+		{Name: "summary_json", OriginalName: "summary_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
+		{Name: "detail_json", OriginalName: "detail_json", GoType: "[]byte", DBType: "jsonb", NotNull: true, Table: "zdx_events"},
+		{Name: "agent_process_result", OriginalName: "agent_process_result", GoType: "[]byte", DBType: "jsonb", Table: "zdx_events"},
+		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_events"},
+		{Name: "addressing_event_id", OriginalName: "addressing_event_id", GoType: "pgtype.Int8", DBType: "int8", Table: "zdx_events"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "agent_process_result", GoType: "[]byte", DBType: "jsonb"},
@@ -530,6 +736,7 @@ var SetEventVerdictCols = struct {
 	DetailJson         metaquery.BytesCol
 	AgentProcessResult metaquery.BytesCol
 	CreatedAt          metaquery.TimeCol
+	AddressingEventID  metaquery.IntCol
 }{
 	ID:                 metaquery.NewIntCol("id"),
 	ProjectID:          metaquery.NewIntCol("project_id"),
@@ -543,6 +750,7 @@ var SetEventVerdictCols = struct {
 	DetailJson:         metaquery.NewBytesCol("detail_json"),
 	AgentProcessResult: metaquery.NewBytesCol("agent_process_result"),
 	CreatedAt:          metaquery.NewTimeCol("created_at"),
+	AddressingEventID:  metaquery.NewIntCol("addressing_event_id"),
 }
 
 var MetaSetThreadTitle = metaquery.Query{
