@@ -42,6 +42,7 @@ import { Route as ProjectSlugDemosRouteImport } from './routes/project/$slug/dem
 import { Route as ProjectSlugCountersRouteImport } from './routes/project/$slug/counters'
 import { Route as ProjectSlugConcernsRouteImport } from './routes/project/$slug/concerns'
 import { Route as ProjectSlugBlockerQuestionsRouteImport } from './routes/project/$slug/blocker-questions'
+import { Route as ProjectSlugBlockedWorkRouteImport } from './routes/project/$slug/blocked-work'
 import { Route as ProjectSlugAgentsRouteImport } from './routes/project/$slug/agents'
 import { Route as ProjectSlugTestsIndexRouteImport } from './routes/project/$slug/tests/index'
 import { Route as ProjectSlugTasksIndexRouteImport } from './routes/project/$slug/tasks/index'
@@ -243,6 +244,11 @@ const ProjectSlugBlockerQuestionsRoute =
     path: '/blocker-questions',
     getParentRoute: () => ProjectSlugRoute,
   } as any)
+const ProjectSlugBlockedWorkRoute = ProjectSlugBlockedWorkRouteImport.update({
+  id: '/blocked-work',
+  path: '/blocked-work',
+  getParentRoute: () => ProjectSlugRoute,
+} as any)
 const ProjectSlugAgentsRoute = ProjectSlugAgentsRouteImport.update({
   id: '/agents',
   path: '/agents',
@@ -438,6 +444,7 @@ export interface FileRoutesByFullPath {
   '/project/$slug': typeof ProjectSlugRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/project/$slug/agents': typeof ProjectSlugAgentsRouteWithChildren
+  '/project/$slug/blocked-work': typeof ProjectSlugBlockedWorkRoute
   '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
   '/project/$slug/concerns': typeof ProjectSlugConcernsRouteWithChildren
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
@@ -505,6 +512,7 @@ export interface FileRoutesByTo {
   '/admin/users': typeof AdminUsersRoute
   '/admin/websocket': typeof AdminWebsocketRoute
   '/admin': typeof AdminIndexRoute
+  '/project/$slug/blocked-work': typeof ProjectSlugBlockedWorkRoute
   '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
   '/project/$slug/docs': typeof ProjectSlugDocsRouteWithChildren
@@ -564,6 +572,7 @@ export interface FileRoutesById {
   '/project/$slug': typeof ProjectSlugRouteWithChildren
   '/admin/': typeof AdminIndexRoute
   '/project/$slug/agents': typeof ProjectSlugAgentsRouteWithChildren
+  '/project/$slug/blocked-work': typeof ProjectSlugBlockedWorkRoute
   '/project/$slug/blocker-questions': typeof ProjectSlugBlockerQuestionsRoute
   '/project/$slug/concerns': typeof ProjectSlugConcernsRouteWithChildren
   '/project/$slug/counters': typeof ProjectSlugCountersRoute
@@ -635,6 +644,7 @@ export interface FileRouteTypes {
     | '/project/$slug'
     | '/admin/'
     | '/project/$slug/agents'
+    | '/project/$slug/blocked-work'
     | '/project/$slug/blocker-questions'
     | '/project/$slug/concerns'
     | '/project/$slug/counters'
@@ -702,6 +712,7 @@ export interface FileRouteTypes {
     | '/admin/users'
     | '/admin/websocket'
     | '/admin'
+    | '/project/$slug/blocked-work'
     | '/project/$slug/blocker-questions'
     | '/project/$slug/counters'
     | '/project/$slug/docs'
@@ -760,6 +771,7 @@ export interface FileRouteTypes {
     | '/project/$slug'
     | '/admin/'
     | '/project/$slug/agents'
+    | '/project/$slug/blocked-work'
     | '/project/$slug/blocker-questions'
     | '/project/$slug/concerns'
     | '/project/$slug/counters'
@@ -1062,6 +1074,13 @@ declare module '@tanstack/react-router' {
       path: '/blocker-questions'
       fullPath: '/project/$slug/blocker-questions'
       preLoaderRoute: typeof ProjectSlugBlockerQuestionsRouteImport
+      parentRoute: typeof ProjectSlugRoute
+    }
+    '/project/$slug/blocked-work': {
+      id: '/project/$slug/blocked-work'
+      path: '/blocked-work'
+      fullPath: '/project/$slug/blocked-work'
+      preLoaderRoute: typeof ProjectSlugBlockedWorkRouteImport
       parentRoute: typeof ProjectSlugRoute
     }
     '/project/$slug/agents': {
@@ -1483,6 +1502,7 @@ const ProjectSlugTestsRouteWithChildren =
 
 interface ProjectSlugRouteChildren {
   ProjectSlugAgentsRoute: typeof ProjectSlugAgentsRouteWithChildren
+  ProjectSlugBlockedWorkRoute: typeof ProjectSlugBlockedWorkRoute
   ProjectSlugBlockerQuestionsRoute: typeof ProjectSlugBlockerQuestionsRoute
   ProjectSlugConcernsRoute: typeof ProjectSlugConcernsRouteWithChildren
   ProjectSlugCountersRoute: typeof ProjectSlugCountersRoute
@@ -1519,6 +1539,7 @@ interface ProjectSlugRouteChildren {
 
 const ProjectSlugRouteChildren: ProjectSlugRouteChildren = {
   ProjectSlugAgentsRoute: ProjectSlugAgentsRouteWithChildren,
+  ProjectSlugBlockedWorkRoute: ProjectSlugBlockedWorkRoute,
   ProjectSlugBlockerQuestionsRoute: ProjectSlugBlockerQuestionsRoute,
   ProjectSlugConcernsRoute: ProjectSlugConcernsRouteWithChildren,
   ProjectSlugCountersRoute: ProjectSlugCountersRoute,

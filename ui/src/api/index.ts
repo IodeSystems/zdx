@@ -612,6 +612,21 @@ export const useEvaluateSolo = () => {
   })
 }
 
+export type IncompleteReportGroup = components['schemas']['IncompleteReportGroup']
+
+export const useIncompleteReports = (slug: string, reason?: string) =>
+  useQuery<IncompleteReportGroup[]>({
+    queryKey: ['incomplete-reports', slug, reason ?? ''],
+    queryFn: async () => {
+      const query: Record<string, string> = { slug }
+      if (reason) query.reason = reason
+      const { data, error } = await client.GET('/api/dx/incomplete-reports', { params: { query } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.Groups ?? []
+    },
+    enabled: !!slug,
+  })
+
 export interface ActiveClaimsResponse {
   todos: {
     id: number

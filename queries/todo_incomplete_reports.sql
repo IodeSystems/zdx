@@ -25,15 +25,17 @@ WHERE todo_id = $1
 ORDER BY created_at DESC;
 
 -- name: AggregateTodoIncompleteReports :many
-SELECT reason,
-       evidence_fingerprint,
-       COUNT(*)::bigint                    AS total_count,
-       array_agg(DISTINCT todo_id)::int[]  AS affected_todo_ids,
-       MAX(created_at)                     AS last_seen,
-       ((array_agg(suggested_next ORDER BY created_at DESC)
-            FILTER (WHERE suggested_next != '{}'::jsonb))[1])::jsonb AS suggested_next
-FROM zdx_todo_incomplete_reports
-WHERE project_id = @project_id
-  AND (sqlc.narg(reason)::text IS NULL OR reason = sqlc.narg(reason)::text)
-GROUP BY reason, evidence_fingerprint
+SELECT r.reason,
+       r.evidence_fingerprint,
+       COUNT(*)::bigint                       AS total_count,
+       array_agg(DISTINCT r.todo_id)::int[]   AS affected_todo_ids,
+       array_agg(DISTINCT t.key)::text[]      AS affected_todo_keys,
+       MAX(r.created_at)                      AS last_seen,
+       ((array_agg(r.suggested_next ORDER BY r.created_at DESC)
+            FILTER (WHERE r.suggested_next != '{}'::jsonb))[1])::jsonb AS suggested_next
+FROM zdx_todo_incomplete_reports r
+JOIN zdx_todos t ON t.id = r.todo_id
+WHERE r.project_id = @project_id
+  AND (sqlc.narg(reason)::text IS NULL OR r.reason = sqlc.narg(reason)::text)
+GROUP BY r.reason, r.evidence_fingerprint
 ORDER BY total_count DESC, last_seen DESC;

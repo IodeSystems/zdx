@@ -24,6 +24,7 @@ import {
 } from '@mui/material'
 import {
   AutoStories as AutoStoriesIcon,
+  Block as BlockIcon,
   Bookmark as BookmarkIcon,
   Extension as ExtensionIcon,
   Flag as FlagIcon,
@@ -78,6 +79,7 @@ const NAV_GROUPS: NavGroup[] = [
       { label: 'Discussions', icon: <ChatBubbleOutlineIcon fontSize="small" />, path: 'discussions' },
       { label: 'Tasks', icon: <TaskAltIcon fontSize="small" />, path: 'tasks' },
       { label: 'Issues', icon: <BugReportIcon fontSize="small" />, path: 'issues' },
+      { label: 'Blocked', icon: <BlockIcon fontSize="small" />, path: 'blocked-work' },
       { label: 'Worklog', icon: <HistoryIcon fontSize="small" />, path: 'worklog' },
     ],
   },

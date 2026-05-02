@@ -357,12 +357,13 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 		})
 
 	type IncompleteReportGroup struct {
-		Reason              string  `json:"reason"`
-		EvidenceFingerprint string  `json:"evidence_fingerprint"`
-		TotalCount          int64   `json:"total_count"`
-		AffectedTodoIDs     []int32 `json:"affected_todo_ids"`
-		LastSeen            string  `json:"last_seen"`
-		SuggestedNext       string  `json:"suggested_next,omitempty"`
+		Reason              string   `json:"reason"`
+		EvidenceFingerprint string   `json:"evidence_fingerprint"`
+		TotalCount          int64    `json:"total_count"`
+		AffectedTodoIDs     []int32  `json:"affected_todo_ids"`
+		AffectedTodoKeys    []string `json:"affected_todo_keys"`
+		LastSeen            string   `json:"last_seen"`
+		SuggestedNext       string   `json:"suggested_next,omitempty"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-incomplete-reports", Method: http.MethodGet, Path: "/api/dx/incomplete-reports"},
@@ -394,11 +395,16 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 				if ids == nil {
 					ids = []int32{}
 				}
+				keys := row.AffectedTodoKeys
+				if keys == nil {
+					keys = []string{}
+				}
 				groups[i] = IncompleteReportGroup{
 					Reason:              row.Reason,
 					EvidenceFingerprint: row.EvidenceFingerprint,
 					TotalCount:          row.TotalCount,
 					AffectedTodoIDs:     ids,
+					AffectedTodoKeys:    keys,
 					LastSeen:            fmtTSAny(row.LastSeen),
 				}
 				if len(row.SuggestedNext) > 0 && string(row.SuggestedNext) != "null" {
