@@ -14,6 +14,7 @@ jest.mock('../../../../api', () => {
     useMarkBranchEOL: jest.fn(),
     useDeleteBranch: jest.fn(),
     useUpdateBranch: jest.fn(),
+    useCreateBranch: jest.fn(),
   }
 })
 
@@ -28,7 +29,7 @@ jest.mock('@tanstack/react-router', () => ({
   Link: (props: any) => <a href={props.to}>{props.children}</a>,
 }))
 
-import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useMarkBranchEOL, useDeleteBranch, useUpdateBranch } from '../../../../api'
+import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useMarkBranchEOL, useDeleteBranch, useUpdateBranch, useCreateBranch } from '../../../../api'
 
 const mockedUseBranches = jest.mocked(useBranches)
 const mockedUseBranchDoctorRung = jest.mocked(useBranchDoctorRung)
@@ -36,6 +37,7 @@ const mockedUseDeferDoctorCheck = jest.mocked(useDeferDoctorCheck)
 const mockedUseMarkBranchEOL = jest.mocked(useMarkBranchEOL)
 const mockedUseDeleteBranch = jest.mocked(useDeleteBranch)
 const mockedUseUpdateBranch = jest.mocked(useUpdateBranch)
+const mockedUseCreateBranch = jest.mocked(useCreateBranch)
 
 function makeBranch(overrides: Partial<VersionBranchItem> = {}): VersionBranchItem {
   return {
@@ -69,6 +71,7 @@ beforeEach(() => {
   mockedUseMarkBranchEOL.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
   mockedUseDeleteBranch.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
   mockedUseUpdateBranch.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: false } as any)
+  mockedUseCreateBranch.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: false } as any)
 })
 
 afterEach(() => {
@@ -367,5 +370,148 @@ describe('EditBranchDialog (TK-1685)', () => {
     fe.click(screen.getByTestId('branch-edit-dev'))
 
     expect(screen.getByTestId('edit-branch-error')).toHaveTextContent('invalid role')
+  })
+})
+
+describe('AddBranchDialog (TK-1683)', () => {
+  beforeEach(() => {
+    mockedUseBranchDoctorRung.mockReturnValue({ data: makeRung(), isLoading: false } as any)
+    mockedUseDeleteBranch.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'dev', role: 'dev' })],
+      isLoading: false,
+    } as any)
+  })
+
+  test('dialog renders with name, role, and source fields', async () => {
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('add-branch-button'))
+
+    expect(screen.getByTestId('add-branch-name')).toBeInTheDocument()
+    expect(screen.getByTestId('add-branch-role')).toBeInTheDocument()
+    expect(screen.getByTestId('add-branch-source')).toBeInTheDocument()
+    expect(screen.getByTestId('add-branch-submit')).toBeInTheDocument()
+  })
+
+  test('valid submit calls mutate with slug, name, role, and source', async () => {
+    const mutate = jest.fn((_vars: any, opts: any) => opts?.onSuccess?.())
+    mockedUseCreateBranch.mockReturnValue({ mutate, isPending: false, isError: false } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('add-branch-button'))
+
+    const nameInput = screen.getByTestId('add-branch-name').querySelector('input') as HTMLInputElement
+    fe.change(nameInput, { target: { value: 'feature-x' } })
+
+    fe.click(screen.getByTestId('add-branch-submit'))
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'test-project', name: 'feature-x', role: 'dev' }),
+      expect.any(Object),
+    )
+  })
+
+  test('server error displays inline', async () => {
+    mockedUseCreateBranch.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: true, error: new Error('name taken') } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('add-branch-button'))
+
+    expect(screen.getByTestId('add-branch-error')).toHaveTextContent('name taken')
+  })
+})
+
+describe('CutReleaseDialog (TK-1684)', () => {
+  beforeEach(() => {
+    mockedUseBranchDoctorRung.mockReturnValue({ data: makeRung(), isLoading: false } as any)
+    mockedUseDeleteBranch.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'dev', role: 'dev' })],
+      isLoading: false,
+    } as any)
+  })
+
+  test('dialog renders with name, semver, and source fields', async () => {
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('cut-release-button'))
+
+    expect(screen.getByTestId('cut-release-name')).toBeInTheDocument()
+    expect(screen.getByTestId('cut-release-semver')).toBeInTheDocument()
+    expect(screen.getByTestId('cut-release-source')).toBeInTheDocument()
+    expect(screen.getByTestId('cut-release-submit')).toBeInTheDocument()
+  })
+
+  test('valid submit calls mutate with role named-release', async () => {
+    const mutate = jest.fn((_vars: any, opts: any) =>
+      opts?.onSuccess?.({ id: 1, name: 'v1.2.x', backport_tasks_created: 3, created_at: '', status: 'active' }),
+    )
+    mockedUseCreateBranch.mockReturnValue({ mutate, isPending: false, isError: false } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('cut-release-button'))
+
+    const nameInput = screen.getByTestId('cut-release-name').querySelector('input') as HTMLInputElement
+    fe.change(nameInput, { target: { value: 'v1.2.x' } })
+
+    const semverInput = screen.getByTestId('cut-release-semver').querySelector('input') as HTMLInputElement
+    fe.change(semverInput, { target: { value: '1.2.0' } })
+
+    const sourceSelect = screen.getByTestId('cut-release-source').querySelector('input') as HTMLInputElement
+    fe.change(sourceSelect, { target: { value: 'dev' } })
+
+    fe.click(screen.getByTestId('cut-release-submit'))
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ slug: 'test-project', name: 'v1.2.x', semver: '1.2.0', source_branch_name: 'dev', role: 'named-release' }),
+      expect.any(Object),
+    )
+  })
+
+  test('success shows toast with correct backport count', async () => {
+    const mutate = jest.fn((_vars: any, opts: any) =>
+      opts?.onSuccess?.({ id: 1, name: 'v1.2.x', backport_tasks_created: 5, created_at: '', status: 'active' }),
+    )
+    mockedUseCreateBranch.mockReturnValue({ mutate, isPending: false, isError: false } as any)
+
+    const { fireEvent: fe, act } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('cut-release-button'))
+
+    const nameInput = screen.getByTestId('cut-release-name').querySelector('input') as HTMLInputElement
+    fe.change(nameInput, { target: { value: 'v1.2.x' } })
+
+    const semverInput = screen.getByTestId('cut-release-semver').querySelector('input') as HTMLInputElement
+    fe.change(semverInput, { target: { value: '1.2.0' } })
+
+    const sourceSelect = screen.getByTestId('cut-release-source').querySelector('input') as HTMLInputElement
+    fe.change(sourceSelect, { target: { value: 'dev' } })
+
+    act(() => {
+      fe.click(screen.getByTestId('cut-release-submit'))
+    })
+
+    expect(screen.getByText('Release cut. Backport tasks created: 5')).toBeInTheDocument()
+  })
+
+  test('server error displays inline', async () => {
+    mockedUseCreateBranch.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: true, error: new Error('semver conflict') } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('cut-release-button'))
+
+    expect(screen.getByTestId('cut-release-error')).toHaveTextContent('semver conflict')
   })
 })

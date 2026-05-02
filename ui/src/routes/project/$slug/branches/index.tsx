@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Skeleton, Snackbar, TextField, Tooltip, Typography } from '@mui/material'
-import { Delete as DeleteIcon, Edit as EditIcon, PowerSettingsNew as EolIcon, Snooze as SnoozeIcon } from '@mui/icons-material'
+import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, PowerSettingsNew as EolIcon, Snooze as SnoozeIcon } from '@mui/icons-material'
 import { useState } from 'react'
-import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useDeleteBranch, useMarkBranchEOL, useUpdateBranch, useUpdateBranchSettings, type VersionBranchItem } from '../../../../api'
+import { useCreateBranch, useBranches, useBranchDoctorRung, useDeferDoctorCheck, useDeleteBranch, useMarkBranchEOL, useUpdateBranch, useUpdateBranchSettings, type CreateVersionBranchResult, type VersionBranchItem } from '../../../../api'
 
 const ROLE_ORDER = ['rolling-release', 'dev', 'pr-target', 'named-release']
 
@@ -209,6 +209,148 @@ function EditBranchDialog({ slug, branch, open, onClose, branches }: {
   )
 }
 
+function AddBranchDialog({ slug, open, onClose, branches }: {
+  slug: string
+  open: boolean
+  onClose: () => void
+  branches: VersionBranchItem[]
+}) {
+  const [name, setName] = useState('')
+  const [role, setRole] = useState('dev')
+  const [source, setSource] = useState('')
+  const create = useCreateBranch()
+
+  const handleSubmit = () => {
+    create.mutate(
+      { slug, name, role, source_branch_name: source || undefined },
+      {
+        onSuccess: () => {
+          onClose()
+          setName('')
+          setRole('dev')
+          setSource('')
+        },
+      },
+    )
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Add Branch</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
+        <TextField
+          size="small"
+          label="Name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          required
+          data-testid="add-branch-name"
+        />
+        <FormControl size="small" fullWidth>
+          <InputLabel>Role</InputLabel>
+          <Select label="Role" value={role} onChange={e => setRole(e.target.value)} data-testid="add-branch-role">
+            {ROLES.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <FormControl size="small" fullWidth>
+          <InputLabel>Source branch</InputLabel>
+          <Select label="Source branch" value={source} onChange={e => setSource(e.target.value)} data-testid="add-branch-source">
+            <MenuItem value=""><em>None</em></MenuItem>
+            {branches.map(b => (
+              <MenuItem key={b.name} value={b.name}>{b.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {create.isError && (
+          <Typography variant="caption" color="error" data-testid="add-branch-error">
+            {create.error?.message ?? 'Create failed'}
+          </Typography>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={create.isPending}>Cancel</Button>
+        <Button variant="contained" onClick={handleSubmit} disabled={create.isPending || !name} data-testid="add-branch-submit">
+          Add
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+function CutReleaseDialog({ slug, open, onClose, branches, onSuccess }: {
+  slug: string
+  open: boolean
+  onClose: () => void
+  branches: VersionBranchItem[]
+  onSuccess: (result: CreateVersionBranchResult) => void
+}) {
+  const [name, setName] = useState('')
+  const [semver, setSemver] = useState('')
+  const [source, setSource] = useState('')
+  const create = useCreateBranch()
+
+  const handleSubmit = () => {
+    create.mutate(
+      { slug, name, semver, source_branch_name: source, role: 'named-release' },
+      {
+        onSuccess: (result) => {
+          onClose()
+          setName('')
+          setSemver('')
+          setSource('')
+          onSuccess(result)
+        },
+      },
+    )
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Cut Named Release</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
+        <TextField
+          size="small"
+          label="Name"
+          value={name}
+          onChange={e => setName(e.target.value)}
+          required
+          placeholder="v1.2.x"
+          data-testid="cut-release-name"
+        />
+        <TextField
+          size="small"
+          label="Semver"
+          value={semver}
+          onChange={e => setSemver(e.target.value)}
+          required
+          placeholder="1.2.0"
+          data-testid="cut-release-semver"
+        />
+        <FormControl size="small" fullWidth>
+          <InputLabel>Source branch</InputLabel>
+          <Select label="Source branch" value={source} onChange={e => setSource(e.target.value)} data-testid="cut-release-source">
+            <MenuItem value=""><em>Select source</em></MenuItem>
+            {branches.map(b => (
+              <MenuItem key={b.name} value={b.name}>{b.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {create.isError && (
+          <Typography variant="caption" color="error" data-testid="cut-release-error">
+            {create.error?.message ?? 'Cut failed'}
+          </Typography>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={create.isPending}>Cancel</Button>
+        <Button variant="contained" onClick={handleSubmit} disabled={create.isPending || !name || !semver || !source} data-testid="cut-release-submit">
+          Cut Release
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
 function BranchCard({ branch, slug, branches }: { branch: VersionBranchItem; slug: string; branches: VersionBranchItem[] }) {
   const role = branch.role ?? branch.type
   const isEol = branch.status === 'eol'
@@ -396,6 +538,9 @@ function RungBanner({ slug }: { slug: string }) {
 function BranchesPage() {
   const { slug } = Route.useParams()
   const { data: branches, isLoading } = useBranches(slug)
+  const [addOpen, setAddOpen] = useState(false)
+  const [cutOpen, setCutOpen] = useState(false)
+  const [backportToast, setBackportToast] = useState<string | null>(null)
 
   const sorted = [...(branches ?? [])].sort((a, b) => {
     const ai = ROLE_ORDER.indexOf(a.role ?? a.type)
@@ -405,13 +550,19 @@ function BranchesPage() {
 
   return (
     <>
-      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+      <Box sx={{ display: 'flex', alignItems: 'center', mb: 2, gap: 1 }}>
         <Typography variant="h6" sx={{ fontWeight: 600, flexGrow: 1 }}>
           Branches
         </Typography>
         {sorted.length > 0 && (
           <Chip label={sorted.length} size="small" sx={{ fontSize: '0.7rem', height: 20 }} />
         )}
+        <Button variant="outlined" size="small" startIcon={<AddIcon />} onClick={() => setAddOpen(true)} data-testid="add-branch-button">
+          Add Branch
+        </Button>
+        <Button variant="contained" size="small" color="primary" onClick={() => setCutOpen(true)} data-testid="cut-release-button">
+          Cut Release
+        </Button>
       </Box>
 
       <RungBanner slug={slug} />
@@ -442,6 +593,23 @@ function BranchesPage() {
           </Box>
         </>
       )}
+
+      <AddBranchDialog slug={slug} open={addOpen} onClose={() => setAddOpen(false)} branches={sorted} />
+      <CutReleaseDialog
+        slug={slug}
+        open={cutOpen}
+        onClose={() => setCutOpen(false)}
+        branches={sorted}
+        onSuccess={(result) => setBackportToast(`Release cut. Backport tasks created: ${result.backport_tasks_created}`)}
+      />
+      <Snackbar
+        open={!!backportToast}
+        autoHideDuration={5000}
+        onClose={() => setBackportToast(null)}
+        message={backportToast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+        data-testid="backport-toast"
+      />
     </>
   )
 }
