@@ -27,10 +27,12 @@ components:
           run: ./bin/db gen
         - name: gen-dxclient
           run: make gen-dxclient
+        - name: gen-ui
+          run: cd ui && pnpm exec openapi-typescript ../internal/dxclient/openapi.json -o src/api.gen.ts
         - name: lint
           run: ./bin/lint --intent
         - name: restore-gen
-          run: git checkout -- internal/dxclient/models.gen.go internal/db schema/shipped.sql 2>/dev/null; git clean -f internal/db internal/dxclient 2>/dev/null; true
+          run: git checkout -- internal/dxclient/models.gen.go internal/db schema/shipped.sql ui/src/api.gen.ts 2>/dev/null; git clean -f internal/db internal/dxclient 2>/dev/null; true
     ship:
       strategy: rolling-pair
       secrets_file: home/deploy.secret.properties  # IS-892: loader resolves ${secret.*} refs below
