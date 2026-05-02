@@ -10,6 +10,20 @@ import (
 	"time"
 )
 
+// detectJSRunner returns "jest" when jest is installed locally (node_modules/.bin/jest
+// exists) and vitest is not, otherwise "vitest". Both produce compatible JSON output.
+func detectJSRunner(dir string) string {
+	vitestBin := filepath.Join(dir, "node_modules", ".bin", "vitest")
+	jestBin := filepath.Join(dir, "node_modules", ".bin", "jest")
+	if _, err := os.Stat(vitestBin); err == nil {
+		return "vitest"
+	}
+	if _, err := os.Stat(jestBin); err == nil {
+		return "jest"
+	}
+	return "vitest" // fallback: let npx resolve it
+}
+
 // VitestAdapter runs vitest in a source directory and maps results to
 // testharness Results. It covers the unit layer by default.
 //
@@ -26,11 +40,15 @@ func (a *VitestAdapter) ID() string        { return "vitest:" + a.Comp }
 func (a *VitestAdapter) Component() string { return a.Comp }
 func (a *VitestAdapter) Layers() []Layer   { return []Layer{LayerUnit} }
 
-// vitestRunArgs returns the npx vitest argv for the given filter and output file.
-func vitestRunArgs(f Filter, outputFile string) []string {
-	args := []string{"vitest", "run",
-		"--reporter=json",
-		"--outputFile=" + outputFile,
+// jsRunArgs returns the npx argv for the given runner, filter and output file.
+// Both vitest and jest accept --testNamePattern and produce compatible JSON output.
+func jsRunArgs(runner string, f Filter, outputFile string) []string {
+	var args []string
+	switch runner {
+	case "jest":
+		args = []string{"jest", "--json", "--outputFile=" + outputFile}
+	default:
+		args = []string{"vitest", "run", "--reporter=json", "--outputFile=" + outputFile}
 	}
 	if f.Name != "" {
 		args = append(args, "--testNamePattern="+f.Name)
@@ -40,9 +58,9 @@ func vitestRunArgs(f Filter, outputFile string) []string {
 	return args
 }
 
-// Run executes `npx vitest run` and parses the JSON report.
+// Run executes `npx vitest run` or `npx jest --json` and parses the JSON report.
+// Both runners produce the same assertionResults JSON schema.
 func (a *VitestAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
-	// Write report to a temp file; vitest's JSON reporter defaults to a file.
 	tmp, err := os.CreateTemp("", "vitest-report-*.json")
 	if err != nil {
 		return nil, fmt.Errorf("vitest: create temp: %w", err)
@@ -50,13 +68,15 @@ func (a *VitestAdapter) Run(ctx context.Context, f Filter) ([]Result, error) {
 	defer os.Remove(tmp.Name())
 	tmp.Close()
 
-	args := vitestRunArgs(f, tmp.Name())
+	dir := filepath.Clean(a.Dir)
+	runner := detectJSRunner(dir)
+	args := jsRunArgs(runner, f, tmp.Name())
 
 	cmd := exec.CommandContext(ctx, "npx", args...)
-	cmd.Dir = filepath.Clean(a.Dir)
-	cmd.Stdout = os.Stderr // vitest progress to stderr
+	cmd.Dir = dir
+	cmd.Stdout = os.Stderr
 	cmd.Stderr = os.Stderr
-	// vitest exits non-zero on test failure — that's expected; we read results.
+	// both runners exit non-zero on test failure — that's expected; we read results.
 	_ = cmd.Run()
 
 	return parseVitestReport(tmp.Name(), a.Comp)
