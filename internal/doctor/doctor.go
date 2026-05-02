@@ -126,6 +126,8 @@ type ProjectState struct {
 
 	// Deploy pipeline
 	ShipsFromDevDirectly bool   // true when project deploys from dev/main without a gate/staging branch
+	DeployStrategy       string // declared deploy.strategy from .zdx/config.yaml (trunk|gate-branch|release-branch|manual|"")
+	HasReleaseBranch     bool   // true when a release/* branch exists locally or on origin
 	DeployEventCount     int    // total deploys recorded across all environments
 	LastDeployStatus     string // "success" | "failure" | "unknown"
 
@@ -170,6 +172,7 @@ func DetectLocal(state *ProjectState) {
 		state.Config = cfg
 		state.AgentConfigSet = cfg.Agent.LLMProvider != "" || cfg.Agent.ComposeFile != ""
 		state.HasBuildSteps = len(cfg.AllBuildSteps("")) > 0
+		state.DeployStrategy = cfg.ResolvedDeploy().Strategy
 		for _, comp := range cfg.Components {
 			if comp.Ship.IsZero() {
 				state.ComponentsWithoutShip++
@@ -210,6 +213,9 @@ func DetectLocal(state *ProjectState) {
 	// Gate-branch detection: ships from dev directly if a deploy script exists
 	// but no staging/gate/release branch is present in the repo.
 	state.ShipsFromDevDirectly = detectShipsFromDevDirectly()
+
+	// Release-branch detection: any local or remote `release/*` branch counts.
+	state.HasReleaseBranch = detectReleaseBranch()
 }
 
 func codebaseUsesStepDriver() bool {
@@ -236,6 +242,25 @@ func detectShipsFromDevDirectly() bool {
 		}
 	}
 	return true
+}
+
+// detectReleaseBranch reports whether any branch matching `release/*` exists
+// locally or on origin. Used by has_deploy_config when deploy.strategy is
+// release-branch.
+func detectReleaseBranch() bool {
+	out, err := exec.Command("git", "branch", "-a").Output()
+	if err != nil {
+		return false
+	}
+	for _, line := range strings.Split(string(out), "\n") {
+		b := strings.TrimSpace(line)
+		b = strings.TrimPrefix(b, "* ")
+		b = strings.TrimPrefix(b, "remotes/origin/")
+		if strings.HasPrefix(b, "release/") {
+			return true
+		}
+	}
+	return false
 }
 
 // implDetailKeywords are technical implementation words that signal a feature
@@ -592,14 +617,42 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			"add ship: section to .zdx/config.yaml for each component"
 
 	case "has_deploy_config":
-		if state.ShipsFromDevDirectly {
-			return false, "ships from dev/main directly to production (no gate branch)", nil,
-				"Introduce a tested gate branch between dev and production for safer deploys: " +
-					"create a `staging` or `gate` branch, add CI that runs your full test suite " +
-					"before any merge to the deploy branch. " +
-					"Use `git checkout -b staging && git push -u origin staging` to start."
+		switch state.DeployStrategy {
+		case config.DeployStrategyTrunk:
+			return true, "trunk deploy declared (rolling/blue-green safety)", nil, ""
+		case config.DeployStrategyGateBranch:
+			if state.ShipsFromDevDirectly {
+				return false, "ships from dev/main directly to production (no gate branch)", nil,
+					"Introduce a tested gate branch between dev and production for safer deploys: " +
+						"create a `staging` or `gate` branch, add CI that runs your full test suite " +
+						"before any merge to the deploy branch. " +
+						"Use `git checkout -b staging && git push -u origin staging` to start."
+			}
+			return true, "gate branch present", nil, ""
+		case config.DeployStrategyReleaseBranch:
+			if !state.HasReleaseBranch {
+				return false, "release-branch strategy declared but no release/* branch found", nil,
+					"Create a release branch to mark the next shippable cut: " +
+						"`git checkout -b release/v0 && git push -u origin release/v0`."
+			}
+			return true, "release/* branch present", nil, ""
+		case config.DeployStrategyManual:
+			return true, "manual deploy strategy declared", nil, ""
+		case "":
+			// Unset: preserve current behavior (default = gate-branch detection)
+			// so existing projects don't silently flip.
+			if state.ShipsFromDevDirectly {
+				return false, "ships from dev/main directly to production (no gate branch)", nil,
+					"Introduce a tested gate branch between dev and production for safer deploys: " +
+						"create a `staging` or `gate` branch, add CI that runs your full test suite " +
+						"before any merge to the deploy branch. " +
+						"Use `git checkout -b staging && git push -u origin staging` to start."
+			}
+			return true, "deploy pipeline has a gate branch", nil, ""
+		default:
+			return false, fmt.Sprintf("deploy.strategy=%s not recognized; expected trunk|gate-branch|release-branch|manual", state.DeployStrategy), nil,
+				"Set deploy.strategy in .zdx/config.yaml to one of: trunk, gate-branch, release-branch, manual."
 		}
-		return true, "deploy pipeline has a gate branch", nil, ""
 
 	case "has_deploy_events":
 		if state.DeployEventCount > 0 {

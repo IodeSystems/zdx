@@ -18,6 +18,45 @@ type Config struct {
 	Components map[string]Component `yaml:"components"`
 	LLMLocal   LLMLocal             `yaml:"llm_local"`
 	Agent      AgentConfig          `yaml:"agent"`
+	Deploy     DeployConfig         `yaml:"deploy"`
+}
+
+// Deploy-strategy constants. See IS-927 for the design.
+const (
+	DeployStrategyTrunk         = "trunk"
+	DeployStrategyGateBranch    = "gate-branch"
+	DeployStrategyReleaseBranch = "release-branch"
+	DeployStrategyManual        = "manual"
+)
+
+// DeployConfig declares how a project's deploy pipeline is structured.
+// Doctor's has_deploy_config rung consults Strategy to decide whether the
+// project's branching model is satisfied without flipping defaults for
+// projects that never set it.
+type DeployConfig struct {
+	Strategy string `yaml:"strategy"`
+}
+
+// ResolvedDeploy returns deploy config with the strategy normalized
+// (lowercase + trimmed). Unknown non-empty values pass through so doctor
+// can flag them as misconfigured. Empty preserves "unset" semantics.
+func (c *Config) ResolvedDeploy() DeployConfig {
+	var d DeployConfig
+	if c != nil {
+		d = c.Deploy
+	}
+	d.Strategy = strings.ToLower(strings.TrimSpace(d.Strategy))
+	return d
+}
+
+// ValidDeployStrategy reports whether s is one of the recognized
+// deploy.strategy values.
+func ValidDeployStrategy(s string) bool {
+	switch s {
+	case DeployStrategyTrunk, DeployStrategyGateBranch, DeployStrategyReleaseBranch, DeployStrategyManual:
+		return true
+	}
+	return false
 }
 
 // AgentConfig declares how agents run in this project.

@@ -438,42 +438,103 @@ func TestIsImplDetailFeature(t *testing.T) {
 	}
 }
 
-// TestRunCheckHasDeployConfigGateBranch verifies spec 166:
-// Given a project shipping to production from the dev branch directly,
-// when doctor runs, then it suggests introducing a tested gate branch.
-func TestRunCheckHasDeployConfigGateBranch(t *testing.T) {
+// TestRunCheckHasDeployConfig verifies has_deploy_config across each
+// declared deploy.strategy plus unset and unknown values (spec 166 + IS-927).
+// Unset preserves the original gate-branch detection so existing projects
+// don't silently flip; trunk/manual always pass; release-branch requires a
+// release/* branch; unknown strategies fail with a discoverable message.
+func TestRunCheckHasDeployConfig(t *testing.T) {
 	cases := []struct {
-		name          string
-		shipsFromDev  bool
-		wantPass      bool
-		wantMsgPart   string
-		wantPropParts []string
+		name             string
+		strategy         string
+		shipsFromDev     bool
+		hasReleaseBranch bool
+		wantPass         bool
+		wantMsgPart      string
+		wantPropParts    []string
 	}{
 		{
-			name:         "gate branch present — passes",
-			shipsFromDev: false,
-			wantPass:     true,
+			name:        "trunk passes regardless of branches",
+			strategy:    "trunk",
+			wantPass:    true,
+			wantMsgPart: "trunk deploy declared",
 		},
 		{
-			name:          "ships from dev directly — suggests gate branch",
+			name:         "trunk passes even when ships from dev directly",
+			strategy:     "trunk",
+			shipsFromDev: true,
+			wantPass:     true,
+			wantMsgPart:  "trunk deploy declared",
+		},
+		{
+			name:        "gate-branch with staging passes",
+			strategy:    "gate-branch",
+			wantPass:    true,
+			wantMsgPart: "gate branch present",
+		},
+		{
+			name:          "gate-branch without staging fails with proposal",
+			strategy:      "gate-branch",
 			shipsFromDev:  true,
 			wantPass:      false,
 			wantMsgPart:   "dev/main directly to production",
-			wantPropParts: []string{"gate branch", "staging", "production"},
+			wantPropParts: []string{"gate branch", "staging", "git checkout -b staging"},
+		},
+		{
+			name:             "release-branch with release/* passes",
+			strategy:         "release-branch",
+			hasReleaseBranch: true,
+			wantPass:         true,
+			wantMsgPart:      "release/* branch present",
+		},
+		{
+			name:          "release-branch without release/* fails",
+			strategy:      "release-branch",
+			wantPass:      false,
+			wantMsgPart:   "no release/* branch found",
+			wantPropParts: []string{"release/v0"},
+		},
+		{
+			name:        "manual is informational pass",
+			strategy:    "manual",
+			wantPass:    true,
+			wantMsgPart: "manual deploy strategy declared",
+		},
+		{
+			name:        "unset preserves gate-branch behavior — passes when staging exists",
+			strategy:    "",
+			wantPass:    true,
+			wantMsgPart: "deploy pipeline has a gate branch",
+		},
+		{
+			name:          "unset fails when ships from dev directly",
+			strategy:      "",
+			shipsFromDev:  true,
+			wantPass:      false,
+			wantMsgPart:   "dev/main directly to production",
+			wantPropParts: []string{"gate branch", "staging"},
+		},
+		{
+			name:          "unknown strategy fails with hint",
+			strategy:      "yolo",
+			wantPass:      false,
+			wantMsgPart:   "deploy.strategy=yolo not recognized",
+			wantPropParts: []string{"trunk", "gate-branch", "release-branch", "manual"},
 		},
 	}
 
 	for _, tc := range cases {
 		t.Run(tc.name, func(t *testing.T) {
-			state := ProjectState{ShipsFromDevDirectly: tc.shipsFromDev}
+			state := ProjectState{
+				DeployStrategy:       tc.strategy,
+				ShipsFromDevDirectly: tc.shipsFromDev,
+				HasReleaseBranch:     tc.hasReleaseBranch,
+			}
 			pass, msg, _, proposal := runCheck("has_deploy_config", &state)
 			if pass != tc.wantPass {
 				t.Fatalf("pass=%v, want %v (msg=%q)", pass, tc.wantPass, msg)
 			}
-			if tc.wantPass {
-				return
-			}
-			if !strings.Contains(msg, tc.wantMsgPart) {
+			if tc.wantMsgPart != "" && !strings.Contains(msg, tc.wantMsgPart) {
 				t.Errorf("msg=%q, want substring %q", msg, tc.wantMsgPart)
 			}
 			for _, want := range tc.wantPropParts {

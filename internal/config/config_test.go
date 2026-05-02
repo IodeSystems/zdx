@@ -161,6 +161,98 @@ func TestLoadActualConfig(t *testing.T) {
 	}
 }
 
+// TestResolvedDeploy verifies IS-927: deploy.strategy is parsed,
+// normalized (lowercase + trimmed), and unknown values pass through
+// unchanged so doctor can flag them.
+func TestResolvedDeploy(t *testing.T) {
+	cases := []struct {
+		name         string
+		yaml         string
+		wantStrategy string
+		wantValid    bool
+	}{
+		{
+			name:         "trunk strategy",
+			yaml:         "deploy:\n  strategy: trunk\n",
+			wantStrategy: "trunk",
+			wantValid:    true,
+		},
+		{
+			name:         "gate-branch strategy",
+			yaml:         "deploy:\n  strategy: gate-branch\n",
+			wantStrategy: "gate-branch",
+			wantValid:    true,
+		},
+		{
+			name:         "release-branch strategy",
+			yaml:         "deploy:\n  strategy: release-branch\n",
+			wantStrategy: "release-branch",
+			wantValid:    true,
+		},
+		{
+			name:         "manual strategy",
+			yaml:         "deploy:\n  strategy: manual\n",
+			wantStrategy: "manual",
+			wantValid:    true,
+		},
+		{
+			name:         "uppercase normalized",
+			yaml:         "deploy:\n  strategy: TRUNK\n",
+			wantStrategy: "trunk",
+			wantValid:    true,
+		},
+		{
+			name:         "whitespace trimmed",
+			yaml:         "deploy:\n  strategy: \"  gate-branch  \"\n",
+			wantStrategy: "gate-branch",
+			wantValid:    true,
+		},
+		{
+			name:         "empty strategy",
+			yaml:         "deploy:\n  strategy: \"\"\n",
+			wantStrategy: "",
+			wantValid:    false,
+		},
+		{
+			name:         "no deploy block",
+			yaml:         "remote:\n  url: \"\"\n",
+			wantStrategy: "",
+			wantValid:    false,
+		},
+		{
+			name:         "unknown strategy passes through",
+			yaml:         "deploy:\n  strategy: yolo\n",
+			wantStrategy: "yolo",
+			wantValid:    false,
+		},
+	}
+	for _, tc := range cases {
+		t.Run(tc.name, func(t *testing.T) {
+			var cfg Config
+			if err := yaml.Unmarshal([]byte(tc.yaml), &cfg); err != nil {
+				t.Fatalf("yaml.Unmarshal: %v", err)
+			}
+			d := cfg.ResolvedDeploy()
+			if d.Strategy != tc.wantStrategy {
+				t.Errorf("Strategy = %q, want %q", d.Strategy, tc.wantStrategy)
+			}
+			if got := ValidDeployStrategy(d.Strategy); got != tc.wantValid {
+				t.Errorf("ValidDeployStrategy(%q) = %v, want %v", d.Strategy, got, tc.wantValid)
+			}
+		})
+	}
+}
+
+// TestResolvedDeploy_NilConfig verifies that ResolvedDeploy on a nil
+// receiver returns the zero value rather than panicking.
+func TestResolvedDeploy_NilConfig(t *testing.T) {
+	var c *Config
+	d := c.ResolvedDeploy()
+	if d.Strategy != "" {
+		t.Errorf("Strategy = %q, want empty", d.Strategy)
+	}
+}
+
 func TestIsGlobalMode(t *testing.T) {
 	cases := map[string]bool{
 		"":      false,
