@@ -10,6 +10,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"nhooyr.io/websocket"
 )
 
@@ -994,4 +995,67 @@ func TestTaskUndoneRequeues(t *testing.T) {
 
 	d.MarkTaskDone(taskID)
 	d.CloseIssue(issueID)
+}
+
+// TestUnblockAllResetsReopenCount is a regression test for TK-1672: after
+// unblock-all, the next claim must not immediately re-block the todo via the
+// upsert churn guard (reopen_count >= 3). Without the fix, unblock-all cleared
+// blocked=false but left reopen_count intact, so the very next UpsertTodo call
+// during claim re-fired the guard and re-blocked every row, returning 404 from
+// claim even though the operator just unblocked the queue.
+func TestUnblockAllResetsReopenCount(t *testing.T) {
+	if srv.DSN == "" {
+		t.Skip("srv.DSN unavailable; needs direct DB access to force reopen_count >= 3")
+	}
+
+	d := NewApiDriver(t, "unblock-reopen", "Unblock ReOpenCount Reset")
+	Given(d).
+		TriagedIssue("Reopen count regression", "TK-1672: unblock-all must reset reopen_count", 2).
+		Task(0, "Implement the fix").
+		Build()
+
+	// Seed all todo rows via a claim call (generateSoloQueue + UpsertTodo for each candidate).
+	first, status := soloClaimNext(t, d.Slug, "agent-seed")
+	if status != http.StatusOK {
+		t.Fatalf("seed claim: want 200, got %d", status)
+	}
+
+	// Release so all todos are unclaimed and open.
+	var rel struct{ OK bool }
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/release",
+		map[string]any{"id": first.ID, "agent_id": "agent-seed", "resolve": false}, &rel))
+
+	// Force reopen_count=3 and blocked=true on EVERY open todo for this project
+	// so the upsert churn guard (reopen_count >= 3 → blocked) would re-fire on
+	// all rows during the next claim call if unblock-all doesn't reset reopen_count.
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+	conn, err := pgx.Connect(ctx, srv.DSN)
+	if err != nil {
+		t.Fatalf("pgx connect: %v", err)
+	}
+	defer conn.Close(ctx)
+	_, err = conn.Exec(ctx,
+		`UPDATE zdx_todos
+		 SET reopen_count = 3, blocked = true,
+		     blocked_reason = 'Reopened 3+ times: manually review and unblock when ready'
+		 WHERE project_id = (SELECT id FROM zdx_projects WHERE slug = $1)
+		   AND status = 'open'`,
+		d.Slug,
+	)
+	if err != nil {
+		t.Fatalf("force reopen_count on all todos: %v", err)
+	}
+
+	// Unblock all todos for this project.
+	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/solo/unblock-all",
+		map[string]any{"slug": d.Slug}, nil))
+
+	// Claim must succeed (200 with a todo body). On the buggy version,
+	// unblock-all left reopen_count=3, so the very next UpsertTodo inside
+	// claim re-blocked every row and ClaimNextTodo returned nothing (404).
+	_, claimStatus := soloClaimNext(t, d.Slug, "agent-post-unblock")
+	if claimStatus != http.StatusOK {
+		t.Fatalf("post-unblock claim: want 200 (todo claimable), got %d — unblock-all did not reset reopen_count", claimStatus)
+	}
 }

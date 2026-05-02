@@ -182,9 +182,12 @@ UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = 
 WHERE project_id = @project_id AND reference_issue_id = @reference_issue_id AND blocked = true AND status = 'open';
 
 -- name: UnblockAllTodos :exec
--- Clear blocked flag on all blocked todos for a project. Preserves cycle_count so the auto-file
--- threshold is not reset by a manual admin unblock.
-UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = ''
+-- Clear blocked flag and reopen_count on all blocked todos for a project.
+-- reopen_count is reset because the upsert re-block guard (queries/todos.sql:56-65)
+-- fires on reopen_count >= 3 and would otherwise immediately re-block every row on
+-- the next claim's upsert. cycle_count is preserved so the auto-file threshold is
+-- not reset by a manual admin unblock.
+UPDATE zdx_todos SET blocked = false, blocked_reason = '', reference_issue_id = '', reopen_count = 0
 WHERE project_id = @project_id AND blocked = true AND status = 'open';
 
 -- name: ReclaimExpiredTodos :many
