@@ -14,7 +14,7 @@ import {
   ArrowBack as ArrowBackIcon,
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
-import { useFeature, useTasks, useSpecTests, type TaskItem, type SpecItem as BaseSpecItem } from '../api'
+import { useFeature, useTasks, useSpecTests, useFeatureCoverage, type TaskItem, type SpecItem as BaseSpecItem, type SpecCoverageItem } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
 import { DemosSection } from './DemoPlayer'
 import { MarkdownContent } from './MarkdownContent'
@@ -34,7 +34,24 @@ function TestStatusIcon({ status }: { status: string }) {
   return <Typography component="span" sx={{ color, fontWeight: 600, mr: 0.5, fontSize: '0.85rem' }}>{icon}</Typography>
 }
 
-function SpecRow({ spec, slug }: { spec: Spec; slug: string }) {
+const LAYERS = ['unit', 'integration', 'demo'] as const
+type Layer = typeof LAYERS[number]
+
+function LayerBadge({ layer, active }: { layer: Layer; active: boolean }) {
+  return (
+    <Chip
+      label={layer}
+      size="small"
+      color={active ? 'success' : 'default'}
+      variant={active ? 'filled' : 'outlined'}
+      sx={{ height: 18, fontSize: '0.65rem', opacity: active ? 1 : 0.4 }}
+      data-testid={`layer-badge-${layer}`}
+      data-active={active}
+    />
+  )
+}
+
+function SpecRow({ spec, slug, coverage }: { spec: Spec; slug: string; coverage?: SpecCoverageItem }) {
   const [expanded, setExpanded] = useState(false)
   const { data: tests, isLoading } = useSpecTests(spec.id, expanded)
   const implemented = (spec.green_demos ?? 0) > 0
@@ -55,6 +72,13 @@ function SpecRow({ spec, slug }: { spec: Spec; slug: string }) {
             color={implemented ? 'success' : 'default'}
             variant={implemented ? 'filled' : 'outlined'}
           />
+          {coverage && (
+            <Box sx={{ display: 'flex', gap: 0.25 }}>
+              <LayerBadge layer="unit" active={coverage.has_unit} />
+              <LayerBadge layer="integration" active={coverage.has_integration} />
+              <LayerBadge layer="demo" active={coverage.has_demo} />
+            </Box>
+          )}
           <Link
             to="/project/$slug/specs/$specId"
             params={{ slug, specId: String(spec.id) }}
@@ -106,6 +130,8 @@ export function FeatureDetail({
 }) {
   const { data: feature, isLoading } = useFeature(slug, name)
   const { data: tasksData } = useTasks(slug, { feature: name })
+  const { data: coverageData } = useFeatureCoverage(feature?.id ?? 0, slug)
+  const [layerFilter, setLayerFilter] = useState<Layer | null>(null)
   const router = useRouter()
 
   useEffect(() => {
@@ -212,6 +238,20 @@ export function FeatureDetail({
         const mustSpecs = specList.filter(s => s.importance === 'must')
         const mustBlocking = mustSpecs.filter(s => (s.green_demos ?? 0) === 0)
         const shipReady = mustSpecs.length === 0 || mustBlocking.length === 0
+        const coverageMap = new Map((coverageData ?? []).map(c => [c.spec_id, c]))
+
+        const layerMissingKey: Record<Layer, keyof SpecCoverageItem> = {
+          unit: 'has_unit',
+          integration: 'has_integration',
+          demo: 'has_demo',
+        }
+        const filteredSpecList = layerFilter
+          ? specList.filter(s => {
+              const cov = coverageMap.get(s.id)
+              return !cov || !cov[layerMissingKey[layerFilter]]
+            })
+          : specList
+
         return (
           <Box sx={{ mb: 2, mt: 2 }}>
             {shipReady ? (
@@ -221,11 +261,25 @@ export function FeatureDetail({
                 {mustBlocking.length} must(s) blocking ship: {mustBlocking.map(s => `SP-${s.id}`).join(', ')}
               </Alert>
             )}
-            <Typography variant="subtitle2" color="text.secondary" sx={{ mb: 1 }}>
-              Specs ({specList.length})
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1, flexWrap: 'wrap' }}>
+              <Typography variant="subtitle2" color="text.secondary">
+                Specs ({specList.length})
+              </Typography>
+              {LAYERS.map(layer => (
+                <Chip
+                  key={layer}
+                  label={layer}
+                  size="small"
+                  color={layerFilter === layer ? 'primary' : 'default'}
+                  variant={layerFilter === layer ? 'filled' : 'outlined'}
+                  onClick={() => setLayerFilter(prev => prev === layer ? null : layer)}
+                  data-testid={`layer-filter-${layer}`}
+                  sx={{ cursor: 'pointer' }}
+                />
+              ))}
+            </Box>
             {tiers.map(({ key, label }) => {
-              const tier = specList.filter(s => s.importance === key)
+              const tier = filteredSpecList.filter(s => s.importance === key)
               if (tier.length === 0) return null
               const implemented = tier.filter(s => (s.green_demos ?? 0) > 0).length
               return (
@@ -237,7 +291,7 @@ export function FeatureDetail({
                     <Chip label={`${implemented}/${tier.length} implemented`} size="small" variant="outlined" />
                   </Box>
                   <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-                    {tier.map((s: Spec) => <SpecRow key={s.id} spec={s} slug={slug} />)}
+                    {tier.map((s: Spec) => <SpecRow key={s.id} spec={s} slug={slug} coverage={coverageMap.get(s.id)} />)}
                   </Box>
                 </Box>
               )

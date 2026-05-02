@@ -129,6 +129,13 @@ type SpecTestItem struct {
 	Status    string `json:"status"`
 }
 
+type SpecCoverageItem struct {
+	SpecID         int32 `json:"spec_id"`
+	HasUnit        bool  `json:"has_unit"`
+	HasIntegration bool  `json:"has_integration"`
+	HasDemo        bool  `json:"has_demo"`
+}
+
 type SpecCloseGateOffender struct {
 	SpecID      int32  `json:"spec_id"`
 	Description string `json:"description"`

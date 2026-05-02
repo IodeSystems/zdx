@@ -16604,6 +16604,58 @@
           "token"
         ],
         "type": "object"
+      },
+      "Get-feature-coverageResponse": {
+        "additionalProperties": false,
+        "properties": {
+          "$schema": {
+            "description": "A URL to the JSON Schema for this object.",
+            "examples": [
+              "https://example.com/schemas/Get-feature-coverageResponse.json"
+            ],
+            "format": "uri",
+            "readOnly": true,
+            "type": "string"
+          },
+          "coverage": {
+            "items": {
+              "$ref": "#/components/schemas/SpecCoverageItem"
+            },
+            "type": [
+              "array",
+              "null"
+            ]
+          }
+        },
+        "required": [
+          "coverage"
+        ],
+        "type": "object"
+      },
+      "SpecCoverageItem": {
+        "additionalProperties": false,
+        "properties": {
+          "has_demo": {
+            "type": "boolean"
+          },
+          "has_integration": {
+            "type": "boolean"
+          },
+          "has_unit": {
+            "type": "boolean"
+          },
+          "spec_id": {
+            "format": "int32",
+            "type": "integer"
+          }
+        },
+        "required": [
+          "spec_id",
+          "has_unit",
+          "has_integration",
+          "has_demo"
+        ],
+        "type": "object"
       }
     }
   },
@@ -31889,6 +31941,54 @@
           }
         },
         "summary": "Sign a channel subscription request"
+      }
+    },
+    "/api/dx/features/coverage": {
+      "get": {
+        "operationId": "get-feature-coverage",
+        "parameters": [
+          {
+            "explode": false,
+            "in": "query",
+            "name": "slug",
+            "required": true,
+            "schema": {
+              "type": "string"
+            }
+          },
+          {
+            "explode": false,
+            "in": "query",
+            "name": "feature_id",
+            "required": true,
+            "schema": {
+              "format": "int32",
+              "type": "integer"
+            }
+          }
+        ],
+        "responses": {
+          "200": {
+            "content": {
+              "application/json": {
+                "schema": {
+                  "$ref": "#/components/schemas/Get-feature-coverageResponse"
+                }
+              }
+            },
+            "description": "OK"
+          },
+          "default": {
+            "content": {
+              "application/problem+json": {
+                "schema": {
+                  "$ref": "#/components/schemas/ErrorModel"
+                }
+              }
+            },
+            "description": "Error"
+          }
+        }
       }
     }
   }

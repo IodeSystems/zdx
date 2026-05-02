@@ -559,6 +559,45 @@ func (h *Handler) registerFeatureRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "get-feature-coverage", Method: http.MethodGet, Path: "/api/dx/features/coverage"},
+		func(ctx context.Context, in *struct {
+			Slug      string `query:"slug" required:"true"`
+			FeatureID int32  `query:"feature_id" required:"true"`
+		}) (*struct {
+			Body struct {
+				Coverage []SpecCoverageItem `json:"coverage"`
+			}
+		}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			feat, err := h.Q.GetFeatureByID(ctx, in.FeatureID)
+			if err != nil || feat.ProjectID != p.ID {
+				return nil, apiErr(http.StatusNotFound, "feature not found")
+			}
+			rows, err := h.Q.GetFeatureCoverage(ctx, in.FeatureID)
+			if err != nil {
+				return nil, apiErr(500, err.Error())
+			}
+			out := make([]SpecCoverageItem, len(rows))
+			for i, r := range rows {
+				out[i] = SpecCoverageItem{
+					SpecID:         r.SpecID,
+					HasUnit:        r.HasUnit,
+					HasIntegration: r.HasIntegration,
+					HasDemo:        r.HasDemo,
+				}
+			}
+			return &struct {
+				Body struct {
+					Coverage []SpecCoverageItem `json:"coverage"`
+				}
+			}{Body: struct {
+				Coverage []SpecCoverageItem `json:"coverage"`
+			}{Coverage: out}}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "list-uncovered-specs", Method: http.MethodGet, Path: "/api/dx/specs/uncovered"},
 		func(ctx context.Context, in *IssueSlugInput) (*struct {
 			Body struct {

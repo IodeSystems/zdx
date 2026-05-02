@@ -1833,6 +1833,26 @@ export interface SpecTestItem {
   status: string
 }
 
+export interface SpecCoverageItem {
+  spec_id: number
+  has_unit: boolean
+  has_integration: boolean
+  has_demo: boolean
+}
+
+export const useFeatureCoverage = (featureId: number, slug: string) =>
+  useQuery<SpecCoverageItem[]>({
+    queryKey: ['feature-coverage', slug, featureId],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/features/coverage' as any, {
+        params: { query: { slug, feature_id: featureId } as any },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+      return ((data as any)?.coverage ?? []) as SpecCoverageItem[]
+    },
+    enabled: featureId > 0 && !!slug,
+  })
+
 export const useSpecTests = (specId: number, enabled = true) =>
   useQuery<SpecTestItem[]>({
     queryKey: ['spec-tests', specId],

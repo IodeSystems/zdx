@@ -1,8 +1,8 @@
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { theme } from '../theme'
-import type { FeatureItem, TaskItem, SpecItem } from '../api'
+import type { FeatureItem, TaskItem, SpecItem, SpecCoverageItem } from '../api'
 
 jest.mock('../api', () => {
   const actual = jest.requireActual('../api')
@@ -11,6 +11,7 @@ jest.mock('../api', () => {
     useFeature: jest.fn(),
     useTasks: jest.fn(),
     useSpecTests: jest.fn(),
+    useFeatureCoverage: jest.fn(),
   }
 })
 
@@ -31,12 +32,13 @@ jest.mock('./DemoPlayer', () => ({
   DemosSection: () => <div data-testid="demos" />,
 }))
 
-import { useFeature, useTasks, useSpecTests } from '../api'
+import { useFeature, useTasks, useSpecTests, useFeatureCoverage } from '../api'
 import { FeatureDetail } from './FeatureDetail'
 
 const mockedUseFeature = jest.mocked(useFeature)
 const mockedUseTasks = jest.mocked(useTasks)
 const mockedUseSpecTests = jest.mocked(useSpecTests)
+const mockedUseFeatureCoverage = jest.mocked(useFeatureCoverage)
 
 function makeFeature(overrides: Partial<FeatureItem> = {}): FeatureItem {
   return {
@@ -83,6 +85,16 @@ function makeTask(overrides: Partial<TaskItem> = {}): TaskItem {
   }
 }
 
+function makeCoverage(overrides: Partial<SpecCoverageItem> = {}): SpecCoverageItem {
+  return {
+    spec_id: 1,
+    has_unit: false,
+    has_integration: false,
+    has_demo: false,
+    ...overrides,
+  }
+}
+
 function makeSpec(overrides: Partial<SpecItem> = {}): SpecItem {
   return {
     id: 1,
@@ -99,6 +111,7 @@ let queryClient: QueryClient
 beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
   mockedUseSpecTests.mockReturnValue({ data: [], isLoading: false } as any)
+  mockedUseFeatureCoverage.mockReturnValue({ data: [], isLoading: false } as any)
 })
 
 afterEach(() => {
@@ -205,5 +218,55 @@ describe('FeatureDetail', () => {
     for (const t of tasks) {
       expect(screen.getByText(t.text)).toBeInTheDocument()
     }
+  })
+})
+
+describe('FeatureDetail — coverage badges and layer filter (spec 31)', () => {
+  test('spec 31: per-spec layer badges render; layer filter narrows and deactivates', () => {
+    const specs: SpecItem[] = [
+      makeSpec({ id: 10, importance: 'must', description: 'Spec with unit coverage', green_demos: 1, total_demos: 1 }),
+      makeSpec({ id: 11, importance: 'must', description: 'Spec without unit coverage', green_demos: 0, total_demos: 0 }),
+      makeSpec({ id: 20, importance: 'should', description: 'Spec with all layers', green_demos: 2, total_demos: 2 }),
+    ]
+    const coverage: SpecCoverageItem[] = [
+      makeCoverage({ spec_id: 10, has_unit: true, has_integration: false, has_demo: true }),
+      makeCoverage({ spec_id: 11, has_unit: false, has_integration: false, has_demo: false }),
+      makeCoverage({ spec_id: 20, has_unit: true, has_integration: true, has_demo: true }),
+    ]
+    const feature = makeFeature({ id: 5, specs })
+    mockedUseFeature.mockReturnValue({ data: feature, isLoading: false } as any)
+    mockedUseTasks.mockReturnValue({ data: { tasks: [], total: 0 }, isLoading: false } as any)
+    mockedUseFeatureCoverage.mockReturnValue({ data: coverage, isLoading: false } as any)
+
+    renderDetail()
+
+    // Three layer badges appear in the spec accordion headers
+    const unitBadges = screen.getAllByTestId('layer-badge-unit')
+    expect(unitBadges.length).toBe(3)
+    const demoBadges = screen.getAllByTestId('layer-badge-demo')
+    expect(demoBadges.length).toBe(3)
+
+    // Badge for spec 10 unit is active; spec 11 unit is not
+    expect(unitBadges[0]).toHaveAttribute('data-active', 'true')
+    expect(unitBadges[1]).toHaveAttribute('data-active', 'false')
+
+    // All specs visible before filter
+    expect(screen.getByText('Spec with unit coverage')).toBeInTheDocument()
+    expect(screen.getByText('Spec without unit coverage')).toBeInTheDocument()
+
+    // Click unit layer filter chip — should narrow to specs missing unit
+    const unitFilter = screen.getByTestId('layer-filter-unit')
+    fireEvent.click(unitFilter)
+
+    // Only specs without unit coverage remain
+    expect(screen.queryByText('Spec with unit coverage')).not.toBeInTheDocument()
+    expect(screen.getByText('Spec without unit coverage')).toBeInTheDocument()
+    expect(screen.queryByText('Spec with all layers')).not.toBeInTheDocument()
+
+    // Click unit filter again to deactivate — all specs return
+    fireEvent.click(unitFilter)
+    expect(screen.getByText('Spec with unit coverage')).toBeInTheDocument()
+    expect(screen.getByText('Spec without unit coverage')).toBeInTheDocument()
+    expect(screen.getByText('Spec with all layers')).toBeInTheDocument()
   })
 })

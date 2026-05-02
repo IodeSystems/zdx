@@ -80,6 +80,18 @@ FROM zdx_specs s
 JOIN zdx_spec_tests st ON st.spec_id = s.id
 WHERE st.test_id = $1 ORDER BY s.id;
 
+-- name: GetFeatureCoverage :many
+SELECT
+  s.id AS spec_id,
+  bool_or(t.layer = 'unit')        AS has_unit,
+  bool_or(t.layer = 'integration') AS has_integration,
+  bool_or(t.layer = 'demo')        AS has_demo
+FROM zdx_specs s
+LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
+LEFT JOIN zdx_tests t       ON t.id = st.test_id
+WHERE s.feature_id = $1
+GROUP BY s.id;
+
 -- name: LinkSpecTest :exec
 INSERT INTO zdx_spec_tests (spec_id, test_id)
 VALUES (@spec_id, @test_id)
