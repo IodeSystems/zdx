@@ -2,6 +2,8 @@ package project
 
 import (
 	"fmt"
+	"os/exec"
+	"strings"
 
 	"github.com/spf13/cobra"
 
@@ -11,8 +13,22 @@ import (
 
 func BranchCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "branch", Short: "Version branch management"}
-	cmd.AddCommand(branchCutCmd(), branchListCmd(), branchShowCmd(), branchEolCmd(), branchSetSourceCmd())
+	cmd.AddCommand(branchCutCmd(), branchAddRoleCmd(), branchListCmd(), branchShowCmd(), branchEolCmd(), branchSetSourceCmd())
 	return cmd
+}
+
+// currentGitBranch returns the current branch name via `git rev-parse
+// --abbrev-ref HEAD`, or "" on error / detached HEAD ("HEAD").
+func currentGitBranch() string {
+	out, err := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	if err != nil {
+		return ""
+	}
+	name := strings.TrimSpace(string(out))
+	if name == "HEAD" {
+		return ""
+	}
+	return name
 }
 
 func branchCutCmd() *cobra.Command {
@@ -27,6 +43,9 @@ func branchCutCmd() *cobra.Command {
 			if len(args) == 2 {
 				s := args[1]
 				body.Semver = &s
+			}
+			if src := currentGitBranch(); src != "" {
+				body.SourceBranchName = &src
 			}
 			resp, err := c.CreateVersionBranchWithResponse(cmd.Context(), slug, body)
 			if err != nil {
@@ -43,6 +62,41 @@ func branchCutCmd() *cobra.Command {
 			return nil
 		},
 	}
+}
+
+func branchAddRoleCmd() *cobra.Command {
+	var role, source string
+	cmd := &cobra.Command{
+		Use:   "add-role <name>",
+		Short: "Register a branch with a role (rolling-release|dev|pr-target|named-release)",
+		Args:  cobra.ExactArgs(1),
+		RunE: func(cmd *cobra.Command, args []string) error {
+			switch role {
+			case "rolling-release", "dev", "pr-target", "named-release":
+			default:
+				return fmt.Errorf("--role must be one of rolling-release, dev, pr-target, named-release")
+			}
+			c := cli.MustClient()
+			slug := c.SlugOrDie()
+			body := dxclient.CreateVersionBranchRequest{Name: args[0], Role: &role}
+			if source != "" {
+				body.SourceBranchName = &source
+			}
+			resp, err := c.CreateVersionBranchWithResponse(cmd.Context(), slug, body)
+			if err != nil {
+				return err
+			}
+			if err := c.CheckStatus(resp.StatusCode(), resp.Body); err != nil {
+				return err
+			}
+			fmt.Printf("Branch %s registered with role %s.\n", args[0], role)
+			return nil
+		},
+	}
+	cmd.Flags().StringVar(&role, "role", "", "branch role (rolling-release|dev|pr-target|named-release)")
+	cmd.Flags().StringVar(&source, "source", "", "source branch this branch was cut from")
+	_ = cmd.MarkFlagRequired("role")
+	return cmd
 }
 
 func branchListCmd() *cobra.Command {

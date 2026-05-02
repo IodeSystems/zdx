@@ -128,8 +128,10 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 		func(ctx context.Context, in *struct {
 			Slug string `path:"slug" required:"true"`
 			Body struct {
-				Name   string `json:"name"`
-				Semver string `json:"semver,omitempty"`
+				Name             string `json:"name"`
+				Semver           string `json:"semver,omitempty"`
+				Role             string `json:"role,omitempty"`
+				SourceBranchName string `json:"source_branch_name,omitempty"`
 			}
 		}) (*struct{ Body CreateVersionBranchResult }, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
@@ -139,16 +141,30 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 			if in.Body.Name == "" {
 				return nil, apiErr(http.StatusUnprocessableEntity, "name is required")
 			}
+			role := in.Body.Role
+			if role == "" {
+				role = "named-release"
+			}
+			switch role {
+			case "rolling-release", "dev", "pr-target", "named-release":
+			default:
+				return nil, apiErr(http.StatusUnprocessableEntity, "role must be one of rolling-release, dev, pr-target, named-release")
+			}
 			semver := pgtype.Text{}
 			if in.Body.Semver != "" {
 				semver = pgtype.Text{String: in.Body.Semver, Valid: true}
 			}
+			source := pgtype.Text{}
+			if in.Body.SourceBranchName != "" {
+				source = pgtype.Text{String: in.Body.SourceBranchName, Valid: true}
+			}
 			row, err := h.Q.CreateVersionBranch(ctx, db.CreateVersionBranchParams{
-				ProjectID: p.ID,
-				Name:      in.Body.Name,
-				Role:      "named-release",
-				Semver:    semver,
-				Status:    "active",
+				ProjectID:        p.ID,
+				Name:             in.Body.Name,
+				Role:             role,
+				Semver:           semver,
+				Status:           "active",
+				SourceBranchName: source,
 			})
 			if err != nil {
 				return nil, apiErr(http.StatusInternalServerError, err.Error())
