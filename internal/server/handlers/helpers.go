@@ -42,7 +42,7 @@ func fmtTS(ts pgtype.Timestamptz) string {
 	if !ts.Valid {
 		return ""
 	}
-	return ts.Time.UTC().Format(time.RFC3339)
+	return ts.Time.UTC().Format(time.RFC3339Nano)
 }
 
 func fmtTSAny(v interface{}) string {
@@ -50,7 +50,7 @@ func fmtTSAny(v interface{}) string {
 	case pgtype.Timestamptz:
 		return fmtTS(t)
 	case time.Time:
-		return t.UTC().Format(time.RFC3339)
+		return t.UTC().Format(time.RFC3339Nano)
 	default:
 		return ""
 	}

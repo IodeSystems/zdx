@@ -32,10 +32,9 @@ func TestAgentHeartbeatLoopAdvancesLastHeartbeat(t *testing.T) {
 		close(done)
 	}()
 
-	// Allow the timestamp to advance past second resolution (fmtTS uses RFC3339,
-	// which truncates to seconds). Sleep >1s ensures a measurable delta even
-	// under heavy scheduler load.
-	time.Sleep(1200 * time.Millisecond)
+	// Run the loop long enough to land a few ticks; RFC3339Nano preserves
+	// sub-second precision so we do not need to cross a wall-clock second.
+	time.Sleep(250 * time.Millisecond)
 	close(stop)
 	<-done
 
