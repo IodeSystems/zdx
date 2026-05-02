@@ -8,6 +8,7 @@ if [ "${1:-}" = "--intent" ]; then
   SKIP_DRIFT=1
   shift
 fi
+export SKIP_DRIFT
 
 FAIL=0
 PIDS=()
@@ -168,7 +169,64 @@ run "atlas-drift" bash -c '
   ./bin/dx atlas drift
 '
 
-ADVISORY_LABELS=("raw-api-calls" "sql-metaquery-candidates" "atlas-drift")
+# Advisory: test-disable-patterns
+# Flags added lines that disable or skip tests (t.Skip, .skip(), xdescribe, etc.).
+# Non-blocking. Policy: file a todo via dx todo incomplete --reason=preexisting_test_failure
+# instead of suppressing.
+run "test-disable-patterns" bash -c '
+  if [ -n "${SKIP_DRIFT:-}" ]; then
+    DIFF=$(git diff --staged 2>/dev/null)
+  else
+    DIFF=$(git diff origin/dev...HEAD 2>/dev/null)
+  fi
+  if [ -z "$DIFF" ]; then
+    echo "clean (no diff)"
+    exit 0
+  fi
+  FOUND=$(echo "$DIFF" | awk '"'"'
+    BEGIN { file = ""; skip = 0; line = 0 }
+    /^\+\+\+ b\// {
+      file = substr($0, 7)
+      skip = (file ~ /^internal\/db\/.*\.sql\.go$/ || file == "internal/dxclient/models.gen.go" || file == "ui/src/api.gen.ts" || file == "schema/shipped.sql")
+      next
+    }
+    /^--- / { next }
+    /^@@ / {
+      tmp = $0; sub(/.*[+]/, "", tmp); sub(/[^0-9].*/, "", tmp); line = int(tmp); next
+    }
+    /^\+/ {
+      if (!skip) {
+        content = substr($0, 2)
+        is_go = (file ~ /\.go$/)
+        is_js = (file ~ /\.[jt]sx?$/)
+        matched = 0
+        if (is_go && (content ~ /(^|[^[:alnum:]_])t\.Skip\(/ || content ~ /(^|[^[:alnum:]_])t\.Skipf\(/)) matched = 1
+        if (is_go && content ~ /\/\/[[:space:]]*nolint:(test|thelper)/) matched = 1
+        if (is_js && content ~ /(^|[^[:alnum:]_])(it|test|describe)\.skip\(/) matched = 1
+        if (is_js && (content ~ /(^|[^[:alnum:]_])xit\(/ || content ~ /(^|[^[:alnum:]_])xdescribe\(/)) matched = 1
+        lower = tolower(content)
+        if (lower ~ /\/\/[[:space:]]*(todo|fixme)[: ].*re-?enable/) matched = 1
+        if (matched) {
+          gsub(/[[:space:]]+$/, "", content)
+          print file ":" line ": " content
+        }
+      }
+      line++; next
+    }
+    /^ / { line++; next }
+  '"'"')
+  if [ -z "$FOUND" ]; then
+    echo "clean"
+    exit 0
+  fi
+  while IFS= read -r match; do
+    echo "WARN [test-disable-patterns] $match"
+    echo "      policy: file the failure via: dx todo incomplete --reason=preexisting_test_failure --explanation=... --evidence=test_name=..."
+  done <<< "$FOUND"
+  exit 1
+'
+
+ADVISORY_LABELS=("raw-api-calls" "sql-metaquery-candidates" "atlas-drift" "test-disable-patterns")
 
 # ── Wait and report ──────────────────────────────────────────────────────────
 
