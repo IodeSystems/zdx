@@ -30,7 +30,7 @@ components:
         - name: lint
           run: ./bin/lint --intent
         - name: restore-gen
-          run: git checkout -- internal/dxclient/models.gen.go internal/db schema/shipped.sql 2>/dev/null; true
+          run: git checkout -- internal/dxclient/models.gen.go internal/db schema/shipped.sql 2>/dev/null; git clean -f internal/db internal/dxclient 2>/dev/null; true
     ship:
       strategy: rolling-pair
       secrets_file: home/deploy.secret.properties  # IS-892: loader resolves ${secret.*} refs below
