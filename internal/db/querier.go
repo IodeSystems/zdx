@@ -172,9 +172,12 @@ type Querier interface {
 	// Flip snoozed items whose snooze_until has passed back to 'open' so they
 	// resurface in the solo queue.
 	FlipExpiredMaturityItems(ctx context.Context, projectID int32) error
+	GetActiveBudgetPause(ctx context.Context, agentID string) (ZdxBudgetPause, error)
 	// Return the active (unreleased, unexpired) reservation for a specific issue, if any.
 	GetActiveIssueReservation(ctx context.Context, arg GetActiveIssueReservationParams) (ZdxReservation, error)
 	GetAgent(ctx context.Context, id string) (ZdxAgent, error)
+	GetAgentBudget(ctx context.Context, agentID pgtype.Text) (ZdxAgentBudget, error)
+	GetAgentTokenUsage(ctx context.Context, agentID string) (GetAgentTokenUsageRow, error)
 	GetApiKeyByToken(ctx context.Context, token string) (GetApiKeyByTokenRow, error)
 	GetApiKeyProjectScope(ctx context.Context, id int32) ([]string, error)
 	GetApiKeyUserRole(ctx context.Context, token string) (string, error)
@@ -211,10 +214,11 @@ type Querier interface {
 	GetDiscussion(ctx context.Context, arg GetDiscussionParams) (ZdxDiscussion, error)
 	GetEnvironment(ctx context.Context, arg GetEnvironmentParams) (GetEnvironmentRow, error)
 	GetErrorEventByID(ctx context.Context, id int64) (ZdxErrorEvent, error)
-	GetErrorReportByID(ctx context.Context, id int64) (GetErrorReportByIDRow, error)
+	GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error)
 	GetEventByID(ctx context.Context, id int64) (ZdxEvent, error)
 	GetFeature(ctx context.Context, arg GetFeatureParams) (GetFeatureRow, error)
 	GetFeatureByID(ctx context.Context, id int32) (GetFeatureByIDRow, error)
+	GetFeatureCoverage(ctx context.Context, featureID int32) ([]GetFeatureCoverageRow, error)
 	GetFile(ctx context.Context, id int32) (ZdxFile, error)
 	GetFocusByID(ctx context.Context, arg GetFocusByIDParams) (ZdxFocuse, error)
 	GetFocusByName(ctx context.Context, arg GetFocusByNameParams) (ZdxFocuse, error)
@@ -240,6 +244,7 @@ type Querier interface {
 	// First (lowest-priority) config whose agent_type is not 'claude' and
 	// whose embedding_model is set. Used by the server to pick an embedder.
 	GetPrimaryLLMConfigWithEmbedding(ctx context.Context) (GetPrimaryLLMConfigWithEmbeddingRow, error)
+	GetProjectBudget(ctx context.Context, projectID pgtype.Int4) (ZdxAgentBudget, error)
 	GetProjectByID(ctx context.Context, id int32) (ZdxProject, error)
 	GetProjectBySlug(ctx context.Context, slug string) (ZdxProject, error)
 	GetProjectClassification(ctx context.Context, id int32) (string, error)
@@ -273,7 +278,7 @@ type Querier interface {
 	InsertBlockerQuestion(ctx context.Context, arg InsertBlockerQuestionParams) (ZdxBlockerQuestion, error)
 	InsertCounterEvent(ctx context.Context, arg InsertCounterEventParams) error
 	InsertErrorEvent(ctx context.Context, arg InsertErrorEventParams) error
-	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (InsertErrorReportRow, error)
+	InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error)
 	InsertEvent(ctx context.Context, arg InsertEventParams) (ZdxEvent, error)
 	InsertJournalEntry(ctx context.Context, arg InsertJournalEntryParams) (InsertJournalEntryRow, error)
 	InsertKpiSample(ctx context.Context, arg InsertKpiSampleParams) (ZdxKpiSample, error)
@@ -282,7 +287,7 @@ type Querier interface {
 	InsertQuestion(ctx context.Context, arg InsertQuestionParams) (ZdxQuestion, error)
 	InsertQuestionProposal(ctx context.Context, arg InsertQuestionProposalParams) (ZdxQuestionProposal, error)
 	InsertReservation(ctx context.Context, arg InsertReservationParams) (ZdxReservation, error)
-	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (InsertSlowQueryRow, error)
+	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
@@ -292,6 +297,7 @@ type Querier interface {
 	// every edit (retriage, comment, resolution add) with the close event.
 	JournalVelocity(ctx context.Context, projectID int32) (JournalVelocityRow, error)
 	LatestTwoKPISamplesPerCheck(ctx context.Context, arg LatestTwoKPISamplesPerCheckParams) ([]LatestTwoKPISamplesPerCheckRow, error)
+	LiftBudgetPause(ctx context.Context, arg LiftBudgetPauseParams) error
 	LinkConcernFeature(ctx context.Context, arg LinkConcernFeatureParams) error
 	LinkConcernIssue(ctx context.Context, arg LinkConcernIssueParams) error
 	LinkConcernPattern(ctx context.Context, arg LinkConcernPatternParams) error
@@ -322,6 +328,7 @@ type Querier interface {
 	ListAtlasNodes(ctx context.Context, arg ListAtlasNodesParams) ([]ZdxNode, error)
 	ListBlockerQuestions(ctx context.Context, projectID int32) ([]ZdxBlockerQuestion, error)
 	ListBlockerQuestionsByTarget(ctx context.Context, arg ListBlockerQuestionsByTargetParams) ([]ZdxBlockerQuestion, error)
+	ListBudgets(ctx context.Context) ([]ZdxAgentBudget, error)
 	ListChildFeatures(ctx context.Context, parentFeatureID pgtype.Int4) ([]ListChildFeaturesRow, error)
 	ListChildQuestions(ctx context.Context, arg ListChildQuestionsParams) ([]ZdxQuestion, error)
 	ListChurnSessions(ctx context.Context, arg ListChurnSessionsParams) ([]ListChurnSessionsRow, error)
@@ -374,7 +381,7 @@ type Querier interface {
 	ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error)
 	ListErrorEventsDistinctTagKeys(ctx context.Context, projectID pgtype.Int4) ([]pgtype.Text, error)
 	ListErrorEventsDistinctTagValues(ctx context.Context, arg ListErrorEventsDistinctTagValuesParams) ([]interface{}, error)
-	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ListErrorReportsRow, error)
+	ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error)
 	ListEventsByTarget(ctx context.Context, arg ListEventsByTargetParams) ([]ZdxEvent, error)
 	ListEventsByThread(ctx context.Context, arg ListEventsByThreadParams) ([]ZdxEvent, error)
 	ListFeatureFocuses(ctx context.Context, featureID int32) ([]ListFeatureFocusesRow, error)
@@ -486,7 +493,7 @@ type Querier interface {
 	ListRevisions(ctx context.Context, arg ListRevisionsParams) ([]ListRevisionsRow, error)
 	ListRevisionsByTarget(ctx context.Context, arg ListRevisionsByTargetParams) ([]ListRevisionsByTargetRow, error)
 	ListSessionAuditEvents(ctx context.Context, sessionPk int64) ([]ZdxSessionAuditEvent, error)
-	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ListSlowQueriesRow, error)
+	ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error)
 	ListSpecDeferrals(ctx context.Context, specID int32) ([]ListSpecDeferralsRow, error)
 	ListSpecIssues(ctx context.Context, specID int32) ([]ListSpecIssuesRow, error)
 	// ── Specs ────────────────────────────────────────────────────────────────────
@@ -589,6 +596,7 @@ type Querier interface {
 	ReclaimExpiredTasks(ctx context.Context, disconnectGrace pgtype.Interval) ([]ReclaimExpiredTasksRow, error)
 	// Clear claims on todos whose leases have expired. Returns affected rows for reservation release.
 	ReclaimExpiredTodos(ctx context.Context, projectID int32) ([]ReclaimExpiredTodosRow, error)
+	RecordBudgetPause(ctx context.Context, arg RecordBudgetPauseParams) (ZdxBudgetPause, error)
 	RegisterAgent(ctx context.Context, arg RegisterAgentParams) (ZdxAgent, error)
 	// Batch release every reservation whose lease has expired and is not yet released.
 	// Covers todo, task, and issue target types in a single pass.
@@ -709,6 +717,7 @@ type Querier interface {
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error
+	UpsertAgentBudget(ctx context.Context, arg UpsertAgentBudgetParams) (ZdxAgentBudget, error)
 	UpsertCounted(ctx context.Context, arg UpsertCountedParams) error
 	UpsertFeature(ctx context.Context, arg UpsertFeatureParams) (UpsertFeatureRow, error)
 	UpsertMaturityAnswer(ctx context.Context, arg UpsertMaturityAnswerParams) (ZdxMaturityAnswer, error)
@@ -716,6 +725,7 @@ type Querier interface {
 	// exists, we refresh the descriptive/priority fields and updated_at but
 	// preserve status, justification, and snooze_until (caller-managed state).
 	UpsertMaturityItem(ctx context.Context, arg UpsertMaturityItemParams) (ZdxMaturityItem, error)
+	UpsertProjectBudget(ctx context.Context, arg UpsertProjectBudgetParams) (ZdxAgentBudget, error)
 	UpsertStream(ctx context.Context, arg UpsertStreamParams) (ZdxEventStream, error)
 	UpsertTaskReview(ctx context.Context, arg UpsertTaskReviewParams) (ZdxTaskReview, error)
 	UpsertTest(ctx context.Context, arg UpsertTestParams) (UpsertTestRow, error)

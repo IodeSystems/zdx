@@ -22,6 +22,41 @@ SET default_tablespace = '';
 SET default_table_access_method = heap;
 
 --
+-- Name: zdx_agent_budgets; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_agent_budgets (
+    id bigint NOT NULL,
+    project_id integer,
+    agent_id text,
+    token_ceiling bigint,
+    cost_ceiling double precision,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    updated_at timestamp with time zone DEFAULT now() NOT NULL,
+    CONSTRAINT zdx_agent_budgets_check CHECK ((((project_id IS NOT NULL) AND (agent_id IS NULL)) OR ((project_id IS NULL) AND (agent_id IS NOT NULL))))
+);
+
+
+--
+-- Name: zdx_agent_budgets_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_agent_budgets_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_agent_budgets_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_agent_budgets_id_seq OWNED BY public.zdx_agent_budgets.id;
+
+
+--
 -- Name: zdx_agents; Type: TABLE; Schema: public; Owner: -
 --
 
@@ -116,6 +151,40 @@ CREATE SEQUENCE public.zdx_blocker_questions_id_seq
 --
 
 ALTER SEQUENCE public.zdx_blocker_questions_id_seq OWNED BY public.zdx_blocker_questions.id;
+
+
+--
+-- Name: zdx_budget_pauses; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_budget_pauses (
+    id bigint NOT NULL,
+    agent_id text NOT NULL,
+    project_id integer,
+    reason text DEFAULT ''::text NOT NULL,
+    paused_at timestamp with time zone DEFAULT now() NOT NULL,
+    lifted_at timestamp with time zone,
+    lifted_by text
+);
+
+
+--
+-- Name: zdx_budget_pauses_id_seq; Type: SEQUENCE; Schema: public; Owner: -
+--
+
+CREATE SEQUENCE public.zdx_budget_pauses_id_seq
+    START WITH 1
+    INCREMENT BY 1
+    NO MINVALUE
+    NO MAXVALUE
+    CACHE 1;
+
+
+--
+-- Name: zdx_budget_pauses_id_seq; Type: SEQUENCE OWNED BY; Schema: public; Owner: -
+--
+
+ALTER SEQUENCE public.zdx_budget_pauses_id_seq OWNED BY public.zdx_budget_pauses.id;
 
 
 --
@@ -707,12 +776,12 @@ ALTER SEQUENCE public.zdx_error_events_id_seq OWNED BY public.zdx_error_events.i
 
 CREATE TABLE public.zdx_error_reports (
     id bigint NOT NULL,
+    project_id integer,
     source text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     error_name text DEFAULT ''::text NOT NULL,
     stack_trace text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    project_id integer
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -2204,13 +2273,13 @@ ALTER SEQUENCE public.zdx_sessions_id_seq OWNED BY public.zdx_sessions.id;
 
 CREATE TABLE public.zdx_slow_queries (
     id bigint NOT NULL,
+    project_id integer,
     sql_hash text NOT NULL,
     sql_text text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     duration_ms integer NOT NULL,
     explain_json text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    project_id integer
+    created_at timestamp with time zone DEFAULT now() NOT NULL
 );
 
 
@@ -2862,6 +2931,13 @@ ALTER SEQUENCE public.zdx_work_log_id_seq OWNED BY public.zdx_work_log.id;
 
 
 --
+-- Name: zdx_agent_budgets id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_agent_budgets ALTER COLUMN id SET DEFAULT nextval('public.zdx_agent_budgets_id_seq'::regclass);
+
+
+--
 -- Name: zdx_api_keys id; Type: DEFAULT; Schema: public; Owner: -
 --
 
@@ -2873,6 +2949,13 @@ ALTER TABLE ONLY public.zdx_api_keys ALTER COLUMN id SET DEFAULT nextval('public
 --
 
 ALTER TABLE ONLY public.zdx_blocker_questions ALTER COLUMN id SET DEFAULT nextval('public.zdx_blocker_questions_id_seq'::regclass);
+
+
+--
+-- Name: zdx_budget_pauses id; Type: DEFAULT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_budget_pauses ALTER COLUMN id SET DEFAULT nextval('public.zdx_budget_pauses_id_seq'::regclass);
 
 
 --
@@ -3338,6 +3421,14 @@ ALTER TABLE ONLY public.zdx_work_log ALTER COLUMN id SET DEFAULT nextval('public
 
 
 --
+-- Name: zdx_agent_budgets zdx_agent_budgets_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_agent_budgets
+    ADD CONSTRAINT zdx_agent_budgets_pkey PRIMARY KEY (id);
+
+
+--
 -- Name: zdx_agents zdx_agents_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -3367,6 +3458,14 @@ ALTER TABLE ONLY public.zdx_api_keys
 
 ALTER TABLE ONLY public.zdx_blocker_questions
     ADD CONSTRAINT zdx_blocker_questions_pkey PRIMARY KEY (id);
+
+
+--
+-- Name: zdx_budget_pauses zdx_budget_pauses_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_budget_pauses
+    ADD CONSTRAINT zdx_budget_pauses_pkey PRIMARY KEY (id);
 
 
 --
@@ -3642,11 +3741,11 @@ ALTER TABLE ONLY public.zdx_goal_issues
 
 
 --
--- Name: zdx_id_seq zdx_id_seq_global_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: zdx_id_seq zdx_id_seq_pkey1; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_id_seq
-    ADD CONSTRAINT zdx_id_seq_global_pkey PRIMARY KEY (kind);
+    ADD CONSTRAINT zdx_id_seq_pkey1 PRIMARY KEY (kind);
 
 
 --
@@ -4378,13 +4477,6 @@ CREATE INDEX idx_error_reports_created_at ON public.zdx_error_reports USING btre
 
 
 --
--- Name: idx_error_reports_project_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_error_reports_project_id ON public.zdx_error_reports USING btree (project_id);
-
-
---
 -- Name: idx_error_reports_source; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4553,13 +4645,6 @@ CREATE INDEX idx_slow_queries_endpoint ON public.zdx_slow_queries USING btree (e
 
 
 --
--- Name: idx_slow_queries_project_id; Type: INDEX; Schema: public; Owner: -
---
-
-CREATE INDEX idx_slow_queries_project_id ON public.zdx_slow_queries USING btree (project_id);
-
-
---
 -- Name: idx_slow_queries_sql_hash; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4634,6 +4719,20 @@ CREATE INDEX idx_tests_project ON public.zdx_tests USING btree (project_id);
 --
 
 CREATE INDEX idx_tests_status ON public.zdx_tests USING btree (project_id, status);
+
+
+--
+-- Name: zdx_agent_budgets_agent_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX zdx_agent_budgets_agent_uniq ON public.zdx_agent_budgets USING btree (agent_id) WHERE (agent_id IS NOT NULL);
+
+
+--
+-- Name: zdx_agent_budgets_project_uniq; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE UNIQUE INDEX zdx_agent_budgets_project_uniq ON public.zdx_agent_budgets USING btree (project_id) WHERE ((project_id IS NOT NULL) AND (agent_id IS NULL));
 
 
 --
@@ -4952,6 +5051,22 @@ CREATE INDEX zdx_todo_incomplete_reports_todo_idx ON public.zdx_todo_incomplete_
 
 
 --
+-- Name: zdx_agent_budgets zdx_agent_budgets_agent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_agent_budgets
+    ADD CONSTRAINT zdx_agent_budgets_agent_id_fkey FOREIGN KEY (agent_id) REFERENCES public.zdx_agents(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_agent_budgets zdx_agent_budgets_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_agent_budgets
+    ADD CONSTRAINT zdx_agent_budgets_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
 -- Name: zdx_agents zdx_agents_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4973,6 +5088,22 @@ ALTER TABLE ONLY public.zdx_api_keys
 
 ALTER TABLE ONLY public.zdx_blocker_questions
     ADD CONSTRAINT zdx_blocker_questions_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_budget_pauses zdx_budget_pauses_agent_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_budget_pauses
+    ADD CONSTRAINT zdx_budget_pauses_agent_id_fkey FOREIGN KEY (agent_id) REFERENCES public.zdx_agents(id) ON DELETE CASCADE;
+
+
+--
+-- Name: zdx_budget_pauses zdx_budget_pauses_project_id_fkey; Type: FK CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_budget_pauses
+    ADD CONSTRAINT zdx_budget_pauses_project_id_fkey FOREIGN KEY (project_id) REFERENCES public.zdx_projects(id) ON DELETE CASCADE;
 
 
 --

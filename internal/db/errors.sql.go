@@ -26,19 +26,9 @@ FROM zdx_error_reports
 WHERE id = $1
 `
 
-type GetErrorReportByIDRow struct {
-	ID         int64              `db:"id" json:"id"`
-	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
-	Source     string             `db:"source" json:"source"`
-	Endpoint   string             `db:"endpoint" json:"endpoint"`
-	ErrorName  string             `db:"error_name" json:"error_name"`
-	StackTrace string             `db:"stack_trace" json:"stack_trace"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) GetErrorReportByID(ctx context.Context, id int64) (GetErrorReportByIDRow, error) {
+func (q *Queries) GetErrorReportByID(ctx context.Context, id int64) (ZdxErrorReport, error) {
 	row := q.db.QueryRow(ctx, getErrorReportByID, id)
-	var i GetErrorReportByIDRow
+	var i ZdxErrorReport
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -65,17 +55,7 @@ type InsertErrorReportParams struct {
 	StackTrace string      `db:"stack_trace" json:"stack_trace"`
 }
 
-type InsertErrorReportRow struct {
-	ID         int64              `db:"id" json:"id"`
-	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
-	Source     string             `db:"source" json:"source"`
-	Endpoint   string             `db:"endpoint" json:"endpoint"`
-	ErrorName  string             `db:"error_name" json:"error_name"`
-	StackTrace string             `db:"stack_trace" json:"stack_trace"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (InsertErrorReportRow, error) {
+func (q *Queries) InsertErrorReport(ctx context.Context, arg InsertErrorReportParams) (ZdxErrorReport, error) {
 	row := q.db.QueryRow(ctx, insertErrorReport,
 		arg.ProjectID,
 		arg.Source,
@@ -83,7 +63,7 @@ func (q *Queries) InsertErrorReport(ctx context.Context, arg InsertErrorReportPa
 		arg.ErrorName,
 		arg.StackTrace,
 	)
-	var i InsertErrorReportRow
+	var i ZdxErrorReport
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -111,18 +91,7 @@ type InsertSlowQueryParams struct {
 	ExplainJson string      `db:"explain_json" json:"explain_json"`
 }
 
-type InsertSlowQueryRow struct {
-	ID          int64              `db:"id" json:"id"`
-	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
-	SqlHash     string             `db:"sql_hash" json:"sql_hash"`
-	SqlText     string             `db:"sql_text" json:"sql_text"`
-	Endpoint    string             `db:"endpoint" json:"endpoint"`
-	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
-	ExplainJson string             `db:"explain_json" json:"explain_json"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (InsertSlowQueryRow, error) {
+func (q *Queries) InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error) {
 	row := q.db.QueryRow(ctx, insertSlowQuery,
 		arg.ProjectID,
 		arg.SqlHash,
@@ -131,7 +100,7 @@ func (q *Queries) InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams
 		arg.DurationMs,
 		arg.ExplainJson,
 	)
-	var i InsertSlowQueryRow
+	var i ZdxSlowQuery
 	err := row.Scan(
 		&i.ID,
 		&i.ProjectID,
@@ -152,25 +121,15 @@ WHERE project_id = $1
 ORDER BY created_at DESC
 `
 
-type ListErrorReportsRow struct {
-	ID         int64              `db:"id" json:"id"`
-	ProjectID  pgtype.Int4        `db:"project_id" json:"project_id"`
-	Source     string             `db:"source" json:"source"`
-	Endpoint   string             `db:"endpoint" json:"endpoint"`
-	ErrorName  string             `db:"error_name" json:"error_name"`
-	StackTrace string             `db:"stack_trace" json:"stack_trace"`
-	CreatedAt  pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ListErrorReportsRow, error) {
+func (q *Queries) ListErrorReports(ctx context.Context, projectID pgtype.Int4) ([]ZdxErrorReport, error) {
 	rows, err := q.db.Query(ctx, listErrorReports, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListErrorReportsRow
+	var items []ZdxErrorReport
 	for rows.Next() {
-		var i ListErrorReportsRow
+		var i ZdxErrorReport
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,
@@ -197,26 +156,15 @@ WHERE project_id = $1
 ORDER BY duration_ms DESC
 `
 
-type ListSlowQueriesRow struct {
-	ID          int64              `db:"id" json:"id"`
-	ProjectID   pgtype.Int4        `db:"project_id" json:"project_id"`
-	SqlHash     string             `db:"sql_hash" json:"sql_hash"`
-	SqlText     string             `db:"sql_text" json:"sql_text"`
-	Endpoint    string             `db:"endpoint" json:"endpoint"`
-	DurationMs  int32              `db:"duration_ms" json:"duration_ms"`
-	ExplainJson string             `db:"explain_json" json:"explain_json"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-}
-
-func (q *Queries) ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ListSlowQueriesRow, error) {
+func (q *Queries) ListSlowQueries(ctx context.Context, projectID pgtype.Int4) ([]ZdxSlowQuery, error) {
 	rows, err := q.db.Query(ctx, listSlowQueries, projectID)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
-	var items []ListSlowQueriesRow
+	var items []ZdxSlowQuery
 	for rows.Next() {
-		var i ListSlowQueriesRow
+		var i ZdxSlowQuery
 		if err := rows.Scan(
 			&i.ID,
 			&i.ProjectID,

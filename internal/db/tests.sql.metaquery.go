@@ -98,6 +98,49 @@ var GetDemoByIDCols = struct {
 	ProjectID:      metaquery.NewIntCol("project_id"),
 }
 
+var MetaGetFeatureCoverage = metaquery.Query{
+	Name:   "GetFeatureCoverage",
+	Cmd:    ":many",
+	Source: "tests.sql",
+	SQL: `SELECT
+  s.id AS spec_id,
+  bool_or(t.layer = 'unit')        AS has_unit,
+  bool_or(t.layer = 'integration') AS has_integration,
+  bool_or(t.layer = 'demo')        AS has_demo
+FROM zdx_specs s
+LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
+LEFT JOIN zdx_tests t       ON t.id = st.test_id
+WHERE s.feature_id = $1
+GROUP BY s.id`,
+	Columns: []metaquery.Column{
+		{Name: "spec_id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_specs"},
+		{Name: "has_unit", OriginalName: "has_unit", GoType: "bool", DBType: "boolean", NotNull: true},
+		{Name: "has_integration", OriginalName: "has_integration", GoType: "bool", DBType: "boolean", NotNull: true},
+		{Name: "has_demo", OriginalName: "has_demo", GoType: "bool", DBType: "boolean", NotNull: true},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "feature_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+	},
+}
+
+// WrapGetFeatureCoverage returns a metaquery.Builder over MetaGetFeatureCoverage, pre-bound with typed arguments.
+func WrapGetFeatureCoverage(featureID int32) *metaquery.Builder {
+	return metaquery.Wrap(&MetaGetFeatureCoverage, featureID)
+}
+
+// GetFeatureCoverageCols gives typed, name-safe access to GetFeatureCoverage's output columns.
+var GetFeatureCoverageCols = struct {
+	SpecID         metaquery.IntCol
+	HasUnit        metaquery.BoolCol
+	HasIntegration metaquery.BoolCol
+	HasDemo        metaquery.BoolCol
+}{
+	SpecID:         metaquery.NewIntCol("id"),
+	HasUnit:        metaquery.NewBoolCol("has_unit"),
+	HasIntegration: metaquery.NewBoolCol("has_integration"),
+	HasDemo:        metaquery.NewBoolCol("has_demo"),
+}
+
 var MetaGetTest = metaquery.Query{
 	Name:   "GetTest",
 	Cmd:    ":one",

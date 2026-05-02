@@ -78,6 +78,51 @@ func (q *Queries) GetDemoByID(ctx context.Context, id int32) (GetDemoByIDRow, er
 	return i, err
 }
 
+const getFeatureCoverage = `-- name: GetFeatureCoverage :many
+SELECT
+  s.id AS spec_id,
+  bool_or(t.layer = 'unit')        AS has_unit,
+  bool_or(t.layer = 'integration') AS has_integration,
+  bool_or(t.layer = 'demo')        AS has_demo
+FROM zdx_specs s
+LEFT JOIN zdx_spec_tests st ON st.spec_id = s.id
+LEFT JOIN zdx_tests t       ON t.id = st.test_id
+WHERE s.feature_id = $1
+GROUP BY s.id
+`
+
+type GetFeatureCoverageRow struct {
+	SpecID         int32 `db:"spec_id" json:"spec_id"`
+	HasUnit        bool  `db:"has_unit" json:"has_unit"`
+	HasIntegration bool  `db:"has_integration" json:"has_integration"`
+	HasDemo        bool  `db:"has_demo" json:"has_demo"`
+}
+
+func (q *Queries) GetFeatureCoverage(ctx context.Context, featureID int32) ([]GetFeatureCoverageRow, error) {
+	rows, err := q.db.Query(ctx, getFeatureCoverage, featureID)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []GetFeatureCoverageRow
+	for rows.Next() {
+		var i GetFeatureCoverageRow
+		if err := rows.Scan(
+			&i.SpecID,
+			&i.HasUnit,
+			&i.HasIntegration,
+			&i.HasDemo,
+		); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const getTest = `-- name: GetTest :one
 SELECT id, project_id, component, name, layer, status, duration_ms, last_run_at, created_at,
        last_run_branch, last_run_sha, last_failed_at, last_failed_branch

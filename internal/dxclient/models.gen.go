@@ -700,6 +700,22 @@ type BranchState struct {
 	TreeClean        bool      `json:"tree_clean"`
 }
 
+// BudgetItem defines model for BudgetItem.
+type BudgetItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string `json:"$schema,omitempty"`
+	ActivePause  bool    `json:"active_pause"`
+	AgentId      string  `json:"agent_id"`
+	CostCeiling  float64 `json:"cost_ceiling"`
+	CostUsed     float64 `json:"cost_used"`
+	CreatedAt    string  `json:"created_at"`
+	Id           int64   `json:"id"`
+	ProjectId    int32   `json:"project_id"`
+	TokenCeiling int64   `json:"token_ceiling"`
+	TokensUsed   int64   `json:"tokens_used"`
+	UpdatedAt    string  `json:"updated_at"`
+}
+
 // ClaimIssueRequest defines model for Claim-issueRequest.
 type ClaimIssueRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -1617,6 +1633,13 @@ type GetConfigResponse struct {
 	ZdxProjectSlug string  `json:"zdx_project_slug"`
 }
 
+// GetFeatureCoverageResponse defines model for Get-feature-coverageResponse.
+type GetFeatureCoverageResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string             `json:"$schema,omitempty"`
+	Coverage *[]SpecCoverageItem `json:"coverage"`
+}
+
 // GetKpiTrendResponse defines model for Get-kpi-trendResponse.
 type GetKpiTrendResponse struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2108,6 +2131,21 @@ type LLMConfigBody struct {
 	Url            string  `json:"url"`
 }
 
+// LiftAgentBudgetPauseRequest defines model for Lift-agent-budget-pauseRequest.
+type LiftAgentBudgetPauseRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema   *string `json:"$schema,omitempty"`
+	LiftedBy *string `json:"lifted_by,omitempty"`
+}
+
+// LiftAgentBudgetPauseResponse defines model for Lift-agent-budget-pauseResponse.
+type LiftAgentBudgetPauseResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string `json:"$schema,omitempty"`
+	Lifted  bool    `json:"lifted"`
+	Message string  `json:"message"`
+}
+
 // LinkConcernRequest defines model for Link-concernRequest.
 type LinkConcernRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -2162,6 +2200,13 @@ type ListAdminUsersResponse struct {
 	// Schema A URL to the JSON Schema for this object.
 	Schema *string          `json:"$schema,omitempty"`
 	Users  *[]AdminUserItem `json:"users"`
+}
+
+// ListAgentBudgetsResponse defines model for List-agent-budgetsResponse.
+type ListAgentBudgetsResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema  *string       `json:"$schema,omitempty"`
+	Budgets *[]BudgetItem `json:"budgets"`
 }
 
 // ListAgentTasksResponse defines model for List-agent-tasksResponse.
@@ -3604,6 +3649,16 @@ type SendAgentCommandRequest struct {
 	Command string  `json:"command"`
 }
 
+// SetAgentBudgetRequest defines model for Set-agent-budgetRequest.
+type SetAgentBudgetRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema       *string  `json:"$schema,omitempty"`
+	AgentId      *string  `json:"agent_id,omitempty"`
+	CostCeiling  *float64 `json:"cost_ceiling,omitempty"`
+	ProjectId    *int32   `json:"project_id,omitempty"`
+	TokenCeiling *int64   `json:"token_ceiling,omitempty"`
+}
+
 // SetClassificationRequest defines model for Set-classificationRequest.
 type SetClassificationRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4105,6 +4160,14 @@ type SpecCloseGateOffender struct {
 	Feature     string `json:"feature"`
 	Reason      string `json:"reason"`
 	SpecId      int32  `json:"spec_id"`
+}
+
+// SpecCoverageItem defines model for SpecCoverageItem.
+type SpecCoverageItem struct {
+	HasDemo        bool  `json:"has_demo"`
+	HasIntegration bool  `json:"has_integration"`
+	HasUnit        bool  `json:"has_unit"`
+	SpecId         int32 `json:"spec_id"`
 }
 
 // SpecDeferralItem defines model for SpecDeferralItem.
@@ -4808,6 +4871,12 @@ type ListAdminUsersParams struct {
 	Q *string `form:"q,omitempty" json:"q,omitempty"`
 }
 
+// GetAgentBudgetParams defines parameters for GetAgentBudget.
+type GetAgentBudgetParams struct {
+	AgentId   *string `form:"agent_id,omitempty" json:"agent_id,omitempty"`
+	ProjectId *int32  `form:"project_id,omitempty" json:"project_id,omitempty"`
+}
+
 // ListAgentsParams defines parameters for ListAgents.
 type ListAgentsParams struct {
 	Slug string `form:"slug" json:"slug"`
@@ -5114,6 +5183,12 @@ type GetErrorParams struct {
 type GetFeatureParams struct {
 	Slug string `form:"slug" json:"slug"`
 	Name string `form:"name" json:"name"`
+}
+
+// GetFeatureCoverageParams defines parameters for GetFeatureCoverage.
+type GetFeatureCoverageParams struct {
+	Slug      string `form:"slug" json:"slug"`
+	FeatureId int32  `form:"feature_id" json:"feature_id"`
 }
 
 // ListStaleFeaturesParams defines parameters for ListStaleFeatures.
@@ -5717,11 +5792,17 @@ type UpdateUserRoleJSONRequestBody = UpdateUserRoleRequest
 // WsEchoJSONRequestBody defines body for WsEcho for application/json ContentType.
 type WsEchoJSONRequestBody = WsEchoRequest
 
+// SetAgentBudgetJSONRequestBody defines body for SetAgentBudget for application/json ContentType.
+type SetAgentBudgetJSONRequestBody = SetAgentBudgetRequest
+
 // ReapAgentsJSONRequestBody defines body for ReapAgents for application/json ContentType.
 type ReapAgentsJSONRequestBody = ReapAgentsRequest
 
 // RegisterAgentJSONRequestBody defines body for RegisterAgent for application/json ContentType.
 type RegisterAgentJSONRequestBody = RegisterAgentRequest
+
+// LiftAgentBudgetPauseJSONRequestBody defines body for LiftAgentBudgetPause for application/json ContentType.
+type LiftAgentBudgetPauseJSONRequestBody = LiftAgentBudgetPauseRequest
 
 // SendAgentCommandJSONRequestBody defines body for SendAgentCommand for application/json ContentType.
 type SendAgentCommandJSONRequestBody = SendAgentCommandRequest
@@ -6393,6 +6474,17 @@ type ClientInterface interface {
 
 	WsEcho(ctx context.Context, body WsEchoJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// GetAgentBudget request
+	GetAgentBudget(ctx context.Context, params *GetAgentBudgetParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// SetAgentBudgetWithBody request with any body
+	SetAgentBudgetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	SetAgentBudget(ctx context.Context, body SetAgentBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// ListAgentBudgets request
+	ListAgentBudgets(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ListAgents request
 	ListAgents(ctx context.Context, params *ListAgentsParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
@@ -6411,6 +6503,11 @@ type ClientInterface interface {
 
 	// GetAgent request
 	GetAgent(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// LiftAgentBudgetPauseWithBody request with any body
+	LiftAgentBudgetPauseWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	LiftAgentBudgetPause(ctx context.Context, id string, body LiftAgentBudgetPauseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SendAgentCommandWithBody request with any body
 	SendAgentCommandWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -6721,6 +6818,9 @@ type ClientInterface interface {
 	MarkFeatureReviewedWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	MarkFeatureReviewed(ctx context.Context, body MarkFeatureReviewedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// GetFeatureCoverage request
+	GetFeatureCoverage(ctx context.Context, params *GetFeatureCoverageParams, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetFeatureFieldWithBody request with any body
 	SetFeatureFieldWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8177,6 +8277,54 @@ func (c *APIClient) WsEcho(ctx context.Context, body WsEchoJSONRequestBody, reqE
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) GetAgentBudget(ctx context.Context, params *GetAgentBudgetParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetAgentBudgetRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetAgentBudgetWithBody(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetAgentBudgetRequestWithBody(c.Server, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) SetAgentBudget(ctx context.Context, body SetAgentBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewSetAgentBudgetRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) ListAgentBudgets(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewListAgentBudgetsRequest(c.Server)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ListAgents(ctx context.Context, params *ListAgentsParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListAgentsRequest(c.Server, params)
 	if err != nil {
@@ -8251,6 +8399,30 @@ func (c *APIClient) DeleteAgent(ctx context.Context, id string, reqEditors ...Re
 
 func (c *APIClient) GetAgent(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewGetAgentRequest(c.Server, id)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) LiftAgentBudgetPauseWithBody(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLiftAgentBudgetPauseRequestWithBody(c.Server, id, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) LiftAgentBudgetPause(ctx context.Context, id string, body LiftAgentBudgetPauseJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewLiftAgentBudgetPauseRequest(c.Server, id, body)
 	if err != nil {
 		return nil, err
 	}
@@ -9619,6 +9791,18 @@ func (c *APIClient) MarkFeatureReviewedWithBody(ctx context.Context, contentType
 
 func (c *APIClient) MarkFeatureReviewed(ctx context.Context, body MarkFeatureReviewedJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewMarkFeatureReviewedRequest(c.Server, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) GetFeatureCoverage(ctx context.Context, params *GetFeatureCoverageParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewGetFeatureCoverageRequest(c.Server, params)
 	if err != nil {
 		return nil, err
 	}
@@ -15166,6 +15350,138 @@ func NewWsEchoRequestWithBody(server string, contentType string, body io.Reader)
 	return req, nil
 }
 
+// NewGetAgentBudgetRequest generates requests for GetAgentBudget
+func NewGetAgentBudgetRequest(server string, params *GetAgentBudgetParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agents/budget")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if params.AgentId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "agent_id", *params.AgentId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		if params.ProjectId != nil {
+
+			if queryFrag, err := runtime.StyleParamWithOptions("form", true, "project_id", *params.ProjectId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+				return nil, err
+			} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+				return nil, err
+			} else {
+				for k, v := range parsed {
+					for _, v2 := range v {
+						queryValues.Add(k, v2)
+					}
+				}
+			}
+
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewSetAgentBudgetRequest calls the generic SetAgentBudget builder with application/json body
+func NewSetAgentBudgetRequest(server string, body SetAgentBudgetJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewSetAgentBudgetRequestWithBody(server, "application/json", bodyReader)
+}
+
+// NewSetAgentBudgetRequestWithBody generates requests for SetAgentBudget with any type of body
+func NewSetAgentBudgetRequestWithBody(server string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agents/budget")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewListAgentBudgetsRequest generates requests for ListAgentBudgets
+func NewListAgentBudgetsRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agents/budgets")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewListAgentsRequest generates requests for ListAgents
 func NewListAgentsRequest(server string, params *ListAgentsParams) (*http.Request, error) {
 	var err error
@@ -15355,6 +15671,53 @@ func NewGetAgentRequest(server string, id string) (*http.Request, error) {
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewLiftAgentBudgetPauseRequest calls the generic LiftAgentBudgetPause builder with application/json body
+func NewLiftAgentBudgetPauseRequest(server string, id string, body LiftAgentBudgetPauseJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewLiftAgentBudgetPauseRequestWithBody(server, id, "application/json", bodyReader)
+}
+
+// NewLiftAgentBudgetPauseRequestWithBody generates requests for LiftAgentBudgetPause with any type of body
+func NewLiftAgentBudgetPauseRequestWithBody(server string, id string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "id", id, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/agents/%s/budget/lift", pathParam0)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("POST", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -19998,6 +20361,63 @@ func NewMarkFeatureReviewedRequestWithBody(server string, contentType string, bo
 	}
 
 	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
+// NewGetFeatureCoverageRequest generates requests for GetFeatureCoverage
+func NewGetFeatureCoverageRequest(server string, params *GetFeatureCoverageParams) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/features/coverage")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	if params != nil {
+		queryValues := queryURL.Query()
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "slug", params.Slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "string", Format: ""}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		if queryFrag, err := runtime.StyleParamWithOptions("form", false, "feature_id", params.FeatureId, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationQuery, Type: "integer", Format: "int32"}); err != nil {
+			return nil, err
+		} else if parsed, err := url.ParseQuery(queryFrag); err != nil {
+			return nil, err
+		} else {
+			for k, v := range parsed {
+				for _, v2 := range v {
+					queryValues.Add(k, v2)
+				}
+			}
+		}
+
+		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
 
 	return req, nil
 }
@@ -32116,6 +32536,17 @@ type ClientWithResponsesInterface interface {
 
 	WsEchoWithResponse(ctx context.Context, body WsEchoJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedWsEchoResponse, error)
 
+	// GetAgentBudgetWithResponse request
+	GetAgentBudgetWithResponse(ctx context.Context, params *GetAgentBudgetParams, reqEditors ...RequestEditorFn) (*GetAgentBudgetResponse, error)
+
+	// SetAgentBudgetWithBodyWithResponse request with any body
+	SetAgentBudgetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAgentBudgetResponse, error)
+
+	SetAgentBudgetWithResponse(ctx context.Context, body SetAgentBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAgentBudgetResponse, error)
+
+	// ListAgentBudgetsWithResponse request
+	ListAgentBudgetsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListAgentBudgetsResponse, error)
+
 	// ListAgentsWithResponse request
 	ListAgentsWithResponse(ctx context.Context, params *ListAgentsParams, reqEditors ...RequestEditorFn) (*ParsedListAgentsResponse, error)
 
@@ -32134,6 +32565,11 @@ type ClientWithResponsesInterface interface {
 
 	// GetAgentWithResponse request
 	GetAgentWithResponse(ctx context.Context, id string, reqEditors ...RequestEditorFn) (*GetAgentResponse, error)
+
+	// LiftAgentBudgetPauseWithBodyWithResponse request with any body
+	LiftAgentBudgetPauseWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedLiftAgentBudgetPauseResponse, error)
+
+	LiftAgentBudgetPauseWithResponse(ctx context.Context, id string, body LiftAgentBudgetPauseJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedLiftAgentBudgetPauseResponse, error)
 
 	// SendAgentCommandWithBodyWithResponse request with any body
 	SendAgentCommandWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SendAgentCommandResponse, error)
@@ -32444,6 +32880,9 @@ type ClientWithResponsesInterface interface {
 	MarkFeatureReviewedWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*MarkFeatureReviewedResponse, error)
 
 	MarkFeatureReviewedWithResponse(ctx context.Context, body MarkFeatureReviewedJSONRequestBody, reqEditors ...RequestEditorFn) (*MarkFeatureReviewedResponse, error)
+
+	// GetFeatureCoverageWithResponse request
+	GetFeatureCoverageWithResponse(ctx context.Context, params *GetFeatureCoverageParams, reqEditors ...RequestEditorFn) (*ParsedGetFeatureCoverageResponse, error)
 
 	// SetFeatureFieldWithBodyWithResponse request with any body
 	SetFeatureFieldWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetFeatureFieldResponse, error)
@@ -34069,6 +34508,75 @@ func (r ParsedWsEchoResponse) StatusCode() int {
 	return 0
 }
 
+type GetAgentBudgetResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *BudgetItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r GetAgentBudgetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r GetAgentBudgetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type SetAgentBudgetResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *BudgetItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r SetAgentBudgetResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r SetAgentBudgetResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedListAgentBudgetsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *ListAgentBudgetsResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedListAgentBudgetsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedListAgentBudgetsResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ParsedListAgentsResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -34177,6 +34685,29 @@ func (r GetAgentResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r GetAgentResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedLiftAgentBudgetPauseResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *LiftAgentBudgetPauseResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedLiftAgentBudgetPauseResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedLiftAgentBudgetPauseResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -36057,6 +36588,29 @@ func (r MarkFeatureReviewedResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r MarkFeatureReviewedResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedGetFeatureCoverageResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *GetFeatureCoverageResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedGetFeatureCoverageResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedGetFeatureCoverageResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -41796,6 +42350,41 @@ func (c *ClientWithResponses) WsEchoWithResponse(ctx context.Context, body WsEch
 	return ParseParsedWsEchoResponse(rsp)
 }
 
+// GetAgentBudgetWithResponse request returning *GetAgentBudgetResponse
+func (c *ClientWithResponses) GetAgentBudgetWithResponse(ctx context.Context, params *GetAgentBudgetParams, reqEditors ...RequestEditorFn) (*GetAgentBudgetResponse, error) {
+	rsp, err := c.GetAgentBudget(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseGetAgentBudgetResponse(rsp)
+}
+
+// SetAgentBudgetWithBodyWithResponse request with arbitrary body returning *SetAgentBudgetResponse
+func (c *ClientWithResponses) SetAgentBudgetWithBodyWithResponse(ctx context.Context, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetAgentBudgetResponse, error) {
+	rsp, err := c.SetAgentBudgetWithBody(ctx, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetAgentBudgetResponse(rsp)
+}
+
+func (c *ClientWithResponses) SetAgentBudgetWithResponse(ctx context.Context, body SetAgentBudgetJSONRequestBody, reqEditors ...RequestEditorFn) (*SetAgentBudgetResponse, error) {
+	rsp, err := c.SetAgentBudget(ctx, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseSetAgentBudgetResponse(rsp)
+}
+
+// ListAgentBudgetsWithResponse request returning *ParsedListAgentBudgetsResponse
+func (c *ClientWithResponses) ListAgentBudgetsWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedListAgentBudgetsResponse, error) {
+	rsp, err := c.ListAgentBudgets(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedListAgentBudgetsResponse(rsp)
+}
+
 // ListAgentsWithResponse request returning *ParsedListAgentsResponse
 func (c *ClientWithResponses) ListAgentsWithResponse(ctx context.Context, params *ListAgentsParams, reqEditors ...RequestEditorFn) (*ParsedListAgentsResponse, error) {
 	rsp, err := c.ListAgents(ctx, params, reqEditors...)
@@ -41855,6 +42444,23 @@ func (c *ClientWithResponses) GetAgentWithResponse(ctx context.Context, id strin
 		return nil, err
 	}
 	return ParseGetAgentResponse(rsp)
+}
+
+// LiftAgentBudgetPauseWithBodyWithResponse request with arbitrary body returning *ParsedLiftAgentBudgetPauseResponse
+func (c *ClientWithResponses) LiftAgentBudgetPauseWithBodyWithResponse(ctx context.Context, id string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*ParsedLiftAgentBudgetPauseResponse, error) {
+	rsp, err := c.LiftAgentBudgetPauseWithBody(ctx, id, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedLiftAgentBudgetPauseResponse(rsp)
+}
+
+func (c *ClientWithResponses) LiftAgentBudgetPauseWithResponse(ctx context.Context, id string, body LiftAgentBudgetPauseJSONRequestBody, reqEditors ...RequestEditorFn) (*ParsedLiftAgentBudgetPauseResponse, error) {
+	rsp, err := c.LiftAgentBudgetPause(ctx, id, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedLiftAgentBudgetPauseResponse(rsp)
 }
 
 // SendAgentCommandWithBodyWithResponse request with arbitrary body returning *SendAgentCommandResponse
@@ -42849,6 +43455,15 @@ func (c *ClientWithResponses) MarkFeatureReviewedWithResponse(ctx context.Contex
 		return nil, err
 	}
 	return ParseMarkFeatureReviewedResponse(rsp)
+}
+
+// GetFeatureCoverageWithResponse request returning *ParsedGetFeatureCoverageResponse
+func (c *ClientWithResponses) GetFeatureCoverageWithResponse(ctx context.Context, params *GetFeatureCoverageParams, reqEditors ...RequestEditorFn) (*ParsedGetFeatureCoverageResponse, error) {
+	rsp, err := c.GetFeatureCoverage(ctx, params, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedGetFeatureCoverageResponse(rsp)
 }
 
 // SetFeatureFieldWithBodyWithResponse request with arbitrary body returning *SetFeatureFieldResponse
@@ -46912,6 +47527,105 @@ func ParseParsedWsEchoResponse(rsp *http.Response) (*ParsedWsEchoResponse, error
 	return response, nil
 }
 
+// ParseGetAgentBudgetResponse parses an HTTP response from a GetAgentBudgetWithResponse call
+func ParseGetAgentBudgetResponse(rsp *http.Response) (*GetAgentBudgetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &GetAgentBudgetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BudgetItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseSetAgentBudgetResponse parses an HTTP response from a SetAgentBudgetWithResponse call
+func ParseSetAgentBudgetResponse(rsp *http.Response) (*SetAgentBudgetResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &SetAgentBudgetResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest BudgetItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedListAgentBudgetsResponse parses an HTTP response from a ListAgentBudgetsWithResponse call
+func ParseParsedListAgentBudgetsResponse(rsp *http.Response) (*ParsedListAgentBudgetsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedListAgentBudgetsResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest ListAgentBudgetsResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseParsedListAgentsResponse parses an HTTP response from a ListAgentsWithResponse call
 func ParseParsedListAgentsResponse(rsp *http.Response) (*ParsedListAgentsResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -47053,6 +47767,39 @@ func ParseGetAgentResponse(rsp *http.Response) (*GetAgentResponse, error) {
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest AgentItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedLiftAgentBudgetPauseResponse parses an HTTP response from a LiftAgentBudgetPauseWithResponse call
+func ParseParsedLiftAgentBudgetPauseResponse(rsp *http.Response) (*ParsedLiftAgentBudgetPauseResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedLiftAgentBudgetPauseResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest LiftAgentBudgetPauseResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -49717,6 +50464,39 @@ func ParseMarkFeatureReviewedResponse(rsp *http.Response) (*MarkFeatureReviewedR
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedGetFeatureCoverageResponse parses an HTTP response from a GetFeatureCoverageWithResponse call
+func ParseParsedGetFeatureCoverageResponse(rsp *http.Response) (*ParsedGetFeatureCoverageResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedGetFeatureCoverageResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest GetFeatureCoverageResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
