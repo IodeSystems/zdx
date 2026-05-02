@@ -1,5 +1,5 @@
 import { createFileRoute, Link } from '@tanstack/react-router'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 import {
   Box,
   Button,
@@ -166,6 +166,7 @@ function EnvironmentCard({ slug, env }: { slug: string; env: EnvironmentItem }) 
   const del = useDeleteEnvironment()
   const [toast, setToast] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
+  const [confirming, setConfirming] = useState(false)
 
   const handleRequest = (kind: 'test' | 'ship' | 'sync') => {
     request.mutate({ slug, name: env.name, kind }, {
@@ -174,12 +175,18 @@ function EnvironmentCard({ slug, env }: { slug: string; env: EnvironmentItem }) 
     })
   }
 
-  const handleDelete = () => {
-    if (!confirm(`Delete environment "${env.name}"?`)) return
+  const handleConfirmDelete = () => {
     del.mutate({ slug, name: env.name }, {
       onError: (e) => setToast(`Error: ${e.message}`),
+      onSettled: () => setConfirming(false),
     })
   }
+
+  useEffect(() => {
+    if (!confirming) return
+    const timer = setTimeout(() => setConfirming(false), 4000)
+    return () => clearTimeout(timer)
+  }, [confirming])
 
   const drifted = (env.drift_count ?? 0) > 0
 
@@ -294,11 +301,42 @@ function EnvironmentCard({ slug, env }: { slug: string; env: EnvironmentItem }) 
                 <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
-            <Tooltip title="Delete environment">
-              <IconButton size="small" onClick={handleDelete} disabled={del.isPending}>
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Tooltip>
+            {confirming ? (
+              <>
+                <Button
+                  size="small"
+                  variant="contained"
+                  color="error"
+                  onClick={handleConfirmDelete}
+                  disabled={del.isPending}
+                  sx={{ fontSize: '0.75rem', py: 0.25 }}
+                  data-testid="env-confirm-delete"
+                >
+                  Confirm delete
+                </Button>
+                <Button
+                  size="small"
+                  onClick={() => setConfirming(false)}
+                  disabled={del.isPending}
+                  sx={{ fontSize: '0.75rem', py: 0.25 }}
+                  data-testid="env-cancel-delete"
+                >
+                  Cancel
+                </Button>
+              </>
+            ) : (
+              <Tooltip title="Delete environment">
+                <IconButton
+                  size="small"
+                  onClick={() => setConfirming(true)}
+                  disabled={del.isPending}
+                  aria-label="Delete environment"
+                  data-testid="env-delete-button"
+                >
+                  <DeleteIcon fontSize="small" />
+                </IconButton>
+              </Tooltip>
+            )}
           </Box>
         </CardContent>
       </Card>

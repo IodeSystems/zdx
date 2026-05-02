@@ -1,4 +1,4 @@
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, fireEvent } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { theme } from '../../../../theme'
@@ -126,5 +126,65 @@ describe('Environment dashboard drift display (spec 156)', () => {
     await renderPage()
 
     expect(screen.queryByTestId('drift-chip')).not.toBeInTheDocument()
+  })
+})
+
+describe('Environment delete inline confirm (TK-1567)', () => {
+  test('first click on delete IconButton shows inline confirm without mutating', async () => {
+    const mutate = jest.fn()
+    mockedUseDeleteEnvironment.mockReturnValue({ mutate, isPending: false } as any)
+    mockedUseEnvironments.mockReturnValue({
+      data: [makeEnv({ name: 'prod' })],
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    fireEvent.click(screen.getByTestId('env-delete-button'))
+
+    expect(mutate).not.toHaveBeenCalled()
+    expect(screen.getByTestId('env-confirm-delete')).toBeInTheDocument()
+    expect(screen.getByTestId('env-cancel-delete')).toBeInTheDocument()
+    expect(screen.queryByTestId('env-delete-button')).not.toBeInTheDocument()
+  })
+
+  test('clicking Confirm delete calls del.mutate with slug and name', async () => {
+    const mutate = jest.fn()
+    mockedUseDeleteEnvironment.mockReturnValue({ mutate, isPending: false } as any)
+    mockedUseEnvironments.mockReturnValue({
+      data: [makeEnv({ name: 'prod' })],
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    fireEvent.click(screen.getByTestId('env-delete-button'))
+    fireEvent.click(screen.getByTestId('env-confirm-delete'))
+
+    expect(mutate).toHaveBeenCalledTimes(1)
+    expect(mutate).toHaveBeenCalledWith(
+      { slug: 'test-project', name: 'prod' },
+      expect.any(Object),
+    )
+  })
+
+  test('clicking Cancel reverts to delete IconButton without mutating', async () => {
+    const mutate = jest.fn()
+    mockedUseDeleteEnvironment.mockReturnValue({ mutate, isPending: false } as any)
+    mockedUseEnvironments.mockReturnValue({
+      data: [makeEnv({ name: 'prod' })],
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    fireEvent.click(screen.getByTestId('env-delete-button'))
+    expect(screen.getByTestId('env-confirm-delete')).toBeInTheDocument()
+
+    fireEvent.click(screen.getByTestId('env-cancel-delete'))
+
+    expect(mutate).not.toHaveBeenCalled()
+    expect(screen.queryByTestId('env-confirm-delete')).not.toBeInTheDocument()
+    expect(screen.getByTestId('env-delete-button')).toBeInTheDocument()
   })
 })
