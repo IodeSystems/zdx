@@ -637,18 +637,11 @@ func agentBudgetSetCmd() *cobra.Command {
 				return fmt.Errorf("provide only one of --agent or --project")
 			}
 			c := cli.MustClient()
-			req := dxclient.SetAgentBudgetRequest{}
-			if agentID != "" {
-				req.AgentId = &agentID
-			}
-			if projectID != 0 {
-				req.ProjectId = &projectID
-			}
-			if tokens != 0 {
-				req.TokenCeiling = &tokens
-			}
-			if cost != 0 {
-				req.CostCeiling = &cost
+			req := dxclient.SetAgentBudgetRequest{
+				AgentId:      agentID,
+				ProjectId:    projectID,
+				TokenCeiling: tokens,
+				CostCeiling:  cost,
 			}
 			resp, err := c.SetAgentBudgetWithResponse(cmd.Context(), req)
 			if err != nil {
@@ -769,10 +762,7 @@ func agentBudgetLiftCmd() *cobra.Command {
 		Args:  cobra.ExactArgs(1),
 		RunE: func(cmd *cobra.Command, args []string) error {
 			c := cli.MustClient()
-			req := dxclient.LiftAgentBudgetPauseRequest{}
-			if liftedBy != "" {
-				req.LiftedBy = &liftedBy
-			}
+			req := dxclient.LiftAgentBudgetPauseRequest{LiftedBy: liftedBy}
 			resp, err := c.LiftAgentBudgetPauseWithResponse(cmd.Context(), args[0], req)
 			if err != nil {
 				return err

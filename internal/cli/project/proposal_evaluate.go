@@ -103,7 +103,10 @@ func evaluateOnce(ctx context.Context, c *cli.Client, slug, targetType string) (
 	if staleResp.JSON200 == nil {
 		return sum, nil
 	}
-	streams := staleResp.JSON200.Streams
+	if staleResp.JSON200.Streams == nil {
+		return sum, nil
+	}
+	streams := *staleResp.JSON200.Streams
 	sum.streams = len(streams)
 	for _, s := range streams {
 		processed, revised, err := evaluateStream(ctx, c, slug, s)
