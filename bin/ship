@@ -13,6 +13,9 @@
 #   bin/ship --no-resume            Refuse to resume a stuck rolling deploy; print
 #                                   recovery instructions and exit.
 #   bin/ship --allow-dirty          EMERGENCY ONLY — ships uncommitted changes.
+#   bin/ship --env <name>           Load home/deploy.<name>.secret.properties
+#                                   instead of the default home/deploy.secret.properties.
+#                                   Enables targeting a second environment (e.g. staging).
 #
 # Config: home/deploy.secret.properties (gitignored)
 #   deploy.host=ubuntu@192.168.1.89
@@ -53,20 +56,28 @@ SKIP_BUILD=false
 ALLOW_DIRTY=false
 NON_COMPAT=false
 NO_RESUME=false
+ENV_NAME=""
 BETA=${SHIP_BETA:-true}  # Currently in beta; flip to false when exiting beta
 SERVICE="zdx"
 REMOTE_HOME="/home/$SERVICE"
 MIGRATION_DIR="internal/migrate/sql"
 
-for arg in "$@"; do
-  case "$arg" in
+while [ $# -gt 0 ]; do
+  case "$1" in
     --package)                   PACKAGE_ONLY=true ;;
     --no-package)                SKIP_BUILD=true ;;
     --allow-dirty)               ALLOW_DIRTY=true ;;
     --non-compatible-migration)  NON_COMPAT=true ;;
     --no-resume)                 NO_RESUME=true ;;
+    --env)                       shift; ENV_NAME="$1" ;;
+    --env=*)                     ENV_NAME="${1#--env=}" ;;
   esac
+  shift
 done
+
+if [ -n "$ENV_NAME" ]; then
+  DEPLOY_PROPS="home/deploy.${ENV_NAME}.secret.properties"
+fi
 
 # ── BETA time gate for --non-compatible-migration ─────────────────────────────
 if $NON_COMPAT && ! $BETA; then
