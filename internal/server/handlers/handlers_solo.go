@@ -1603,10 +1603,7 @@ func (h *Handler) maybeAutoFileQueueStall(ctx context.Context, projectID int32, 
 		return
 	}
 
-	dominantReason := ""
-	if health.DominantBlockedReason.Valid {
-		dominantReason = health.DominantBlockedReason.String
-	}
+	dominantReason := health.DominantBlockedReason
 	issueID, err := h.Q.NextIssueID(ctx)
 	if err != nil {
 		return
