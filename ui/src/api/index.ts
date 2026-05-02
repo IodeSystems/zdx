@@ -2647,6 +2647,9 @@ export const useDeletePattern = () => {
 // ── concerns ──────────────────────────────────────────────────────────────────
 
 export type ConcernItem = components['schemas']['ConcernItem']
+export type CreateConcernRequest = components['schemas']['Create-concernRequest']
+export type LinkConcernRequest = components['schemas']['Link-concernRequest']
+export type UnlinkConcernRequest = components['schemas']['Unlink-concernRequest']
 
 export const useListConcerns = (slug: string) =>
   useQuery<ConcernItem[]>({
@@ -2654,22 +2657,96 @@ export const useListConcerns = (slug: string) =>
     queryFn: async () => {
       const { data, error } = await client.GET('/api/dx/concerns', { params: { query: { slug } } })
       if (error) throw new Error(JSON.stringify(error))
-      return (data as any)?.concerns ?? []
+      return data?.concerns ?? []
     },
     enabled: !!slug,
   })
 
+/** @public consumed by next concerns UI tasks (IS-626) */
+export const useGetConcern = (slug: string, name: string) =>
+  useQuery<ConcernItem | null>({
+    queryKey: ['concern', slug, name],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/concern', { params: { query: { slug, name } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as ConcernItem
+    },
+    enabled: !!slug && !!name,
+  })
+
 export const useCreateConcern = () => {
   const qc = useQueryClient()
-  return useMutation<ConcernItem, Error, { slug: string; name: string; description: string }>({
+  return useMutation<ConcernItem, Error, CreateConcernRequest>({
     mutationFn: async (body) => {
-      const { data, error } = await client.POST('/api/dx/concern', { body: body as any })
+      const { data, error } = await client.POST('/api/dx/concern', { body })
       if (error) throw new Error(JSON.stringify(error))
       return (data as unknown) as ConcernItem
     },
     onSuccess: (_, v) => qc.invalidateQueries({ queryKey: ['concerns', v.slug] }),
   })
 }
+
+const invalidateConcernLink = (qc: ReturnType<typeof useQueryClient>, v: LinkConcernRequest | UnlinkConcernRequest) => {
+  qc.invalidateQueries({ queryKey: ['concerns', v.slug] })
+  if (v.feature) {
+    qc.invalidateQueries({ queryKey: ['concerns', v.slug, 'feature', v.feature] })
+    qc.invalidateQueries({ queryKey: ['feature', v.slug, v.feature] })
+  }
+  if (v.spec_id) {
+    qc.invalidateQueries({ queryKey: ['concerns', 'spec', v.spec_id] })
+    qc.invalidateQueries({ queryKey: ['spec-detail', v.spec_id] })
+  }
+}
+
+/** @public consumed by next concerns UI tasks (IS-626) */
+export const useLinkConcern = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, LinkConcernRequest>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.POST('/api/dx/concern/link', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as OKBody
+    },
+    onSuccess: (_, v) => invalidateConcernLink(qc, v),
+  })
+}
+
+/** @public consumed by next concerns UI tasks (IS-626) */
+export const useUnlinkConcern = () => {
+  const qc = useQueryClient()
+  return useMutation<OKBody, Error, UnlinkConcernRequest>({
+    mutationFn: async (body) => {
+      const { data, error } = await client.DELETE('/api/dx/concern/link', { body })
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as unknown) as OKBody
+    },
+    onSuccess: (_, v) => invalidateConcernLink(qc, v),
+  })
+}
+
+/** @public consumed by next concerns UI tasks (IS-626) */
+export const useListConcernsForFeature = (slug: string, feature: string) =>
+  useQuery<ConcernItem[]>({
+    queryKey: ['concerns', slug, 'feature', feature],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/concerns/feature', { params: { query: { slug, feature } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.concerns ?? []
+    },
+    enabled: !!slug && !!feature,
+  })
+
+/** @public consumed by next concerns UI tasks (IS-626) */
+export const useListConcernsForSpec = (specId: number) =>
+  useQuery<ConcernItem[]>({
+    queryKey: ['concerns', 'spec', specId],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/concerns/spec', { params: { query: { spec_id: specId } } })
+      if (error) throw new Error(JSON.stringify(error))
+      return data?.concerns ?? []
+    },
+    enabled: specId > 0,
+  })
 
 // ── proposals ─────────────────────────────────────────────────────────────────
 
