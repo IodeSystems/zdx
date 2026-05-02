@@ -162,7 +162,7 @@ func TestRunCheckGoalsQuantified(t *testing.T) {
 			state:        ProjectState{GoalsTotal: 3, GoalsQuantified: 1},
 			wantPass:     false,
 			wantMsgPart:  "1/3 goals have metrics",
-			wantPropPart: []string{"dx goal add", "--metric-name", "--metric-unit"},
+			wantPropPart: []string{"dx goal add", "--metric-name", "--metric-unit", "outcomes"},
 		},
 	}
 

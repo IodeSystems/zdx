@@ -495,7 +495,7 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "", nil, ""
 		}
 		return false, fmt.Sprintf("%d/%d goals have metrics", state.GoalsQuantified, state.GoalsTotal), nil,
-			"Add metrics: `dx goal add <title> --metric-name <name> --metric-unit <unit>`"
+			"Add metrics: `dx goal add <title> --metric-name <name> --metric-unit <unit>`. Goals should be outcomes (users can X), not engineering domains (correctness, performance)."
 
 	case "no_overspecced_features":
 		if state.OverspeccedCount == 0 {
