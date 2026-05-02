@@ -73,6 +73,7 @@ func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool, classTyp
 				Slug:           c.SlugOrDie(),
 				Classification: string(class),
 			})
+			_, _ = c.SeedVersionBranchesWithResponse(ctx, c.SlugOrDie())
 		}
 	} else if state.Classification == "" {
 		if nonInteractive {
@@ -90,7 +91,14 @@ func runDoctor(ctx context.Context, autoFix bool, reQuestionnaire bool, classTyp
 				Slug:           c.SlugOrDie(),
 				Classification: string(class),
 			})
+			_, _ = c.SeedVersionBranchesWithResponse(ctx, c.SlugOrDie())
 		}
+	} else if state.RemoteReachable {
+		// Classification was already set (read from server in step 2). Re-seed
+		// idempotently so dx init on an existing project fills in any rows
+		// that haven't been seeded yet (e.g. older projects predating IS-966).
+		c := cli.MustClient()
+		_, _ = c.SeedVersionBranchesWithResponse(ctx, c.SlugOrDie())
 	}
 
 	// 4. Walk unanswered maturity questions

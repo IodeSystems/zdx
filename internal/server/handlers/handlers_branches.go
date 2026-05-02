@@ -9,6 +9,7 @@ import (
 	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/doctor"
 )
 
 // IS-825: priority cutoff for auto-generated backport tasks. Issues at this
@@ -100,6 +101,36 @@ func roleToLegacyType(role string) string {
 	default:
 		return role
 	}
+}
+
+// branchSeeder is the slice of *db.Queries that seedClassificationBranches
+// needs — extracted into an interface so the seed loop can be unit-tested
+// against a fake.
+type branchSeeder interface {
+	UpsertVersionBranchIfMissing(ctx context.Context, arg db.UpsertVersionBranchIfMissingParams) error
+}
+
+// seedClassificationBranches writes one row per BranchSeed for the project's
+// classification, idempotently (the underlying query is INSERT … ON CONFLICT
+// DO NOTHING keyed on (project_id, name)). Empty / unknown classifications
+// produce zero seeds — the caller still gets a successful response so dx init
+// can run before classification is set without erroring out.
+func seedClassificationBranches(ctx context.Context, q branchSeeder, projectID int32, classification string) error {
+	for _, seed := range doctor.ClassificationBranchSeeds(doctor.Classification(classification)) {
+		src := pgtype.Text{}
+		if seed.SourceBranchName != "" {
+			src = pgtype.Text{String: seed.SourceBranchName, Valid: true}
+		}
+		if err := q.UpsertVersionBranchIfMissing(ctx, db.UpsertVersionBranchIfMissingParams{
+			ProjectID:        projectID,
+			Name:             seed.Name,
+			Role:             seed.Role,
+			SourceBranchName: src,
+		}); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func versionBranchItemFrom(id int64, name, role string, semver pgtype.Text, status string, createdAt pgtype.Timestamptz, sourceBranchName pgtype.Text) VersionBranchItem {
@@ -284,6 +315,20 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				return nil, apiErr(http.StatusInternalServerError, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "seed-version-branches", Method: http.MethodPost, Path: "/api/dx/projects/{slug}/branches/seed"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+		}) (*struct{}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if err := seedClassificationBranches(ctx, h.Q, p.ID, p.Classification); err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			return &struct{}{}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "set-version-branch-source", Method: http.MethodPatch, Path: "/api/dx/projects/{slug}/branches/{name}/source"},
