@@ -104,3 +104,16 @@ func (r *Registry) List() []*Conn {
 	}
 	return out
 }
+
+// ConnectedAgentIDs returns a snapshot of every agent ID with a live WS
+// connection. Used by background sweepers (e.g. budgetwatch) that only care
+// about the ID set, not the per-conn metadata.
+func (r *Registry) ConnectedAgentIDs() []string {
+	r.mu.RLock()
+	defer r.mu.RUnlock()
+	out := make([]string, 0, len(r.conns))
+	for id := range r.conns {
+		out = append(out, id)
+	}
+	return out
+}

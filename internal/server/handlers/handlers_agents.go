@@ -405,6 +405,16 @@ func (h *Handler) registerAgentRoutes(api huma.API) {
 					_ = updater.UpdateAgentStatus(ctx, db.UpdateAgentStatusParams{ID: in.ID, Status: newStatus})
 				}
 			}
+			// Operator-driven resume implicitly approves more spend, so any
+			// budget pause held against this agent is lifted in the same
+			// transaction. Without this, a watcher that tripped a budget
+			// pause would immediately re-pause the agent on the next sweep.
+			if in.Body.Command == "resume" && h.Q != nil {
+				_ = h.Q.LiftBudgetPause(ctx, db.LiftBudgetPauseParams{
+					AgentID:  in.ID,
+					LiftedBy: pgtype.Text{String: "operator", Valid: true},
+				})
+			}
 			return &struct{}{}, nil
 		})
 

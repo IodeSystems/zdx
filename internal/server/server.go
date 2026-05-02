@@ -19,6 +19,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/llm"
 	"github.com/iodesystems/zdx-go/internal/server/agentconn"
+	"github.com/iodesystems/zdx-go/internal/server/budgetwatch"
 	"github.com/iodesystems/zdx-go/internal/server/handlers"
 	"github.com/iodesystems/zdx-go/internal/ws"
 	"github.com/iodesystems/zdx-go/pkg/zdxclient"
@@ -525,6 +526,21 @@ func (s *Server) timingMiddleware(next http.Handler) http.Handler {
 // Called from main.go after the self-integration client is created.
 func (s *Server) SetErrorClient(c *zdxclient.Client) {
 	s.errorClient = c
+}
+
+// StartBudgetWatcher spins up the per-agent / per-project budget enforcement
+// loop. The watcher polls connected agents, computes live token+cost usage,
+// and sends a `pause` over the WS control channel when a ceiling is crossed
+// — reusing the IS-602 pause path so session+lease are preserved. Lifting is
+// operator-driven via /api/agents/{id}/budget/lift; the watcher never auto-
+// resumes.
+func (s *Server) StartBudgetWatcher(ctx context.Context) {
+	w := &budgetwatch.Watcher{
+		Q:         s.q,
+		Registry:  s.agentRegistry,
+		Commander: s.agentRegistry,
+	}
+	w.Start(ctx)
 }
 
 // statusCapture wraps http.ResponseWriter to capture the status code.
