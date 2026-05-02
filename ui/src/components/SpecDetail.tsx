@@ -1,6 +1,7 @@
 import { useState } from 'react'
 import { Link, useRouter } from '@tanstack/react-router'
 import {
+  Autocomplete,
   Box,
   Button,
   Chip,
@@ -8,10 +9,11 @@ import {
   DialogActions,
   DialogContent,
   DialogTitle,
+  IconButton,
   TextField,
   Typography,
 } from '@mui/material'
-import { ArrowBack as ArrowBackIcon } from '@mui/icons-material'
+import { ArrowBack as ArrowBackIcon, Edit as EditIcon } from '@mui/icons-material'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   useSpecDetail,
@@ -19,6 +21,11 @@ import {
   useSpecCodeRefs,
   useCreateIssue,
   linkSpecIssue,
+  useListConcernsForSpec,
+  useListConcerns,
+  useLinkConcern,
+  useUnlinkConcern,
+  type ConcernItem,
   type SpecIssueItem,
   type SpecTestItem,
 } from '../api'
@@ -38,9 +45,32 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
   const { data, isLoading } = useSpecDetail(specId)
   const { data: tests } = useSpecTests(specId)
   const { data: codeRefs } = useSpecCodeRefs(slug, specId)
+  const { data: linkedConcerns = [] } = useListConcernsForSpec(specId)
+  const { data: allConcerns = [] } = useListConcerns(slug)
+  const linkConcern = useLinkConcern()
+  const unlinkConcern = useUnlinkConcern()
   const [issueOpen, setIssueOpen] = useState(false)
   const [issueContext, setIssueContext] = useState('')
+  const [concernsOpen, setConcernsOpen] = useState(false)
+  const [pendingConcerns, setPendingConcerns] = useState<ConcernItem[]>([])
   const createIssue = useCreateIssue()
+
+  const handleOpenConcerns = () => {
+    setPendingConcerns(linkedConcerns)
+    setConcernsOpen(true)
+  }
+
+  const handleSaveConcerns = async () => {
+    const linked = new Set(linkedConcerns.map(c => c.name))
+    const pending = new Set(pendingConcerns.map(c => c.name))
+    const toAdd = pendingConcerns.filter(c => !linked.has(c.name))
+    const toRemove = linkedConcerns.filter(c => !pending.has(c.name))
+    await Promise.all([
+      ...toAdd.map(c => linkConcern.mutateAsync({ slug, concern_name: c.name, spec_id: specId })),
+      ...toRemove.map(c => unlinkConcern.mutateAsync({ slug, concern_name: c.name, spec_id: specId })),
+    ])
+    setConcernsOpen(false)
+  }
 
   if (isLoading) return <Typography color="text.secondary">Loading...</Typography>
   if (!data) return <Typography color="error">Spec not found.</Typography>
@@ -86,6 +116,26 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
       <Typography variant="body1" sx={{ mb: 2 }}>{spec.description}</Typography>
 
       <CodeRefs refs={codeRefs ?? []} slug={slug} />
+
+      <Box sx={{ mb: 2 }}>
+        <Box sx={{ display: 'flex', alignItems: 'center', gap: 0.5, mb: 0.5 }}>
+          <Typography variant="subtitle2" color="text.secondary">
+            Concerns ({linkedConcerns.length})
+          </Typography>
+          <IconButton size="small" onClick={handleOpenConcerns} aria-label="edit concerns">
+            <EditIcon fontSize="small" />
+          </IconButton>
+        </Box>
+        {linkedConcerns.length === 0 ? (
+          <Typography variant="body2" color="text.secondary">No linked concerns.</Typography>
+        ) : (
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap' }}>
+            {linkedConcerns.map(c => (
+              <Chip key={c.id} label={c.name} size="small" variant="outlined" />
+            ))}
+          </Box>
+        )}
+      </Box>
 
       <Box sx={{ mb: 2, display: 'flex', gap: 1 }}>
         <Button size="small" variant="outlined" onClick={handleCreateIssue}>
@@ -178,6 +228,31 @@ export function SpecDetail({ slug, specId }: { slug: string; specId: number }) {
             disabled={createIssue.isPending}
           >
             Create issue
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      <Dialog open={concernsOpen} onClose={() => setConcernsOpen(false)} maxWidth="sm" fullWidth>
+        <DialogTitle>Manage Concerns</DialogTitle>
+        <DialogContent>
+          <Autocomplete
+            multiple
+            options={allConcerns}
+            getOptionLabel={c => c.name}
+            value={pendingConcerns}
+            onChange={(_, val) => setPendingConcerns(val)}
+            isOptionEqualToValue={(a, b) => a.name === b.name}
+            renderInput={params => <TextField {...params} label="Concerns" sx={{ mt: 1 }} />}
+          />
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setConcernsOpen(false)}>Cancel</Button>
+          <Button
+            variant="contained"
+            disabled={linkConcern.isPending || unlinkConcern.isPending}
+            onClick={handleSaveConcerns}
+          >
+            Save
           </Button>
         </DialogActions>
       </Dialog>
