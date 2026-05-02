@@ -76,6 +76,7 @@ func TestDemoCLI_DoctorFeatureImplDetail(t *testing.T) {
 
 	cmd := exec.Command(dxBin, "doctor")
 	cmd.Dir = tmp
+	cmd.Env = append(os.Environ(), "DX_REMOTE_API_KEY="+srv.AdminToken)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout
 	cmd.Stderr = &stderr
