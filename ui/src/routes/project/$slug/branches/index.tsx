@@ -1,6 +1,7 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Box, Card, CardContent, Chip, CircularProgress, Typography } from '@mui/material'
-import { useBranches, type VersionBranchItem } from '../../../../api'
+import { Alert, Box, Card, CardContent, Chip, CircularProgress, IconButton, Skeleton, Tooltip, Typography } from '@mui/material'
+import { Snooze as SnoozeIcon } from '@mui/icons-material'
+import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, type VersionBranchItem } from '../../../../api'
 
 const ROLE_ORDER = ['rolling-release', 'dev', 'pr-target', 'named-release']
 
@@ -132,6 +133,50 @@ function BranchCard({ branch }: { branch: VersionBranchItem }) {
   )
 }
 
+function RungBanner({ slug }: { slug: string }) {
+  const { data: rung, isLoading } = useBranchDoctorRung(slug)
+  const defer = useDeferDoctorCheck()
+
+  if (isLoading) {
+    return <Skeleton variant="rounded" height={48} sx={{ mb: 2 }} />
+  }
+  if (!rung) return null
+
+  if (rung.status === 'pass') {
+    return (
+      <Alert severity="success" sx={{ mb: 2 }}>
+        {rung.message}
+      </Alert>
+    )
+  }
+
+  return (
+    <Alert
+      severity="warning"
+      sx={{ mb: 2 }}
+      action={
+        <Tooltip title="Defer this check">
+          <IconButton
+            size="small"
+            aria-label="Defer"
+            onClick={() => defer.mutate({ slug, check_name: 'branching_strategy_appropriate', rung: String(rung.current_rung) })}
+            disabled={defer.isPending}
+          >
+            <SnoozeIcon fontSize="small" />
+          </IconButton>
+        </Tooltip>
+      }
+    >
+      <Typography variant="body2">{rung.message}</Typography>
+      {rung.proposal && (
+        <Typography variant="caption" color="text.secondary" sx={{ display: 'block', mt: 0.5 }}>
+          {rung.proposal}
+        </Typography>
+      )}
+    </Alert>
+  )
+}
+
 function BranchesPage() {
   const { slug } = Route.useParams()
   const { data: branches, isLoading } = useBranches(slug)
@@ -153,10 +198,12 @@ function BranchesPage() {
         )}
       </Box>
 
+      <RungBanner slug={slug} />
+
       {isLoading ? (
         <CircularProgress sx={{ m: 4 }} />
       ) : sorted.length === 0 ? (
-        <Box>
+        <Box data-testid="empty-state">
           <Typography color="text.secondary" sx={{ mb: 1 }}>No branches configured.</Typography>
           <Typography variant="body2" color="text.secondary">
             Add one via{' '}

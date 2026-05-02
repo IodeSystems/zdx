@@ -1,4 +1,4 @@
-import { createFileRoute, Link } from '@tanstack/react-router'
+import { createFileRoute, Link, useNavigate } from '@tanstack/react-router'
 import { useEffect, useState } from 'react'
 import {
   Box,
@@ -24,6 +24,7 @@ import {
   Edit as EditIcon,
   Delete as DeleteIcon,
   Add as AddIcon,
+  AccountTree as BranchIcon,
 } from '@mui/icons-material'
 import {
   useEnvironments,
@@ -164,6 +165,7 @@ function EditEnvironmentDialog({ slug, env, open, onClose }: { slug: string; env
 function EnvironmentCard({ slug, env }: { slug: string; env: EnvironmentItem }) {
   const request = useRequestEnvironmentTodo()
   const del = useDeleteEnvironment()
+  const navigate = useNavigate()
   const [toast, setToast] = useState<string | null>(null)
   const [editOpen, setEditOpen] = useState(false)
   const [confirming, setConfirming] = useState(false)
@@ -257,6 +259,15 @@ function EnvironmentCard({ slug, env }: { slug: string; env: EnvironmentItem }) 
           </Box>
 
           <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center' }}>
+            <Tooltip title="View branch strategy">
+              <IconButton
+                size="small"
+                aria-label="Branches"
+                onClick={() => navigate({ to: '/project/$slug/branches', params: { slug } })}
+              >
+                <BranchIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
             <Tooltip title="Create a test todo for this environment">
               <Button
                 size="small"

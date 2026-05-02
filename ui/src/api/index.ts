@@ -3099,6 +3099,42 @@ export const useBranches = (slug: string) =>
     enabled: !!slug,
   })
 
+export type BranchDoctorRung = {
+  status: 'pass' | 'fail'
+  current_rung: number
+  message: string
+  proposal?: string
+  classification: string
+}
+
+export const useBranchDoctorRung = (slug: string) =>
+  useQuery<BranchDoctorRung>({
+    queryKey: ['branch-doctor-rung', slug],
+    queryFn: async () => {
+      const { data, error } = await client.GET('/api/dx/projects/{slug}/branches/doctor-rung' as never, {
+        params: { path: { slug } },
+      } as never)
+      if (error) throw new Error(JSON.stringify(error))
+      return (data as any).body as BranchDoctorRung
+    },
+    enabled: !!slug,
+  })
+
+export const useDeferDoctorCheck = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; check_name: string; rung: string }>({
+    mutationFn: async ({ slug, check_name, rung }) => {
+      const { error } = await client.POST('/api/dx/doctor/defer', {
+        body: { slug, check_name, rung },
+      })
+      if (error) throw new Error(JSON.stringify(error))
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['branch-doctor-rung', v.slug] })
+    },
+  })
+}
+
 // ── environments ──────────────────────────────────────────────────────────────
 
 export type EnvironmentItem = components['schemas']['EnvironmentItem'] & {
