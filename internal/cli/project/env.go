@@ -123,8 +123,8 @@ func envShowCmd() *cobra.Command {
 			fmt.Printf("Name:           %s\n", e.Name)
 			fmt.Printf("URL:            %s\n", e.Url)
 			fmt.Printf("Release branch: %s\n", e.ReleaseBranch)
-			if e.TrunkBranch != nil && *e.TrunkBranch != "" {
-				fmt.Printf("Trunk branch:   %s\n", *e.TrunkBranch)
+			if e.TrunkBranch != "" {
+				fmt.Printf("Trunk branch:   %s\n", e.TrunkBranch)
 			}
 			fmt.Printf("Created:        %s\n", e.CreatedAt)
 			fmt.Printf("Deployed:       %s\n", e.DeployedAt)

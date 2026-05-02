@@ -21,6 +21,7 @@ type EnvironmentItem struct {
 	Name               string `json:"name"`
 	URL                string `json:"url"`
 	ReleaseBranch      string `json:"release_branch"`
+	TrunkBranch        string `json:"trunk_branch"`
 	CurrentBuildSha    string `json:"current_build_sha"`
 	CurrentBuildBranch string `json:"current_build_branch"`
 	DeployedAt         string `json:"deployed_at"`
@@ -47,6 +48,7 @@ func toEnvironmentItemFromList(e db.ListEnvironmentsRow) EnvironmentItem {
 		Name:               e.Name,
 		URL:                e.Url,
 		ReleaseBranch:      e.ReleaseBranch,
+		TrunkBranch:        e.TrunkBranch,
 		CurrentBuildSha:    e.CurrentBuildSha,
 		CurrentBuildBranch: e.CurrentBuildBranch,
 		DeployedAt:         fmtTS(e.DeployedAt),
@@ -60,6 +62,7 @@ func toEnvironmentItemFromGet(e db.GetEnvironmentRow) EnvironmentItem {
 		Name:               e.Name,
 		URL:                e.Url,
 		ReleaseBranch:      e.ReleaseBranch,
+		TrunkBranch:        e.TrunkBranch,
 		CurrentBuildSha:    e.CurrentBuildSha,
 		CurrentBuildBranch: e.CurrentBuildBranch,
 		DeployedAt:         fmtTS(e.DeployedAt),
@@ -73,6 +76,7 @@ func toEnvironmentItemFromCreate(e db.CreateEnvironmentRow) EnvironmentItem {
 		Name:               e.Name,
 		URL:                e.Url,
 		ReleaseBranch:      e.ReleaseBranch,
+		TrunkBranch:        e.TrunkBranch,
 		CurrentBuildSha:    e.CurrentBuildSha,
 		CurrentBuildBranch: e.CurrentBuildBranch,
 		DeployedAt:         fmtTS(e.DeployedAt),
@@ -154,6 +158,7 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				Name          string `json:"name"`
 				URL           string `json:"url,omitempty"`
 				ReleaseBranch string `json:"release_branch,omitempty"`
+				TrunkBranch   string `json:"trunk_branch,omitempty"`
 			}
 		}) (*struct{ Body EnvironmentItem }, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
@@ -165,6 +170,7 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				Name:          in.Body.Name,
 				Url:           in.Body.URL,
 				ReleaseBranch: in.Body.ReleaseBranch,
+				TrunkBranch:   in.Body.TrunkBranch,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
@@ -179,6 +185,7 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 			Body struct {
 				URL           string `json:"url,omitempty"`
 				ReleaseBranch string `json:"release_branch,omitempty"`
+				TrunkBranch   string `json:"trunk_branch,omitempty"`
 			}
 		}) (*struct{ Body OKBody }, error) {
 			p, err := getProject(ctx, h.Q, in.Slug)
@@ -188,6 +195,7 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 			if err := h.Q.UpdateEnvironment(ctx, db.UpdateEnvironmentParams{
 				Url:           in.Body.URL,
 				ReleaseBranch: in.Body.ReleaseBranch,
+				TrunkBranch:   in.Body.TrunkBranch,
 				ProjectID:     p.ID,
 				Name:          in.Name,
 			}); err != nil {
@@ -327,18 +335,23 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				title = fmt.Sprintf("Test %s", in.Name)
 				text = fmt.Sprintf("Run tests against the %s environment (SHA: %s, branch: %s)", in.Name, env.CurrentBuildSha, env.CurrentBuildBranch)
 			case "ship":
+				trunk := env.TrunkBranch
+				if trunk == "" {
+					trunk = "main"
+				}
 				if env.ReleaseBranch != "" {
 					title = fmt.Sprintf("Ship to %s from %s", in.Name, env.ReleaseBranch)
 					text = fmt.Sprintf(
 						"Deploy to the %s environment from release branch %s:\n"+
-							"1. Ensure all tests pass on the main branch\n"+
-							"2. Merge main into %s (fast-forward preferred)\n"+
+							"1. Ensure all tests pass on the %s branch\n"+
+							"2. Merge %s into %s (fast-forward preferred)\n"+
 							"3. Build from %s\n"+
 							"4. Deploy the build to %s\n"+
 							"5. Record the deploy: dx env deploy %s --branch=%s\n"+
 							"\nCurrent deployed: %s @ %s",
 						in.Name, env.ReleaseBranch,
-						env.ReleaseBranch,
+						trunk,
+						trunk, env.ReleaseBranch,
 						env.ReleaseBranch,
 						in.Name,
 						in.Name, env.ReleaseBranch,
@@ -348,11 +361,11 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 					title = fmt.Sprintf("Ship to %s", in.Name)
 					text = fmt.Sprintf(
 						"Deploy to the %s environment:\n"+
-							"1. Build from the current main branch\n"+
+							"1. Build from the current %s branch\n"+
 							"2. Deploy the build\n"+
 							"3. Record the deploy: dx env deploy %s\n"+
 							"\nCurrent deployed: %s @ %s",
-						in.Name, in.Name,
+						in.Name, trunk, in.Name,
 						env.CurrentBuildSha, env.CurrentBuildBranch,
 					)
 				}
@@ -360,17 +373,24 @@ func (h *Handler) registerEnvironmentRoutes(api huma.API) {
 				if env.ReleaseBranch == "" {
 					return nil, apiErr(http.StatusBadRequest, "environment has no release_branch configured — set one before syncing")
 				}
-				title = fmt.Sprintf("Sync %s → %s", "main", env.ReleaseBranch)
+				if env.TrunkBranch == "" {
+					return nil, apiErr(http.StatusBadRequest, "environment has no trunk_branch configured — set one before syncing")
+				}
+				if env.TrunkBranch == env.ReleaseBranch {
+					return nil, apiErr(http.StatusBadRequest, "trunk_branch must differ from release_branch")
+				}
+				title = fmt.Sprintf("Sync %s → %s", env.TrunkBranch, env.ReleaseBranch)
 				text = fmt.Sprintf(
-					"Sync main into the %s release branch (%s) — only if all tests pass on main:\n"+
-						"1. Verify all tests are passing on the main branch (check dx test results or run tests)\n"+
-						"2. If tests pass: git fetch origin && git checkout %s && git merge --ff-only origin/main\n"+
+					"Sync %s into the %s release branch (%s) — only if all tests pass on %s:\n"+
+						"1. Verify all tests are passing on the %s branch (check dx test results or run tests)\n"+
+						"2. If tests pass: git fetch origin && git checkout %s && git merge --ff-only origin/%s\n"+
 						"3. Push the updated release branch: git push origin %s\n"+
 						"4. If fast-forward fails (diverged), create an issue describing the conflict\n"+
 						"\nCurrent deployed: %s @ %s\n"+
 						"This sync makes the release branch eligible for the next ship.",
-					in.Name, env.ReleaseBranch,
-					env.ReleaseBranch,
+					env.TrunkBranch, in.Name, env.ReleaseBranch, env.TrunkBranch,
+					env.TrunkBranch,
+					env.ReleaseBranch, env.TrunkBranch,
 					env.ReleaseBranch,
 					env.CurrentBuildSha, env.CurrentBuildBranch,
 				)
@@ -413,6 +433,7 @@ func (h *Handler) maybeQueueReleaseSyncs(ctx context.Context, projectID int32, r
 		return
 	}
 	branch := results[0].Branch
+	// TODO IS-972: relax to match any env.TrunkBranch once trunk_branch is populated
 	if branch != "main" && branch != "master" {
 		return
 	}

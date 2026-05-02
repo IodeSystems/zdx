@@ -47,6 +47,7 @@ function makeEnv(overrides: Partial<EnvironmentItem> = {}): EnvironmentItem {
     name: 'staging',
     url: '',
     release_branch: 'release/staging',
+    trunk_branch: 'dev',
     current_build_sha: '',
     current_build_branch: '',
     deployed_at: '',

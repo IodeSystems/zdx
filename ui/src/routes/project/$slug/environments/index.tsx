@@ -270,7 +270,7 @@ function EnvironmentCard({ slug, env }: { slug: string; env: EnvironmentItem }) 
               </Button>
             </Tooltip>
             {env.release_branch && (
-              <Tooltip title={`Sync main → ${env.release_branch} (test-gated)`}>
+              <Tooltip title={`Sync ${env.trunk_branch || 'main'} → ${env.release_branch} (test-gated)`}>
                 <Button
                   size="small"
                   variant="outlined"

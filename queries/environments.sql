@@ -1,20 +1,21 @@
 -- name: ListEnvironments :many
-SELECT id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+SELECT id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 FROM zdx_environments WHERE project_id = $1 ORDER BY name ASC;
 
 -- name: GetEnvironment :one
-SELECT id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
+SELECT id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 FROM zdx_environments WHERE project_id = $1 AND name = $2;
 
 -- name: CreateEnvironment :one
-INSERT INTO zdx_environments (project_id, name, url, release_branch)
-VALUES ($1, $2, $3, $4)
-RETURNING id, project_id, name, url, release_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at;
+INSERT INTO zdx_environments (project_id, name, url, release_branch, trunk_branch)
+VALUES ($1, $2, $3, $4, @trunk_branch)
+RETURNING id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at;
 
 -- name: UpdateEnvironment :exec
 UPDATE zdx_environments
 SET url            = COALESCE(NULLIF(@url, ''), url),
-    release_branch = COALESCE(NULLIF(@release_branch, ''), release_branch)
+    release_branch = COALESCE(NULLIF(@release_branch, ''), release_branch),
+    trunk_branch   = COALESCE(NULLIF(@trunk_branch, ''), trunk_branch)
 WHERE project_id = @project_id AND name = @name;
 
 -- name: DeleteEnvironment :exec

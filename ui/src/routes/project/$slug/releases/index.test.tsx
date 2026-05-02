@@ -34,6 +34,7 @@ function makeEnv(overrides: Partial<EnvironmentItem> = {}): EnvironmentItem {
     name: 'staging',
     url: 'https://staging.example.com',
     release_branch: 'release/v1.x',
+    trunk_branch: 'dev',
     current_build_sha: 'abc12345def67890',
     current_build_branch: 'release/v1.x',
     deployed_at: new Date(Date.now() - 3600_000).toISOString(),
