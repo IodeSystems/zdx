@@ -1,0 +1,2 @@
+-- Irreversible: patterns and concern_patterns may have been edited post-migration.
+-- No rollback; zdx_project_constraints is unchanged and remains the source of truth until IS-627.
