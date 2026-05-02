@@ -1,4 +1,4 @@
-import { render, screen, cleanup } from '@testing-library/react'
+import { render, screen, cleanup, within } from '@testing-library/react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { ThemeProvider, CssBaseline } from '@mui/material'
 import { theme } from '../../../../theme'
@@ -9,6 +9,7 @@ jest.mock('../../../../api', () => {
   return {
     ...actual,
     useEnvironments: jest.fn(),
+    useRequestEnvironmentTodo: jest.fn(),
   }
 })
 
@@ -22,9 +23,10 @@ jest.mock('@tanstack/react-router', () => ({
   },
 }))
 
-import { useEnvironments } from '../../../../api'
+import { useEnvironments, useRequestEnvironmentTodo } from '../../../../api'
 
 const mockedUseEnvironments = jest.mocked(useEnvironments)
+const mockedUseRequestEnvironmentTodo = jest.mocked(useRequestEnvironmentTodo)
 
 function makeEnv(overrides: Partial<EnvironmentItem> = {}): EnvironmentItem {
   return {
@@ -46,6 +48,7 @@ let queryClient: QueryClient
 
 beforeEach(() => {
   queryClient = new QueryClient({ defaultOptions: { queries: { retry: false } } })
+  mockedUseRequestEnvironmentTodo.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
 })
 
 afterEach(() => {
@@ -167,5 +170,104 @@ describe('ReleaseIndexGroupsByVersion (spec 155)', () => {
     expect(headers).toHaveLength(1)
     expect(screen.getByTestId('env-row-staging-us')).toBeInTheDocument()
     expect(screen.getByTestId('env-row-staging-eu')).toBeInTheDocument()
+  })
+})
+
+describe('ReleaseIndexMobileCardPattern (spec 161)', () => {
+  function renderAtMobile() {
+    Object.defineProperty(window, 'innerWidth', { configurable: true, value: 375, writable: true })
+    Object.defineProperty(window, 'matchMedia', {
+      configurable: true,
+      writable: true,
+      value: (query: string) => ({
+        matches: query.includes('max-width') && /max-width:[^,]*[6-9]\d{2}px/.test(query),
+        media: query,
+        onchange: null,
+        addListener: jest.fn(),
+        removeListener: jest.fn(),
+        addEventListener: jest.fn(),
+        removeEventListener: jest.fn(),
+        dispatchEvent: jest.fn(),
+      }),
+    })
+    return renderPage()
+  }
+
+  test('spec 161: env card has header containing version label and drift indicator', async () => {
+    mockedUseEnvironments.mockReturnValue({
+      data: [
+        makeEnv({
+          id: 1,
+          name: 'staging',
+          release_branch: 'release/v1.x',
+          drift_count: 3,
+          drift_oldest_age_secs: Math.floor(Date.now() / 1000) - 86400,
+        }),
+      ],
+      isLoading: false,
+    } as any)
+
+    await renderAtMobile()
+
+    const header = screen.getByTestId('env-card-header-staging')
+    expect(header).toBeInTheDocument()
+    expect(header).toHaveTextContent('release/v1.x')
+    expect(header).toHaveTextContent('3 behind')
+  })
+
+  test('spec 161: env card has content containing environment name and URL', async () => {
+    mockedUseEnvironments.mockReturnValue({
+      data: [
+        makeEnv({
+          id: 1,
+          name: 'staging',
+          release_branch: 'release/v1.x',
+          url: 'https://staging.example.com',
+        }),
+      ],
+      isLoading: false,
+    } as any)
+
+    await renderAtMobile()
+
+    const content = screen.getByTestId('env-card-content-staging')
+    expect(content).toBeInTheDocument()
+    expect(content).toHaveTextContent('staging')
+    expect(content).toHaveTextContent('https://staging.example.com')
+  })
+
+  test('spec 161: env card has footer containing action buttons', async () => {
+    mockedUseEnvironments.mockReturnValue({
+      data: [
+        makeEnv({ id: 1, name: 'staging', release_branch: 'release/v1.x' }),
+      ],
+      isLoading: false,
+    } as any)
+
+    await renderAtMobile()
+
+    const footer = screen.getByTestId('env-card-footer-staging')
+    expect(footer).toBeInTheDocument()
+    const shipBtn = within(footer).getByText('Ship')
+    expect(shipBtn).toBeInTheDocument()
+    expect(shipBtn.closest('button')).not.toBeNull()
+  })
+
+  test('spec 161: header/content/footer regions are all present per env row', async () => {
+    mockedUseEnvironments.mockReturnValue({
+      data: [
+        makeEnv({ id: 1, name: 'staging', release_branch: 'release/v1.x' }),
+        makeEnv({ id: 2, name: 'production', release_branch: 'release/v1.x' }),
+      ],
+      isLoading: false,
+    } as any)
+
+    await renderAtMobile()
+
+    for (const name of ['staging', 'production']) {
+      expect(screen.getByTestId(`env-card-header-${name}`)).toBeInTheDocument()
+      expect(screen.getByTestId(`env-card-content-${name}`)).toBeInTheDocument()
+      expect(screen.getByTestId(`env-card-footer-${name}`)).toBeInTheDocument()
+    }
   })
 })

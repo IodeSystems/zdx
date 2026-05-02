@@ -1,20 +1,20 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { useMemo } from 'react'
+import { useMemo, useState } from 'react'
 import {
   Box,
+  Button,
+  Card,
   Chip,
   CircularProgress,
-  Paper,
-  Table,
-  TableBody,
-  TableCell,
-  TableContainer,
-  TableHead,
-  TableRow,
+  Snackbar,
+  Tooltip,
   Typography,
 } from '@mui/material'
-import { AccountTree as BranchIcon } from '@mui/icons-material'
-import { useEnvironments } from '../../../../api'
+import {
+  AccountTree as BranchIcon,
+  RocketLaunch as RocketLaunchIcon,
+} from '@mui/icons-material'
+import { useEnvironments, useRequestEnvironmentTodo } from '../../../../api'
 import type { EnvironmentItem } from '../../../../api'
 
 function shortSha(sha: string): string {
@@ -37,66 +37,132 @@ function formatRelativeTime(iso: string): string {
   return `${days}d ago`
 }
 
-function EnvRow({ env }: { env: EnvironmentItem }) {
+function EnvCard({ slug, branch, env }: { slug: string; branch: string; env: EnvironmentItem }) {
+  const request = useRequestEnvironmentTodo()
+  const [toast, setToast] = useState<string | null>(null)
+  const drifted = (env.drift_count ?? 0) > 0
+
+  const handleShip = () => {
+    request.mutate({ slug, name: env.name, kind: 'ship' }, {
+      onSuccess: () => setToast(`Ship todo created for ${env.name}`),
+      onError: (e) => setToast(`Error: ${e.message}`),
+    })
+  }
+
   return (
-    <TableRow hover data-testid={`env-row-${env.name}`}>
-      <TableCell sx={{ fontFamily: 'monospace', fontWeight: 600 }}>
-        {env.name}
-      </TableCell>
-      <TableCell>
-        {env.url ? (
-          <Typography
-            variant="body2"
-            component="a"
-            href={env.url}
-            target="_blank"
-            rel="noopener noreferrer"
-            data-testid={`env-url-${env.name}`}
-            sx={{ color: 'text.secondary', fontSize: '0.8rem', wordBreak: 'break-all' }}
-          >
-            {env.url}
-          </Typography>
-        ) : (
-          <Typography variant="body2" color="text.disabled" data-testid={`env-url-${env.name}`}>—</Typography>
-        )}
-      </TableCell>
-      <TableCell data-testid={`env-sha-${env.name}`}>
-        {env.current_build_sha ? (
+    <>
+      <Card variant="outlined" data-testid={`env-row-${env.name}`}>
+        <Box
+          sx={{ display: 'flex', alignItems: 'center', gap: 1, px: 1.5, pt: 1, pb: 0.5 }}
+          data-testid={`env-card-header-${env.name}`}
+        >
           <Chip
-            label={shortSha(env.current_build_sha)}
+            label={branch}
             size="small"
             variant="outlined"
-            sx={{ fontFamily: 'monospace', fontSize: '0.75rem', height: 20 }}
+            sx={{ fontFamily: 'monospace', fontSize: '0.75rem', height: 22 }}
+            data-testid={`env-version-${env.name}`}
           />
-        ) : (
-          <Typography variant="body2" color="text.disabled">—</Typography>
-        )}
-      </TableCell>
-      <TableCell data-testid={`env-branch-${env.name}`}>
-        {env.current_build_branch ? (
-          <Chip
-            label={env.current_build_branch}
-            size="small"
-            color={
-              env.current_build_branch === 'main' || env.current_build_branch === 'master'
-                ? 'primary'
-                : 'default'
-            }
-            variant="outlined"
-            sx={{ fontSize: '0.75rem', height: 20 }}
-          />
-        ) : (
-          <Typography variant="body2" color="text.disabled">—</Typography>
-        )}
-      </TableCell>
-      <TableCell sx={{ fontSize: '0.8rem', color: 'text.secondary' }} data-testid={`env-deployed-at-${env.name}`}>
-        {formatRelativeTime(env.deployed_at)}
-      </TableCell>
-    </TableRow>
+          {drifted ? (
+            <Tooltip title={`release branch is ${env.drift_count} commit${env.drift_count === 1 ? '' : 's'} behind dev`}>
+              <Chip
+                label={`${env.drift_count} behind`}
+                size="small"
+                color="warning"
+                variant="filled"
+                sx={{ fontSize: '0.7rem', height: 18 }}
+                data-testid={`env-drift-${env.name}`}
+              />
+            </Tooltip>
+          ) : null}
+        </Box>
+
+        <Box sx={{ px: 1.5, pb: 1 }} data-testid={`env-card-content-${env.name}`}>
+          <Typography sx={{ fontFamily: 'monospace', fontWeight: 700 }}>{env.name}</Typography>
+          {env.url ? (
+            <Typography
+              variant="body2"
+              component="a"
+              href={env.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              data-testid={`env-url-${env.name}`}
+              sx={{ color: 'text.secondary', fontSize: '0.8rem', wordBreak: 'break-all', display: 'block' }}
+            >
+              {env.url}
+            </Typography>
+          ) : (
+            <Typography variant="body2" color="text.disabled" data-testid={`env-url-${env.name}`}>—</Typography>
+          )}
+          <Box sx={{ display: 'flex', gap: 0.5, flexWrap: 'wrap', alignItems: 'center', mt: 0.5 }}>
+            {env.current_build_sha ? (
+              <Chip
+                label={shortSha(env.current_build_sha)}
+                size="small"
+                variant="outlined"
+                sx={{ fontFamily: 'monospace', fontSize: '0.75rem', height: 20 }}
+                data-testid={`env-sha-${env.name}`}
+              />
+            ) : (
+              <Typography variant="body2" color="text.disabled" data-testid={`env-sha-${env.name}`}>—</Typography>
+            )}
+            {env.current_build_branch ? (
+              <Chip
+                label={env.current_build_branch}
+                size="small"
+                color={
+                  env.current_build_branch === 'main' || env.current_build_branch === 'master'
+                    ? 'primary'
+                    : 'default'
+                }
+                variant="outlined"
+                sx={{ fontSize: '0.75rem', height: 20 }}
+                data-testid={`env-branch-${env.name}`}
+              />
+            ) : (
+              <Typography variant="body2" color="text.disabled" data-testid={`env-branch-${env.name}`}>—</Typography>
+            )}
+            <Typography
+              variant="caption"
+              color="text.secondary"
+              sx={{ fontSize: '0.75rem' }}
+              data-testid={`env-deployed-at-${env.name}`}
+            >
+              {formatRelativeTime(env.deployed_at)}
+            </Typography>
+          </Box>
+        </Box>
+
+        <Box
+          sx={{ display: 'flex', gap: 0.5, px: 1.5, pb: 1.5, flexWrap: 'wrap' }}
+          data-testid={`env-card-footer-${env.name}`}
+        >
+          <Tooltip title={env.release_branch ? `Deploy from ${env.release_branch}` : 'Create a ship todo for this environment'}>
+            <Button
+              size="small"
+              variant="outlined"
+              startIcon={<RocketLaunchIcon fontSize="small" />}
+              onClick={handleShip}
+              disabled={request.isPending}
+              sx={{ fontSize: '0.75rem', py: 0.25 }}
+            >
+              Ship
+            </Button>
+          </Tooltip>
+        </Box>
+      </Card>
+      <Snackbar
+        open={!!toast}
+        autoHideDuration={3000}
+        onClose={() => setToast(null)}
+        message={toast}
+        anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+    </>
   )
 }
 
-function VersionGroup({ branch, envs }: { branch: string; envs: EnvironmentItem[] }) {
+function VersionGroup({ slug, branch, envs }: { slug: string; branch: string; envs: EnvironmentItem[] }) {
   return (
     <Box sx={{ mb: 3 }}>
       <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 1 }}>
@@ -112,24 +178,11 @@ function VersionGroup({ branch, envs }: { branch: string; envs: EnvironmentItem[
           {envs.length} environment{envs.length !== 1 ? 's' : ''}
         </Typography>
       </Box>
-      <TableContainer component={Paper} variant="outlined">
-        <Table size="small">
-          <TableHead>
-            <TableRow>
-              <TableCell sx={{ fontWeight: 600 }}>Environment</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>URL</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>SHA</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Branch</TableCell>
-              <TableCell sx={{ fontWeight: 600 }}>Deployed</TableCell>
-            </TableRow>
-          </TableHead>
-          <TableBody>
-            {envs.map(env => (
-              <EnvRow key={env.id} env={env} />
-            ))}
-          </TableBody>
-        </Table>
-      </TableContainer>
+      <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+        {envs.map(env => (
+          <EnvCard key={env.id} slug={slug} branch={branch} env={env} />
+        ))}
+      </Box>
     </Box>
   )
 }
@@ -161,7 +214,7 @@ function ReleasesPage() {
         <Typography color="text.secondary">No environments registered.</Typography>
       ) : (
         Array.from(grouped.entries()).map(([branch, branchEnvs]) => (
-          <VersionGroup key={branch} branch={branch} envs={branchEnvs} />
+          <VersionGroup key={branch} slug={slug} branch={branch} envs={branchEnvs} />
         ))
       )}
     </>
