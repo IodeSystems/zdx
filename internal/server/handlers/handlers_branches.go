@@ -91,6 +91,22 @@ type VersionBranchDetail struct {
 	ResolvedCount int `json:"resolved_count"`
 }
 
+// BranchDoctorRungResult mirrors the branching_strategy_appropriate doctor
+// rung so the UI can surface project branching health inline without shelling
+// out to `dx doctor`. Status, message, and proposal text are kept intentionally
+// close to the CLI rung output; the classification field lets the UI tailor
+// any nudge copy. The DeployEventCount input the CLI uses for tool/site rung-1
+// fails is intentionally omitted here — this endpoint is the smallest surface
+// that unblocks the UI (TK-1668); CLI `dx doctor` remains authoritative for
+// deploy-aware nudges.
+type BranchDoctorRungResult struct {
+	Status         string `json:"status"`
+	CurrentRung    int    `json:"current_rung"`
+	Message        string `json:"message"`
+	Proposal       string `json:"proposal,omitempty"`
+	Classification string `json:"classification"`
+}
+
 // roleToLegacyType maps the new role enum back to the legacy type values
 // the API still publishes. Values outside the legacy pair pass through
 // unchanged so future roles surface verbatim once IS-967 widens the API.
@@ -329,6 +345,80 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				return nil, apiErr(http.StatusInternalServerError, err.Error())
 			}
 			return &struct{}{}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "get-branch-doctor-rung", Method: http.MethodGet, Path: "/api/dx/projects/{slug}/branches/doctor-rung"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+		}) (*struct{ Body BranchDoctorRungResult }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			rows, err := h.Q.ListVersionBranches(ctx, p.ID)
+			if err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			var hasDev, hasPRTarget, hasNamedRelease, hasRollingRelease bool
+			for _, r := range rows {
+				switch r.Role {
+				case "dev":
+					hasDev = true
+				case "pr-target":
+					hasPRTarget = true
+				case "named-release":
+					hasNamedRelease = true
+				case "rolling-release":
+					hasRollingRelease = true
+				}
+			}
+			_ = hasRollingRelease // tracked for future rungs; current logic does not branch on it.
+
+			rung := 1
+			switch {
+			case hasDev && hasNamedRelease:
+				rung = 4
+			case hasDev:
+				rung = 3
+			case hasPRTarget:
+				rung = 2
+			}
+
+			class := p.Classification
+			if class == "" {
+				class = "tool"
+			}
+
+			rungLabel := fmt.Sprintf("rung %d", rung)
+			if rung == 1 {
+				rungLabel = "rung 1 (no version-branch rows)"
+			}
+
+			out := BranchDoctorRungResult{
+				CurrentRung:    rung,
+				Classification: class,
+				Status:         "pass",
+			}
+			switch class {
+			case "library":
+				out.Message = fmt.Sprintf("library at %s — branching strategy not gated", rungLabel)
+			case "service", "saas":
+				if rung == 1 {
+					out.Status = "fail"
+					out.Message = fmt.Sprintf("%s at rung 1 — no dev branch row; deploys lack a buffer", class)
+					out.Proposal = "Advance to rung 3: add a dev branch and wire main.source_branch_name=dev for a deploy buffer. " +
+						"Run `dx branch add-role dev --name dev` and `dx branch set-source main --source dev`."
+				} else {
+					out.Message = fmt.Sprintf("%s at %s", class, rungLabel)
+				}
+			case "tool", "site":
+				// CLI doctor also fails this case at rung 1 when DeployEventCount > 0; the API
+				// omits that gate (no deploy lookup) — see BranchDoctorRungResult docstring.
+				out.Message = fmt.Sprintf("%s at %s", class, rungLabel)
+			default:
+				out.Message = fmt.Sprintf("%s at %s", class, rungLabel)
+			}
+			return &struct{ Body BranchDoctorRungResult }{Body: out}, nil
 		})
 
 	huma.Register(api, huma.Operation{OperationID: "set-version-branch-source", Method: http.MethodPatch, Path: "/api/dx/projects/{slug}/branches/{name}/source"},
