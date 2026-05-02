@@ -484,6 +484,32 @@ func buildSessionPrompt(vision, issueID string, todo *claimedTodo) string {
 		prompt += fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
 		prompt += "\n\nCOMMIT RULE: Only commit intent files (migrations, queries/*.sql, handler source). Do not commit internal/db/*.sql.go, internal/dxclient/models.gen.go, ui/src/api.gen.ts, schema/shipped.sql. Use dx commit --intent."
+		prompt += fmt.Sprintf(`
+
+---
+INCOMPLETE-REPORT PROTOCOL
+
+If you cannot complete this task, you MUST run:
+
+  dx todo incomplete %s --reason=<reason> --explanation="<what happened>" [--suggested-next="<hint>"]
+
+before ending the session. Silent exit without either "dx todo dev done" or "dx todo incomplete" is a protocol violation.
+
+Reason taxonomy:
+  capability_gap          — needs a tool or ability the agent doesn't have
+  ambiguous_spec          — spec is unclear or contradictory; needs clarification
+  external_dep            — blocked on work in another issue/PR
+  needs_decision          — requires a human or architectural decision before proceeding
+  permission_denied       — lacks access to a resource
+  environment_broken      — local environment/infra is broken
+  preexisting_test_failure — test was already failing before this session
+  flaky_test              — non-deterministic test failure unrelated to this change
+
+Example --suggested-next values:
+  "block on IS-N"
+  "ask user: what should X do when Y?"
+  "file capability request: need ability to read network responses"
+---`, todo.TargetID)
 	} else if issueID != "" {
 		prompt += fmt.Sprintf("Work on issue %s. Use ./bin/dx CLI commands (issue show, comment add, todo dev done) to interact with the project tracker.", issueID)
 	}
