@@ -172,7 +172,7 @@ function BranchCard({ branch, slug }: { branch: VersionBranchItem; slug: string 
 
   return (
     <>
-      <Card variant="outlined" id={`branch-${branch.name}`}>
+      <Card variant="outlined" id={`branch-${branch.name}`} data-eol={isEol || undefined} sx={isEol ? { opacity: 0.6 } : undefined}>
         <CardContent sx={{ pb: '12px !important' }}>
           <Box sx={{ display: 'flex', alignItems: 'center', gap: 1, mb: 0.5 }}>
             <Typography sx={{ fontFamily: 'monospace', fontWeight: 700, flex: 1 }}>{branch.name}</Typography>

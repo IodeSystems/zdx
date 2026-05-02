@@ -147,6 +147,43 @@ describe('Branches UI', () => {
   })
 })
 
+describe('BranchCard EOL toggle (TK-1679)', () => {
+  beforeEach(() => {
+    mockedUseBranchDoctorRung.mockReturnValue({ data: makeRung(), isLoading: false } as any)
+    mockedUseDeleteBranch.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
+  })
+
+  test('EOL branch renders card with reduced opacity', async () => {
+    mockedUseMarkBranchEOL.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'v1.0.x', role: 'named-release', status: 'eol' })],
+      isLoading: false,
+    } as any)
+
+    await renderPage()
+
+    const card = document.getElementById('branch-v1.0.x')
+    expect(card).not.toBeNull()
+    expect(card).toHaveAttribute('data-eol', 'true')
+  })
+
+  test('clicking EOL toggle calls mark.mutate with slug and name', async () => {
+    const mutate = jest.fn()
+    mockedUseMarkBranchEOL.mockReturnValue({ mutate, isPending: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'v1.0.x', role: 'named-release', status: 'active' })],
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('branch-eol-v1.0.x'))
+
+    expect(mutate).toHaveBeenCalledWith({ slug: 'test-project', name: 'v1.0.x' })
+  })
+})
+
 describe('BranchCard delete (TK-1680)', () => {
   beforeEach(() => {
     mockedUseBranchDoctorRung.mockReturnValue({ data: makeRung(), isLoading: false } as any)
