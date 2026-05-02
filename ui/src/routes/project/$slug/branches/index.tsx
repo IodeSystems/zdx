@@ -1,8 +1,8 @@
 import { createFileRoute } from '@tanstack/react-router'
-import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Skeleton, Snackbar, TextField, Tooltip, Typography } from '@mui/material'
-import { Delete as DeleteIcon, PowerSettingsNew as EolIcon, Snooze as SnoozeIcon } from '@mui/icons-material'
+import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Skeleton, Snackbar, TextField, Tooltip, Typography } from '@mui/material'
+import { Delete as DeleteIcon, Edit as EditIcon, PowerSettingsNew as EolIcon, Snooze as SnoozeIcon } from '@mui/icons-material'
 import { useState } from 'react'
-import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useDeleteBranch, useMarkBranchEOL, useUpdateBranchSettings, type VersionBranchItem } from '../../../../api'
+import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useDeleteBranch, useMarkBranchEOL, useUpdateBranch, useUpdateBranchSettings, type VersionBranchItem } from '../../../../api'
 
 const ROLE_ORDER = ['rolling-release', 'dev', 'pr-target', 'named-release']
 
@@ -148,13 +148,75 @@ function BranchSettingsPanel({ branch, slug }: { branch: VersionBranchItem; slug
   )
 }
 
-function BranchCard({ branch, slug }: { branch: VersionBranchItem; slug: string }) {
+const ROLES = ['rolling-release', 'dev', 'pr-target', 'named-release'] as const
+
+function EditBranchDialog({ slug, branch, open, onClose, branches }: {
+  slug: string
+  branch: VersionBranchItem
+  open: boolean
+  onClose: () => void
+  branches: VersionBranchItem[]
+}) {
+  const currentRole = branch.role ?? branch.type
+  const [role, setRole] = useState(currentRole)
+  const [source, setSource] = useState(branch.source_branch_name ?? '')
+  const update = useUpdateBranch()
+
+  const handleSubmit = () => {
+    const body: { slug: string; name: string; role?: string; source_branch_name?: string | null } = {
+      slug,
+      name: branch.name,
+    }
+    if (role !== currentRole) body.role = role
+    if (source !== (branch.source_branch_name ?? '')) {
+      body.source_branch_name = source === '' ? null : source
+    }
+    update.mutate(body, { onSuccess: onClose })
+  }
+
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      <DialogTitle>Edit {branch.name}</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
+        <FormControl size="small" fullWidth>
+          <InputLabel>Role</InputLabel>
+          <Select label="Role" value={role} onChange={e => setRole(e.target.value)} data-testid="edit-branch-role">
+            {ROLES.map(r => <MenuItem key={r} value={r}>{r}</MenuItem>)}
+          </Select>
+        </FormControl>
+        <FormControl size="small" fullWidth>
+          <InputLabel>Source branch</InputLabel>
+          <Select label="Source branch" value={source} onChange={e => setSource(e.target.value)} data-testid="edit-branch-source">
+            <MenuItem value=""><em>None</em></MenuItem>
+            {branches.filter(b => b.name !== branch.name).map(b => (
+              <MenuItem key={b.name} value={b.name}>{b.name}</MenuItem>
+            ))}
+          </Select>
+        </FormControl>
+        {update.isError && (
+          <Typography variant="caption" color="error" data-testid="edit-branch-error">
+            {update.error?.message ?? 'Update failed'}
+          </Typography>
+        )}
+      </DialogContent>
+      <DialogActions>
+        <Button onClick={onClose} disabled={update.isPending}>Cancel</Button>
+        <Button variant="contained" onClick={handleSubmit} disabled={update.isPending} data-testid="edit-branch-submit">
+          Save
+        </Button>
+      </DialogActions>
+    </Dialog>
+  )
+}
+
+function BranchCard({ branch, slug, branches }: { branch: VersionBranchItem; slug: string; branches: VersionBranchItem[] }) {
   const role = branch.role ?? branch.type
   const isEol = branch.status === 'eol'
   const eol = useMarkBranchEOL()
   const del = useDeleteBranch()
   const [toast, setToast] = useState<string | null>(null)
   const [confirmingDelete, setConfirmingDelete] = useState(false)
+  const [editOpen, setEditOpen] = useState(false)
 
   const handleConfirmDelete = () => {
     del.mutate({ slug, name: branch.name }, {
@@ -187,6 +249,16 @@ function BranchCard({ branch, slug }: { branch: VersionBranchItem; slug: string 
                 data-testid={`branch-eol-${branch.name}`}
               >
                 <EolIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+            <Tooltip title="Edit branch">
+              <IconButton
+                size="small"
+                aria-label="Edit branch"
+                onClick={() => setEditOpen(true)}
+                data-testid={`branch-edit-${branch.name}`}
+              >
+                <EditIcon fontSize="small" />
               </IconButton>
             </Tooltip>
             {confirmingDelete ? (
@@ -265,6 +337,13 @@ function BranchCard({ branch, slug }: { branch: VersionBranchItem; slug: string 
         onClose={() => setToast(null)}
         message={toast}
         anchorOrigin={{ vertical: 'bottom', horizontal: 'center' }}
+      />
+      <EditBranchDialog
+        slug={slug}
+        branch={branch}
+        open={editOpen}
+        onClose={() => setEditOpen(false)}
+        branches={branches}
       />
     </>
   )
@@ -358,7 +437,7 @@ function BranchesPage() {
           <SourceChain branches={sorted} />
           <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1.5 }}>
             {sorted.map(b => (
-              <BranchCard key={b.id} branch={b} slug={slug} />
+              <BranchCard key={b.id} branch={b} slug={slug} branches={sorted} />
             ))}
           </Box>
         </>

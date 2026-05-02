@@ -13,6 +13,7 @@ jest.mock('../../../../api', () => {
     useDeferDoctorCheck: jest.fn(),
     useMarkBranchEOL: jest.fn(),
     useDeleteBranch: jest.fn(),
+    useUpdateBranch: jest.fn(),
   }
 })
 
@@ -27,13 +28,14 @@ jest.mock('@tanstack/react-router', () => ({
   Link: (props: any) => <a href={props.to}>{props.children}</a>,
 }))
 
-import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useMarkBranchEOL, useDeleteBranch } from '../../../../api'
+import { useBranches, useBranchDoctorRung, useDeferDoctorCheck, useMarkBranchEOL, useDeleteBranch, useUpdateBranch } from '../../../../api'
 
 const mockedUseBranches = jest.mocked(useBranches)
 const mockedUseBranchDoctorRung = jest.mocked(useBranchDoctorRung)
 const mockedUseDeferDoctorCheck = jest.mocked(useDeferDoctorCheck)
 const mockedUseMarkBranchEOL = jest.mocked(useMarkBranchEOL)
 const mockedUseDeleteBranch = jest.mocked(useDeleteBranch)
+const mockedUseUpdateBranch = jest.mocked(useUpdateBranch)
 
 function makeBranch(overrides: Partial<VersionBranchItem> = {}): VersionBranchItem {
   return {
@@ -66,6 +68,7 @@ beforeEach(() => {
   mockedUseDeferDoctorCheck.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
   mockedUseMarkBranchEOL.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
   mockedUseDeleteBranch.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
+  mockedUseUpdateBranch.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: false } as any)
 })
 
 afterEach(() => {
@@ -253,5 +256,116 @@ describe('BranchCard delete (TK-1680)', () => {
     })
 
     expect(screen.getByText('Cannot delete: blocked by environments: staging, prod')).toBeInTheDocument()
+  })
+})
+
+describe('EditBranchDialog (TK-1685)', () => {
+  beforeEach(() => {
+    mockedUseBranchDoctorRung.mockReturnValue({ data: makeRung(), isLoading: false } as any)
+    mockedUseDeleteBranch.mockReturnValue({ mutate: jest.fn(), isPending: false } as any)
+  })
+
+  test('edit button opens dialog pre-filled with branch values', async () => {
+    mockedUseUpdateBranch.mockReturnValue({ mutate: jest.fn(), isPending: false, isError: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'dev', role: 'dev', source_branch_name: 'main' })],
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('branch-edit-dev'))
+
+    expect(screen.getByTestId('edit-branch-role')).toBeInTheDocument()
+    expect(screen.getByTestId('edit-branch-source')).toBeInTheDocument()
+    expect(screen.getByTestId('edit-branch-submit')).toBeInTheDocument()
+  })
+
+  test('submit sends only changed fields', async () => {
+    const mutate = jest.fn((_vars: any, opts: any) => opts?.onSuccess?.())
+    mockedUseUpdateBranch.mockReturnValue({ mutate, isPending: false, isError: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'dev', role: 'dev', source_branch_name: '' })],
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('branch-edit-dev'))
+    fe.click(screen.getByTestId('edit-branch-submit'))
+
+    expect(mutate).toHaveBeenCalledWith(
+      { slug: 'test-project', name: 'dev' },
+      expect.objectContaining({ onSuccess: expect.any(Function) }),
+    )
+  })
+
+  test('submit sends role when changed', async () => {
+    const mutate = jest.fn((_vars: any, opts: any) => opts?.onSuccess?.())
+    mockedUseUpdateBranch.mockReturnValue({ mutate, isPending: false, isError: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [
+        makeBranch({ id: 1, name: 'dev', role: 'dev', source_branch_name: '' }),
+        makeBranch({ id: 2, name: 'main', role: 'rolling-release', source_branch_name: '' }),
+      ],
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('branch-edit-dev'))
+
+    const roleSelect = screen.getByTestId('edit-branch-role').querySelector('input') as HTMLInputElement
+    fe.change(roleSelect, { target: { value: 'named-release' } })
+
+    fe.click(screen.getByTestId('edit-branch-submit'))
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ role: 'named-release' }),
+      expect.any(Object),
+    )
+  })
+
+  test('source_branch_name is null when cleared', async () => {
+    const mutate = jest.fn()
+    mockedUseUpdateBranch.mockReturnValue({ mutate, isPending: false, isError: false } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'dev', role: 'dev', source_branch_name: 'main' })],
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('branch-edit-dev'))
+
+    const sourceSelect = screen.getByTestId('edit-branch-source').querySelector('input') as HTMLInputElement
+    fe.change(sourceSelect, { target: { value: '' } })
+
+    fe.click(screen.getByTestId('edit-branch-submit'))
+
+    expect(mutate).toHaveBeenCalledWith(
+      expect.objectContaining({ source_branch_name: null }),
+      expect.any(Object),
+    )
+  })
+
+  test('server error displays inline', async () => {
+    const mutate = jest.fn()
+    mockedUseUpdateBranch.mockReturnValue({ mutate, isPending: false, isError: true, error: new Error('invalid role') } as any)
+    mockedUseBranches.mockReturnValue({
+      data: [makeBranch({ id: 1, name: 'dev', role: 'dev', source_branch_name: '' })],
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('branch-edit-dev'))
+
+    expect(screen.getByTestId('edit-branch-error')).toHaveTextContent('invalid role')
   })
 })

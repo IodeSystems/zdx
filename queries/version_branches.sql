@@ -35,6 +35,12 @@ SET merge_style    = COALESCE(sqlc.narg('merge_style'), merge_style),
     required_checks = COALESCE(sqlc.narg('required_checks'), required_checks)
 WHERE project_id = sqlc.arg('project_id') AND name = sqlc.arg('name');
 
+-- name: UpdateVersionBranch :exec
+UPDATE zdx_version_branches
+SET role      = COALESCE(sqlc.narg('role'), role),
+    auto_seed = COALESCE(sqlc.narg('auto_seed'), auto_seed)
+WHERE project_id = sqlc.arg('project_id') AND name = sqlc.arg('name');
+
 -- name: DeleteVersionBranch :exec
 DELETE FROM zdx_version_branches WHERE project_id = $1 AND name = $2;
 

@@ -3084,6 +3084,8 @@ export const useAddDiscussionMessage = () => {
 export type VersionBranchItem = components['schemas']['VersionBranchItem'] & {
   role?: string
   source_branch_name?: string
+  merge_style?: string
+  required_checks?: string
 }
 
 export const useBranches = (slug: string) =>
@@ -3139,10 +3141,10 @@ export const useUpdateBranchSettings = () => {
   const qc = useQueryClient()
   return useMutation<void, Error, { slug: string; name: string; merge_style?: string | null; required_checks?: string | null }>({
     mutationFn: async ({ slug, name, merge_style, required_checks }) => {
-      const { error } = await client.PATCH('/api/dx/projects/{slug}/branches/{name}/settings', {
+      const { error } = await client.PATCH('/api/dx/projects/{slug}/branches/{name}/settings' as never, {
         params: { path: { slug, name } },
         body: { merge_style: merge_style ?? undefined, required_checks: required_checks ?? undefined },
-      })
+      } as never)
       if (error) throw new Error(JSON.stringify(error))
     },
     onSuccess: (_, v) => {
@@ -3172,6 +3174,29 @@ export const useDeleteBranch = () => {
     mutationFn: async ({ slug, name }) => {
       const { error } = await client.DELETE('/api/dx/projects/{slug}/branches/{name}' as never, {
         params: { path: { slug, name } },
+      } as never)
+      if (error) {
+        const detail = (error as any).detail ?? JSON.stringify(error)
+        throw new Error(detail)
+      }
+    },
+    onSuccess: (_, v) => {
+      qc.invalidateQueries({ queryKey: ['branches', v.slug] })
+    },
+  })
+}
+
+export const useUpdateBranch = () => {
+  const qc = useQueryClient()
+  return useMutation<void, Error, { slug: string; name: string; role?: string; source_branch_name?: string | null; auto_seed?: boolean }>({
+    mutationFn: async ({ slug, name, role, source_branch_name, auto_seed }) => {
+      const body: Record<string, unknown> = {}
+      if (role !== undefined) body.role = role
+      if (source_branch_name !== undefined) body.source_branch_name = source_branch_name
+      if (auto_seed !== undefined) body.auto_seed = auto_seed
+      const { error } = await client.PATCH('/api/dx/projects/{slug}/branches/{name}' as never, {
+        params: { path: { slug, name } },
+        body: body as never,
       } as never)
       if (error) {
         const detail = (error as any).detail ?? JSON.stringify(error)

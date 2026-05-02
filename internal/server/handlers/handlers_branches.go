@@ -499,6 +499,69 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
 		})
 
+	huma.Register(api, huma.Operation{OperationID: "update-version-branch", Method: http.MethodPatch, Path: "/api/dx/projects/{slug}/branches/{name}"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			Name string `path:"name" required:"true"`
+			Body struct {
+				Role             *string `json:"role,omitempty"`
+				SourceBranchName *string `json:"source_branch_name,omitempty"`
+				AutoSeed         *bool   `json:"auto_seed,omitempty"`
+			}
+		}) (*struct{ Body VersionBranchItem }, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			if in.Body.Role != nil {
+				switch *in.Body.Role {
+				case "rolling-release", "dev", "pr-target", "named-release":
+				default:
+					return nil, apiErr(http.StatusUnprocessableEntity, "role must be one of rolling-release, dev, pr-target, named-release")
+				}
+			}
+			if in.Body.Role != nil || in.Body.AutoSeed != nil {
+				r := pgtype.Text{}
+				if in.Body.Role != nil {
+					r = pgtype.Text{String: *in.Body.Role, Valid: true}
+				}
+				as := pgtype.Bool{}
+				if in.Body.AutoSeed != nil {
+					as = pgtype.Bool{Bool: *in.Body.AutoSeed, Valid: true}
+				}
+				if err := h.Q.UpdateVersionBranch(ctx, db.UpdateVersionBranchParams{
+					ProjectID: p.ID,
+					Name:      in.Name,
+					Role:      r,
+					AutoSeed:  as,
+				}); err != nil {
+					return nil, apiErr(http.StatusInternalServerError, err.Error())
+				}
+			}
+			if in.Body.SourceBranchName != nil {
+				src := pgtype.Text{}
+				if *in.Body.SourceBranchName != "" {
+					src = pgtype.Text{String: *in.Body.SourceBranchName, Valid: true}
+				}
+				if err := h.Q.UpdateVersionBranchSource(ctx, db.UpdateVersionBranchSourceParams{
+					ProjectID:        p.ID,
+					Name:             in.Name,
+					SourceBranchName: src,
+				}); err != nil {
+					return nil, apiErr(http.StatusInternalServerError, err.Error())
+				}
+			}
+			row, err := h.Q.GetVersionBranchByName(ctx, db.GetVersionBranchByNameParams{
+				ProjectID: p.ID,
+				Name:      in.Name,
+			})
+			if err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			item := versionBranchItemFrom(row.ID, row.Name, row.Role, row.Semver, row.Status, row.CreatedAt, row.SourceBranchName, row.MergeStyle, row.RequiredChecks)
+			return &struct{ Body VersionBranchItem }{Body: item}, nil
+		})
+
 	huma.Register(api, huma.Operation{OperationID: "delete-version-branch", Method: http.MethodDelete, Path: "/api/dx/projects/{slug}/branches/{name}"},
 		func(ctx context.Context, in *struct {
 			Slug string `path:"slug" required:"true"`
