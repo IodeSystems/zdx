@@ -31,6 +31,7 @@ test/e2e/uploads/
 .zdx/cache/
 .zdx/demo/
 .zdx/state/
+.zdx/ship-state/
 .zdx/test-results*.json
 bin/zdx-test
 bin/zdx-test-demo
