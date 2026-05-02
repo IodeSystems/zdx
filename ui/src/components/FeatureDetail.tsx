@@ -14,8 +14,9 @@ import {
   ArrowBack as ArrowBackIcon,
   ExpandMore as ExpandMoreIcon,
 } from '@mui/icons-material'
-import { useFeature, useTasks, useSpecTests, useFeatureCoverage, type TaskItem, type SpecItem as BaseSpecItem, type SpecCoverageItem } from '../api'
+import { useFeature, useTasks, useSpecTests, useFeatureCoverage, useListConcernsForFeature, useListConcernsForSpec, type TaskItem, type SpecItem as BaseSpecItem, type SpecCoverageItem } from '../api'
 import { CommentsAndRevisions } from './CommentsAndRevisions'
+import { ConcernBadge } from './ConcernBadge'
 import { DemosSection } from './DemoPlayer'
 import { MarkdownContent } from './MarkdownContent'
 
@@ -54,6 +55,7 @@ function LayerBadge({ layer, active }: { layer: Layer; active: boolean }) {
 function SpecRow({ spec, slug, coverage }: { spec: Spec; slug: string; coverage?: SpecCoverageItem }) {
   const [expanded, setExpanded] = useState(false)
   const { data: tests, isLoading } = useSpecTests(spec.id, expanded)
+  const { data: specConcerns = [] } = useListConcernsForSpec(spec.id)
   const implemented = (spec.green_demos ?? 0) > 0
 
   return (
@@ -65,7 +67,7 @@ function SpecRow({ spec, slug, coverage }: { spec: Spec; slug: string; coverage?
       sx={{ '&:before': { display: 'none' } }}
     >
       <AccordionSummary expandIcon={<ExpandMoreIcon />} sx={{ minHeight: 40, '& .MuiAccordionSummary-content': { my: 0.5 } }}>
-        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flex: 1 }}>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center', flex: 1, flexWrap: 'wrap' }}>
           <Chip
             label={implemented ? 'Implemented' : 'Planned'}
             size="small"
@@ -77,6 +79,13 @@ function SpecRow({ spec, slug, coverage }: { spec: Spec; slug: string; coverage?
               <LayerBadge layer="unit" active={coverage.has_unit} />
               <LayerBadge layer="integration" active={coverage.has_integration} />
               <LayerBadge layer="demo" active={coverage.has_demo} />
+            </Box>
+          )}
+          {specConcerns.length > 0 && (
+            <Box sx={{ display: 'flex', gap: 0.25 }} onClick={e => e.stopPropagation()}>
+              {specConcerns.map(c => (
+                <ConcernBadge key={c.id} slug={slug} concern={c} />
+              ))}
             </Box>
           )}
           <Link
@@ -131,6 +140,7 @@ export function FeatureDetail({
   const { data: feature, isLoading } = useFeature(slug, name)
   const { data: tasksData } = useTasks(slug, { feature: name })
   const { data: coverageData } = useFeatureCoverage(feature?.id ?? 0, slug)
+  const { data: featureConcerns = [] } = useListConcernsForFeature(slug, name)
   const [layerFilter, setLayerFilter] = useState<Layer | null>(null)
   const router = useRouter()
 
@@ -182,14 +192,17 @@ export function FeatureDetail({
         {feature.name}
       </Typography>
 
-      {(feature.category || feature.component) && (
-        <Box sx={{ mb: 1, display: 'flex', gap: 1, flexWrap: 'wrap' }}>
+      {(feature.category || feature.component || featureConcerns.length > 0) && (
+        <Box sx={{ mb: 1, display: 'flex', gap: 1, flexWrap: 'wrap', alignItems: 'center' }}>
           {feature.category && (
             <Chip label={feature.category} size="small" color="primary" variant="outlined" />
           )}
           {feature.component && (
             <Chip label={feature.component} size="small" variant="outlined" />
           )}
+          {featureConcerns.map(c => (
+            <ConcernBadge key={c.id} slug={slug} concern={c} />
+          ))}
         </Box>
       )}
 
