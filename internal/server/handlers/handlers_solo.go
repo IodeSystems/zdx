@@ -1018,9 +1018,7 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 						"blocked":  c.Blocked,
 					})
 				}
-				keys := make([]string, 0, len(proposed))
 				for _, c := range proposed {
-					keys = append(keys, c.Key)
 					_, _ = h.Q.UpsertTodo(ctx, db.UpsertTodoParams{
 						ProjectID:     p.ID,
 						Title:         c.Title,
@@ -1036,11 +1034,6 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 						IssueRef:      c.IssueRef,
 						Blocked:       c.Blocked,
 						BlockedReason: c.BlockedReason,
-					})
-				}
-				if len(keys) > 0 {
-					_ = h.Q.ResolveTodosNotInKeys(ctx, db.ResolveTodosNotInKeysParams{
-						ProjectID: p.ID, Keys: keys,
 					})
 				}
 				baseSha, baseBranch := resolveGitHead()
