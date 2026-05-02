@@ -57,7 +57,7 @@ func ImportCmd() *cobra.Command {
 			}
 			serverURL = strings.TrimRight(serverURL, "/")
 
-			// Resolve API key: flag → env → .zdx/credentials.
+			// Resolve API key: flag → env → .zdx/credentials → ~/.zdx/credentials.
 			if apiKey == "" {
 				if v := os.Getenv("DX_REMOTE_API_KEY"); v != "" {
 					apiKey = strings.TrimSpace(v)
@@ -69,7 +69,12 @@ func ImportCmd() *cobra.Command {
 				}
 			}
 			if apiKey == "" {
-				return fmt.Errorf("no API key — pass --api-key, set DX_REMOTE_API_KEY, or write to .zdx/credentials")
+				if v := config.GlobalRemoteAPIKey(); v != "" {
+					apiKey = v
+				}
+			}
+			if apiKey == "" {
+				return fmt.Errorf("no API key — pass --api-key, set DX_REMOTE_API_KEY, or write to .zdx/credentials or ~/.zdx/credentials")
 			}
 
 			// Ensure .zdx/ exists before writing config.
@@ -103,6 +108,18 @@ func ImportCmd() *cobra.Command {
 					return fmt.Errorf("write credentials: %w", err)
 				}
 				fmt.Println("credentials: saved to .zdx/credentials")
+			}
+
+			// Idempotently ensure .zdx/credentials is in .gitignore so naive
+			// `git add .` doesn't commit the API key.
+			gitignore, _ := os.ReadFile(".gitignore")
+			if !strings.Contains(string(gitignore), ".zdx/credentials") {
+				f, err := os.OpenFile(".gitignore", os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0644)
+				if err == nil {
+					fmt.Fprintln(f, ".zdx/credentials")
+					f.Close()
+					fmt.Println("gitignore: added .zdx/credentials")
+				}
 			}
 
 			fmt.Println("ready:   dx todo solo")
