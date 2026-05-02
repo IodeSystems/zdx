@@ -61,7 +61,6 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 			want: []string{
 				"Wire the gate into issueCloseCmd",
 				"Add detector helper",
-				"Cover with unit tests",
 			},
 		},
 		{
@@ -207,14 +206,14 @@ func TestExtractDecompositionCandidates(t *testing.T) {
 			want:  []string{"implement the new handler"},
 		},
 		{
-			name:  "task-marker checked bullet is still a candidate",
+			name:  "task-marker checked bullet is not a candidate",
 			input: "- [x] done thing\n",
-			want:  []string{"done thing"},
+			want:  nil,
 		},
 		{
-			name:  "task-marker uppercase X checked bullet is a candidate",
+			name:  "task-marker uppercase X checked bullet is not a candidate",
 			input: "- [X] done thing\n",
-			want:  []string{"done thing"},
+			want:  nil,
 		},
 		{
 			name: "IS-966 regression: classification-to-branch-role mapping prose bullets are not candidates",

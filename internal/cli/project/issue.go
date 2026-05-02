@@ -393,8 +393,8 @@ func issueCloseCmd() *cobra.Command {
 			if forceReasons[reason] && !force {
 				return fmt.Errorf("closing with --reason=%s requires --force", reason)
 			}
-			if force && !forceReasons[reason] {
-				return fmt.Errorf("--force requires --reason=duplicate|wontfix|superseded")
+			if force && !forceReasons[reason] && reason != "done" && reason != "" {
+				return fmt.Errorf("--force requires --reason=done|duplicate|wontfix|superseded")
 			}
 			if reason == "duplicate" && duplicateOf == "" {
 				return fmt.Errorf("--duplicate-of is required when --reason=duplicate")
@@ -481,7 +481,7 @@ func issueCloseCmd() *cobra.Command {
 		},
 	}
 	cmd.Flags().StringVar(&reason, "reason", "", "close reason (done|duplicate|link|wontfix|superseded)")
-	cmd.Flags().BoolVar(&force, "force", false, "bypass close gate (required with --reason=duplicate|wontfix|superseded)")
+	cmd.Flags().BoolVar(&force, "force", false, "bypass close gate (required with --reason=duplicate|wontfix|superseded; optional with --reason=done)")
 	cmd.Flags().StringVar(&duplicateOf, "duplicate-of", "", "issue ID this duplicates (required when --reason=duplicate)")
 	cmd.Flags().StringVar(&linkOf, "link-of", "", "issue ID this is a narrow-slice link of (required when --reason=link; cascade-closes with target, no reopen-cascade)")
 	return cmd
@@ -532,7 +532,7 @@ func runDecompositionPathGate(cmd *cobra.Command, c *cli.Client, issueID, issueC
 		return nil
 	}
 	var b strings.Builder
-	fmt.Fprintf(&b, "cannot close %s as done — context describes unfinished work:\n", issueID)
+	fmt.Fprintf(&b, "cannot close %s as done — heuristic scan found list items that may be pending work:\n", issueID)
 	for _, ch := range candidates {
 		fmt.Fprintf(&b, "  - %s\n", ch)
 	}
@@ -541,13 +541,14 @@ func runDecompositionPathGate(cmd *cobra.Command, c *cli.Client, issueID, issueC
 		fmt.Fprintf(&b, "  dx issue add --parent=%s --type=impl --title=%q\n", issueID, ch)
 	}
 	b.WriteString("Or override:\n")
+	b.WriteString("  - --force if matches are false positives (completed checklist, shipped-task log)\n")
 	b.WriteString("  - --reason=wontfix to abandon, --reason=duplicate --duplicate-of=IS-X to dedupe\n")
 	fmt.Fprintf(&b, "  - dx issue edit %s --type=tracker if this is a tracker, not an impl\n", issueID)
 	return fmt.Errorf("%s", b.String())
 }
 
 var (
-	decompListItemRe = regexp.MustCompile(`^\s*(?:\d+\.|[-*])\s+\[[ xX]\]\s+(.+)$`)
+	decompListItemRe = regexp.MustCompile(`^\s*(?:\d+\.|[-*])\s+\[ \]\s+(.+)$`)
 	decompHeaderRe   = regexp.MustCompile(`(?i)^\s*#*\s*DECOMPOSITION\b`)
 	decompAnyHeader  = regexp.MustCompile(`^\s*#+\s+\S`)
 	// decompExemptHeaderRe matches the standard impl-issue template section
