@@ -21,6 +21,11 @@ WHERE project_id = @project_id AND name = @name;
 -- name: DeleteEnvironment :exec
 DELETE FROM zdx_environments WHERE project_id = $1 AND name = $2;
 
+-- name: ListEnvironmentNamesBoundToBranch :many
+SELECT name FROM zdx_environments
+WHERE project_id = sqlc.arg('project_id') AND (release_branch = sqlc.arg('branch_name') OR trunk_branch = sqlc.arg('branch_name'))
+ORDER BY name ASC;
+
 -- name: UpdateEnvironmentDeploy :exec
 UPDATE zdx_environments
 SET current_build_sha    = $3,

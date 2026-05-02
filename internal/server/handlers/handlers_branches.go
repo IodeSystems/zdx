@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"net/http"
+	"strings"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/jackc/pgx/v5/pgtype"
@@ -496,5 +497,33 @@ func (h *Handler) registerBranchRoutes(api huma.API) {
 				return nil, apiErr(http.StatusInternalServerError, err.Error())
 			}
 			return &struct{ Body OKBody }{Body: OKBody{OK: true}}, nil
+		})
+
+	huma.Register(api, huma.Operation{OperationID: "delete-version-branch", Method: http.MethodDelete, Path: "/api/dx/projects/{slug}/branches/{name}"},
+		func(ctx context.Context, in *struct {
+			Slug string `path:"slug" required:"true"`
+			Name string `path:"name" required:"true"`
+		}) (*struct{}, error) {
+			p, err := getProject(ctx, h.Q, in.Slug)
+			if err != nil {
+				return nil, err
+			}
+			blocking, err := h.Q.ListEnvironmentNamesBoundToBranch(ctx, db.ListEnvironmentNamesBoundToBranchParams{
+				ProjectID:  p.ID,
+				BranchName: in.Name,
+			})
+			if err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			if len(blocking) > 0 {
+				return nil, apiErr(http.StatusConflict, "blocked by environments: "+strings.Join(blocking, ", "))
+			}
+			if err := h.Q.DeleteVersionBranch(ctx, db.DeleteVersionBranchParams{
+				ProjectID: p.ID,
+				Name:      in.Name,
+			}); err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			return &struct{}{}, nil
 		})
 }
