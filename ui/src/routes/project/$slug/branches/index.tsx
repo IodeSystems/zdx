@@ -1,6 +1,6 @@
 import { createFileRoute } from '@tanstack/react-router'
 import { Alert, Box, Button, Card, CardContent, Chip, CircularProgress, Dialog, DialogActions, DialogContent, DialogTitle, Divider, FormControl, IconButton, InputLabel, MenuItem, Select, Skeleton, Snackbar, TextField, Tooltip, Typography } from '@mui/material'
-import { Add as AddIcon, Delete as DeleteIcon, Edit as EditIcon, PowerSettingsNew as EolIcon, Snooze as SnoozeIcon } from '@mui/icons-material'
+import { Add as AddIcon, ArrowUpward as UpgradeIcon, Delete as DeleteIcon, Edit as EditIcon, PowerSettingsNew as EolIcon, Snooze as SnoozeIcon } from '@mui/icons-material'
 import { useState } from 'react'
 import { useCreateBranch, useBranches, useBranchDoctorRung, useDeferDoctorCheck, useDeleteBranch, useMarkBranchEOL, useUpdateBranch, useUpdateBranchSettings, type CreateVersionBranchResult, type VersionBranchItem } from '../../../../api'
 
@@ -351,6 +351,171 @@ function CutReleaseDialog({ slug, open, onClose, branches, onSuccess }: {
   )
 }
 
+type UpgradeStep =
+  | { type: 'create'; role: string; name: string; source: string }
+  | { type: 'update'; target: string; source_branch_name: string }
+
+function getUpgradeSteps(currentRung: number, branches: VersionBranchItem[]): UpgradeStep[] {
+  switch (currentRung) {
+    case 0:
+      return [{ type: 'create', role: 'rolling-release', name: '', source: '' }]
+    case 1:
+      return [
+        { type: 'create', role: 'dev', name: 'dev', source: '' },
+        { type: 'update', target: branches.find(b => (b.role ?? b.type) === 'rolling-release')?.name ?? '', source_branch_name: 'dev' },
+      ]
+    case 2:
+      return [
+        { type: 'create', role: 'pr-target', name: 'pr-target', source: branches.find(b => (b.role ?? b.type) === 'dev')?.name ?? '' },
+      ]
+    default:
+      return []
+  }
+}
+
+function UpgradeRungDialogContent({ slug, onClose, branches }: {
+  slug: string
+  onClose: () => void
+  branches: VersionBranchItem[]
+}) {
+  const { data: rung } = useBranchDoctorRung(slug)
+  const create = useCreateBranch()
+  const update = useUpdateBranch()
+  const [stepIndex, setStepIndex] = useState(0)
+  const [overrides, setOverrides] = useState<Record<number, { name?: string; source?: string }>>({})
+  const [completed, setCompleted] = useState<string[]>([])
+
+  const steps = rung ? getUpgradeSteps(rung.current_rung, branches) : []
+  const currentStep = steps[stepIndex]
+  const isDone = steps.length > 0 && stepIndex >= steps.length
+  const isPending = create.isPending || update.isPending
+  const error = create.error ?? update.error
+
+  const defaultName = currentStep?.type === 'create' ? currentStep.name : ''
+  const defaultSource = currentStep?.type === 'create' ? currentStep.source : ''
+  const name = overrides[stepIndex]?.name ?? defaultName
+  const source = overrides[stepIndex]?.source ?? defaultSource
+  const setName = (v: string) => setOverrides(prev => ({ ...prev, [stepIndex]: { ...prev[stepIndex], name: v } }))
+  const setSource = (v: string) => setOverrides(prev => ({ ...prev, [stepIndex]: { ...prev[stepIndex], source: v } }))
+
+  const advance = (msg: string) => {
+    setCompleted(prev => [...prev, msg])
+    create.reset()
+    update.reset()
+    setStepIndex(i => i + 1)
+  }
+
+  const handleSubmit = () => {
+    if (!currentStep) return
+    if (currentStep.type === 'create') {
+      create.mutate(
+        { slug, name, role: currentStep.role, source_branch_name: source || undefined },
+        { onSuccess: () => advance(`Created "${name}" (${currentStep.role})`) },
+      )
+    } else {
+      update.mutate(
+        { slug, name: currentStep.target, source_branch_name: currentStep.source_branch_name },
+        { onSuccess: () => advance(`Updated "${currentStep.target}" source → "${currentStep.source_branch_name}"`) },
+      )
+    }
+  }
+
+  return (
+    <>
+      <DialogTitle>Upgrade Branch Rung</DialogTitle>
+      <DialogContent sx={{ display: 'flex', flexDirection: 'column', gap: 2, pt: '16px !important' }}>
+        {isDone ? (
+          <>
+            <Typography variant="body2" color="success.main" sx={{ fontWeight: 600 }}>All steps completed.</Typography>
+            {completed.map((msg, i) => (
+              <Typography key={i} variant="body2">✓ {msg}</Typography>
+            ))}
+          </>
+        ) : currentStep?.type === 'create' ? (
+          <>
+            <Typography variant="caption" color="text.secondary">
+              Step {stepIndex + 1} of {steps.length} — Create <strong>{currentStep.role}</strong> branch
+            </Typography>
+            <TextField
+              size="small"
+              label="Name"
+              value={name}
+              onChange={e => setName(e.target.value)}
+              required
+              data-testid="upgrade-rung-name"
+            />
+            <FormControl size="small" fullWidth>
+              <InputLabel>Source branch</InputLabel>
+              <Select
+                label="Source branch"
+                value={source}
+                onChange={e => setSource(e.target.value)}
+                data-testid="upgrade-rung-source"
+              >
+                <MenuItem value=""><em>None</em></MenuItem>
+                {branches.map(b => (
+                  <MenuItem key={b.name} value={b.name}>{b.name}</MenuItem>
+                ))}
+              </Select>
+            </FormControl>
+            {error && (
+              <Typography variant="caption" color="error" data-testid="upgrade-rung-error">
+                {error.message ?? 'Failed'}
+              </Typography>
+            )}
+          </>
+        ) : currentStep?.type === 'update' ? (
+          <>
+            <Typography variant="caption" color="text.secondary">
+              Step {stepIndex + 1} of {steps.length}
+            </Typography>
+            <Typography variant="body2">
+              Set <strong>{currentStep.target}</strong> source branch to <strong>{currentStep.source_branch_name}</strong>.
+            </Typography>
+            {error && (
+              <Typography variant="caption" color="error" data-testid="upgrade-rung-error">
+                {error.message ?? 'Failed'}
+              </Typography>
+            )}
+          </>
+        ) : (
+          <CircularProgress size={24} />
+        )}
+      </DialogContent>
+      <DialogActions>
+        {isDone ? (
+          <Button variant="contained" onClick={onClose} data-testid="upgrade-rung-done">Done</Button>
+        ) : (
+          <>
+            <Button onClick={onClose} disabled={isPending}>Cancel</Button>
+            <Button
+              variant="contained"
+              onClick={handleSubmit}
+              disabled={isPending || (currentStep?.type === 'create' && !name)}
+              data-testid="upgrade-rung-submit"
+            >
+              {currentStep?.type === 'update' ? 'Update' : 'Create'}
+            </Button>
+          </>
+        )}
+      </DialogActions>
+    </>
+  )
+}
+
+function UpgradeRungDialog({ slug, open, onClose, branches }: {
+  slug: string
+  open: boolean
+  onClose: () => void
+  branches: VersionBranchItem[]
+}) {
+  return (
+    <Dialog open={open} onClose={onClose} maxWidth="xs" fullWidth>
+      {open && <UpgradeRungDialogContent slug={slug} onClose={onClose} branches={branches} />}
+    </Dialog>
+  )
+}
+
 function BranchCard({ branch, slug, branches }: { branch: VersionBranchItem; slug: string; branches: VersionBranchItem[] }) {
   const role = branch.role ?? branch.type
   const isEol = branch.status === 'eol'
@@ -491,7 +656,7 @@ function BranchCard({ branch, slug, branches }: { branch: VersionBranchItem; slu
   )
 }
 
-function RungBanner({ slug }: { slug: string }) {
+function RungBanner({ slug, onUpgrade }: { slug: string; onUpgrade?: () => void }) {
   const { data: rung, isLoading } = useBranchDoctorRung(slug)
   const defer = useDeferDoctorCheck()
 
@@ -513,16 +678,30 @@ function RungBanner({ slug }: { slug: string }) {
       severity="warning"
       sx={{ mb: 2 }}
       action={
-        <Tooltip title="Defer this check">
-          <IconButton
-            size="small"
-            aria-label="Defer"
-            onClick={() => defer.mutate({ slug, check_name: 'branching_strategy_appropriate', rung: String(rung.current_rung) })}
-            disabled={defer.isPending}
-          >
-            <SnoozeIcon fontSize="small" />
-          </IconButton>
-        </Tooltip>
+        <Box sx={{ display: 'flex', gap: 0.5, alignItems: 'center' }}>
+          {rung.current_rung < 3 && (
+            <Tooltip title="Upgrade rung">
+              <IconButton
+                size="small"
+                aria-label="Upgrade Rung"
+                onClick={() => onUpgrade?.()}
+                data-testid="upgrade-rung-button"
+              >
+                <UpgradeIcon fontSize="small" />
+              </IconButton>
+            </Tooltip>
+          )}
+          <Tooltip title="Defer this check">
+            <IconButton
+              size="small"
+              aria-label="Defer"
+              onClick={() => defer.mutate({ slug, check_name: 'branching_strategy_appropriate', rung: String(rung.current_rung) })}
+              disabled={defer.isPending}
+            >
+              <SnoozeIcon fontSize="small" />
+            </IconButton>
+          </Tooltip>
+        </Box>
       }
     >
       <Typography variant="body2">{rung.message}</Typography>
@@ -540,6 +719,7 @@ function BranchesPage() {
   const { data: branches, isLoading } = useBranches(slug)
   const [addOpen, setAddOpen] = useState(false)
   const [cutOpen, setCutOpen] = useState(false)
+  const [upgradeOpen, setUpgradeOpen] = useState(false)
   const [backportToast, setBackportToast] = useState<string | null>(null)
 
   const sorted = [...(branches ?? [])].sort((a, b) => {
@@ -565,7 +745,7 @@ function BranchesPage() {
         </Button>
       </Box>
 
-      <RungBanner slug={slug} />
+      <RungBanner slug={slug} onUpgrade={() => setUpgradeOpen(true)} />
 
       {isLoading ? (
         <CircularProgress sx={{ m: 4 }} />
@@ -595,6 +775,7 @@ function BranchesPage() {
       )}
 
       <AddBranchDialog slug={slug} open={addOpen} onClose={() => setAddOpen(false)} branches={sorted} />
+      <UpgradeRungDialog slug={slug} open={upgradeOpen} onClose={() => setUpgradeOpen(false)} branches={sorted} />
       <CutReleaseDialog
         slug={slug}
         open={cutOpen}
