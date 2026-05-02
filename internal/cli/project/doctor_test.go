@@ -74,6 +74,40 @@ func TestPromptClassificationEOF(t *testing.T) {
 	}
 }
 
+// TestParseClassification verifies spec for TK-1636 --type flag:
+// valid names parse correctly, bogus names return an error.
+func TestParseClassification(t *testing.T) {
+	valid := []struct {
+		input string
+		want  doctor.Classification
+	}{
+		{"library", doctor.ClassLibrary},
+		{"tool", doctor.ClassTool},
+		{"service", doctor.ClassService},
+		{"saas", doctor.ClassSaaS},
+		{"SAAS", doctor.ClassSaaS},
+		{"SaaS", doctor.ClassSaaS},
+		{"site", doctor.ClassSite},
+	}
+	for _, tc := range valid {
+		got, err := parseClassification(tc.input)
+		if err != nil {
+			t.Errorf("parseClassification(%q) unexpected error: %v", tc.input, err)
+			continue
+		}
+		if got != tc.want {
+			t.Errorf("parseClassification(%q) = %q, want %q", tc.input, got, tc.want)
+		}
+	}
+
+	invalid := []string{"bogus", "", "12345", "LibraryX"}
+	for _, s := range invalid {
+		if _, err := parseClassification(s); err == nil {
+			t.Errorf("parseClassification(%q) expected error, got nil", s)
+		}
+	}
+}
+
 // TestRunDoctorWithFix verifies spec 128 (CLI --fix path):
 // runDoctor with autoFix=true calls FixFunc and prints "→ fixed".
 func TestRunDoctorWithFix(t *testing.T) {
