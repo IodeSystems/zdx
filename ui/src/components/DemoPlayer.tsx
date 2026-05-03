@@ -1,10 +1,12 @@
-import { useEffect, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   Accordion,
   AccordionSummary,
   AccordionDetails,
   Box,
   Chip,
+  Divider,
+  Stack,
   Typography,
 } from '@mui/material'
 import { ExpandMore as ExpandMoreIcon } from '@mui/icons-material'
@@ -153,6 +155,17 @@ export function DemosSection({ slug }: { slug: string }) {
   const { data: demos, isLoading } = useDemos(slug)
   const list = demos ?? []
 
+  const grouped = useMemo(() => {
+    const m = new Map<string, DemoListItem[]>()
+    for (const d of list) {
+      const key = d.test_component || 'Uncategorized'
+      const group = m.get(key) ?? []
+      group.push(d)
+      m.set(key, group)
+    }
+    return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
+  }, [list])
+
   if (isLoading) {
     return <Typography variant="body2" color="text.secondary">Loading...</Typography>
   }
@@ -165,9 +178,19 @@ export function DemosSection({ slug }: { slug: string }) {
   }
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
-      {list.map((d) => <DemoItem key={d.id} demo={d} slug={slug} />)}
-    </Box>
+    <Stack spacing={3}>
+      {grouped.map(([component, items]) => (
+        <Box key={component}>
+          <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.75 }}>
+            {component}
+          </Typography>
+          <Divider sx={{ mb: 1 }} />
+          <Box sx={{ display: 'flex', flexDirection: 'column', gap: 1 }}>
+            {items.map((d) => <DemoItem key={d.id} demo={d} slug={slug} />)}
+          </Box>
+        </Box>
+      ))}
+    </Stack>
   )
 }
 
