@@ -65,6 +65,25 @@ func registerEmbedMock(t *testing.T, name, url string) {
 	})
 }
 
+// resetProjectTasks deletes all tasks in the named project so similarity tests
+// start clean even if a prior failed run left tasks in wip/ready state.
+// No-op when the project does not exist yet.
+func resetProjectTasks(t *testing.T, slug string) {
+	t.Helper()
+	var resp struct {
+		Tasks []struct {
+			ID int32 `json:"id"`
+		} `json:"tasks"`
+	}
+	r := apiDo(t, http.MethodGet, "/api/tasks?slug="+slug+"&limit=500", nil, &resp)
+	if r.StatusCode != http.StatusOK {
+		return
+	}
+	for _, task := range resp.Tasks {
+		apiDo(t, http.MethodDelete, "/api/task", map[string]any{"id": task.ID}, nil)
+	}
+}
+
 // waitForTaskIndexed polls /api/dx/tasks/similar until at least one match
 // is returned for queryText. UpsertTask runs in a goroutine on task create,
 // so back-to-back creates can race the index.
@@ -95,6 +114,7 @@ func TestTechAddBlocksOpenHighSimilarity(t *testing.T) {
 	slug := "e2e-tech-add-sim-block"
 	apiDo(t, http.MethodPost, "/api/project",
 		map[string]string{"slug": slug, "name": "Tech Add Similarity Block"}, nil)
+	resetProjectTasks(t, slug)
 
 	var first techAddResp
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/tech/add",
@@ -140,6 +160,7 @@ func TestTechAddSimilarityForceBypasses(t *testing.T) {
 	slug := "e2e-tech-add-sim-force"
 	apiDo(t, http.MethodPost, "/api/project",
 		map[string]string{"slug": slug, "name": "Tech Add Similarity Force"}, nil)
+	resetProjectTasks(t, slug)
 
 	var first techAddResp
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/tech/add",
@@ -173,6 +194,7 @@ func TestTechAddSimilarityIgnoresClosed(t *testing.T) {
 	slug := "e2e-tech-add-sim-closed"
 	apiDo(t, http.MethodPost, "/api/project",
 		map[string]string{"slug": slug, "name": "Tech Add Similarity Closed"}, nil)
+	resetProjectTasks(t, slug)
 
 	var first techAddResp
 	mustOK(t, apiDo(t, http.MethodPost, "/api/dx/todo/tech/add",

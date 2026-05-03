@@ -33,6 +33,10 @@ type Options struct {
 	// DemosDir overrides the server DEMOS_DIR. If empty, Start creates a
 	// private tmpdir owned by the handle's cleanup.
 	DemosDir string
+	// VecDir overrides the server VEC_DIR. If empty, Start creates a
+	// private tmpdir owned by the handle's cleanup so each run starts with
+	// a clean vector index rather than inheriting stale zvec files.
+	VecDir string
 	// ProjectRoot points at the repo root (where docker/e2e.compose.yaml lives).
 	// If empty, Start searches upward from cwd for go.mod.
 	ProjectRoot string
@@ -57,6 +61,7 @@ type Handle struct {
 	DSN        string
 	UploadsDir string
 	DemosDir   string
+	VecDir     string
 	ValkeyAddr string
 }
 
@@ -114,6 +119,17 @@ func Start(opts Options) (*Handle, func(), error) {
 		cleanups = append(cleanups, func() { _ = os.RemoveAll(dir) })
 	}
 
+	vecDir := opts.VecDir
+	if vecDir == "" {
+		dir, err := os.MkdirTemp("", "zdx-vec-")
+		if err != nil {
+			cleanup()
+			return nil, nil, fmt.Errorf("mkdir vec: %w", err)
+		}
+		vecDir = dir
+		cleanups = append(cleanups, func() { _ = os.RemoveAll(dir) })
+	}
+
 	migrateDSN := strings.Replace(dsn, "postgres://", "pgx5://", 1)
 	if err := migrate.Up(migrateDSN); err != nil {
 		cleanup()
@@ -133,11 +149,12 @@ func Start(opts Options) (*Handle, func(), error) {
 		return nil, nil, fmt.Errorf("listen: %w", err)
 	}
 
-	// server.New reads UPLOADS_DIR, DEMOS_DIR, and ZDX_VALKEY_ADDR at construction
-	// time; stage the values so the ephemeral instance stays sandboxed even when
-	// the caller's env has globals set.
+	// server.New reads UPLOADS_DIR, DEMOS_DIR, VEC_DIR, and ZDX_VALKEY_ADDR at
+	// construction time; stage the values so the ephemeral instance stays
+	// sandboxed even when the caller's env has globals set.
 	restoreUploads := setEnv("UPLOADS_DIR", uploadsDir)
 	restoreDemos := setEnv("DEMOS_DIR", demosDir)
+	restoreVec := setEnv("VEC_DIR", vecDir)
 	restoreValkey := func() {}
 	if opts.ValkeyAddr != "" {
 		restoreValkey = setEnv("ZDX_VALKEY_ADDR", opts.ValkeyAddr)
@@ -145,6 +162,7 @@ func Start(opts Options) (*Handle, func(), error) {
 	srv := server.New(pool, server.NewTimingSink(), "", "devserver")
 	restoreUploads()
 	restoreDemos()
+	restoreVec()
 	restoreValkey()
 
 	hs := &http.Server{Handler: srv}
@@ -160,6 +178,7 @@ func Start(opts Options) (*Handle, func(), error) {
 			DSN:        dsn,
 			UploadsDir: uploadsDir,
 			DemosDir:   demosDir,
+			VecDir:     vecDir,
 			ValkeyAddr: opts.ValkeyAddr,
 		}, cleanup, nil
 	}
@@ -193,6 +212,7 @@ func Start(opts Options) (*Handle, func(), error) {
 		DSN:        dsn,
 		UploadsDir: uploadsDir,
 		DemosDir:   demosDir,
+		VecDir:     vecDir,
 		ValkeyAddr: opts.ValkeyAddr,
 	}, cleanup, nil
 }
