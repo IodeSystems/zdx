@@ -151,9 +151,9 @@ function DemoItem({ demo, slug }: { demo: DemoListItem; slug: string }) {
   )
 }
 
-export function DemosSection({ slug }: { slug: string }) {
-  const { data: demos, isLoading } = useDemos(slug)
-  const list = demos ?? []
+export function DemosSection({ slug, demos: demosProp }: { slug: string; demos?: DemoListItem[] }) {
+  const { data: fetched, isLoading } = useDemos(demosProp ? '' : slug)
+  const list = demosProp ?? fetched ?? []
 
   const grouped = useMemo(() => {
     const m = new Map<string, DemoListItem[]>()
