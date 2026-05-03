@@ -657,3 +657,59 @@ func TestRun_SSH_FakeSSH(t *testing.T) {
 		t.Errorf("log = %q does not contain expected ssh argv echo", res[0].Log)
 	}
 }
+
+// TestRun_StaticSiteShape exercises a realistic non-zdx project shape:
+// a static site whose ship pipeline is build → sync → invalidate-cdn.
+// Proves the harness has no zdx-specific assumptions baked in.
+func TestRun_StaticSiteShape(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{Stages: []config.Stage{
+		{Name: "build", Run: "echo built"},
+		{Name: "sync", Run: "echo synced"},
+		{Name: "invalidate-cdn", Run: "echo invalidated"},
+	}}}
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	wantNames := []string{"build", "sync", "invalidate-cdn"}
+	if len(res) != len(wantNames) {
+		t.Fatalf("want %d results, got %d", len(wantNames), len(res))
+	}
+	for i, name := range wantNames {
+		if res[i].Name != name {
+			t.Errorf("res[%d].Name = %q, want %q", i, res[i].Name, name)
+		}
+		if res[i].Status != "ok" {
+			t.Errorf("res[%d].Status = %q, want ok", i, res[i].Status)
+		}
+	}
+}
+
+// TestRun_NodeAppShape exercises a realistic non-zdx project shape:
+// a Node app whose ship pipeline is build → package → sync → restart-pm2 → verify.
+// Proves the harness has no zdx-specific assumptions baked in.
+func TestRun_NodeAppShape(t *testing.T) {
+	comp := config.Component{Ship: config.Ship{Stages: []config.Stage{
+		{Name: "build", Run: "echo built"},
+		{Name: "package", Run: "echo packaged"},
+		{Name: "sync", Run: "echo synced"},
+		{Name: "restart-pm2", Run: "echo restarted"},
+		{Name: "verify", Run: "echo verified"},
+	}}}
+	res, err := Run(context.Background(), comp, nil, RunOptions{})
+	if err != nil {
+		t.Fatalf("Run: %v", err)
+	}
+	wantNames := []string{"build", "package", "sync", "restart-pm2", "verify"}
+	if len(res) != len(wantNames) {
+		t.Fatalf("want %d results, got %d", len(wantNames), len(res))
+	}
+	for i, name := range wantNames {
+		if res[i].Name != name {
+			t.Errorf("res[%d].Name = %q, want %q", i, res[i].Name, name)
+		}
+		if res[i].Status != "ok" {
+			t.Errorf("res[%d].Status = %q, want ok", i, res[i].Status)
+		}
+	}
+}
