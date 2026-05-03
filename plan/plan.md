@@ -207,6 +207,17 @@ Migration NNN (next free number):
 8. Wire proposal-stream agent loop (closes the original "comments don't refine the proposal" gap).
 9. Generalize the agent loop to all streams (any target with unprocessed user messages).
 
+## IS-840 Prod Cleanup — Pending User Review
+
+Confirmed fixture projects deleted 2026-05-02 (see IS-840 comment C-481):
+- `demo-add-help-guidance` (id=4) — PATTERN+EMPTY
+- `demo-doctor-vine-classification` (id=5) — PATTERN+EMPTY
+
+Borderline projects with single EMPTY flag — need owner decision before deletion:
+- `tasky` (id=2) — 0 issues/features, 6 auto-generated doctor todos
+- `visionbridge` (id=3) — completely empty
+- `iodesystems` (id=7) — 0 issues/features, 11 auto-generated todos (created 2026-05-02)
+
 ## Resolved
 
 - Reactions are a `reaction` event type, not a separate table. Hidden from UI by default; visible to agents via `summary_json`. Drops `zdx_comment_reactions` on migration. (2026-04-29)
