@@ -479,6 +479,17 @@ func populateRemoteState(ctx context.Context, state *doctor.ProjectState) {
 		state.StaleAgentSessionsMinutes = sResp.JSON200.Minutes
 	}
 
+	// Token hygiene (IS-841): admin-only endpoint. Non-admin callers receive
+	// a 403 and the rung silently passes (state slices remain empty).
+	if thResp, err := c.DoctorTokenHygieneWithResponse(ctx); err == nil && thResp.JSON200 != nil {
+		if thResp.JSON200.LegacyAgentTokens != nil {
+			state.LegacyAgentTokens = *thResp.JSON200.LegacyAgentTokens
+		}
+		if thResp.JSON200.RecentAdminTokens != nil {
+			state.RecentAdminTokens = *thResp.JSON200.RecentAdminTokens
+		}
+	}
+
 	// KPI breaches: any check whose trailing median exceeds 15s, or whose
 	// recent samples exceed 2× the trailing median. Skips silently when the
 	// table is empty.

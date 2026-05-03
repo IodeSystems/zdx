@@ -5,10 +5,12 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"net/http"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 
 	"github.com/iodesystems/zdx-go/internal/db"
+	"github.com/iodesystems/zdx-go/internal/doctor"
 )
 
 // AdminTokenStore narrows db.Queries to the calls used by admin token routes,
@@ -19,6 +21,7 @@ type AdminTokenStore interface {
 	AdminListApiKeys(ctx context.Context) ([]db.AdminListApiKeysRow, error)
 	AdminDeleteApiKey(ctx context.Context, id int32) (int64, error)
 	GetApiKeyProjectScope(ctx context.Context, id int32) ([]string, error)
+	ListAdminScopedApiKeys(ctx context.Context) ([]db.ListAdminScopedApiKeysRow, error)
 }
 
 // AdminTokenItem is the JSON representation of an API key in admin views.
@@ -155,5 +158,44 @@ func (h *Handler) registerAdminTokenRoutes(api huma.API) {
 				return nil, apiErr(http.StatusNotFound, "no such token")
 			}
 			return &struct{}{}, nil
+		})
+
+	// IS-841: doctor token-hygiene rung. Returns the names of legacy admin-
+	// scoped agent-* tokens (rotate to project-scoped) and non-agent admin
+	// tokens used in the trailing 7 days (still hot).
+	huma.Register(api, huma.Operation{OperationID: "doctor-token-hygiene", Method: http.MethodGet, Path: "/api/admin/doctor/token-hygiene"},
+		func(ctx context.Context, _ *struct{}) (*struct {
+			Body struct {
+				LegacyAgentTokens []string `json:"legacy_agent_tokens"`
+				RecentAdminTokens []string `json:"recent_admin_tokens"`
+			}
+		}, error) {
+			store := h.adminTokenStore()
+			rows, err := store.ListAdminScopedApiKeys(ctx)
+			if err != nil {
+				return nil, apiErr(http.StatusInternalServerError, err.Error())
+			}
+			tokens := make([]doctor.AdminScopedToken, 0, len(rows))
+			for _, r := range rows {
+				tok := doctor.AdminScopedToken{ID: r.ID, Name: r.Name}
+				if r.LastUsedAt.Valid {
+					tok.LastUsedAt = r.LastUsedAt.Time
+				}
+				tokens = append(tokens, tok)
+			}
+			legacy, recent := doctor.PartitionAdminScopedTokens(tokens, time.Now())
+			out := struct {
+				Body struct {
+					LegacyAgentTokens []string `json:"legacy_agent_tokens"`
+					RecentAdminTokens []string `json:"recent_admin_tokens"`
+				}
+			}{}
+			for _, t := range legacy {
+				out.Body.LegacyAgentTokens = append(out.Body.LegacyAgentTokens, t.Name)
+			}
+			for _, t := range recent {
+				out.Body.RecentAdminTokens = append(out.Body.RecentAdminTokens, t.Name)
+			}
+			return &out, nil
 		})
 }

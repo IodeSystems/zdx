@@ -79,3 +79,9 @@ FROM zdx_api_keys WHERE user_id = $1 ORDER BY created_at DESC;
 
 -- name: DeleteApiKey :exec
 DELETE FROM zdx_api_keys WHERE id = $1 AND user_id = $2;
+
+-- name: ListAdminScopedApiKeys :many
+SELECT id, name, last_used_at
+FROM zdx_api_keys
+WHERE project_scope IS NULL
+ORDER BY last_used_at DESC NULLS LAST;

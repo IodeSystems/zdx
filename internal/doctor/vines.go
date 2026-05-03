@@ -178,6 +178,14 @@ func commonVine() []Rung {
 				{"embedder_responsive", "Most recent embed attempt succeeded", ActionInfo},
 			},
 		},
+		{
+			Name:        "token_hygiene",
+			Description: "API token surface is clean — no legacy agent admin tokens, no broadly-scoped tokens hot in the last 7 days",
+			Checks: []Check{
+				{"no_legacy_agent_tokens", "No admin-scoped agent-* tokens (rotate to project-scoped)", ActionPropose},
+				{"admin_tokens_quiet", "No admin tokens used in last 7 days", ActionInfo},
+			},
+		},
 	}
 }
 

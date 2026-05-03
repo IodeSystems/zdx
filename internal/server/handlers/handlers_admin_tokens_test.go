@@ -6,18 +6,21 @@ import (
 	"net/http"
 	"strings"
 	"testing"
+	"time"
 
 	"github.com/danielgtaylor/huma/v2"
 	"github.com/danielgtaylor/huma/v2/humatest"
+	"github.com/jackc/pgx/v5/pgtype"
 
 	"github.com/iodesystems/zdx-go/internal/db"
 )
 
 type stubAdminTokenStore struct {
-	project   db.ZdxProject
-	keys      []db.AdminListApiKeysRow
-	scopeByID map[int32][]string
-	nextID    int32
+	project       db.ZdxProject
+	keys          []db.AdminListApiKeysRow
+	adminUnscoped []db.ListAdminScopedApiKeysRow
+	scopeByID     map[int32][]string
+	nextID        int32
 }
 
 func (s *stubAdminTokenStore) GetProjectBySlug(_ context.Context, slug string) (db.ZdxProject, error) {
@@ -66,6 +69,10 @@ func (s *stubAdminTokenStore) AdminDeleteApiKey(_ context.Context, id int32) (in
 
 func (s *stubAdminTokenStore) GetApiKeyProjectScope(_ context.Context, id int32) ([]string, error) {
 	return s.scopeByID[id], nil
+}
+
+func (s *stubAdminTokenStore) ListAdminScopedApiKeys(_ context.Context) ([]db.ListAdminScopedApiKeysRow, error) {
+	return s.adminUnscoped, nil
 }
 
 func newAdminTokenAPI(t *testing.T, store AdminTokenStore, callerKeyID int32, callerUID int32) (humatest.TestAPI, context.Context) {
@@ -122,6 +129,35 @@ func TestCreateAdminToken_UnknownSlug(t *testing.T) {
 		map[string]any{"project_slug": "ghost"})
 	if resp.Code != http.StatusBadRequest {
 		t.Fatalf("expected 400, got %d, body: %s", resp.Code, resp.Body)
+	}
+}
+
+// TestDoctorTokenHygiene_PartitionsLegacyAndRecent verifies that the
+// doctor-token-hygiene endpoint surfaces agent-* admin tokens as legacy and
+// non-agent admin tokens used in the last 7 days as recent.
+func TestDoctorTokenHygiene_PartitionsLegacyAndRecent(t *testing.T) {
+	store := newAdminTokenStore()
+	now := time.Now()
+	store.adminUnscoped = []db.ListAdminScopedApiKeysRow{
+		{ID: 1, Name: "agent-legacy", LastUsedAt: pgtype.Timestamptz{Time: now.Add(-30 * 24 * time.Hour), Valid: true}},
+		{ID: 2, Name: "admin-cli", LastUsedAt: pgtype.Timestamptz{Time: now.Add(-1 * time.Hour), Valid: true}},
+		{ID: 3, Name: "admin-old", LastUsedAt: pgtype.Timestamptz{Time: now.Add(-30 * 24 * time.Hour), Valid: true}},
+	}
+	api, ctx := newAdminTokenAPI(t, store, 100, 7)
+
+	resp := api.GetCtx(ctx, "/api/admin/doctor/token-hygiene")
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	body := resp.Body.String()
+	if !strings.Contains(body, `"legacy_agent_tokens":["agent-legacy"]`) {
+		t.Errorf("body missing legacy bucket: %s", body)
+	}
+	if !strings.Contains(body, `"recent_admin_tokens":["admin-cli"]`) {
+		t.Errorf("body missing recent bucket: %s", body)
+	}
+	if strings.Contains(body, "admin-old") {
+		t.Errorf("admin-old (>7d) should not surface: %s", body)
 	}
 }
 

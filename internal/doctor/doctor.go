@@ -193,6 +193,15 @@ type ProjectState struct {
 	EmbedderConfigured bool
 	IndexBuilt         bool
 	EmbedderResponsive bool
+
+	// Token hygiene (IS-841): admin-scoped (project_scope IS NULL) keys
+	// surfaced for rotation. LegacyAgentTokens holds names of pre-IS-838
+	// agent-* tokens that must be rotated to project-scoped tokens. Recent
+	// AdminTokens holds names of non-agent admin keys used in the trailing
+	// 7 days — broadly-scoped tokens that are still hot. Populated by an
+	// admin-only endpoint; non-admin callers see empty slices and pass.
+	LegacyAgentTokens  []string
+	RecentAdminTokens  []string
 }
 
 // DetectLocal populates filesystem and environment checks.
@@ -618,6 +627,40 @@ func runCheck(name string, state *ProjectState) (pass bool, msg string, fixFunc 
 			return true, "", nil, ""
 		}
 		return false, "embedder reports a recent failure (subsystems.embedder.reason set)", nil, ""
+
+	// ── token_hygiene (IS-841) ──
+	case "no_legacy_agent_tokens":
+		if len(state.LegacyAgentTokens) == 0 {
+			return true, "", nil, ""
+		}
+		const sampleLimit = 3
+		sample := state.LegacyAgentTokens
+		if len(sample) > sampleLimit {
+			sample = sample[:sampleLimit]
+		}
+		msg := fmt.Sprintf("%d legacy admin-scoped agent token(s): %s",
+			len(state.LegacyAgentTokens), strings.Join(sample, ", "))
+		if len(state.LegacyAgentTokens) > sampleLimit {
+			msg += fmt.Sprintf(" (+%d more)", len(state.LegacyAgentTokens)-sampleLimit)
+		}
+		return false, msg, nil,
+			"Rotate each legacy token: run `dx token mint --project=<slug>` to mint a project-scoped replacement, then revoke the admin-scoped key in the admin tokens UI"
+
+	case "admin_tokens_quiet":
+		if len(state.RecentAdminTokens) == 0 {
+			return true, "", nil, ""
+		}
+		const sampleLimit = 3
+		sample := state.RecentAdminTokens
+		if len(sample) > sampleLimit {
+			sample = sample[:sampleLimit]
+		}
+		msg := fmt.Sprintf("%d admin token(s) used in last 7 days: %s",
+			len(state.RecentAdminTokens), strings.Join(sample, ", "))
+		if len(state.RecentAdminTokens) > sampleLimit {
+			msg += fmt.Sprintf(" (+%d more)", len(state.RecentAdminTokens)-sampleLimit)
+		}
+		return false, msg, nil, ""
 
 	// ── queue_health (IS-956) ──
 	case "queue_has_claimable_work":
