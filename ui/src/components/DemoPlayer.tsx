@@ -151,21 +151,43 @@ function DemoItem({ demo, slug }: { demo: DemoListItem; slug: string }) {
   )
 }
 
-export function DemosSection({ slug, demos: demosProp, query }: { slug: string; demos?: DemoListItem[]; query?: string }) {
+export type DemoStatusFilter = 'pass' | 'fail'
+export type DemoTypeFilter = 'cli' | 'video'
+
+export function DemosSection({
+  slug,
+  demos: demosProp,
+  query,
+  statusFilter = [],
+  typeFilter = [],
+}: {
+  slug: string
+  demos?: DemoListItem[]
+  query?: string
+  statusFilter?: DemoStatusFilter[]
+  typeFilter?: DemoTypeFilter[]
+}) {
   const { data: fetched, isLoading } = useDemos(demosProp ? '' : slug)
   const list = demosProp ?? fetched ?? []
   const q = (query ?? '').trim().toLowerCase()
   const isSearching = q.length > 0
+  const isFiltered = statusFilter.length > 0 || typeFilter.length > 0
 
   const filtered = useMemo(() => {
-    if (!isSearching) return list
-    return list.filter(d =>
-      (d.test_component || '').toLowerCase().includes(q) ||
-      (d.test_name || '').toLowerCase().includes(q) ||
-      (d.recorded_branch || '').toLowerCase().includes(q) ||
-      d.type.toLowerCase().includes(q)
-    )
-  }, [list, q, isSearching])
+    return list.filter(d => {
+      if (isSearching) {
+        const matchesQuery =
+          (d.test_component || '').toLowerCase().includes(q) ||
+          (d.test_name || '').toLowerCase().includes(q) ||
+          (d.recorded_branch || '').toLowerCase().includes(q) ||
+          d.type.toLowerCase().includes(q)
+        if (!matchesQuery) return false
+      }
+      if (statusFilter.length > 0 && !statusFilter.includes(d.test_status as DemoStatusFilter)) return false
+      if (typeFilter.length > 0 && !typeFilter.includes(d.type)) return false
+      return true
+    })
+  }, [list, q, isSearching, statusFilter, typeFilter])
 
   const grouped = useMemo(() => {
     const m = new Map<string, DemoListItem[]>()
@@ -188,19 +210,21 @@ export function DemosSection({ slug, demos: demosProp, query }: { slug: string; 
       </Typography>
     )
   }
-  if (isSearching && filtered.length === 0) {
+  if ((isSearching || isFiltered) && filtered.length === 0) {
     return (
       <Typography variant="body2" color="text.secondary">
-        No demos match “{query}”.
+        {isSearching ? `No demos match “${query}”.` : 'No demos match the active filters.'}
       </Typography>
     )
   }
 
   return (
     <Stack spacing={3}>
-      {isSearching && (
+      {(isSearching || isFiltered) && (
         <Typography variant="body2" color="text.secondary">
-          {filtered.length} {filtered.length === 1 ? 'match' : 'matches'} for “{query}”
+          {isSearching
+            ? `${filtered.length} ${filtered.length === 1 ? 'match' : 'matches'} for “${query}”`
+            : `${filtered.length} of ${list.length}`}
         </Typography>
       )}
       {grouped.map(([component, items]) => (
