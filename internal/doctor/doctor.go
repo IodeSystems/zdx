@@ -200,8 +200,8 @@ type ProjectState struct {
 	// AdminTokens holds names of non-agent admin keys used in the trailing
 	// 7 days — broadly-scoped tokens that are still hot. Populated by an
 	// admin-only endpoint; non-admin callers see empty slices and pass.
-	LegacyAgentTokens  []string
-	RecentAdminTokens  []string
+	LegacyAgentTokens []string
+	RecentAdminTokens []string
 }
 
 // DetectLocal populates filesystem and environment checks.
