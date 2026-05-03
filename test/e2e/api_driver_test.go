@@ -380,16 +380,23 @@ type SoloQueueItem struct {
 func (d *ApiDriver) EvaluateQueue(issue string) []SoloQueueItem {
 	d.t.Helper()
 	body := map[string]any{"slug": d.Slug, "issue": issue}
+	// Include Changed entries too: any state mutation between handler-side
+	// async refreshes (e.g. issue priority bumps re-folding into the dev
+	// candidate's priority) lands proposed items in Changed instead of
+	// Unchanged, and dropping that bucket made queue assertions order-flaky.
 	var resp struct {
-		Added     []SoloQueueItem `json:"added"`
-		Removed   []any           `json:"removed"`
-		Changed   []any           `json:"changed"`
-		Unchanged []SoloQueueItem `json:"unchanged"`
+		Added     []SoloQueueItem  `json:"added"`
+		Removed   []any            `json:"removed"`
+		Changed   []EvaluateChange `json:"changed"`
+		Unchanged []SoloQueueItem  `json:"unchanged"`
 	}
 	mustOK(d.t, apiDo(d.t, http.MethodPost, "/api/dx/solo/evaluate", body, &resp))
 	var all []SoloQueueItem
 	all = append(all, resp.Added...)
 	all = append(all, resp.Unchanged...)
+	for _, c := range resp.Changed {
+		all = append(all, c.After)
+	}
 	return all
 }
 
