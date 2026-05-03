@@ -52,6 +52,9 @@ type TodoIncompleteStore interface {
 	InsertQuestion(ctx context.Context, arg db.InsertQuestionParams) (db.ZdxQuestion, error)
 	NextIssueID(ctx context.Context) (string, error)
 	CreateIssue(ctx context.Context, arg db.CreateIssueParams) (db.ZdxIssue, error)
+	GetTestFixIssue(ctx context.Context, arg db.GetTestFixIssueParams) (string, error)
+	InsertTestFixIssue(ctx context.Context, arg db.InsertTestFixIssueParams) error
+	AddComment(ctx context.Context, arg db.AddCommentParams) (db.AddCommentRow, error)
 }
 
 type SchemaFeatures struct {

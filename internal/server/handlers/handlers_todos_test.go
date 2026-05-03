@@ -17,15 +17,17 @@ import (
 
 // stubTodoIncompleteStore implements TodoIncompleteStore for unit tests.
 type stubTodoIncompleteStore struct {
-	project      db.ZdxProject
-	todo         db.GetTodoByKeyRow
-	reports      []db.ZdxTodoIncompleteReport
-	nextID       int64
-	sideEffects  map[string]bool // key = "projectID:reason:fp:actionType"
-	blocks       []db.AddIssueBlockParams
-	questions    []db.ZdxQuestion
-	issues       map[string]db.ZdxIssue
-	issueCounter int32
+	project       db.ZdxProject
+	todo          db.GetTodoByKeyRow
+	reports       []db.ZdxTodoIncompleteReport
+	nextID        int64
+	sideEffects   map[string]bool // key = "projectID:reason:fp:actionType"
+	blocks        []db.AddIssueBlockParams
+	questions     []db.ZdxQuestion
+	issues        map[string]db.ZdxIssue
+	issueCounter  int32
+	testFixIssues map[string]string // key = "projectID:reason:fp" → issueID
+	comments      []db.AddCommentParams
 }
 
 func (s *stubTodoIncompleteStore) GetProjectBySlug(_ context.Context, slug string) (db.ZdxProject, error) {
@@ -160,12 +162,39 @@ func (s *stubTodoIncompleteStore) NextIssueID(_ context.Context) (string, error)
 }
 
 func (s *stubTodoIncompleteStore) CreateIssue(_ context.Context, arg db.CreateIssueParams) (db.ZdxIssue, error) {
-	issue := db.ZdxIssue{ID: arg.ID, ProjectID: arg.ProjectID, Title: arg.Title, IssueType: arg.IssueType, Status: arg.Status}
+	issue := db.ZdxIssue{ID: arg.ID, ProjectID: arg.ProjectID, Title: arg.Title, Context: arg.Context, Priority: arg.Priority, Component: arg.Component, IssueType: arg.IssueType, Status: arg.Status}
 	if s.issues == nil {
 		s.issues = map[string]db.ZdxIssue{}
 	}
 	s.issues[arg.ID] = issue
 	return issue, nil
+}
+
+func (s *stubTodoIncompleteStore) GetTestFixIssue(_ context.Context, arg db.GetTestFixIssueParams) (string, error) {
+	if s.testFixIssues == nil {
+		return "", pgx.ErrNoRows
+	}
+	key := fmt.Sprintf("%d:%s:%s", arg.ProjectID, arg.Reason, arg.EvidenceFingerprint)
+	if id, ok := s.testFixIssues[key]; ok {
+		return id, nil
+	}
+	return "", pgx.ErrNoRows
+}
+
+func (s *stubTodoIncompleteStore) InsertTestFixIssue(_ context.Context, arg db.InsertTestFixIssueParams) error {
+	if s.testFixIssues == nil {
+		s.testFixIssues = map[string]string{}
+	}
+	key := fmt.Sprintf("%d:%s:%s", arg.ProjectID, arg.Reason, arg.EvidenceFingerprint)
+	if _, ok := s.testFixIssues[key]; !ok {
+		s.testFixIssues[key] = arg.IssueID
+	}
+	return nil
+}
+
+func (s *stubTodoIncompleteStore) AddComment(_ context.Context, arg db.AddCommentParams) (db.AddCommentRow, error) {
+	s.comments = append(s.comments, arg)
+	return db.AddCommentRow{ProjectID: arg.ProjectID, TargetType: arg.TargetType, TargetID: arg.TargetID, Author: arg.Author, Body: arg.Body, AuthorAlias: arg.AuthorAlias}, nil
 }
 
 func newTodoIncompleteAPI(t *testing.T, store TodoIncompleteStore) humatest.TestAPI {
@@ -465,5 +494,180 @@ func TestApplyIncompleteReportSideEffectsUnstructured(t *testing.T) {
 	// Unstructured suggested_next → 0 applied.
 	if strings.Contains(body, `"action_type"`) {
 		t.Errorf("unstructured text should produce 0 applied, got: %s", body)
+	}
+}
+
+// TK-1617: preexisting_test_failure / flaky_test reports auto-promote to a
+// priority-1 test-fix issue (deduped by reason+fingerprint), append comments
+// on recurrence, and add a sequencing block from the source todo's issue.
+
+func TestPromoteTestFix_FirstReportCreatesIssueAndBlock(t *testing.T) {
+	t.Setenv("ZDX_AUTO_PROMOTE_TEST_FIX", "")
+	store := newTestStore()
+	store.todo.IssueRef = "IS-100"
+	api := newTodoIncompleteAPI(t, store)
+
+	resp := api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":      "preexisting_test_failure",
+		"explanation": "TestFoo was already broken before my change",
+		"evidence":    map[string]string{"test_name": "TestFoo", "error_fingerprint": "abc123"},
+		"agent_id":    "agent-A",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+
+	if len(store.issues) != 1 {
+		t.Fatalf("expected 1 test-fix issue, got %d", len(store.issues))
+	}
+	var iss db.ZdxIssue
+	for _, v := range store.issues {
+		iss = v
+	}
+	if iss.Title != "Test failure: TestFoo" {
+		t.Errorf("title = %q, want %q", iss.Title, "Test failure: TestFoo")
+	}
+	if iss.Priority != "1" {
+		t.Errorf("priority = %q, want 1", iss.Priority)
+	}
+	if iss.IssueType != "impl" {
+		t.Errorf("issue_type = %q, want impl", iss.IssueType)
+	}
+	if !strings.Contains(iss.Context, "TestFoo was already broken") {
+		t.Errorf("context missing explanation: %q", iss.Context)
+	}
+	if !strings.Contains(iss.Context, "abc123") {
+		t.Errorf("context missing evidence: %q", iss.Context)
+	}
+
+	if len(store.blocks) != 1 {
+		t.Fatalf("expected 1 block edge, got %d", len(store.blocks))
+	}
+	if store.blocks[0].IssueID != "IS-100" || store.blocks[0].BlockedByID != iss.ID || store.blocks[0].Kind != "sequencing" {
+		t.Errorf("wrong block: %+v (test-fix issue=%s)", store.blocks[0], iss.ID)
+	}
+}
+
+func TestPromoteTestFix_SecondReportSameFingerprintDedups(t *testing.T) {
+	t.Setenv("ZDX_AUTO_PROMOTE_TEST_FIX", "")
+	store := newTestStore()
+	store.todo.IssueRef = "IS-100"
+	api := newTodoIncompleteAPI(t, store)
+
+	post := func() {
+		resp := api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+			"reason":      "preexisting_test_failure",
+			"explanation": "broken",
+			"evidence":    map[string]string{"test_name": "TestFoo"},
+			"agent_id":    "agent-A",
+		})
+		if resp.Code != http.StatusOK {
+			t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+		}
+	}
+	post()
+	post()
+
+	if len(store.issues) != 1 {
+		t.Errorf("expected exactly 1 test-fix issue (dedup), got %d", len(store.issues))
+	}
+	if len(store.reports) != 2 {
+		t.Errorf("expected 2 stored reports, got %d", len(store.reports))
+	}
+	if len(store.comments) != 1 {
+		t.Errorf("expected 1 recurrence comment, got %d", len(store.comments))
+	}
+	if len(store.comments) > 0 && store.comments[0].TargetType != "issue" {
+		t.Errorf("comment target_type = %q, want issue", store.comments[0].TargetType)
+	}
+}
+
+func TestPromoteTestFix_DifferentReasonSameFingerprint_TwoIssues(t *testing.T) {
+	t.Setenv("ZDX_AUTO_PROMOTE_TEST_FIX", "")
+	store := newTestStore()
+	api := newTodoIncompleteAPI(t, store)
+
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":      "preexisting_test_failure",
+		"explanation": "x",
+		"evidence":    map[string]string{"test_name": "TestFoo"},
+	})
+	api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":      "flaky_test",
+		"explanation": "y",
+		"evidence":    map[string]string{"test_name": "TestFoo"},
+	})
+
+	if len(store.issues) != 2 {
+		t.Errorf("expected 2 distinct test-fix issues (reason is part of dedup key), got %d", len(store.issues))
+	}
+}
+
+func TestPromoteTestFix_NonTestReason_NoSideEffect(t *testing.T) {
+	t.Setenv("ZDX_AUTO_PROMOTE_TEST_FIX", "")
+	store := newTestStore()
+	store.todo.IssueRef = "IS-100"
+	api := newTodoIncompleteAPI(t, store)
+
+	resp := api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":      "capability_gap",
+		"explanation": "missing tool",
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	if len(store.issues) != 0 {
+		t.Errorf("expected no test-fix issue for capability_gap, got %d", len(store.issues))
+	}
+	if len(store.blocks) != 0 {
+		t.Errorf("expected no block edge, got %d", len(store.blocks))
+	}
+}
+
+func TestPromoteTestFix_FeatureFlagOff_Skips(t *testing.T) {
+	t.Setenv("ZDX_AUTO_PROMOTE_TEST_FIX", "off")
+	store := newTestStore()
+	store.todo.IssueRef = "IS-100"
+	api := newTodoIncompleteAPI(t, store)
+
+	resp := api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":      "preexisting_test_failure",
+		"explanation": "x",
+		"evidence":    map[string]string{"test_name": "TestFoo"},
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	if len(store.reports) != 1 {
+		t.Errorf("report should still be stored, got %d", len(store.reports))
+	}
+	if len(store.issues) != 0 {
+		t.Errorf("flag off → no test-fix issue, got %d", len(store.issues))
+	}
+	if len(store.blocks) != 0 {
+		t.Errorf("flag off → no block edge, got %d", len(store.blocks))
+	}
+}
+
+func TestPromoteTestFix_MissingTestNameFallsBack(t *testing.T) {
+	t.Setenv("ZDX_AUTO_PROMOTE_TEST_FIX", "")
+	store := newTestStore()
+	api := newTodoIncompleteAPI(t, store)
+
+	resp := api.Post("/api/dx/projects/proj/todos/TK-1/incomplete-reports", map[string]any{
+		"reason":      "flaky_test",
+		"explanation": "intermittent",
+		"evidence":    map[string]string{"build_id": "42"},
+	})
+	if resp.Code != http.StatusOK {
+		t.Fatalf("status = %d, body: %s", resp.Code, resp.Body)
+	}
+	if len(store.issues) != 1 {
+		t.Fatalf("expected 1 issue, got %d", len(store.issues))
+	}
+	for _, iss := range store.issues {
+		if !strings.Contains(iss.Title, "unknown test") {
+			t.Errorf("title should fall back when test_name missing, got %q", iss.Title)
+		}
 	}
 }

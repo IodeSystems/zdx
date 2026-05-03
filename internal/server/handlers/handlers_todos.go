@@ -7,6 +7,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"os"
 	"sort"
 	"strings"
 
@@ -17,6 +18,24 @@ import (
 	"github.com/iodesystems/zdx-go/internal/db"
 	"github.com/iodesystems/zdx-go/internal/todoclaim"
 )
+
+// testFixReasons names the incomplete-report reasons that auto-promote to a
+// high-priority test-fix issue (TK-1617). Other reasons keep accumulating in
+// zdx_todo_incomplete_reports without a downstream side effect at write time.
+var testFixReasons = map[string]bool{
+	"preexisting_test_failure": true,
+	"flaky_test":               true,
+}
+
+// autoPromoteTestFixEnabled honors ZDX_AUTO_PROMOTE_TEST_FIX (default on); set
+// to "off"/"0"/"false" to skip the side effect for safe rollout.
+func autoPromoteTestFixEnabled() bool {
+	switch strings.ToLower(strings.TrimSpace(os.Getenv("ZDX_AUTO_PROMOTE_TEST_FIX"))) {
+	case "off", "0", "false", "no":
+		return false
+	}
+	return true
+}
 
 type TodoSessionItem struct {
 	ID        int64  `json:"id"`
@@ -297,6 +316,10 @@ func (h *Handler) registerTodoRoutes(api huma.API) {
 				return nil, apiErr(http.StatusInternalServerError, err.Error())
 			}
 
+			if testFixReasons[in.Body.Reason] && autoPromoteTestFixEnabled() {
+				h.promoteTestFix(ctx, store, p.ID, t, in.Body.Reason, fp, in.Body.Explanation, in.Body.Evidence, in.Body.AgentID)
+			}
+
 			item := IncompleteReportItem{
 				ID:                  row.ID,
 				ProjectID:           row.ProjectID,
@@ -572,4 +595,92 @@ func isAllDigits(s string) bool {
 		}
 	}
 	return true
+}
+
+// promoteTestFix is the side effect for preexisting_test_failure / flaky_test
+// reports (TK-1617). On the first report for a (reason, fingerprint) pair it
+// files a priority-1 impl issue and records the mapping in zdx_test_fix_issues;
+// subsequent reports append a comment to that issue. When the calling todo has
+// an issue ref, a sequencing block edge is added so the source issue stays
+// gated until the test-fix issue closes. Idempotent and best-effort: errors
+// are swallowed because the parent report write has already succeeded.
+func (h *Handler) promoteTestFix(ctx context.Context, store TodoIncompleteStore, projectID int32, todo db.GetTodoByKeyRow, reason, fingerprint, explanation string, evidence map[string]string, agentID string) {
+	testName := evidence["test_name"]
+	if testName == "" {
+		testName = evidence["test"]
+	}
+	if testName == "" {
+		testName = "(unknown test)"
+	}
+
+	existingID, err := store.GetTestFixIssue(ctx, db.GetTestFixIssueParams{
+		ProjectID:           projectID,
+		Reason:              reason,
+		EvidenceFingerprint: fingerprint,
+	})
+	issueID := existingID
+	created := false
+	if errors.Is(err, pgx.ErrNoRows) {
+		newID, idErr := store.NextIssueID(ctx)
+		if idErr != nil {
+			return
+		}
+		evJSON, _ := json.MarshalIndent(evidence, "", "  ")
+		body := explanation
+		if len(evidence) > 0 {
+			body = strings.TrimSpace(body) + "\n\nEvidence:\n```json\n" + string(evJSON) + "\n```"
+		}
+		if _, cErr := store.CreateIssue(ctx, db.CreateIssueParams{
+			ID:        newID,
+			ProjectID: projectID,
+			Title:     "Test failure: " + testName,
+			Context:   body,
+			Priority:  "1",
+			Component: "test",
+			IssueType: "impl",
+			Status:    "open",
+		}); cErr != nil {
+			return
+		}
+		if iErr := store.InsertTestFixIssue(ctx, db.InsertTestFixIssueParams{
+			ProjectID:           projectID,
+			Reason:              reason,
+			EvidenceFingerprint: fingerprint,
+			IssueID:             newID,
+		}); iErr != nil {
+			return
+		}
+		issueID = newID
+		created = true
+	} else if err != nil {
+		return
+	}
+
+	if !created {
+		evJSON, _ := json.MarshalIndent(evidence, "", "  ")
+		body := "Recurring " + reason + " report from todo " + todo.Key
+		if agentID != "" {
+			body += " (agent " + agentID + ")"
+		}
+		body += ":\n\n" + explanation
+		if len(evidence) > 0 {
+			body += "\n\nEvidence:\n```json\n" + string(evJSON) + "\n```"
+		}
+		_, _ = store.AddComment(ctx, db.AddCommentParams{
+			ProjectID:   projectID,
+			TargetType:  "issue",
+			TargetID:    issueID,
+			Author:      "system",
+			AuthorAlias: "auto-promote",
+			Body:        body,
+		})
+	}
+
+	if todo.IssueRef != "" && issueID != "" && todo.IssueRef != issueID {
+		_ = store.AddIssueBlock(ctx, db.AddIssueBlockParams{
+			IssueID:     todo.IssueRef,
+			BlockedByID: issueID,
+			Kind:        "sequencing",
+		})
+	}
 }
