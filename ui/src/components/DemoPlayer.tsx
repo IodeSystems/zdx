@@ -151,20 +151,32 @@ function DemoItem({ demo, slug }: { demo: DemoListItem; slug: string }) {
   )
 }
 
-export function DemosSection({ slug, demos: demosProp }: { slug: string; demos?: DemoListItem[] }) {
+export function DemosSection({ slug, demos: demosProp, query }: { slug: string; demos?: DemoListItem[]; query?: string }) {
   const { data: fetched, isLoading } = useDemos(demosProp ? '' : slug)
   const list = demosProp ?? fetched ?? []
+  const q = (query ?? '').trim().toLowerCase()
+  const isSearching = q.length > 0
+
+  const filtered = useMemo(() => {
+    if (!isSearching) return list
+    return list.filter(d =>
+      (d.test_component || '').toLowerCase().includes(q) ||
+      (d.test_name || '').toLowerCase().includes(q) ||
+      (d.recorded_branch || '').toLowerCase().includes(q) ||
+      d.type.toLowerCase().includes(q)
+    )
+  }, [list, q, isSearching])
 
   const grouped = useMemo(() => {
     const m = new Map<string, DemoListItem[]>()
-    for (const d of list) {
+    for (const d of filtered) {
       const key = d.test_component || 'Uncategorized'
       const group = m.get(key) ?? []
       group.push(d)
       m.set(key, group)
     }
     return [...m.entries()].sort((a, b) => a[0].localeCompare(b[0]))
-  }, [list])
+  }, [filtered])
 
   if (isLoading) {
     return <Typography variant="body2" color="text.secondary">Loading...</Typography>
@@ -176,9 +188,21 @@ export function DemosSection({ slug, demos: demosProp }: { slug: string; demos?:
       </Typography>
     )
   }
+  if (isSearching && filtered.length === 0) {
+    return (
+      <Typography variant="body2" color="text.secondary">
+        No demos match “{query}”.
+      </Typography>
+    )
+  }
 
   return (
     <Stack spacing={3}>
+      {isSearching && (
+        <Typography variant="body2" color="text.secondary">
+          {filtered.length} {filtered.length === 1 ? 'match' : 'matches'} for “{query}”
+        </Typography>
+      )}
       {grouped.map(([component, items]) => (
         <Box key={component}>
           <Typography variant="subtitle2" sx={{ fontWeight: 600, mb: 0.75 }}>
