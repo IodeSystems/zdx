@@ -30,7 +30,7 @@ function CLIDemoBody({ data }: { data: CLIDemoData }) {
       {data.steps.map((step, i) => (
         <Box key={i} sx={{ mb: 1.5, borderLeft: 2, borderColor: step.exit_code === 0 ? 'success.main' : 'error.main', pl: 1.5 }}>
           <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', mb: 0.5 }}>
-            <Typography component="span" sx={{ color: 'info.main', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem' }}>
+            <Typography component="span" sx={{ color: 'info.main', fontWeight: 600, fontFamily: 'monospace', fontSize: '0.85rem', wordBreak: 'break-all', minWidth: 0 }}>
               $ {step.cmd}
             </Typography>
             <Chip label={`${step.duration_ms}ms`} size="small" variant="outlined" sx={{ height: 18, fontSize: '0.7rem' }} />
@@ -76,7 +76,7 @@ export function CLIDemoPlayerByUrl({ url }: { url: string }) {
 export function VideoDemoPlayerByUrl({ url }: { url: string }) {
   const [error, setError] = useState<string | null>(null)
   return (
-    <Box sx={{ maxWidth: 800 }}>
+    <Box sx={{ width: '100%', maxWidth: 800 }}>
       {error ? (
         <Box sx={{ p: 2, bgcolor: 'background.default', borderRadius: 1, border: 1, borderColor: 'divider' }}>
           <Typography variant="body2" color="error" sx={{ mb: 1 }}>
@@ -246,9 +246,9 @@ function SpecDemoItemRow({ demo, slug }: { demo: SpecDemoItem; slug?: string }) 
   return (
     <Accordion disableGutters variant="outlined" sx={{ '&:before': { display: 'none' } }}>
       <AccordionSummary expandIcon={<ExpandMoreIcon />}>
-        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flex: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap', flex: 1, minWidth: 0 }}>
           <Chip label={demo.type} size="small" variant="outlined" color={demo.type === 'cli' ? 'info' : 'secondary'} />
-          <Typography variant="body2">{demo.test_component}/{demo.test_name}</Typography>
+          <Typography variant="body2" sx={{ wordBreak: 'break-word', minWidth: 0 }}>{demo.test_component}/{demo.test_name}</Typography>
           {slug && (
             <Link
               to="/project/$slug/demos/$demoId"
