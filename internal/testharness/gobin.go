@@ -154,7 +154,16 @@ func parseGoTestJSON(data []byte, component string, layer Layer) []Result {
 	var results []Result
 	now := time.Now().UTC().Format(time.RFC3339)
 
+	// IS-1030: test2json emits one JSON event per line of test output. When a
+	// test shells out to a chatty subprocess (e.g. TestDemoCLI_* spawning
+	// vitest with verbose UI test logs), a single Output event can easily
+	// exceed Scanner's default 64KB buffer. The Scanner errors silently,
+	// every subsequent line — including the test's terminal pass/fail event —
+	// gets dropped, results comes back empty, and syncTestResults skips with
+	// "0 events" while CI actually had useful pass/fail to record. Allow up
+	// to 16MB per line so realistic verbose output streams parse cleanly.
 	sc := bufio.NewScanner(bytes.NewReader(data))
+	sc.Buffer(make([]byte, 0, 64*1024), 16*1024*1024)
 	for sc.Scan() {
 		var ev event
 		if err := json.Unmarshal(sc.Bytes(), &ev); err != nil || ev.Test == "" {
