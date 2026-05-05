@@ -1215,7 +1215,9 @@ type CreateVersionBranchResult struct {
 	BackportTasksCreated int64   `json:"backport_tasks_created"`
 	CreatedAt            string  `json:"created_at"`
 	Id                   int64   `json:"id"`
+	MergeStyle           *string `json:"merge_style,omitempty"`
 	Name                 string  `json:"name"`
+	RequiredChecks       *string `json:"required_checks,omitempty"`
 	Role                 *string `json:"role,omitempty"`
 	Semver               *string `json:"semver,omitempty"`
 	SourceBranchName     *string `json:"source_branch_name,omitempty"`
@@ -1434,6 +1436,14 @@ type DiscussionMessageItem struct {
 	DiscussionId int32   `json:"discussion_id"`
 	Id           int32   `json:"id"`
 	Role         string  `json:"role"`
+}
+
+// DoctorTokenHygieneResponse defines model for Doctor-token-hygieneResponse.
+type DoctorTokenHygieneResponse struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema            *string   `json:"$schema,omitempty"`
+	LegacyAgentTokens *[]string `json:"legacy_agent_tokens"`
+	RecentAdminTokens *[]string `json:"recent_admin_tokens"`
 }
 
 // EditIssueRequest defines model for Edit-issueRequest.
@@ -4861,6 +4871,23 @@ type UpdateUserRoleRequest struct {
 	Role   string  `json:"role"`
 }
 
+// UpdateVersionBranchSettingsRequest defines model for Update-version-branch-settingsRequest.
+type UpdateVersionBranchSettingsRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema         *string `json:"$schema,omitempty"`
+	MergeStyle     *string `json:"merge_style,omitempty"`
+	RequiredChecks *string `json:"required_checks,omitempty"`
+}
+
+// UpdateVersionBranchRequest defines model for Update-version-branchRequest.
+type UpdateVersionBranchRequest struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string `json:"$schema,omitempty"`
+	AutoSeed         *bool   `json:"auto_seed,omitempty"`
+	Role             *string `json:"role,omitempty"`
+	SourceBranchName *string `json:"source_branch_name,omitempty"`
+}
+
 // UpsertFeatureRequest defines model for Upsert-featureRequest.
 type UpsertFeatureRequest struct {
 	// Schema A URL to the JSON Schema for this object.
@@ -4886,8 +4913,10 @@ type VersionBranchDetail struct {
 	Schema           *string `json:"$schema,omitempty"`
 	CreatedAt        string  `json:"created_at"`
 	Id               int64   `json:"id"`
+	MergeStyle       *string `json:"merge_style,omitempty"`
 	Name             string  `json:"name"`
 	OpenCount        int64   `json:"open_count"`
+	RequiredChecks   *string `json:"required_checks,omitempty"`
 	ResolvedCount    int64   `json:"resolved_count"`
 	Role             *string `json:"role,omitempty"`
 	Semver           *string `json:"semver,omitempty"`
@@ -4898,9 +4927,13 @@ type VersionBranchDetail struct {
 
 // VersionBranchItem defines model for VersionBranchItem.
 type VersionBranchItem struct {
+	// Schema A URL to the JSON Schema for this object.
+	Schema           *string `json:"$schema,omitempty"`
 	CreatedAt        string  `json:"created_at"`
 	Id               int64   `json:"id"`
+	MergeStyle       *string `json:"merge_style,omitempty"`
 	Name             string  `json:"name"`
+	RequiredChecks   *string `json:"required_checks,omitempty"`
 	Role             *string `json:"role,omitempty"`
 	Semver           *string `json:"semver,omitempty"`
 	SourceBranchName *string `json:"source_branch_name,omitempty"`
@@ -6156,6 +6189,12 @@ type UpdatePlanJSONRequestBody = UpdatePlanRequest
 // CreateVersionBranchJSONRequestBody defines body for CreateVersionBranch for application/json ContentType.
 type CreateVersionBranchJSONRequestBody = CreateVersionBranchRequest
 
+// UpdateVersionBranchJSONRequestBody defines body for UpdateVersionBranch for application/json ContentType.
+type UpdateVersionBranchJSONRequestBody = UpdateVersionBranchRequest
+
+// UpdateVersionBranchSettingsJSONRequestBody defines body for UpdateVersionBranchSettings for application/json ContentType.
+type UpdateVersionBranchSettingsJSONRequestBody = UpdateVersionBranchSettingsRequest
+
 // SetVersionBranchSourceJSONRequestBody defines body for SetVersionBranchSource for application/json ContentType.
 type SetVersionBranchSourceJSONRequestBody = SetVersionBranchSourceRequest
 
@@ -6537,6 +6576,9 @@ type ClientInterface interface {
 
 	// ListActivityWorklog request
 	ListActivityWorklog(ctx context.Context, params *ListActivityWorklogParams, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// DoctorTokenHygiene request
+	DoctorTokenHygiene(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// ListIntegrationTokens request
 	ListIntegrationTokens(ctx context.Context, params *ListIntegrationTokensParams, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -7227,11 +7269,24 @@ type ClientInterface interface {
 	// SeedVersionBranches request
 	SeedVersionBranches(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// DeleteVersionBranch request
+	DeleteVersionBranch(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// ShowVersionBranch request
 	ShowVersionBranch(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
 
+	// UpdateVersionBranchWithBody request with any body
+	UpdateVersionBranchWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateVersionBranch(ctx context.Context, slug string, name string, body UpdateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
+
 	// MarkVersionBranchEol request
 	MarkVersionBranchEol(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	// UpdateVersionBranchSettingsWithBody request with any body
+	UpdateVersionBranchSettingsWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
+
+	UpdateVersionBranchSettings(ctx context.Context, slug string, name string, body UpdateVersionBranchSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error)
 
 	// SetVersionBranchSourceWithBody request with any body
 	SetVersionBranchSourceWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error)
@@ -8002,6 +8057,18 @@ func (c *APIClient) ListActivitySessions(ctx context.Context, params *ListActivi
 
 func (c *APIClient) ListActivityWorklog(ctx context.Context, params *ListActivityWorklogParams, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewListActivityWorklogRequest(c.Server, params)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) DoctorTokenHygiene(ctx context.Context, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDoctorTokenHygieneRequest(c.Server)
 	if err != nil {
 		return nil, err
 	}
@@ -11084,6 +11151,18 @@ func (c *APIClient) SeedVersionBranches(ctx context.Context, slug string, reqEdi
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) DeleteVersionBranch(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewDeleteVersionBranchRequest(c.Server, slug, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) ShowVersionBranch(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewShowVersionBranchRequest(c.Server, slug, name)
 	if err != nil {
@@ -11096,8 +11175,56 @@ func (c *APIClient) ShowVersionBranch(ctx context.Context, slug string, name str
 	return c.Client.Do(req)
 }
 
+func (c *APIClient) UpdateVersionBranchWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVersionBranchRequestWithBody(c.Server, slug, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateVersionBranch(ctx context.Context, slug string, name string, body UpdateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVersionBranchRequest(c.Server, slug, name, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
 func (c *APIClient) MarkVersionBranchEol(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*http.Response, error) {
 	req, err := NewMarkVersionBranchEolRequest(c.Server, slug, name)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateVersionBranchSettingsWithBody(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVersionBranchSettingsRequestWithBody(c.Server, slug, name, contentType, body)
+	if err != nil {
+		return nil, err
+	}
+	req = req.WithContext(ctx)
+	if err := c.applyEditors(ctx, req, reqEditors); err != nil {
+		return nil, err
+	}
+	return c.Client.Do(req)
+}
+
+func (c *APIClient) UpdateVersionBranchSettings(ctx context.Context, slug string, name string, body UpdateVersionBranchSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*http.Response, error) {
+	req, err := NewUpdateVersionBranchSettingsRequest(c.Server, slug, name, body)
 	if err != nil {
 		return nil, err
 	}
@@ -14648,6 +14775,33 @@ func NewListActivityWorklogRequest(server string, params *ListActivityWorklogPar
 		}
 
 		queryURL.RawQuery = queryValues.Encode()
+	}
+
+	req, err := http.NewRequest("GET", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
+// NewDoctorTokenHygieneRequest generates requests for DoctorTokenHygiene
+func NewDoctorTokenHygieneRequest(server string) (*http.Request, error) {
+	var err error
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/admin/doctor/token-hygiene")
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
 	}
 
 	req, err := http.NewRequest("GET", queryURL.String(), nil)
@@ -23721,6 +23875,47 @@ func NewSeedVersionBranchesRequest(server string, slug string) (*http.Request, e
 	return req, nil
 }
 
+// NewDeleteVersionBranchRequest generates requests for DeleteVersionBranch
+func NewDeleteVersionBranchRequest(server string, slug string, name string) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("DELETE", queryURL.String(), nil)
+	if err != nil {
+		return nil, err
+	}
+
+	return req, nil
+}
+
 // NewShowVersionBranchRequest generates requests for ShowVersionBranch
 func NewShowVersionBranchRequest(server string, slug string, name string) (*http.Request, error) {
 	var err error
@@ -23762,6 +23957,60 @@ func NewShowVersionBranchRequest(server string, slug string, name string) (*http
 	return req, nil
 }
 
+// NewUpdateVersionBranchRequest calls the generic UpdateVersionBranch builder with application/json body
+func NewUpdateVersionBranchRequest(server string, slug string, name string, body UpdateVersionBranchJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateVersionBranchRequestWithBody(server, slug, name, "application/json", bodyReader)
+}
+
+// NewUpdateVersionBranchRequestWithBody generates requests for UpdateVersionBranch with any type of body
+func NewUpdateVersionBranchRequestWithBody(server string, slug string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches/%s", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
+
+	return req, nil
+}
+
 // NewMarkVersionBranchEolRequest generates requests for MarkVersionBranchEol
 func NewMarkVersionBranchEolRequest(server string, slug string, name string) (*http.Request, error) {
 	var err error
@@ -23799,6 +24048,60 @@ func NewMarkVersionBranchEolRequest(server string, slug string, name string) (*h
 	if err != nil {
 		return nil, err
 	}
+
+	return req, nil
+}
+
+// NewUpdateVersionBranchSettingsRequest calls the generic UpdateVersionBranchSettings builder with application/json body
+func NewUpdateVersionBranchSettingsRequest(server string, slug string, name string, body UpdateVersionBranchSettingsJSONRequestBody) (*http.Request, error) {
+	var bodyReader io.Reader
+	buf, err := json.Marshal(body)
+	if err != nil {
+		return nil, err
+	}
+	bodyReader = bytes.NewReader(buf)
+	return NewUpdateVersionBranchSettingsRequestWithBody(server, slug, name, "application/json", bodyReader)
+}
+
+// NewUpdateVersionBranchSettingsRequestWithBody generates requests for UpdateVersionBranchSettings with any type of body
+func NewUpdateVersionBranchSettingsRequestWithBody(server string, slug string, name string, contentType string, body io.Reader) (*http.Request, error) {
+	var err error
+
+	var pathParam0 string
+
+	pathParam0, err = runtime.StyleParamWithOptions("simple", false, "slug", slug, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	var pathParam1 string
+
+	pathParam1, err = runtime.StyleParamWithOptions("simple", false, "name", name, runtime.StyleParamOptions{ParamLocation: runtime.ParamLocationPath, Type: "string", Format: ""})
+	if err != nil {
+		return nil, err
+	}
+
+	serverURL, err := url.Parse(server)
+	if err != nil {
+		return nil, err
+	}
+
+	operationPath := fmt.Sprintf("/api/dx/projects/%s/branches/%s/settings", pathParam0, pathParam1)
+	if operationPath[0] == '/' {
+		operationPath = "." + operationPath
+	}
+
+	queryURL, err := serverURL.Parse(operationPath)
+	if err != nil {
+		return nil, err
+	}
+
+	req, err := http.NewRequest("PATCH", queryURL.String(), body)
+	if err != nil {
+		return nil, err
+	}
+
+	req.Header.Add("Content-Type", contentType)
 
 	return req, nil
 }
@@ -33262,6 +33565,9 @@ type ClientWithResponsesInterface interface {
 	// ListActivityWorklogWithResponse request
 	ListActivityWorklogWithResponse(ctx context.Context, params *ListActivityWorklogParams, reqEditors ...RequestEditorFn) (*ParsedListActivityWorklogResponse, error)
 
+	// DoctorTokenHygieneWithResponse request
+	DoctorTokenHygieneWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedDoctorTokenHygieneResponse, error)
+
 	// ListIntegrationTokensWithResponse request
 	ListIntegrationTokensWithResponse(ctx context.Context, params *ListIntegrationTokensParams, reqEditors ...RequestEditorFn) (*ParsedListIntegrationTokensResponse, error)
 
@@ -33951,11 +34257,24 @@ type ClientWithResponsesInterface interface {
 	// SeedVersionBranchesWithResponse request
 	SeedVersionBranchesWithResponse(ctx context.Context, slug string, reqEditors ...RequestEditorFn) (*SeedVersionBranchesResponse, error)
 
+	// DeleteVersionBranchWithResponse request
+	DeleteVersionBranchWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*DeleteVersionBranchResponse, error)
+
 	// ShowVersionBranchWithResponse request
 	ShowVersionBranchWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*ShowVersionBranchResponse, error)
 
+	// UpdateVersionBranchWithBodyWithResponse request with any body
+	UpdateVersionBranchWithBodyWithResponse(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVersionBranchResponse, error)
+
+	UpdateVersionBranchWithResponse(ctx context.Context, slug string, name string, body UpdateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVersionBranchResponse, error)
+
 	// MarkVersionBranchEolWithResponse request
 	MarkVersionBranchEolWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*MarkVersionBranchEolResponse, error)
+
+	// UpdateVersionBranchSettingsWithBodyWithResponse request with any body
+	UpdateVersionBranchSettingsWithBodyWithResponse(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVersionBranchSettingsResponse, error)
+
+	UpdateVersionBranchSettingsWithResponse(ctx context.Context, slug string, name string, body UpdateVersionBranchSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVersionBranchSettingsResponse, error)
 
 	// SetVersionBranchSourceWithBodyWithResponse request with any body
 	SetVersionBranchSourceWithBodyWithResponse(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*SetVersionBranchSourceResponse, error)
@@ -34752,6 +35071,29 @@ func (r ParsedListActivityWorklogResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r ParsedListActivityWorklogResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type ParsedDoctorTokenHygieneResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *DoctorTokenHygieneResponse
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r ParsedDoctorTokenHygieneResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r ParsedDoctorTokenHygieneResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -38815,6 +39157,28 @@ func (r SeedVersionBranchesResponse) StatusCode() int {
 	return 0
 }
 
+type DeleteVersionBranchResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r DeleteVersionBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r DeleteVersionBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type ShowVersionBranchResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -38838,6 +39202,29 @@ func (r ShowVersionBranchResponse) StatusCode() int {
 	return 0
 }
 
+type UpdateVersionBranchResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *VersionBranchItem
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateVersionBranchResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateVersionBranchResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
 type MarkVersionBranchEolResponse struct {
 	Body                          []byte
 	HTTPResponse                  *http.Response
@@ -38855,6 +39242,29 @@ func (r MarkVersionBranchEolResponse) Status() string {
 
 // StatusCode returns HTTPResponse.StatusCode
 func (r MarkVersionBranchEolResponse) StatusCode() int {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.StatusCode
+	}
+	return 0
+}
+
+type UpdateVersionBranchSettingsResponse struct {
+	Body                          []byte
+	HTTPResponse                  *http.Response
+	JSON200                       *OKBody
+	ApplicationproblemJSONDefault *ErrorModel
+}
+
+// Status returns HTTPResponse.Status
+func (r UpdateVersionBranchSettingsResponse) Status() string {
+	if r.HTTPResponse != nil {
+		return r.HTTPResponse.Status
+	}
+	return http.StatusText(0)
+}
+
+// StatusCode returns HTTPResponse.StatusCode
+func (r UpdateVersionBranchSettingsResponse) StatusCode() int {
 	if r.HTTPResponse != nil {
 		return r.HTTPResponse.StatusCode
 	}
@@ -43105,6 +43515,15 @@ func (c *ClientWithResponses) ListActivityWorklogWithResponse(ctx context.Contex
 	return ParseParsedListActivityWorklogResponse(rsp)
 }
 
+// DoctorTokenHygieneWithResponse request returning *ParsedDoctorTokenHygieneResponse
+func (c *ClientWithResponses) DoctorTokenHygieneWithResponse(ctx context.Context, reqEditors ...RequestEditorFn) (*ParsedDoctorTokenHygieneResponse, error) {
+	rsp, err := c.DoctorTokenHygiene(ctx, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseParsedDoctorTokenHygieneResponse(rsp)
+}
+
 // ListIntegrationTokensWithResponse request returning *ParsedListIntegrationTokensResponse
 func (c *ClientWithResponses) ListIntegrationTokensWithResponse(ctx context.Context, params *ListIntegrationTokensParams, reqEditors ...RequestEditorFn) (*ParsedListIntegrationTokensResponse, error) {
 	rsp, err := c.ListIntegrationTokens(ctx, params, reqEditors...)
@@ -45330,6 +45749,15 @@ func (c *ClientWithResponses) SeedVersionBranchesWithResponse(ctx context.Contex
 	return ParseSeedVersionBranchesResponse(rsp)
 }
 
+// DeleteVersionBranchWithResponse request returning *DeleteVersionBranchResponse
+func (c *ClientWithResponses) DeleteVersionBranchWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*DeleteVersionBranchResponse, error) {
+	rsp, err := c.DeleteVersionBranch(ctx, slug, name, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseDeleteVersionBranchResponse(rsp)
+}
+
 // ShowVersionBranchWithResponse request returning *ShowVersionBranchResponse
 func (c *ClientWithResponses) ShowVersionBranchWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*ShowVersionBranchResponse, error) {
 	rsp, err := c.ShowVersionBranch(ctx, slug, name, reqEditors...)
@@ -45339,6 +45767,23 @@ func (c *ClientWithResponses) ShowVersionBranchWithResponse(ctx context.Context,
 	return ParseShowVersionBranchResponse(rsp)
 }
 
+// UpdateVersionBranchWithBodyWithResponse request with arbitrary body returning *UpdateVersionBranchResponse
+func (c *ClientWithResponses) UpdateVersionBranchWithBodyWithResponse(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVersionBranchResponse, error) {
+	rsp, err := c.UpdateVersionBranchWithBody(ctx, slug, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVersionBranchResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateVersionBranchWithResponse(ctx context.Context, slug string, name string, body UpdateVersionBranchJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVersionBranchResponse, error) {
+	rsp, err := c.UpdateVersionBranch(ctx, slug, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVersionBranchResponse(rsp)
+}
+
 // MarkVersionBranchEolWithResponse request returning *MarkVersionBranchEolResponse
 func (c *ClientWithResponses) MarkVersionBranchEolWithResponse(ctx context.Context, slug string, name string, reqEditors ...RequestEditorFn) (*MarkVersionBranchEolResponse, error) {
 	rsp, err := c.MarkVersionBranchEol(ctx, slug, name, reqEditors...)
@@ -45346,6 +45791,23 @@ func (c *ClientWithResponses) MarkVersionBranchEolWithResponse(ctx context.Conte
 		return nil, err
 	}
 	return ParseMarkVersionBranchEolResponse(rsp)
+}
+
+// UpdateVersionBranchSettingsWithBodyWithResponse request with arbitrary body returning *UpdateVersionBranchSettingsResponse
+func (c *ClientWithResponses) UpdateVersionBranchSettingsWithBodyWithResponse(ctx context.Context, slug string, name string, contentType string, body io.Reader, reqEditors ...RequestEditorFn) (*UpdateVersionBranchSettingsResponse, error) {
+	rsp, err := c.UpdateVersionBranchSettingsWithBody(ctx, slug, name, contentType, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVersionBranchSettingsResponse(rsp)
+}
+
+func (c *ClientWithResponses) UpdateVersionBranchSettingsWithResponse(ctx context.Context, slug string, name string, body UpdateVersionBranchSettingsJSONRequestBody, reqEditors ...RequestEditorFn) (*UpdateVersionBranchSettingsResponse, error) {
+	rsp, err := c.UpdateVersionBranchSettings(ctx, slug, name, body, reqEditors...)
+	if err != nil {
+		return nil, err
+	}
+	return ParseUpdateVersionBranchSettingsResponse(rsp)
 }
 
 // SetVersionBranchSourceWithBodyWithResponse request with arbitrary body returning *SetVersionBranchSourceResponse
@@ -47861,6 +48323,39 @@ func ParseParsedListActivityWorklogResponse(rsp *http.Response) (*ParsedListActi
 	switch {
 	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
 		var dest ListActivityWorklogResponse
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseParsedDoctorTokenHygieneResponse parses an HTTP response from a DoctorTokenHygieneWithResponse call
+func ParseParsedDoctorTokenHygieneResponse(rsp *http.Response) (*ParsedDoctorTokenHygieneResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &ParsedDoctorTokenHygieneResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest DoctorTokenHygieneResponse
 		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
 			return nil, err
 		}
@@ -53621,6 +54116,32 @@ func ParseSeedVersionBranchesResponse(rsp *http.Response) (*SeedVersionBranchesR
 	return response, nil
 }
 
+// ParseDeleteVersionBranchResponse parses an HTTP response from a DeleteVersionBranchWithResponse call
+func ParseDeleteVersionBranchResponse(rsp *http.Response) (*DeleteVersionBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &DeleteVersionBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseShowVersionBranchResponse parses an HTTP response from a ShowVersionBranchWithResponse call
 func ParseShowVersionBranchResponse(rsp *http.Response) (*ShowVersionBranchResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -53654,6 +54175,39 @@ func ParseShowVersionBranchResponse(rsp *http.Response) (*ShowVersionBranchRespo
 	return response, nil
 }
 
+// ParseUpdateVersionBranchResponse parses an HTTP response from a UpdateVersionBranchWithResponse call
+func ParseUpdateVersionBranchResponse(rsp *http.Response) (*UpdateVersionBranchResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateVersionBranchResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest VersionBranchItem
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
 // ParseMarkVersionBranchEolResponse parses an HTTP response from a MarkVersionBranchEolWithResponse call
 func ParseMarkVersionBranchEolResponse(rsp *http.Response) (*MarkVersionBranchEolResponse, error) {
 	bodyBytes, err := io.ReadAll(rsp.Body)
@@ -53663,6 +54217,39 @@ func ParseMarkVersionBranchEolResponse(rsp *http.Response) (*MarkVersionBranchEo
 	}
 
 	response := &MarkVersionBranchEolResponse{
+		Body:         bodyBytes,
+		HTTPResponse: rsp,
+	}
+
+	switch {
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && rsp.StatusCode == 200:
+		var dest OKBody
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.JSON200 = &dest
+
+	case strings.Contains(rsp.Header.Get("Content-Type"), "json") && true:
+		var dest ErrorModel
+		if err := json.Unmarshal(bodyBytes, &dest); err != nil {
+			return nil, err
+		}
+		response.ApplicationproblemJSONDefault = &dest
+
+	}
+
+	return response, nil
+}
+
+// ParseUpdateVersionBranchSettingsResponse parses an HTTP response from a UpdateVersionBranchSettingsWithResponse call
+func ParseUpdateVersionBranchSettingsResponse(rsp *http.Response) (*UpdateVersionBranchSettingsResponse, error) {
+	bodyBytes, err := io.ReadAll(rsp.Body)
+	defer func() { _ = rsp.Body.Close() }()
+	if err != nil {
+		return nil, err
+	}
+
+	response := &UpdateVersionBranchSettingsResponse{
 		Body:         bodyBytes,
 		HTTPResponse: rsp,
 	}
