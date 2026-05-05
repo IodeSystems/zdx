@@ -37,6 +37,12 @@ For any claimed todo, route by target:
    - Skip ship for docs/skill/planning-only changes — just commit.
 6. **Stop.** Report what was done. Do not pick up another vertical.
 
+**Stale / state-unknown tasks** (when solo emits `[review:stale] TK-N` or `[dev]` with a
+`⚠ state unknown` warning): The task was created a while ago but never worked — its
+prescription may be outdated. Before editing, read the referenced files and verify the
+work is still needed. If already implemented: `dx todo dev done TK-N`. If superseded or
+no longer relevant: `dx todo dev done TK-N`.
+
 **Blocked issues:** if IS-N is blocked, `dx todo show IS-N` lists blockers. Recurse to unblocked leaves, work each leaf
 vertical, then re-run solo on IS-N. Stop after closing the original.
 
