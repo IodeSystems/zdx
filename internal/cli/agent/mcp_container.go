@@ -15,15 +15,13 @@ import (
 )
 
 // buildMCPSlotArgs constructs `docker run` argv for an idle slot container.
-// Unlike buildContainerArgs (which dispatches `dx agent loop --provider=
-// claude` inside), the MCP-slot container runs `sleep infinity` so it stays
-// alive while the host runs the LLM loop. Each session does `docker exec
-// -i <name> dx-agent --mcp-stdio` to spawn the MCP server inside; the slot
-// container is the long-lived sandbox, MCP servers are per-session.
+// Slots run `sleep infinity` so they stay alive while the host runs the LLM
+// loop; each session does `docker exec -i <name> dx-agent --mcp-stdio` to
+// spawn the MCP server inside. The slot is the long-lived sandbox, MCP
+// servers are per-session.
 //
-// Same security flags as buildContainerArgs (non-root, no privilege
-// escalation, capability drops, resource limits) — the slot is just as
-// sandboxed as the claude-in-container slot, and runs across many sessions.
+// Security profile: non-root, no privilege escalation, all capabilities
+// dropped, configurable memory/cpu limits.
 func buildMCPSlotArgs(name, imageTag, cwd string, agentCfg config.AgentConfig, keepOnExit bool, envPairs []string) []string {
 	args := []string{"run", "-d", "--name", name}
 	if !keepOnExit {
@@ -51,17 +49,15 @@ func buildMCPSlotArgs(name, imageTag, cwd string, agentCfg config.AgentConfig, k
 	return args
 }
 
-// runMCPContainerLoop is the opencode/local equivalent of runContainerLoop.
-// Where runContainerLoop ships the entire agent inside each slot, this
-// function ships only the MCP server inside the slot — the LLM loop runs
-// on the host, tool calls cross the boundary via `docker exec` per session.
+// runMCPContainerLoop is --container's universal implementation across
+// every provider that supports MCP-based tool dispatch (today: claude via
+// --mcp-config, opencode, local). Slot containers stay idle as sandboxes;
+// the LLM loop runs on the host; tool calls cross the boundary via
+// `docker exec` per session.
 //
 // Lifecycle: build dev image, spawn N detached slot containers running
 // `sleep infinity`, run N RunManagedLoop instances on the host (each with
 // MCPCommand pointed at one slot), wait for shutdown signal, stop slots.
-//
-// Provider must be a non-claude registered name. claude continues to use
-// runContainerLoop because its CLI talks to its own tool surface, not MCP.
 func runMCPContainerLoop(parentCtx context.Context, providerName string, opts ProviderOpts) error {
 	if opts.RC.slug == "" {
 		return fmt.Errorf("--container requires a project config with a remote slug")

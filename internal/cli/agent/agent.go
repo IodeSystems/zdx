@@ -103,7 +103,7 @@ exec'ing dx agent loop --provider=... inside the container.`,
 	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
 	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
-	cmd.Flags().BoolVar(&container, "container", false, "run agent loop inside the project's dev container (claude only; requires dev.Dockerfile)")
+	cmd.Flags().BoolVar(&container, "container", false, "run agent in MCP-slot containers — N idle sandboxes with /workspace mounted, host runs the LLM loop, tool calls dispatch via `docker exec dx-agent --mcp-stdio` (requires dev.Dockerfile)")
 	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep containers after exit (skip --rm; useful for debugging)")
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
 	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slots in --container mode)")

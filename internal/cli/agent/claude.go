@@ -572,15 +572,16 @@ func init() {
 		// Default chrome=true to match the legacy claude command's flag default.
 		chrome := opts.Chrome
 		return &claudeAdapter{
-			rc:       opts.RC,
-			agentCfg: opts.AgentCfg,
-			projDir:  projDir,
-			chrome:   chrome,
-			alias:    opts.Alias,
-			model:    opts.Model,
-			prompt:   prompt,
-			srcless:  opts.Srcless,
-			exited:   make(chan struct{}),
+			rc:         opts.RC,
+			agentCfg:   opts.AgentCfg,
+			projDir:    projDir,
+			chrome:     chrome,
+			alias:      opts.Alias,
+			model:      opts.Model,
+			prompt:     prompt,
+			srcless:    opts.Srcless,
+			mcpCommand: opts.MCPCommand,
+			exited:     make(chan struct{}),
 		}, nil
 	})
 }
@@ -594,27 +595,31 @@ func (a *claudeAdapter) RunLoop(_ context.Context, opts ProviderOpts) error {
 	return runLoop(opts.RC, opts.Alias, opts.Chrome, sel, opts.Srcless, opts.WorkDir, opts.AgentCfg)
 }
 
-// RunContainerLoop implements ContainerProvider — orchestrates parallel
-// per-slot containers each running an in-container `dx agent loop
-// --provider=claude`. Manager dispatches here when --container is set.
-func (a *claudeAdapter) RunContainerLoop(_ context.Context, opts ProviderOpts) error {
-	return runContainerLoop(opts.RC, opts.Alias, opts.AgentCfg, opts.KeepContainer)
+// RunContainerLoop implements ContainerProvider via the MCP-slot model:
+// each slot is a long-lived sandbox running `sleep infinity` with
+// /workspace bind-mounted; the host runs claude with --mcp-config pointing
+// at `docker exec -i <slot> dx-agent --mcp-stdio` and --tools "" so claude's
+// built-in tools are disabled and all file/shell operations dispatch into
+// the slot. Same orchestration as opencode/local.
+func (a *claudeAdapter) RunContainerLoop(ctx context.Context, opts ProviderOpts) error {
+	return runMCPContainerLoop(ctx, "claude", opts)
 }
 
 // claudeAdapter implements AgentAdapter against the real `claude` CLI. It
 // launches the process with ZDX-aware environment vars and returns the
 // transcript path that Claude writes its JSONL session to.
 type claudeAdapter struct {
-	rc       remoteConfig
-	agentCfg config.AgentConfig // honored by ResolveModel for the medium-tier ClaudeModel fallback
-	projDir  string
-	chrome   bool
-	prevSID  string
-	resumed  bool
-	alias    string
-	model    string
-	prompt   string // custom prompt; empty = "/work"
-	srcless  bool   // when true, inject DX_GLOBAL=1 into the subprocess env
+	rc         remoteConfig
+	agentCfg   config.AgentConfig // honored by ResolveModel for the medium-tier ClaudeModel fallback
+	projDir    string
+	chrome     bool
+	prevSID    string
+	resumed    bool
+	alias      string
+	model      string
+	prompt     string   // custom prompt; empty = "/work"
+	srcless    bool     // when true, inject DX_GLOBAL=1 into the subprocess env
+	mcpCommand []string // when non-empty, claude is launched with --mcp-config dispatching tools through this argv (dev-container mode)
 
 	scopedTokenID int32
 
@@ -635,6 +640,29 @@ func (a *claudeAdapter) ResolveModel(_ context.Context, complexity string) (stri
 		return "", err
 	}
 	return resolveComplexityModel(a.rc, tier, a.agentCfg), nil
+}
+
+// buildClaudeMCPConfig serializes argv into the inline JSON shape claude's
+// --mcp-config flag accepts: {"mcpServers": {"<name>": {"command": ..., "args": [...]}}}.
+// Returns the JSON string suitable for passing as --mcp-config <string>.
+// argv must be non-empty and split argv0 (command) from argv[1:] (args).
+func buildClaudeMCPConfig(argv []string) (string, error) {
+	if len(argv) == 0 {
+		return "", fmt.Errorf("mcp command must not be empty")
+	}
+	cfg := map[string]any{
+		"mcpServers": map[string]any{
+			"dx-tools": map[string]any{
+				"command": argv[0],
+				"args":    argv[1:],
+			},
+		},
+	}
+	b, err := json.Marshal(cfg)
+	if err != nil {
+		return "", err
+	}
+	return string(b), nil
 }
 
 // buildClaudeEnv builds the environment passed to the spawned claude CLI.
@@ -678,6 +706,22 @@ func (a *claudeAdapter) Start(ctx context.Context, sid, _, _ string) (string, er
 	}
 	if a.model != "" {
 		cmdArgs = append(cmdArgs, "--model", a.model)
+	}
+	// Dev-container mode: claude's built-in tools are disabled and tool calls
+	// dispatch through an MCP server spawned by mcpCommand (typically
+	// `docker exec -i <slot> dx-agent --mcp-stdio`). --strict-mcp-config
+	// ensures global ~/.claude/.mcp.json or repo-level .mcp.json don't sneak
+	// in.
+	if len(a.mcpCommand) > 0 {
+		mcpJSON, err := buildClaudeMCPConfig(a.mcpCommand)
+		if err != nil {
+			return "", fmt.Errorf("build claude --mcp-config: %w", err)
+		}
+		cmdArgs = append(cmdArgs,
+			"--mcp-config", mcpJSON,
+			"--strict-mcp-config",
+			"--tools", "",
+		)
 	}
 	prompt := a.prompt
 	if prompt == "" {
