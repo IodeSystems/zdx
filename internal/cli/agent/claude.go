@@ -19,7 +19,6 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/google/uuid"
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
@@ -99,14 +98,26 @@ func agentClaudeCmd() *cobra.Command {
 			sel := modelSelector{modelFlag: model, complexity: complexity, agentCfg: agentCfg}
 
 			if loop {
+				// Loop path keeps its richer runtime (self-update detection,
+				// crash-recovery resume, churn backoff, srcless worktree GC,
+				// session-balanced model picking). Worth its own migration pass.
 				return runLoop(rc, alias, chrome, sel, srcless, workDir)
 			}
-			ctx, cancel := context.WithCancel(cmd.Context())
-			defer cancel()
-			installReleaseOnSignal(rc, alias, "", nil, cancel)
-			sid := uuid.New().String()
-			resolved := sel.resolve(rc, 0)
-			return runSession(ctx, rc, sid, issue, alias, chrome, "", false, resolved, 0, nil, srcless)
+
+			// Single-session path goes through the shared manager so claude
+			// gets the same trace_id + View live logs URL + session events
+			// the other providers already emit.
+			opts := ProviderOpts{
+				RC:         rc,
+				AgentCfg:   agentCfg,
+				IssueID:    issue,
+				Alias:      alias,
+				Model:      sel.resolve(rc, 0),
+				Complexity: complexity,
+				Chrome:     chrome,
+				Srcless:    srcless,
+			}
+			return RunManagedSession(cmd.Context(), "claude", opts)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
