@@ -298,6 +298,29 @@ func (d *Daemon) handleIncoming(data []byte) {
 			default:
 			}
 		}
+
+	case "drain":
+		// Drain is informational at the daemon level — the consumer (loop)
+		// reads it from ControlCh and stops claiming new work, then the
+		// in-flight session releases on its own. The daemon itself stays
+		// connected so the operator can still see the drain in progress;
+		// the loop's exit cancels the daemon's parent ctx for clean close.
+		holder := d.Holder
+		if holder == nil {
+			holder = NoopHolder()
+		}
+		sid, issueID := "", ""
+		if task := holder.CurrentTask(); task != nil {
+			sid = task.SessionID
+			issueID = task.IssueID
+		}
+		log.Printf("agent draining (session=%s issue=%s)", sid, issueID)
+		if d.ControlCh != nil {
+			select {
+			case d.ControlCh <- ControlMsg{Type: "drain", SessionID: sid, IssueID: issueID}:
+			default:
+			}
+		}
 	}
 }
 

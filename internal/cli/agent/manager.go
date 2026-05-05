@@ -11,6 +11,7 @@ import (
 
 	"github.com/google/uuid"
 
+	"github.com/iodesystems/zdx-go/internal/agentdaemon"
 	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/pkg/zdxclient"
 )
@@ -191,6 +192,14 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	defer cancel()
 	installReleaseOnSignal(opts.RC, opts.Alias, stateFile, nil, cancel)
 
+	// Remote-control bridge (IS-1032): open a persistent WS to /api/agents/
+	// connect, expose a real TaskHolder reflecting the current claim, and
+	// react to server-pushed pause/resume/drain control messages. Best-
+	// effort: dial failures fall back to file-only operation so a working
+	// unattended loop never depends on an unavailable server.
+	holder := agentdaemon.NewLoopTaskHolder()
+	startDaemon(ctx, providerName, opts, holder)
+
 	// Self-update detection: hash the running binary at startup, re-hash each
 	// iteration, and re-exec if the hash changes. Long-running loops survive
 	// `make build` mid-flight without manual restart. fileHash returns ""
@@ -217,6 +226,21 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 			}
 		}
 
+		// Pause gate: server-pushed pause holds the loop here without
+		// claiming. The daemon's hold-loop keeps any in-flight claim's
+		// lease alive while we're parked. WaitWhilePaused returns
+		// immediately when not paused.
+		if err := holder.WaitWhilePaused(ctx); err != nil {
+			return err
+		}
+		// Drain gate: server-pushed drain (or operator-issued via
+		// `dx agent drain <id>`) means "no new claims." Exit the loop
+		// cleanly so the next deploy / shutdown isn't waiting on us.
+		if holder.DrainSignaled() {
+			fmt.Fprintf(os.Stderr, "[%s] drain signaled, exiting loop\n", providerName)
+			return nil
+		}
+
 		todo, err := claimNextTodo(opts.RC, opts.Alias, leaseMin)
 		if err != nil || todo == nil {
 			select {
@@ -234,10 +258,22 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		sid := uuid.New().String()
 		_ = os.WriteFile(stateFile, []byte(fmt.Sprintf("%s\n%s\n%d\n", issueID, sid, todo.ID)), 0o644)
 
+		// Hand the daemon a real TaskHolder snapshot for the duration of
+		// this session. The daemon's pause hold-loop calls holder.Renew
+		// while the operator has the agent paused; the renewer here is
+		// the same closure as the in-loop heartbeat.
+		renewClosure := func() { renewTodoLease(opts.RC, todo.ID, opts.Alias, leaseMin) }
+		holder.Set(agentdaemon.RunningTask{
+			ID:        fmt.Sprintf("%d", todo.ID),
+			SessionID: sid,
+			IssueID:   issueID,
+			Started:   time.Now(),
+		}, renewClosure)
+
 		// Lease renewal: heartbeat every leaseMin/2 (min 1 minute) until the
 		// session finishes or the loop context is cancelled.
 		renewCtx, stopRenew := context.WithCancel(ctx)
-		go func(todoID int32) {
+		go func() {
 			interval := time.Duration(leaseMin/2) * time.Minute
 			if interval < time.Minute {
 				interval = time.Minute
@@ -249,10 +285,10 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 				case <-renewCtx.Done():
 					return
 				case <-ticker.C:
-					renewTodoLease(opts.RC, todoID, opts.Alias, leaseMin)
+					renewClosure()
 				}
 			}
-		}(todo.ID)
+		}()
 
 		seed := fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s\n\nWork this vertical: resolve the items for the referenced issue, then close it. Use dx tools for project ops and filesystem/shell tools for code changes. Stop when the issue is closed or blocked.",
 			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
@@ -263,6 +299,7 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		sessOpts.SeedPrompt = seed
 		runErr := RunManagedSession(ctx, providerName, sessOpts)
 		stopRenew()
+		holder.Clear()
 
 		// Resolve the todo on success; release (without resolving) on error
 		// so the queue can re-evaluate it. Branch contract validation runs
@@ -392,4 +429,62 @@ func newManagedTraceLogger(rc remoteConfig, providerName, model, sid, issueID, a
 		return nil, nil, err
 	}
 	return logger, client, nil
+}
+
+// startDaemon opens a persistent WebSocket to /api/agents/connect for the
+// managed loop and spawns a goroutine that translates server→agent control
+// messages into LoopTaskHolder state changes. Best-effort: dial failures
+// fall back to file-only operation so a working unattended loop never
+// depends on an unavailable server. ctx cancellation closes the daemon.
+func startDaemon(ctx context.Context, providerName string, opts ProviderOpts, holder *agentdaemon.LoopTaskHolder) {
+	if opts.RC.url == "" || opts.RC.key == "" {
+		return // no server to connect to
+	}
+	hostname, _ := os.Hostname()
+	ctrlCh := make(chan agentdaemon.ControlMsg, 16)
+
+	d := &agentdaemon.Daemon{
+		ServerURL:    opts.RC.url,
+		AgentID:      opts.Alias,
+		APIKey:       opts.RC.key,
+		WorktreePath: opts.WorkDir, // empty in non-srcless mode → server treats as cwd
+		Hostname:     hostname,
+		Pid:          int32(os.Getpid()),
+		Capabilities: []string{providerName},
+		Holder:       holder,
+		PauseRenewer: holder, // LoopTaskHolder satisfies LeaseRenewer
+		ControlCh:    ctrlCh,
+	}
+
+	go func() {
+		// RunForever retries with backoff so a server bounce doesn't kill
+		// the loop's ability to react to control commands when the server
+		// comes back. Returns nil on ctx cancellation.
+		if err := d.RunForever(ctx); err != nil {
+			fmt.Fprintf(os.Stderr, "[%s] agent daemon: %v (continuing without remote control)\n", providerName, err)
+		}
+	}()
+
+	go func() {
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case msg := <-ctrlCh:
+				switch msg.Type {
+				case "pause":
+					holder.SetPaused(true)
+					fmt.Fprintf(os.Stderr, "[%s] paused (session=%s issue=%s)\n", providerName, msg.SessionID, msg.IssueID)
+				case "resume":
+					holder.SetPaused(false)
+					fmt.Fprintf(os.Stderr, "[%s] resumed\n", providerName)
+				case "drain":
+					holder.SignalDrain()
+					// Drain also unblocks any active pause so the loop
+					// reaches its next-iteration check and exits.
+					holder.SetPaused(false)
+				}
+			}
+		}
+	}()
 }
