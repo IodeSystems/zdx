@@ -109,7 +109,7 @@ tasks and cheap ones for quick fixes without changing config.`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&model, "model", "", "model name (overrides config and --complexity)")
 	cmd.Flags().StringVar(&complexity, "complexity", "medium", "model tier: low|medium|high (cascades through server LLM config)")
-	cmd.Flags().IntVar(&maxTurns, "max-turns", 10000, "cap on assistant turns per session (0 = unlimited)")
+	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited)")
 	return cmd
 }
 
