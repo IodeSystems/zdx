@@ -35,14 +35,33 @@ import (
 // into the server's context_json column.
 type Tags map[string]string
 
+// AuthMode selects how the bearer-secret is presented to the server.
+//   - AuthBearer (default): "Authorization: Bearer <token>" — for integration tokens.
+//   - AuthApiKey: "X-Api-Key: <token>" — for user/admin/scoped api keys; only the
+//     log-ingest endpoint accepts this mode today.
+type AuthMode string
+
+const (
+	AuthBearer AuthMode = "bearer"
+	AuthApiKey AuthMode = "x-api-key"
+)
+
 // Config controls a Client's endpoint, identity, and batching behavior.
 // Only Endpoint and Token are required; other fields have sensible defaults.
 type Config struct {
 	// Endpoint is the zdx base URL, e.g. "https://zdx.example.com". No trailing slash required.
 	Endpoint string
 
-	// Token is the bearer token issued by an admin via POST /api/admin/integration-tokens.
+	// Token is the secret used to authenticate. Interpretation depends on AuthMode.
 	Token string
+
+	// AuthMode selects the authentication header. Defaults to AuthBearer.
+	AuthMode AuthMode
+
+	// ProjectSlug is stamped on log batches when the token isn't project-bound
+	// (e.g. user/admin api key, or unbound integration token). Required for the
+	// AuthApiKey mode against /api/ingest/logs. Optional otherwise.
+	ProjectSlug string
 
 	// Component overrides the token's default component for every event. Optional.
 	Component string
@@ -139,6 +158,7 @@ type logEvent struct {
 }
 
 type logBatch struct {
+	ProjectSlug string     `json:"project_slug,omitempty"`
 	Component   string     `json:"component,omitempty"`
 	Environment string     `json:"environment,omitempty"`
 	Host        string     `json:"host,omitempty"`
@@ -168,6 +188,9 @@ func New(cfg Config) (*Client, error) {
 	}
 	if cfg.OnError == nil {
 		cfg.OnError = func(error, int) {}
+	}
+	if cfg.AuthMode == "" {
+		cfg.AuthMode = AuthBearer
 	}
 	c := &Client{
 		cfg:           cfg,
@@ -267,6 +290,16 @@ func (c *Client) RecordErrorWithStack(name, message, stackTrace, source string, 
 	case c.errorEvents <- ev:
 	default:
 		c.dropped.Add(1)
+	}
+}
+
+// applyAuth sets the request's auth header based on cfg.AuthMode.
+func (c *Client) applyAuth(req *http.Request) {
+	switch c.cfg.AuthMode {
+	case AuthApiKey:
+		req.Header.Set("X-Api-Key", c.cfg.Token)
+	default:
+		req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
 	}
 }
 
@@ -420,7 +453,7 @@ func (c *Client) flushCounters(events []counterEvent) {
 			break
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+		c.applyAuth(req)
 		resp, doErr := c.cfg.HTTPClient.Do(req)
 		if doErr != nil {
 			lastErr = doErr
@@ -498,7 +531,7 @@ func (c *Client) flushErrors(events []errorEvent) {
 			break
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+		c.applyAuth(req)
 		resp, doErr := c.cfg.HTTPClient.Do(req)
 		if doErr != nil {
 			lastErr = doErr
@@ -553,6 +586,7 @@ func (c *Client) runLogs() {
 
 func (c *Client) flushLogs(events []logEvent) {
 	payload := logBatch{
+		ProjectSlug: c.cfg.ProjectSlug,
 		Component:   c.cfg.Component,
 		Environment: c.cfg.Environment,
 		Host:        c.cfg.Host,
@@ -576,7 +610,7 @@ func (c *Client) flushLogs(events []logEvent) {
 			break
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+		c.applyAuth(req)
 		resp, doErr := c.cfg.HTTPClient.Do(req)
 		if doErr != nil {
 			lastErr = doErr
@@ -622,7 +656,7 @@ func (c *Client) flush(events []event) {
 			break
 		}
 		req.Header.Set("Content-Type", "application/json")
-		req.Header.Set("Authorization", "Bearer "+c.cfg.Token)
+		c.applyAuth(req)
 		resp, doErr := c.cfg.HTTPClient.Do(req)
 		if doErr != nil {
 			lastErr = doErr

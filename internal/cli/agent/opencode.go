@@ -20,6 +20,7 @@ import (
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/llm"
+	"github.com/iodesystems/zdx-go/pkg/zdxclient"
 )
 
 func agentOpenCodeCmd() *cobra.Command {
@@ -137,9 +138,18 @@ func runOpenCodeSession(ctx context.Context, rc remoteConfig, llmCfg config.LLML
 		}
 	}()
 
-	tlog, tlogErr := newOpenCodeTraceLogger(rc, llmCfg, sid, issueID, alias)
+	tlog, tsink, tlogErr := newOpenCodeTraceLogger(rc, llmCfg, sid, issueID, alias, token)
 	if tlogErr != nil {
 		fmt.Fprintf(os.Stderr, "tracelog: %v (continuing without structured logging)\n", tlogErr)
+	}
+	if tsink != nil {
+		// Drain network buffer after the file logger has emitted its final
+		// session.end. Defer order: tsink registered first → runs last.
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = tsink.Close(closeCtx)
+		}()
 	}
 	if tlog != nil {
 		defer tlog.Close()
@@ -171,11 +181,14 @@ func runOpenCodeSession(ctx context.Context, rc remoteConfig, llmCfg config.LLML
 	return err
 }
 
-// newOpenCodeTraceLogger builds a tracelog.Logger for the session, stamped
-// with agent/session/git context and writing JSONL to .zdx/logs. The network
-// sink is left nil pending a server-side allowance for scoped tokens to call
-// /api/ingest/logs (Phase 1 demo: file-only).
-func newOpenCodeTraceLogger(rc remoteConfig, llmCfg config.LLMLocal, sid, issueID, alias string) (*tracelog.Logger, error) {
+// newOpenCodeTraceLogger builds the tracelog.Logger for the session, stamped
+// with agent/session/git context. Output goes to a JSONL file under
+// .zdx/logs and (when scopedToken + rc.url are set) to the zdx server's
+// /api/ingest/logs endpoint via the AuthApiKey path — the dual-auth handler
+// resolves the project from rc.slug since scoped admin tokens aren't bound
+// to an integration token row. Returns the logger plus the underlying
+// zdxclient (caller closes it after the logger to drain the network buffer).
+func newOpenCodeTraceLogger(rc remoteConfig, llmCfg config.LLMLocal, sid, issueID, alias, scopedToken string) (*tracelog.Logger, *zdxclient.Client, error) {
 	branch, _ := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
 	worktree := "main"
 	if out, err := exec.Command("git", "rev-parse", "--git-dir").Output(); err == nil {
@@ -194,11 +207,43 @@ func newOpenCodeTraceLogger(rc remoteConfig, llmCfg config.LLMLocal, sid, issueI
 		"worktree":   worktree,
 		"pid":        fmt.Sprintf("%d", os.Getpid()),
 	}
-	return tracelog.New(tracelog.Options{
+
+	var sink tracelog.Sink
+	var client *zdxclient.Client
+	if rc.url != "" && scopedToken != "" {
+		c, err := zdxclient.New(zdxclient.Config{
+			Endpoint:    rc.url,
+			Token:       scopedToken,
+			AuthMode:    zdxclient.AuthApiKey,
+			ProjectSlug: rc.slug,
+			Component:   "agent-opencode",
+			OnError: func(err error, n int) {
+				fmt.Fprintf(os.Stderr, "tracelog ingest: %v (%d events)\n", err, n)
+			},
+		})
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "tracelog: zdxclient init: %v (continuing file-only)\n", err)
+		} else {
+			client = c
+			sink = c
+		}
+	}
+
+	logger, err := tracelog.New(tracelog.Options{
 		BaseTags:  tags,
 		FilePath:  filepath.Join(".zdx", "logs", "opencode-"+sid[:8]+".jsonl"),
+		Sink:      sink,
 		Component: "agent-opencode",
 	})
+	if err != nil {
+		if client != nil {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			_ = client.Close(closeCtx)
+			cancel()
+		}
+		return nil, nil, err
+	}
+	return logger, client, nil
 }
 
 // ── OpenCode AgentAdapter ─────────────────────────────────────────────────
