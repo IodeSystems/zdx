@@ -16,6 +16,7 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/llm"
@@ -136,13 +137,68 @@ func runOpenCodeSession(ctx context.Context, rc remoteConfig, llmCfg config.LLML
 		}
 	}()
 
+	tlog, tlogErr := newOpenCodeTraceLogger(rc, llmCfg, sid, issueID, alias)
+	if tlogErr != nil {
+		fmt.Fprintf(os.Stderr, "tracelog: %v (continuing without structured logging)\n", tlogErr)
+	}
+	if tlog != nil {
+		defer tlog.Close()
+		if u := tlog.FilteredURL(rc.url, rc.slug); u != "" {
+			fmt.Printf("View live logs: %s\n", u)
+		}
+		tlog.Info("session.start",
+			"sid", sid,
+			"issue_id", issueID,
+			"alias", alias,
+			"model", llmCfg.Model)
+	}
+
 	adapter := &opencodeAdapter{
 		llmCfg:     llmCfg,
 		maxTurns:   maxTurns,
 		seedPrompt: seedPrompt,
 	}
 	_, err = RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "opencode-cli", 0)
+	if tlog != nil {
+		status := "ok"
+		errStr := ""
+		if err != nil {
+			status = "error"
+			errStr = err.Error()
+		}
+		tlog.Info("session.end", "status", status, "err", errStr)
+	}
 	return err
+}
+
+// newOpenCodeTraceLogger builds a tracelog.Logger for the session, stamped
+// with agent/session/git context and writing JSONL to .zdx/logs. The network
+// sink is left nil pending a server-side allowance for scoped tokens to call
+// /api/ingest/logs (Phase 1 demo: file-only).
+func newOpenCodeTraceLogger(rc remoteConfig, llmCfg config.LLMLocal, sid, issueID, alias string) (*tracelog.Logger, error) {
+	branch, _ := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
+	worktree := "main"
+	if out, err := exec.Command("git", "rev-parse", "--git-dir").Output(); err == nil {
+		if strings.Contains(string(out), "/worktrees/") {
+			worktree = "worktree"
+		}
+	}
+	tags := map[string]string{
+		"agent":      "opencode",
+		"session_id": sid,
+		"issue_id":   issueID,
+		"alias":      alias,
+		"slug":       rc.slug,
+		"model":      llmCfg.Model,
+		"branch":     strings.TrimSpace(string(branch)),
+		"worktree":   worktree,
+		"pid":        fmt.Sprintf("%d", os.Getpid()),
+	}
+	return tracelog.New(tracelog.Options{
+		BaseTags:  tags,
+		FilePath:  filepath.Join(".zdx", "logs", "opencode-"+sid[:8]+".jsonl"),
+		Component: "agent-opencode",
+	})
 }
 
 // ── OpenCode AgentAdapter ─────────────────────────────────────────────────
