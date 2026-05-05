@@ -176,6 +176,7 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 		Glob          string `json:"glob,omitempty" jsonschema:"filename glob filter (e.g. *.go)"`
 		CaseSensitive bool   `json:"case_sensitive,omitempty" jsonschema:"case-sensitive match (default false)"`
 		Limit         int    `json:"limit,omitempty" jsonschema:"max matching lines to return (default 200)"`
+		MatchLen      int    `json:"match_len,omitempty" jsonschema:"max chars of matching line text; longer lines are windowed around the match with ... ellipses (default 200, 0 disables truncation)"`
 	}
 	mcp.AddTool(srv, &mcp.Tool{
 		Name:        "grep",
@@ -201,6 +202,10 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 		if limit <= 0 {
 			limit = 200
 		}
+		matchLen := in.MatchLen
+		if matchLen == 0 {
+			matchLen = 200
+		}
 		var matches []map[string]any
 		walk := func(path string, info os.FileInfo) error {
 			if info.IsDir() || len(matches) >= limit {
@@ -218,15 +223,19 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 			}
 			rel, _ := filepath.Rel(root, path)
 			for i, line := range strings.Split(string(data), "\n") {
-				if re.MatchString(line) {
-					matches = append(matches, map[string]any{
-						"path": rel,
-						"line": i + 1,
-						"text": line,
-					})
-					if len(matches) >= limit {
-						return nil
-					}
+				loc := re.FindStringIndex(line)
+				if loc == nil {
+					continue
+				}
+				text, off := windowMatch(line, loc, matchLen)
+				matches = append(matches, map[string]any{
+					"path": rel,
+					"line": i + 1,
+					"col":  off + 1,
+					"text": text,
+				})
+				if len(matches) >= limit {
+					return nil
 				}
 			}
 			return nil
@@ -254,6 +263,53 @@ func RegisterFSTools(srv *mcp.Server, root string) {
 		}
 		return nil, map[string]any{"pattern": in.Pattern, "matches": matches}, nil
 	})
+}
+
+// windowMatch trims line down to at most maxLen bytes around the match at loc,
+// centering the match in the window and prefixing/suffixing "..." when content
+// was elided. maxLen <= 0 disables truncation. If the match itself exceeds the
+// budget, the match is truncated with ellipses too. Returns the windowed text
+// and the byte offset (0-based) at which the returned non-ellipsis content
+// starts in the original line.
+func windowMatch(line string, loc []int, maxLen int) (string, int) {
+	if maxLen <= 0 || len(line) <= maxLen {
+		return line, 0
+	}
+	const ell = "..."
+	matchStart, matchEnd := loc[0], loc[1]
+	matchSize := matchEnd - matchStart
+	if matchSize >= maxLen {
+		end := matchStart + maxLen
+		if end > len(line) {
+			end = len(line)
+		}
+		return ell + line[matchStart:end] + ell, matchStart
+	}
+	budget := maxLen - matchSize
+	leftBudget := budget / 2
+	rightBudget := budget - leftBudget
+	start := matchStart - leftBudget
+	end := matchEnd + rightBudget
+	if start < 0 {
+		end += -start
+		start = 0
+	}
+	if end > len(line) {
+		start -= end - len(line)
+		end = len(line)
+	}
+	if start < 0 {
+		start = 0
+	}
+	prefix := ""
+	if start > 0 {
+		prefix = ell
+	}
+	suffix := ""
+	if end < len(line) {
+		suffix = ell
+	}
+	return prefix + line[start:end] + suffix, start
 }
 
 // resolveInRoot resolves rel relative to root, returning an absolute path that
