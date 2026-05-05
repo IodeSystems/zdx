@@ -24,7 +24,7 @@ import (
 func AgentCmd() *cobra.Command {
 	cmd := &cobra.Command{Use: "agent", Short: "Agent lifecycle management"}
 	cmd.PersistentFlags().Bool("global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
-	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
+	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentOpenCodeCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
 }
 
