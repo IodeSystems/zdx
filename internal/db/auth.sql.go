@@ -355,6 +355,39 @@ func (q *Queries) GetUserByID(ctx context.Context, id int32) (GetUserByIDRow, er
 	return i, err
 }
 
+const listAdminScopedApiKeys = `-- name: ListAdminScopedApiKeys :many
+SELECT id, name, last_used_at
+FROM zdx_api_keys
+WHERE project_scope IS NULL
+ORDER BY last_used_at DESC NULLS LAST
+`
+
+type ListAdminScopedApiKeysRow struct {
+	ID         int32              `db:"id" json:"id"`
+	Name       string             `db:"name" json:"name"`
+	LastUsedAt pgtype.Timestamptz `db:"last_used_at" json:"last_used_at"`
+}
+
+func (q *Queries) ListAdminScopedApiKeys(ctx context.Context) ([]ListAdminScopedApiKeysRow, error) {
+	rows, err := q.db.Query(ctx, listAdminScopedApiKeys)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []ListAdminScopedApiKeysRow
+	for rows.Next() {
+		var i ListAdminScopedApiKeysRow
+		if err := rows.Scan(&i.ID, &i.Name, &i.LastUsedAt); err != nil {
+			return nil, err
+		}
+		items = append(items, i)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listApiKeysByUser = `-- name: ListApiKeysByUser :many
 SELECT id, name, project_scope, last_used_at, created_at
 FROM zdx_api_keys WHERE user_id = $1 ORDER BY created_at DESC

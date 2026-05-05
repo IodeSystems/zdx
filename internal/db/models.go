@@ -390,14 +390,15 @@ type ZdxIncompleteReportSideEffect struct {
 }
 
 type ZdxIntegrationToken struct {
-	ID          int32              `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Component   pgtype.Text        `db:"component" json:"component"`
-	Name        string             `db:"name" json:"name"`
-	TokenHash   string             `db:"token_hash" json:"token_hash"`
-	TokenPrefix string             `db:"token_prefix" json:"token_prefix"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	RevokedAt   pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	ID           int32              `db:"id" json:"id"`
+	ProjectID    pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component    pgtype.Text        `db:"component" json:"component"`
+	Name         string             `db:"name" json:"name"`
+	TokenHash    string             `db:"token_hash" json:"token_hash"`
+	TokenPrefix  string             `db:"token_prefix" json:"token_prefix"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	RevokedAt    pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	Capabilities []string           `db:"capabilities" json:"capabilities"`
 }
 
 type ZdxInvite struct {
@@ -938,6 +939,14 @@ type ZdxTestDemo struct {
 	RecordedSha    string             `db:"recorded_sha" json:"recorded_sha"`
 }
 
+type ZdxTestFixIssue struct {
+	ProjectID           int32              `db:"project_id" json:"project_id"`
+	Reason              string             `db:"reason" json:"reason"`
+	EvidenceFingerprint string             `db:"evidence_fingerprint" json:"evidence_fingerprint"`
+	IssueID             string             `db:"issue_id" json:"issue_id"`
+	CreatedAt           pgtype.Timestamptz `db:"created_at" json:"created_at"`
+}
+
 type ZdxTestResult struct {
 	ID         int32              `db:"id" json:"id"`
 	ProjectID  int32              `db:"project_id" json:"project_id"`
@@ -1050,6 +1059,8 @@ type ZdxVersionBranch struct {
 	Role             string             `db:"role" json:"role"`
 	SourceBranchName pgtype.Text        `db:"source_branch_name" json:"source_branch_name"`
 	AutoSeed         bool               `db:"auto_seed" json:"auto_seed"`
+	MergeStyle       pgtype.Text        `db:"merge_style" json:"merge_style"`
+	RequiredChecks   pgtype.Text        `db:"required_checks" json:"required_checks"`
 }
 
 type ZdxWorkLog struct {

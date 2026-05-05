@@ -197,6 +197,37 @@ func (q *Queries) ListDeploys(ctx context.Context, environmentID int32) ([]ZdxDe
 	return items, nil
 }
 
+const listEnvironmentNamesBoundToBranch = `-- name: ListEnvironmentNamesBoundToBranch :many
+SELECT name FROM zdx_environments
+WHERE project_id = $1 AND (release_branch = $2 OR trunk_branch = $2)
+ORDER BY name ASC
+`
+
+type ListEnvironmentNamesBoundToBranchParams struct {
+	ProjectID  int32  `db:"project_id" json:"project_id"`
+	BranchName string `db:"branch_name" json:"branch_name"`
+}
+
+func (q *Queries) ListEnvironmentNamesBoundToBranch(ctx context.Context, arg ListEnvironmentNamesBoundToBranchParams) ([]string, error) {
+	rows, err := q.db.Query(ctx, listEnvironmentNamesBoundToBranch, arg.ProjectID, arg.BranchName)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+	var items []string
+	for rows.Next() {
+		var name string
+		if err := rows.Scan(&name); err != nil {
+			return nil, err
+		}
+		items = append(items, name)
+	}
+	if err := rows.Err(); err != nil {
+		return nil, err
+	}
+	return items, nil
+}
+
 const listEnvironments = `-- name: ListEnvironments :many
 SELECT id, project_id, name, url, release_branch, trunk_branch, current_build_sha, current_build_branch, deployed_at, deployed_by_user_id, created_at
 FROM zdx_environments WHERE project_id = $1 ORDER BY name ASC

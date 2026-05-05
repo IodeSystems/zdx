@@ -16,50 +16,54 @@ var MetaCreateIntegrationToken = metaquery.Query{
 	Name:   "CreateIntegrationToken",
 	Cmd:    ":one",
 	Source: "integration_tokens.sql",
-	SQL: `INSERT INTO zdx_integration_token (project_id, component, name, token_hash, token_prefix)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, component, name, token_prefix, created_at, revoked_at`,
+	SQL: `INSERT INTO zdx_integration_token (project_id, component, name, token_hash, token_prefix, capabilities)
+VALUES ($1, $2, $3, $4, $5, COALESCE($6::text[], ARRAY['ingest:logs']::text[]))
+RETURNING id, project_id, component, name, token_prefix, capabilities, created_at, revoked_at`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_integration_token"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_integration_token"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_integration_token"},
 		{Name: "component", OriginalName: "component", GoType: "pgtype.Text", DBType: "text", Table: "zdx_integration_token"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_integration_token"},
 		{Name: "token_prefix", OriginalName: "token_prefix", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_integration_token"},
+		{Name: "capabilities", OriginalName: "capabilities", GoType: "[]string", DBType: "text", NotNull: true, IsArray: true, Table: "zdx_integration_token"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_integration_token"},
 		{Name: "revoked_at", OriginalName: "revoked_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_integration_token"},
 	},
 	Args: []metaquery.Arg{
-		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 1, Name: "project_id", GoType: "pgtype.Int4", DBType: "pg_catalog.int4"},
 		{Position: 2, Name: "component", GoType: "pgtype.Text", DBType: "text"},
 		{Position: 3, Name: "name", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 4, Name: "token_hash", GoType: "string", DBType: "text", NotNull: true},
 		{Position: 5, Name: "token_prefix", GoType: "string", DBType: "text", NotNull: true},
+		{Position: 6, Name: "capabilities", GoType: "[]string", DBType: "text", IsArray: true},
 	},
 	Table: &metaquery.Table{Name: "zdx_integration_token"},
 }
 
 // WrapCreateIntegrationToken returns a metaquery.Builder over MetaCreateIntegrationToken, pre-bound with typed arguments.
 func WrapCreateIntegrationToken(arg CreateIntegrationTokenParams) *metaquery.Builder {
-	return metaquery.Wrap(&MetaCreateIntegrationToken, arg.ProjectID, arg.Component, arg.Name, arg.TokenHash, arg.TokenPrefix)
+	return metaquery.Wrap(&MetaCreateIntegrationToken, arg.ProjectID, arg.Component, arg.Name, arg.TokenHash, arg.TokenPrefix, arg.Capabilities)
 }
 
 // CreateIntegrationTokenCols gives typed, name-safe access to CreateIntegrationToken's output columns.
 var CreateIntegrationTokenCols = struct {
-	ID          metaquery.IntCol
-	ProjectID   metaquery.IntCol
-	Component   metaquery.TextCol
-	Name        metaquery.TextCol
-	TokenPrefix metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	RevokedAt   metaquery.TimeCol
+	ID           metaquery.IntCol
+	ProjectID    metaquery.IntCol
+	Component    metaquery.TextCol
+	Name         metaquery.TextCol
+	TokenPrefix  metaquery.TextCol
+	Capabilities metaquery.AnyCol
+	CreatedAt    metaquery.TimeCol
+	RevokedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewIntCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Component:   metaquery.NewTextCol("component"),
-	Name:        metaquery.NewTextCol("name"),
-	TokenPrefix: metaquery.NewTextCol("token_prefix"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	RevokedAt:   metaquery.NewTimeCol("revoked_at"),
+	ID:           metaquery.NewIntCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Component:    metaquery.NewTextCol("component"),
+	Name:         metaquery.NewTextCol("name"),
+	TokenPrefix:  metaquery.NewTextCol("token_prefix"),
+	Capabilities: metaquery.NewAnyCol("capabilities"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	RevokedAt:    metaquery.NewTimeCol("revoked_at"),
 }
 
 var MetaDeleteIntegrationToken = metaquery.Query{
@@ -81,15 +85,16 @@ var MetaGetIntegrationTokenByHash = metaquery.Query{
 	Name:   "GetIntegrationTokenByHash",
 	Cmd:    ":one",
 	Source: "integration_tokens.sql",
-	SQL: `SELECT id, project_id, component, name, token_prefix, created_at, revoked_at
+	SQL: `SELECT id, project_id, component, name, token_prefix, capabilities, created_at, revoked_at
 FROM zdx_integration_token
 WHERE token_hash = $1`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_integration_token"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_integration_token"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_integration_token"},
 		{Name: "component", OriginalName: "component", GoType: "pgtype.Text", DBType: "text", Table: "zdx_integration_token"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_integration_token"},
 		{Name: "token_prefix", OriginalName: "token_prefix", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_integration_token"},
+		{Name: "capabilities", OriginalName: "capabilities", GoType: "[]string", DBType: "text", NotNull: true, IsArray: true, Table: "zdx_integration_token"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_integration_token"},
 		{Name: "revoked_at", OriginalName: "revoked_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_integration_token"},
 	},
@@ -105,37 +110,40 @@ func WrapGetIntegrationTokenByHash(tokenHash string) *metaquery.Builder {
 
 // GetIntegrationTokenByHashCols gives typed, name-safe access to GetIntegrationTokenByHash's output columns.
 var GetIntegrationTokenByHashCols = struct {
-	ID          metaquery.IntCol
-	ProjectID   metaquery.IntCol
-	Component   metaquery.TextCol
-	Name        metaquery.TextCol
-	TokenPrefix metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	RevokedAt   metaquery.TimeCol
+	ID           metaquery.IntCol
+	ProjectID    metaquery.IntCol
+	Component    metaquery.TextCol
+	Name         metaquery.TextCol
+	TokenPrefix  metaquery.TextCol
+	Capabilities metaquery.AnyCol
+	CreatedAt    metaquery.TimeCol
+	RevokedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewIntCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Component:   metaquery.NewTextCol("component"),
-	Name:        metaquery.NewTextCol("name"),
-	TokenPrefix: metaquery.NewTextCol("token_prefix"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	RevokedAt:   metaquery.NewTimeCol("revoked_at"),
+	ID:           metaquery.NewIntCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Component:    metaquery.NewTextCol("component"),
+	Name:         metaquery.NewTextCol("name"),
+	TokenPrefix:  metaquery.NewTextCol("token_prefix"),
+	Capabilities: metaquery.NewAnyCol("capabilities"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	RevokedAt:    metaquery.NewTimeCol("revoked_at"),
 }
 
 var MetaListIntegrationTokens = metaquery.Query{
 	Name:   "ListIntegrationTokens",
 	Cmd:    ":many",
 	Source: "integration_tokens.sql",
-	SQL: `SELECT id, project_id, component, name, token_prefix, created_at, revoked_at
+	SQL: `SELECT id, project_id, component, name, token_prefix, capabilities, created_at, revoked_at
 FROM zdx_integration_token
 WHERE ($1::int IS NULL OR project_id = $1)
 ORDER BY created_at DESC`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_integration_token"},
-		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_integration_token"},
+		{Name: "project_id", OriginalName: "project_id", GoType: "pgtype.Int4", DBType: "int4", Table: "zdx_integration_token"},
 		{Name: "component", OriginalName: "component", GoType: "pgtype.Text", DBType: "text", Table: "zdx_integration_token"},
 		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_integration_token"},
 		{Name: "token_prefix", OriginalName: "token_prefix", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_integration_token"},
+		{Name: "capabilities", OriginalName: "capabilities", GoType: "[]string", DBType: "text", NotNull: true, IsArray: true, Table: "zdx_integration_token"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_integration_token"},
 		{Name: "revoked_at", OriginalName: "revoked_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_integration_token"},
 	},
@@ -151,21 +159,23 @@ func WrapListIntegrationTokens(projectID pgtype.Int4) *metaquery.Builder {
 
 // ListIntegrationTokensCols gives typed, name-safe access to ListIntegrationTokens's output columns.
 var ListIntegrationTokensCols = struct {
-	ID          metaquery.IntCol
-	ProjectID   metaquery.IntCol
-	Component   metaquery.TextCol
-	Name        metaquery.TextCol
-	TokenPrefix metaquery.TextCol
-	CreatedAt   metaquery.TimeCol
-	RevokedAt   metaquery.TimeCol
+	ID           metaquery.IntCol
+	ProjectID    metaquery.IntCol
+	Component    metaquery.TextCol
+	Name         metaquery.TextCol
+	TokenPrefix  metaquery.TextCol
+	Capabilities metaquery.AnyCol
+	CreatedAt    metaquery.TimeCol
+	RevokedAt    metaquery.TimeCol
 }{
-	ID:          metaquery.NewIntCol("id"),
-	ProjectID:   metaquery.NewIntCol("project_id"),
-	Component:   metaquery.NewTextCol("component"),
-	Name:        metaquery.NewTextCol("name"),
-	TokenPrefix: metaquery.NewTextCol("token_prefix"),
-	CreatedAt:   metaquery.NewTimeCol("created_at"),
-	RevokedAt:   metaquery.NewTimeCol("revoked_at"),
+	ID:           metaquery.NewIntCol("id"),
+	ProjectID:    metaquery.NewIntCol("project_id"),
+	Component:    metaquery.NewTextCol("component"),
+	Name:         metaquery.NewTextCol("name"),
+	TokenPrefix:  metaquery.NewTextCol("token_prefix"),
+	Capabilities: metaquery.NewAnyCol("capabilities"),
+	CreatedAt:    metaquery.NewTimeCol("created_at"),
+	RevokedAt:    metaquery.NewTimeCol("revoked_at"),
 }
 
 var MetaRevokeIntegrationToken = metaquery.Query{

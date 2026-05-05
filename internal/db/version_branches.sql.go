@@ -14,7 +14,7 @@ import (
 const createVersionBranch = `-- name: CreateVersionBranch :one
 INSERT INTO zdx_version_branches (project_id, name, role, semver, status, source_branch_name, auto_seed)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
+RETURNING id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at, merge_style, required_checks
 `
 
 type CreateVersionBranchParams struct {
@@ -37,6 +37,8 @@ type CreateVersionBranchRow struct {
 	SourceBranchName pgtype.Text        `db:"source_branch_name" json:"source_branch_name"`
 	AutoSeed         bool               `db:"auto_seed" json:"auto_seed"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	MergeStyle       pgtype.Text        `db:"merge_style" json:"merge_style"`
+	RequiredChecks   pgtype.Text        `db:"required_checks" json:"required_checks"`
 }
 
 func (q *Queries) CreateVersionBranch(ctx context.Context, arg CreateVersionBranchParams) (CreateVersionBranchRow, error) {
@@ -60,8 +62,24 @@ func (q *Queries) CreateVersionBranch(ctx context.Context, arg CreateVersionBran
 		&i.SourceBranchName,
 		&i.AutoSeed,
 		&i.CreatedAt,
+		&i.MergeStyle,
+		&i.RequiredChecks,
 	)
 	return i, err
+}
+
+const deleteVersionBranch = `-- name: DeleteVersionBranch :exec
+DELETE FROM zdx_version_branches WHERE project_id = $1 AND name = $2
+`
+
+type DeleteVersionBranchParams struct {
+	ProjectID int32  `db:"project_id" json:"project_id"`
+	Name      string `db:"name" json:"name"`
+}
+
+func (q *Queries) DeleteVersionBranch(ctx context.Context, arg DeleteVersionBranchParams) error {
+	_, err := q.db.Exec(ctx, deleteVersionBranch, arg.ProjectID, arg.Name)
+	return err
 }
 
 const getReleaseBranchSource = `-- name: GetReleaseBranchSource :one
@@ -83,7 +101,7 @@ func (q *Queries) GetReleaseBranchSource(ctx context.Context, arg GetReleaseBran
 }
 
 const getVersionBranchByName = `-- name: GetVersionBranchByName :one
-SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
+SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at, merge_style, required_checks
 FROM zdx_version_branches
 WHERE project_id = $1 AND name = $2
 `
@@ -103,6 +121,8 @@ type GetVersionBranchByNameRow struct {
 	SourceBranchName pgtype.Text        `db:"source_branch_name" json:"source_branch_name"`
 	AutoSeed         bool               `db:"auto_seed" json:"auto_seed"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	MergeStyle       pgtype.Text        `db:"merge_style" json:"merge_style"`
+	RequiredChecks   pgtype.Text        `db:"required_checks" json:"required_checks"`
 }
 
 func (q *Queries) GetVersionBranchByName(ctx context.Context, arg GetVersionBranchByNameParams) (GetVersionBranchByNameRow, error) {
@@ -118,12 +138,14 @@ func (q *Queries) GetVersionBranchByName(ctx context.Context, arg GetVersionBran
 		&i.SourceBranchName,
 		&i.AutoSeed,
 		&i.CreatedAt,
+		&i.MergeStyle,
+		&i.RequiredChecks,
 	)
 	return i, err
 }
 
 const listVersionBranches = `-- name: ListVersionBranches :many
-SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
+SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at, merge_style, required_checks
 FROM zdx_version_branches
 WHERE project_id = $1
 ORDER BY created_at ASC
@@ -139,6 +161,8 @@ type ListVersionBranchesRow struct {
 	SourceBranchName pgtype.Text        `db:"source_branch_name" json:"source_branch_name"`
 	AutoSeed         bool               `db:"auto_seed" json:"auto_seed"`
 	CreatedAt        pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	MergeStyle       pgtype.Text        `db:"merge_style" json:"merge_style"`
+	RequiredChecks   pgtype.Text        `db:"required_checks" json:"required_checks"`
 }
 
 func (q *Queries) ListVersionBranches(ctx context.Context, projectID int32) ([]ListVersionBranchesRow, error) {
@@ -160,6 +184,8 @@ func (q *Queries) ListVersionBranches(ctx context.Context, projectID int32) ([]L
 			&i.SourceBranchName,
 			&i.AutoSeed,
 			&i.CreatedAt,
+			&i.MergeStyle,
+			&i.RequiredChecks,
 		); err != nil {
 			return nil, err
 		}
@@ -184,6 +210,54 @@ type MarkVersionBranchEOLParams struct {
 
 func (q *Queries) MarkVersionBranchEOL(ctx context.Context, arg MarkVersionBranchEOLParams) error {
 	_, err := q.db.Exec(ctx, markVersionBranchEOL, arg.ProjectID, arg.Name)
+	return err
+}
+
+const updateVersionBranch = `-- name: UpdateVersionBranch :exec
+UPDATE zdx_version_branches
+SET role      = COALESCE($1, role),
+    auto_seed = COALESCE($2, auto_seed)
+WHERE project_id = $3 AND name = $4
+`
+
+type UpdateVersionBranchParams struct {
+	Role      pgtype.Text `db:"role" json:"role"`
+	AutoSeed  pgtype.Bool `db:"auto_seed" json:"auto_seed"`
+	ProjectID int32       `db:"project_id" json:"project_id"`
+	Name      string      `db:"name" json:"name"`
+}
+
+func (q *Queries) UpdateVersionBranch(ctx context.Context, arg UpdateVersionBranchParams) error {
+	_, err := q.db.Exec(ctx, updateVersionBranch,
+		arg.Role,
+		arg.AutoSeed,
+		arg.ProjectID,
+		arg.Name,
+	)
+	return err
+}
+
+const updateVersionBranchSettings = `-- name: UpdateVersionBranchSettings :exec
+UPDATE zdx_version_branches
+SET merge_style    = COALESCE($1, merge_style),
+    required_checks = COALESCE($2, required_checks)
+WHERE project_id = $3 AND name = $4
+`
+
+type UpdateVersionBranchSettingsParams struct {
+	MergeStyle     pgtype.Text `db:"merge_style" json:"merge_style"`
+	RequiredChecks pgtype.Text `db:"required_checks" json:"required_checks"`
+	ProjectID      int32       `db:"project_id" json:"project_id"`
+	Name           string      `db:"name" json:"name"`
+}
+
+func (q *Queries) UpdateVersionBranchSettings(ctx context.Context, arg UpdateVersionBranchSettingsParams) error {
+	_, err := q.db.Exec(ctx, updateVersionBranchSettings,
+		arg.MergeStyle,
+		arg.RequiredChecks,
+		arg.ProjectID,
+		arg.Name,
+	)
 	return err
 }
 

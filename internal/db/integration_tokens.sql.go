@@ -12,27 +12,29 @@ import (
 )
 
 const createIntegrationToken = `-- name: CreateIntegrationToken :one
-INSERT INTO zdx_integration_token (project_id, component, name, token_hash, token_prefix)
-VALUES ($1, $2, $3, $4, $5)
-RETURNING id, project_id, component, name, token_prefix, created_at, revoked_at
+INSERT INTO zdx_integration_token (project_id, component, name, token_hash, token_prefix, capabilities)
+VALUES ($1, $2, $3, $4, $5, COALESCE($6::text[], ARRAY['ingest:logs']::text[]))
+RETURNING id, project_id, component, name, token_prefix, capabilities, created_at, revoked_at
 `
 
 type CreateIntegrationTokenParams struct {
-	ProjectID   int32       `db:"project_id" json:"project_id"`
-	Component   pgtype.Text `db:"component" json:"component"`
-	Name        string      `db:"name" json:"name"`
-	TokenHash   string      `db:"token_hash" json:"token_hash"`
-	TokenPrefix string      `db:"token_prefix" json:"token_prefix"`
+	ProjectID    pgtype.Int4 `db:"project_id" json:"project_id"`
+	Component    pgtype.Text `db:"component" json:"component"`
+	Name         string      `db:"name" json:"name"`
+	TokenHash    string      `db:"token_hash" json:"token_hash"`
+	TokenPrefix  string      `db:"token_prefix" json:"token_prefix"`
+	Capabilities []string    `db:"capabilities" json:"capabilities"`
 }
 
 type CreateIntegrationTokenRow struct {
-	ID          int32              `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Component   pgtype.Text        `db:"component" json:"component"`
-	Name        string             `db:"name" json:"name"`
-	TokenPrefix string             `db:"token_prefix" json:"token_prefix"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	RevokedAt   pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	ID           int32              `db:"id" json:"id"`
+	ProjectID    pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component    pgtype.Text        `db:"component" json:"component"`
+	Name         string             `db:"name" json:"name"`
+	TokenPrefix  string             `db:"token_prefix" json:"token_prefix"`
+	Capabilities []string           `db:"capabilities" json:"capabilities"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	RevokedAt    pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
 }
 
 func (q *Queries) CreateIntegrationToken(ctx context.Context, arg CreateIntegrationTokenParams) (CreateIntegrationTokenRow, error) {
@@ -42,6 +44,7 @@ func (q *Queries) CreateIntegrationToken(ctx context.Context, arg CreateIntegrat
 		arg.Name,
 		arg.TokenHash,
 		arg.TokenPrefix,
+		arg.Capabilities,
 	)
 	var i CreateIntegrationTokenRow
 	err := row.Scan(
@@ -50,6 +53,7 @@ func (q *Queries) CreateIntegrationToken(ctx context.Context, arg CreateIntegrat
 		&i.Component,
 		&i.Name,
 		&i.TokenPrefix,
+		&i.Capabilities,
 		&i.CreatedAt,
 		&i.RevokedAt,
 	)
@@ -66,19 +70,20 @@ func (q *Queries) DeleteIntegrationToken(ctx context.Context, id int32) error {
 }
 
 const getIntegrationTokenByHash = `-- name: GetIntegrationTokenByHash :one
-SELECT id, project_id, component, name, token_prefix, created_at, revoked_at
+SELECT id, project_id, component, name, token_prefix, capabilities, created_at, revoked_at
 FROM zdx_integration_token
 WHERE token_hash = $1
 `
 
 type GetIntegrationTokenByHashRow struct {
-	ID          int32              `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Component   pgtype.Text        `db:"component" json:"component"`
-	Name        string             `db:"name" json:"name"`
-	TokenPrefix string             `db:"token_prefix" json:"token_prefix"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	RevokedAt   pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	ID           int32              `db:"id" json:"id"`
+	ProjectID    pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component    pgtype.Text        `db:"component" json:"component"`
+	Name         string             `db:"name" json:"name"`
+	TokenPrefix  string             `db:"token_prefix" json:"token_prefix"`
+	Capabilities []string           `db:"capabilities" json:"capabilities"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	RevokedAt    pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
 }
 
 func (q *Queries) GetIntegrationTokenByHash(ctx context.Context, tokenHash string) (GetIntegrationTokenByHashRow, error) {
@@ -90,6 +95,7 @@ func (q *Queries) GetIntegrationTokenByHash(ctx context.Context, tokenHash strin
 		&i.Component,
 		&i.Name,
 		&i.TokenPrefix,
+		&i.Capabilities,
 		&i.CreatedAt,
 		&i.RevokedAt,
 	)
@@ -97,20 +103,21 @@ func (q *Queries) GetIntegrationTokenByHash(ctx context.Context, tokenHash strin
 }
 
 const listIntegrationTokens = `-- name: ListIntegrationTokens :many
-SELECT id, project_id, component, name, token_prefix, created_at, revoked_at
+SELECT id, project_id, component, name, token_prefix, capabilities, created_at, revoked_at
 FROM zdx_integration_token
 WHERE ($1::int IS NULL OR project_id = $1)
 ORDER BY created_at DESC
 `
 
 type ListIntegrationTokensRow struct {
-	ID          int32              `db:"id" json:"id"`
-	ProjectID   int32              `db:"project_id" json:"project_id"`
-	Component   pgtype.Text        `db:"component" json:"component"`
-	Name        string             `db:"name" json:"name"`
-	TokenPrefix string             `db:"token_prefix" json:"token_prefix"`
-	CreatedAt   pgtype.Timestamptz `db:"created_at" json:"created_at"`
-	RevokedAt   pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
+	ID           int32              `db:"id" json:"id"`
+	ProjectID    pgtype.Int4        `db:"project_id" json:"project_id"`
+	Component    pgtype.Text        `db:"component" json:"component"`
+	Name         string             `db:"name" json:"name"`
+	TokenPrefix  string             `db:"token_prefix" json:"token_prefix"`
+	Capabilities []string           `db:"capabilities" json:"capabilities"`
+	CreatedAt    pgtype.Timestamptz `db:"created_at" json:"created_at"`
+	RevokedAt    pgtype.Timestamptz `db:"revoked_at" json:"revoked_at"`
 }
 
 func (q *Queries) ListIntegrationTokens(ctx context.Context, projectID pgtype.Int4) ([]ListIntegrationTokensRow, error) {
@@ -128,6 +135,7 @@ func (q *Queries) ListIntegrationTokens(ctx context.Context, projectID pgtype.In
 			&i.Component,
 			&i.Name,
 			&i.TokenPrefix,
+			&i.Capabilities,
 			&i.CreatedAt,
 			&i.RevokedAt,
 		); err != nil {

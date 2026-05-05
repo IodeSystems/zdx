@@ -155,6 +155,7 @@ type Querier interface {
 	DeleteTest(ctx context.Context, id int32) error
 	DeleteTimedEventsOlderThan(ctx context.Context, cutoff pgtype.Timestamptz) (int64, error)
 	DeleteTodosForProject(ctx context.Context, projectID int32) error
+	DeleteVersionBranch(ctx context.Context, arg DeleteVersionBranchParams) error
 	DenyQuestionProposal(ctx context.Context, arg DenyQuestionProposalParams) (ZdxQuestionProposal, error)
 	DetachCodeRefFromIssue(ctx context.Context, arg DetachCodeRefFromIssueParams) error
 	DetachCodeRefFromSpec(ctx context.Context, arg DetachCodeRefFromSpecParams) error
@@ -269,6 +270,7 @@ type Querier interface {
 	GetTaskWithReview(ctx context.Context, id string) (GetTaskWithReviewRow, error)
 	GetTest(ctx context.Context, arg GetTestParams) (GetTestRow, error)
 	GetTestByID(ctx context.Context, arg GetTestByIDParams) (GetTestByIDRow, error)
+	GetTestFixIssue(ctx context.Context, arg GetTestFixIssueParams) (string, error)
 	GetThreadByRoot(ctx context.Context, rootEventID int64) (ZdxEventThread, error)
 	GetTodoByID(ctx context.Context, id int32) (GetTodoByIDRow, error)
 	GetTodoByKey(ctx context.Context, arg GetTodoByKeyParams) (GetTodoByKeyRow, error)
@@ -294,6 +296,7 @@ type Querier interface {
 	InsertReservation(ctx context.Context, arg InsertReservationParams) (ZdxReservation, error)
 	InsertSideEffectIfNew(ctx context.Context, arg InsertSideEffectIfNewParams) (ZdxIncompleteReportSideEffect, error)
 	InsertSlowQuery(ctx context.Context, arg InsertSlowQueryParams) (ZdxSlowQuery, error)
+	InsertTestFixIssue(ctx context.Context, arg InsertTestFixIssueParams) error
 	InsertTestResultHistory(ctx context.Context, arg InsertTestResultHistoryParams) error
 	InsertTimedEvent(ctx context.Context, arg InsertTimedEventParams) error
 	InsertTimedEventAt(ctx context.Context, arg InsertTimedEventAtParams) error
@@ -315,6 +318,7 @@ type Querier interface {
 	ListActiveTaskClaims(ctx context.Context, projectID int32) ([]ListActiveTaskClaimsRow, error)
 	// Return all todos that are currently claimed and whose lease has not expired.
 	ListActiveTodoClaims(ctx context.Context, projectID int32) ([]ListActiveTodoClaimsRow, error)
+	ListAdminScopedApiKeys(ctx context.Context) ([]ListAdminScopedApiKeysRow, error)
 	ListAgentAuditEvents(ctx context.Context, agentID string) ([]ZdxSessionAuditEvent, error)
 	ListAgentsByProject(ctx context.Context, projectID int32) ([]ZdxAgent, error)
 	// For every issue in the project, walk up the composition chain (issue → parents)
@@ -382,6 +386,7 @@ type Querier interface {
 	// up the dangling thread (typically left over from a failed LLM send).
 	ListDiscussionsAwaitingResponse(ctx context.Context, projectID int32) ([]ListDiscussionsAwaitingResponseRow, error)
 	ListDoctorDeferrals(ctx context.Context, projectID int32) ([]ZdxDoctorDeferral, error)
+	ListEnvironmentNamesBoundToBranch(ctx context.Context, arg ListEnvironmentNamesBoundToBranchParams) ([]string, error)
 	ListEnvironments(ctx context.Context, projectID int32) ([]ListEnvironmentsRow, error)
 	// metaquery:agg Grouped group_by_expr(group_value, "context_json->>?", string) count(entry_count) min(first_seen, created_at) max(last_seen, created_at)
 	ListErrorEvents(ctx context.Context, arg ListErrorEventsParams) ([]ZdxErrorEvent, error)
@@ -742,6 +747,8 @@ type Querier interface {
 	UpdateTaskFields(ctx context.Context, arg UpdateTaskFieldsParams) error
 	UpdateTaskStatus(ctx context.Context, arg UpdateTaskStatusParams) error
 	UpdateUserRole(ctx context.Context, arg UpdateUserRoleParams) error
+	UpdateVersionBranch(ctx context.Context, arg UpdateVersionBranchParams) error
+	UpdateVersionBranchSettings(ctx context.Context, arg UpdateVersionBranchSettingsParams) error
 	UpdateVersionBranchSource(ctx context.Context, arg UpdateVersionBranchSourceParams) error
 	UpsertAgentBudget(ctx context.Context, arg UpsertAgentBudgetParams) (ZdxAgentBudget, error)
 	UpsertCounted(ctx context.Context, arg UpsertCountedParams) error

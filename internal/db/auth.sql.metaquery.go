@@ -514,6 +514,37 @@ var GetUserByIDCols = struct {
 	CreatedAt: metaquery.NewTimeCol("created_at"),
 }
 
+var MetaListAdminScopedApiKeys = metaquery.Query{
+	Name:   "ListAdminScopedApiKeys",
+	Cmd:    ":many",
+	Source: "auth.sql",
+	SQL: `SELECT id, name, last_used_at
+FROM zdx_api_keys
+WHERE project_scope IS NULL
+ORDER BY last_used_at DESC NULLS LAST`,
+	Columns: []metaquery.Column{
+		{Name: "id", OriginalName: "id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_api_keys"},
+		{Name: "name", OriginalName: "name", GoType: "string", DBType: "text", NotNull: true, Table: "zdx_api_keys"},
+		{Name: "last_used_at", OriginalName: "last_used_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", Table: "zdx_api_keys"},
+	},
+}
+
+// WrapListAdminScopedApiKeys returns a metaquery.Builder over MetaListAdminScopedApiKeys, pre-bound with typed arguments.
+func WrapListAdminScopedApiKeys() *metaquery.Builder {
+	return metaquery.Wrap(&MetaListAdminScopedApiKeys)
+}
+
+// ListAdminScopedApiKeysCols gives typed, name-safe access to ListAdminScopedApiKeys's output columns.
+var ListAdminScopedApiKeysCols = struct {
+	ID         metaquery.IntCol
+	Name       metaquery.TextCol
+	LastUsedAt metaquery.TimeCol
+}{
+	ID:         metaquery.NewIntCol("id"),
+	Name:       metaquery.NewTextCol("name"),
+	LastUsedAt: metaquery.NewTimeCol("last_used_at"),
+}
+
 var MetaListApiKeysByUser = metaquery.Query{
 	Name:   "ListApiKeysByUser",
 	Cmd:    ":many",

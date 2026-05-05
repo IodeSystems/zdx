@@ -254,6 +254,34 @@ var ListDeploysCols = struct {
 	Log:              metaquery.NewTextCol("log"),
 }
 
+var MetaListEnvironmentNamesBoundToBranch = metaquery.Query{
+	Name:   "ListEnvironmentNamesBoundToBranch",
+	Cmd:    ":many",
+	Source: "environments.sql",
+	SQL: `SELECT name FROM zdx_environments
+WHERE project_id = $1 AND (release_branch = $2 OR trunk_branch = $2)
+ORDER BY name ASC`,
+	Columns: []metaquery.Column{
+		{Name: "name", OriginalName: "name", GoType: "string"},
+	},
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "branch_name", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapListEnvironmentNamesBoundToBranch returns a metaquery.Builder over MetaListEnvironmentNamesBoundToBranch, pre-bound with typed arguments.
+func WrapListEnvironmentNamesBoundToBranch(arg ListEnvironmentNamesBoundToBranchParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaListEnvironmentNamesBoundToBranch, arg.ProjectID, arg.BranchName)
+}
+
+// ListEnvironmentNamesBoundToBranchCols gives typed, name-safe access to ListEnvironmentNamesBoundToBranch's output columns.
+var ListEnvironmentNamesBoundToBranchCols = struct {
+	Name metaquery.TextCol
+}{
+	Name: metaquery.NewTextCol("name"),
+}
+
 var MetaListEnvironments = metaquery.Query{
 	Name:   "ListEnvironments",
 	Cmd:    ":many",

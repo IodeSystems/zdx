@@ -17,7 +17,7 @@ var MetaCreateVersionBranch = metaquery.Query{
 	Source: "version_branches.sql",
 	SQL: `INSERT INTO zdx_version_branches (project_id, name, role, semver, status, source_branch_name, auto_seed)
 VALUES ($1, $2, $3, $4, $5, $6, $7)
-RETURNING id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at`,
+RETURNING id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at, merge_style, required_checks`,
 	Columns: []metaquery.Column{
 		{Name: "id", OriginalName: "id", GoType: "int64", DBType: "int8", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "project_id", OriginalName: "project_id", GoType: "int32", DBType: "int4", NotNull: true, Table: "zdx_version_branches"},
@@ -28,6 +28,8 @@ RETURNING id, project_id, name, role, semver, status, source_branch_name, auto_s
 		{Name: "source_branch_name", OriginalName: "source_branch_name", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
 		{Name: "auto_seed", OriginalName: "auto_seed", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_version_branches"},
+		{Name: "merge_style", OriginalName: "merge_style", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
+		{Name: "required_checks", OriginalName: "required_checks", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -57,6 +59,8 @@ var CreateVersionBranchCols = struct {
 	SourceBranchName metaquery.TextCol
 	AutoSeed         metaquery.BoolCol
 	CreatedAt        metaquery.TimeCol
+	MergeStyle       metaquery.TextCol
+	RequiredChecks   metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -67,6 +71,24 @@ var CreateVersionBranchCols = struct {
 	SourceBranchName: metaquery.NewTextCol("source_branch_name"),
 	AutoSeed:         metaquery.NewBoolCol("auto_seed"),
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	MergeStyle:       metaquery.NewTextCol("merge_style"),
+	RequiredChecks:   metaquery.NewTextCol("required_checks"),
+}
+
+var MetaDeleteVersionBranch = metaquery.Query{
+	Name:   "DeleteVersionBranch",
+	Cmd:    ":exec",
+	Source: "version_branches.sql",
+	SQL:    `DELETE FROM zdx_version_branches WHERE project_id = $1 AND name = $2`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 2, Name: "name", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapDeleteVersionBranch returns a metaquery.Builder over MetaDeleteVersionBranch, pre-bound with typed arguments.
+func WrapDeleteVersionBranch(arg DeleteVersionBranchParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaDeleteVersionBranch, arg.ProjectID, arg.Name)
 }
 
 var MetaGetReleaseBranchSource = metaquery.Query{
@@ -101,7 +123,7 @@ var MetaGetVersionBranchByName = metaquery.Query{
 	Name:   "GetVersionBranchByName",
 	Cmd:    ":one",
 	Source: "version_branches.sql",
-	SQL: `SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
+	SQL: `SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at, merge_style, required_checks
 FROM zdx_version_branches
 WHERE project_id = $1 AND name = $2`,
 	Columns: []metaquery.Column{
@@ -114,6 +136,8 @@ WHERE project_id = $1 AND name = $2`,
 		{Name: "source_branch_name", OriginalName: "source_branch_name", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
 		{Name: "auto_seed", OriginalName: "auto_seed", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_version_branches"},
+		{Name: "merge_style", OriginalName: "merge_style", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
+		{Name: "required_checks", OriginalName: "required_checks", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -137,6 +161,8 @@ var GetVersionBranchByNameCols = struct {
 	SourceBranchName metaquery.TextCol
 	AutoSeed         metaquery.BoolCol
 	CreatedAt        metaquery.TimeCol
+	MergeStyle       metaquery.TextCol
+	RequiredChecks   metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -147,13 +173,15 @@ var GetVersionBranchByNameCols = struct {
 	SourceBranchName: metaquery.NewTextCol("source_branch_name"),
 	AutoSeed:         metaquery.NewBoolCol("auto_seed"),
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	MergeStyle:       metaquery.NewTextCol("merge_style"),
+	RequiredChecks:   metaquery.NewTextCol("required_checks"),
 }
 
 var MetaListVersionBranches = metaquery.Query{
 	Name:   "ListVersionBranches",
 	Cmd:    ":many",
 	Source: "version_branches.sql",
-	SQL: `SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at
+	SQL: `SELECT id, project_id, name, role, semver, status, source_branch_name, auto_seed, created_at, merge_style, required_checks
 FROM zdx_version_branches
 WHERE project_id = $1
 ORDER BY created_at ASC`,
@@ -167,6 +195,8 @@ ORDER BY created_at ASC`,
 		{Name: "source_branch_name", OriginalName: "source_branch_name", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
 		{Name: "auto_seed", OriginalName: "auto_seed", GoType: "bool", DBType: "bool", NotNull: true, Table: "zdx_version_branches"},
 		{Name: "created_at", OriginalName: "created_at", GoType: "pgtype.Timestamptz", DBType: "timestamptz", NotNull: true, Table: "zdx_version_branches"},
+		{Name: "merge_style", OriginalName: "merge_style", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
+		{Name: "required_checks", OriginalName: "required_checks", GoType: "pgtype.Text", DBType: "text", Table: "zdx_version_branches"},
 	},
 	Args: []metaquery.Arg{
 		{Position: 1, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
@@ -189,6 +219,8 @@ var ListVersionBranchesCols = struct {
 	SourceBranchName metaquery.TextCol
 	AutoSeed         metaquery.BoolCol
 	CreatedAt        metaquery.TimeCol
+	MergeStyle       metaquery.TextCol
+	RequiredChecks   metaquery.TextCol
 }{
 	ID:               metaquery.NewIntCol("id"),
 	ProjectID:        metaquery.NewIntCol("project_id"),
@@ -199,6 +231,8 @@ var ListVersionBranchesCols = struct {
 	SourceBranchName: metaquery.NewTextCol("source_branch_name"),
 	AutoSeed:         metaquery.NewBoolCol("auto_seed"),
 	CreatedAt:        metaquery.NewTimeCol("created_at"),
+	MergeStyle:       metaquery.NewTextCol("merge_style"),
+	RequiredChecks:   metaquery.NewTextCol("required_checks"),
 }
 
 var MetaMarkVersionBranchEOL = metaquery.Query{
@@ -217,6 +251,48 @@ WHERE project_id = $1 AND name = $2`,
 // WrapMarkVersionBranchEOL returns a metaquery.Builder over MetaMarkVersionBranchEOL, pre-bound with typed arguments.
 func WrapMarkVersionBranchEOL(arg MarkVersionBranchEOLParams) *metaquery.Builder {
 	return metaquery.Wrap(&MetaMarkVersionBranchEOL, arg.ProjectID, arg.Name)
+}
+
+var MetaUpdateVersionBranch = metaquery.Query{
+	Name:   "UpdateVersionBranch",
+	Cmd:    ":exec",
+	Source: "version_branches.sql",
+	SQL: `UPDATE zdx_version_branches
+SET role      = COALESCE($1, role),
+    auto_seed = COALESCE($2, auto_seed)
+WHERE project_id = $3 AND name = $4`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "role", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 2, Name: "auto_seed", GoType: "pgtype.Bool", DBType: "pg_catalog.bool"},
+		{Position: 3, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 4, Name: "name", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapUpdateVersionBranch returns a metaquery.Builder over MetaUpdateVersionBranch, pre-bound with typed arguments.
+func WrapUpdateVersionBranch(arg UpdateVersionBranchParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUpdateVersionBranch, arg.Role, arg.AutoSeed, arg.ProjectID, arg.Name)
+}
+
+var MetaUpdateVersionBranchSettings = metaquery.Query{
+	Name:   "UpdateVersionBranchSettings",
+	Cmd:    ":exec",
+	Source: "version_branches.sql",
+	SQL: `UPDATE zdx_version_branches
+SET merge_style    = COALESCE($1, merge_style),
+    required_checks = COALESCE($2, required_checks)
+WHERE project_id = $3 AND name = $4`,
+	Args: []metaquery.Arg{
+		{Position: 1, Name: "merge_style", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 2, Name: "required_checks", GoType: "pgtype.Text", DBType: "text"},
+		{Position: 3, Name: "project_id", GoType: "int32", DBType: "pg_catalog.int4", NotNull: true},
+		{Position: 4, Name: "name", GoType: "string", DBType: "text", NotNull: true},
+	},
+}
+
+// WrapUpdateVersionBranchSettings returns a metaquery.Builder over MetaUpdateVersionBranchSettings, pre-bound with typed arguments.
+func WrapUpdateVersionBranchSettings(arg UpdateVersionBranchSettingsParams) *metaquery.Builder {
+	return metaquery.Wrap(&MetaUpdateVersionBranchSettings, arg.MergeStyle, arg.RequiredChecks, arg.ProjectID, arg.Name)
 }
 
 var MetaUpdateVersionBranchSource = metaquery.Query{

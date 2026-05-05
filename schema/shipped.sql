@@ -1121,13 +1121,14 @@ ALTER SEQUENCE public.zdx_incomplete_report_side_effects_id_seq OWNED BY public.
 
 CREATE TABLE public.zdx_integration_token (
     id integer NOT NULL,
-    project_id integer NOT NULL,
+    project_id integer,
     component text,
     name text DEFAULT ''::text NOT NULL,
     token_hash text NOT NULL,
     token_prefix text NOT NULL,
     created_at timestamp with time zone DEFAULT now() NOT NULL,
-    revoked_at timestamp with time zone
+    revoked_at timestamp with time zone,
+    capabilities text[] DEFAULT ARRAY['ingest:logs'::text] NOT NULL
 );
 
 
@@ -2910,8 +2911,20 @@ CREATE TABLE public.zdx_version_branches (
     role text NOT NULL,
     source_branch_name text,
     auto_seed boolean DEFAULT false NOT NULL,
+    merge_style text,
+    required_checks text,
+    CONSTRAINT zdx_version_branches_merge_style_check CHECK ((merge_style = ANY (ARRAY['squash'::text, 'merge'::text, 'rebase'::text]))),
     CONSTRAINT zdx_version_branches_role_check CHECK ((role = ANY (ARRAY['rolling-release'::text, 'dev'::text, 'pr-target'::text, 'named-release'::text]))),
     CONSTRAINT zdx_version_branches_status_check CHECK ((status = ANY (ARRAY['active'::text, 'eol'::text])))
+);
+
+CREATE TABLE public.zdx_test_fix_issues (
+    project_id integer NOT NULL,
+    reason text NOT NULL,
+    evidence_fingerprint text NOT NULL,
+    issue_id text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    PRIMARY KEY (project_id, reason, evidence_fingerprint)
 );
 
 
