@@ -55,6 +55,7 @@ type localAdapter struct {
 	llmCfg     config.LLMLocal
 	maxTurns   int
 	seedPrompt string
+	mcpCommand []string // when non-empty, dispatch tools via newRemoteDispatcher (dev-container mode)
 
 	doneCh chan struct{}
 	runErr error
@@ -90,11 +91,28 @@ func init() {
 			llmCfg:     llmCfg,
 			maxTurns:   maxTurns,
 			seedPrompt: opts.SeedPrompt,
+			mcpCommand: opts.MCPCommand,
 		}, nil
 	})
 }
 
 func (a *localAdapter) Provider() string { return "local" }
+
+// buildDispatcher mirrors opencode.buildDispatcher: in-process MCP server
+// rooted at the repo (default) or a remote subprocess when mcpCommand is
+// configured (dev-container mode).
+func (a *localAdapter) buildDispatcher(ctx context.Context, root string) (*localDispatcher, error) {
+	if len(a.mcpCommand) > 0 {
+		return newRemoteDispatcher(ctx, a.mcpCommand)
+	}
+	srv := mcp.NewServer(&mcp.Implementation{
+		Name:    "dx-agent-local",
+		Version: "0.1.0",
+	}, nil)
+	mcpcmd.RegisterFSTools(srv, root)
+	mcpcmd.RegisterShellTools(srv, root)
+	return newLocalDispatcher(ctx, srv)
+}
 
 // ResolveModel maps a complexity tier to a concrete model name by walking the
 // server's admin LLM config in priority order. Falls back to the adapter's
@@ -119,15 +137,8 @@ func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (s
 		return "", fmt.Errorf("dx agent local must run inside a git repo: %w", err)
 	}
 
-	srv := mcp.NewServer(&mcp.Implementation{
-		Name:    "dx-agent-local",
-		Version: "0.1.0",
-	}, nil)
-	mcpcmd.RegisterFSTools(srv, root)
-	mcpcmd.RegisterShellTools(srv, root)
-
 	dispCtx, dispCancel := context.WithCancel(ctx)
-	disp, err := newLocalDispatcher(dispCtx, srv)
+	disp, err := a.buildDispatcher(dispCtx, root)
 	if err != nil {
 		dispCancel()
 		return "", err

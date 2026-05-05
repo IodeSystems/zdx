@@ -4,17 +4,21 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"os"
+	"os/exec"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 
 	"github.com/iodesystems/zdx-go/internal/llm"
 )
 
-// localDispatcher connects an in-process MCP client to a server registered
-// with dx project + filesystem + shell tools. It exposes an OpenAI-compatible
-// tools list and dispatches tool_call invocations from the model.
+// localDispatcher wraps an MCP client session — in-memory (newLocalDispatcher,
+// the in-process tools the provider registered itself) or stdio-spawned
+// (newRemoteDispatcher, dx-agent --mcp-stdio inside a dev container). The
+// dispatch surface is identical; the chat loop never knows which transport
+// it's talking through.
 type localDispatcher struct {
-	serverSession *mcp.ServerSession
+	serverSession *mcp.ServerSession // nil for remote dispatchers (no in-process server)
 	clientSession *mcp.ClientSession
 	tools         []*mcp.Tool
 }
@@ -43,6 +47,38 @@ func newLocalDispatcher(ctx context.Context, srv *mcp.Server) (*localDispatcher,
 
 	return &localDispatcher{
 		serverSession: ss,
+		clientSession: cs,
+		tools:         list.Tools,
+	}, nil
+}
+
+// newRemoteDispatcher spawns command as a subprocess (typically
+// `docker exec -i <c> dx-agent --mcp-stdio`) and connects an MCP client to
+// its stdin/stdout. The host process runs the LLM loop; tool calls cross
+// the boundary into the subprocess where dx-agent --mcp-stdio executes
+// them against /workspace inside the container.
+//
+// The subprocess's stderr is forwarded to the host's stderr so panics and
+// permission errors are visible during dev. Closing the dispatcher closes
+// stdin → SIGTERM → SIGKILL via mcp.CommandTransport's Close ladder.
+func newRemoteDispatcher(ctx context.Context, command []string) (*localDispatcher, error) {
+	if len(command) == 0 {
+		return nil, fmt.Errorf("remote dispatcher: command must not be empty")
+	}
+	cmd := exec.CommandContext(ctx, command[0], command[1:]...)
+	cmd.Stderr = os.Stderr
+
+	client := mcp.NewClient(&mcp.Implementation{Name: "dx-agent-remote-client", Version: "0.1.0"}, nil)
+	cs, err := client.Connect(ctx, &mcp.CommandTransport{Command: cmd}, nil)
+	if err != nil {
+		return nil, fmt.Errorf("connect remote MCP %v: %w", command, err)
+	}
+	list, err := cs.ListTools(ctx, &mcp.ListToolsParams{})
+	if err != nil {
+		_ = cs.Close()
+		return nil, fmt.Errorf("list tools on remote MCP: %w", err)
+	}
+	return &localDispatcher{
 		clientSession: cs,
 		tools:         list.Tools,
 	}, nil

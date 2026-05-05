@@ -48,6 +48,7 @@ func init() {
 			llmCfg:     llmCfg,
 			maxTurns:   opts.MaxTurns, // 0 = unlimited; matches opencode CLI default
 			seedPrompt: opts.SeedPrompt,
+			mcpCommand: opts.MCPCommand,
 		}, nil
 	})
 }
@@ -61,6 +62,7 @@ type opencodeAdapter struct {
 	llmCfg     config.LLMLocal
 	maxTurns   int
 	seedPrompt string
+	mcpCommand []string // when non-empty, dispatch tools via newRemoteDispatcher (dev-container mode)
 
 	doneCh chan struct{}
 	runErr error
@@ -91,15 +93,8 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 		return "", fmt.Errorf("dx agent opencode must run inside a git repo: %w", err)
 	}
 
-	srv := mcp.NewServer(&mcp.Implementation{
-		Name:    "dx-agent-opencode",
-		Version: "0.1.0",
-	}, nil)
-	mcpcmd.RegisterFSTools(srv, root)
-	mcpcmd.RegisterShellTools(srv, root)
-
 	dispCtx, dispCancel := context.WithCancel(ctx)
-	disp, err := newLocalDispatcher(dispCtx, srv)
+	disp, err := a.buildDispatcher(dispCtx, root)
 	if err != nil {
 		dispCancel()
 		return "", err
@@ -138,6 +133,23 @@ func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string)
 	}()
 
 	return sessLog.path, nil
+}
+
+// buildDispatcher returns the MCP dispatcher Start should use. Default is
+// the in-process server (root = the repo's GitRepoRoot). When mcpCommand
+// is set, dispatches through a remote MCP server spawned via that argv —
+// the host process runs the chat loop, the subprocess executes tools.
+func (a *opencodeAdapter) buildDispatcher(ctx context.Context, root string) (*localDispatcher, error) {
+	if len(a.mcpCommand) > 0 {
+		return newRemoteDispatcher(ctx, a.mcpCommand)
+	}
+	srv := mcp.NewServer(&mcp.Implementation{
+		Name:    "dx-agent-opencode",
+		Version: "0.1.0",
+	}, nil)
+	mcpcmd.RegisterFSTools(srv, root)
+	mcpcmd.RegisterShellTools(srv, root)
+	return newLocalDispatcher(ctx, srv)
 }
 
 func (a *opencodeAdapter) Wait() (int, error) {

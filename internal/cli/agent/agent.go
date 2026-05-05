@@ -22,7 +22,7 @@ import (
 )
 
 func AgentCmd() *cobra.Command {
-	var provider, alias, issue, model, complexity string
+	var provider, alias, issue, model, complexity, mcpContainer string
 	cmd := &cobra.Command{
 		Use:   "agent",
 		Short: "Run a single agent session (use `dx agent loop` for the work loop)",
@@ -39,7 +39,7 @@ also accepts --container for claude's docker-orchestrated parallel slots).`,
 			if provider == "" && len(args) == 0 {
 				return cmd.Help()
 			}
-			return runManagedFromFlags(cmd.Context(), cmd, provider, alias, issue, model, complexity)
+			return runManagedFromFlags(cmd.Context(), cmd, provider, alias, issue, model, complexity, mcpContainer)
 		},
 	}
 	cmd.PersistentFlags().Bool("global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
@@ -48,6 +48,7 @@ also accepts --container for claude's docker-orchestrated parallel slots).`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
 	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
+	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through `dx-agent --mcp-stdio` running inside this container (opencode/local only)")
 	cmd.AddCommand(agentLoopCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
 }
@@ -57,7 +58,7 @@ also accepts --container for claude's docker-orchestrated parallel slots).`,
 // that implement LoopProvider/ContainerProvider get their own runtime;
 // plain providers get the universal RunManagedLoop.
 func agentLoopCmd() *cobra.Command {
-	var provider, alias, model, complexity string
+	var provider, alias, model, complexity, mcpContainer string
 	var maxTurns, maxWorktrees int
 	var container, keepContainer, chrome bool
 	cmd := &cobra.Command{
@@ -77,7 +78,7 @@ exec'ing dx agent loop --provider=... inside the container.`,
 			if err != nil {
 				return err
 			}
-			opts, err := loadManagedOptsFromCmd(cmd, provider, alias, "", model, tier, maxTurns)
+			opts, err := loadManagedOptsFromCmd(cmd, provider, alias, "", model, tier, maxTurns, mcpContainer)
 			if err != nil {
 				return err
 			}
@@ -106,13 +107,19 @@ exec'ing dx agent loop --provider=... inside the container.`,
 	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep containers after exit (skip --rm; useful for debugging)")
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
 	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slots in --container mode)")
+	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through `dx-agent --mcp-stdio` running inside this container (opencode/local only)")
 	return cmd
 }
 
 // loadManagedOptsFromCmd centralizes the runtime + model-resolution dance
 // so both dx agent and dx agent loop (and any legacy shims that route
 // through the manager) build a populated ProviderOpts the same way.
-func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, tier string, maxTurns int) (ProviderOpts, error) {
+//
+// mcpContainer, when non-empty, becomes ProviderOpts.MCPCommand =
+// {"docker", "exec", "-i", <container>, "dx-agent", "--mcp-stdio"} so
+// opencode/local providers dispatch tools into the container instead of
+// running their in-process MCP server. Empty means in-process tools.
+func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, tier string, maxTurns int, mcpContainer string) (ProviderOpts, error) {
 	rt, err := loadAgentRuntime(cmd)
 	if err != nil {
 		return ProviderOpts{}, err
@@ -134,6 +141,11 @@ func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, t
 		}
 	}
 
+	var mcpCommand []string
+	if mcpContainer != "" {
+		mcpCommand = []string{"docker", "exec", "-i", mcpContainer, "dx-agent", "--mcp-stdio"}
+	}
+
 	return ProviderOpts{
 		RC:         rt.RC,
 		AgentCfg:   rt.AgentCfg,
@@ -146,6 +158,7 @@ func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, t
 		WorkDir:    rt.WorkDir,
 		Chrome:     true,
 		MaxTurns:   maxTurns,
+		MCPCommand: mcpCommand,
 	}, nil
 }
 
@@ -197,12 +210,12 @@ func loadAgentRuntime(cmd *cobra.Command) (agentRuntime, error) {
 
 // runManagedFromFlags loads project + global config, resolves the model via
 // the provider, and dispatches to RunManagedSession.
-func runManagedFromFlags(ctx context.Context, cmd *cobra.Command, provider, alias, issue, model, complexity string) error {
+func runManagedFromFlags(ctx context.Context, cmd *cobra.Command, provider, alias, issue, model, complexity, mcpContainer string) error {
 	tier, err := NormalizeComplexity(complexity)
 	if err != nil {
 		return err
 	}
-	opts, err := loadManagedOptsFromCmd(cmd, provider, alias, issue, model, tier, 0)
+	opts, err := loadManagedOptsFromCmd(cmd, provider, alias, issue, model, tier, 0, mcpContainer)
 	if err != nil {
 		return err
 	}

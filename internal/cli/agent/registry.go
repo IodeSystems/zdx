@@ -33,6 +33,14 @@ type ProviderOpts struct {
 
 	// opencode/local-specific (ignored by claude)
 	MaxTurns int
+
+	// MCPCommand, when non-empty, makes opencode/local dispatch tool
+	// calls through a remote MCP server spawned via this argv (typically
+	// `docker exec -i <container> dx-agent --mcp-stdio`) instead of the
+	// in-process fs+shell tools. Filesystem and shell isolation come from
+	// wherever the subprocess runs — host, container, or anywhere
+	// CommandTransport can reach over stdio.
+	MCPCommand []string
 }
 
 // ProviderConstructor builds an AgentProvider ready to be passed to
