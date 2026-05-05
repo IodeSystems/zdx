@@ -130,9 +130,23 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	defer cancel()
 	installReleaseOnSignal(opts.RC, opts.Alias, stateFile, nil, cancel)
 
+	// Self-update detection: hash the running binary at startup, re-hash each
+	// iteration, and re-exec if the hash changes. Long-running loops survive
+	// `make build` mid-flight without manual restart. fileHash returns ""
+	// on read error (e.g. binary deleted) which disables the check rather
+	// than firing a false positive.
+	selfPath, _ := os.Executable()
+	selfHash := fileHash(selfPath)
+
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
+		}
+		if h := fileHash(selfPath); h != "" && selfHash != "" && h != selfHash {
+			fmt.Fprintf(os.Stderr, "[%s] self-update: %s → %s, re-execing\n", providerName, shortHash(selfHash), shortHash(h))
+			if err := selfReexec(selfPath, os.Args); err != nil {
+				fmt.Fprintf(os.Stderr, "[%s] re-exec failed: %v\n", providerName, err)
+			}
 		}
 		todo, err := runDxTodoSolo("")
 		if err != nil || todo == "" {
