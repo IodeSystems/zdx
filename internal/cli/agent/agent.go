@@ -48,7 +48,7 @@ also accepts --container for claude's docker-orchestrated parallel slots).`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
 	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
-	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through `dx-agent --mcp-stdio` running inside this container (opencode/local only)")
+	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
 	cmd.AddCommand(agentLoopCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
 }
@@ -65,14 +65,13 @@ func agentLoopCmd() *cobra.Command {
 		Use:   "loop",
 		Short: "Loop: claim work, run a managed session per pick, repeat",
 		Long: `Long-running loop that claims work via /api/dx/solo/claim and runs an
-agent session per pick. Universal providers (opencode, local) use the
-shared RunManagedLoop with atomic claim/lease/release, churn backoff,
-self-update re-exec, and crash-recovery release. Providers that
-implement LoopProvider (claude) run their own richer orchestration.
+agent session per pick. Atomic claim/lease/release, churn backoff,
+self-update re-exec, and crash-recovery release work for all providers.
 
-With --container, dispatches to ContainerProvider.RunContainerLoop
-(currently claude-only), which runs N parallel docker slots each
-exec'ing dx agent loop --provider=... inside the container.`,
+With --container, runs N parallel slot containers (sleep infinity,
+/workspace mounted, sandboxed) and N host-side loops in parallel —
+LLM loops on the host, tool calls dispatch into the slot via
+docker exec dx-agent --mcp-stdio. Same shape across all three providers.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tier, err := NormalizeComplexity(complexity)
 			if err != nil {
@@ -103,11 +102,11 @@ exec'ing dx agent loop --provider=... inside the container.`,
 	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
 	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
-	cmd.Flags().BoolVar(&container, "container", false, "run agent in MCP-slot containers — N idle sandboxes with /workspace mounted, host runs the LLM loop, tool calls dispatch via `docker exec dx-agent --mcp-stdio` (requires dev.Dockerfile)")
+	cmd.Flags().BoolVar(&container, "container", false, "run agent in MCP-slot containers (N idle sandboxes with /workspace mounted; host runs the LLM loop, tool calls dispatch via 'docker exec dx-agent --mcp-stdio'; requires dev.Dockerfile)")
 	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep containers after exit (skip --rm; useful for debugging)")
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
 	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slots in --container mode)")
-	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through `dx-agent --mcp-stdio` running inside this container (opencode/local only)")
+	cmd.Flags().StringVar(&mcpContainer, "mcp-container", "", "dispatch tool calls through dx-agent --mcp-stdio running inside this container (opencode/local only)")
 	return cmd
 }
 
