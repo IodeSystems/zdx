@@ -16,11 +16,9 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/agent/tracelog"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/llm"
-	"github.com/iodesystems/zdx-go/pkg/zdxclient"
 )
 
 func agentOpenCodeCmd() *cobra.Command {
@@ -48,64 +46,18 @@ the adapter queries the server's LLM config for model_high, falls back to
 model_medium, then model_low. This lets you run expensive models for hard
 tasks and cheap ones for quick fixes without changing config.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			normalized, err := NormalizeComplexity(complexity)
+			tier, err := NormalizeComplexity(complexity)
 			if err != nil {
 				return err
 			}
-			complexity = normalized
-			global, _ := cmd.Flags().GetBool("global")
-			global = global || config.IsGlobalMode()
-			var cfg *config.Config
-			if !global {
-				cfg = config.Load()
+			opts, err := loadManagedOptsFromCmd(cmd, "opencode", alias, issue, model, tier, maxTurns)
+			if err != nil {
+				return err
 			}
-			var rc remoteConfig
-			if global {
-				if globalCfg := config.LoadGlobal(); globalCfg != nil {
-					fmt.Fprintln(os.Stderr, "srcless mode: using ~/.zdx/config.yaml (no project config found)")
-					rc = remoteConfig{
-						url: globalCfg.Remote.URL,
-						key: config.GlobalRemoteAPIKey(),
-					}
-				}
-			} else {
-				rc = remoteConfig{
-					url:  cfg.RemoteURL(),
-					slug: cfg.RemoteSlug(),
-					key:  config.RemoteAPIKey(),
-				}
-			}
-
-			llmCfg := cfg.ResolvedLLMLocal()
-			if model != "" {
-				llmCfg.Model = model
-			} else {
-				llmCfg = applyComplexityModel(cmd.Context(), llmCfg, complexity)
-			}
-			// Try resolving full LLM config from the server (url + api_key + model).
-			// This lets the adapter work against a remote LLM endpoint configured
-			// in the admin LLM config UI without needing local llm_local settings.
-			if serverCfg := resolveLLMConfigFromServer(rc, complexity); serverCfg.BaseURL != "" {
-				llmCfg.BaseURL = serverCfg.BaseURL
-				if serverCfg.APIKey != "" {
-					llmCfg.APIKey = serverCfg.APIKey
-				}
-				if model == "" {
-					llmCfg.Model = serverCfg.Model
-				}
-			}
-
 			if loop {
-				return runOpenCodeLoop(cmd.Context(), rc, llmCfg, alias, maxTurns)
+				return RunManagedLoop(cmd.Context(), "opencode", opts)
 			}
-			if alias == "" {
-				alias = "opencode-" + uuid.New().String()[:8]
-			}
-			ctx, cancel := context.WithCancel(cmd.Context())
-			defer cancel()
-			installReleaseOnSignal(rc, alias, "", nil, cancel)
-			sid := uuid.New().String()
-			return runOpenCodeSession(ctx, rc, llmCfg, sid, issue, alias, "", maxTurns)
+			return RunManagedSession(cmd.Context(), "opencode", opts)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
@@ -117,137 +69,6 @@ tasks and cheap ones for quick fixes without changing config.`,
 	return cmd
 }
 
-// ── Session execution ─────────────────────────────────────────────────────
-
-func runOpenCodeSession(ctx context.Context, rc remoteConfig, llmCfg config.LLMLocal, sid, issueID, alias, seedPrompt string, maxTurns int) error {
-	if rc.slug == "" {
-		return fmt.Errorf("opencode agent requires a project config with a remote slug")
-	}
-
-	token, tokenID, err := mintScopedToken(ctx, rc, "agent-opencode-"+alias+"-"+sid[:8])
-	if err != nil {
-		return fmt.Errorf("mint scoped token: %w", err)
-	}
-
-	prev, hadKey := os.LookupEnv("DX_REMOTE_API_KEY")
-	os.Setenv("DX_REMOTE_API_KEY", token)
-	defer func() {
-		revokeScopedToken(context.Background(), rc, tokenID)
-		if hadKey {
-			os.Setenv("DX_REMOTE_API_KEY", prev)
-		} else {
-			os.Unsetenv("DX_REMOTE_API_KEY")
-		}
-	}()
-
-	tlog, tsink, tlogErr := newOpenCodeTraceLogger(rc, llmCfg, sid, issueID, alias, token)
-	if tlogErr != nil {
-		fmt.Fprintf(os.Stderr, "tracelog: %v (continuing without structured logging)\n", tlogErr)
-	}
-	if tsink != nil {
-		// Drain network buffer after the file logger has emitted its final
-		// session.end. Defer order: tsink registered first → runs last.
-		defer func() {
-			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
-			defer cancel()
-			_ = tsink.Close(closeCtx)
-		}()
-	}
-	if tlog != nil {
-		defer tlog.Close()
-		if u := tlog.FilteredURL(rc.url, rc.slug); u != "" {
-			fmt.Printf("View live logs: %s\n", u)
-		}
-		tlog.Info("session.start",
-			"sid", sid,
-			"issue_id", issueID,
-			"alias", alias,
-			"model", llmCfg.Model)
-	}
-
-	adapter := &opencodeAdapter{
-		llmCfg:     llmCfg,
-		maxTurns:   maxTurns,
-		seedPrompt: seedPrompt,
-	}
-	_, err = RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "opencode-cli", 0)
-	if tlog != nil {
-		status := "ok"
-		errStr := ""
-		if err != nil {
-			status = "error"
-			errStr = err.Error()
-		}
-		tlog.Info("session.end", "status", status, "err", errStr)
-	}
-	return err
-}
-
-// newOpenCodeTraceLogger builds the tracelog.Logger for the session, stamped
-// with agent/session/git context. Output goes to a JSONL file under
-// .zdx/logs and (when scopedToken + rc.url are set) to the zdx server's
-// /api/ingest/logs endpoint via the AuthApiKey path — the dual-auth handler
-// resolves the project from rc.slug since scoped admin tokens aren't bound
-// to an integration token row. Returns the logger plus the underlying
-// zdxclient (caller closes it after the logger to drain the network buffer).
-func newOpenCodeTraceLogger(rc remoteConfig, llmCfg config.LLMLocal, sid, issueID, alias, scopedToken string) (*tracelog.Logger, *zdxclient.Client, error) {
-	branch, _ := exec.Command("git", "rev-parse", "--abbrev-ref", "HEAD").Output()
-	worktree := "main"
-	if out, err := exec.Command("git", "rev-parse", "--git-dir").Output(); err == nil {
-		if strings.Contains(string(out), "/worktrees/") {
-			worktree = "worktree"
-		}
-	}
-	tags := map[string]string{
-		"agent":      "opencode",
-		"session_id": sid,
-		"issue_id":   issueID,
-		"alias":      alias,
-		"slug":       rc.slug,
-		"model":      llmCfg.Model,
-		"branch":     strings.TrimSpace(string(branch)),
-		"worktree":   worktree,
-		"pid":        fmt.Sprintf("%d", os.Getpid()),
-	}
-
-	var sink tracelog.Sink
-	var client *zdxclient.Client
-	if rc.url != "" && scopedToken != "" {
-		c, err := zdxclient.New(zdxclient.Config{
-			Endpoint:    rc.url,
-			Token:       scopedToken,
-			AuthMode:    zdxclient.AuthApiKey,
-			ProjectSlug: rc.slug,
-			Component:   "agent-opencode",
-			OnError: func(err error, n int) {
-				fmt.Fprintf(os.Stderr, "tracelog ingest: %v (%d events)\n", err, n)
-			},
-		})
-		if err != nil {
-			fmt.Fprintf(os.Stderr, "tracelog: zdxclient init: %v (continuing file-only)\n", err)
-		} else {
-			client = c
-			sink = c
-		}
-	}
-
-	logger, err := tracelog.New(tracelog.Options{
-		BaseTags:  tags,
-		FilePath:  filepath.Join(".zdx", "logs", "opencode-"+sid[:8]+".jsonl"),
-		Sink:      sink,
-		Component: "agent-opencode",
-	})
-	if err != nil {
-		if client != nil {
-			closeCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
-			_ = client.Close(closeCtx)
-			cancel()
-		}
-		return nil, nil, err
-	}
-	return logger, client, nil
-}
-
 // ── OpenCode AgentAdapter ─────────────────────────────────────────────────
 
 func init() {
@@ -256,11 +77,25 @@ func init() {
 		if opts.Model != "" {
 			llmCfg.Model = opts.Model
 		}
-		maxTurns := opts.MaxTurns // 0 = unlimited; matches opencode CLI default
+		// Pull endpoint + api_key + (when --model unset) model from the
+		// server's admin/llm-configs for the chosen complexity tier. This
+		// lets opencode work against a remote LLM without local llm_local
+		// settings — matches the legacy RunE behavior.
+		if opts.Complexity != "" {
+			if serverCfg := resolveLLMConfigFromServer(opts.RC, opts.Complexity); serverCfg.BaseURL != "" {
+				llmCfg.BaseURL = serverCfg.BaseURL
+				if serverCfg.APIKey != "" {
+					llmCfg.APIKey = serverCfg.APIKey
+				}
+				if opts.Model == "" {
+					llmCfg.Model = serverCfg.Model
+				}
+			}
+		}
 		return &opencodeAdapter{
 			rc:         opts.RC,
 			llmCfg:     llmCfg,
-			maxTurns:   maxTurns,
+			maxTurns:   opts.MaxTurns, // 0 = unlimited; matches opencode CLI default
 			seedPrompt: opts.SeedPrompt,
 		}, nil
 	})
@@ -634,67 +469,6 @@ func opencodeSystemPrompt(alias, issueID string) string {
 		b.WriteString("Current issue: " + issueID + ".\n")
 	}
 	return b.String()
-}
-
-// ── Loop mode ──────────────────────────────────────────────────────────────
-
-func runOpenCodeLoop(parentCtx context.Context, rc remoteConfig, llmCfg config.LLMLocal, alias string, maxTurns int) error {
-	stateFile := ".zdx/cache/opencode-agent-state"
-	logFile := ".zdx/logs/opencode-agent.log"
-	_ = os.MkdirAll(".zdx/logs", 0o755)
-	_ = os.MkdirAll(".zdx/cache", 0o755)
-
-	logf, _ := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if logf != nil {
-		defer logf.Close()
-	}
-
-	logfn := func(format string, args ...any) {
-		msg := fmt.Sprintf(format, args...)
-		line := fmt.Sprintf("[%s] %s\n", time.Now().Format(time.RFC3339), msg)
-		fmt.Print(line)
-		if logf != nil {
-			_, _ = logf.WriteString(line)
-		}
-	}
-
-	if alias == "" {
-		alias = "opencode-" + uuid.New().String()[:8]
-	}
-	ctx, cancel := context.WithCancel(parentCtx)
-	defer cancel()
-	installReleaseOnSignal(rc, alias, stateFile, logfn, cancel)
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		todo, err := runDxTodoSolo("")
-		if err != nil || todo == "" {
-			logfn("idle; sleeping 60s")
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(60 * time.Second):
-				continue
-			}
-		}
-		logfn("todo solo:\n%s", todo)
-		issueID := extractIssueID(todo)
-		sid := uuid.New().String()
-		_ = os.WriteFile(stateFile, []byte(issueID+"\n"+sid+"\n"), 0o644)
-
-		logfn("── SESSION START  session=%s  issue=%s ──", sid, issueID)
-		start := time.Now()
-		seed := fmt.Sprintf("Here is the current todo pick from `dx todo solo`:\n\n%s\n\nWork this vertical: resolve triage/decompose/comment/dev items for the referenced issue, then close it. Use dx tools for project ops and filesystem/shell tools for code changes. Stop when the issue is closed or blocked.", todo)
-		err = runOpenCodeSession(ctx, rc, llmCfg, sid, issueID, alias, seed, maxTurns)
-		if err != nil {
-			logfn("session error: %v", err)
-		}
-		logfn("── SESSION END    session=%s  duration=%s ──", sid, time.Since(start).Truncate(time.Second))
-		_ = os.Remove(stateFile)
-	}
 }
 
 // ── Session state persistence (JSON input/output) ─────────────────────────

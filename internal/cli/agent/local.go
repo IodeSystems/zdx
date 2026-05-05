@@ -3,16 +3,14 @@ package agent
 import (
 	"context"
 	"fmt"
-	"github.com/iodesystems/zdx-go/internal/cli"
-	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"os"
 	"strings"
-	"time"
 
-	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
 	"github.com/spf13/cobra"
 
+	"github.com/iodesystems/zdx-go/internal/cli"
+	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
 
@@ -33,44 +31,18 @@ and tool_result is written as Claude-compatible JSONL to
 .zdx/agent/local/<sid>.jsonl and streamed to the server for the
 sessions/agents UI.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			normalized, err := NormalizeComplexity(complexity)
+			tier, err := NormalizeComplexity(complexity)
 			if err != nil {
 				return err
 			}
-			complexity = normalized
-			global, _ := cmd.Flags().GetBool("global")
-			global = global || config.IsGlobalMode()
-			var cfg *config.Config
-			if !global {
-				cfg = config.Load()
+			opts, err := loadManagedOptsFromCmd(cmd, "local", alias, issue, "", tier, maxTurns)
+			if err != nil {
+				return err
 			}
-			var rc remoteConfig
-			if global {
-				if globalCfg := config.LoadGlobal(); globalCfg != nil {
-					fmt.Fprintln(os.Stderr, "srcless mode: using ~/.zdx/config.yaml (no project config found)")
-					rc = remoteConfig{
-						url: globalCfg.Remote.URL,
-						key: config.GlobalRemoteAPIKey(),
-					}
-				}
-			} else {
-				rc = remoteConfig{
-					url:  cfg.RemoteURL(),
-					slug: cfg.RemoteSlug(),
-					key:  config.RemoteAPIKey(),
-				}
-			}
-			llmCfg := cfg.ResolvedLLMLocal()
-			llmCfg = applyComplexityModel(cmd.Context(), llmCfg, complexity)
-
 			if loop {
-				return runLocalLoop(cmd.Context(), rc, llmCfg, alias, maxTurns)
+				return RunManagedLoop(cmd.Context(), "local", opts)
 			}
-			ctx, cancel := context.WithCancel(cmd.Context())
-			defer cancel()
-			installReleaseOnSignal(rc, alias, "", nil, cancel)
-			sid := uuid.New().String()
-			return runLocalSession(ctx, rc, llmCfg, sid, issue, alias, "", maxTurns)
+			return RunManagedSession(cmd.Context(), "local", opts)
 		},
 	}
 	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
@@ -113,42 +85,6 @@ func applyComplexityModel(ctx context.Context, llmCfg config.LLMLocal, complexit
 	return llmCfg
 }
 
-// runLocalSession wraps the local-LLM chat loop in a localAdapter and drives
-// it through the shared RunLifecycle runner. Event tailing, WS streaming,
-// and session close are all owned by RunLifecycle.
-func runLocalSession(ctx context.Context, rc remoteConfig, llmCfg config.LLMLocal, sid, issueID, alias, seedPrompt string, maxTurns int) error {
-	if rc.slug == "" {
-		return fmt.Errorf("local agent requires a project config with a remote slug")
-	}
-
-	token, tokenID, err := mintScopedToken(ctx, rc, "agent-local-"+alias+"-"+sid[:8])
-	if err != nil {
-		return fmt.Errorf("mint scoped token: %w", err)
-	}
-
-	// Swap DX_REMOTE_API_KEY in the host process env so both in-process
-	// dxclient calls (e.g. applyComplexityModel → cli.DefaultClient) and
-	// run_bash subprocesses (which inherit os.Environ) see the scoped token.
-	prev, hadKey := os.LookupEnv("DX_REMOTE_API_KEY")
-	os.Setenv("DX_REMOTE_API_KEY", token)
-	defer func() {
-		revokeScopedToken(context.Background(), rc, tokenID)
-		if hadKey {
-			os.Setenv("DX_REMOTE_API_KEY", prev)
-		} else {
-			os.Unsetenv("DX_REMOTE_API_KEY")
-		}
-	}()
-
-	adapter := &localAdapter{
-		llmCfg:     llmCfg,
-		maxTurns:   maxTurns,
-		seedPrompt: seedPrompt,
-	}
-	_, err = RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "local-cli", 0)
-	return err
-}
-
 // ── Local AgentAdapter ────────────────────────────────────────────────────
 
 // localAdapter implements AgentAdapter for the in-process local-LLM loop.
@@ -171,6 +107,20 @@ func init() {
 		llmCfg := opts.LLMLocal
 		if opts.Model != "" {
 			llmCfg.Model = opts.Model
+		}
+		// Mirror opencode: pull full endpoint + api_key from admin/llm-configs
+		// for the chosen tier so dx agent --provider=local works against a
+		// remote LLM without project-local llm_local settings.
+		if opts.Complexity != "" {
+			if serverCfg := resolveLLMConfigFromServer(opts.RC, opts.Complexity); serverCfg.BaseURL != "" {
+				llmCfg.BaseURL = serverCfg.BaseURL
+				if serverCfg.APIKey != "" {
+					llmCfg.APIKey = serverCfg.APIKey
+				}
+				if opts.Model == "" {
+					llmCfg.Model = serverCfg.Model
+				}
+			}
 		}
 		maxTurns := opts.MaxTurns
 		if maxTurns == 0 {
@@ -282,64 +232,6 @@ func (a *localAdapter) RenderEvent(eventJSON []byte) string {
 		a.toolNames = map[string]string{}
 	}
 	return renderSessionEvent(eventJSON, a.toolNames)
-}
-
-// runLocalLoop mirrors agent_claude.runLoop: poll solo, run a session per pick,
-// repeat. Session state is persisted so SIGINT releases claimed tasks.
-func runLocalLoop(parentCtx context.Context, rc remoteConfig, llmCfg config.LLMLocal, alias string, maxTurns int) error {
-	stateFile := ".zdx/cache/local-agent-state"
-	logFile := ".zdx/logs/local-agent.log"
-	_ = os.MkdirAll(".zdx/logs", 0o755)
-	_ = os.MkdirAll(".zdx/cache", 0o755)
-
-	logf, _ := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)
-	if logf != nil {
-		defer logf.Close()
-	}
-
-	logfn := func(format string, args ...any) {
-		msg := fmt.Sprintf(format, args...)
-		line := fmt.Sprintf("[%s] %s\n", time.Now().Format(time.RFC3339), msg)
-		fmt.Print(line)
-		if logf != nil {
-			_, _ = logf.WriteString(line)
-		}
-	}
-
-	ctx, cancel := context.WithCancel(parentCtx)
-	defer cancel()
-	installReleaseOnSignal(rc, alias, stateFile, logfn, cancel)
-
-	for {
-		if err := ctx.Err(); err != nil {
-			return err
-		}
-
-		todo, err := runDxTodoSolo("")
-		if err != nil || todo == "" {
-			logfn("idle; sleeping 60s")
-			select {
-			case <-ctx.Done():
-				return ctx.Err()
-			case <-time.After(60 * time.Second):
-				continue
-			}
-		}
-		logfn("todo solo:\n%s", todo)
-		issueID := extractIssueID(todo)
-		sid := uuid.New().String()
-		_ = os.WriteFile(stateFile, []byte(issueID+"\n"+sid+"\n"), 0o644)
-
-		logfn("── SESSION START  session=%s  issue=%s ──", sid, issueID)
-		start := time.Now()
-		seed := fmt.Sprintf("Here is the current todo pick from `dx todo solo`:\n\n%s\n\nWork this vertical: resolve triage/decompose/comment/dev items for the referenced issue, then close it. Use dx tools for project ops and filesystem/shell tools for code changes. Stop when the issue is closed or blocked.", todo)
-		err = runLocalSession(ctx, rc, llmCfg, sid, issueID, alias, seed, maxTurns)
-		if err != nil {
-			logfn("session error: %v", err)
-		}
-		logfn("── SESSION END    session=%s  duration=%s ──", sid, time.Since(start).Truncate(time.Second))
-		_ = os.Remove(stateFile)
-	}
 }
 
 func localSystemPrompt(alias, issueID string) string {

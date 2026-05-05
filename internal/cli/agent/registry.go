@@ -22,6 +22,7 @@ type ProviderOpts struct {
 	IssueID    string
 	Alias      string
 	Model      string // resolved post-ResolveModel; empty means provider picks
+	Complexity string // canonical tier (NormalizeComplexity-d) — providers may use this for full endpoint resolution
 	SeedPrompt string
 
 	// claude-specific (ignored by other providers)

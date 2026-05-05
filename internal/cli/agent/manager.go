@@ -103,6 +103,63 @@ func RunManagedSession(ctx context.Context, providerName string, opts ProviderOp
 	return runErr
 }
 
+// RunManagedLoop polls dx todo solo, claims work, runs a managed session per
+// pick, and repeats until cancelled. The shared scaffolding (signal handling,
+// state-file checkpoint, idle backoff) is owned here; provider-specific
+// session behavior comes from the opts (Model, MaxTurns, ...) and the
+// registered constructor.
+//
+// Equivalent to runOpenCodeLoop / runLocalLoop with their state-file +
+// idle-sleep semantics — but generalized: any provider whose constructor
+// honors the ProviderOpts fields gets a working loop for free.
+func RunManagedLoop(parentCtx context.Context, providerName string, opts ProviderOpts) error {
+	if opts.RC.slug == "" {
+		return fmt.Errorf("dx agent loop requires a project config with a remote slug")
+	}
+	if _, err := LookupProvider(providerName); err != nil {
+		return err
+	}
+	if opts.Alias == "" {
+		opts.Alias = providerName + "-" + uuid.New().String()[:8]
+	}
+
+	stateFile := filepath.Join(".zdx", "cache", providerName+"-agent-state")
+	_ = os.MkdirAll(filepath.Join(".zdx", "cache"), 0o755)
+
+	ctx, cancel := context.WithCancel(parentCtx)
+	defer cancel()
+	installReleaseOnSignal(opts.RC, opts.Alias, stateFile, nil, cancel)
+
+	for {
+		if err := ctx.Err(); err != nil {
+			return err
+		}
+		todo, err := runDxTodoSolo("")
+		if err != nil || todo == "" {
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(60 * time.Second):
+				continue
+			}
+		}
+		issueID := extractIssueID(todo)
+		sid := uuid.New().String()
+		_ = os.WriteFile(stateFile, []byte(issueID+"\n"+sid+"\n"), 0o644)
+
+		seed := fmt.Sprintf("Here is the current todo pick from `dx todo solo`:\n\n%s\n\nWork this vertical: resolve the items for the referenced issue, then close it. Use dx tools for project ops and filesystem/shell tools for code changes. Stop when the issue is closed or blocked.", todo)
+
+		sessOpts := opts
+		sessOpts.SID = sid
+		sessOpts.IssueID = issueID
+		sessOpts.SeedPrompt = seed
+		if err := RunManagedSession(ctx, providerName, sessOpts); err != nil {
+			fmt.Fprintf(os.Stderr, "session error: %v\n", err)
+		}
+		_ = os.Remove(stateFile)
+	}
+}
+
 // newManagedTraceLogger builds the tracelog logger + zdxclient sink for a
 // managed session. Mirrors what newOpenCodeTraceLogger did inline; lifted
 // here so all providers share the wiring.

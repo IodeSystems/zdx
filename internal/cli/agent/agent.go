@@ -50,18 +50,47 @@ end-to-end through the new provider registry.`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
 	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
-	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentOpenCodeCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
+	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentOpenCodeCmd(), agentLoopCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
 }
 
-// runManagedFromFlags loads project + global config, resolves the model via
-// the provider, and dispatches to RunManagedSession.
-func runManagedFromFlags(ctx context.Context, cmd *cobra.Command, provider, alias, issue, model, complexity string) error {
-	tier, err := NormalizeComplexity(complexity)
-	if err != nil {
-		return err
+// agentLoopCmd is the loop equivalent of dx agent: polls dx todo solo, runs a
+// managed session per pick, repeats. Shares the same provider registry +
+// manager scaffolding as the single-session form.
+func agentLoopCmd() *cobra.Command {
+	var provider, alias, model, complexity string
+	var maxTurns int
+	cmd := &cobra.Command{
+		Use:   "loop",
+		Short: "Loop: poll dx todo solo, run a managed session per pick, repeat",
+		Long: `Long-running loop that claims work via dx todo solo and runs a managed
+agent session per pick, sleeping 60s between idle ticks. Same provider
+registry + complexity resolution as ` + "`dx agent`" + `; the loop wraps
+RunManagedSession with signal handling and state-file checkpointing.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			tier, err := NormalizeComplexity(complexity)
+			if err != nil {
+				return err
+			}
+			opts, err := loadManagedOptsFromCmd(cmd, provider, alias, "", model, tier, maxTurns)
+			if err != nil {
+				return err
+			}
+			return RunManagedLoop(cmd.Context(), provider, opts)
+		},
 	}
+	cmd.Flags().StringVar(&provider, "provider", "", "agent provider: "+providerNames()+" (required)")
+	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
+	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
+	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
+	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
+	return cmd
+}
 
+// loadManagedOptsFromCmd centralizes the project-config + global-mode +
+// model-resolution dance so both `dx agent` and `dx agent loop` (and the
+// upcoming legacy shims) build a populated ProviderOpts the same way.
+func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, tier string, maxTurns int) (ProviderOpts, error) {
 	global, _ := cmd.Flags().GetBool("global")
 	global = global || config.IsGlobalMode()
 
@@ -73,55 +102,60 @@ func runManagedFromFlags(ctx context.Context, cmd *cobra.Command, provider, alia
 		gc := config.LoadGlobal()
 		if gc != nil {
 			ga := gc.ResolvedGlobalAgent()
-			rc = remoteConfig{
-				url: gc.Remote.URL,
-				key: config.GlobalRemoteAPIKey(),
-			}
-			agentCfg = config.AgentConfig{
-				ClaudeModel:  ga.ClaudeModel,
-				MaxWorktrees: ga.MaxWorktrees,
-				LeaseMinutes: ga.LeaseMinutes,
-			}
+			rc = remoteConfig{url: gc.Remote.URL, key: config.GlobalRemoteAPIKey()}
+			agentCfg = config.AgentConfig{ClaudeModel: ga.ClaudeModel, MaxWorktrees: ga.MaxWorktrees, LeaseMinutes: ga.LeaseMinutes}
 			srcless = true
 		}
 	} else {
 		cfg := config.Load()
 		if cfg == nil {
-			return fmt.Errorf("no project config found; run from a project root or pass --global")
+			return ProviderOpts{}, fmt.Errorf("no project config found; run from a project root or pass --global")
 		}
 		rc = remoteConfig{url: cfg.RemoteURL(), slug: cfg.RemoteSlug(), key: config.RemoteAPIKey()}
 		agentCfg = cfg.ResolvedAgent()
 		llmLocal = cfg.ResolvedLLMLocal()
 	}
 
-	// Build a stub adapter just for ResolveModel — providers' ResolveModel
-	// only needs a few fields (rc + llmLocal + agentCfg) and is side-effect
-	// free, so this temp construction is cheap and stays inside the manager.
 	resolved := model
 	if resolved == "" {
 		ctor, err := LookupProvider(provider)
 		if err != nil {
-			return err
+			return ProviderOpts{}, err
 		}
 		ap, err := ctor(ProviderOpts{RC: rc, AgentCfg: agentCfg, LLMLocal: llmLocal})
 		if err != nil {
-			return fmt.Errorf("resolve model: %w", err)
+			return ProviderOpts{}, fmt.Errorf("resolve model: %w", err)
 		}
-		resolved, err = ap.ResolveModel(ctx, tier)
+		resolved, err = ap.ResolveModel(cmd.Context(), tier)
 		if err != nil {
-			return fmt.Errorf("resolve model (%s, complexity=%s): %w", provider, tier, err)
+			return ProviderOpts{}, fmt.Errorf("resolve model (%s, complexity=%s): %w", provider, tier, err)
 		}
 	}
 
-	opts := ProviderOpts{
-		RC:       rc,
-		AgentCfg: agentCfg,
-		LLMLocal: llmLocal,
-		IssueID:  issue,
-		Alias:    alias,
-		Model:    resolved,
-		Srcless:  srcless,
-		Chrome:   true, // claude default; ignored by other providers
+	return ProviderOpts{
+		RC:         rc,
+		AgentCfg:   agentCfg,
+		LLMLocal:   llmLocal,
+		IssueID:    issue,
+		Alias:      alias,
+		Model:      resolved,
+		Complexity: tier,
+		Srcless:    srcless,
+		Chrome:     true,
+		MaxTurns:   maxTurns,
+	}, nil
+}
+
+// runManagedFromFlags loads project + global config, resolves the model via
+// the provider, and dispatches to RunManagedSession.
+func runManagedFromFlags(ctx context.Context, cmd *cobra.Command, provider, alias, issue, model, complexity string) error {
+	tier, err := NormalizeComplexity(complexity)
+	if err != nil {
+		return err
+	}
+	opts, err := loadManagedOptsFromCmd(cmd, provider, alias, issue, model, tier, 0)
+	if err != nil {
+		return err
 	}
 	return RunManagedSession(ctx, provider, opts)
 }
