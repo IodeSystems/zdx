@@ -19,6 +19,7 @@ import (
 	"syscall"
 	"time"
 
+	"github.com/iodesystems/zdx-go/internal/agentdaemon"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
 
@@ -246,13 +247,25 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 	defer cancel()
 	installReleaseOnSignal(rc, alias, stateFile, log, cancel)
 
-	selfPath, _ := os.Executable()
-	selfHash := fileHash(selfPath)
-
 	agentID := alias
 	if agentID == "" {
 		agentID = "agent-" + shortID()
 	}
+
+	// Remote-control bridge (IS-1032): same wiring as RunManagedLoop. The
+	// daemon's ControlCh consumer toggles holder pause/drain state which
+	// the for-loop checks each iteration. Best-effort dial; failure falls
+	// back to file-only operation.
+	holder := agentdaemon.NewLoopTaskHolder()
+	startDaemon(ctx, "claude", ProviderOpts{
+		RC:       rc,
+		AgentCfg: agentCfg,
+		Alias:    agentID,
+		WorkDir:  workDir,
+	}, holder)
+
+	selfPath, _ := os.Executable()
+	selfHash := fileHash(selfPath)
 
 	// Capture the loop's original cwd so per-session chdir into a srcless
 	// worktree can be reverted before the next iteration.
@@ -283,6 +296,15 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			}
 		}
 
+		// Pause / drain gates from the daemon's ControlCh consumer.
+		if err := holder.WaitWhilePaused(ctx); err != nil {
+			return nil
+		}
+		if holder.DrainSignaled() {
+			log("drain signaled, exiting loop")
+			return nil
+		}
+
 		// Build TakeConfig for this iteration.
 		takeCfg := TakeConfig{
 			RC:         rc,
@@ -297,6 +319,7 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			SessionIdx: sessionIdx,
 			SelfPath:   selfPath,
 			StateFile:  stateFile,
+			Holder:     holder,
 			LogFn:      log,
 		}
 

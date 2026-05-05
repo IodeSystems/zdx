@@ -9,6 +9,8 @@ import (
 	"time"
 
 	"github.com/google/uuid"
+
+	"github.com/iodesystems/zdx-go/internal/agentdaemon"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
 
@@ -37,6 +39,12 @@ type TakeConfig struct {
 
 	// StateFile path for crash-recovery breadcrumb.
 	StateFile string
+
+	// Holder, if non-nil, receives Set/Clear around the active session so
+	// the daemon's pause hold-loop can read the live claim and the
+	// LeaseRenewer can renew it. Nil-safe: skipped when the caller hasn't
+	// wired a daemon (e.g. unit tests, future no-network mode).
+	Holder *agentdaemon.LoopTaskHolder
 
 	LogFn func(string, ...any)
 }
@@ -156,12 +164,37 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 	log("──────────────────────────────────────────────")
 	startTime := time.Now()
 
-	// ── Lease renewal ──────────────────────────────────────────────────
+	// ── Daemon holder + lease renewal ─────────────────────────────────
+	// Hand the daemon a live snapshot of the claim. Renewal happens in
+	// two places that share the same closure: this Take's internal
+	// ticker goroutine (every leaseMin/2) and — while the operator has
+	// the agent paused — the daemon's pause hold-loop, which calls
+	// holder.Renew to keep the claim alive without spawning new turns.
+	var renewClosure func()
+	if activeTodo != nil {
+		renewMin := int32(cfg.AgentCfg.LeaseMinutes)
+		todoID := activeTodo.ID
+		renewClosure = func() { renewTodoLease(cfg.RC, todoID, cfg.AgentID, renewMin) }
+		if cfg.Holder != nil {
+			cfg.Holder.Set(agentdaemon.RunningTask{
+				ID:        fmt.Sprintf("%d", todoID),
+				SessionID: sid,
+				IssueID:   issueID,
+				Started:   time.Now(),
+			}, renewClosure)
+		}
+	}
+	defer func() {
+		if cfg.Holder != nil {
+			cfg.Holder.Clear()
+		}
+	}()
+
 	var leaseCancel context.CancelFunc
 	if activeTodo != nil {
 		var leaseCtx context.Context
 		leaseCtx, leaseCancel = context.WithCancel(ctx)
-		go func(todoID int32, renewMin int32) {
+		go func(renewMin int32) {
 			interval := time.Duration(renewMin/2) * time.Minute
 			if interval < time.Minute {
 				interval = time.Minute
@@ -173,10 +206,12 @@ func Take(ctx context.Context, cfg TakeConfig) TakeResult {
 				case <-leaseCtx.Done():
 					return
 				case <-ticker.C:
-					renewTodoLease(cfg.RC, todoID, cfg.AgentID, renewMin)
+					if renewClosure != nil {
+						renewClosure()
+					}
 				}
 			}
-		}(activeTodo.ID, int32(cfg.AgentCfg.LeaseMinutes))
+		}(int32(cfg.AgentCfg.LeaseMinutes))
 	}
 	defer func() {
 		if leaseCancel != nil {
