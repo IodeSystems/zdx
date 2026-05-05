@@ -78,6 +78,18 @@ tasks and cheap ones for quick fixes without changing config.`,
 			} else {
 				llmCfg = applyComplexityModel(cmd.Context(), llmCfg, complexity)
 			}
+			// Try resolving full LLM config from the server (url + api_key + model).
+			// This lets the adapter work against a remote LLM endpoint configured
+			// in the admin LLM config UI without needing local llm_local settings.
+			if serverCfg := resolveLLMConfigFromServer(rc, complexity); serverCfg.BaseURL != "" {
+				llmCfg.BaseURL = serverCfg.BaseURL
+				if serverCfg.APIKey != "" {
+					llmCfg.APIKey = serverCfg.APIKey
+				}
+				if model == "" {
+					llmCfg.Model = serverCfg.Model
+				}
+			}
 
 			if loop {
 				return runOpenCodeLoop(cmd.Context(), rc, llmCfg, alias, maxTurns)

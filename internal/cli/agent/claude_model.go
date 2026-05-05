@@ -112,6 +112,17 @@ type llmConfigEntry struct {
 	ModelHigh   string `json:"model_high"`
 }
 
+// fullLLMConfigEntry includes URL and API key for adapters that need the
+// complete endpoint config (OpenCode, MCP harness) not just model names.
+type fullLLMConfigEntry struct {
+	ModelLow    string `json:"model_low"`
+	ModelMedium string `json:"model_medium"`
+	ModelHigh   string `json:"model_high"`
+	Url         string `json:"url"`
+	ApiKey      string `json:"api_key"`
+	Type        string `json:"type"`
+}
+
 // fetchLLMConfigs pulls the ordered list of admin LLM configs over HTTP.
 // Returns nil + nil error when the server is unreachable, the call 4xx's,
 // or the body is missing — callers fall back to defaults.
@@ -136,4 +147,59 @@ func fetchLLMConfigs(rc remoteConfig) ([]llmConfigEntry, error) {
 		return nil, err
 	}
 	return body.Configs, nil
+}
+
+// fetchFullLLMConfigs pulls the full LLM config including URL and API key.
+func fetchFullLLMConfigs(rc remoteConfig) ([]fullLLMConfigEntry, error) {
+	if !rc.valid() {
+		return nil, nil
+	}
+	req, _ := http.NewRequest("GET", rc.url+"/api/admin/llm-configs", nil)
+	req.Header.Set("X-Api-Key", rc.key)
+	resp, err := (&http.Client{Timeout: 5 * time.Second}).Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode >= 400 {
+		return nil, nil
+	}
+	var body struct {
+		Configs []fullLLMConfigEntry `json:"configs"`
+	}
+	if err := json.NewDecoder(resp.Body).Decode(&body); err != nil {
+		return nil, err
+	}
+	return body.Configs, nil
+}
+
+// resolveLLMConfigFromServer looks up the server's LLM config for the given
+// complexity tier and returns a fully-resolved LLMLocal (base_url, model,
+// api_key). Walks configs in priority order; returns zero LLMLocal on miss.
+func resolveLLMConfigFromServer(rc remoteConfig, complexity string) config.LLMLocal {
+	lvl := normalizeLevel(complexity)
+	if lvl == "" {
+		return config.LLMLocal{}
+	}
+	configs, _ := fetchFullLLMConfigs(rc)
+	for _, cfg := range configs {
+		var picked string
+		switch lvl {
+		case "low":
+			picked = cfg.ModelLow
+		case "med":
+			picked = cfg.ModelMedium
+		case "high":
+			picked = cfg.ModelHigh
+		}
+		if picked != "" && cfg.Url != "" {
+			return config.LLMLocal{
+				BaseURL:        cfg.Url,
+				Model:          picked,
+				APIKey:         cfg.ApiKey,
+				TimeoutSeconds: 120,
+			}
+		}
+	}
+	return config.LLMLocal{}
 }

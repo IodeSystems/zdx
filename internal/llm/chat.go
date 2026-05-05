@@ -120,11 +120,20 @@ func (c *Client) ChatCompletion(ctx context.Context, req *ChatRequest) (*ChatRes
 	defer resp.Body.Close()
 
 	if resp.StatusCode != http.StatusOK {
+		bodyBytes, _ := io.ReadAll(resp.Body)
 		var errBody struct {
 			Error struct{ Message string } `json:"error"`
 		}
-		_ = json.NewDecoder(resp.Body).Decode(&errBody)
-		return nil, fmt.Errorf("llm: chat %s: %s", resp.Status, errBody.Error.Message)
+		_ = json.NewDecoder(bytes.NewReader(bodyBytes)).Decode(&errBody)
+		msg := errBody.Error.Message
+		if msg == "" {
+			if len(bodyBytes) > 0 {
+				msg = strings.TrimSpace(string(bodyBytes))
+			} else {
+				msg = fmt.Sprintf("(empty response body — check model '%s' exists at %s)", c.cfg.Model, c.cfg.URL)
+			}
+		}
+		return nil, fmt.Errorf("llm: chat %s: %s", resp.Status, msg)
 	}
 
 	var parsed struct {
