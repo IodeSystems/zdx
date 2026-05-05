@@ -330,13 +330,14 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 	// ── Admin: integration tokens ─────────────────────────────────────────────
 
 	type IntegrationTokenItem struct {
-		ID          int32  `json:"id"`
-		ProjectID   int32  `json:"project_id"`
-		Component   string `json:"component,omitempty"`
-		Name        string `json:"name"`
-		TokenPrefix string `json:"token_prefix"`
-		CreatedAt   string `json:"created_at"`
-		RevokedAt   string `json:"revoked_at,omitempty"`
+		ID           int32    `json:"id"`
+		ProjectID    *int32   `json:"project_id,omitempty"`
+		Component    string   `json:"component,omitempty"`
+		Name         string   `json:"name"`
+		TokenPrefix  string   `json:"token_prefix"`
+		Capabilities []string `json:"capabilities"`
+		CreatedAt    string   `json:"created_at"`
+		RevokedAt    string   `json:"revoked_at,omitempty"`
 	}
 
 	huma.Register(api, huma.Operation{OperationID: "list-integration-tokens", Method: http.MethodGet, Path: "/api/admin/integration-tokens"},
@@ -362,11 +363,15 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 			items := make([]IntegrationTokenItem, len(rows))
 			for i, r := range rows {
 				it := IntegrationTokenItem{
-					ID:          r.ID,
-					ProjectID:   r.ProjectID,
-					Name:        r.Name,
-					TokenPrefix: r.TokenPrefix,
-					CreatedAt:   r.CreatedAt.Time.Format(time.RFC3339),
+					ID:           r.ID,
+					Name:         r.Name,
+					TokenPrefix:  r.TokenPrefix,
+					Capabilities: r.Capabilities,
+					CreatedAt:    r.CreatedAt.Time.Format(time.RFC3339),
+				}
+				if r.ProjectID.Valid {
+					pid := r.ProjectID.Int32
+					it.ProjectID = &pid
 				}
 				if r.Component.Valid {
 					it.Component = r.Component.String
@@ -388,9 +393,10 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 	huma.Register(api, huma.Operation{OperationID: "create-integration-token", Method: http.MethodPost, Path: "/api/admin/integration-tokens"},
 		func(ctx context.Context, in *struct {
 			Body struct {
-				Slug      string `json:"slug"`
-				Component string `json:"component,omitempty"`
-				Name      string `json:"name"`
+				Slug         string   `json:"slug,omitempty"`
+				Component    string   `json:"component,omitempty"`
+				Name         string   `json:"name"`
+				Capabilities []string `json:"capabilities,omitempty"`
 			}
 		}) (*struct {
 			Body struct {
@@ -398,9 +404,13 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 				Token string `json:"token"`
 			}
 		}, error) {
-			p, err := getProject(ctx, h.Q, in.Body.Slug)
-			if err != nil {
-				return nil, err
+			pid := pgtype.Int4{Valid: false}
+			if in.Body.Slug != "" {
+				p, err := getProject(ctx, h.Q, in.Body.Slug)
+				if err != nil {
+					return nil, err
+				}
+				pid = pgtype.Int4{Int32: p.ID, Valid: true}
 			}
 			token, err := GenerateIntegrationToken()
 			if err != nil {
@@ -411,21 +421,26 @@ func (h *Handler) registerAdminRoutes(api huma.API) {
 				comp = pgtype.Text{String: in.Body.Component, Valid: true}
 			}
 			row, err := h.Q.CreateIntegrationToken(ctx, db.CreateIntegrationTokenParams{
-				ProjectID:   p.ID,
-				Component:   comp,
-				Name:        in.Body.Name,
-				TokenHash:   HashIntegrationToken(token),
-				TokenPrefix: TokenPrefix(token),
+				ProjectID:    pid,
+				Component:    comp,
+				Name:         in.Body.Name,
+				TokenHash:    HashIntegrationToken(token),
+				TokenPrefix:  TokenPrefix(token),
+				Capabilities: in.Body.Capabilities,
 			})
 			if err != nil {
 				return nil, apiErr(500, err.Error())
 			}
 			item := IntegrationTokenItem{
-				ID:          row.ID,
-				ProjectID:   row.ProjectID,
-				Name:        row.Name,
-				TokenPrefix: row.TokenPrefix,
-				CreatedAt:   row.CreatedAt.Time.Format(time.RFC3339),
+				ID:           row.ID,
+				Name:         row.Name,
+				TokenPrefix:  row.TokenPrefix,
+				Capabilities: row.Capabilities,
+				CreatedAt:    row.CreatedAt.Time.Format(time.RFC3339),
+			}
+			if row.ProjectID.Valid {
+				p := row.ProjectID.Int32
+				item.ProjectID = &p
 			}
 			if row.Component.Valid {
 				item.Component = row.Component.String

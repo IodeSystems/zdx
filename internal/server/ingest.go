@@ -145,7 +145,7 @@ func (s *Server) registerIngestRoutes(api huma.API) {
 			accepted := 0
 			for _, ev := range in.Body.Events {
 				ctxJSON := buildContextJSON(host, ev.Tags)
-				pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
+				pid := row.ProjectID
 				if err := s.q.UpsertTimed(ctx, db.UpsertTimedParams{
 					ProjectID:   pid,
 					Component:   component,
@@ -246,7 +246,7 @@ func (s *Server) registerCounterIngestRoutes(api huma.API) {
 			accepted := 0
 			for _, ev := range in.Body.Events {
 				ctxJSON := buildContextJSON(host, ev.Tags)
-				pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
+				pid := row.ProjectID
 				if err := s.q.UpsertCounted(ctx, db.UpsertCountedParams{
 					ProjectID:   pid,
 					Component:   component,
@@ -348,7 +348,7 @@ func (s *Server) registerErrorIngestRoutes(api huma.API) {
 			accepted := 0
 			for _, ev := range in.Body.Events {
 				ctxJSON := buildContextJSON(host, ev.Tags)
-				pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
+				pid := row.ProjectID
 				if err := s.q.InsertErrorEvent(ctx, db.InsertErrorEventParams{
 					ProjectID:   pid,
 					Component:   component,
@@ -384,10 +384,111 @@ type IngestLogEvent struct {
 }
 
 type IngestLogBatch struct {
+	// ProjectSlug names the target project. Required when the caller's
+	// credential is unbound (user/admin api key, or unbound integration
+	// token); ignored when the caller's credential is project-bound and
+	// matches.
+	ProjectSlug string           `json:"project_slug,omitempty"`
 	Component   string           `json:"component,omitempty"`
 	Environment string           `json:"environment,omitempty"`
 	Host        string           `json:"host,omitempty"`
 	Events      []IngestLogEvent `json:"events"`
+}
+
+// logIngestAuth is the resolved authorization context for a log ingest call.
+// rateLimitID is a stable per-principal key for the rate limiter.
+type logIngestAuth struct {
+	projectID        pgtype.Int4
+	componentDefault string
+	rateLimitID      int32
+}
+
+const capabilityIngestLogs = "ingest:logs"
+
+// resolveLogIngestAuth authorizes a /api/ingest/logs request against either
+// an integration token (Authorization: Bearer) or a user/admin api key
+// (X-Api-Key — same credential the rest of /api/* uses). Body.ProjectSlug
+// supplies the target project when the credential isn't project-bound; if
+// the credential IS project-bound, the slug must match.
+func (s *Server) resolveLogIngestAuth(ctx context.Context, authHeader, apiKeyHeader, slug string) (logIngestAuth, error) {
+	if apiKeyHeader != "" {
+		key, err := s.q.GetApiKeyByToken(ctx, apiKeyHeader)
+		if err != nil {
+			return logIngestAuth{}, handlers.APIErr(http.StatusUnauthorized, "invalid api key")
+		}
+		if slug == "" {
+			return logIngestAuth{}, handlers.APIErr(http.StatusBadRequest, "project_slug required when authenticating with api key")
+		}
+		p, err := s.q.GetProjectBySlug(ctx, slug)
+		if err != nil {
+			return logIngestAuth{}, handlers.APIErr(http.StatusBadRequest, "unknown project: "+slug)
+		}
+		if len(key.ProjectScope) > 0 {
+			ok := false
+			for _, s := range key.ProjectScope {
+				if s == slug {
+					ok = true
+					break
+				}
+			}
+			if !ok {
+				return logIngestAuth{}, handlers.APIErr(http.StatusForbidden, "api key not scoped to project "+slug)
+			}
+		}
+		return logIngestAuth{
+			projectID:   pgtype.Int4{Int32: p.ID, Valid: true},
+			rateLimitID: -key.ID,
+		}, nil
+	}
+
+	token := strings.TrimPrefix(authHeader, "Bearer ")
+	if token == authHeader || token == "" {
+		return logIngestAuth{}, handlers.APIErr(http.StatusUnauthorized, "missing credential: provide X-Api-Key or Authorization: Bearer")
+	}
+	row, err := s.q.GetIntegrationTokenByHash(ctx, handlers.HashIntegrationToken(token))
+	if err != nil {
+		return logIngestAuth{}, handlers.APIErr(http.StatusUnauthorized, "invalid token")
+	}
+	if row.RevokedAt.Valid {
+		return logIngestAuth{}, handlers.APIErr(http.StatusUnauthorized, "token revoked")
+	}
+	if !hasCapability(row.Capabilities, capabilityIngestLogs) {
+		return logIngestAuth{}, handlers.APIErr(http.StatusForbidden, "token lacks "+capabilityIngestLogs+" capability")
+	}
+
+	target := row.ProjectID
+	if slug != "" {
+		p, err := s.q.GetProjectBySlug(ctx, slug)
+		if err != nil {
+			return logIngestAuth{}, handlers.APIErr(http.StatusBadRequest, "unknown project: "+slug)
+		}
+		if row.ProjectID.Valid && row.ProjectID.Int32 != p.ID {
+			return logIngestAuth{}, handlers.APIErr(http.StatusForbidden, "token bound to different project")
+		}
+		target = pgtype.Int4{Int32: p.ID, Valid: true}
+	}
+	if !target.Valid {
+		return logIngestAuth{}, handlers.APIErr(http.StatusBadRequest, "project_slug required (token is unbound)")
+	}
+
+	comp := ""
+	if row.Component.Valid {
+		comp = row.Component.String
+	}
+	return logIngestAuth{
+		projectID:        target,
+		componentDefault: comp,
+		rateLimitID:      row.ID,
+	}, nil
+}
+
+func hasCapability(caps []string, want string) bool {
+	for _, c := range caps {
+		if c == want {
+			return true
+		}
+	}
+	return false
 }
 
 func (s *Server) registerLogIngestRoutes(api huma.API) {
@@ -399,6 +500,7 @@ func (s *Server) registerLogIngestRoutes(api huma.API) {
 	},
 		func(ctx context.Context, in *struct {
 			Authorization string `header:"Authorization"`
+			XApiKey       string `header:"X-Api-Key"`
 			Body          IngestLogBatch
 		}) (*struct {
 			Body struct {
@@ -406,17 +508,12 @@ func (s *Server) registerLogIngestRoutes(api huma.API) {
 			}
 		}, error) {
 			ctx = WithoutTiming(ctx)
-			token := strings.TrimPrefix(in.Authorization, "Bearer ")
-			if token == in.Authorization || token == "" {
-				return nil, handlers.APIErr(http.StatusUnauthorized, "missing bearer token")
-			}
-			row, err := s.q.GetIntegrationTokenByHash(ctx, handlers.HashIntegrationToken(token))
+
+			auth, err := s.resolveLogIngestAuth(ctx, in.Authorization, in.XApiKey, in.Body.ProjectSlug)
 			if err != nil {
-				return nil, handlers.APIErr(http.StatusUnauthorized, "invalid token")
+				return nil, err
 			}
-			if row.RevokedAt.Valid {
-				return nil, handlers.APIErr(http.StatusUnauthorized, "token revoked")
-			}
+
 			if len(in.Body.Events) == 0 {
 				return &struct {
 					Body struct {
@@ -424,13 +521,13 @@ func (s *Server) registerLogIngestRoutes(api huma.API) {
 					}
 				}{}, nil
 			}
-			if !s.ingestLimiter.allow(row.ID, float64(len(in.Body.Events))) {
+			if !s.ingestLimiter.allow(auth.rateLimitID, float64(len(in.Body.Events))) {
 				return nil, handlers.APIErr(http.StatusTooManyRequests, "rate limit exceeded")
 			}
 
 			component := in.Body.Component
-			if component == "" && row.Component.Valid {
-				component = row.Component.String
+			if component == "" {
+				component = auth.componentDefault
 			}
 			env := in.Body.Environment
 			host := in.Body.Host
@@ -442,9 +539,8 @@ func (s *Server) registerLogIngestRoutes(api huma.API) {
 					level = "info"
 				}
 				ctxJSON := buildContextJSON(host, ev.Tags)
-				pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
 				if err := s.q.InsertLogEvent(ctx, db.InsertLogEventParams{
-					ProjectID:   pid,
+					ProjectID:   auth.projectID,
 					Component:   component,
 					Environment: env,
 					Level:       level,
@@ -519,7 +615,7 @@ func (s *Server) registerPromIngestRoutes(api huma.API) {
 			if row.Component.Valid {
 				component = row.Component.String
 			}
-			pid := pgtype.Int4{Int32: row.ProjectID, Valid: true}
+			pid := row.ProjectID
 
 			for _, ts := range req.Timeseries {
 				name := ""
@@ -641,7 +737,7 @@ func (s *Server) BootstrapSelfIntegrationToken(ctx context.Context) (string, err
 		return "", fmt.Errorf("generate self token: %w", err)
 	}
 	if _, err := s.q.CreateIntegrationToken(ctx, db.CreateIntegrationTokenParams{
-		ProjectID:   p.ID,
+		ProjectID:   pgtype.Int4{Int32: p.ID, Valid: true},
 		Component:   pgtype.Text{String: "zdx-server", Valid: true},
 		Name:        "self-integration",
 		TokenHash:   handlers.HashIntegrationToken(tok),
