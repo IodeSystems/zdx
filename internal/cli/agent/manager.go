@@ -159,6 +159,13 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	selfPath, _ := os.Executable()
 	selfHash := fileHash(selfPath)
 
+	// Churn tracking: when the server reports ChurnDowngraded for the same
+	// todo key on consecutive iterations, the agent is thrashing — backoff
+	// exponentially (1m, 2m, 4m, ... 64m cap) so we don't spin. Different
+	// todo key resets the counter.
+	consecutiveChurns := 0
+	lastChurnTodoKey := ""
+
 	for {
 		if err := ctx.Err(); err != nil {
 			return err
@@ -220,11 +227,44 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 		// Resolve the todo on success; release (without resolving) on error
 		// so the queue can re-evaluate it. Branch contract validation runs
 		// inside releaseTodo and may downgrade resolve→release on its own.
-		releaseTodo(opts.RC, todo.ID, opts.Alias, sid, todo.ClaimBaseSha, todo.Kind, todo.ClaimBaseBranch, runErr == nil)
+		release := releaseTodo(opts.RC, todo.ID, opts.Alias, sid, todo.ClaimBaseSha, todo.Kind, todo.ClaimBaseBranch, runErr == nil)
 		if runErr != nil {
 			fmt.Fprintf(os.Stderr, "[%s] session error: %v\n", providerName, runErr)
 		}
 		_ = os.Remove(stateFile)
+
+		// Update churn tracking, then maybe back off before the next claim.
+		switch {
+		case release.CycleDetected:
+			// Server auto-blocked the underlying issue; no point in
+			// retrying immediately. Reset churn state.
+			consecutiveChurns = 0
+			lastChurnTodoKey = ""
+		case release.ChurnDowngraded:
+			if todo.Key == lastChurnTodoKey {
+				consecutiveChurns++
+			} else {
+				consecutiveChurns = 1
+				lastChurnTodoKey = todo.Key
+			}
+		default:
+			consecutiveChurns = 0
+			lastChurnTodoKey = ""
+		}
+		if consecutiveChurns >= 3 {
+			shift := consecutiveChurns - 3
+			if shift > 6 {
+				shift = 6
+			}
+			backoff := time.Duration(1<<shift) * time.Minute
+			fmt.Fprintf(os.Stderr, "[%s] churn backoff: key %s churned %d times; sleeping %s\n",
+				providerName, lastChurnTodoKey, consecutiveChurns, backoff.Truncate(time.Second))
+			select {
+			case <-ctx.Done():
+				return ctx.Err()
+			case <-time.After(backoff):
+			}
+		}
 	}
 }
 
