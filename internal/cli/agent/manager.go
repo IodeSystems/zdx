@@ -103,15 +103,18 @@ func RunManagedSession(ctx context.Context, providerName string, opts ProviderOp
 	return runErr
 }
 
-// RunManagedLoop polls dx todo solo, claims work, runs a managed session per
-// pick, and repeats until cancelled. The shared scaffolding (signal handling,
-// state-file checkpoint, idle backoff) is owned here; provider-specific
-// session behavior comes from the opts (Model, MaxTurns, ...) and the
-// registered constructor.
+// RunManagedLoop atomically claims work via /api/dx/solo/claim, runs a
+// managed session per pick, renews the lease while the session runs, and
+// releases on completion. The shared scaffolding (signal handling, state-
+// file checkpoint, idle backoff, self-update re-exec) is owned here.
 //
-// Equivalent to runOpenCodeLoop / runLocalLoop with their state-file +
-// idle-sleep semantics — but generalized: any provider whose constructor
-// honors the ProviderOpts fields gets a working loop for free.
+// Concurrency: claims are FOR UPDATE SKIP LOCKED at the DB layer, so two
+// agents running the same loop never see the same todo. Lease minutes come
+// from opts.AgentCfg.LeaseMinutes (default applied via ResolvedAgent).
+//
+// Crash recovery: on startup, if a state file from a previous run exists,
+// the orphaned claim is released so it returns to the queue. The next
+// iteration claims fresh work.
 func RunManagedLoop(parentCtx context.Context, providerName string, opts ProviderOpts) error {
 	if opts.RC.slug == "" {
 		return fmt.Errorf("dx agent loop requires a project config with a remote slug")
@@ -122,9 +125,27 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 	if opts.Alias == "" {
 		opts.Alias = providerName + "-" + uuid.New().String()[:8]
 	}
+	leaseMin := int32(opts.AgentCfg.LeaseMinutes)
+	if leaseMin <= 0 {
+		leaseMin = 30
+	}
 
 	stateFile := filepath.Join(".zdx", "cache", providerName+"-agent-state")
 	_ = os.MkdirAll(filepath.Join(".zdx", "cache"), 0o755)
+
+	// Crash-recovery: if a previous run left a state file, the claim it
+	// references is still held until the lease expires. Release it now so
+	// the next claim picks up fresh work instead of duplicating effort.
+	if data, err := os.ReadFile(stateFile); err == nil {
+		lines := strings.Split(strings.TrimSpace(string(data)), "\n")
+		if len(lines) >= 3 {
+			if id, perr := parseInt32(lines[2]); perr == nil && id > 0 {
+				fmt.Fprintf(os.Stderr, "[%s] crash-recovery: releasing orphaned claim %d (sid=%s)\n", providerName, id, lines[1])
+				releaseTodo(opts.RC, id, opts.Alias, lines[1], "", "", "", false)
+			}
+		}
+		_ = os.Remove(stateFile)
+	}
 
 	ctx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
@@ -148,8 +169,9 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 				fmt.Fprintf(os.Stderr, "[%s] re-exec failed: %v\n", providerName, err)
 			}
 		}
-		todo, err := runDxTodoSolo("")
-		if err != nil || todo == "" {
+
+		todo, err := claimNextTodo(opts.RC, opts.Alias, leaseMin)
+		if err != nil || todo == nil {
 			select {
 			case <-ctx.Done():
 				return ctx.Err()
@@ -157,21 +179,61 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 				continue
 			}
 		}
-		issueID := extractIssueID(todo)
-		sid := uuid.New().String()
-		_ = os.WriteFile(stateFile, []byte(issueID+"\n"+sid+"\n"), 0o644)
 
-		seed := fmt.Sprintf("Here is the current todo pick from `dx todo solo`:\n\n%s\n\nWork this vertical: resolve the items for the referenced issue, then close it. Use dx tools for project ops and filesystem/shell tools for code changes. Stop when the issue is closed or blocked.", todo)
+		issueID := todo.IssueRef
+		if issueID == "" && todo.TargetType == "issue" {
+			issueID = todo.TargetID
+		}
+		sid := uuid.New().String()
+		_ = os.WriteFile(stateFile, []byte(fmt.Sprintf("%s\n%s\n%d\n", issueID, sid, todo.ID)), 0o644)
+
+		// Lease renewal: heartbeat every leaseMin/2 (min 1 minute) until the
+		// session finishes or the loop context is cancelled.
+		renewCtx, stopRenew := context.WithCancel(ctx)
+		go func(todoID int32) {
+			interval := time.Duration(leaseMin/2) * time.Minute
+			if interval < time.Minute {
+				interval = time.Minute
+			}
+			ticker := time.NewTicker(interval)
+			defer ticker.Stop()
+			for {
+				select {
+				case <-renewCtx.Done():
+					return
+				case <-ticker.C:
+					renewTodoLease(opts.RC, todoID, opts.Alias, leaseMin)
+				}
+			}
+		}(todo.ID)
+
+		seed := fmt.Sprintf("Claimed todo %d [%s] target=%s:%s\n\n%s\n\nWork this vertical: resolve the items for the referenced issue, then close it. Use dx tools for project ops and filesystem/shell tools for code changes. Stop when the issue is closed or blocked.",
+			todo.ID, todo.Kind, todo.TargetType, todo.TargetID, todo.Text)
 
 		sessOpts := opts
 		sessOpts.SID = sid
 		sessOpts.IssueID = issueID
 		sessOpts.SeedPrompt = seed
-		if err := RunManagedSession(ctx, providerName, sessOpts); err != nil {
-			fmt.Fprintf(os.Stderr, "session error: %v\n", err)
+		runErr := RunManagedSession(ctx, providerName, sessOpts)
+		stopRenew()
+
+		// Resolve the todo on success; release (without resolving) on error
+		// so the queue can re-evaluate it. Branch contract validation runs
+		// inside releaseTodo and may downgrade resolve→release on its own.
+		releaseTodo(opts.RC, todo.ID, opts.Alias, sid, todo.ClaimBaseSha, todo.Kind, todo.ClaimBaseBranch, runErr == nil)
+		if runErr != nil {
+			fmt.Fprintf(os.Stderr, "[%s] session error: %v\n", providerName, runErr)
 		}
 		_ = os.Remove(stateFile)
 	}
+}
+
+// parseInt32 parses a base-10 int32 from s. Helper for state-file recovery
+// where the todo ID is the third line.
+func parseInt32(s string) (int32, error) {
+	var n int32
+	_, err := fmt.Sscanf(s, "%d", &n)
+	return n, err
 }
 
 // newManagedTraceLogger builds the tracelog logger + zdxclient sink for a
