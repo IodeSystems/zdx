@@ -22,10 +22,108 @@ import (
 )
 
 func AgentCmd() *cobra.Command {
-	cmd := &cobra.Command{Use: "agent", Short: "Agent lifecycle management"}
+	var provider, alias, issue, model, complexity string
+	cmd := &cobra.Command{
+		Use:   "agent",
+		Short: "Run a single agent session (or use a subcommand for legacy flows)",
+		Long: `Run an agent session against the configured project. The provider is
+selected via --provider; complexity-to-model resolution is delegated to the
+provider, so dx agent --provider=claude --complexity=high picks claude-opus-4-7,
+while --provider=opencode --complexity=high picks the project's configured
+high-tier model from admin/llm-configs.
+
+Legacy single-purpose subcommands (dx agent claude, opencode, local) remain
+available with their full feature surface (--container, --chrome, --max-turns,
+etc). The unified ` + "`dx agent`" + ` form covers the common single-session path
+end-to-end through the new provider registry.`,
+		RunE: func(cmd *cobra.Command, args []string) error {
+			// When invoked with no flags, show usage rather than mint tokens.
+			if provider == "" && len(args) == 0 {
+				return cmd.Help()
+			}
+			return runManagedFromFlags(cmd.Context(), cmd, provider, alias, issue, model, complexity)
+		},
+	}
 	cmd.PersistentFlags().Bool("global", false, "force srcless mode using ~/.zdx/config.yaml instead of project config")
+	cmd.Flags().StringVar(&provider, "provider", "", "agent provider: "+providerNames()+" (required for managed run)")
+	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
+	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
+	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
+	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
 	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentOpenCodeCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
+}
+
+// runManagedFromFlags loads project + global config, resolves the model via
+// the provider, and dispatches to RunManagedSession.
+func runManagedFromFlags(ctx context.Context, cmd *cobra.Command, provider, alias, issue, model, complexity string) error {
+	tier, err := NormalizeComplexity(complexity)
+	if err != nil {
+		return err
+	}
+
+	global, _ := cmd.Flags().GetBool("global")
+	global = global || config.IsGlobalMode()
+
+	var rc remoteConfig
+	var agentCfg config.AgentConfig
+	var llmLocal config.LLMLocal
+	var srcless bool
+	if global {
+		gc := config.LoadGlobal()
+		if gc != nil {
+			ga := gc.ResolvedGlobalAgent()
+			rc = remoteConfig{
+				url: gc.Remote.URL,
+				key: config.GlobalRemoteAPIKey(),
+			}
+			agentCfg = config.AgentConfig{
+				ClaudeModel:  ga.ClaudeModel,
+				MaxWorktrees: ga.MaxWorktrees,
+				LeaseMinutes: ga.LeaseMinutes,
+			}
+			srcless = true
+		}
+	} else {
+		cfg := config.Load()
+		if cfg == nil {
+			return fmt.Errorf("no project config found; run from a project root or pass --global")
+		}
+		rc = remoteConfig{url: cfg.RemoteURL(), slug: cfg.RemoteSlug(), key: config.RemoteAPIKey()}
+		agentCfg = cfg.ResolvedAgent()
+		llmLocal = cfg.ResolvedLLMLocal()
+	}
+
+	// Build a stub adapter just for ResolveModel — providers' ResolveModel
+	// only needs a few fields (rc + llmLocal + agentCfg) and is side-effect
+	// free, so this temp construction is cheap and stays inside the manager.
+	resolved := model
+	if resolved == "" {
+		ctor, err := LookupProvider(provider)
+		if err != nil {
+			return err
+		}
+		ap, err := ctor(ProviderOpts{RC: rc, AgentCfg: agentCfg, LLMLocal: llmLocal})
+		if err != nil {
+			return fmt.Errorf("resolve model: %w", err)
+		}
+		resolved, err = ap.ResolveModel(ctx, tier)
+		if err != nil {
+			return fmt.Errorf("resolve model (%s, complexity=%s): %w", provider, tier, err)
+		}
+	}
+
+	opts := ProviderOpts{
+		RC:       rc,
+		AgentCfg: agentCfg,
+		LLMLocal: llmLocal,
+		IssueID:  issue,
+		Alias:    alias,
+		Model:    resolved,
+		Srcless:  srcless,
+		Chrome:   true, // claude default; ignored by other providers
+	}
+	return RunManagedSession(ctx, provider, opts)
 }
 
 // agentSessionCmd groups session-scoped helpers used by shell wrappers to tag

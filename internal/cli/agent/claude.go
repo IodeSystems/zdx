@@ -593,6 +593,28 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 
 // ── Claude AgentAdapter ──────────────────────────────────────────────────
 
+func init() {
+	RegisterProvider("claude", func(opts ProviderOpts) (AgentProvider, error) {
+		projDir := claudeProjectDir()
+		_ = os.MkdirAll(projDir, 0o755)
+		vision := fetchProjectVision(opts.RC)
+		prompt := buildSessionPrompt(vision, opts.IssueID, nil)
+		// Default chrome=true to match the legacy claude command's flag default.
+		chrome := opts.Chrome
+		return &claudeAdapter{
+			rc:       opts.RC,
+			agentCfg: opts.AgentCfg,
+			projDir:  projDir,
+			chrome:   chrome,
+			alias:    opts.Alias,
+			model:    opts.Model,
+			prompt:   prompt,
+			srcless:  opts.Srcless,
+			exited:   make(chan struct{}),
+		}, nil
+	})
+}
+
 // claudeAdapter implements AgentAdapter against the real `claude` CLI. It
 // launches the process with ZDX-aware environment vars and returns the
 // transcript path that Claude writes its JSONL session to.

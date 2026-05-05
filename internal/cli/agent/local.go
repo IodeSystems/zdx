@@ -166,6 +166,24 @@ type localAdapter struct {
 	toolNames map[string]string
 }
 
+func init() {
+	RegisterProvider("local", func(opts ProviderOpts) (AgentProvider, error) {
+		llmCfg := opts.LLMLocal
+		if opts.Model != "" {
+			llmCfg.Model = opts.Model
+		}
+		maxTurns := opts.MaxTurns
+		if maxTurns == 0 {
+			maxTurns = 40 // matches the local CLI default
+		}
+		return &localAdapter{
+			llmCfg:     llmCfg,
+			maxTurns:   maxTurns,
+			seedPrompt: opts.SeedPrompt,
+		}, nil
+	})
+}
+
 func (a *localAdapter) Provider() string { return "local" }
 
 // ResolveModel maps a complexity tier to a concrete model name by walking the

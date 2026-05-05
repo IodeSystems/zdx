@@ -250,6 +250,22 @@ func newOpenCodeTraceLogger(rc remoteConfig, llmCfg config.LLMLocal, sid, issueI
 
 // ── OpenCode AgentAdapter ─────────────────────────────────────────────────
 
+func init() {
+	RegisterProvider("opencode", func(opts ProviderOpts) (AgentProvider, error) {
+		llmCfg := opts.LLMLocal
+		if opts.Model != "" {
+			llmCfg.Model = opts.Model
+		}
+		maxTurns := opts.MaxTurns // 0 = unlimited; matches opencode CLI default
+		return &opencodeAdapter{
+			rc:         opts.RC,
+			llmCfg:     llmCfg,
+			maxTurns:   maxTurns,
+			seedPrompt: opts.SeedPrompt,
+		}, nil
+	})
+}
+
 // opencodeAdapter implements AgentAdapter for the OpenCode agent loop.
 // It drives an in-process chat-completions loop with MCP tools, writing
 // Claude-compatible JSONL to .zdx/agent/opencode/<sid>.jsonl. Session
