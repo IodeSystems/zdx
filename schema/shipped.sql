@@ -777,12 +777,12 @@ ALTER SEQUENCE public.zdx_error_events_id_seq OWNED BY public.zdx_error_events.i
 
 CREATE TABLE public.zdx_error_reports (
     id bigint NOT NULL,
-    project_id integer,
     source text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     error_name text DEFAULT ''::text NOT NULL,
     stack_trace text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    project_id integer
 );
 
 
@@ -2310,13 +2310,13 @@ ALTER SEQUENCE public.zdx_sessions_id_seq OWNED BY public.zdx_sessions.id;
 
 CREATE TABLE public.zdx_slow_queries (
     id bigint NOT NULL,
-    project_id integer,
     sql_hash text NOT NULL,
     sql_text text NOT NULL,
     endpoint text DEFAULT ''::text NOT NULL,
     duration_ms integer NOT NULL,
     explain_json text DEFAULT ''::text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL
+    created_at timestamp with time zone DEFAULT now() NOT NULL,
+    project_id integer
 );
 
 
@@ -2579,6 +2579,19 @@ CREATE SEQUENCE public.zdx_test_demos_id_seq
 --
 
 ALTER SEQUENCE public.zdx_test_demos_id_seq OWNED BY public.zdx_test_demos.id;
+
+
+--
+-- Name: zdx_test_fix_issues; Type: TABLE; Schema: public; Owner: -
+--
+
+CREATE TABLE public.zdx_test_fix_issues (
+    project_id integer NOT NULL,
+    reason text NOT NULL,
+    evidence_fingerprint text NOT NULL,
+    issue_id text NOT NULL,
+    created_at timestamp with time zone DEFAULT now() NOT NULL
+);
 
 
 --
@@ -2916,15 +2929,6 @@ CREATE TABLE public.zdx_version_branches (
     CONSTRAINT zdx_version_branches_merge_style_check CHECK ((merge_style = ANY (ARRAY['squash'::text, 'merge'::text, 'rebase'::text]))),
     CONSTRAINT zdx_version_branches_role_check CHECK ((role = ANY (ARRAY['rolling-release'::text, 'dev'::text, 'pr-target'::text, 'named-release'::text]))),
     CONSTRAINT zdx_version_branches_status_check CHECK ((status = ANY (ARRAY['active'::text, 'eol'::text])))
-);
-
-CREATE TABLE public.zdx_test_fix_issues (
-    project_id integer NOT NULL,
-    reason text NOT NULL,
-    evidence_fingerprint text NOT NULL,
-    issue_id text NOT NULL,
-    created_at timestamp with time zone DEFAULT now() NOT NULL,
-    PRIMARY KEY (project_id, reason, evidence_fingerprint)
 );
 
 
@@ -3799,11 +3803,11 @@ ALTER TABLE ONLY public.zdx_goal_issues
 
 
 --
--- Name: zdx_id_seq zdx_id_seq_pkey1; Type: CONSTRAINT; Schema: public; Owner: -
+-- Name: zdx_id_seq zdx_id_seq_global_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
 ALTER TABLE ONLY public.zdx_id_seq
-    ADD CONSTRAINT zdx_id_seq_pkey1 PRIMARY KEY (kind);
+    ADD CONSTRAINT zdx_id_seq_global_pkey PRIMARY KEY (kind);
 
 
 --
@@ -4351,6 +4355,14 @@ ALTER TABLE ONLY public.zdx_test_demos
 
 
 --
+-- Name: zdx_test_fix_issues zdx_test_fix_issues_pkey; Type: CONSTRAINT; Schema: public; Owner: -
+--
+
+ALTER TABLE ONLY public.zdx_test_fix_issues
+    ADD CONSTRAINT zdx_test_fix_issues_pkey PRIMARY KEY (project_id, reason, evidence_fingerprint);
+
+
+--
 -- Name: zdx_test_result_history zdx_test_result_history_pkey; Type: CONSTRAINT; Schema: public; Owner: -
 --
 
@@ -4551,6 +4563,13 @@ CREATE INDEX idx_error_reports_created_at ON public.zdx_error_reports USING btre
 
 
 --
+-- Name: idx_error_reports_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_error_reports_project_id ON public.zdx_error_reports USING btree (project_id);
+
+
+--
 -- Name: idx_error_reports_source; Type: INDEX; Schema: public; Owner: -
 --
 
@@ -4716,6 +4735,13 @@ CREATE INDEX idx_slow_queries_created_at ON public.zdx_slow_queries USING btree 
 --
 
 CREATE INDEX idx_slow_queries_endpoint ON public.zdx_slow_queries USING btree (endpoint);
+
+
+--
+-- Name: idx_slow_queries_project_id; Type: INDEX; Schema: public; Owner: -
+--
+
+CREATE INDEX idx_slow_queries_project_id ON public.zdx_slow_queries USING btree (project_id);
 
 
 --
