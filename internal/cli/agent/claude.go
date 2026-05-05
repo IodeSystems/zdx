@@ -45,77 +45,51 @@ func agentClaudeCmd() *cobra.Command {
 				return err
 			}
 			complexity = normalized
-			global, _ := cmd.Flags().GetBool("global")
-			global = global || config.IsGlobalMode()
-			var cfg *config.Config
-			if !global {
-				cfg = config.Load()
+			rt, err := loadAgentRuntime(cmd)
+			if err != nil {
+				return err
 			}
-			var rc remoteConfig
-			var agentCfg config.AgentConfig
-			var srcless bool
-			var workDir string
-			if cfg != nil {
-				rc = remoteConfig{
-					url:  cfg.RemoteURL(),
-					slug: cfg.RemoteSlug(),
-					key:  config.RemoteAPIKey(),
-				}
-				agentCfg = cfg.ResolvedAgent()
-			} else if globalCfg := config.LoadGlobal(); globalCfg != nil {
+			if rt.Srcless {
 				fmt.Fprintln(os.Stderr, "srcless mode: using ~/.zdx/config.yaml (no project config found)")
-				srcless = true
-				ga := globalCfg.ResolvedGlobalAgent()
-				workDir = ga.WorkDir
-				rc = remoteConfig{
-					url: globalCfg.Remote.URL,
-					key: config.GlobalRemoteAPIKey(),
-					// slug intentionally empty — per-project slug comes from each claimed todo.
-				}
-				agentCfg = config.AgentConfig{
-					ClaudeModel:  ga.ClaudeModel,
-					MaxWorktrees: ga.MaxWorktrees,
-					LeaseMinutes: ga.LeaseMinutes,
-				}
 			}
 
 			// --max-worktrees flag overrides config value when explicitly set.
 			if cmd.Flags().Changed("max-worktrees") && maxWorktrees > 0 {
-				agentCfg.MaxWorktrees = maxWorktrees
+				rt.AgentCfg.MaxWorktrees = maxWorktrees
 			}
 
 			if container {
 				if !loop {
 					return fmt.Errorf("--container requires --loop")
 				}
-				return runContainerLoop(rc, alias, agentCfg, keepContainer)
+				return runContainerLoop(rt.RC, alias, rt.AgentCfg, keepContainer)
 			}
 
 			if err := enforceContainerExecution(container); err != nil {
 				return err
 			}
 
-			sel := modelSelector{modelFlag: model, complexity: complexity, agentCfg: agentCfg}
+			sel := modelSelector{modelFlag: model, complexity: complexity, agentCfg: rt.AgentCfg}
 
 			if loop {
 				// Loop path keeps its richer runtime (self-update detection,
 				// crash-recovery resume, churn backoff, srcless worktree GC,
 				// session-balanced model picking). Worth its own migration pass.
-				return runLoop(rc, alias, chrome, sel, srcless, workDir)
+				return runLoop(rt.RC, alias, chrome, sel, rt.Srcless, rt.WorkDir, rt.AgentCfg)
 			}
 
 			// Single-session path goes through the shared manager so claude
 			// gets the same trace_id + View live logs URL + session events
 			// the other providers already emit.
 			opts := ProviderOpts{
-				RC:         rc,
-				AgentCfg:   agentCfg,
+				RC:         rt.RC,
+				AgentCfg:   rt.AgentCfg,
 				IssueID:    issue,
 				Alias:      alias,
-				Model:      sel.resolve(rc, 0),
+				Model:      sel.resolve(rt.RC, 0),
 				Complexity: complexity,
 				Chrome:     chrome,
-				Srcless:    srcless,
+				Srcless:    rt.Srcless,
 			}
 			return RunManagedSession(cmd.Context(), "claude", opts)
 		},
@@ -323,7 +297,7 @@ func claudeProjectDir() string {
 // each claimed todo carries a project_slug; the loop ensures a persistent main
 // clone exists at ${workDir}/${slug}/main and creates a per-session worktree
 // to run the session in. workDir is empty when srcless is false.
-func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcless bool, workDir string) error {
+func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcless bool, workDir string, agentCfg config.AgentConfig) error {
 	// In srcless mode the cwd is the agent home; .zdx state lives next to the
 	// global config (the cwd has no project to attach state to).
 	stateFile := ".zdx/cache/claude-work-state"
@@ -338,21 +312,6 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 	} else {
 		os.MkdirAll(".zdx/logs", 0o755)
 		os.MkdirAll(".zdx/cache", 0o755)
-	}
-
-	cfg := config.Load()
-	var agentCfg config.AgentConfig
-	if cfg != nil {
-		agentCfg = cfg.ResolvedAgent()
-	} else if gc := config.LoadGlobal(); gc != nil {
-		ga := gc.ResolvedGlobalAgent()
-		agentCfg = config.AgentConfig{
-			ClaudeModel:  ga.ClaudeModel,
-			MaxWorktrees: ga.MaxWorktrees,
-			LeaseMinutes: ga.LeaseMinutes,
-		}
-	} else {
-		agentCfg = (&config.Config{}).ResolvedAgent()
 	}
 
 	logf, _ := os.OpenFile(logFile, os.O_APPEND|os.O_CREATE|os.O_WRONLY, 0o644)

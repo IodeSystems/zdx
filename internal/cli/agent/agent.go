@@ -87,33 +87,13 @@ RunManagedSession with signal handling and state-file checkpointing.`,
 	return cmd
 }
 
-// loadManagedOptsFromCmd centralizes the project-config + global-mode +
-// model-resolution dance so both `dx agent` and `dx agent loop` (and the
-// upcoming legacy shims) build a populated ProviderOpts the same way.
+// loadManagedOptsFromCmd centralizes the runtime + model-resolution dance
+// so both dx agent and dx agent loop (and any legacy shims that route
+// through the manager) build a populated ProviderOpts the same way.
 func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, tier string, maxTurns int) (ProviderOpts, error) {
-	global, _ := cmd.Flags().GetBool("global")
-	global = global || config.IsGlobalMode()
-
-	var rc remoteConfig
-	var agentCfg config.AgentConfig
-	var llmLocal config.LLMLocal
-	var srcless bool
-	if global {
-		gc := config.LoadGlobal()
-		if gc != nil {
-			ga := gc.ResolvedGlobalAgent()
-			rc = remoteConfig{url: gc.Remote.URL, key: config.GlobalRemoteAPIKey()}
-			agentCfg = config.AgentConfig{ClaudeModel: ga.ClaudeModel, MaxWorktrees: ga.MaxWorktrees, LeaseMinutes: ga.LeaseMinutes}
-			srcless = true
-		}
-	} else {
-		cfg := config.Load()
-		if cfg == nil {
-			return ProviderOpts{}, fmt.Errorf("no project config found; run from a project root or pass --global")
-		}
-		rc = remoteConfig{url: cfg.RemoteURL(), slug: cfg.RemoteSlug(), key: config.RemoteAPIKey()}
-		agentCfg = cfg.ResolvedAgent()
-		llmLocal = cfg.ResolvedLLMLocal()
+	rt, err := loadAgentRuntime(cmd)
+	if err != nil {
+		return ProviderOpts{}, err
 	}
 
 	resolved := model
@@ -122,7 +102,7 @@ func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, t
 		if err != nil {
 			return ProviderOpts{}, err
 		}
-		ap, err := ctor(ProviderOpts{RC: rc, AgentCfg: agentCfg, LLMLocal: llmLocal})
+		ap, err := ctor(ProviderOpts{RC: rt.RC, AgentCfg: rt.AgentCfg, LLMLocal: rt.LLMLocal})
 		if err != nil {
 			return ProviderOpts{}, fmt.Errorf("resolve model: %w", err)
 		}
@@ -133,16 +113,62 @@ func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, t
 	}
 
 	return ProviderOpts{
-		RC:         rc,
-		AgentCfg:   agentCfg,
-		LLMLocal:   llmLocal,
+		RC:         rt.RC,
+		AgentCfg:   rt.AgentCfg,
+		LLMLocal:   rt.LLMLocal,
 		IssueID:    issue,
 		Alias:      alias,
 		Model:      resolved,
 		Complexity: tier,
-		Srcless:    srcless,
+		Srcless:    rt.Srcless,
 		Chrome:     true,
 		MaxTurns:   maxTurns,
+	}, nil
+}
+
+// agentRuntime holds the project + global config bits an agent command
+// needs to dispatch a managed session or loop. Centralizes the global-vs-
+// project loading dance so both the unified dx agent / dx agent loop
+// commands and the legacy provider-specific subcommands resolve config
+// the same way.
+type agentRuntime struct {
+	RC       remoteConfig
+	AgentCfg config.AgentConfig
+	LLMLocal config.LLMLocal
+	Srcless  bool
+	WorkDir  string // only set in srcless mode (from global agent config)
+}
+
+// loadAgentRuntime reads --global, then config.Load() / config.LoadGlobal()
+// and produces a populated agentRuntime. Returns an error when neither a
+// project config nor a global config is available — callers can't run an
+// agent without somewhere to send results.
+func loadAgentRuntime(cmd *cobra.Command) (agentRuntime, error) {
+	global, _ := cmd.Flags().GetBool("global")
+	global = global || config.IsGlobalMode()
+
+	if global {
+		gc := config.LoadGlobal()
+		if gc == nil {
+			return agentRuntime{}, fmt.Errorf("--global set but ~/.zdx/config.yaml not found")
+		}
+		ga := gc.ResolvedGlobalAgent()
+		return agentRuntime{
+			RC:       remoteConfig{url: gc.Remote.URL, key: config.GlobalRemoteAPIKey()},
+			AgentCfg: config.AgentConfig{ClaudeModel: ga.ClaudeModel, MaxWorktrees: ga.MaxWorktrees, LeaseMinutes: ga.LeaseMinutes},
+			Srcless:  true,
+			WorkDir:  ga.WorkDir,
+		}, nil
+	}
+
+	cfg := config.Load()
+	if cfg == nil {
+		return agentRuntime{}, fmt.Errorf("no project config found; run from a project root or pass --global")
+	}
+	return agentRuntime{
+		RC:       remoteConfig{url: cfg.RemoteURL(), slug: cfg.RemoteSlug(), key: config.RemoteAPIKey()},
+		AgentCfg: cfg.ResolvedAgent(),
+		LLMLocal: cfg.ResolvedLLMLocal(),
 	}, nil
 }
 
