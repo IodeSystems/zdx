@@ -11,8 +11,11 @@ import (
 	"strings"
 	"syscall"
 
+	"github.com/modelcontextprotocol/go-sdk/mcp"
+
 	"github.com/iodesystems/zdx-go/internal/agentdaemon"
 	"github.com/iodesystems/zdx-go/internal/cli/agent"
+	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 )
 
 func main() {
@@ -20,7 +23,16 @@ func main() {
 	agentID := flag.String("agent-id", "", "agent identifier (default: hostname-pid)")
 	worktree := flag.String("worktree", ".", "worktree path")
 	apiKey := flag.String("api-key", "", "API key (env ZDX_API_KEY)")
+	mcpStdio := flag.Bool("mcp-stdio", false, "serve fs+shell MCP tools over stdin/stdout (dev-container mode); skips the WS daemon")
+	mcpRoot := flag.String("mcp-root", "/workspace", "filesystem root tools operate against in --mcp-stdio mode")
 	flag.Parse()
+
+	if *mcpStdio {
+		if err := runMCPStdio(*mcpRoot); err != nil {
+			log.Fatalf("dx-agent --mcp-stdio: %v", err)
+		}
+		return
+	}
 
 	if *apiKey == "" {
 		*apiKey = os.Getenv("ZDX_API_KEY")
@@ -91,6 +103,42 @@ func main() {
 		log.Fatalf("daemon: %v", err)
 	}
 	close(ctrlCh)
+}
+
+// runMCPStdio is the dev-container mode: register the same fs+shell MCP
+// tools the in-process providers use, then serve them over stdin/stdout
+// using the MCP StdioTransport. Host-side opencode/local providers
+// connect by spawning `docker exec -i <container> dx-agent --mcp-stdio`
+// and using mcp.CommandTransport. The host runs the LLM loop; this
+// process executes the tool calls against /workspace inside the container.
+//
+// Skips the WS daemon entirely — this mode is short-lived (lifecycle =
+// the spawning client's lifecycle) and runs in a sandboxed container, so
+// the daemon's pause/resume surface doesn't apply.
+func runMCPStdio(root string) error {
+	if root == "" {
+		return fmt.Errorf("--mcp-root must not be empty")
+	}
+	if _, err := os.Stat(root); err != nil {
+		return fmt.Errorf("mcp-root %q: %w", root, err)
+	}
+
+	srv := mcp.NewServer(&mcp.Implementation{
+		Name:    "dx-agent",
+		Version: "0.1.0",
+	}, nil)
+	mcpcmd.RegisterFSTools(srv, root)
+	mcpcmd.RegisterShellTools(srv, root)
+
+	ctx, stop := signal.NotifyContext(context.Background(), syscall.SIGINT, syscall.SIGTERM)
+	defer stop()
+
+	// StdioTransport reads/writes the calling process's stdin/stdout. The
+	// MCP framing is newline-delimited JSON; no auth, no port, no daemon.
+	if err := srv.Run(ctx, &mcp.StdioTransport{}); err != nil {
+		return fmt.Errorf("mcp serve: %w", err)
+	}
+	return nil
 }
 
 // gitBranch returns the current branch of the given worktree, or "unknown" on error.
