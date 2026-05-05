@@ -1277,20 +1277,6 @@ func printPatternAnalysis(rc remoteConfig, transcriptPath, issueID string, todo 
 	}
 }
 
-func runDxTodoSolo(issue string) (string, error) {
-	var args []string
-	args = append(args, "todo", "solo")
-	if issue != "" {
-		args = append(args, "--issue="+issue)
-	}
-	dxPath, err := os.Executable()
-	if err != nil {
-		return "", err
-	}
-	out, err := exec.Command(dxPath, args...).CombinedOutput()
-	return strings.TrimSpace(string(out)), err
-}
-
 func issueStatus(issueID string) string {
 	dxPath, _ := os.Executable()
 	out, err := exec.Command(dxPath, "todo", "show", issueID).CombinedOutput()
@@ -1303,15 +1289,6 @@ func issueStatus(issueID string) string {
 			if len(parts) >= 2 {
 				return parts[len(parts)-1]
 			}
-		}
-	}
-	return ""
-}
-
-func extractIssueID(text string) string {
-	for _, word := range strings.Fields(text) {
-		if strings.HasPrefix(word, "IS-") {
-			return word
 		}
 	}
 	return ""
