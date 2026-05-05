@@ -25,17 +25,15 @@ func AgentCmd() *cobra.Command {
 	var provider, alias, issue, model, complexity string
 	cmd := &cobra.Command{
 		Use:   "agent",
-		Short: "Run a single agent session (or use a subcommand for legacy flows)",
+		Short: "Run a single agent session (use `dx agent loop` for the work loop)",
 		Long: `Run an agent session against the configured project. The provider is
 selected via --provider; complexity-to-model resolution is delegated to the
 provider, so dx agent --provider=claude --complexity=high picks claude-opus-4-7,
 while --provider=opencode --complexity=high picks the project's configured
 high-tier model from admin/llm-configs.
 
-Legacy single-purpose subcommands (dx agent claude, opencode, local) remain
-available with their full feature surface (--container, --chrome, --max-turns,
-etc). The unified ` + "`dx agent`" + ` form covers the common single-session path
-end-to-end through the new provider registry.`,
+For the long-running work loop, use ` + "`dx agent loop --provider=X`" + ` (which
+also accepts --container for claude's docker-orchestrated parallel slots).`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			// When invoked with no flags, show usage rather than mint tokens.
 			if provider == "" && len(args) == 0 {
@@ -50,23 +48,30 @@ end-to-end through the new provider registry.`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
 	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
-	cmd.AddCommand(agentClaudeCmd(), agentLocalCmd(), agentOpenCodeCmd(), agentLoopCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
+	cmd.AddCommand(agentLoopCmd(), agentStartCmd(), agentListCmd(), agentStopCmd(), agentReapCmd(), agentReconnectCmd(), agentReleaseCmd(), agentSessionCmd(), agentPauseCmd(), agentResumeCmd(), agentDrainCmd(), agentBudgetCmd())
 	return cmd
 }
 
-// agentLoopCmd is the loop equivalent of dx agent: polls dx todo solo, runs a
-// managed session per pick, repeats. Shares the same provider registry +
-// manager scaffolding as the single-session form.
+// agentLoopCmd is the loop equivalent of dx agent. Dispatches through
+// DispatchLoop (or DispatchContainerLoop with --container) so providers
+// that implement LoopProvider/ContainerProvider get their own runtime;
+// plain providers get the universal RunManagedLoop.
 func agentLoopCmd() *cobra.Command {
 	var provider, alias, model, complexity string
-	var maxTurns int
+	var maxTurns, maxWorktrees int
+	var container, keepContainer, chrome bool
 	cmd := &cobra.Command{
 		Use:   "loop",
-		Short: "Loop: poll dx todo solo, run a managed session per pick, repeat",
-		Long: `Long-running loop that claims work via dx todo solo and runs a managed
-agent session per pick, sleeping 60s between idle ticks. Same provider
-registry + complexity resolution as ` + "`dx agent`" + `; the loop wraps
-RunManagedSession with signal handling and state-file checkpointing.`,
+		Short: "Loop: claim work, run a managed session per pick, repeat",
+		Long: `Long-running loop that claims work via /api/dx/solo/claim and runs an
+agent session per pick. Universal providers (opencode, local) use the
+shared RunManagedLoop with atomic claim/lease/release, churn backoff,
+self-update re-exec, and crash-recovery release. Providers that
+implement LoopProvider (claude) run their own richer orchestration.
+
+With --container, dispatches to ContainerProvider.RunContainerLoop
+(currently claude-only), which runs N parallel docker slots each
+exec'ing dx agent loop --provider=... inside the container.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
 			tier, err := NormalizeComplexity(complexity)
 			if err != nil {
@@ -76,7 +81,20 @@ RunManagedSession with signal handling and state-file checkpointing.`,
 			if err != nil {
 				return err
 			}
-			return RunManagedLoop(cmd.Context(), provider, opts)
+			if cmd.Flags().Changed("chrome") {
+				opts.Chrome = chrome
+			}
+			opts.KeepContainer = keepContainer
+			if cmd.Flags().Changed("max-worktrees") && maxWorktrees > 0 {
+				opts.AgentCfg.MaxWorktrees = maxWorktrees
+			}
+			if container {
+				return DispatchContainerLoop(cmd.Context(), provider, opts)
+			}
+			if err := enforceContainerExecution(container); err != nil {
+				return err
+			}
+			return DispatchLoop(cmd.Context(), provider, opts)
 		},
 	}
 	cmd.Flags().StringVar(&provider, "provider", "", "agent provider: "+providerNames()+" (required)")
@@ -84,6 +102,10 @@ RunManagedSession with signal handling and state-file checkpointing.`,
 	cmd.Flags().StringVar(&model, "model", "", "explicit model name (overrides --complexity)")
 	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved by the provider)")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited; opencode/local only)")
+	cmd.Flags().BoolVar(&container, "container", false, "run agent loop inside the project's dev container (claude only; requires dev.Dockerfile)")
+	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep containers after exit (skip --rm; useful for debugging)")
+	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI (claude only; ignored otherwise)")
+	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slots in --container mode)")
 	return cmd
 }
 
@@ -121,6 +143,7 @@ func loadManagedOptsFromCmd(cmd *cobra.Command, provider, alias, issue, model, t
 		Model:      resolved,
 		Complexity: tier,
 		Srcless:    rt.Srcless,
+		WorkDir:    rt.WorkDir,
 		Chrome:     true,
 		MaxTurns:   maxTurns,
 	}, nil

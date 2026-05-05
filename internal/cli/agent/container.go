@@ -154,7 +154,7 @@ func buildContainerArgs(name, imageTag, cwd string, slot int, alias string, agen
 
 	slotAlias := fmt.Sprintf("%s-%d", alias, slot)
 	args = append(args, imageTag,
-		"./bin/dx", "agent", "claude", "--loop",
+		"./bin/dx", "agent", "loop", "--provider=claude",
 		"--alias", slotAlias,
 	)
 	if agentCfg.ClaudeModel != "" {

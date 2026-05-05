@@ -22,6 +22,31 @@ type AgentProvider interface {
 	ResolveModel(ctx context.Context, complexity string) (string, error)
 }
 
+// LoopProvider is the optional interface a provider implements when it has
+// its own loop runtime that the standard RunManagedLoop can't represent.
+// Today only claude needs this — its loop creates a fresh worktree per
+// session, rotates models across iterations, and recovers stalled sessions
+// via transcript summary, none of which other providers do.
+//
+// When --provider=X is dispatched in loop mode, the manager checks if the
+// provider implements LoopProvider; if so, calls RunLoop instead of
+// RunManagedLoop. Plain providers (opencode, local) get the universal loop.
+type LoopProvider interface {
+	AgentProvider
+	RunLoop(ctx context.Context, opts ProviderOpts) error
+}
+
+// ContainerProvider is the optional interface for providers that support
+// docker-orchestrated parallel sessions (one container per slot, restart
+// on exit). Claude's --container mode is the only consumer today.
+//
+// dx agent loop --container --provider=X errors when X doesn't implement
+// ContainerProvider. KeepContainer in opts toggles --rm.
+type ContainerProvider interface {
+	AgentProvider
+	RunContainerLoop(ctx context.Context, opts ProviderOpts) error
+}
+
 // Complexity tiers exposed via --complexity. See IS-1031 for the planned
 // expansion to {low, medium, high, xhigh, max}; for now we settle on three.
 const (

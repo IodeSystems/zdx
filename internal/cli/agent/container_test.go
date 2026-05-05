@@ -122,8 +122,8 @@ func TestCollectContainerEnv_AllowlistDoesNotIncludeAdminToken(t *testing.T) {
 // buildContainerArgs is the only way the agent harness reaches docker — its
 // argv must always begin with `run` so a session is dispatched through
 // `docker run`. Inside the container the entrypoint is `./bin/dx agent
-// claude --loop`, which keeps the claude binary execution scoped to the
-// container's filesystem (not the host's PATH).
+// loop --provider=claude`, which keeps the claude binary execution scoped
+// to the container's filesystem (not the host's PATH).
 func TestBuildContainerArgs_DispatchesViaDockerRun(t *testing.T) {
 	args := buildContainerArgs("n", "img", "/c", 0, "a", config.AgentConfig{}, false, nil)
 	if len(args) == 0 || args[0] != "run" {
@@ -138,11 +138,11 @@ func TestBuildContainerArgs_DispatchesViaDockerRun(t *testing.T) {
 			break
 		}
 	}
-	if imgIdx < 0 || imgIdx+3 >= len(args) {
+	if imgIdx < 0 || imgIdx+4 >= len(args) {
 		t.Fatalf("expected image tag followed by container entrypoint: %v", args)
 	}
 	entry := strings.Join(args[imgIdx+1:imgIdx+5], " ")
-	if !strings.HasPrefix(entry, "./bin/dx agent claude --loop") {
-		t.Errorf("container entrypoint must be `./bin/dx agent claude --loop` (runs inside container), got: %s", entry)
+	if !strings.HasPrefix(entry, "./bin/dx agent loop --provider=claude") {
+		t.Errorf("container entrypoint must be `./bin/dx agent loop --provider=claude` (runs inside container), got: %s", entry)
 	}
 }

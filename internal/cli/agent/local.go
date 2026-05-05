@@ -7,51 +7,11 @@ import (
 	"strings"
 
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/config"
 )
-
-func agentLocalCmd() *cobra.Command {
-	var loop bool
-	var alias string
-	var issue string
-	var maxTurns int
-	var complexity string
-	cmd := &cobra.Command{
-		Use:   "local",
-		Short: "Run local-LLM agent sessions with zdx integration",
-		Long: `Run an OpenAI-compatible chat-completions loop against the configured
-llm_local endpoint with tool-calling enabled. Registered tools span the
-filesystem (read/write/edit/glob/grep/list_dir) and shell (run_bash); use
-shell tools to invoke dx CLI commands directly. Every message, tool_use,
-and tool_result is written as Claude-compatible JSONL to
-.zdx/agent/local/<sid>.jsonl and streamed to the server for the
-sessions/agents UI.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			tier, err := NormalizeComplexity(complexity)
-			if err != nil {
-				return err
-			}
-			opts, err := loadManagedOptsFromCmd(cmd, "local", alias, issue, "", tier, maxTurns)
-			if err != nil {
-				return err
-			}
-			if loop {
-				return RunManagedLoop(cmd.Context(), "local", opts)
-			}
-			return RunManagedSession(cmd.Context(), "local", opts)
-		},
-	}
-	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
-	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
-	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
-	cmd.Flags().IntVar(&maxTurns, "max-turns", 40, "cap on assistant turns per session")
-	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model slot to use: low|medium|high (from server admin/llm config)")
-	return cmd
-}
 
 // applyComplexityModel overrides llmCfg.Model with the matching slot from the
 // server's zdx_llm_configs (set via admin/llm). Walks configs in priority

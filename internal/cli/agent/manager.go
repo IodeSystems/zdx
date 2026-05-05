@@ -103,6 +103,46 @@ func RunManagedSession(ctx context.Context, providerName string, opts ProviderOp
 	return runErr
 }
 
+// DispatchLoop is the entry point for any loop-mode dispatch. If the named
+// provider implements LoopProvider, its RunLoop owns the run (claude's
+// Take-based orchestration). Otherwise the universal RunManagedLoop runs.
+// dx agent loop and any future loop-driving code path through this function
+// rather than picking a runtime themselves.
+func DispatchLoop(ctx context.Context, providerName string, opts ProviderOpts) error {
+	ctor, err := LookupProvider(providerName)
+	if err != nil {
+		return err
+	}
+	provider, err := ctor(opts)
+	if err != nil {
+		return fmt.Errorf("construct %s provider: %w", providerName, err)
+	}
+	if lp, ok := provider.(LoopProvider); ok {
+		return lp.RunLoop(ctx, opts)
+	}
+	return RunManagedLoop(ctx, providerName, opts)
+}
+
+// DispatchContainerLoop is the entry point for --container dispatch. Errors
+// when the named provider doesn't implement ContainerProvider (only claude
+// today). Bypasses the standard loop entirely — the per-slot containers
+// each run their own `dx agent loop --provider=...` internally.
+func DispatchContainerLoop(ctx context.Context, providerName string, opts ProviderOpts) error {
+	ctor, err := LookupProvider(providerName)
+	if err != nil {
+		return err
+	}
+	provider, err := ctor(opts)
+	if err != nil {
+		return fmt.Errorf("construct %s provider: %w", providerName, err)
+	}
+	cp, ok := provider.(ContainerProvider)
+	if !ok {
+		return fmt.Errorf("--provider=%s does not support --container (only claude today)", providerName)
+	}
+	return cp.RunContainerLoop(ctx, opts)
+}
+
 // RunManagedLoop atomically claims work via /api/dx/solo/claim, runs a
 // managed session per pick, renews the lease while the session runs, and
 // releases on completion. The shared scaffolding (signal handling, state-

@@ -26,8 +26,10 @@ type ProviderOpts struct {
 	SeedPrompt string
 
 	// claude-specific (ignored by other providers)
-	Chrome  bool
-	Srcless bool
+	Chrome        bool
+	Srcless       bool
+	WorkDir       string // global agent work directory (srcless mode)
+	KeepContainer bool   // skip docker --rm for debugging
 
 	// opencode/local-specific (ignored by claude)
 	MaxTurns int

@@ -19,91 +19,8 @@ import (
 	"syscall"
 	"time"
 
-	"github.com/spf13/cobra"
-
 	"github.com/iodesystems/zdx-go/internal/config"
 )
-
-func agentClaudeCmd() *cobra.Command {
-	var loop bool
-	var alias string
-	var issue string
-	var chrome bool
-	var model string
-	var complexity string
-	var container bool
-	var keepContainer bool
-	var maxWorktrees int
-	cmd := &cobra.Command{
-		Use:   "claude",
-		Short: "Run Claude agent sessions with zdx integration",
-		Long:  "Launch Claude CLI sessions with automatic session streaming, subagent discovery, and token usage tracking.",
-		RunE: func(cmd *cobra.Command, args []string) error {
-			normalized, err := NormalizeComplexity(complexity)
-			if err != nil {
-				return err
-			}
-			complexity = normalized
-			rt, err := loadAgentRuntime(cmd)
-			if err != nil {
-				return err
-			}
-			if rt.Srcless {
-				fmt.Fprintln(os.Stderr, "srcless mode: using ~/.zdx/config.yaml (no project config found)")
-			}
-
-			// --max-worktrees flag overrides config value when explicitly set.
-			if cmd.Flags().Changed("max-worktrees") && maxWorktrees > 0 {
-				rt.AgentCfg.MaxWorktrees = maxWorktrees
-			}
-
-			if container {
-				if !loop {
-					return fmt.Errorf("--container requires --loop")
-				}
-				return runContainerLoop(rt.RC, alias, rt.AgentCfg, keepContainer)
-			}
-
-			if err := enforceContainerExecution(container); err != nil {
-				return err
-			}
-
-			sel := modelSelector{modelFlag: model, complexity: complexity, agentCfg: rt.AgentCfg}
-
-			if loop {
-				// Loop path keeps its richer runtime (self-update detection,
-				// crash-recovery resume, churn backoff, srcless worktree GC,
-				// session-balanced model picking). Worth its own migration pass.
-				return runLoop(rt.RC, alias, chrome, sel, rt.Srcless, rt.WorkDir, rt.AgentCfg)
-			}
-
-			// Single-session path goes through the shared manager so claude
-			// gets the same trace_id + View live logs URL + session events
-			// the other providers already emit.
-			opts := ProviderOpts{
-				RC:         rt.RC,
-				AgentCfg:   rt.AgentCfg,
-				IssueID:    issue,
-				Alias:      alias,
-				Model:      sel.resolve(rt.RC, 0),
-				Complexity: complexity,
-				Chrome:     chrome,
-				Srcless:    rt.Srcless,
-			}
-			return RunManagedSession(cmd.Context(), "claude", opts)
-		},
-	}
-	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
-	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
-	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
-	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI")
-	cmd.Flags().StringVar(&model, "model", "", "claude model name (passes through as --model to claude CLI; wins over --complexity)")
-	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved against admin /llm-config; falls back to sensible defaults)")
-	cmd.Flags().BoolVar(&container, "container", false, "run agent loop inside the project's dev container (requires --loop and dev.Dockerfile)")
-	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep containers after exit (skip --rm; useful for debugging)")
-	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slots in --container mode)")
-	return cmd
-}
 
 type remoteConfig struct {
 	url  string
@@ -643,6 +560,22 @@ func init() {
 			exited:   make(chan struct{}),
 		}, nil
 	})
+}
+
+// RunLoop implements LoopProvider — claude's loop runs the rich Take-based
+// orchestration (worktree-per-session, stall recovery, churn detection,
+// session-balanced model picking) rather than the universal RunManagedLoop.
+// Manager dispatches here automatically when --provider=claude in loop mode.
+func (a *claudeAdapter) RunLoop(_ context.Context, opts ProviderOpts) error {
+	sel := modelSelector{modelFlag: opts.Model, complexity: opts.Complexity, agentCfg: opts.AgentCfg}
+	return runLoop(opts.RC, opts.Alias, opts.Chrome, sel, opts.Srcless, opts.WorkDir, opts.AgentCfg)
+}
+
+// RunContainerLoop implements ContainerProvider — orchestrates parallel
+// per-slot containers each running an in-container `dx agent loop
+// --provider=claude`. Manager dispatches here when --container is set.
+func (a *claudeAdapter) RunContainerLoop(_ context.Context, opts ProviderOpts) error {
+	return runContainerLoop(opts.RC, opts.Alias, opts.AgentCfg, opts.KeepContainer)
 }
 
 // claudeAdapter implements AgentAdapter against the real `claude` CLI. It

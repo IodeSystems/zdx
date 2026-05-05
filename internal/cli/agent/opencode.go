@@ -13,61 +13,12 @@ import (
 
 	"github.com/google/uuid"
 	"github.com/modelcontextprotocol/go-sdk/mcp"
-	"github.com/spf13/cobra"
 
 	"github.com/iodesystems/zdx-go/internal/cli"
 	"github.com/iodesystems/zdx-go/internal/cli/mcpcmd"
 	"github.com/iodesystems/zdx-go/internal/config"
 	"github.com/iodesystems/zdx-go/internal/llm"
 )
-
-func agentOpenCodeCmd() *cobra.Command {
-	var loop bool
-	var alias string
-	var issue string
-	var model string
-	var complexity string
-	var maxTurns int
-	cmd := &cobra.Command{
-		Use:   "opencode",
-		Short: "Run OpenCode agent sessions with zdx integration",
-		Long: `Run an OpenCode agent loop against the configured LLM endpoint with
-tool-calling enabled. Registered tools span the filesystem (read/write/edit/
-glob/grep/list_dir) and shell (run_bash). Every message, tool_use, and
-tool_result is written as Claude-compatible JSONL to
-.zdx/agent/opencode/<sid>.jsonl and streamed to the server for the
-sessions/agents UI.
-
-Session state is persisted as JSON in .zdx/state/opencode/<sid>.json so
-interrupted sessions can be resumed.
-
-Model selection cascades through complexity tiers. With --complexity high,
-the adapter queries the server's LLM config for model_high, falls back to
-model_medium, then model_low. This lets you run expensive models for hard
-tasks and cheap ones for quick fixes without changing config.`,
-		RunE: func(cmd *cobra.Command, args []string) error {
-			tier, err := NormalizeComplexity(complexity)
-			if err != nil {
-				return err
-			}
-			opts, err := loadManagedOptsFromCmd(cmd, "opencode", alias, issue, model, tier, maxTurns)
-			if err != nil {
-				return err
-			}
-			if loop {
-				return RunManagedLoop(cmd.Context(), "opencode", opts)
-			}
-			return RunManagedSession(cmd.Context(), "opencode", opts)
-		},
-	}
-	cmd.Flags().BoolVar(&loop, "loop", false, "loop: pick work via solo, run sessions, repeat")
-	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
-	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
-	cmd.Flags().StringVar(&model, "model", "", "model name (overrides config and --complexity)")
-	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (cascades through server LLM config)")
-	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited)")
-	return cmd
-}
 
 // ── OpenCode AgentAdapter ─────────────────────────────────────────────────
 
