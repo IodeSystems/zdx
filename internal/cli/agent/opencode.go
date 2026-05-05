@@ -94,6 +94,9 @@ tasks and cheap ones for quick fixes without changing config.`,
 			if loop {
 				return runOpenCodeLoop(cmd.Context(), rc, llmCfg, alias, maxTurns)
 			}
+			if alias == "" {
+				alias = "opencode-" + uuid.New().String()[:8]
+			}
 			ctx, cancel := context.WithCancel(cmd.Context())
 			defer cancel()
 			installReleaseOnSignal(rc, alias, "", nil, cancel)
@@ -523,6 +526,9 @@ func runOpenCodeLoop(parentCtx context.Context, rc remoteConfig, llmCfg config.L
 		}
 	}
 
+	if alias == "" {
+		alias = "opencode-" + uuid.New().String()[:8]
+	}
 	ctx, cancel := context.WithCancel(parentCtx)
 	defer cancel()
 	installReleaseOnSignal(rc, alias, stateFile, logfn, cancel)
