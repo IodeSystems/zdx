@@ -48,9 +48,11 @@ the adapter queries the server's LLM config for model_high, falls back to
 model_medium, then model_low. This lets you run expensive models for hard
 tasks and cheap ones for quick fixes without changing config.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !validComplexity(complexity) {
-				return fmt.Errorf("--complexity must be one of low|medium|high (got %q)", complexity)
+			normalized, err := NormalizeComplexity(complexity)
+			if err != nil {
+				return err
 			}
+			complexity = normalized
 			global, _ := cmd.Flags().GetBool("global")
 			global = global || config.IsGlobalMode()
 			var cfg *config.Config
@@ -110,7 +112,7 @@ tasks and cheap ones for quick fixes without changing config.`,
 	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&model, "model", "", "model name (overrides config and --complexity)")
-	cmd.Flags().StringVar(&complexity, "complexity", "medium", "model tier: low|medium|high (cascades through server LLM config)")
+	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (cascades through server LLM config)")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 0, "cap on assistant turns per session (0 = unlimited)")
 	return cmd
 }
@@ -253,6 +255,7 @@ func newOpenCodeTraceLogger(rc remoteConfig, llmCfg config.LLMLocal, sid, issueI
 // Claude-compatible JSONL to .zdx/agent/opencode/<sid>.jsonl. Session
 // state is persisted as JSON in .zdx/state/opencode/<sid>.json for resume.
 type opencodeAdapter struct {
+	rc         remoteConfig // populated by callers that need ResolveModel; safe to leave zero otherwise
 	llmCfg     config.LLMLocal
 	maxTurns   int
 	seedPrompt string
@@ -264,6 +267,18 @@ type opencodeAdapter struct {
 }
 
 func (a *opencodeAdapter) Provider() string { return "opencode" }
+
+// ResolveModel maps a complexity tier to a concrete model name by walking the
+// server's admin LLM config in priority order. Falls back to the adapter's
+// llmCfg.Model when the server is unreachable or no slot matches.
+func (a *opencodeAdapter) ResolveModel(ctx context.Context, complexity string) (string, error) {
+	tier, err := NormalizeComplexity(complexity)
+	if err != nil {
+		return "", err
+	}
+	resolved := applyComplexityModel(ctx, a.llmCfg, tier)
+	return resolved.Model, nil
+}
 
 func (a *opencodeAdapter) Start(ctx context.Context, sid, issueID, alias string) (string, error) {
 	if alias != "" {

@@ -3,42 +3,41 @@ package agent
 import (
 	"encoding/json"
 	"net/http"
-	"strings"
 	"time"
 
 	"github.com/iodesystems/zdx-go/internal/config"
 )
 
-// Default claude model names used when neither --model nor --level is specified
-// and when the project's admin LLM config has no slot set for a chosen level.
-// Kept as constants so unit tests can pin the balancing behavior.
+// Default claude model names used when neither --model nor --complexity is
+// specified and when the project's admin LLM config has no slot set for the
+// chosen tier. Kept as constants so unit tests can pin the balancing behavior.
 const (
-	defaultModelLow  = "claude-haiku-4-5"
-	defaultModelMed  = "claude-sonnet-4-6"
-	defaultModelHigh = "claude-opus-4-7"
+	defaultModelLow    = "claude-haiku-4-5"
+	defaultModelMedium = "claude-sonnet-4-6"
+	defaultModelHigh   = "claude-opus-4-7"
 )
 
 // modelSelector chooses which model to pass to the claude CLI per session.
 //
 // Precedence (highest first):
 //  1. modelFlag — verbatim, passed straight through.
-//  2. levelFlag — resolved against admin /llm-config (model_low/medium/high).
-//     Empty slots fall through to defaultModelLow/Med/High; agentCfg.ClaudeModel
-//     overrides the med fallback so legacy .zdx/config.yaml stays honored.
+//  2. complexity — resolved against admin /llm-config (model_low/medium/high).
+//     Empty slots fall through to defaultModelLow/Medium/High; agentCfg.ClaudeModel
+//     overrides the medium fallback so legacy .zdx/config.yaml stays honored.
 //  3. neither — alternate sonnet/opus per session so token usage is balanced
 //     across tiers when complexity is unspecified.
 type modelSelector struct {
-	modelFlag string
-	levelFlag string
-	agentCfg  config.AgentConfig
+	modelFlag  string
+	complexity string
+	agentCfg   config.AgentConfig
 }
 
 func (s modelSelector) resolve(rc remoteConfig, sessionIdx int) string {
 	if s.modelFlag != "" {
 		return s.modelFlag
 	}
-	if s.levelFlag != "" {
-		return resolveLevelModel(rc, s.levelFlag, s.agentCfg)
+	if s.complexity != "" {
+		return resolveComplexityModel(rc, s.complexity, s.agentCfg)
 	}
 	return balancedModel(sessionIdx)
 }
@@ -47,60 +46,46 @@ func (s modelSelector) resolve(rc remoteConfig, sessionIdx int) string {
 // Even indices get sonnet, odd get opus — yields a 50/50 split over a loop run.
 func balancedModel(idx int) string {
 	if idx%2 == 0 {
-		return defaultModelMed
+		return defaultModelMedium
 	}
 	return defaultModelHigh
 }
 
-// resolveLevelModel maps low|med|high to a concrete model name. It walks the
-// configured admin LLM configs in priority order and returns the first
-// non-empty slot matching the requested level. If no config provides one, it
-// falls back to defaults (agentCfg.ClaudeModel overrides the med default so
-// existing config.yaml ClaudeModel keeps working).
-func resolveLevelModel(rc remoteConfig, level string, agentCfg config.AgentConfig) string {
-	lvl := normalizeLevel(level)
-	if lvl == "" {
+// resolveComplexityModel maps low|medium|high to a concrete claude model name.
+// It walks the configured admin LLM configs in priority order and returns the
+// first non-empty slot matching the requested tier. If no config provides one,
+// it falls back to the hardcoded defaults (agentCfg.ClaudeModel overrides the
+// medium default so existing config.yaml ClaudeModel keeps working).
+func resolveComplexityModel(rc remoteConfig, complexity string, agentCfg config.AgentConfig) string {
+	tier, err := NormalizeComplexity(complexity)
+	if err != nil {
 		return ""
 	}
 	configs, _ := fetchLLMConfigs(rc)
 	for _, cfg := range configs {
 		var slot string
-		switch lvl {
-		case "low":
+		switch tier {
+		case ComplexityLow:
 			slot = cfg.ModelLow
-		case "med":
+		case ComplexityMedium:
 			slot = cfg.ModelMedium
-		case "high":
+		case ComplexityHigh:
 			slot = cfg.ModelHigh
 		}
 		if slot != "" {
 			return slot
 		}
 	}
-	switch lvl {
-	case "low":
+	switch tier {
+	case ComplexityLow:
 		return defaultModelLow
-	case "med":
+	case ComplexityMedium:
 		if agentCfg.ClaudeModel != "" {
 			return agentCfg.ClaudeModel
 		}
-		return defaultModelMed
-	case "high":
+		return defaultModelMedium
+	case ComplexityHigh:
 		return defaultModelHigh
-	}
-	return ""
-}
-
-// normalizeLevel collapses common spellings to "low" / "med" / "high".
-// Returns "" for inputs that don't match any tier so callers can detect typos.
-func normalizeLevel(s string) string {
-	switch strings.ToLower(strings.TrimSpace(s)) {
-	case "low", "l":
-		return "low"
-	case "med", "medium", "m":
-		return "med"
-	case "high", "h":
-		return "high"
 	}
 	return ""
 }
@@ -177,19 +162,19 @@ func fetchFullLLMConfigs(rc remoteConfig) ([]fullLLMConfigEntry, error) {
 // complexity tier and returns a fully-resolved LLMLocal (base_url, model,
 // api_key). Walks configs in priority order; returns zero LLMLocal on miss.
 func resolveLLMConfigFromServer(rc remoteConfig, complexity string) config.LLMLocal {
-	lvl := normalizeLevel(complexity)
-	if lvl == "" {
+	tier, err := NormalizeComplexity(complexity)
+	if err != nil {
 		return config.LLMLocal{}
 	}
 	configs, _ := fetchFullLLMConfigs(rc)
 	for _, cfg := range configs {
 		var picked string
-		switch lvl {
-		case "low":
+		switch tier {
+		case ComplexityLow:
 			picked = cfg.ModelLow
-		case "med":
+		case ComplexityMedium:
 			picked = cfg.ModelMedium
-		case "high":
+		case ComplexityHigh:
 			picked = cfg.ModelHigh
 		}
 		if picked != "" && cfg.Url != "" {

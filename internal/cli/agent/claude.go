@@ -32,7 +32,7 @@ func agentClaudeCmd() *cobra.Command {
 	var issue string
 	var chrome bool
 	var model string
-	var level string
+	var complexity string
 	var container bool
 	var keepContainer bool
 	var maxWorktrees int
@@ -41,6 +41,11 @@ func agentClaudeCmd() *cobra.Command {
 		Short: "Run Claude agent sessions with zdx integration",
 		Long:  "Launch Claude CLI sessions with automatic session streaming, subagent discovery, and token usage tracking.",
 		RunE: func(cmd *cobra.Command, args []string) error {
+			normalized, err := NormalizeComplexity(complexity)
+			if err != nil {
+				return err
+			}
+			complexity = normalized
 			global, _ := cmd.Flags().GetBool("global")
 			global = global || config.IsGlobalMode()
 			var cfg *config.Config
@@ -91,7 +96,7 @@ func agentClaudeCmd() *cobra.Command {
 				return err
 			}
 
-			sel := modelSelector{modelFlag: model, levelFlag: level, agentCfg: agentCfg}
+			sel := modelSelector{modelFlag: model, complexity: complexity, agentCfg: agentCfg}
 
 			if loop {
 				return runLoop(rc, alias, chrome, sel, srcless, workDir)
@@ -108,8 +113,8 @@ func agentClaudeCmd() *cobra.Command {
 	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().BoolVar(&chrome, "chrome", true, "pass --chrome to claude CLI")
-	cmd.Flags().StringVar(&model, "model", "", "claude model name (passes through as --model to claude CLI; wins over --level)")
-	cmd.Flags().StringVar(&level, "level", "", "task complexity tier: low|med|high (resolved against admin /llm-config; falls back to sensible defaults)")
+	cmd.Flags().StringVar(&model, "model", "", "claude model name (passes through as --model to claude CLI; wins over --complexity)")
+	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model tier: low|medium|high (resolved against admin /llm-config; falls back to sensible defaults)")
 	cmd.Flags().BoolVar(&container, "container", false, "run agent loop inside the project's dev container (requires --loop and dev.Dockerfile)")
 	cmd.Flags().BoolVar(&keepContainer, "keep-container", false, "keep containers after exit (skip --rm; useful for debugging)")
 	cmd.Flags().IntVar(&maxWorktrees, "max-worktrees", 0, "override agent.max_worktrees from config (container slots in --container mode)")
@@ -592,15 +597,16 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 // launches the process with ZDX-aware environment vars and returns the
 // transcript path that Claude writes its JSONL session to.
 type claudeAdapter struct {
-	rc      remoteConfig
-	projDir string
-	chrome  bool
-	prevSID string
-	resumed bool
-	alias   string
-	model   string
-	prompt  string // custom prompt; empty = "/work"
-	srcless bool   // when true, inject DX_GLOBAL=1 into the subprocess env
+	rc       remoteConfig
+	agentCfg config.AgentConfig // honored by ResolveModel for the medium-tier ClaudeModel fallback
+	projDir  string
+	chrome   bool
+	prevSID  string
+	resumed  bool
+	alias    string
+	model    string
+	prompt   string // custom prompt; empty = "/work"
+	srcless  bool   // when true, inject DX_GLOBAL=1 into the subprocess env
 
 	scopedTokenID int32
 
@@ -610,6 +616,17 @@ type claudeAdapter struct {
 
 	toolNamesMu sync.Mutex
 	toolNames   map[string]string
+}
+
+// ResolveModel maps a complexity tier to a concrete claude model identifier.
+// Honors a.rc + a.agentCfg for the existing admin/llm-config + ClaudeModel
+// fallback chain. Empty complexity is treated as DefaultComplexity.
+func (a *claudeAdapter) ResolveModel(_ context.Context, complexity string) (string, error) {
+	tier, err := NormalizeComplexity(complexity)
+	if err != nil {
+		return "", err
+	}
+	return resolveComplexityModel(a.rc, tier, a.agentCfg), nil
 }
 
 // buildClaudeEnv builds the environment passed to the spawned claude CLI.

@@ -33,9 +33,11 @@ and tool_result is written as Claude-compatible JSONL to
 .zdx/agent/local/<sid>.jsonl and streamed to the server for the
 sessions/agents UI.`,
 		RunE: func(cmd *cobra.Command, args []string) error {
-			if !validComplexity(complexity) {
-				return fmt.Errorf("--complexity must be one of low|medium|high (got %q)", complexity)
+			normalized, err := NormalizeComplexity(complexity)
+			if err != nil {
+				return err
 			}
+			complexity = normalized
 			global, _ := cmd.Flags().GetBool("global")
 			global = global || config.IsGlobalMode()
 			var cfg *config.Config
@@ -75,16 +77,8 @@ sessions/agents UI.`,
 	cmd.Flags().StringVar(&alias, "alias", "", "agent alias for identification")
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().IntVar(&maxTurns, "max-turns", 40, "cap on assistant turns per session")
-	cmd.Flags().StringVar(&complexity, "complexity", "medium", "model slot to use: low|medium|high (from server admin/llm config)")
+	cmd.Flags().StringVar(&complexity, "complexity", DefaultComplexity, "model slot to use: low|medium|high (from server admin/llm config)")
 	return cmd
-}
-
-func validComplexity(c string) bool {
-	switch c {
-	case "low", "medium", "high":
-		return true
-	}
-	return false
 }
 
 // applyComplexityModel overrides llmCfg.Model with the matching slot from the
@@ -173,6 +167,18 @@ type localAdapter struct {
 }
 
 func (a *localAdapter) Provider() string { return "local" }
+
+// ResolveModel maps a complexity tier to a concrete model name by walking the
+// server's admin LLM config in priority order. Falls back to the adapter's
+// llmCfg.Model when the server is unreachable or no slot matches.
+func (a *localAdapter) ResolveModel(ctx context.Context, complexity string) (string, error) {
+	tier, err := NormalizeComplexity(complexity)
+	if err != nil {
+		return "", err
+	}
+	resolved := applyComplexityModel(ctx, a.llmCfg, tier)
+	return resolved.Model, nil
+}
 
 func (a *localAdapter) Start(ctx context.Context, sid, issueID, alias string) (string, error) {
 	// Set author alias so agent-posted comments are tagged and excluded

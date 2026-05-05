@@ -9,9 +9,9 @@ import (
 	"github.com/iodesystems/zdx-go/internal/config"
 )
 
-// modelSelector.resolve must honor precedence: --model > --level > balance.
+// modelSelector.resolve must honor precedence: --model > --complexity > balance.
 func TestModelSelectorPrecedence(t *testing.T) {
-	rc := remoteConfig{} // invalid → fetchLLMConfig returns empty, level falls to defaults
+	rc := remoteConfig{} // invalid → fetchLLMConfig returns empty, complexity falls to defaults
 
 	cases := []struct {
 		name string
@@ -20,47 +20,47 @@ func TestModelSelectorPrecedence(t *testing.T) {
 		want string
 	}{
 		{
-			name: "explicit model wins over level",
-			sel:  modelSelector{modelFlag: "claude-custom", levelFlag: "high"},
+			name: "explicit model wins over complexity",
+			sel:  modelSelector{modelFlag: "claude-custom", complexity: "high"},
 			want: "claude-custom",
 		},
 		{
-			name: "level=low maps to default low when LLM config unset",
-			sel:  modelSelector{levelFlag: "low"},
+			name: "complexity=low maps to default low when LLM config unset",
+			sel:  modelSelector{complexity: "low"},
 			want: defaultModelLow,
 		},
 		{
-			name: "level=med maps to default med when no agentCfg.ClaudeModel",
-			sel:  modelSelector{levelFlag: "med"},
-			want: defaultModelMed,
+			name: "complexity=medium maps to default medium when no agentCfg.ClaudeModel",
+			sel:  modelSelector{complexity: "medium"},
+			want: defaultModelMedium,
 		},
 		{
-			name: "level=med honors agentCfg.ClaudeModel as fallback",
-			sel:  modelSelector{levelFlag: "med", agentCfg: config.AgentConfig{ClaudeModel: "legacy-sonnet"}},
+			name: "complexity=medium honors agentCfg.ClaudeModel as fallback",
+			sel:  modelSelector{complexity: "medium", agentCfg: config.AgentConfig{ClaudeModel: "legacy-sonnet"}},
 			want: "legacy-sonnet",
 		},
 		{
-			name: "level=high maps to default high",
-			sel:  modelSelector{levelFlag: "high"},
+			name: "complexity=high maps to default high",
+			sel:  modelSelector{complexity: "high"},
 			want: defaultModelHigh,
 		},
 		{
-			name: "no model/level + idx 0 → med (sonnet)",
+			name: "no model/complexity + idx 0 → medium (sonnet)",
 			sel:  modelSelector{},
 			idx:  0,
-			want: defaultModelMed,
+			want: defaultModelMedium,
 		},
 		{
-			name: "no model/level + idx 1 → high (opus)",
+			name: "no model/complexity + idx 1 → high (opus)",
 			sel:  modelSelector{},
 			idx:  1,
 			want: defaultModelHigh,
 		},
 		{
-			name: "no model/level + idx 4 → med (sonnet)",
+			name: "no model/complexity + idx 4 → medium (sonnet)",
 			sel:  modelSelector{},
 			idx:  4,
-			want: defaultModelMed,
+			want: defaultModelMedium,
 		},
 	}
 
@@ -74,8 +74,8 @@ func TestModelSelectorPrecedence(t *testing.T) {
 	}
 }
 
-// resolveLevelModel must prefer non-empty server slots over local defaults.
-func TestResolveLevelModelUsesServerConfig(t *testing.T) {
+// resolveComplexityModel must prefer non-empty server slots over local defaults.
+func TestResolveComplexityModelUsesServerConfig(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		if r.URL.Path != "/api/admin/llm-configs" {
 			http.NotFound(w, r)
@@ -96,20 +96,20 @@ func TestResolveLevelModelUsesServerConfig(t *testing.T) {
 	rc := remoteConfig{url: srv.URL, slug: "demo", key: "k"}
 	cfg := config.AgentConfig{ClaudeModel: "ignored-because-server-set"}
 
-	if got := resolveLevelModel(rc, "low", cfg); got != "srv-haiku" {
+	if got := resolveComplexityModel(rc, "low", cfg); got != "srv-haiku" {
 		t.Fatalf("low: got %q, want srv-haiku", got)
 	}
-	if got := resolveLevelModel(rc, "medium", cfg); got != "srv-sonnet" {
+	if got := resolveComplexityModel(rc, "medium", cfg); got != "srv-sonnet" {
 		t.Fatalf("medium: got %q, want srv-sonnet", got)
 	}
-	if got := resolveLevelModel(rc, "h", cfg); got != "srv-opus" {
+	if got := resolveComplexityModel(rc, "h", cfg); got != "srv-opus" {
 		t.Fatalf("h alias: got %q, want srv-opus", got)
 	}
 }
 
-// Empty server slots must fall through to defaults; the med slot honors
+// Empty server slots must fall through to defaults; the medium slot honors
 // agentCfg.ClaudeModel ahead of the hard-coded default.
-func TestResolveLevelModelFallbackChain(t *testing.T) {
+func TestResolveComplexityModelFallbackChain(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"configs": []map[string]string{
@@ -121,30 +121,30 @@ func TestResolveLevelModelFallbackChain(t *testing.T) {
 
 	rc := remoteConfig{url: srv.URL, slug: "demo", key: "k"}
 
-	if got := resolveLevelModel(rc, "low", config.AgentConfig{}); got != defaultModelLow {
+	if got := resolveComplexityModel(rc, "low", config.AgentConfig{}); got != defaultModelLow {
 		t.Fatalf("low fallback: got %q, want %q", got, defaultModelLow)
 	}
-	if got := resolveLevelModel(rc, "med", config.AgentConfig{ClaudeModel: "legacy"}); got != "legacy" {
-		t.Fatalf("med fallback to agentCfg: got %q, want legacy", got)
+	if got := resolveComplexityModel(rc, "med", config.AgentConfig{ClaudeModel: "legacy"}); got != "legacy" {
+		t.Fatalf("medium fallback to agentCfg: got %q, want legacy", got)
 	}
-	if got := resolveLevelModel(rc, "med", config.AgentConfig{}); got != defaultModelMed {
-		t.Fatalf("med default: got %q, want %q", got, defaultModelMed)
+	if got := resolveComplexityModel(rc, "medium", config.AgentConfig{}); got != defaultModelMedium {
+		t.Fatalf("medium default: got %q, want %q", got, defaultModelMedium)
 	}
-	if got := resolveLevelModel(rc, "high", config.AgentConfig{}); got != defaultModelHigh {
+	if got := resolveComplexityModel(rc, "high", config.AgentConfig{}); got != defaultModelHigh {
 		t.Fatalf("high fallback: got %q, want %q", got, defaultModelHigh)
 	}
 }
 
 // The resolver must walk multiple configs in priority order, returning the
-// first non-empty slot for the requested level — empty slots "fall through"
+// first non-empty slot for the requested tier — empty slots "fall through"
 // to the next config.
-func TestResolveLevelModelWalksPriorityOrder(t *testing.T) {
+func TestResolveComplexityModelWalksPriorityOrder(t *testing.T) {
 	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		_ = json.NewEncoder(w).Encode(map[string]any{
 			"configs": []map[string]string{
 				// priority 1: only high is set
 				{"model_low": "", "model_medium": "", "model_high": "p1-opus"},
-				// priority 2: low + med set
+				// priority 2: low + medium set
 				{"model_low": "p2-haiku", "model_medium": "p2-sonnet", "model_high": ""},
 			},
 		})
@@ -153,42 +153,22 @@ func TestResolveLevelModelWalksPriorityOrder(t *testing.T) {
 
 	rc := remoteConfig{url: srv.URL, slug: "demo", key: "k"}
 
-	if got := resolveLevelModel(rc, "low", config.AgentConfig{}); got != "p2-haiku" {
+	if got := resolveComplexityModel(rc, "low", config.AgentConfig{}); got != "p2-haiku" {
 		t.Fatalf("low: got %q, want p2-haiku (falls through to priority-2 config)", got)
 	}
-	if got := resolveLevelModel(rc, "med", config.AgentConfig{}); got != "p2-sonnet" {
-		t.Fatalf("med: got %q, want p2-sonnet", got)
+	if got := resolveComplexityModel(rc, "medium", config.AgentConfig{}); got != "p2-sonnet" {
+		t.Fatalf("medium: got %q, want p2-sonnet", got)
 	}
-	if got := resolveLevelModel(rc, "high", config.AgentConfig{}); got != "p1-opus" {
+	if got := resolveComplexityModel(rc, "high", config.AgentConfig{}); got != "p1-opus" {
 		t.Fatalf("high: got %q, want p1-opus (first config wins)", got)
 	}
 }
 
-func TestNormalizeLevel(t *testing.T) {
-	cases := map[string]string{
-		"low":    "low",
-		"LOW":    "low",
-		" l ":    "low",
-		"medium": "med",
-		"med":    "med",
-		"M":      "med",
-		"high":   "high",
-		"H":      "high",
-		"":       "",
-		"xyz":    "",
-	}
-	for in, want := range cases {
-		if got := normalizeLevel(in); got != want {
-			t.Errorf("normalizeLevel(%q) = %q, want %q", in, got, want)
-		}
-	}
-}
-
-// Unknown level returns "" so the caller can let claude CLI pick its default
+// Unknown complexity returns "" so the caller can let claude CLI pick its default
 // rather than silently substituting a wrong tier.
-func TestResolveLevelModelUnknownLevel(t *testing.T) {
+func TestResolveComplexityModelUnknownTier(t *testing.T) {
 	rc := remoteConfig{}
-	if got := resolveLevelModel(rc, "extreme", config.AgentConfig{}); got != "" {
-		t.Fatalf("unknown level: got %q, want empty", got)
+	if got := resolveComplexityModel(rc, "extreme", config.AgentConfig{}); got != "" {
+		t.Fatalf("unknown complexity: got %q, want empty", got)
 	}
 }
