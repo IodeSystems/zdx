@@ -28,6 +28,7 @@ internal/dxclient/openapi.json.sha256
 test/e2e/.zdx/
 test/e2e/uploads/
 .vite/
+.zdx/agent/
 .zdx/cache/
 .zdx/demo/
 .zdx/state/
