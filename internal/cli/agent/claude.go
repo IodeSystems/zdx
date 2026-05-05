@@ -515,7 +515,38 @@ func runSession(ctx context.Context, rc remoteConfig, sid, issueID, alias string
 		exited:  make(chan struct{}),
 	}
 
+	tlog, tsink := setupSessionTracelog(rc, "claude", model, sid, issueID, alias)
+	if tsink != nil {
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = tsink.Close(closeCtx)
+		}()
+	}
+	if tlog != nil {
+		defer tlog.Close()
+		if u := tlog.FilteredURL(rc.url, rc.slug); u != "" {
+			fmt.Printf("View live logs: %s\n", u)
+		}
+		tlog.Info("session.start",
+			"sid", sid,
+			"issue_id", issueID,
+			"alias", alias,
+			"model", model,
+			"resumed", resumed,
+			"prev_sid", prevSID)
+	}
+
 	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "claude-cli", todoID)
+	if tlog != nil {
+		status := "ok"
+		errStr := ""
+		if err != nil {
+			status = "error"
+			errStr = err.Error()
+		}
+		tlog.Info("session.end", "status", status, "err", errStr)
+	}
 
 	// Print token usage summary from the on-disk transcripts regardless of
 	// whether the lifecycle runner reached the server; useful in dev.
@@ -552,7 +583,37 @@ func runSessionWithSummary(ctx context.Context, rc remoteConfig, sid, issueID, a
 		exited:  make(chan struct{}),
 	}
 
+	tlog, tsink := setupSessionTracelog(rc, "claude", model, sid, issueID, alias)
+	if tsink != nil {
+		defer func() {
+			closeCtx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+			defer cancel()
+			_ = tsink.Close(closeCtx)
+		}()
+	}
+	if tlog != nil {
+		defer tlog.Close()
+		if u := tlog.FilteredURL(rc.url, rc.slug); u != "" {
+			fmt.Printf("View live logs: %s\n", u)
+		}
+		tlog.Info("session.start",
+			"sid", sid,
+			"issue_id", issueID,
+			"alias", alias,
+			"model", model,
+			"resumed_from_summary", true)
+	}
+
 	_, err := RunLifecycle(ctx, adapter, rc, sid, issueID, alias, "claude-cli", todoID)
+	if tlog != nil {
+		status := "ok"
+		errStr := ""
+		if err != nil {
+			status = "error"
+			errStr = err.Error()
+		}
+		tlog.Info("session.end", "status", status, "err", errStr)
+	}
 	printTokenSummary(
 		filepath.Join(projDir, sid+".jsonl"),
 		filepath.Join(projDir, sid, "subagents"),

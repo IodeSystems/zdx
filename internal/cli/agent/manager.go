@@ -276,6 +276,23 @@ func parseInt32(s string) (int32, error) {
 	return n, err
 }
 
+// setupSessionTracelog is the small-touch helper for callers that have
+// already minted their own auth and just need a tracelog logger + sink for
+// a session. Used by claude's runSession (which mints its own scoped token
+// inside the adapter, so the parent process uses rc.key). Returns nil
+// values silently when rc is missing fields — callers should null-check.
+//
+// For the unified manager path, prefer newManagedTraceLogger which threads
+// the freshly-minted scoped token through.
+func setupSessionTracelog(rc remoteConfig, providerName, model, sid, issueID, alias string) (*tracelog.Logger, *zdxclient.Client) {
+	logger, client, err := newManagedTraceLogger(rc, providerName, model, sid, issueID, alias, rc.key)
+	if err != nil {
+		fmt.Fprintf(os.Stderr, "tracelog: %v (continuing without structured logging)\n", err)
+		return nil, nil
+	}
+	return logger, client
+}
+
 // newManagedTraceLogger builds the tracelog logger + zdxclient sink for a
 // managed session. Mirrors what newOpenCodeTraceLogger did inline; lifted
 // here so all providers share the wiring.
