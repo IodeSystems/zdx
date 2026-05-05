@@ -106,7 +106,7 @@ tasks and cheap ones for quick fixes without changing config.`,
 	cmd.Flags().StringVar(&issue, "issue", "", "issue to work on (single session mode)")
 	cmd.Flags().StringVar(&model, "model", "", "model name (overrides config and --complexity)")
 	cmd.Flags().StringVar(&complexity, "complexity", "medium", "model tier: low|medium|high (cascades through server LLM config)")
-	cmd.Flags().IntVar(&maxTurns, "max-turns", 40, "cap on assistant turns per session")
+	cmd.Flags().IntVar(&maxTurns, "max-turns", 10000, "cap on assistant turns per session (0 = unlimited)")
 	return cmd
 }
 
@@ -404,7 +404,7 @@ func (cs *opencodeChatSession) Run(ctx context.Context, system, user string) err
 	}
 	msgs = append(msgs, llm.ChatMsg{Role: "user", Content: user})
 
-	for turn := 0; turn < cs.maxTurns; turn++ {
+	for turn := 0; cs.maxTurns == 0 || turn < cs.maxTurns; turn++ {
 		if err := ctx.Err(); err != nil {
 			return err
 		}
