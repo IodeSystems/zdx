@@ -401,12 +401,14 @@ func runLoop(rc remoteConfig, alias string, chrome bool, sel modelSelector, srcl
 			"cycle_detected", result.CycleDetected,
 			"err", errString(result.Err))
 
-		// Track churn across iterations by todo key.
+		// Track churn across iterations by todo key. Both ChurnDowngraded
+		// (server downgraded resolve→release because the session made no
+		// mutations) and CycleDetected (queue would immediately regenerate
+		// the resolved todo) signal the same operator-visible behavior:
+		// this todo isn't making progress. Treat them identically for
+		// backoff so the loop doesn't spin (IS-1039).
 		switch {
-		case result.CycleDetected:
-			consecutiveChurns = 0
-			lastChurnTodoKey = ""
-		case result.ChurnDowngraded:
+		case result.CycleDetected || result.ChurnDowngraded:
 			if result.TodoKey == lastChurnTodoKey {
 				consecutiveChurns++
 			} else {

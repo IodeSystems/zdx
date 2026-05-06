@@ -360,14 +360,16 @@ func RunManagedLoop(parentCtx context.Context, providerName string, opts Provide
 			"err", errString(runErr))
 		_ = os.Remove(stateFile)
 
-		// Update churn tracking, then maybe back off before the next claim.
+		// Update churn tracking, then maybe back off before the next
+		// claim. ChurnDowngraded (server downgraded resolve→release
+		// because the session made no mutations) and CycleDetected
+		// (queue would immediately regenerate a resolved todo) are
+		// the same signal — this todo isn't making progress — so
+		// they share one backoff path. IS-1039: previously CycleDetected
+		// reset the counter, which combined with a fast-failing session
+		// meant the loop spun on the same todo at ~3 takes/sec.
 		switch {
-		case release.CycleDetected:
-			// Server auto-blocked the underlying issue; no point in
-			// retrying immediately. Reset churn state.
-			consecutiveChurns = 0
-			lastChurnTodoKey = ""
-		case release.ChurnDowngraded:
+		case release.CycleDetected || release.ChurnDowngraded:
 			if todo.Key == lastChurnTodoKey {
 				consecutiveChurns++
 			} else {

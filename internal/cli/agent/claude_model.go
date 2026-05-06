@@ -51,30 +51,25 @@ func balancedModel(idx int) string {
 	return defaultModelHigh
 }
 
-// resolveComplexityModel maps low|medium|high to a concrete claude model name.
-// It walks the configured admin LLM configs in priority order and returns the
-// first non-empty slot matching the requested tier. If no config provides one,
-// it falls back to the hardcoded defaults (agentCfg.ClaudeModel overrides the
-// medium default so existing config.yaml ClaudeModel keeps working).
-func resolveComplexityModel(rc remoteConfig, complexity string, agentCfg config.AgentConfig) string {
+// resolveComplexityModel maps low|medium|high to a concrete claude model
+// name. Returns the hardcoded default for the tier; agentCfg.ClaudeModel
+// (the legacy .zdx/config.yaml field) overrides the medium-tier default
+// so existing config keeps working. The --model flag still overrides
+// everything by short-circuiting in modelSelector.resolve.
+//
+// IS-1034: this used to walk the project's admin /llm-configs (the same
+// table opencode/local consult for their generic LLM endpoint). That
+// table is provider-agnostic — operators populate model_high with
+// whatever Qwen / Llama / etc. they wired up for opencode, and claude
+// would then pass it as --model to the claude CLI, which rejects.
+// Provider-specific tier mappings belong with the provider, not in a
+// shared multi-provider config table. Operators who genuinely want to
+// override claude's default can use --model or the legacy ClaudeModel
+// config field.
+func resolveComplexityModel(_ remoteConfig, complexity string, agentCfg config.AgentConfig) string {
 	tier, err := NormalizeComplexity(complexity)
 	if err != nil {
 		return ""
-	}
-	configs, _ := fetchLLMConfigs(rc)
-	for _, cfg := range configs {
-		var slot string
-		switch tier {
-		case ComplexityLow:
-			slot = cfg.ModelLow
-		case ComplexityMedium:
-			slot = cfg.ModelMedium
-		case ComplexityHigh:
-			slot = cfg.ModelHigh
-		}
-		if slot != "" {
-			return slot
-		}
 	}
 	switch tier {
 	case ComplexityLow:
