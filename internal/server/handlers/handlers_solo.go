@@ -194,10 +194,17 @@ func (h *Handler) generateSoloQueue(ctx context.Context, projectID int32, issueF
 
 	features, _ := h.Q.ListFeatures(ctx, projectID)
 
-	// Surface read:comments for issues with any comment, and for features only when
-	// the last comment has no author_alias (human posted last, agent hasn't replied).
+	// Surface read:comments for issues with unread comments (newer than the
+	// per-target seen high-water mark), and for features only when the last
+	// comment has no author_alias (human posted last, agent hasn't replied).
+	//
+	// IS-1040: prior to per-target read tracking this listed every issue with
+	// any comment, so the synthetic todo regenerated every iteration and the
+	// agent could never clear it. The seen high-water mark advances when
+	// solo/release resolves a read:comments todo, so subsequent regens skip
+	// targets the agent has already processed.
 	{
-		targetsWithComments, _ := h.Q.ListTargetsWithComments(ctx, projectID)
+		targetsWithComments, _ := h.Q.ListTargetsWithUnreadComments(ctx, projectID)
 		allIssues, _ := h.Q.ListIssues(ctx, projectID)
 		allIssuesByID := map[string]db.ZdxIssue{}
 		for _, iss := range allIssues {
@@ -1166,6 +1173,20 @@ func (h *Handler) registerSoloRoutes(api huma.API) {
 					ProjectID:  todo.ProjectID,
 					TargetType: "todo",
 					TargetID:   fmt.Sprintf("%d", todo.ID),
+				})
+			}
+
+			// IS-1040: when a read:comments todo concludes (resolve OR release —
+			// the agent has examined the comments either way), advance the
+			// per-target seen watermark. Without this the regenerator emits the
+			// same synthetic candidate next iteration and the loop spins. We
+			// run it before the post-resolve cycle check below so generateSoloQueue
+			// reflects the new watermark and won't false-positive a cycle.
+			if todo.ID != 0 && todo.Kind == "read:comments" && todo.TargetType != "" && todo.TargetID != "" {
+				_ = h.Q.MarkTargetCommentsSeen(ctx, db.MarkTargetCommentsSeenParams{
+					ProjectID:  todo.ProjectID,
+					TargetType: todo.TargetType,
+					TargetID:   todo.TargetID,
 				})
 			}
 

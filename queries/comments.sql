@@ -28,6 +28,36 @@ FROM zdx_comments
 WHERE project_id = $1
 ORDER BY target_type, target_id;
 
+-- name: ListTargetsWithUnreadComments :many
+-- Targets with a comment newer than the seen high-water mark. Used by the
+-- solo-queue regenerator to emit the synthetic read:comments todo only when
+-- there is actually unread content to surface — otherwise the todo would
+-- regenerate every loop iteration even after the agent claims and "reads"
+-- it, producing the cycle observed in IS-1040.
+SELECT DISTINCT c.target_type, c.target_id
+FROM zdx_comments c
+LEFT JOIN zdx_target_comments_seen s
+       ON s.project_id  = c.project_id
+      AND s.target_type = c.target_type
+      AND s.target_id   = c.target_id
+WHERE c.project_id = $1
+  AND c.id > COALESCE(s.last_comment_id, 0)
+ORDER BY c.target_type, c.target_id;
+
+-- name: MarkTargetCommentsSeen :exec
+-- Advance the seen high-water mark for one target to the current max comment
+-- id. Idempotent: replaying with no new comments leaves the watermark put.
+-- Called when an agent resolves a read:comments synthetic todo.
+INSERT INTO zdx_target_comments_seen (project_id, target_type, target_id, last_comment_id, seen_at)
+SELECT @project_id::int, @target_type::text, @target_id::text, COALESCE(MAX(id), 0), NOW()
+FROM zdx_comments
+WHERE project_id = @project_id::int
+  AND target_type = @target_type::text
+  AND target_id   = @target_id::text
+ON CONFLICT (project_id, target_type, target_id) DO UPDATE SET
+    last_comment_id = GREATEST(zdx_target_comments_seen.last_comment_id, EXCLUDED.last_comment_id),
+    seen_at         = NOW();
+
 -- name: ListFeaturesWithPendingComments :many
 -- Returns feature target_ids where the most-recent comment has no author_alias
 -- (human posted last and the agent has not yet replied).
