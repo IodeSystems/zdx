@@ -12,9 +12,11 @@ import (
 	pw "github.com/playwright-community/playwright-go"
 )
 
-// TestDemoBrowser_ProjectDirectionTab demonstrates spec 55: the project
-// direction tab renders Goals and Constraints in their own grouped sections
-// and supports inline create/update/delete for each type.
+// TestDemoBrowser_ProjectDirectionTab covers the Goals tab CRUD round-trip:
+// the panel renders the Goals section heading and supports inline
+// create / update / delete on goal cards. Originally spec 55 (Goals +
+// Constraints); the Constraints REST surface was removed in IS-627, so
+// this test is now Goals-only.
 func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 	requiresUI(t)
 
@@ -90,17 +92,16 @@ func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 		t.Fatalf("goals section not visible within 15s: %v", err)
 	}
 
-	// Assert both sections are visible.
 	if ok, _ := page.GetByText("Goals").First().IsVisible(); !ok {
 		t.Error("Goals section heading not visible")
 	}
-	if ok, _ := page.GetByText("Constraints").First().IsVisible(); !ok {
-		t.Error("Constraints section heading not visible")
-	}
+
+	// The page exposes only the Goals section now (Constraints removed in
+	// IS-627). With 0 goals: Add[0]. With 1 goal: Add[0], Edit[1], Delete[2].
+	addBtn := page.GetByRole("button", pw.PageGetByRoleOptions{Name: "Add"}).First()
 
 	// ── Goal: create ────────────────────────────────────────────────────────
-	// Button order with 0 goals, 0 constraints: Add(Goals)[0], Add(Constraints)[1]
-	if err := page.Locator("button").Nth(0).Click(); err != nil {
+	if err := addBtn.Click(); err != nil {
 		t.Fatalf("click Add (Goals): %v", err)
 	}
 	if err := page.GetByLabel("Title").Fill("Ship v2"); err != nil {
@@ -109,7 +110,6 @@ func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 	if err := page.GetByRole("button", pw.PageGetByRoleOptions{Name: "Save"}).Click(); err != nil {
 		t.Fatalf("click Save (create goal): %v", err)
 	}
-	// Wait for the goal card to appear.
 	goalTimeout := float64(5000)
 	if err := page.GetByText("Ship v2").WaitFor(pw.LocatorWaitForOptions{
 		State:   pw.WaitForSelectorStateVisible,
@@ -119,8 +119,12 @@ func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 	}
 
 	// ── Goal: update ────────────────────────────────────────────────────────
-	// Button order with 1 goal, 0 constraints: Add(Goals)[0], Edit[1], Delete[2], Add(Constraints)[3]
-	if err := page.Locator("button").Nth(1).Click(); err != nil {
+	// EntityCard renders [Edit, Delete] IconButtons with no aria-label or
+	// testid. Scope the locator to the card containing the goal title; global
+	// button index would mismatch because the nav shell adds buttons of its
+	// own.
+	goalCard := page.Locator(".MuiCard-root", pw.PageLocatorOptions{HasText: "Ship v2"}).First()
+	if err := goalCard.Locator("button").Nth(0).Click(); err != nil {
 		t.Fatalf("click Edit (goal): %v", err)
 	}
 	if err := page.GetByLabel("Title").Fill("Ship v2 (updated)"); err != nil {
@@ -138,8 +142,8 @@ func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 	}
 
 	// ── Goal: delete ────────────────────────────────────────────────────────
-	// Button order with 1 goal, 0 constraints: Add(Goals)[0], Edit[1], Delete[2], Add(Constraints)[3]
-	if err := page.Locator("button").Nth(2).Click(); err != nil {
+	updatedCard := page.Locator(".MuiCard-root", pw.PageLocatorOptions{HasText: "Ship v2 (updated)"}).First()
+	if err := updatedCard.Locator("button").Nth(1).Click(); err != nil {
 		t.Fatalf("click Delete (goal): %v", err)
 	}
 	deleteTimeout := float64(5000)
@@ -148,57 +152,6 @@ func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 		Timeout: &deleteTimeout,
 	}); err != nil {
 		t.Logf("goal card still visible after delete (non-fatal): %v", err)
-	}
-
-	// ── Constraint: create ──────────────────────────────────────────────────
-	// Button order with 0 goals, 0 constraints: Add(Goals)[0], Add(Constraints)[1]
-	if err := page.Locator("button").Nth(1).Click(); err != nil {
-		t.Fatalf("click Add (Constraints): %v", err)
-	}
-	if err := page.GetByLabel("Title").Fill("No breaking changes"); err != nil {
-		t.Fatalf("fill constraint title: %v", err)
-	}
-	if err := page.GetByRole("button", pw.PageGetByRoleOptions{Name: "Save"}).Click(); err != nil {
-		t.Fatalf("click Save (create constraint): %v", err)
-	}
-	cTimeout := float64(5000)
-	if err := page.GetByText("No breaking changes").WaitFor(pw.LocatorWaitForOptions{
-		State:   pw.WaitForSelectorStateVisible,
-		Timeout: &cTimeout,
-	}); err != nil {
-		t.Fatalf("constraint card not visible after create: %v", err)
-	}
-
-	// ── Constraint: update ──────────────────────────────────────────────────
-	// Button order with 0 goals, 1 constraint: Add(Goals)[0], Add(Constraints)[1], Edit[2], Delete[3]
-	if err := page.Locator("button").Nth(2).Click(); err != nil {
-		t.Fatalf("click Edit (constraint): %v", err)
-	}
-	if err := page.GetByLabel("Title").Fill("No breaking changes (updated)"); err != nil {
-		t.Fatalf("fill updated constraint title: %v", err)
-	}
-	if err := page.GetByRole("button", pw.PageGetByRoleOptions{Name: "Save"}).Click(); err != nil {
-		t.Fatalf("click Save (update constraint): %v", err)
-	}
-	cuTimeout := float64(5000)
-	if err := page.GetByText("No breaking changes (updated)").WaitFor(pw.LocatorWaitForOptions{
-		State:   pw.WaitForSelectorStateVisible,
-		Timeout: &cuTimeout,
-	}); err != nil {
-		t.Fatalf("updated constraint title not visible: %v", err)
-	}
-
-	// ── Constraint: delete ──────────────────────────────────────────────────
-	// Button order with 0 goals, 1 constraint: Add(Goals)[0], Add(Constraints)[1], Edit[2], Delete[3]
-	if err := page.Locator("button").Nth(3).Click(); err != nil {
-		t.Fatalf("click Delete (constraint): %v", err)
-	}
-	cdTimeout := float64(5000)
-	if err := page.GetByText("No breaking changes (updated)").WaitFor(pw.LocatorWaitForOptions{
-		State:   pw.WaitForSelectorStateHidden,
-		Timeout: &cdTimeout,
-	}); err != nil {
-		t.Logf("constraint card still visible after delete (non-fatal): %v", err)
 	}
 
 	time.Sleep(500 * time.Millisecond)
@@ -236,9 +189,9 @@ func TestDemoBrowser_ProjectDirectionTab(t *testing.T) {
 	}
 
 	writeDemoCoderefs(t, t.Name(), []coderef{
-		{FilePath: "test/e2e/demo_browser_direction_test.go", Note: "browser demo source (spec 55)"},
-		{FilePath: "ui/src/components/GoalsTab.tsx", Note: "direction tab component"},
-		{FilePath: "ui/src/routes/project/$slug/goals/index.tsx", Note: "direction tab route"},
-		{FilePath: "internal/server/handlers/handlers_projects.go", Note: "goal/constraint handlers"},
+		{FilePath: "test/e2e/demo_browser_direction_test.go", Note: "browser demo source (Goals-only after IS-627)"},
+		{FilePath: "ui/src/components/GoalsTab.tsx", Note: "Goals tab component"},
+		{FilePath: "ui/src/routes/project/$slug/goals/index.tsx", Note: "Goals tab route"},
+		{FilePath: "internal/server/handlers/handlers_projects.go", Note: "goal handlers"},
 	})
 }

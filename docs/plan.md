@@ -279,14 +279,25 @@ separately to keep the stream coherent.
   the `startDaemon` call. Re-tested: `dx agent connect --provider=claude
   --idle` registers as `claude-<8hex>`.
 
-## Deferred (kept in this doc — not filed as issues)
+## Post-phase-2 backlog
 
-Stabilization mode: do not file these as tracker issues. Pull from this
-list directly when the time comes.
+Phase 2 shipped clean. With stabilization mode over, these can move
+into the tracker (or be picked up directly from this doc — pick one
+discipline and stick to it).
 
 - **Workspace relocation** to `~/.zdx/workspaces/<project>/...`. Big
   refactor across agent provisioning, ship hooks, dx config lookup,
-  dx-agent `--mcp-root`. Schedule after phase 2.
+  dx-agent `--mcp-root`. The next significant pass.
+- **Browser-demo cross-test flake.** `TestDemoBrowser_ProjectDirectionTab`
+  passes alone but times out on the Goals heading when run after
+  another browser demo in the same process. Pre-rewrite tests had the
+  same binary-level isolation, so this likely predates phase 2 — but
+  was masked by the universal SPA-404 regression. Suspected: the
+  `.zdx/demo/video/` directory accumulating per context, or the
+  shared playwright-go runtime not actually disposing between tests.
+  Repro: `STATIC_DIR=… TEST_DRIVER=ui dx test --layer demo --filter
+  TestDemoBrowser_`. Not blocking; the demos are individually
+  reliable and demo runs are rarely batched.
 - **Project priority schema** — prerequisite for phase 3's cross-project
   claim. Splits naturally: schema first (cheap), cache strategy second
   (deferred until queue size + access pattern data).
@@ -295,11 +306,33 @@ list directly when the time comes.
 - **Cached cross-project queue view** — costing pass on cache-invalidation
   patterns required before implementation.
 
-## Pickup checklist for the next session
+## Harness-fix knock-on findings (2026-05-06)
 
-Only the UI render walkthrough remains. API smoke validated end-to-end
-on 2026-05-06 (see phase 2 smoke entry); only the browser-side render
-of `/agents` is unverified, because dev vite binds loopback-only.
+The `STATIC_DIR` and `srv.DSN` fixes that landed with
+`TestDemoBrowser_AgentsPoolPanel` revived the rest of the
+`requiresUI(t)` demo set, which had been failing or skipping silently
+under `dx test --layer demo`:
+
+- ✅ **`TestDemoBrowser_ReleaseIndexGroupsByVersion`** — was timing out
+  on the SPA fallback 404; now passes.
+- ✅ **`TestDemoBrowser_IssueFlow`** — was passing already (only hits
+  `/api/health`); kept green by the harness changes.
+- ✅ **`TestDemoBrowser_ProjectDirectionTab`** — passes solo after the
+  panic fix (`a669d3ab`) and the Goals-only rewrite. Two layered
+  problems closed:
+  - playwright-go v0.5700.1 nil-derefs `*options[0].Exact` when
+    `PageGetByTextOptions{}` is passed empty; drop the struct.
+  - the test asserted a Constraints section and exercised Constraints
+    CRUD, both removed in IS-627. Test rewritten Goals-only; goal
+    Edit / Delete buttons scoped to the goal card (the IconButtons
+    have no aria-label or data-testid, so a global `button`-index
+    selector silently mismatches once the nav shell adds buttons).
+  - **Flake when run in the same process after another browser
+    demo:** `Goals` heading times out at 15s. Passes alone in 3s.
+    Likely shared-playwright/resource contention — captured in the
+    backlog below; not a blocker for the e2e fix landing.
+
+## Pickup checklist for the next session
 
 ### Local dev env recap (already standing on 2026-05-06)
 
