@@ -639,4 +639,43 @@ describe('Empty-state seed preview (TK-1674)', () => {
     expect(btn).toBeDisabled()
     expect(btn).toHaveTextContent(/Seeding/)
   })
+
+  test('skeleton renders while rung is loading', async () => {
+    mockedUseBranchDoctorRung.mockReturnValue({ data: undefined, isLoading: true } as any)
+
+    await renderPage()
+
+    expect(screen.getByTestId('empty-state-skeleton')).toBeInTheDocument()
+    expect(screen.queryByTestId('seed-branches-button')).not.toBeInTheDocument()
+    expect(screen.queryByTestId('seed-preview-main')).not.toBeInTheDocument()
+  })
+
+  test('Add manually button on seed card opens AddBranchDialog', async () => {
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: 'service', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('empty-state-add-manually'))
+
+    expect(screen.getByTestId('add-branch-name')).toBeInTheDocument()
+    expect(screen.getByTestId('add-branch-submit')).toBeInTheDocument()
+  })
+
+  test('Add manually button on fallback empty state opens AddBranchDialog', async () => {
+    mockedUseBranchDoctorRung.mockReturnValue({
+      data: makeRung({ classification: '', current_rung: 1 }),
+      isLoading: false,
+    } as any)
+
+    const { fireEvent: fe } = await import('@testing-library/react')
+    await renderPage()
+
+    fe.click(screen.getByTestId('empty-state-add-manually'))
+
+    expect(screen.getByTestId('add-branch-name')).toBeInTheDocument()
+  })
 })

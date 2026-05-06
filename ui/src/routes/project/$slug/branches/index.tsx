@@ -733,17 +733,30 @@ function classificationSeedPreview(classification: string | undefined): SeedPrev
   }
 }
 
-function EmptyState({ slug }: { slug: string }) {
-  const { data: rung } = useBranchDoctorRung(slug)
+function EmptyState({ slug, onAddManually }: { slug: string; onAddManually: () => void }) {
+  const { data: rung, isLoading } = useBranchDoctorRung(slug)
   const seed = useSeedBranches()
   const classification = rung?.classification
   const preview = classificationSeedPreview(classification)
+
+  if (isLoading) {
+    return (
+      <Card variant="outlined" data-testid="empty-state">
+        <CardContent>
+          <Skeleton variant="text" width="40%" sx={{ mb: 1 }} data-testid="empty-state-skeleton" />
+          <Skeleton variant="text" width="80%" sx={{ mb: 1.5 }} />
+          <Skeleton variant="rounded" height={72} sx={{ mb: 2 }} />
+          <Skeleton variant="rounded" width={140} height={32} />
+        </CardContent>
+      </Card>
+    )
+  }
 
   if (preview.length === 0) {
     return (
       <Box data-testid="empty-state">
         <Typography color="text.secondary" sx={{ mb: 1 }}>No branches configured.</Typography>
-        <Typography variant="body2" color="text.secondary">
+        <Typography variant="body2" color="text.secondary" sx={{ mb: 1.5 }}>
           {classification
             ? `No seed defined for classification "${classification}".`
             : 'Project classification not set yet — add one via dx classify, then return here to seed.'}
@@ -753,6 +766,9 @@ function EmptyState({ slug }: { slug: string }) {
           </Typography>
           {' '}or the Add Branch button above.
         </Typography>
+        <Button size="small" onClick={onAddManually} data-testid="empty-state-add-manually">
+          Add manually
+        </Button>
       </Box>
     )
   }
@@ -783,15 +799,20 @@ function EmptyState({ slug }: { slug: string }) {
             </Box>
           ))}
         </Box>
-        <Button
-          variant="contained"
-          size="small"
-          onClick={() => seed.mutate({ slug })}
-          disabled={seed.isPending}
-          data-testid="seed-branches-button"
-        >
-          {seed.isPending ? 'Seeding…' : 'Seed Branches'}
-        </Button>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center', flexWrap: 'wrap' }}>
+          <Button
+            variant="contained"
+            size="small"
+            onClick={() => seed.mutate({ slug })}
+            disabled={seed.isPending}
+            data-testid="seed-branches-button"
+          >
+            {seed.isPending ? 'Seeding…' : 'Seed Branches'}
+          </Button>
+          <Button size="small" onClick={onAddManually} data-testid="empty-state-add-manually">
+            Add manually
+          </Button>
+        </Box>
         {seed.isError && (
           <Typography variant="caption" color="error" sx={{ display: 'block', mt: 1 }} data-testid="seed-branches-error">
             {seed.error?.message ?? 'Seed failed'}
@@ -838,7 +859,7 @@ function BranchesPage() {
       {isLoading ? (
         <CircularProgress sx={{ m: 4 }} />
       ) : sorted.length === 0 ? (
-        <EmptyState slug={slug} />
+        <EmptyState slug={slug} onAddManually={() => setAddOpen(true)} />
       ) : (
         <>
           <SourceChain branches={sorted} />
